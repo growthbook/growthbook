@@ -32,21 +32,6 @@ export async function getRecentWatchedAudits(
     },
   };
 
-  const featuresFilter = {
-    event: {
-      $in: [
-        "feature.publish",
-        "feature.update",
-        "feature.toggle",
-        "feature.create",
-        "feature.delete",
-      ],
-    },
-    dateCreated: {
-      $gte: startTime,
-    },
-  };
-
   const experiments = await findAuditByEntityList(
     organization,
     "experiment",
@@ -54,16 +39,9 @@ export async function getRecentWatchedAudits(
     experimentsFilter
   );
 
-  const features = await findAuditByEntityList(
-    organization,
-    "feature",
-    userWatches.features,
-    featuresFilter
+  const all = experiments.sort(
+    (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime()
   );
-
-  const all = experiments
-    .concat(features)
-    .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime());
   return all;
 }
 

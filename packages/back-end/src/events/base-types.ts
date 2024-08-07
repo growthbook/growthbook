@@ -42,6 +42,27 @@ export const notificationEvents = {
       schema: apiFeatureValidator,
       description: "Triggered when a feature is deleted",
     },
+    publish: {
+      schema: apiFeatureValidator,
+      description: "Triggered when a feature is published",
+      isDiff: true,
+    },
+    revert: {
+      schema: apiFeatureValidator,
+      description: "Triggered when a feature is reverted to a previous state.",
+      isDiff: true,
+    },
+    toggle: {
+      schema: apiFeatureValidator,
+      description: "Triggered when a feature environment is toggled",
+      extra: z.object({ reason: z.string().optional() }),
+      isDiff: true,
+    },
+    archive: {
+      schema: apiFeatureValidator,
+      description: "Triggered when a feature is archived",
+      isDiff: true,
+    },
   },
   experiment: {
     created: {

@@ -4,7 +4,11 @@ import { orgHasPremiumFeature } from "enterprise";
 import { PostFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
-import { createFeature, getFeature } from "../../models/FeatureModel";
+import {
+  createFeature,
+  createFeatureEvent,
+  getFeature,
+} from "../../models/FeatureModel";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import { FeatureInterface, JSONSchemaDef } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
@@ -14,7 +18,6 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "../../services/features";
-import { auditDetailsCreate } from "../../services/audit";
 import { OrganizationInterface } from "../../../types/organization";
 import { getEnvironments } from "../../services/organizations";
 import { getRevision } from "../../models/FeatureRevisionModel";
@@ -143,13 +146,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
 
     await createFeature(req.context, feature);
 
-    await req.audit({
-      event: "feature.create",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
-      details: auditDetailsCreate(feature),
+    await createFeatureEvent({
+      context: req.context,
+      event: "created",
+      data: { object: feature },
     });
 
     const groupMap = await getSavedGroupMap(req.organization);

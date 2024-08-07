@@ -41,11 +41,12 @@ import {
   getFeature,
   hasArchivedFeatures,
   migrateDraft,
+  createFeatureEvent,
   publishRevision,
   setDefaultValue,
-  setJsonSchema,
   toggleFeatureEnvironment,
   updateFeature,
+  setJsonSchema,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -58,11 +59,6 @@ import {
   getSavedGroupMap,
 } from "../services/features";
 import { FeatureUsageRecords } from "../../types/realtime";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "../services/audit";
 import {
   cleanUpPreviousRevisions,
   createInitialRevision,
@@ -489,15 +485,6 @@ export async function postFeatures(
     type: "features",
   });
 
-  await req.audit({
-    event: "feature.create",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsCreate(feature),
-  });
-
   res.status(200).json({
     status: 200,
     feature,
@@ -801,16 +788,13 @@ export async function postFeaturePublish(
     comment
   );
 
-  await req.audit({
-    event: "feature.publish",
-    entity: {
-      object: "feature",
-      id: feature.id,
+  await createFeatureEvent({
+    context,
+    event: "publish",
+    data: {
+      object: updatedFeature,
+      previous_attributes: feature,
     },
-    details: auditDetailsUpdate(feature, updatedFeature, {
-      revision: revision.version,
-      comment,
-    }),
   });
 
   res.status(200).json({
@@ -893,15 +877,10 @@ export async function postFeatureRevert(
 
   await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
 
-  await req.audit({
-    event: "feature.revert",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature, {
-      revision: revision.version,
-    }),
+  await createFeatureEvent({
+    context,
+    event: "revert",
+    data: { object: updatedFeature, previous_attributes: feature },
   });
 
   res.status(200).json({
@@ -1167,17 +1146,6 @@ export async function postFeatureSync(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature, {
-      revision: updatedFeature.version,
-    }),
-  });
-
   res.status(200).json({
     status: 200,
     feature: updatedFeature,
@@ -1277,18 +1245,7 @@ export async function postFeatureExperimentRefRule(
 
   if (revision.status === "published") {
     updates.version = revision.version;
-    const updatedFeature = await updateFeature(context, feature, updates);
-
-    await req.audit({
-      event: "feature.update",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
-      details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: revision.version,
-      }),
-    });
+    await updateFeature(context, feature, updates);
   } else {
     await updateFeature(context, feature, {
       linkedExperiments,
@@ -1457,13 +1414,10 @@ export async function postFeatureSchema(
 
   const updatedFeature = await setJsonSchema(context, feature, schemaDef);
 
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature),
+  await createFeatureEvent({
+    context,
+    event: "updated",
+    data: { object: updatedFeature, previous_attributes: feature },
   });
 
   res.status(200).json({
@@ -1562,19 +1516,6 @@ export async function postFeatureToggle(
   }
 
   await toggleFeatureEnvironment(context, feature, environment, state);
-
-  await req.audit({
-    event: "feature.toggle",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(
-      { on: currentState },
-      { on: state },
-      { environment }
-    ),
-  });
 
   res.status(200).json({
     status: 200,
@@ -1778,15 +1719,6 @@ export async function putFeature(
   // If there are new tags to add
   await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
 
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature),
-  });
-
   res.status(200).json({
     feature: updatedFeature,
     status: 200,
@@ -1818,14 +1750,6 @@ export async function deleteFeatureById(
       context.permissions.throwPermissionError();
     }
     await deleteFeature(context, feature);
-    await req.audit({
-      event: "feature.delete",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
-      details: auditDetailsDelete(feature),
-    });
   }
 
   res.status(200).json({
@@ -1919,16 +1843,10 @@ export async function postFeatureArchive(
     !feature.archived
   );
 
-  await req.audit({
-    event: "feature.archive",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(
-      { archived: feature.archived }, // Old state
-      { archived: updatedFeature.archived } // New state
-    ),
+  await createFeatureEvent({
+    context,
+    event: "archive",
+    data: { object: updatedFeature, previous_attributes: feature },
   });
 
   res.status(200).json({

@@ -5,7 +5,6 @@ import {
   getFeature,
   toggleMultipleEnvironments,
 } from "../../models/FeatureModel";
-import { auditDetailsUpdate } from "../../services/audit";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { getEnvironmentIdsFromOrg } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
@@ -40,23 +39,12 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       toggles[env] = state;
     });
 
-    const updatedFeature = await toggleMultipleEnvironments(
-      req.context,
+    const updatedFeature = await toggleMultipleEnvironments({
+      context: req.context,
       feature,
-      toggles
-    );
-
-    if (updatedFeature !== feature) {
-      await req.audit({
-        event: "feature.toggle",
-        entity: {
-          object: "feature",
-          id: feature.id,
-        },
-        details: auditDetailsUpdate(feature, updatedFeature),
-        reason: req.body.reason,
-      });
-    }
+      toggles,
+      reason: req.body.reason,
+    });
 
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
