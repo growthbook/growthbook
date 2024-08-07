@@ -2802,17 +2802,25 @@ paths:
                   type: string
                   required: true
                   description: 'The name of the global role. This can be one of GrowthBook''s standard roles - read-only, collaborator, engineer, analyst, experimenter, or admin. Enterprise organizations who have defined custom roles can also specify the name of a custom role here.'
+                environments:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
             application/json:
               schema:
                 type: object
-                required:
-                  - globalRole
                 properties:
                   globalRole:
                     type: string
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                  limitAccessByEnvironment:
+                    type: boolean
   /environments:
     get:
       summary: Get the organization's environments
@@ -5882,6 +5890,8 @@ components:
           type: array
           items:
             type: string
+        limitAccessByEnvironment:
+          type: boolean
         teams:
           type: array
           items:

@@ -22,8 +22,12 @@ responses:
       application/json:
         schema:
           type: object
-          required:
-            - globalRole
           properties:
             globalRole:
               type: string
+            environments:
+              type: array
+              items:
+                type: string
+            limitAccessByEnvironment:
+              type: boolean

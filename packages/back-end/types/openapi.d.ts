@@ -1426,6 +1426,7 @@ export interface components {
       email: string;
       globalRole: string;
       environments?: (string)[];
+      limitAccessByEnvironment?: boolean;
       teams?: (string)[];
       projectRoles?: ({
           project: string;
@@ -5445,6 +5446,7 @@ export interface operations {
                 email: string;
                 globalRole: string;
                 environments?: (string)[];
+                limitAccessByEnvironment?: boolean;
                 teams?: (string)[];
                 projectRoles?: ({
                     project: string;
@@ -5489,6 +5491,7 @@ export interface operations {
               email: string;
               globalRole: string;
               environments?: (string)[];
+              limitAccessByEnvironment?: boolean;
               teams?: (string)[];
               projectRoles?: ({
                   project: string;
@@ -5521,6 +5524,7 @@ export interface operations {
         "application/json": {
           /** @description The name of the global role. This can be one of GrowthBook's standard roles - read-only, collaborator, engineer, analyst, experimenter, or admin. Enterprise organizations who have defined custom roles can also specify the name of a custom role here. */
           globalRole?: string;
+          environments?: (string)[];
         };
       };
     };
@@ -5528,7 +5532,9 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            globalRole: string;
+            globalRole?: string;
+            environments?: (string)[];
+            limitAccessByEnvironment?: boolean;
           };
         };
       };

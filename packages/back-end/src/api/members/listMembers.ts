@@ -37,6 +37,7 @@ export const listMembers = createApiRequestHandler(listMembersValidator)(
           globalRole: member.role,
           teams: member.teams,
           environments: member.environments,
+          limitAccessByEnvironment: member.limitAccessByEnvironment,
           projectRoles: member.projectRoles,
           lastLoginDate: member.lastLoginDate?.toISOString(),
           dateCreated: member.dateCreated?.toISOString(),

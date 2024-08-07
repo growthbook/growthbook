@@ -6,7 +6,7 @@ import { expandOrgMembers } from "../../services/organizations";
 import { updateOrganization } from "../../models/OrganizationModel";
 import { OrganizationInterface } from "../../../types/organization";
 
-export async function updateUserRole(
+async function updateUserRole(
   org: OrganizationInterface,
   userId: string,
   newRole: string
