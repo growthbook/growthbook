@@ -18,6 +18,7 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -94,6 +95,12 @@ const AnalysisForm: FC<{
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+
+  const orgStickyBucketing = !!orgSettings.useStickyBucketing;
+  const usingStickyBucketing =
+    orgStickyBucketing && !experiment?.disableStickyBucketing;
 
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
@@ -265,6 +272,12 @@ const AnalysisForm: FC<{
         }
 
         // bandits
+        if (
+          body.type === "multi-armed-bandit" &&
+          !hasCommercialFeature("multi-armed-bandits")
+        ) {
+          throw new Error("Multi-armed bandits are a premium feature");
+        }
         if (body.type === "multi-armed-bandit") {
           body.statsEngine = "bayesian";
           if ((body.goalMetrics?.length ?? 0) !== 1) {
@@ -286,8 +299,15 @@ const AnalysisForm: FC<{
           { label: "Standard", value: "standard" },
           { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
         ]}
-        value={form.watch("type") ?? "standard"}
+        value={
+          !hasStickyBucketFeature || !usingStickyBucketing
+            ? "standard"
+            : form.watch("type") ?? "standard"
+        }
         onChange={(v) => {
+          if (!hasStickyBucketFeature || !usingStickyBucketing) {
+            return;
+          }
           form.setValue("type", v as ExperimentType);
           if (v === "multi-armed-bandit") {
             // equal weights (set in controller)
@@ -300,6 +320,38 @@ const AnalysisForm: FC<{
         }}
         disabled={hasStarted}
         sort={false}
+        formatOptionLabel={({ value, label }) => {
+          const disabled =
+            value === "multi-armed-bandit" &&
+            (!hasStickyBucketFeature || !usingStickyBucketing);
+          return (
+            <div
+              className={clsx({
+                "cursor-disabled": disabled,
+              })}
+            >
+              <PremiumTooltip
+                commercialFeature={
+                  value === "multi-armed-bandit"
+                    ? "multi-armed-bandits"
+                    : undefined
+                }
+                body={
+                  value === "multi-armed-bandit" &&
+                  !usingStickyBucketing &&
+                  hasStickyBucketFeature ? (
+                    <div>
+                      Enable Sticky Bucketing in your organization settings to
+                      run a Multi-Armed Bandit experiment.
+                    </div>
+                  ) : null
+                }
+              >
+                <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
+              </PremiumTooltip>
+            </div>
+          );
+        }}
       />
 
       {type === "multi-armed-bandit" && (

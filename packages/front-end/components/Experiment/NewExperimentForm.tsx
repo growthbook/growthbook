@@ -16,6 +16,7 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { getEqualWeights } from "shared/experiments";
+import clsx from "clsx";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -50,6 +51,7 @@ import SavedGroupTargetingField, {
 import Toggle from "@/components/Forms/Toggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -134,7 +136,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   inline,
   isNewExperiment,
 }) => {
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
 
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -174,6 +176,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     sdkConnectionsData?.connections,
     project
   );
+
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const usingStickyBucketing =
+    orgStickyBucketing && !initialValue?.disableStickyBucketing;
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -298,6 +306,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }
 
       // bandits
+      if (
+        data.type === "multi-armed-bandit" &&
+        !hasCommercialFeature("multi-armed-bandits")
+      ) {
+        throw new Error("Multi-armed bandits are a premium feature");
+      }
       if (data.type === "multi-armed-bandit") {
         data.statsEngine = "bayesian";
         if ((data.goalMetrics?.length ?? 0) !== 1) {
@@ -459,8 +473,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   { label: "Standard", value: "standard" },
                   { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
                 ]}
-                value={form.watch("type") ?? "standard"}
+                value={
+                  !hasStickyBucketFeature || !usingStickyBucketing
+                    ? "standard"
+                    : form.watch("type") ?? "standard"
+                }
+                sort={false}
                 onChange={(v) => {
+                  if (!hasStickyBucketFeature || !usingStickyBucketing) {
+                    return;
+                  }
                   form.setValue("type", v as ExperimentType);
                   if (v === "multi-armed-bandit") {
                     // equal weights
@@ -475,7 +497,40 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     );
                   }
                 }}
-                sort={false}
+                formatOptionLabel={({ value, label }) => {
+                  const disabled =
+                    value === "multi-armed-bandit" &&
+                    (!hasStickyBucketFeature || !usingStickyBucketing);
+                  return (
+                    <div
+                      className={clsx({
+                        "cursor-disabled": disabled,
+                      })}
+                    >
+                      <PremiumTooltip
+                        commercialFeature={
+                          value === "multi-armed-bandit"
+                            ? "multi-armed-bandits"
+                            : undefined
+                        }
+                        body={
+                          value === "multi-armed-bandit" &&
+                          !usingStickyBucketing &&
+                          hasStickyBucketFeature ? (
+                            <div>
+                              Enable Sticky Bucketing in your organization
+                              settings to run a Multi-Armed Bandit experiment.
+                            </div>
+                          ) : null
+                        }
+                      >
+                        <span style={{ opacity: disabled ? 0.5 : 1 }}>
+                          {label}{" "}
+                        </span>
+                      </PremiumTooltip>
+                    </div>
+                  );
+                }}
               />
             </div>
           )}
