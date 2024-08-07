@@ -93,6 +93,9 @@ tags:
   - name: organizations
     x-displayName: Organizations
     description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
+  - name: members
+    x-displayName: Members
+    description: Members are users who have been invited to an organization.
   - name: fact-tables
     x-displayName: Fact Tables
     description: Fact Tables describe the shape of your data warehouse tables
@@ -156,6 +159,9 @@ tags:
   - name: FeatureRule_model
     x-displayName: FeatureRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: Member_model
+    x-displayName: Member
+    description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
@@ -2716,6 +2722,62 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  /members:
+    get:
+      summary: Get all organization members
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/userName'
+        - $ref: '#/components/parameters/userEmail'
+        - $ref: '#/components/parameters/globalRole'
+      tags:
+        - members
+      operationId: listMembers
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/members \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - members
+                    properties:
+                      members:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Member'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/members/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single member
+      tags:
+        - member
+      operationId: getMember
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/members/member_id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - member
+                properties:
+                  member:
+                    $ref: '#/components/schemas/Member'
   /environments:
     get:
       summary: Get the organization's environments
@@ -3985,6 +4047,27 @@ components:
           - github
           - gitlab
           - bitbucket
+    userName:
+      name: userName
+      in: query
+      required: true
+      description: Name of the user.
+      schema:
+        type: string
+    userEmail:
+      name: userEmail
+      in: query
+      required: true
+      description: Email address of the user.
+      schema:
+        type: string
+    globalRole:
+      name: globalRole
+      in: query
+      required: true
+      description: Name of the global role
+      schema:
+        type: string
   schemas:
     PaginationFields:
       type: object
@@ -5748,6 +5831,59 @@ components:
         dateUpdated:
           type: string
           format: date-time
+    Member:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - globalRole
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        globalRole:
+          type: string
+        environments:
+          type: array
+          items:
+            type: string
+        teams:
+          type: array
+          items:
+            type: string
+        projectRoles:
+          type: array
+          items:
+            type: object
+            required:
+              - project
+              - role
+              - limitAccessByEnvironment
+              - environments
+            properties:
+              project:
+                type: string
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+        lastLoginDate:
+          type: string
+          format: date-time
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http
@@ -5796,6 +5932,7 @@ x-tagGroups:
       - visual-changesets
       - saved-groups
       - organizations
+      - members
       - fact-tables
       - fact-metrics
       - code-references
@@ -5819,6 +5956,7 @@ x-tagGroups:
       - FeatureForceRule_model
       - FeatureRolloutRule_model
       - FeatureRule_model
+      - Member_model
       - Metric_model
       - Organization_model
       - PaginationFields_model
