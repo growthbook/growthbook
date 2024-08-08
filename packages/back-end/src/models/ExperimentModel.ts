@@ -104,6 +104,8 @@ const experimentSchema = new mongoose.Schema({
   ],
   // These are using {} instead of [String] so Mongoose doesn't prefill them with empty arrays
   // This is necessary for migrations to work properly
+  metrics: {},
+  guardrails: {},
   goalMetrics: {},
   secondaryMetrics: {},
   guardrailMetrics: {},
@@ -596,12 +598,12 @@ export async function getRecentExperimentsUsingMetric(
     {
       organization: context.org.id,
       $or: [
-        {
-          metrics: metricId,
-        },
-        {
-          guardrails: metricId,
-        },
+        { metrics: metricId },
+        { goalMetrics: metricId },
+        { guardrails: metricId },
+        { guardrailMetrics: metricId },
+        { secondaryMetrics: metricId },
+        { activationMetric: metricId },
       ],
       archived: {
         $ne: true,
@@ -889,14 +891,24 @@ export async function removeMetricFromExperiments(
 
   const orgId = context.org.id;
 
-  const metricQuery = { organization: orgId, metrics: metricId };
-  const guardRailsQuery = { organization: orgId, guardrails: metricId };
+  const oldMetricQuery = { organization: orgId, metrics: metricId };
+  const oldGuardRailsQuery = { organization: orgId, guardrails: metricId };
+  const goalQuery = { organization: orgId, goalMetrics: metricId };
+  const secondaryQuery = { organization: orgId, secondaryMetrics: metricId };
+  const guardrailQuery = { organization: orgId, guardrailMetrics: metricId };
   const activationMetricQuery = {
     organization: orgId,
     activationMetric: metricId,
   };
   const docsToTrackChanges = await findExperiments(context, {
-    $or: [metricQuery, guardRailsQuery, activationMetricQuery],
+    $or: [
+      oldMetricQuery,
+      oldGuardRailsQuery,
+      goalQuery,
+      secondaryQuery,
+      guardrailQuery,
+      activationMetricQuery,
+    ],
   });
 
   docsToTrackChanges.forEach((experiment: ExperimentInterface) => {
@@ -909,13 +921,28 @@ export async function removeMetricFromExperiments(
   });
 
   // Remove from metrics
-  await ExperimentModel.updateMany(metricQuery, {
+  await ExperimentModel.updateMany(oldMetricQuery, {
     $pull: { metrics: metricId },
   });
 
   // Remove from guardrails
-  await ExperimentModel.updateMany(guardRailsQuery, {
+  await ExperimentModel.updateMany(oldGuardRailsQuery, {
     $pull: { guardrails: metricId },
+  });
+
+  // Remove from goalMetrics
+  await ExperimentModel.updateMany(goalQuery, {
+    $pull: { goalMetrics: metricId },
+  });
+
+  // Remove from secondaryMetrics
+  await ExperimentModel.updateMany(secondaryQuery, {
+    $pull: { secondaryMetrics: metricId },
+  });
+
+  // Remove from guardrailMetrics
+  await ExperimentModel.updateMany(guardrailQuery, {
+    $pull: { guardrailMetrics: metricId },
   });
 
   // Remove from activationMetric
