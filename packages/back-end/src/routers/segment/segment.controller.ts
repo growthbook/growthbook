@@ -47,12 +47,7 @@ export const getSegments = async (
   const segments = await context.models.segments.getAll();
   res.status(200).json({
     status: 200,
-    segments: segments.map((segment) => {
-      return {
-        ...segment,
-        type: segment.type || "SQL",
-      };
-    }),
+    segments,
   });
 };
 
