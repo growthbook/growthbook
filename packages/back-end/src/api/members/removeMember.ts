@@ -1,0 +1,40 @@
+import { RemoveMemberResponse } from "../../../types/openapi";
+import { createApiRequestHandler } from "../../util/handler";
+import { removeMemberValidator } from "../../validators/openapi";
+import { removeUserFromOrg } from "../../scim/users/patchUser";
+
+export const removeMember = createApiRequestHandler(removeMemberValidator)(
+  async (req): Promise<RemoveMemberResponse> => {
+    if (!req.context.permissions.canManageTeam()) {
+      req.context.permissions.throwPermissionError();
+    }
+
+    const orgUser = req.context.org.members.find(
+      (member) => member.id === req.params.id
+    );
+
+    if (!orgUser) {
+      throw new Error("Could not find user with that ID");
+    }
+
+    try {
+      await removeUserFromOrg(req.context.org, orgUser);
+
+      await req.audit({
+        event: "user.delete",
+        entity: {
+          object: "user",
+          id: orgUser.id,
+        },
+      });
+    } catch (e) {
+      throw new Error(
+        `Unable to remove ${req.params.id} from org: ${e.message}`
+      );
+    }
+
+    return {
+      deletedId: req.params.id,
+    };
+  }
+);

@@ -2820,6 +2820,29 @@ paths:
                       type: string
                   limitAccessByEnvironment:
                     type: boolean
+    delete:
+      summary: Removes a single user from an organization
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - member
+      operationId: removeMember
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/members/member_id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   /environments:
     get:
       summary: Get the organization's environments

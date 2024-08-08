@@ -223,6 +223,8 @@ paths:
       $ref: "./paths/getMember.yaml"
     put:
       $ref: "./paths/putMemberRole.yaml"
+    delete:
+      $ref: "./paths/removeMember.yaml"
   /environments:
     get:
       $ref: "./paths/listEnvironments.yaml"
