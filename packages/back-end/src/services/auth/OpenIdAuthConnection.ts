@@ -8,7 +8,7 @@ import {
   custom,
 } from "openid-client";
 
-import jwtExpress from "express-jwt";
+import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -49,6 +49,8 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
 }, 30);
 
 const clientMap: Map<SSOConnectionInterface, Client> = new Map();
+
+const jwksClients: { [key: string]: RequestHandler } = {};
 
 export class OpenIdAuthConnection implements AuthConnection {
   async refresh(
@@ -159,19 +161,22 @@ export class OpenIdAuthConnection implements AuthConnection {
         );
       }
 
-      const middleware = jwtExpress({
-        secret: jwks.expressJwtSecret({
-          cache: true,
-          cacheMaxEntries: 50,
-          rateLimit: true,
-          jwksRequestsPerMinute: 5,
-          jwksUri,
-        }),
-        audience: connection.clientId,
-        issuer,
-        algorithms,
-      });
-      middleware(req as Request, res, next);
+      if (!jwksClients[jwksUri]) {
+        jwksClients[jwksUri] = jwtExpress({
+          secret: jwks.expressJwtSecret({
+            cache: true,
+            cacheMaxEntries: 50,
+            rateLimit: true,
+            jwksRequestsPerMinute: 5,
+            jwksUri,
+          }),
+          audience: connection.clientId,
+          issuer,
+          algorithms,
+        });
+      }
+
+      jwksClients[jwksUri](req as Request, res, next);
     } catch (e) {
       next(e);
     }
