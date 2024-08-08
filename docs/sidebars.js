@@ -183,6 +183,11 @@ const sidebars = {
             },
             {
               type: "doc",
+              id: "warehouses/vertica",
+              label: "Vertica",
+            },
+            {
+              type: "doc",
               id: "warehouses/prestodb-or-trino",
               label: "PrestoDB or Trino",
             },
