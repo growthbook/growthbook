@@ -7,10 +7,11 @@ import Databricks from "../integrations/Databricks";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
-import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
+import Vertica from "../integrations/Vertica";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
+import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -70,6 +71,8 @@ function getIntegrationObj(
       return new Snowflake(context, datasource);
     case "postgres":
       return new Postgres(context, datasource);
+    case "vertica":
+      return new Vertica(context, datasource);
     case "mysql":
       return new Mysql(context, datasource);
     case "mssql":
