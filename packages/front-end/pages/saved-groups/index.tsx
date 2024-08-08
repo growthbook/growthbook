@@ -172,7 +172,7 @@ export default function SavedGroupsPage() {
               display={
                 <>
                   Condition Groups{" "}
-                  <span className="round-text-background text-color-main">
+                  <span className="round-text-background text-main">
                     {conditionGroups.length}
                   </span>
                 </>
@@ -190,7 +190,7 @@ export default function SavedGroupsPage() {
               display={
                 <>
                   ID Lists{" "}
-                  <span className="round-text-background text-color-main">
+                  <span className="round-text-background text-main">
                     {idLists.length}
                   </span>
                 </>

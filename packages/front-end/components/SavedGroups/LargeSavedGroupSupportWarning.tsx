@@ -72,7 +72,7 @@ export default function LargeSavedGroupSupportWarning({
         <PiInfoFill /> You must have an Enterprise plan to create lists with
         more than {SMALL_GROUP_SIZE_LIMIT} items.{" "}
         <span className="underline cursor-pointer" onClick={openUpgradeModal}>
-          Upgrade&gt;
+          Upgrade &gt;
         </span>
       </div>
     );
@@ -114,7 +114,7 @@ export default function LargeSavedGroupSupportWarning({
     <div className={containerClassName}>
       {Icon} {copy}{" "}
       <Link className={`text-${warningLevel}-muted underline`} href="/sdks">
-        View SDKs&gt;
+        View SDKs &gt;
       </Link>
     </div>
   );

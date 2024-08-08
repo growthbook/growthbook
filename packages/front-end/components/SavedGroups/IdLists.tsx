@@ -140,19 +140,11 @@ export default function IdLists({ groups, mutate }: Props) {
                 <thead>
                   <tr>
                     <th></th>
-                    <SortableTH className="no-uppercase" field={"groupName"}>
-                      Name
-                    </SortableTH>
-                    <SortableTH className="no-uppercase" field="attributeKey">
-                      Attribute
-                    </SortableTH>
-                    <th className="no-uppercase">Description</th>
-                    <SortableTH className="no-uppercase" field={"owner"}>
-                      Owner
-                    </SortableTH>
-                    <SortableTH className="no-uppercase" field={"dateUpdated"}>
-                      Date Updated
-                    </SortableTH>
+                    <SortableTH field={"groupName"}>Name</SortableTH>
+                    <SortableTH field="attributeKey">Attribute</SortableTH>
+                    <th>Description</th>
+                    <SortableTH field={"owner"}>Owner</SortableTH>
+                    <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                     {(canUpdate || canDelete) && <th></th>}
                   </tr>
                 </thead>
@@ -165,7 +157,6 @@ export default function IdLists({ groups, mutate }: Props) {
                             <Tooltip
                               body={`Contains >${SMALL_GROUP_SIZE_LIMIT} items`}
                               tipPosition="top"
-                              popperClassName="navy"
                             >
                               <PiCellSignalFull className="text-color-primary h2 mb-0" />
                             </Tooltip>

@@ -207,7 +207,6 @@ export default function SavedGroupTargetingField({
                                     : ""
                                 }
                                 tipPosition="top"
-                                popperClassName="navy"
                               >
                                 &gt;{SMALL_GROUP_SIZE_LIMIT} ITEMS
                               </Tooltip>

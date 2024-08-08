@@ -217,33 +217,33 @@ export default function EditSavedGroupPage() {
             </div>
             <label className="form-group font-weight-bold">Choose one:</label>
             <div className="row ml-0 mr-0 form-group">
-              <div className="cursor-pointer row align-items-center ml-0 mr-5">
+              <div className="form-check-inline mr-5">
                 <input
                   type="radio"
                   id="replaceItems"
                   checked={importOperation === "replace"}
                   readOnly={true}
-                  className="mr-1 radio-button-lg"
+                  className="mr-1"
                   onChange={() => {
                     setImportOperation("replace");
                   }}
                 />
-                <label className="m-0" htmlFor="replaceItems">
+                <label className="m-0 cursor-pointer" htmlFor="replaceItems">
                   Replace all items
                 </label>
               </div>
-              <div className="cursor-pointer row align-items-center ml-0 mr-0">
+              <div className="form-check-inline">
                 <input
                   type="radio"
                   id="appendItems"
                   checked={importOperation === "append"}
                   readOnly={true}
-                  className="mr-1 radio-button-lg"
+                  className="mr-1"
                   onChange={() => {
                     setImportOperation("append");
                   }}
                 />
-                <label className="m-0" htmlFor="appendItems">
+                <label className="m-0 cursor-pointer" htmlFor="appendItems">
                   Append new items to list
                 </label>
               </div>
@@ -293,7 +293,7 @@ export default function EditSavedGroupPage() {
           <h1 className="">{savedGroup.groupName}</h1>
           <div>
             <DeleteButton
-              className="fw-bold mr-4 "
+              className="font-weight-bold mr-4"
               text="Delete"
               title="Delete this Saved Group"
               getConfirmationContent={getConfirmationContent}
@@ -440,7 +440,7 @@ export default function EditSavedGroupPage() {
                     }}
                   />
                 </th>
-                <th className="no-uppercase">{savedGroup.attributeKey}</th>
+                <th>{savedGroup.attributeKey}</th>
               </tr>
             </thead>
             <tbody>

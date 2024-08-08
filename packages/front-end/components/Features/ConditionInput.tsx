@@ -455,7 +455,7 @@ export default function ConditionInput(props: Props) {
                           <div className={clsx(unsupported ? "disabled" : "")}>
                             {group.groupName}
                             {group.passByReferenceOnly && (
-                              <span className="float-right">
+                              <span className="float-right ml-4">
                                 <Tooltip
                                   body={
                                     unsupportedConnections.length > 0
@@ -463,7 +463,6 @@ export default function ConditionInput(props: Props) {
                                       : ""
                                   }
                                   tipPosition="top"
-                                  popperClassName="navy"
                                 >
                                   &gt;{SMALL_GROUP_SIZE_LIMIT} ITEMS
                                 </Tooltip>

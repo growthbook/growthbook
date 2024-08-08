@@ -89,9 +89,6 @@ pre {
 .text-warning-muted {
   color: var(--alert-warn-color);
 }
-.text-error-red {
-  color: colors.$danger;
-}
 .text-danger-muted {
   color: var(--alert-danger-color);
 }
@@ -115,9 +112,6 @@ pre {
   font-weight: 600;
   &.lg {
     font-size: 13px;
-  }
-  &.xl {
-    font-size: 16px;
   }
 }
 
@@ -776,10 +770,6 @@ main.main.report {
   .badge {
     margin-bottom: 0;
   }
-
-  &.rounder {
-    border-radius: 999px;
-  }
 }
 
 .badge-red {
@@ -796,11 +786,6 @@ main.main.report {
 }
 .badge-gray {
   @include badge-variant(#f6f7f9);
-  border: 1px solid colors.$gray4;
-}
-.badge-darkgray {
-  background-color: var(--table-row-hover-background-color);
-  color: var(--text-color-muted);
   border: 1px solid colors.$gray4;
 }
 .badge-purple {
@@ -938,16 +923,14 @@ main.main.report {
 
   thead {
     th {
-      font-size: 14px;
+      font-size: 11px;
+      text-transform: uppercase;
       font-weight: 600;
       color: var(--text-color-th);
       white-space: nowrap;
+      border-bottom-width: 1px;
       border-bottom-color: var(--border-color-300);
       border-top: 0;
-
-      &:not(.no-uppercase) {
-        text-transform: uppercase;
-      }
 
       .activesort,
       .inactivesort {
@@ -1120,17 +1103,6 @@ main.main.report {
     border-color: var(--border-color-300);
   }
 }
-.nav-tabs .nav-tab-item {
-  border-radius: 0px;
-  border: none;
-  color: var(--text-color-primary);
-  &.active {
-    color: var(--text-color-main);
-    border-bottom: 2px solid colors.$highlight-purple;
-    font-weight: 600;
-  }
-}
-
 .paged-modal-default {
   justify-content: space-between;
   flex-wrap: wrap;
@@ -1331,8 +1303,7 @@ main.main.report {
   }
 }
 
-.gb-tooltip,
-.gb-tooltip.navy {
+.gb-tooltip {
   border-radius: 5px;
   white-space: normal;
   font-size: 13px;
@@ -1348,6 +1319,7 @@ main.main.report {
     &::before {
       content: "";
       transform: rotate(45deg);
+      background-color: var(--surface-background-color);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1357,6 +1329,8 @@ main.main.report {
   }
 
   .body {
+    background-color: var(--surface-background-color);
+    color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
   }
@@ -1384,29 +1358,6 @@ main.main.report {
   &[data-popper-placement^="right"] > .arrow {
     left: -4px;
     margin-top: -4px;
-  }
-}
-.gb-tooltip {
-  .body {
-    background-color: var(--surface-background-color);
-    color: var(--text-dark);
-  }
-  .arrow {
-    &::before {
-      background-color: var(--surface-background-color);
-    }
-  }
-}
-
-.gb-tooltip.navy {
-  .body {
-    background-color: colors.$dark-blue;
-    color: var(--text-color-on-bright);
-  }
-  .arrow {
-    &::before {
-      background-color: colors.$dark-blue;
-    }
   }
 }
 
@@ -3350,23 +3301,17 @@ input:disabled {
 }
 
 .round-text-background {
+  display: inline-block;
   background-color: var(--table-row-highlight-background-color);
-  border-radius: 100%;
-  padding: 2px 4px;
-}
-
-.radio-button-lg {
-  height: 15px;
-  width: 15px;
-  accent-color: var(--radio-button-fill);
+  border-radius: 24px;
+  height: 24px;
+  line-height: 24px;
+  min-width: 24px;
+  text-align: center;
 }
 
 .text-color-primary {
   color: var(--text-color-primary);
-}
-
-.text-color-main {
-  color: var(--text-color-main);
 }
 
 .custom-file {
@@ -3403,14 +3348,6 @@ input:disabled {
   }
 }
 
-hr {
-  border-top: 1px solid var(--text-color-main);
-}
-
 .lh-full {
   line-height: 100%;
-}
-
-.fw-bold {
-  font-weight: 600;
 }
