@@ -1,10 +1,10 @@
-import { RemoveMemberResponse } from "../../../types/openapi";
+import { DeleteMemberResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
-import { removeMemberValidator } from "../../validators/openapi";
+import { deleteMemberValidator } from "../../validators/openapi";
 import { removeUserFromOrg } from "../../scim/users/patchUser";
 
-export const removeMember = createApiRequestHandler(removeMemberValidator)(
-  async (req): Promise<RemoveMemberResponse> => {
+export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
+  async (req): Promise<DeleteMemberResponse> => {
     if (!req.context.permissions.canManageTeam()) {
       req.context.permissions.throwPermissionError();
     }

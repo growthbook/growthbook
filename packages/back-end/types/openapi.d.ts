@@ -209,7 +209,7 @@ export interface paths {
     /** Update a member's global role by ID */
     put: operations["putMemberRole"];
     /** Removes a single user from an organization */
-    delete: operations["removeMember"];
+    delete: operations["deleteMember"];
   };
   "/environments": {
     /** Get the organization's environments */
@@ -5542,7 +5542,7 @@ export interface operations {
       };
     };
   };
-  removeMember: {
+  deleteMember: {
     /** Removes a single user from an organization */
     parameters: {
         /** @description The id of the requested resource */
@@ -6966,7 +6966,7 @@ export type PutOrganizationResponse = operations["putOrganization"]["responses"]
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type GetMemberResponse = operations["getMember"]["responses"]["200"]["content"]["application/json"];
 export type PutMemberRoleResponse = operations["putMemberRole"]["responses"]["200"]["content"]["application/json"];
-export type RemoveMemberResponse = operations["removeMember"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];

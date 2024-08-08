@@ -2826,7 +2826,7 @@ paths:
         - $ref: '#/components/parameters/id'
       tags:
         - member
-      operationId: removeMember
+      operationId: deleteMember
       x-codeSamples:
         - lang: cURL
           source: |

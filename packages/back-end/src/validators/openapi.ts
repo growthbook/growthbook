@@ -350,7 +350,7 @@ export const putMemberRoleValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
-export const removeMemberValidator = {
+export const deleteMemberValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),

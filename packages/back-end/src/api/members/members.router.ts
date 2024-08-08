@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getMember } from "./getMember";
 import { listMembers } from "./listMembers";
 import { putMemberRole } from "./putMemberRole";
-import { removeMember } from "./removeMember";
+import { deleteMember } from "./deleteMember";
 
 const router = Router();
 
@@ -13,6 +13,6 @@ const router = Router();
 router.get("/", listMembers);
 router.get("/:id", getMember);
 router.put("/:id", putMemberRole);
-router.delete("/:id", removeMember);
+router.delete("/:id", deleteMember);
 
 export default router;
