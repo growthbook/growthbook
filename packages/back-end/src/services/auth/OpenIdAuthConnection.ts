@@ -12,7 +12,7 @@ import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
-import { MemoryCache } from "../cache";
+import { MemoryCache, LruCache } from "../cache";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
@@ -50,7 +50,7 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
 
 const clientMap: Map<SSOConnectionInterface, Client> = new Map();
 
-const jwksClients: { [key: string]: RequestHandler } = {};
+const jwksClients: LruCache<RequestHandler, string> = new LruCache(500);
 
 export class OpenIdAuthConnection implements AuthConnection {
   async refresh(
@@ -165,8 +165,9 @@ export class OpenIdAuthConnection implements AuthConnection {
         connection.clientId
       }:${jwksUri}:${issuer}:${algorithms.sort().join(",")}`;
 
-      if (!jwksClients[clientHash]) {
-        jwksClients[clientHash] = jwtExpress({
+      let client = jwksClients.get(clientHash);
+      if (!client) {
+        client = jwtExpress({
           secret: jwks.expressJwtSecret({
             cache: true,
             cacheMaxEntries: 50,
@@ -178,9 +179,9 @@ export class OpenIdAuthConnection implements AuthConnection {
           issuer,
           algorithms,
         });
+        jwksClients.put(clientHash, client);
       }
-
-      jwksClients[clientHash](req as Request, res, next);
+      client(req as Request, res, next);
     } catch (e) {
       next(e);
     }
