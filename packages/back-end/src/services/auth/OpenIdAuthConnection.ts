@@ -161,8 +161,12 @@ export class OpenIdAuthConnection implements AuthConnection {
         );
       }
 
-      if (!jwksClients[jwksUri]) {
-        jwksClients[jwksUri] = jwtExpress({
+      const clientHash = `${
+        connection.clientId
+      }:${jwksUri}:${issuer}:${algorithms.sort().join(",")}`;
+
+      if (!jwksClients[clientHash]) {
+        jwksClients[clientHash] = jwtExpress({
           secret: jwks.expressJwtSecret({
             cache: true,
             cacheMaxEntries: 50,
@@ -176,7 +180,7 @@ export class OpenIdAuthConnection implements AuthConnection {
         });
       }
 
-      jwksClients[jwksUri](req as Request, res, next);
+      jwksClients[clientHash](req as Request, res, next);
     } catch (e) {
       next(e);
     }
