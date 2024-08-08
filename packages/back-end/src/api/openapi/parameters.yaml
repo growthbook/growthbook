@@ -72,3 +72,21 @@ platform:
       - github
       - gitlab
       - bitbucket
+userName:
+  name: userName
+  in: query
+  description: Name of the user.
+  schema:
+    type: string
+userEmail:
+  name: userEmail
+  in: query
+  description: Email address of the user.
+  schema:
+    type: string
+globalRole:
+  name: globalRole
+  in: query
+  description: Name of the global role
+  schema:
+    type: string

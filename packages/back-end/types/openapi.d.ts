@@ -199,6 +199,18 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/members": {
+    /** Get all organization members */
+    get: operations["listMembers"];
+  };
+  "/members/{id}": {
+    /** Get a single member */
+    get: operations["getMember"];
+    /** Update a member's global role by ID */
+    put: operations["putMemberRole"];
+    /** Removes a single user from an organization */
+    delete: operations["deleteMember"];
+  };
   "/environments": {
     /** Get the organization's environments */
     get: operations["listEnvironments"];
@@ -1410,6 +1422,27 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
     };
+    Member: {
+      id: string;
+      name?: string;
+      email: string;
+      globalRole: string;
+      environments?: (string)[];
+      limitAccessByEnvironment?: boolean;
+      teams?: (string)[];
+      projectRoles?: ({
+          project: string;
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+        })[];
+      /** Format: date-time */
+      lastLoginDate?: string;
+      /** Format: date-time */
+      dateCreated?: string;
+      /** Format: date-time */
+      dateUpdated?: string;
+    };
   };
   responses: {
     Error: never;
@@ -1435,6 +1468,12 @@ export interface components {
     branch: string;
     /** @description Name of versino control platform like GitHub or Gitlab. */
     platform: "github" | "gitlab" | "bitbucket";
+    /** @description Name of the user. */
+    userName: string;
+    /** @description Email address of the user. */
+    userEmail: string;
+    /** @description Name of the global role */
+    globalRole: string;
   };
   requestBodies: never;
   headers: never;
@@ -5383,6 +5422,144 @@ export interface operations {
       };
     };
   };
+  listMembers: {
+    /** Get all organization members */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Name of the user. */
+        /** @description Email address of the user. */
+        /** @description Name of the global role */
+      query: {
+        limit?: number;
+        offset?: number;
+        userName?: string;
+        userEmail?: string;
+        globalRole?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            members: ({
+                id: string;
+                name?: string;
+                email: string;
+                globalRole: string;
+                environments?: (string)[];
+                limitAccessByEnvironment?: boolean;
+                teams?: (string)[];
+                projectRoles?: ({
+                    project: string;
+                    role: string;
+                    limitAccessByEnvironment: boolean;
+                    environments: (string)[];
+                  })[];
+                /** Format: date-time */
+                lastLoginDate?: string;
+                /** Format: date-time */
+                dateCreated?: string;
+                /** Format: date-time */
+                dateUpdated?: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  getMember: {
+    /** Get a single member */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            member: {
+              id: string;
+              name?: string;
+              email: string;
+              globalRole: string;
+              environments?: (string)[];
+              limitAccessByEnvironment?: boolean;
+              teams?: (string)[];
+              projectRoles?: ({
+                  project: string;
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                })[];
+              /** Format: date-time */
+              lastLoginDate?: string;
+              /** Format: date-time */
+              dateCreated?: string;
+              /** Format: date-time */
+              dateUpdated?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  putMemberRole: {
+    /** Update a member's global role by ID */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The name of the global role. This can be one of GrowthBook's standard roles - read-only, collaborator, engineer, analyst, experimenter, or admin. Enterprise organizations who have defined custom roles can also specify the name of a custom role here. */
+          globalRole?: string;
+          environments?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            globalRole?: string;
+            environments?: (string)[];
+            limitAccessByEnvironment?: boolean;
+          };
+        };
+      };
+    };
+  };
+  deleteMember: {
+    /** Removes a single user from an organization */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listEnvironments: {
     /** Get the organization's environments */
     responses: {
@@ -6738,6 +6915,7 @@ export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationVa
 export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
+export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -6785,6 +6963,10 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
+export type GetMemberResponse = operations["getMember"]["responses"]["200"]["content"]["application/json"];
+export type PutMemberRoleResponse = operations["putMemberRole"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];

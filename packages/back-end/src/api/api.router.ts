@@ -23,6 +23,7 @@ import codeRefsRouter from "./code-refs/code-refs.router";
 import factTablesRouter from "./fact-tables/fact-tables.router";
 import factMetricsRouter from "./fact-metrics/fact-metrics.router";
 import bulkImportRouter from "./bulk-import/bulk-import.router";
+import membersRouter from "./members/members.router";
 import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
 
@@ -94,6 +95,7 @@ router.use("/fact-tables", factTablesRouter);
 router.use("/fact-metrics", factMetricsRouter);
 router.use("/bulk-import", bulkImportRouter);
 router.use("/code-refs", codeRefsRouter);
+router.use("/members", membersRouter);
 
 router.post("/transform-copy", postCopyTransform);
 

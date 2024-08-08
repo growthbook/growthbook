@@ -52,3 +52,5 @@ FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:
   $ref: "./FactMetric.yaml"
+Member:
+  $ref: "./Member.yaml"

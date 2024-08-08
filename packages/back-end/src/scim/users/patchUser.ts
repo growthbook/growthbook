@@ -6,7 +6,10 @@ import { Member, OrganizationInterface } from "../../../types/organization";
 import { expandOrgMembers } from "../../services/organizations";
 import { expandedMembertoScimUser } from "./getUser";
 
-async function removeUserFromOrg(org: OrganizationInterface, user: Member) {
+export async function removeUserFromOrg(
+  org: OrganizationInterface,
+  user: Member
+) {
   const updatedOrgMembers = cloneDeep(org.members);
 
   // If/When we introduce the ability to manage roles via SCIM, we can remove this check.
