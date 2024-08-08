@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
@@ -34,6 +37,7 @@ const CompactResults = dynamic(
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
   mutateExperiment: () => void;
   draftMode?: boolean;
   editMetrics?: () => void;
@@ -58,6 +62,7 @@ const Results: FC<{
   setTab?: (tab: ExperimentTab) => void;
 }> = ({
   experiment,
+  linkedFeatures,
   mutateExperiment,
   draftMode = false,
   editMetrics,
@@ -186,6 +191,7 @@ const Results: FC<{
     <>
       {!draftMode ? (
         <AnalysisSettingsBar
+          linkedFeatures={linkedFeatures}
           mutateExperiment={mutateExperiment}
           setAnalysisSettings={setAnalysisSettings}
           editMetrics={editMetrics}

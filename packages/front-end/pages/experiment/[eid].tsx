@@ -81,7 +81,7 @@ const ExperimentPage = (): ReactElement => {
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEnvsForExperiment({ experiment });
+  const envs = getAffectedEnvsForExperiment({ experiment, linkedFeatures });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;

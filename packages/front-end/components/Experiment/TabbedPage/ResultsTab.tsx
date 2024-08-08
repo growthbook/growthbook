@@ -56,6 +56,7 @@ export interface Props {
 
 export default function ResultsTab({
   experiment,
+  linkedFeatures,
   mutate,
   editMetrics,
   editResult,
@@ -169,6 +170,7 @@ export default function ResultsTab({
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
             experiment={experiment}
+            linkedFeatures={linkedFeatures}
             mutate={mutate}
             phase={experiment.phases.length - 1}
             editDates={false}
@@ -179,6 +181,7 @@ export default function ResultsTab({
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
+            linkedFeatures={linkedFeatures}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
@@ -249,6 +252,7 @@ export default function ResultsTab({
               ) : (
                 <Results
                   experiment={experiment}
+                  linkedFeatures={linkedFeatures}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
