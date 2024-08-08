@@ -125,7 +125,7 @@ export default function EditPhaseModal({
           helpText={
             <>
               <strong className="text-danger">Warning:</strong> Changing this
-              will change bucketing for you variations.
+              will re-randomize experiment traffic.
             </>
           }
         />
