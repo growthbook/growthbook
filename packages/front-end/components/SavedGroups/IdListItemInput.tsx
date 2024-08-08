@@ -105,33 +105,33 @@ export const IdListItemInput: FC<{
         Choose how to enter items for this list:
       </label>
       <div className="row ml-0 mr-0 form-group">
-        <div className="cursor-pointer row align-items-center ml-0 mr-5">
+        <div className="form-check-inline mr-5">
           <input
             type="radio"
             id="importCsv"
             checked={importMethod === "file"}
             readOnly={true}
-            className="mr-1 radio-button-lg"
+            className="mr-1"
             onChange={() => {
               setImportMethod("file");
             }}
           />
-          <label className="m-0" htmlFor="importCsv">
+          <label className="m-0 cursor-pointer" htmlFor="importCsv">
             Import CSV
           </label>
         </div>
-        <div className="cursor-pointer row align-items-center ml-0 mr-0">
+        <div className="form-check-inline">
           <input
             type="radio"
             id="enterValues"
             checked={importMethod === "values"}
             readOnly={true}
-            className="mr-1 radio-button-lg"
+            className="mr-1"
             onChange={() => {
               setImportMethod("values");
             }}
           />
-          <label className="m-0" htmlFor="enterValues">
+          <label className="m-0 cursor-pointer" htmlFor="enterValues">
             Manually enter values
           </label>
         </div>
@@ -229,7 +229,7 @@ export const IdListItemInput: FC<{
             <></>
           )}
           {fileErrorMessage ? (
-            <p className="text-error-red">
+            <p className="text-danger">
               <FaExclamationTriangle /> {fileErrorMessage}
             </p>
           ) : (
