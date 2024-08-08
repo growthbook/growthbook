@@ -13,7 +13,7 @@ export const segmentValidator = z
     name: z.string(),
     description: z.string(),
     userIdType: z.string(),
-    type: z.enum(TYPES).default("SQL"), // Default to "SQL" if type is missing
+    type: z.enum(TYPES),
     sql: z.string().optional(),
     factTableId: z.string().optional(),
     filters: z.array(z.string()).optional(),
