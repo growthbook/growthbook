@@ -20,6 +20,7 @@ import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { NotificationEvent } from "back-end/src/events/notification-events";
+import { ArchetypeInterface } from "@back-end/types/archetype";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -140,18 +141,6 @@ export class Permissions {
 
   public canViewAuditLogs = (): boolean => {
     return this.checkGlobalPermission("viewAuditLog");
-  };
-
-  public canCreateArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canUpdateArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canDeleteArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
   };
 
   public canCreateSavedGroup = (): boolean => {
@@ -395,6 +384,33 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       { projects: idea.project ? [idea.project] : [] },
       "createIdeas"
+    );
+  };
+
+  public canCreateArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "manageArchetype"
+    );
+  };
+
+  public canUpdateArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "manageArchetype"
+    );
+  };
+
+  public canDeleteArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "manageArchetype"
     );
   };
 

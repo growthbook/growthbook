@@ -797,7 +797,7 @@ export function evaluateFeature({
           features: {
             [feature.id]: definition,
           },
-          attributes: attributes,
+          attributes: attributes ? attributes : {},
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           log: (msg: string, ctx: any) => {
             const ruleId = ctx?.rule?.id ?? null;
@@ -826,6 +826,7 @@ export function evaluateFeature({
       NODE_ENV: "production",
     };
   }
+
   return results;
 }
 

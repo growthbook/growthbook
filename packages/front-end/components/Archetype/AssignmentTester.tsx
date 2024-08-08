@@ -21,9 +21,10 @@ import styles from "./AssignmentTester.module.scss";
 export interface Props {
   feature: FeatureInterface;
   version: number;
+  project?: string;
 }
 
-export default function AssignmentTester({ feature, version }: Props) {
+export default function AssignmentTester({ feature, version, project }: Props) {
   const [open, setOpen] = useState(false);
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
@@ -39,6 +40,7 @@ export default function AssignmentTester({ feature, version }: Props) {
   const { data, mutate: mutateData } = useArchetype({
     feature,
     version,
+    project,
     skipRulesWithPrerequisites,
   });
 
