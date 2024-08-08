@@ -43,9 +43,10 @@ const BreakDownResults: FC<{
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
-  metrics: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
-  guardrails?: string[];
   dimensionId: string;
   isLatestPhase: boolean;
   startDate: string;
@@ -67,9 +68,10 @@ const BreakDownResults: FC<{
   variations,
   variationFilter,
   baselineRow,
-  metrics,
+  goalMetrics,
+  secondaryMetrics,
   metricOverrides,
-  guardrails,
+  guardrailMetrics,
   isLatestPhase,
   startDate,
   activationMetric,
@@ -95,23 +97,35 @@ const BreakDownResults: FC<{
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
-    [...metrics, ...(guardrails || [])].forEach((metricId) => {
-      const metric = getExperimentMetricById(metricId);
-      metric?.tags?.forEach((tag) => {
-        allMetricTagsSet.add(tag);
-      });
-    });
+    [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
+      (metricId) => {
+        const metric = getExperimentMetricById(metricId);
+        metric?.tags?.forEach((tag) => {
+          allMetricTagsSet.add(tag);
+        });
+      }
+    );
     return [...allMetricTagsSet];
-  }, [metrics, guardrails, getExperimentMetricById]);
+  }, [
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    getExperimentMetricById,
+  ]);
 
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
-      setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+      // Only include goals in calculation, not secondary or guardrails
+      setAdjustedPValuesOnResults(results, goalMetrics, pValueCorrection);
       setAdjustedCIs(results, pValueThreshold);
     }
 
-    const metricDefs = [...metrics, ...(guardrails || [])]
+    const metricDefs = [
+      ...goalMetrics,
+      ...secondaryMetrics,
+      ...guardrailMetrics,
+    ]
       .map((metricId) => getExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
@@ -136,7 +150,9 @@ const BreakDownResults: FC<{
 
         return {
           metric: newMetric,
-          isGuardrail: !metrics.includes(metricId),
+          isGuardrail:
+            !goalMetrics.includes(metricId) &&
+            !secondaryMetrics.includes(metricId),
           rows: results.map((d) => ({
             label: d.name,
             metric: newMetric,
@@ -150,8 +166,9 @@ const BreakDownResults: FC<{
       .filter((table) => table?.metric) as TableDef[];
   }, [
     results,
-    metrics,
-    guardrails,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
     metricOverrides,
     settingsForSnapshotMetrics,
     pValueCorrection,
@@ -194,7 +211,7 @@ const BreakDownResults: FC<{
             setShowMetricFilter={setShowMetricFilter}
           />
         ) : null}
-        <span className="h3 mb-0">Goal Metrics</span>
+        <span className="h3 mb-0">All Metrics</span>
       </div>
       {tables.map((table, i) => {
         return (

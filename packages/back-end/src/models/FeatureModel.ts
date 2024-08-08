@@ -30,7 +30,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "../util/features";
-import { EventAuditUser } from "../events/event-types";
+import { EventUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
@@ -725,7 +725,7 @@ export async function addFeatureRule(
   revision: FeatureRevisionInterface,
   env: string,
   rule: FeatureRule,
-  user: EventAuditUser,
+  user: EventUser,
   resetReview: boolean
 ) {
   if (!rule.id) {
@@ -756,7 +756,7 @@ export async function editFeatureRule(
   environment: string,
   i: number,
   updates: Partial<FeatureRule>,
-  user: EventAuditUser,
+  user: EventUser,
   resetReview: boolean
 ) {
   const changes = { rules: revision.rules || {}, status: revision.status };
@@ -834,7 +834,7 @@ export async function removeProjectFromFeatures(
 export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
-  user: EventAuditUser,
+  user: EventUser,
   requireReview: boolean
 ) {
   await updateRevision(

@@ -1,7 +1,7 @@
 import { PiCheckCircle, PiX } from "react-icons/pi";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { routes, useGetStarted } from "@/services/GetStartedProvider";
+import { useGetStarted } from "@/services/GetStartedProvider";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
@@ -13,7 +13,7 @@ const manualSteps = ["attributes", "environments"];
 const GuidedGetStartedBar = () => {
   const { refreshOrganization } = useUser();
   const { project } = useDefinitions();
-  const { currentStep, source, clearStep, stepKey } = useGetStarted();
+  const { currentStep, getReturnUrl, clearStep, stepKey } = useGetStarted();
   const { apiCall } = useAuth();
   const router = useRouter();
 
@@ -58,14 +58,14 @@ const GuidedGetStartedBar = () => {
               });
               clearStep();
               refreshOrganization();
-              router.push(routes[source]);
+              router.push(getReturnUrl());
             }}
           >
             <PiCheckCircle />{" "}
             <span className="align-middle">Mark as Complete</span>
           </Button>
         )}
-        <Link href={routes[source]} onClick={() => clearStep()}>
+        <Link href={getReturnUrl()} onClick={() => clearStep()}>
           <button
             className="mx-2"
             style={{

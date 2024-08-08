@@ -1,5 +1,5 @@
 import { UnionToTuple } from "../util/types";
-import { EventAuditUser } from "./event-types";
+import { EventUser } from "./event-types";
 
 export const notificationEvents = {
   feature: ["created", "updated", "deleted"],
@@ -52,7 +52,7 @@ export type NotificationEventPayload<
   event: EventName;
   object: ResourceType;
   data: DataType;
-  user: EventAuditUser;
+  user: EventUser;
   projects: string[];
   tags: string[];
   environments: string[];

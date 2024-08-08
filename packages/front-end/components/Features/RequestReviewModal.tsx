@@ -7,7 +7,7 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { useForm } from "react-hook-form";
-import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
+import { EventUserLoggedIn } from "back-end/src/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { getCurrentUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -53,7 +53,7 @@ export default function RequestReviewModal({
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
-  const createdBy = revision?.createdBy as EventAuditUserLoggedIn;
+  const createdBy = revision?.createdBy as EventUserLoggedIn;
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&

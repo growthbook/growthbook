@@ -722,7 +722,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     };
   });
 
-  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  const currentUserPermissions = getUserPermissions(
+    req.currentUser,
+    org,
+    teams || []
+  );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
   const watch = await getWatchedByUser(org.id, userId);

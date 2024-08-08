@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -44,6 +45,7 @@ const ExperimentsPage = (): React.ReactElement => {
     project,
     getExperimentMetricById,
     getProjectById,
+    getDatasourceById,
   } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
@@ -77,9 +79,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
-        metricNames: exp.metrics
+        metricNames: exp.goalMetrics
           .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
+        datasource: getDatasourceById(exp.datasource)?.name || "",
         projectId,
         projectName,
         projectIsDeReferenced,
@@ -181,12 +184,12 @@ const ExperimentsPage = (): React.ReactElement => {
       tag: (item) => item.tags,
       project: (item) => [item.project, item.projectName],
       feature: (item) => item.linkedFeatures || [],
+      datasource: (item) => item.datasource,
       metric: (item) => [
         ...item.metricNames,
-        ...item.metrics,
-        ...(item.guardrails || []),
-        item.activationMetric,
+        ...getAllMetricIdsFromExperiment(item),
       ],
+      goal: (item) => [...item.metricNames, ...item.goalMetrics],
     },
     filterResults,
   });

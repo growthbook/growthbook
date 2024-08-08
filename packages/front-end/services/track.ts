@@ -1,10 +1,10 @@
-/* 
+/*
 Track anonymous usage statistics
 - No identifiable information is sent.
 - Helps us figure out how often features are used so we can prioritize development
-- For example, if people start creating a metric and then 
+- For example, if people start creating a metric and then
   abandon the form, that tells us the UI needs improvement.
-- You can disable this tracking completely by setting 
+- You can disable this tracking completely by setting
   DISABLE_TELEMETRY=1 in your env.
 */
 
@@ -73,7 +73,7 @@ export default function track(
     doc_host: host,
     doc_search: "",
     doc_path: location.pathname,
-    referer: "",
+    referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,
     configFile: hasFileConfig(),
@@ -97,7 +97,7 @@ export default function track(
       log_level: "ERROR",
       tracking_host: "https://t.growthbook.io",
       cookie_name: "__growthbookid",
-      capture_3rd_party_cookies: false,
+      capture_3rd_party_cookies: isCloud() ? ["_ga"] : false,
       randomize_url: true,
     });
   }

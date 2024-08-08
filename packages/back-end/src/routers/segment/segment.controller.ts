@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { FilterQuery } from "mongoose";
 import { z } from "zod";
+import { EventUserForResponseLocals } from "../../events/event-types";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
@@ -18,7 +19,6 @@ import {
 import { MetricInterface } from "../../../types/metric";
 import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import {
   createSegmentValidator,
   updateSegmentValidator,
@@ -41,7 +41,7 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
+  res: Response<GetSegmentsResponse, EventUserForResponseLocals>
 ) => {
   const context = getContextFromReq(req);
   const segments = await context.models.segments.getAll();
@@ -82,7 +82,7 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
+  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -135,7 +135,7 @@ export const postSegment = async (
   req: CreateSegmentRequest,
   res: Response<
     CreateSegmentResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const {
@@ -201,7 +201,7 @@ export const putSegment = async (
   req: PutSegmentRequest,
   res: Response<
     PutSegmentResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const { id } = req.params;
@@ -272,7 +272,7 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
+  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
