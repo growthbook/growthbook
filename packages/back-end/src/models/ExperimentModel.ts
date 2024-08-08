@@ -383,7 +383,7 @@ export async function createExperiment({
     id: uniqid("exp_"),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
-    //set the default phase seed to uuidvd
+    //set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
           return {
