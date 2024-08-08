@@ -89,6 +89,9 @@ function App({
     growthbook.loadFeatures().catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
+    track("page-load", {
+      pathname: router.pathname,
+    });
   }, [router.pathname]);
 
   const renderPreAuth = () => {
