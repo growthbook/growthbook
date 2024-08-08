@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
+import bluebird from "bluebird";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -317,7 +318,7 @@ export async function createFeature(
     );
   }
 
-  onFeatureCreate(context, feature).catch((e) => {
+  await onFeatureCreate(context, feature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature create");
   });
 }
@@ -340,7 +341,7 @@ export async function deleteFeature(
     );
   }
 
-  onFeatureDelete(context, feature).catch((e) => {
+  await onFeatureDelete(context, feature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature delete");
   });
 }
@@ -429,7 +430,7 @@ async function logFeatureUpdatedEvent(
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
+    await new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
 }
@@ -473,7 +474,7 @@ async function logFeatureCreatedEvent(
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
+    await new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
 }
@@ -519,7 +520,7 @@ async function logFeatureDeletedEvent(
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
+    await new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
 }
@@ -617,7 +618,7 @@ export async function updateFeature(
     );
   }
 
-  onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+  await onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
   return updatedFeature;
@@ -796,13 +797,13 @@ export async function removeTagInFeature(
     $pull: { tags: tag },
   });
 
-  features.forEach((feature) => {
+  await bluebird.each(features, async (feature) => {
     const updatedFeature = {
       ...feature,
       tags: (feature.tags || []).filter((t) => t !== tag),
     };
 
-    onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+    await onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on feature update");
     });
   });
@@ -819,15 +820,17 @@ export async function removeProjectFromFeatures(
 
   await FeatureModel.updateMany(query, { $set: { project: "" } });
 
-  features.forEach((feature) => {
+  bluebird.each(features, async (feature) => {
     const updatedFeature = {
       ...feature,
       project: "",
     };
 
-    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on feature update");
-    });
+    await onFeatureUpdate(context, feature, updatedFeature, project).catch(
+      (e) => {
+        logger.error(e, "Error refreshing SDK Payload on feature update");
+      }
+    );
   });
 }
 

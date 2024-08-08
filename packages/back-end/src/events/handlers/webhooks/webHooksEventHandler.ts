@@ -1,3 +1,4 @@
+import bluebird from "bluebird";
 import {
   getEventWebHookById,
   getAllEventWebHooksForEvent,
@@ -43,11 +44,11 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     }
   })();
 
-  eventWebHooks.forEach((eventWebHook) => {
+  await bluebird.each(eventWebHooks, async (eventWebHook) => {
     const notifier = new EventWebHookNotifier({
       eventId: event.id,
       eventWebHookId: eventWebHook.id,
     });
-    notifier.enqueue();
+    await notifier.enqueue();
   });
 };
