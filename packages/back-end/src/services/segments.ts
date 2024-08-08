@@ -9,7 +9,7 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     identifierType: segment.userIdType || "user_id",
     query: segment.sql || "",
     datasourceId: segment.datasource || "",
-    type: segment.sql ? "SQL" : "FACT",
+    type: segment.type,
     factTableId: segment.factTableId || "",
     filters: segment.filters || [],
     dateCreated: segment.dateCreated?.toISOString() || "",

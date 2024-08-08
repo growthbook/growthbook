@@ -188,12 +188,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       };
     }),
     dimensions,
-    segments: segments.map((segment) => {
-      return {
-        ...segment,
-        type: segment.type || "SQL", // if no type, its an old sql type segment
-      };
-    }),
+    segments,
     tags,
     savedGroups,
     projects,

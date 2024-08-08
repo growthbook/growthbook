@@ -414,7 +414,8 @@ export interface components {
       query?: string;
       dateCreated: string;
       dateUpdated: string;
-      type?: string;
+      /** @enum {unknown} */
+      type?: "SQL" | "FACT";
       factTableId?: string;
       filters?: (string)[];
     };
@@ -2909,7 +2910,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             segments: ({
                 id: string;
                 owner: string;
@@ -2919,11 +2920,12 @@ export interface operations {
                 query?: string;
                 dateCreated: string;
                 dateUpdated: string;
-                type?: string;
+                /** @enum {unknown} */
+                type?: "SQL" | "FACT";
                 factTableId?: string;
                 filters?: (string)[];
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -2950,7 +2952,8 @@ export interface operations {
               query?: string;
               dateCreated: string;
               dateUpdated: string;
-              type?: string;
+              /** @enum {unknown} */
+              type?: "SQL" | "FACT";
               factTableId?: string;
               filters?: (string)[];
             };

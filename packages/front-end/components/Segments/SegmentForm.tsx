@@ -105,7 +105,7 @@ const SegmentForm: FC<{
 
           await apiCall(current.id ? `/segments/${current.id}` : `/segments`, {
             method: current.id ? "PUT" : "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify({ ...value, type: "SQL" }),
           });
           mutateDefinitions({});
         })}

@@ -160,17 +160,28 @@ export const postSegment = async (
     throw new Error("Invalid data source");
   }
 
-  const doc = await context.models.segments.create({
+  const baseSegment: Omit<
+    SegmentInterface,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  > = {
     owner: owner || "",
     datasource,
     userIdType,
     name,
-    sql,
     description,
     type,
-    factTableId,
-    filters,
-  });
+  };
+
+  if (type === "SQL") {
+    // if SQL type, set only sql field
+    baseSegment.sql = sql;
+  } else {
+    // if FACT type, only set factTableId and filters
+    baseSegment.factTableId = factTableId;
+    baseSegment.filters = filters;
+  }
+
+  const doc = await context.models.segments.create(baseSegment);
 
   res.status(200).json({
     status: 200,

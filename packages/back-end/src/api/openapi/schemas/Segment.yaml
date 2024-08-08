@@ -25,7 +25,9 @@ properties:
   dateUpdated:
     type: string
   type:
-    type: string
+    enum:
+      - SQL
+      - FACT
   factTableId:
     type: string
   filters:

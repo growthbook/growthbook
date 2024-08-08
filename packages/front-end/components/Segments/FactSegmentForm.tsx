@@ -118,19 +118,6 @@ export default function FactSegmentForm({
           className="portal-overflow-ellipsis"
           helpText="This list has been filtered to only show data sources that have at least one Fact Table built on top of it"
         />
-        <SelectField
-          label="Identifier"
-          required
-          value={form.watch("userIdType")}
-          onChange={(v) => form.setValue("userIdType", v)}
-          placeholder="Select an identifier"
-          options={
-            datasource?.settings.userIdTypes?.map((userIdType) => ({
-              value: userIdType.userIdType,
-              label: userIdType.userIdType,
-            })) || []
-          }
-        />
         <div className="appbox px-3 pt-3 bg-light">
           <div className="row align-items-center">
             <div className="col-auto">
@@ -204,6 +191,19 @@ export default function FactSegmentForm({
             ) : null}
           </div>
         </div>
+        <SelectField
+          label="Identifier"
+          required
+          value={form.watch("userIdType")}
+          onChange={(v) => form.setValue("userIdType", v)}
+          placeholder="Select an identifier"
+          options={
+            factTable?.userIdTypes.map((userIdType) => ({
+              value: userIdType,
+              label: userIdType,
+            })) || []
+          }
+        />
       </>
     </Modal>
   );
