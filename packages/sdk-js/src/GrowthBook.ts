@@ -726,7 +726,11 @@ export class GrowthBook<
       const changeType = getAutoExperimentChangeType(experiment);
 
       if (changeType === "redirect") {
-        if (!result.value.urlRedirect || !experiment.urlPatterns) {
+        if (!experiment.urlPatterns) {
+          return result;
+        }
+        if (!result.value.urlRedirect) {
+          this._unsetAntiFlicker();
           return result;
         }
 
