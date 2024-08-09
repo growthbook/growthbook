@@ -123,8 +123,7 @@ if (SENTRY_DSN) {
 }
 
 if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
-  init();
+  void init();
 }
 
 app.set("port", process.env.PORT || 3100);
