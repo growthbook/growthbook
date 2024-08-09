@@ -43,13 +43,10 @@ function getTooltipDataFromDatapoint(
   return { x, y, d: datapoint };
 }
 
-const formatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 2,
-  maximumSignificantDigits: 2,
-  roundingPriority: "morePrecision",
-});
-
-function getTooltipContents(d: TooltipData) {
+function getTooltipContents(
+  d: TooltipData,
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string
+) {
   return (
     <>
       <div className={`mb-2 ${styles.val}`}>n: {d.d.units}</div>
@@ -57,13 +54,13 @@ function getTooltipContents(d: TooltipData) {
         <span className="d-inline-block" style={{ width: 40 }}>
           start:
         </span>{" "}
-        {formatter.format(d.d.start)}
+        {formatter(d.d.start)}
       </div>
       <div className="small">
         <span className="d-inline-block" style={{ width: 40 }}>
           end:
         </span>{" "}
-        {formatter.format(d.d.end)}
+        {formatter(d.d.end)}
       </div>
     </>
   );
@@ -199,7 +196,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     className={styles.tooltip}
                     unstyled={true}
                   >
-                    {tooltipData && getTooltipContents(tooltipData)}
+                    {tooltipData && getTooltipContents(tooltipData, formatter)}
                   </TooltipWithBounds>
                 </>
               )}
