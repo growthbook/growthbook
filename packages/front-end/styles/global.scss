@@ -89,6 +89,12 @@ pre {
 .text-warning-muted {
   color: var(--alert-warn-color);
 }
+.text-danger-muted {
+  color: var(--alert-danger-color);
+}
+.text-success-green {
+  color: colors.$success;
+}
 .text-gray {
   color: var(--text-color-th);
 }
@@ -885,6 +891,9 @@ main.main.report {
     text-decoration: none !important;
   }
 }
+.underline {
+  text-decoration: underline;
+}
 
 .link-purple {
   color: colors.$highlight-purple;
@@ -920,6 +929,7 @@ main.main.report {
       color: var(--text-color-th);
       white-space: nowrap;
       border-bottom-width: 1px;
+      border-bottom-color: var(--border-color-300);
       border-top: 0;
 
       .activesort,
@@ -2556,9 +2566,6 @@ html {
     fill: var(--text-color-muted);
   }
 }
-.cursor-pointer {
-  cursor: pointer;
-}
 .bg-impact {
   background-color: colors.$bg-impact;
 }
@@ -3086,6 +3093,11 @@ td.disabled {
 .gb-select-wrapper.disabled {
   cursor: not-allowed;
 }
+.gb-select-wrapper.error .gb-select__control,
+.form-group.error .gb-multi-select__control {
+  border-color: colors.$danger !important;
+}
+
 .gb-select--is-disabled {
   .gb-select__control {
     background-color: var(--disabled-background) !important;
@@ -3286,4 +3298,56 @@ input:disabled {
 .table-column-fit-width {
   width: 1px;
   white-space: nowrap;
+}
+
+.round-text-background {
+  display: inline-block;
+  background-color: var(--table-row-highlight-background-color);
+  border-radius: 24px;
+  height: 24px;
+  line-height: 24px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.text-color-primary {
+  color: var(--text-color-primary);
+}
+
+.custom-file {
+  height: 2.625rem;
+}
+
+.custom-file-input {
+  height: 2.625rem;
+}
+
+.custom-file-label {
+  background-color: unset;
+  display: flex;
+  align-items: center;
+  height: 2.625rem;
+
+  &::after {
+    display: flex;
+    height: calc(100% - 8px);
+    align-items: center;
+    background-color: var(--file-picker-browse);
+    color: var(--text-color-on-bright);
+    margin: 4px;
+    border-radius: 4px;
+    border: none;
+  }
+
+  &.remove-file {
+    &::after {
+      background: none;
+      color: colors.$danger;
+      font-size: 0.8rem;
+    }
+  }
+}
+
+.lh-full {
+  line-height: 100%;
 }

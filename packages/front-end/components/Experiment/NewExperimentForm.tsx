@@ -340,6 +340,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   if (source === "duplicate") {
     header = "Duplicate Experiment";
   }
+  const [
+    savedGroupTargetingSdkIssues,
+    setSavedGroupTargetingSdkIssues,
+  ] = useState(false);
+  const [
+    attributeTargetingSdkIssues,
+    setAttributeTargetingSdkIssues,
+  ] = useState(false);
+  const canSubmit =
+    !attributeTargetingSdkIssues && !savedGroupTargetingSdkIssues;
 
   return (
     <PagedModal
@@ -353,6 +363,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       step={step}
       setStep={setStep}
       inline={inline}
+      ctaEnabled={canSubmit}
     >
       <Page display="Basic Info">
         <div className="px-2">
@@ -498,6 +509,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setValue={(savedGroups) =>
                   form.setValue("phases.0.savedGroups", savedGroups)
                 }
+                project={project}
+                setSavedGroupTargetingSdkIssues={
+                  setSavedGroupTargetingSdkIssues
+                }
               />
               <hr />
               <ConditionInput
@@ -505,6 +520,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 onChange={(value) => form.setValue("phases.0.condition", value)}
                 key={conditionKey}
                 project={project}
+                setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
               />
               <hr />
               <PrerequisiteTargetingField

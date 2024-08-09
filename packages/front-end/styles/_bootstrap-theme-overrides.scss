@@ -25,6 +25,10 @@ pre {
   color: var(--text-color-muted) !important;
 }
 
+.text-decoration-line-through {
+  text-decoration: line-through;
+}
+
 // endregion Typography
 
 // region Forms
@@ -119,6 +123,16 @@ pre {
   background-color: var(--alert-info-background);
   border-color: var(--alert-info-border-color);
   color: var(--alert-info-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
+.alert-info-gb-purple {
+  background-color: var(--alert-info-purple-background);
+  border-color: var(--alert-info-purple-border-color);
+  color: var(--alert-info-purple-color);
 
   .alert-link {
     color: var(--text-color-main);

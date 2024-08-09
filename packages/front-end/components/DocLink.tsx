@@ -62,6 +62,7 @@ const docSections = {
   prerequisites: "/features/prerequisites",
   statisticsSequential: "/statistics/sequential",
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
+  savedGroups: "/features/targeting#saved-groups",
 };
 
 export type DocSection = keyof typeof docSections;

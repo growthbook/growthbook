@@ -25,6 +25,10 @@
   &--is-focused {
     background-color: var(--select-hover-background) !important;
   }
+
+  .disabled {
+    color: var(--disabled-content);
+  }
 }
 
 .gb-multi-select__group,

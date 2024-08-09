@@ -34,3 +34,5 @@ properties:
     type: boolean
   remoteEvalEnabled:
     type: boolean
+  savedGroupReferencesEnabled:
+    type: boolean

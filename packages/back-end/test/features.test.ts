@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { GroupMap } from "shared/src/types";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -14,7 +15,6 @@ import { FeatureInterface, ScheduleRule } from "../types/feature";
 import { hashStrings } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
 import { ExperimentInterface } from "../types/experiment";
-import { GroupMap } from "../types/saved-group";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
@@ -47,15 +47,51 @@ describe("getParsedCondition", () => {
     groupMap.clear();
     groupMap.set("a", {
       type: "list",
+      passByReferenceOnly: true,
       values: ["0", "1"],
       attributeKey: "id_a",
     });
-    groupMap.set("b", { type: "list", values: ["2"], attributeKey: "id_b" });
-    groupMap.set("c", { type: "list", values: ["3"], attributeKey: "id_c" });
-    groupMap.set("d", { type: "list", values: ["4"], attributeKey: "id_d" });
-    groupMap.set("e", { type: "list", values: ["5"], attributeKey: "id_e" });
-    groupMap.set("f", { type: "list", values: ["6"], attributeKey: "id_f" });
-    groupMap.set("empty", { type: "list", values: [], attributeKey: "empty" });
+    groupMap.set("b", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["2"],
+      attributeKey: "id_b",
+    });
+    groupMap.set("c", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["3"],
+      attributeKey: "id_c",
+    });
+    groupMap.set("d", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["4"],
+      attributeKey: "id_d",
+    });
+    groupMap.set("e", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["5"],
+      attributeKey: "id_e",
+    });
+    groupMap.set("f", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["6"],
+      attributeKey: "id_f",
+    });
+    groupMap.set("empty", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: [],
+      attributeKey: "empty",
+    });
+    groupMap.set("legacy", {
+      type: "list",
+      values: ["0", "1"],
+      attributeKey: "id_a",
+    });
 
     // No condition or saved group
     expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
@@ -78,7 +114,7 @@ describe("getParsedCondition", () => {
         []
       )
     ).toEqual({
-      id: { $in: ["0", "1"] },
+      id: { $inGroup: "a" },
     });
 
     // Single saved group
@@ -86,7 +122,16 @@ describe("getParsedCondition", () => {
       getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
     ).toEqual({
       id_a: {
-        $in: ["0", "1"],
+        $inGroup: "a",
+      },
+    });
+
+    // Legacy saved group still uses inGroup operator (to be scrubbed later)
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["legacy"] }])
+    ).toEqual({
+      id_a: {
+        $inGroup: "legacy",
       },
     });
 
@@ -97,7 +142,7 @@ describe("getParsedCondition", () => {
         { match: "all", ids: ["g", "empty"] },
       ])
     ).toEqual({
-      id_b: { $in: ["2"] },
+      id_b: { $inGroup: "b" },
     });
 
     // Condition + a bunch of saved groups
@@ -123,12 +168,12 @@ describe("getParsedCondition", () => {
         // ALL
         {
           id_a: {
-            $in: ["0", "1"],
+            $inGroup: "a",
           },
         },
         {
           id_b: {
-            $in: ["2"],
+            $inGroup: "b",
           },
         },
         // ANY
@@ -136,12 +181,12 @@ describe("getParsedCondition", () => {
           $or: [
             {
               id_c: {
-                $in: ["3"],
+                $inGroup: "c",
               },
             },
             {
               id_d: {
-                $in: ["4"],
+                $inGroup: "d",
               },
             },
           ],
@@ -149,12 +194,12 @@ describe("getParsedCondition", () => {
         // NONE
         {
           id_e: {
-            $nin: ["5"],
+            $notInGroup: "e",
           },
         },
         {
           id_f: {
-            $nin: ["6"],
+            $notInGroup: "f",
           },
         },
       ],
@@ -182,13 +227,16 @@ describe("getParsedCondition", () => {
     });
     groupMap.set("e", {
       type: "list",
+      passByReferenceOnly: true,
     });
     groupMap.set("f", {
       type: "list",
+      passByReferenceOnly: true,
       attributeKey: "a",
     });
     groupMap.set("g", {
       type: "list",
+      passByReferenceOnly: true,
       attributeKey: "",
       values: ["a"],
     });
