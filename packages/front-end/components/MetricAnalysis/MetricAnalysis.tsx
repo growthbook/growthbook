@@ -21,7 +21,7 @@ import RunQueriesButton, {
 import useApi from "@/hooks/useApi";
 import Toggle from "@/components/Forms/Toggle";
 import DateGraph from "@/components/Metrics/DateGraph";
-import HistogramGraph from "@/components/MetricAnalysis/Histogram";
+import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import IdentifierChooser from "@/components/MetricAnalysis/IdentifierChooser";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
 import Field from "@/components/Forms/Field";
@@ -765,7 +765,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                           </div>
                           <HistogramGraph
                             data={metricAnalysis.result.histogram}
-                            userIdType={metricAnalysis.settings.userIdType}
                             formatter={formatter}
                           />
                         </div>

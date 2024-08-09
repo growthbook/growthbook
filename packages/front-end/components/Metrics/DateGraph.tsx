@@ -487,7 +487,6 @@ const DateGraph: FC<DateGraphProps> = ({
   return (
     <ParentSizeModern style={{ position: "relative" }}>
       {({ width }) => {
-
         const xMax = width - marginRight - marginLeft;
 
         const handlePointerMove = (
