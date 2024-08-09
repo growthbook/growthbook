@@ -643,14 +643,16 @@ export async function deleteExperimentSegment(
     const current = cloneDeep(previous);
     current.segment = "";
 
-    await onExperimentUpdate({
-      context,
-      oldExperiment: previous,
-      newExperiment: current,
-      bypassWebhooks: true,
-    }).catch((e) => {
+    try {
+      await onExperimentUpdate({
+        context,
+        oldExperiment: previous,
+        newExperiment: current,
+        bypassWebhooks: true,
+      });
+    } catch (e) {
       logger.error(e, "Error refreshing SDK Payload on experiment update");
-    });
+    }
   });
 }
 
@@ -972,14 +974,16 @@ export async function removeMetricFromExperiments(
   await bluebird.each(oldExperiments, async (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
-        context,
-        oldExperiment: previous,
-        newExperiment: current,
-        bypassWebhooks: true,
-      }).catch((e) => {
+      try {
+        await onExperimentUpdate({
+          context,
+          oldExperiment: previous,
+          newExperiment: current,
+          bypassWebhooks: true,
+        });
+      } catch (e) {
         logger.error(e, "Error refreshing SDK Payload on experiment update");
-      });
+      }
     }
   });
 }
@@ -1028,16 +1032,18 @@ export async function addLinkedFeatureToExperiment(
     }
   );
 
-  await onExperimentUpdate({
-    context,
-    oldExperiment: experiment,
-    newExperiment: {
-      ...experiment,
-      linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
-    },
-  }).catch((e) => {
+  try {
+    await onExperimentUpdate({
+      context,
+      oldExperiment: experiment,
+      newExperiment: {
+        ...experiment,
+        linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
+      },
+    });
+  } catch (e) {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
-  });
+  }
 }
 
 export async function removeLinkedFeatureFromExperiment(
@@ -1066,18 +1072,20 @@ export async function removeLinkedFeatureFromExperiment(
     }
   );
 
-  await onExperimentUpdate({
-    context,
-    oldExperiment: experiment,
-    newExperiment: {
-      ...experiment,
-      linkedFeatures: (experiment.linkedFeatures || []).filter(
-        (f) => f !== featureId
-      ),
-    },
-  }).catch((e) => {
+  try {
+    await onExperimentUpdate({
+      context,
+      oldExperiment: experiment,
+      newExperiment: {
+        ...experiment,
+        linkedFeatures: (experiment.linkedFeatures || []).filter(
+          (f) => f !== featureId
+        ),
+      },
+    });
+  } catch (e) {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
-  });
+  }
 }
 
 async function logAllChanges(
@@ -1088,13 +1096,16 @@ async function logAllChanges(
   await bluepbird.each(previousExperiments, async (previous) => {
     const current = applyChanges(cloneDeep(previous));
     if (!current) return;
-    await onExperimentUpdate({
-      context,
-      oldExperiment: previous,
-      newExperiment: current,
-    }).catch((e) => {
+
+    try {
+      await onExperimentUpdate({
+        context,
+        oldExperiment: previous,
+        newExperiment: current,
+      });
+    } catch (e) {
       logger.error(e, "Error refreshing SDK Payload on experiment update");
-    });
+    }
   });
 }
 

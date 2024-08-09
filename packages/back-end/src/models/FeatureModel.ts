@@ -318,9 +318,11 @@ export async function createFeature(
     );
   }
 
-  await onFeatureCreate(context, feature).catch((e) => {
+  try {
+    await onFeatureCreate(context, feature);
+  } catch (e) {
     logger.error(e, "Error refreshing SDK Payload on feature create");
-  });
+  }
 }
 
 export async function deleteFeature(
@@ -341,9 +343,11 @@ export async function deleteFeature(
     );
   }
 
-  await onFeatureDelete(context, feature).catch((e) => {
+  try {
+    await onFeatureDelete(context, feature);
+  } catch (e) {
     logger.error(e, "Error refreshing SDK Payload on feature delete");
-  });
+  }
 }
 
 /**
@@ -618,9 +622,12 @@ export async function updateFeature(
     );
   }
 
-  await onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+  try {
+    await onFeatureUpdate(context, feature, updatedFeature);
+  } catch (e) {
     logger.error(e, "Error refreshing SDK Payload on feature update");
-  });
+  }
+
   return updatedFeature;
 }
 
@@ -803,9 +810,11 @@ export async function removeTagInFeature(
       tags: (feature.tags || []).filter((t) => t !== tag),
     };
 
-    await onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+    try {
+      await onFeatureUpdate(context, feature, updatedFeature);
+    } catch (e) {
       logger.error(e, "Error refreshing SDK Payload on feature update");
-    });
+    }
   });
 }
 
@@ -826,11 +835,11 @@ export async function removeProjectFromFeatures(
       project: "",
     };
 
-    await onFeatureUpdate(context, feature, updatedFeature, project).catch(
-      (e) => {
-        logger.error(e, "Error refreshing SDK Payload on feature update");
-      }
-    );
+    try {
+      await onFeatureUpdate(context, feature, updatedFeature, project);
+    } catch (e) {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    }
   });
 }
 
