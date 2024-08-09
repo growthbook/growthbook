@@ -174,6 +174,7 @@ export default function ReportPage() {
                 method: "PUT",
                 body: JSON.stringify(value),
               });
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               mutate();
             })}
             close={() => {
@@ -236,6 +237,7 @@ export default function ReportPage() {
                   datasource?.type || null,
                   report
                 );
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 router.push(`/experiment/${report.experimentId}#results`);
               }}
             />
@@ -358,6 +360,7 @@ export default function ReportPage() {
                             datasource?.type || null,
                             res.report
                           );
+                          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                           mutate();
                           setRefreshError("");
                         } catch (e) {
@@ -395,6 +398,7 @@ export default function ReportPage() {
                           datasource?.type || null,
                           res.report
                         );
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                         mutate();
                       } catch (e) {
                         console.error(e);
@@ -524,6 +528,7 @@ export default function ReportPage() {
                     datasource?.type || null,
                     res.updatedReport
                   );
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   mutate();
                 }}
                 variations={variations}

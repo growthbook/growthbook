@@ -117,6 +117,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           method: attribute ? "PUT" : "POST",
           body: JSON.stringify(attributeObj),
         });
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         refreshOrganization();
       })}
     >

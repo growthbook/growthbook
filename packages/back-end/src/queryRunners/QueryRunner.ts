@@ -296,6 +296,7 @@ export abstract class QueryRunner<
               (q) => q.query
             )}`,
           });
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           this.onQueryFinish();
           return;
         }
@@ -330,6 +331,7 @@ export abstract class QueryRunner<
               status: "failed",
               error: `Run callbacks not found`,
             });
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             this.onQueryFinish();
           } else {
             await this.executeQuery(
@@ -506,6 +508,7 @@ export abstract class QueryRunner<
           result: process(rows),
           statistics: statistics,
         });
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         this.onQueryFinish();
       })
       .catch(async (e) => {
@@ -517,6 +520,7 @@ export abstract class QueryRunner<
           error: e.message,
         })
           .then(() => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             this.onQueryFinish();
           })
           .catch((e) => logger.error(e));
@@ -564,6 +568,7 @@ export abstract class QueryRunner<
                     query.status === "failed" ||
                     query.status === "succeeded"
                   ) {
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     this.onQueryFinish();
                   } else {
                     // Still running, check again after a delay
@@ -571,6 +576,7 @@ export abstract class QueryRunner<
                   }
                 })
                 .catch(() => {
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   this.onQueryFinish();
                 });
             };
@@ -581,6 +587,7 @@ export abstract class QueryRunner<
             logger.debug(
               "Reusing previous query for " + query + ". Already finished"
             );
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             this.onQueryFinish();
           }
           logger.debug(
@@ -621,6 +628,7 @@ export abstract class QueryRunner<
 
     logger.debug("Created new query " + doc.id + " for " + name);
     if (readyToRun) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       this.executeQuery(doc, run, process);
     } else {
       // save callback methods for execution later

@@ -166,6 +166,7 @@ export default function BaselineChooser({
               ...analysis.settings,
               baselineVariationIndex: variation.index,
             };
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             triggerAnalysisUpdate(
               newSettings,
               analysis,

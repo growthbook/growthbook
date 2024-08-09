@@ -102,6 +102,7 @@ export default function track(
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   jitsu.track(event, trackProps);
 }
 

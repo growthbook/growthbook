@@ -306,7 +306,9 @@ const MetricPage: FC = () => {
             setEditModalOpen(false);
           }}
           onSuccess={() => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutateDefinitions();
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutate();
           }}
         />
@@ -384,7 +386,9 @@ const MetricPage: FC = () => {
             await apiCall(`/metric/${metric.id}/analysis`, {
               method: "POST",
             });
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutateDefinitions({});
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutate();
           }}
           segment={metric.segment || ""}
@@ -440,7 +444,9 @@ const MetricPage: FC = () => {
                   await apiCall(`/metric/${metric.id}`, {
                     method: "DELETE",
                   });
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   mutateDefinitions({});
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   router.push("/metrics");
                 }}
                 useIcon={true}
@@ -460,7 +466,9 @@ const MetricPage: FC = () => {
                       status: newStatus,
                     }),
                   });
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   mutateDefinitions({});
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   mutate();
                 }}
               >
@@ -521,6 +529,7 @@ const MetricPage: FC = () => {
                         body: JSON.stringify(value),
                       });
                       await mutate();
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       mutateDefinitions({});
                       setEditing(false);
                     })}
@@ -569,6 +578,7 @@ const MetricPage: FC = () => {
                         }),
                       });
                       await mutate();
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       mutateDefinitions({});
                     }}
                     value={metric.description}
@@ -623,6 +633,7 @@ const MetricPage: FC = () => {
                                       method: "POST",
                                     }
                                   );
+                                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                   mutate();
                                 } catch (e) {
                                   console.error(e);

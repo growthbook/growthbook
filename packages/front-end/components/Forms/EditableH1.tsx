@@ -37,6 +37,7 @@ const EditableH1: FC<{
           cancel && cancel();
         } else if (e.key === "s" && e.ctrlKey) {
           e.preventDefault();
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           save && save();
         }
       }}

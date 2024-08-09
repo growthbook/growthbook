@@ -125,6 +125,7 @@ export function DeleteDemoDatasourceButton({
           source,
         });
         await deleteDemoDatasource(organization.id, apiCall);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         mutateDefinitions();
 
         if (project === demoProjectId) {
@@ -188,6 +189,7 @@ export const DemoDataSourcePageContainer = () => {
         );
       }
     }
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     mutateDefinitions();
   }, [apiCall, mutateDefinitions]);
 
@@ -216,6 +218,7 @@ export const DemoDataSourcePageContainer = () => {
         );
       }
     }
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     mutateDefinitions();
     if (currentProjectIsDemo) {
       setProject("");

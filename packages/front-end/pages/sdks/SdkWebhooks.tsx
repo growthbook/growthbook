@@ -122,6 +122,7 @@ export default function SdkWebhooks({
               await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
                 method: "post",
               });
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               mutate();
             }}
           >
@@ -153,6 +154,7 @@ export default function SdkWebhooks({
                     await apiCall(`/sdk-webhooks/${webhook.id}`, {
                       method: "DELETE",
                     });
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     mutate();
                   }}
                 />

@@ -213,6 +213,7 @@ async function buildImportedData(
 
   projects.map((p) => {
     // Get environments for each project
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     queue.add(async () => {
       try {
         const ldEnvs = await getLDEnvironments(apiToken, p.key);
@@ -228,6 +229,7 @@ async function buildImportedData(
     });
 
     // Get feature flags for the project
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     queue.add(async () => {
       try {
         const ldFeatures = await getLDFeatureFlags(apiToken, p.key);
@@ -251,6 +253,7 @@ async function buildImportedData(
           }
 
           importedFeatureIds.add(f.key);
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           queue.add(async () => {
             try {
               const def = await getLDFeatureFlag(apiToken, p.key, f.key);
@@ -337,6 +340,7 @@ async function runImport(
   // Import projects
   data.projects?.forEach((p) => {
     if (p.status === "pending") {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       queue.add(async () => {
         try {
           const res: { project: ProjectInterface } = await apiCall(
@@ -370,6 +374,7 @@ async function runImport(
   });
 
   // Import Environments in a single API call
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   queue.add(async () => {
     const envsToAdd: Environment[] = [];
     data.envs?.forEach((e) => {
@@ -409,6 +414,7 @@ async function runImport(
 
   data.features?.forEach((f) => {
     if (f.status === "pending") {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       queue.add(async () => {
         try {
           const projectId = projectMap.get(f.feature?.project || "");
@@ -731,8 +737,11 @@ export default function ImportFromLaunchDarkly() {
               disabled={step < 2}
               onClick={async () => {
                 await runImport(data, apiCall, (d) => setData(d));
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 mutateDefinitions();
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 mutateFeatures();
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 refreshOrganization();
               }}
             >

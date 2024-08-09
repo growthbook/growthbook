@@ -273,6 +273,7 @@ export default function RuleModal({
       <EditTargetingModal
         close={() => setShowTargetingModal(false)}
         mutate={() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           mutateExperiments();
           mutate();
         }}
@@ -440,6 +441,7 @@ export default function RuleModal({
               })),
               scheduleRules: values.scheduleRules || [],
             };
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutateExperiments();
           } else if (values.type === "experiment-ref") {
             // Validate a proper experiment was chosen and it has a value for every variation id

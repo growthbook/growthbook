@@ -85,6 +85,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   method: "PUT",
                   body: JSON.stringify(updatedAttribute),
                 });
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 refreshOrganization();
               }}
             >
@@ -110,6 +111,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   method: "DELETE",
                   body: JSON.stringify({ id: v.property }),
                 });
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 refreshOrganization();
               }}
               text="Delete"

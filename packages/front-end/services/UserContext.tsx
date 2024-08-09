@@ -220,6 +220,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
     const id = currentOrg?.organization?.id || "";
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).then((hashedOrgId) => {
       setHashedOrganizationId(hashedOrgId);
     });
@@ -289,6 +290,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     growthbook?.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
@@ -394,6 +396,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   });
   const freeSeats = currentOrg?.organization?.freeSeats || 3;
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     mutateQuote();
   }, [freeSeats, mutateQuote]);
 

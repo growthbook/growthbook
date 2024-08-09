@@ -276,7 +276,9 @@ export default function SDKConnectionPage() {
                       await apiCall(`/sdk-connections/${connection.id}`, {
                         method: "DELETE",
                       });
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       mutate();
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       router.push(`/sdks`);
                     }}
                   />

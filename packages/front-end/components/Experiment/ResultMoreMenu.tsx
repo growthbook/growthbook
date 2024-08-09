@@ -82,6 +82,7 @@ export default function ResultMoreMenu({
             className="btn dropdown-item py-2"
             onClick={(e) => {
               e.preventDefault();
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               forceRefresh();
             }}
           >

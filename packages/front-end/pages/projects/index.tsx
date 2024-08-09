@@ -88,6 +88,7 @@ const ProjectsPage: FC = () => {
                   onClick={
                     canEdit
                       ? () => {
+                          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                           router.push(`/project/${p.id}`);
                         }
                       : undefined
@@ -139,6 +140,7 @@ const ProjectsPage: FC = () => {
                             await apiCall(`/projects/${p.id}`, {
                               method: "DELETE",
                             });
+                            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                             mutateDefinitions();
                           }}
                           additionalMessage={

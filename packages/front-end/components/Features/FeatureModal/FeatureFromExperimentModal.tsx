@@ -320,6 +320,7 @@ export default function FeatureFromExperimentModal({
               : false,
             initialRule: "experiment-ref",
           });
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           refreshTags(featureToCreate.tags || []);
           refreshWatching();
         }

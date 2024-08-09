@@ -429,6 +429,7 @@ async function logFeatureUpdatedEvent(
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
@@ -473,6 +474,7 @@ async function logFeatureCreatedEvent(
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
@@ -519,6 +521,7 @@ async function logFeatureDeletedEvent(
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }

@@ -40,6 +40,7 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     navigator.locks.request(src, async () => {
       if (imageCache[src]) {
         // Images in the cache do not need to be fetched again

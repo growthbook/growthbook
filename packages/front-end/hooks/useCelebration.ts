@@ -9,6 +9,7 @@ export function startCelebration(randomness: Randomness) {
   const randomNumber = Math.floor(Math.random() * (randomness - 1)) + 1;
 
   if (randomNumber === 1) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     jsConfetti.addConfetti({
       confettiRadius: 4,
       confettiNumber: 500,

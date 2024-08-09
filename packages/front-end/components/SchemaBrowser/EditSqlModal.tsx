@@ -267,6 +267,7 @@ export default function EditSqlModal({
                         }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && e.ctrlKey) {
+                            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                             handleTestQuery();
                           }
                         }}
@@ -287,6 +288,7 @@ export default function EditSqlModal({
                         }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && e.ctrlKey) {
+                            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                             handleTestQuery();
                           }
                         }}

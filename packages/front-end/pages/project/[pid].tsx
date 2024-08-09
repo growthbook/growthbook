@@ -73,6 +73,7 @@ const ProjectPage: FC = () => {
 
     // show the user that the settings have saved:
     setSaveMsg(true);
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     mutateDefinitions();
   });
 

@@ -90,6 +90,7 @@ const DataSourcePage: FC = () => {
         JSON.stringify(d.settings?.queries) !==
           JSON.stringify(dataSource.settings?.queries);
       if (queriesUpdated) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         apiCall<{ id: string }>("/experiments/import", {
           method: "POST",
           body: JSON.stringify({
@@ -247,7 +248,9 @@ const DataSourcePage: FC = () => {
                         await apiCall(`/datasource/${d.id}`, {
                           method: "DELETE",
                         });
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                         mutateDefinitions({});
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                         router.push("/datasources");
                       }}
                     />

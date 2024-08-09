@@ -125,6 +125,7 @@ export default function SDKConnectionsList() {
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     router.push(`/sdks/${connection.id}`);
                   }}
                 >

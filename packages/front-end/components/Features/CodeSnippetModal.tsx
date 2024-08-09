@@ -136,6 +136,7 @@ export default function CodeSnippetModal({
     return (
       <CheckSDKConnectionModal
         close={() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           mutateConnections();
           setShowTestModal(false);
         }}
@@ -153,6 +154,7 @@ export default function CodeSnippetModal({
       {showTestModal && setShowTestModal && (
         <CheckSDKConnectionModal
           close={() => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutateConnections();
             setShowTestModal(false);
           }}

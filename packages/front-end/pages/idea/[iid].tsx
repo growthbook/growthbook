@@ -131,6 +131,7 @@ const IdeaPage = (): ReactElement => {
                     project,
                   }),
                 });
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 mutate();
               }}
             >
@@ -188,6 +189,7 @@ const IdeaPage = (): ReactElement => {
                         archived: !idea.archived,
                       }),
                     });
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     mutate({
                       ...data,
                       idea: {
@@ -213,6 +215,7 @@ const IdeaPage = (): ReactElement => {
                       }
                     );
 
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     push("/ideas");
                   }}
                 />
@@ -258,6 +261,7 @@ const IdeaPage = (): ReactElement => {
                     ...value,
                   },
                 });
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 refreshTags(value.tags);
                 setEdit(false);
               })}
@@ -503,6 +507,7 @@ const IdeaPage = (): ReactElement => {
                 archived: true,
               }),
             });
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             router.push(`/experiment/${id}`);
           }}
           includeDescription={!!idea.details}

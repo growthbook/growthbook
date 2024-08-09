@@ -244,6 +244,7 @@ export default function FeaturesHeader({
                           await apiCall(`/feature/${feature.id}`, {
                             method: "DELETE",
                           });
+                          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                           router.push("/features");
                         }}
                         className="dropdown-item text-danger"
@@ -433,6 +434,7 @@ export default function FeaturesHeader({
             close={() => setDuplicateModal(false)}
             onSuccess={async (feature) => {
               const url = `/features/${feature.id}`;
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               router.push(url);
             }}
             featureToDuplicate={feature}

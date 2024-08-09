@@ -26,6 +26,7 @@ const DropdownLink: FC<{
         onClick !== undefined
           ? (e) => {
               e.preventDefault();
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               onClick();
             }
           : undefined

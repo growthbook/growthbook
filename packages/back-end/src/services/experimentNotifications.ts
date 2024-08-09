@@ -58,6 +58,7 @@ const dispatchEvent = async (
 
   if (!emittedEvent) throw new Error("Error while creating event!");
 
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   new EventNotifier(emittedEvent.id).perform();
 };
 

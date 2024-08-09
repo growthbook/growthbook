@@ -66,6 +66,7 @@ export default function ExperimentReportsList({
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     router.push(`/report/${report.id}`);
                   }}
                 >
@@ -91,6 +92,7 @@ export default function ExperimentReportsList({
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     router.push(`/report/${report.id}`);
                   }}
                 >
@@ -128,6 +130,7 @@ export default function ExperimentReportsList({
                             null,
                           report
                         );
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                         mutate();
                       }}
                     />

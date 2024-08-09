@@ -21,6 +21,7 @@ const OrphanedUsersList: FC<{
 
   // Update the list of orphaned users if the number of org members changes
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     mutate();
   }, [numUsersInAccount, mutate]);
 
@@ -47,6 +48,7 @@ const OrphanedUsersList: FC<{
         <AddOrphanedUserModal
           close={() => setAddModal("")}
           mutate={() => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutate();
             mutateUsers();
           }}
@@ -90,6 +92,7 @@ const OrphanedUsersList: FC<{
                           await apiCall(`/orphaned-users/${id}/delete`, {
                             method: "POST",
                           });
+                          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                           mutate();
                         }}
                       />
@@ -104,6 +107,7 @@ const OrphanedUsersList: FC<{
                         await apiCall(`/orphaned-users/${id}/delete`, {
                           method: "POST",
                         });
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                         mutate();
                       }}
                     />

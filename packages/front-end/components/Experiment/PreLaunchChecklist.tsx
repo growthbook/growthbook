@@ -442,6 +442,7 @@ export function PreLaunchChecklist({
                               className="ml-0 pl-0 mr-2 "
                               checked={item.status === "complete"}
                               onChange={async (e) => {
+                                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                 updateTaskStatus(e.target.checked, item.key);
                               }}
                             />

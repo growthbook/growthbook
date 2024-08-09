@@ -319,10 +319,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
     refreshWatching();
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     data.tags && refreshTags(data.tags);
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       router.push(`/experiment/${res.experiment.id}`);
     }
   });

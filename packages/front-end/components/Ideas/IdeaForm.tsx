@@ -38,6 +38,7 @@ const IdeaForm: FC<{
       }
     );
     mutate();
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     refreshTags(value.tags);
   });
 

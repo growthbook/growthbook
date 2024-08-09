@@ -374,6 +374,7 @@ export default function AssignmentTester({ feature, version }: Props) {
           {hasArchetypeAccess ? (
             <ArchetypeAttributesModal
               close={async () => {
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 mutateData();
                 setOpenArchetypeModal(null);
               }}

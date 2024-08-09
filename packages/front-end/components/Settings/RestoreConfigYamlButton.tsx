@@ -251,6 +251,7 @@ export default function RestoreConfigYamlButton({
                 contents: JSON.stringify(parsed),
               }),
             });
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutateDefinitions();
             mutate();
           }}

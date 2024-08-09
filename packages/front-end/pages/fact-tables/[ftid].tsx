@@ -160,7 +160,9 @@ export default function FactTablePage() {
                   await apiCall(`/fact-tables/${factTable.id}`, {
                     method: "DELETE",
                   });
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   mutateDefinitions();
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   router.push("/fact-tables");
                 }}
               />
@@ -241,6 +243,7 @@ export default function FactTablePage() {
                 description,
               }),
             });
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutateDefinitions();
           }}
         />

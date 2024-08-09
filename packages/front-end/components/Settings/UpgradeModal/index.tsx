@@ -178,6 +178,7 @@ export default function UpgradeModal({ close, source }: Props) {
         setShowSHProTrial(false);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       refreshOrganization();
     } catch (e) {
       const txt = e.message;

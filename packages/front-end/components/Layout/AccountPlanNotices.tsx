@@ -46,6 +46,7 @@ export default function AccountPlanNotices() {
           className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
           onClick={(e) => {
             e.preventDefault();
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             router.push("/settings/billing");
           }}
         >
@@ -61,6 +62,7 @@ export default function AccountPlanNotices() {
           className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
           onClick={(e) => {
             e.preventDefault();
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             router.push("/settings/billing");
           }}
         >
@@ -323,6 +325,7 @@ export default function AccountPlanNotices() {
               className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
               onClick={(e) => {
                 e.preventDefault();
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 router.push("/settings/billing");
               }}
             >

@@ -34,7 +34,9 @@ export default function VerifyingEmailModal() {
     })
       .then(() => {
         setVerifyEmailSuccess(true);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         refreshOrganization();
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         router.replace(router.pathname, router.pathname, { shallow: true });
       })
       .catch((e) => {
@@ -57,6 +59,7 @@ export default function VerifyingEmailModal() {
   }
 
   if (showUpgradeModal) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     router.replace(router.pathname, router.pathname, { shallow: true });
     return (
       <UpgradeModal

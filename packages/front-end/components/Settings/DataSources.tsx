@@ -70,6 +70,7 @@ const DataSources: FC = () => {
                 key={i}
                 onClick={(e) => {
                   e.preventDefault();
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   router.push(`/datasources/${d.id}`);
                 }}
               >
