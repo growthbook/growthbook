@@ -46,7 +46,7 @@ describe("features events", () => {
   };
 
   it("dispatches feature.created event on feature create", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -86,10 +86,10 @@ describe("features events", () => {
       expect.objectContaining({
         eventWebHook: {
           id: "webhook-aabbcc",
-          mehod: "PUT",
+          method: "PUT",
           payloadType: "raw",
         },
-        method: "POST",
+        method: "PUT",
         payload: expect.objectContaining({
           containsSecrets: false,
           data: expect.objectContaining({
@@ -131,7 +131,7 @@ describe("features events", () => {
   });
 
   it("dispatches feature.created event on feature update", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -173,10 +173,10 @@ describe("features events", () => {
       expect.objectContaining({
         eventWebHook: {
           id: "webhook-aabbcc",
-          mehod: "PUT",
+          method: "PUT",
           payloadType: "raw",
         },
-        method: "POST",
+        method: "PUT",
         payload: expect.objectContaining({
           containsSecrets: false,
           data: expect.objectContaining({
@@ -243,7 +243,7 @@ describe("features events", () => {
   });
 
   it("dispatches feature.created event on feature deletion", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -284,10 +284,10 @@ describe("features events", () => {
       expect.objectContaining({
         eventWebHook: {
           id: "webhook-aabbcc",
-          mehod: "PUT",
+          method: "PUT",
           payloadType: "raw",
         },
-        method: "POST",
+        method: "PUT",
         payload: expect.objectContaining({
           containsSecrets: false,
           data: expect.objectContaining({

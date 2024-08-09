@@ -51,7 +51,7 @@ describe("experiments events", () => {
   };
 
   it("dispatches experiment.created event on experiment create", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -80,10 +80,10 @@ describe("experiments events", () => {
       expect.objectContaining({
         eventWebHook: {
           id: "webhook-aabbcc",
-          mehod: "PUT",
+          method: "PUT",
           payloadType: "raw",
         },
-        method: "POST",
+        method: "PUT",
         payload: expect.objectContaining({
           containsSecrets: false,
           data: expect.objectContaining({
@@ -167,7 +167,7 @@ describe("experiments events", () => {
   });
 
   it("dispatches experiment.created event on experiment update", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -197,10 +197,10 @@ describe("experiments events", () => {
       expect.objectContaining({
         eventWebHook: {
           id: "webhook-aabbcc",
-          mehod: "PUT",
+          method: "PUT",
           payloadType: "raw",
         },
-        method: "POST",
+        method: "PUT",
         payload: expect.objectContaining({
           containsSecrets: false,
           data: expect.objectContaining({
@@ -351,7 +351,7 @@ describe("experiments events", () => {
   });
 
   it("dispatches experiment.created event on experiment deletion", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -380,10 +380,10 @@ describe("experiments events", () => {
       expect.objectContaining({
         eventWebHook: {
           id: "webhook-aabbcc",
-          mehod: "PUT",
+          method: "PUT",
           payloadType: "raw",
         },
-        method: "POST",
+        method: "PUT",
         payload: expect.objectContaining({
           containsSecrets: false,
           data: expect.objectContaining({
@@ -467,7 +467,7 @@ describe("experiments events", () => {
   });
 
   it("dispatches experiment.warnings event on multiple exposures", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -500,10 +500,10 @@ describe("experiments events", () => {
     expect(EventWebHookNotifier.sendDataToWebHook).toHaveBeenCalledWith({
       eventWebHook: {
         id: "webhook-aabbcc",
-        mehod: "PUT",
+        method: "PUT",
         payloadType: "raw",
       },
-      method: "POST",
+      method: "PUT",
       payload: {
         containsSecrets: false,
         data: {
@@ -529,7 +529,7 @@ describe("experiments events", () => {
   });
 
   it("dispatches experiment.warnings event on srm", async () => {
-    const webhook = { id: "webhook-aabbcc", payloadType: "raw", mehod: "PUT" };
+    const webhook = { id: "webhook-aabbcc", payloadType: "raw", method: "PUT" };
 
     jest
       .spyOn(EventWebHookNotifier, "sendDataToWebHook")
@@ -560,8 +560,8 @@ describe("experiments events", () => {
     await flushJobs();
 
     expect(EventWebHookNotifier.sendDataToWebHook).toHaveBeenCalledWith({
-      eventWebHook: { id: "webhook-aabbcc", mehod: "PUT", payloadType: "raw" },
-      method: "POST",
+      eventWebHook: { id: "webhook-aabbcc", method: "PUT", payloadType: "raw" },
+      method: "PUT",
       payload: {
         containsSecrets: false,
         data: {
