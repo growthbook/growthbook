@@ -221,6 +221,13 @@ export function stringToBoolean(
   return defaultValue;
 }
 
+export function returnZeroIfNotFinite(x: number): number {
+  if (isFinite(x)) {
+    return x;
+  }
+  return 0;
+}
+
 // Typeguard to help with type narrowing for built-ins such as Array.prototype.filter
 export function isDefined<T>(x: T | undefined | null): x is T {
   return x !== undefined && x !== null;

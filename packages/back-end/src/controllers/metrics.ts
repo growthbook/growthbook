@@ -31,7 +31,7 @@ import {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
 } from "../types/Integration";
-import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
+import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { getUserById } from "../models/UserModel";
 import { AuditUserLoggedIn } from "../../types/audit";
 
@@ -171,7 +171,7 @@ export async function getMetricUsage(
   });
 }
 
-export async function cancelMetricAnalysis(
+export async function cancelLegacyMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
@@ -187,7 +187,7 @@ export async function cancelMetricAnalysis(
     metric.datasource
   );
 
-  const queryRunner = new MetricAnalysisQueryRunner(
+  const queryRunner = new LegacyMetricAnalysisQueryRunner(
     context,
     metric,
     integration
@@ -199,7 +199,7 @@ export async function cancelMetricAnalysis(
   });
 }
 
-export async function postMetricAnalysis(
+export async function postLegacyMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {

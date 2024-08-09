@@ -1,5 +1,5 @@
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
-
+export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 
 // Metric defaults

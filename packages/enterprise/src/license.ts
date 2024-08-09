@@ -62,7 +62,8 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "custom-markdown"
-  | "experiment-impact";
+  | "experiment-impact"
+  | "metric-populations";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -164,6 +165,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "metric-populations",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -185,6 +187,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "metric-populations",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -220,6 +223,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-roles",
     "custom-markdown",
     "experiment-impact",
+    "metric-populations",
   ]),
 };
 

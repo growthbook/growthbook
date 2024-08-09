@@ -12,7 +12,6 @@ import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,6 +32,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -321,38 +321,10 @@ export default function AnalysisSettingsSummary({
                 </div>
               </Tooltip>
             ) : (
-              <div
-                className="text-muted text-right"
-                style={{ maxWidth: 130, fontSize: "0.8em" }}
-              >
-                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                  last updated
-                  {status === "partially-succeeded" && (
-                    <Tooltip
-                      body={
-                        <span style={{ lineHeight: 1.5 }}>
-                          Some of the queries had an error. The partial results
-                          are displayed below.
-                        </span>
-                      }
-                    >
-                      <FaExclamationTriangle
-                        size={14}
-                        className="text-danger ml-1"
-                        style={{ marginTop: -4 }}
-                      />
-                    </Tooltip>
-                  )}
-                </div>
-                <div className="d-flex align-items-center">
-                  <div
-                    style={{ lineHeight: 1 }}
-                    title={datetime(snapshot?.dateCreated ?? "")}
-                  >
-                    {ago(snapshot?.dateCreated ?? "")}
-                  </div>
-                </div>
-              </div>
+              <QueriesLastRun
+                status={status}
+                dateCreated={snapshot?.dateCreated}
+              />
             ))}
         </div>
 

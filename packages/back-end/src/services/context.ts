@@ -3,6 +3,8 @@ import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { MetricAnalysisModel } from "../models/MetricAnalysisModel";
 import {
   OrganizationInterface,
   Permission,
@@ -28,10 +30,12 @@ import { DataSourceInterface } from "../../types/datasource";
 import { getExperimentsByIds } from "../models/ExperimentModel";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 import { SegmentModel } from "../models/SegmentModel";
+import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;
+  metric: ExperimentMetricInterface;
 };
 
 export class ReqContextClass {
@@ -40,6 +44,7 @@ export class ReqContextClass {
     factMetrics: FactMetricModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
+    metricAnalysis: MetricAnalysisModel;
     segments: SegmentModel;
   };
   private initModels() {
@@ -47,6 +52,7 @@ export class ReqContextClass {
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
+      metricAnalysis: new MetricAnalysisModel(this),
       segments: new SegmentModel(this),
     };
   }
@@ -193,10 +199,12 @@ export class ReqContextClass {
   public foreignRefs: ForeignRefsCache = {
     experiment: new Map(),
     datasource: new Map(),
+    metric: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
+    metric,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids)
@@ -204,6 +212,9 @@ export class ReqContextClass {
     // An org doesn't have that many data sources, so we just fetch them all
     await this.addMissingForeignRefs("datasource", datasource, () =>
       getDataSourcesByOrganization(this)
+    );
+    await this.addMissingForeignRefs("metric", metric, (ids) =>
+      getExperimentMetricsByIds(this, ids)
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

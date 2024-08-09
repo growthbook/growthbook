@@ -33,6 +33,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
+import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -234,6 +235,10 @@ export default function FactMetricPage() {
     );
   }
 
+  const datasource = factMetric.datasource
+    ? getDatasourceById(factMetric.datasource)
+    : null;
+
   return (
     <div className="pagecontents container-fluid">
       {editOpen && (
@@ -395,7 +400,7 @@ export default function FactMetricPage() {
             href={`/datasources/${factMetric.datasource}`}
             className="font-weight-bold"
           >
-            {getDatasourceById(factMetric.datasource)?.name || "Unknown"}
+            {datasource?.name || "Unknown"}
           </Link>
         </div>
       </div>
@@ -534,11 +539,6 @@ export default function FactMetricPage() {
                 </>
               )}
             </div>
-          </div>
-
-          <div className="alert alert-info">
-            Fact Metrics are brand new and are somewhat limited in functionality
-            right now. We have a lot planned here, so stay tuned!
           </div>
         </div>
         <div className="col-12 col-md-4">
@@ -737,6 +737,10 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
+
+      {!!datasource && (
+        <MetricAnalysis factMetric={factMetric} datasource={datasource} />
+      )}
     </div>
   );
 }

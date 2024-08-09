@@ -1,11 +1,15 @@
+import { z } from "zod";
+import {
+  queryPointerValidator,
+  queryStatusValidator,
+} from "../src/validators/queries";
 import { QueryLanguage } from "./datasource";
 
-export type QueryStatus =
-  | "queued"
-  | "running"
-  | "failed"
-  | "partially-succeeded"
-  | "succeeded";
+export type QueryStatus = z.infer<typeof queryStatusValidator>;
+
+export type QueryPointer = z.infer<typeof queryPointerValidator>;
+
+export type Queries = QueryPointer[];
 
 export type QueryStatistics = {
   executionDurationMs?: number;
@@ -16,13 +20,6 @@ export type QueryStatistics = {
   warehouseCachedResult?: boolean;
   partitionsUsed?: boolean;
 };
-
-export type QueryPointer = {
-  query: string;
-  status: QueryStatus;
-  name: string;
-};
-export type Queries = QueryPointer[];
 
 export type QueryType =
   | ""
