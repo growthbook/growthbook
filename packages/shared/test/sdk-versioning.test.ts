@@ -34,7 +34,7 @@ describe("getConnectionSDKCapabilities", () => {
   it("Does a versioned lookup for a single-language connection", () => {
     const capabilities = getConnectionSDKCapabilities(baseConnection);
     expect(capabilities).toContainEqual("looseUnmarshalling");
-    expect(capabilities).toContainEqual("semverTargeting");
+    expect(capabilities).not.toContainEqual("semverTargeting");
     expect(capabilities).not.toContainEqual("remoteEvaluation");
   });
 
@@ -45,9 +45,9 @@ describe("getConnectionSDKCapabilities", () => {
     };
     const capabilities = getConnectionSDKCapabilities(connection);
     expect(capabilities).toStrictEqual([
+      "semverTargeting",
       "visualEditorDragDrop",
       "remoteEval",
-      "semverTargeting",
       "visualEditorJS",
       "visualEditor",
       "bucketingV2",
