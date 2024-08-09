@@ -112,44 +112,39 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
     setHoverBin(bin);
   };
 
-  useEffect(() => {
-    if (hoverBin === null) {
-      hideTooltip();
-      return;
-    }
-    const datapoint = data[hoverBin];
-    if (!datapoint) {
-      hideTooltip();
-      return;
-    }
-    const innerWidth =
-      width - marginLeft - marginRight + width / data.length - 1;
-    const tooltipData = getTooltipDataFromDatapoint(
-      datapoint,
-      data,
-      innerWidth,
-      yScale
-    );
-    if (!tooltipData) {
-      hideTooltip();
-      return;
-    }
+  useEffect(
+    () => {
+      if (hoverBin === null) {
+        hideTooltip();
+        return;
+      }
+      const datapoint = data[hoverBin];
+      if (!datapoint) {
+        hideTooltip();
+        return;
+      }
+      const innerWidth =
+        width - marginLeft - marginRight + width / data.length - 1;
+      const tooltipData = getTooltipDataFromDatapoint(
+        datapoint,
+        data,
+        innerWidth,
+        yScale
+      );
+      if (!tooltipData) {
+        hideTooltip();
+        return;
+      }
 
-    showTooltip({
-      tooltipLeft: tooltipData.x,
-      tooltipTop: tooltipData.y,
-      tooltipData: tooltipData,
-    });
-  }, [
-    hoverBin,
-    data,
-    marginLeft,
-    marginRight,
-    width,
-    yScale,
-    showTooltip,
-    hideTooltip,
-  ]);
+      showTooltip({
+        tooltipLeft: tooltipData.x,
+        tooltipTop: tooltipData.y,
+        tooltipData: tooltipData,
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hoverBin, data, marginLeft, marginRight, width, showTooltip, hideTooltip]
+  );
 
   return (
     <ParentSizeModern style={{ position: "relative" }}>
