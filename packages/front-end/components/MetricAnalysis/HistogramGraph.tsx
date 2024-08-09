@@ -203,17 +203,19 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
             </div>
             <svg width={width} height={height}>
               <Group top={marginTop} left={marginLeft}>
-                {data.map((d, i) => (
-                  <Bar
-                    key={`bar-${i}`}
-                    x={xScale(i)}
-                    y={yScale(d.units)}
-                    height={yMax - yScale(d.units)}
-                    width={binWidth - 1}
-                    fill={hoverBin === i ? "#aaaaff" : "#8884d8"}
-                    style={{ transition: "150ms all" }}
-                  />
-                ))}
+                {binWidth
+                  ? data.map((d, i) => (
+                      <Bar
+                        key={`bar-${i}`}
+                        x={xScale(i)}
+                        y={yScale(d.units)}
+                        height={yMax - yScale(d.units)}
+                        width={binWidth - 1}
+                        fill={hoverBin === i ? "#aaaaff" : "#8884d8"}
+                        style={{ transition: "150ms all" }}
+                      />
+                    ))
+                  : null}
                 <AxisBottom
                   top={yMax}
                   scale={xScale}
