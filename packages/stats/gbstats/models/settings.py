@@ -25,6 +25,14 @@ class AnalysisSettingsForStatsEngine:
     max_dimensions: int = 20
 
 
+@dataclass
+class BanditSettingsForStatsEngine:
+    var_names: List[str]
+    var_ids: List[str]
+    decision_metric: str = ""
+    bandit_weights_seed: int = 100
+
+
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
 VarIdMap = Dict[str, int]
 
@@ -56,6 +64,7 @@ class DataForStatsEngine:
     metrics: Dict[str, MetricSettingsForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]
+    bandit_settings: Optional[BanditSettingsForStatsEngine]
 
 
 @dataclass
