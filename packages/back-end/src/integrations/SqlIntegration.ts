@@ -478,7 +478,8 @@ export default abstract class SqlIntegration
             ? `segment as (${this.getSegmentCTE(
                 params.segment,
                 baseIdType,
-                idJoinMap
+                idJoinMap,
+                params.factTableMap
               )}),`
             : ""
         }
@@ -1288,6 +1289,7 @@ export default abstract class SqlIntegration
             segment,
             baseIdType,
             idJoinMap,
+            factTableMap,
             {
               startDate: settings.startDate,
               endDate: settings.endDate,
@@ -1931,7 +1933,7 @@ export default abstract class SqlIntegration
             : ""
         }
       )
-      , __factTable as (${this.getFactTableCTE({
+      , __factTable as (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
         metrics,
@@ -3493,7 +3495,7 @@ export default abstract class SqlIntegration
     return filterValues;
   }
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
-  private getFactTableCTE({
+  private getFactMetricCTE({
     metrics,
     factTableMap,
     baseIdType,
@@ -3617,6 +3619,69 @@ export default abstract class SqlIntegration
         ),
       }
     );
+  }
+
+  // Get a Fact Table CTE for segments based on fact tables
+  private getFactSegmentCTE({
+    factTable,
+    baseIdType,
+    idJoinMap,
+    filters,
+    sqlVars,
+  }: {
+    factTable: FactTableInterface;
+    baseIdType: string;
+    idJoinMap: Record<string, string>;
+    filters?: string[];
+    sqlVars?: SQLVars;
+  }) {
+    // Determine if a join is required to match up id types
+    let join = "";
+    let userIdCol = "";
+    const userIdTypes = factTable.userIdTypes;
+    if (userIdTypes.includes(baseIdType)) {
+      userIdCol = baseIdType;
+    } else if (userIdTypes.length > 0) {
+      for (let i = 0; i < userIdTypes.length; i++) {
+        const userIdType: string = userIdTypes[i];
+        if (userIdType in idJoinMap) {
+          const metricUserIdCol = `m.${userIdType}`;
+          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
+          userIdCol = `i.${baseIdType}`;
+          break;
+        }
+      }
+    }
+
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol("m.timestamp");
+
+    const sql = factTable.sql;
+
+    const where: string[] = [];
+
+    if (filters?.length) {
+      filters.forEach((filter) => {
+        const filterObj = factTable.filters.find(
+          (factFilter) => factFilter.id === filter
+        );
+
+        if (filterObj) {
+          where.push(filterObj.value);
+        }
+      });
+    }
+
+    const baseSql = `-- Fact Table (${factTable.name})
+    SELECT
+      ${userIdCol} as ${baseIdType},
+      ${timestampDateTimeColumn} as date
+    FROM(
+        ${sql} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+      ) m
+      ${join}
+  `;
+    return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
   }
 
   private getMetricCTE({
@@ -3791,12 +3856,45 @@ export default abstract class SqlIntegration
     segment: SegmentInterface,
     baseIdType: string,
     idJoinMap: Record<string, string>,
+    factTableMap: FactTableMap,
     sqlVars?: SQLVars
   ) {
     // replace template variables
-    const segmentSql = sqlVars
-      ? compileSqlTemplate(segment.sql, sqlVars)
-      : segment.sql;
+    let segmentSql = "";
+
+    if (segment.type === "SQL") {
+      if (!segment.sql) {
+        throw new Error(
+          `Segment ${segment.name} is a SQL Segment but has no SQL value`
+        );
+      }
+      segmentSql = sqlVars
+        ? compileSqlTemplate(segment.sql, sqlVars)
+        : segment.sql;
+    } else {
+      if (!segment.factTableId) {
+        throw new Error(
+          `Segment ${segment.name} is a FACT Segment, but has no factTableId set`
+        );
+      }
+      const factTable = factTableMap.get(segment.factTableId);
+
+      if (!factTable) {
+        throw new Error(`Unknown fact table: ${segment.factTableId}`);
+      }
+
+      segmentSql = this.getFactSegmentCTE({
+        baseIdType,
+        idJoinMap,
+        factTable,
+        filters: segment.filters,
+        sqlVars,
+      });
+
+      return `-- Segment (${segment.name})
+        SELECT * FROM (\n${segmentSql}\n) s `;
+    }
+
     const dateCol = this.castUserDateCol("s.date");
 
     const userIdType = segment.userIdType || "user_id";
@@ -3825,7 +3923,6 @@ export default abstract class SqlIntegration
           ${segmentSql}
         ) s`;
     }
-
     return `-- Segment (${segment.name})
     ${segmentSql}
     `;
