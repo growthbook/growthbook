@@ -1,6 +1,7 @@
 import Cookies from "js-cookie";
 import {
   BrowserCookieStickyBucketService,
+  CacheSettings,
   Context,
   FeatureApiResponse,
   GrowthBook,
@@ -17,6 +18,7 @@ type WindowContext = Context & {
   useStickyBucketService?: "cookie" | "localStorage";
   stickyBucketPrefix?: string;
   payload?: FeatureApiResponse;
+  cacheSettings?: CacheSettings;
 };
 declare global {
   interface Window {
@@ -233,20 +235,47 @@ if (
 const gb = new GrowthBook({
   ...dataContext,
   remoteEval: !!dataContext.remoteEval,
-  trackingCallback: (e, r) => {
-    const p = { experiment_id: e.key, variation_id: r.key };
+  trackingCallback: async (e, r) => {
+    const promises: Promise<unknown>[] = [];
+    const eventParams = { experiment_id: e.key, variation_id: r.key };
 
     // GA4 - gtag
-    window.gtag && window.gtag("event", "experiment_viewed", p);
+    if (window.gtag) {
+      let gtagResolve;
+      const gtagPromise = new Promise((resolve) => {
+        gtagResolve = resolve;
+      });
+      promises.push(gtagPromise);
+      window.gtag("event", "experiment_viewed", {
+        ...eventParams,
+        event_callback: gtagResolve,
+      });
+    }
 
     // GTM - dataLayer
-    window.dataLayer &&
-      window.dataLayer.push({ event: "experiment_viewed", ...p });
+    if (window.dataLayer) {
+      let datalayerResolve;
+      const datalayerPromise = new Promise((resolve) => {
+        datalayerResolve = resolve;
+      });
+      promises.push(datalayerPromise);
+      window.dataLayer.push({
+        event: "experiment_viewed",
+        ...eventParams,
+        eventCallback: datalayerResolve,
+      });
+    }
 
     // Segment - analytics.js
-    window.analytics &&
-      window.analytics.track &&
-      window.analytics.track("Experiment Viewed", p);
+    if (window.analytics && window.analytics.track) {
+      window.analytics.track("Experiment Viewed", eventParams);
+      const segmentPromise = new Promise((resolve) =>
+        window.setTimeout(resolve, 300)
+      );
+      promises.push(segmentPromise);
+    }
+
+    await Promise.all(promises);
   },
   ...windowContext,
   attributes: getAttributes(),
@@ -266,6 +295,7 @@ gb.init({
     dataContext.noStreaming ||
     windowContext.backgroundSync === false
   ),
+  cacheSettings: windowContext.cacheSettings,
 });
 
 // Poll for URL changes and update GrowthBook
