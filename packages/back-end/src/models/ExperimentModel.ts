@@ -4,6 +4,7 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import bluebird from "bluebird";
+import { ensureAndReturn } from "../util/types";
 import {
   Changeset,
   ExperimentInterface,
@@ -971,8 +972,9 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  await bluebird.each(oldExperiments, async (changeSet) => {
-    const { previous, current } = changeSet;
+  await bluebird.each(ids, async (id) => {
+    const { previous, current } = ensureAndReturn(oldExperiments[id]);
+
     if (current && previous) {
       try {
         await onExperimentUpdate({
@@ -1093,7 +1095,7 @@ async function logAllChanges(
   previousExperiments: ExperimentInterface[],
   applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
 ) {
-  await bluepbird.each(previousExperiments, async (previous) => {
+  await bluebird.each(previousExperiments, async (previous) => {
     const current = applyChanges(cloneDeep(previous));
     if (!current) return;
 
