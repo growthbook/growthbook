@@ -6707,35 +6707,37 @@ export interface operations {
     };
   };
 }
+import { z } from "zod";
+import * as openApiValidators from "../src/validators/openapi";
 
 // Schemas
-export type ApiPaginationFields = components["schemas"]["PaginationFields"];
-export type ApiDimension = components["schemas"]["Dimension"];
-export type ApiMetric = components["schemas"]["Metric"];
-export type ApiProject = components["schemas"]["Project"];
-export type ApiEnvironment = components["schemas"]["Environment"];
-export type ApiSegment = components["schemas"]["Segment"];
-export type ApiFeature = components["schemas"]["Feature"];
-export type ApiFeatureEnvironment = components["schemas"]["FeatureEnvironment"];
-export type ApiFeatureRule = components["schemas"]["FeatureRule"];
-export type ApiFeatureDefinition = components["schemas"]["FeatureDefinition"];
-export type ApiFeatureForceRule = components["schemas"]["FeatureForceRule"];
-export type ApiFeatureRolloutRule = components["schemas"]["FeatureRolloutRule"];
-export type ApiFeatureExperimentRule = components["schemas"]["FeatureExperimentRule"];
-export type ApiFeatureExperimentRefRule = components["schemas"]["FeatureExperimentRefRule"];
-export type ApiSdkConnection = components["schemas"]["SdkConnection"];
-export type ApiExperiment = components["schemas"]["Experiment"];
-export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];
-export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAnalysisSettings"];
-export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
-export type ApiDataSource = components["schemas"]["DataSource"];
-export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
-export type ApiVisualChange = components["schemas"]["VisualChange"];
-export type ApiSavedGroup = components["schemas"]["SavedGroup"];
-export type ApiOrganization = components["schemas"]["Organization"];
-export type ApiFactTable = components["schemas"]["FactTable"];
-export type ApiFactTableFilter = components["schemas"]["FactTableFilter"];
-export type ApiFactMetric = components["schemas"]["FactMetric"];
+export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
+export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidator>;
+export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
+export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
+export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
+export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
+export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
+export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
+export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
+export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;
+export type ApiFeatureForceRule = z.infer<typeof openApiValidators.apiFeatureForceRuleValidator>;
+export type ApiFeatureRolloutRule = z.infer<typeof openApiValidators.apiFeatureRolloutRuleValidator>;
+export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatureExperimentRuleValidator>;
+export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
+export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
+export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
+export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
+export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
+export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
+export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
+export type ApiVisualChangeset = z.infer<typeof openApiValidators.apiVisualChangesetValidator>;
+export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeValidator>;
+export type ApiSavedGroup = z.infer<typeof openApiValidators.apiSavedGroupValidator>;
+export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationValidator>;
+export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
+export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
+export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];

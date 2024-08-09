@@ -137,10 +137,6 @@ export default function authenticateApiRequestMiddleware(
         project?: string | (string | undefined)[] | undefined,
         envs?: string[] | Set<string>
       ) => {
-        // Super admins have full access to every organization
-        if (req.user?.superAdmin) {
-          return;
-        }
         let checkProjects: (string | undefined)[];
         if (Array.isArray(project)) {
           checkProjects = project.length > 0 ? project : [undefined];
@@ -156,6 +152,7 @@ export default function authenticateApiRequestMiddleware(
             project: p,
             environments: envs ? [...envs] : undefined,
             teams,
+            superAdmin: req.user?.superAdmin,
           });
         }
       };
@@ -188,6 +185,7 @@ function doesUserHavePermission(
   permission: Permission,
   apiKeyPartial: Partial<ApiKeyInterface>,
   teams: TeamInterface[],
+  superAdmin: boolean | undefined,
   project?: string,
   envs?: string[]
 ): boolean {
@@ -198,7 +196,11 @@ function doesUserHavePermission(
     }
 
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(userId, org, teams);
+    const userPermissions = getUserPermissions(
+      { id: userId, superAdmin },
+      org,
+      teams
+    );
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);
@@ -214,6 +216,7 @@ type VerifyApiKeyPermissionOptions = {
   project?: string;
   environments?: string[];
   teams: TeamInterface[];
+  superAdmin: boolean | undefined;
 };
 
 /**
@@ -230,6 +233,7 @@ export function verifyApiKeyPermission({
   environments,
   project,
   teams,
+  superAdmin,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
     if (
@@ -238,6 +242,7 @@ export function verifyApiKeyPermission({
         permission,
         apiKey,
         teams,
+        superAdmin,
         project,
         environments
       )

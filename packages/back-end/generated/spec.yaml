@@ -5316,7 +5316,8 @@ components:
                 enum:
                   - simple
                   - regex
-              pattern: string
+              pattern:
+                type: string
         editorUrl:
           type: string
         experiment:
