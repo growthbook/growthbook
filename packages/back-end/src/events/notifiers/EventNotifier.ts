@@ -46,8 +46,8 @@ export class EventNotifier implements Notifier {
       throw new Error(`jobHandler -> No event for ID ${eventId}`);
     }
 
-    webHooksEventHandler(event);
-    slackEventHandler(event);
+    await webHooksEventHandler(event);
+    await slackEventHandler(event);
   }
 
   async perform() {

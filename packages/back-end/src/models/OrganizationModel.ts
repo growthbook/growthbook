@@ -470,7 +470,7 @@ export async function updateMember(
   });
 }
 
-export const customRoleValidator = z
+const customRoleValidator = z
   .object({
     id: z.string().min(2).max(64),
     description: z.string().max(100),

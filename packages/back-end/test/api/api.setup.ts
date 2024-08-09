@@ -3,9 +3,13 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import { getAuthConnection } from "../../src/services/auth";
 import authenticateApiRequestMiddleware from "../../src/middleware/authenticateApiRequestMiddleware";
 import app from "../../src/app";
+import mongoInit from "../../src/init/mongo";
+import { queueInit } from "../../src/init/queue";
+import { getAgendaInstance } from "../../src/services/queueing";
 
-jest.mock("../../src/init/queue", () => ({
-  queueInit: () => undefined,
+jest.mock("../../src/util/secrets", () => ({
+  ...jest.requireActual("../../src/util/secrets"),
+  CRON_ENABLED: 1,
 }));
 
 jest.mock("../../src/services/auth", () => ({
@@ -42,9 +46,13 @@ export const setupApp = () => {
       req.context = reqContext;
       next();
     });
+
+    await mongoInit();
+    await queueInit();
   });
 
   afterAll(async () => {
+    await getAgendaInstance().stop();
     await mongoose.connection.close();
     await mongodb.stop();
     process.env = OLD_ENV;
