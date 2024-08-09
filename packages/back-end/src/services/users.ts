@@ -14,6 +14,7 @@ import { createEvent } from "../models/EventModel";
 import { UserLoginAuditableProperties } from "../events/event-types";
 import { logger } from "../util/logger";
 import { IS_CLOUD } from "../util/secrets";
+import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
@@ -152,9 +153,12 @@ export async function trackLoginForUser({
 
   try {
     // Create a login event for all of a user's organizations
-    const eventCreatePromises = organizationIds.map((organizationId) =>
-      createEvent(organizationId, event)
-    );
+    const eventCreatePromises = organizationIds.map(async (organizationId) => {
+      const emittedEvent = await createEvent(organizationId, event);
+      if (emittedEvent) {
+        await new EventNotifier(emittedEvent.id).perform();
+      }
+    });
     await Promise.all(eventCreatePromises);
   } catch (e) {
     logger.error(e);
