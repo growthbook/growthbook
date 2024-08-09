@@ -384,7 +384,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   dateCreated={metricAnalysis?.dateCreated}
                 />
               )}
-              {["failed", "partially-succeeded"].includes(queryStatus) ? (
+              {queries.length > 0 &&
+              ["failed", "partially-succeeded"].includes(queryStatus) ? (
                 <ViewAsyncQueriesButton
                   queries={queries.map((q) => q.query)}
                   display={null}
