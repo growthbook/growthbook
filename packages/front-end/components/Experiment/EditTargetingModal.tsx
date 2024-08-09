@@ -9,10 +9,10 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
+import { getEqualWeights } from "shared/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -264,6 +264,7 @@ export default function EditTargetingModal({
       <Page display="Type of Changes">
         <div className="px-3 py-2">
           <ChangeTypeSelector
+            experiment={experiment}
             changeType={changeType}
             setChangeType={setChangeType}
           />
@@ -319,9 +320,11 @@ export default function EditTargetingModal({
 }
 
 function ChangeTypeSelector({
+  experiment,
   changeType,
   setChangeType,
 }: {
+  experiment: ExperimentInterfaceStringDates;
   changeType?: ChangeType;
   setChangeType: (changeType: ChangeType) => void;
 }) {
@@ -339,14 +342,19 @@ function ChangeTypeSelector({
       disabled: !namespaces?.length,
     },
     { label: "Traffic Percent", value: "traffic" },
-    { label: "Variation Weights", value: "weights" },
+    ...(experiment.type !== "multi-armed-bandit"
+      ? [{ label: "Variation Weights", value: "weights" }]
+      : []),
     {
-      label: (
-        <Tooltip body="Warning: When making multiple changes at the same time, it can be difficult to control for the impact of each change. The risk of introducing experimental bias increases. Proceed with caution.">
-          Advanced: multiple changes at once{" "}
-          <MdInfoOutline className="text-warning-orange" />
-        </Tooltip>
-      ),
+      label:
+        experiment.type !== "multi-armed-bandit" ? (
+          <Tooltip body="Warning: When making multiple changes at the same time, it can be difficult to control for the impact of each change. The risk of introducing experimental bias increases. Proceed with caution.">
+            Advanced: multiple changes at once{" "}
+            <MdInfoOutline className="text-warning-orange" />
+          </Tooltip>
+        ) : (
+          "Advanced: multiple changes at once"
+        ),
       value: "advanced",
     },
   ];
@@ -429,6 +437,8 @@ function TargetingForm({
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
+
+  const type = experiment.type;
 
   return (
     <div className="px-2 pt-2">
@@ -553,8 +563,9 @@ function TargetingForm({
           showPreview={false}
           disableCoverage={changeType === "weights"}
           disableVariations={changeType === "traffic"}
+          hideVariations={type === "multi-armed-bandit"}
           label={
-            changeType === "traffic"
+            changeType === "traffic" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
               : changeType === "weights"
               ? "Variation Weights"

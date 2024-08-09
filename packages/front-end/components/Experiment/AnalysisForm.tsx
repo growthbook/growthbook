@@ -1,8 +1,14 @@
 import React, { FC, useCallback, useState } from "react";
-import { UseFormReturn, useFieldArray, useForm } from "react-hook-form";
+import {
+  UseFormReturn,
+  useFieldArray,
+  useForm,
+  FormProvider,
+} from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
+  ExperimentType,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
@@ -12,6 +18,7 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -27,6 +34,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -88,6 +96,12 @@ const AnalysisForm: FC<{
     "sequential-testing"
   );
 
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+
+  const orgStickyBucketing = !!orgSettings.useStickyBucketing;
+  const usingStickyBucketing =
+    orgStickyBucketing && !experiment?.disableStickyBucketing;
+
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
@@ -123,6 +137,7 @@ const AnalysisForm: FC<{
         .toISOString()
         .substr(0, 16),
       variations: experiment.variations || [],
+      phases: experiment.phases || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
         experiment.sequentialTestingEnabled !== undefined
@@ -142,6 +157,18 @@ const AnalysisForm: FC<{
         orgSettings
       ),
       statsEngine: experiment.statsEngine,
+      type: experiment.type || "standard",
+      banditScheduleValue:
+        experiment.banditScheduleValue ??
+        scopedSettings.banditScheduleValue.value,
+      banditScheduleUnit:
+        experiment.banditScheduleUnit ??
+        scopedSettings.banditScheduleUnit.value,
+      banditBurnInValue:
+        experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
+      banditBurnInUnit:
+        experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
+      // todo: way to set `phases.0.variationWeights.${i}` to equal weights
     },
   });
 
@@ -190,6 +217,10 @@ const AnalysisForm: FC<{
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+
+  const status = experiment.status;
+  const type = form.watch("type");
+  const hasStarted = status !== "draft"; // todo: doesn't prevent switching to draft. fix?
 
   if (upgradeModal) {
     return (
@@ -240,6 +271,20 @@ const AnalysisForm: FC<{
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
+        // bandits
+        if (
+          body.type === "multi-armed-bandit" &&
+          !hasCommercialFeature("multi-armed-bandits")
+        ) {
+          throw new Error("Multi-armed bandits are a premium feature");
+        }
+        if (body.type === "multi-armed-bandit") {
+          body.statsEngine = "bayesian";
+          if ((body.goalMetrics?.length ?? 0) !== 1) {
+            throw new Error("You must select 1 goal metric");
+          }
+        }
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(body),
@@ -248,6 +293,77 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
+      <SelectField
+        label="Experiment type"
+        options={[
+          { label: "Standard", value: "standard" },
+          { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
+        ]}
+        value={
+          !hasStickyBucketFeature || !usingStickyBucketing
+            ? "standard"
+            : form.watch("type") ?? "standard"
+        }
+        onChange={(v) => {
+          if (!hasStickyBucketFeature || !usingStickyBucketing) {
+            return;
+          }
+          form.setValue("type", v as ExperimentType);
+          if (v === "multi-armed-bandit") {
+            // equal weights (set in controller)
+            // stats engine reset
+            form.setValue("statsEngine", "bayesian");
+            // 1 primary metric
+            const goalMetric = form.watch("goalMetrics")?.[0];
+            form.setValue("goalMetrics", goalMetric ? [goalMetric] : []);
+          }
+        }}
+        disabled={hasStarted}
+        sort={false}
+        formatOptionLabel={({ value, label }) => {
+          const disabled =
+            value === "multi-armed-bandit" &&
+            (!hasStickyBucketFeature || !usingStickyBucketing);
+          return (
+            <div
+              className={clsx({
+                "cursor-disabled": disabled,
+              })}
+            >
+              <PremiumTooltip
+                commercialFeature={
+                  value === "multi-armed-bandit"
+                    ? "multi-armed-bandits"
+                    : undefined
+                }
+                body={
+                  value === "multi-armed-bandit" &&
+                  !usingStickyBucketing &&
+                  hasStickyBucketFeature ? (
+                    <div>
+                      Enable Sticky Bucketing in your organization settings to
+                      run a Multi-Armed Bandit experiment.
+                    </div>
+                  ) : null
+                }
+              >
+                <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
+              </PremiumTooltip>
+            </div>
+          );
+        }}
+      />
+
+      {type === "multi-armed-bandit" && (
+        <FormProvider {...form}>
+          <BanditSettings
+            page="experiment-settings"
+            settings={scopedSettings}
+          />
+          <hr className="my-3" />
+        </FormProvider>
+      )}
+
       <SelectField
         label="Data Source"
         labelClassName="font-weight-bold"
@@ -388,7 +504,7 @@ const AnalysisForm: FC<{
           </small>
         </div>
       )}
-      {phaseObj && editDates && (
+      {!!phaseObj && editDates && (
         <div className="row">
           <div className="col">
             <Field
@@ -412,7 +528,7 @@ const AnalysisForm: FC<{
           )}
         </div>
       )}
-      {datasource && (
+      {!!datasource && type !== "multi-armed-bandit" && (
         <MetricSelector
           datasource={form.watch("datasource")}
           exposureQueryId={exposureQueryId}
@@ -447,49 +563,51 @@ const AnalysisForm: FC<{
           helpText="Only users in this segment will be included"
         />
       )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
-          label="Metric Conversion Windows"
-          labelClassName="font-weight-bold"
-          value={form.watch("skipPartialData")}
-          onChange={(value) => form.setValue("skipPartialData", value)}
-          options={[
-            {
-              label: "Include In-Progress Conversions",
-              value: "loose",
-            },
-            {
-              label: "Exclude In-Progress Conversions",
-              value: "strict",
-            },
-          ]}
-          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
-          label={
-            <AttributionModelTooltip>
-              <strong>Conversion Window Override</strong> <FaQuestionCircle />
-            </AttributionModelTooltip>
-          }
-          value={form.watch("attributionModel")}
-          onChange={(value) => {
-            const model = value as AttributionModel;
-            form.setValue("attributionModel", model);
-          }}
-          options={[
-            {
-              label: "Respect Conversion Windows",
-              value: "firstExposure",
-            },
-            {
-              label: "Ignore Conversion Windows",
-              value: "experimentDuration",
-            },
-          ]}
-        />
-      )}
+      {datasourceProperties?.separateExperimentResultQueries &&
+        type !== "multi-armed-bandit" && (
+          <SelectField
+            label="Metric Conversion Windows"
+            labelClassName="font-weight-bold"
+            value={form.watch("skipPartialData")}
+            onChange={(value) => form.setValue("skipPartialData", value)}
+            options={[
+              {
+                label: "Include In-Progress Conversions",
+                value: "loose",
+              },
+              {
+                label: "Exclude In-Progress Conversions",
+                value: "strict",
+              },
+            ]}
+            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+          />
+        )}
+      {datasourceProperties?.separateExperimentResultQueries &&
+        type !== "multi-armed-bandit" && (
+          <SelectField
+            label={
+              <AttributionModelTooltip>
+                <strong>Conversion Window Override</strong> <FaQuestionCircle />
+              </AttributionModelTooltip>
+            }
+            value={form.watch("attributionModel")}
+            onChange={(value) => {
+              const model = value as AttributionModel;
+              form.setValue("attributionModel", model);
+            }}
+            options={[
+              {
+                label: "Respect Conversion Windows",
+                value: "firstExposure",
+              },
+              {
+                label: "Ignore Conversion Windows",
+                value: "experimentDuration",
+              },
+            ]}
+          />
+        )}
       <StatsEngineSelect
         value={form.watch("statsEngine")}
         onChange={(v) => {
@@ -497,6 +615,7 @@ const AnalysisForm: FC<{
         }}
         parentSettings={scopedSettings}
         allowUndefined={true}
+        disabled={type === "multi-armed-bandit"}
       />
       {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
         "frequentist" && (
@@ -627,12 +746,16 @@ const AnalysisForm: FC<{
             setSecondaryMetrics={(secondaryMetrics) =>
               form.setValue("secondaryMetrics", secondaryMetrics)
             }
-            setGuardrailMetrics={(guardrailMetrics) =>
-              form.setValue("guardrailMetrics", guardrailMetrics)
+            setGuardrailMetrics={
+              type !== "multi-armed-bandit"
+                ? (guardrailMetrics) =>
+                    form.setValue("guardrailMetrics", guardrailMetrics)
+                : undefined
             }
+            forceSingleGoalMetric={type === "multi-armed-bandit"}
           />
 
-          {hasMetrics && (
+          {hasMetrics && type !== "multi-armed-bandit" && (
             <div className="form-group mb-2">
               <PremiumTooltip commercialFeature="override-metrics">
                 Metric Overrides (optional)

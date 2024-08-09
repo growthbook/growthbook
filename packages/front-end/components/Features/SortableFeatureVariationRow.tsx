@@ -148,6 +148,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   type="range"
                   className="w-100 mr-3"
                   disabled={!setWeight}
+                  style={{ cursor: setWeight ? "grab" : "not-allowed" }}
                 />
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field

@@ -377,12 +377,17 @@ export default function TargetingInfo({
                         </div>
                       )}
                       <div>
-                        {Math.floor(phase.coverage * 100)}% included,{" "}
-                        {formatTrafficSplit(
-                          phase.variationWeights,
-                          showDecimals ? 2 : 0
-                        )}{" "}
-                        split
+                        {Math.floor(phase.coverage * 100)}% included
+                        {experiment.type !== "multi-armed-bandit" && (
+                          <>
+                            ,{" "}
+                            {formatTrafficSplit(
+                              phase.variationWeights,
+                              showDecimals ? 2 : 0
+                            )}{" "}
+                            split
+                          </>
+                        )}
                       </div>
                     </div>
                     {(hasCoverageChanges || hasVariationWeightsChanges) && (
@@ -391,13 +396,17 @@ export default function TargetingInfo({
                           →
                         </div>
                         <div>
-                          {Math.floor((changes?.coverage ?? 1) * 100)}%
-                          included,{" "}
-                          {formatTrafficSplit(
-                            changes?.variationWeights ?? [],
-                            showDecimals ? 2 : 0
-                          )}{" "}
-                          split
+                          {Math.floor((changes?.coverage ?? 1) * 100)}% included
+                          {experiment.type !== "multi-armed-bandit" && (
+                            <>
+                              ,{" "}
+                              {formatTrafficSplit(
+                                changes?.variationWeights ?? [],
+                                showDecimals ? 2 : 0
+                              )}{" "}
+                              split
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
@@ -440,48 +449,49 @@ export default function TargetingInfo({
                     </div>
                   </div>
                 )}
-                {(!showChanges ||
-                  showFullTargetingInfo ||
-                  hasCoverageChanges ||
-                  hasVariationWeightsChanges) && (
-                  <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                    <div>
-                      <strong>Variation weights</strong>
-                    </div>
-                    <div className="d-flex">
-                      <div
-                        className={clsx("d-flex", {
-                          "text-danger font-weight-bold": hasVariationWeightsChanges,
-                        })}
-                      >
-                        {hasVariationWeightsChanges && (
-                          <div className="text-center" style={{ width: 20 }}>
-                            Δ
-                          </div>
-                        )}
-                        <div>
-                          {formatTrafficSplit(
-                            phase.variationWeights,
-                            showDecimals ? 2 : 0
-                          )}
-                        </div>
+                {experiment.type !== "multi-armed-bandit" &&
+                  (!showChanges ||
+                    showFullTargetingInfo ||
+                    hasCoverageChanges ||
+                    hasVariationWeightsChanges) && (
+                    <div className={clsx("mb-3", horizontalView && "mr-4")}>
+                      <div>
+                        <strong>Variation weights</strong>
                       </div>
-                      {hasVariationWeightsChanges && (
-                        <div className="font-weight-bold text-success d-flex ml-4">
-                          <div className="text-center" style={{ width: 20 }}>
-                            →
-                          </div>
+                      <div className="d-flex">
+                        <div
+                          className={clsx("d-flex", {
+                            "text-danger font-weight-bold": hasVariationWeightsChanges,
+                          })}
+                        >
+                          {hasVariationWeightsChanges && (
+                            <div className="text-center" style={{ width: 20 }}>
+                              Δ
+                            </div>
+                          )}
                           <div>
                             {formatTrafficSplit(
-                              changes?.variationWeights ?? [],
+                              phase.variationWeights,
                               showDecimals ? 2 : 0
                             )}
                           </div>
                         </div>
-                      )}
+                        {hasVariationWeightsChanges && (
+                          <div className="font-weight-bold text-success d-flex ml-4">
+                            <div className="text-center" style={{ width: 20 }}>
+                              →
+                            </div>
+                            <div>
+                              {formatTrafficSplit(
+                                changes?.variationWeights ?? [],
+                                showDecimals ? 2 : 0
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </>
             )}
           </div>

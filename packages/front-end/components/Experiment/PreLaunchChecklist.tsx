@@ -19,6 +19,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -67,6 +68,11 @@ export function PreLaunchChecklist({
   );
   const { data: sdkConnections } = useSDKConnections();
   const connections = sdkConnections?.connections || [];
+
+  const settings = useOrgSettings();
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const usingStickyBucketing =
+    orgStickyBucketing && !experiment.disableStickyBucketing;
 
   //Merge the GB checklist items with org's custom checklist items
   const checklist: CheckListItem[] = useMemo(() => {
@@ -221,6 +227,19 @@ export function PreLaunchChecklist({
       type: "auto",
     });
 
+    if (experiment.type === "multi-armed-bandit") {
+      items.push({
+        type: "auto",
+        status: usingStickyBucketing ? "complete" : "incomplete",
+        display: (
+          <>
+            <Link href="/settings">Enable Sticky Bucketing</Link> for your
+            organization and verify it is implemented properly in your codebase.
+          </>
+        ),
+      });
+    }
+
     items.push({
       type: "manual",
       key: "sdk-connection",
@@ -228,11 +247,11 @@ export function PreLaunchChecklist({
         ? "complete"
         : "incomplete",
       display: (
-        <div>
+        <>
           Verify your app is passing both
           <strong> attributes </strong>
-          and a <strong> trackingCallback </strong>into the GrowthBook SDK
-        </div>
+          and a <strong> trackingCallback </strong>into the GrowthBook SDK.
+        </>
       ),
     });
     items.push({
@@ -244,7 +263,7 @@ export function PreLaunchChecklist({
       display: (
         <>
           Verify your app is tracking events for all of the metrics that you
-          plan to include in the analysis
+          plan to include in the analysis.
         </>
       ),
     });
@@ -292,9 +311,11 @@ export function PreLaunchChecklist({
     experiment.project,
     experiment.tags?.length,
     experiment.variations,
+    experiment.type,
     linkedFeatures,
     openSetupTab,
     visualChangesets,
+    usingStickyBucketing,
   ]);
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {

@@ -8,9 +8,10 @@ export interface Props {
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   setGoalMetrics: (goalMetrics: string[]) => void;
-  setSecondaryMetrics: (secondaryMetrics: string[]) => void;
-  setGuardrailMetrics: (guardrailMetrics: string[]) => void;
+  setSecondaryMetrics?: (secondaryMetrics: string[]) => void;
+  setGuardrailMetrics?: (guardrailMetrics: string[]) => void;
   autoFocus?: boolean;
+  forceSingleGoalMetric?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -24,14 +25,19 @@ export default function ExperimentMetricsSelector({
   setSecondaryMetrics,
   setGuardrailMetrics,
   autoFocus = false,
+  forceSingleGoalMetric = false,
 }: Props) {
   return (
     <>
       <div className="form-group">
-        <label className="font-weight-bold mb-1">Goal Metrics</label>
+        <label className="font-weight-bold mb-1">
+          {!forceSingleGoalMetric ? "Goal Metrics" : "Goal Metric"}
+        </label>
         <div className="mb-1">
           <span className="font-italic">
-            The primary metrics you are trying to improve with this experiment.{" "}
+            {!forceSingleGoalMetric
+              ? "The primary metrics you are trying to improve with this experiment. "
+              : "Choose the goal metric that will be used to update variation weights. "}
           </span>
           <MetricsSelectorTooltip />
         </div>
@@ -43,46 +49,52 @@ export default function ExperimentMetricsSelector({
           project={project}
           autoFocus={autoFocus}
           includeFacts={true}
+          forceSingleMetric={forceSingleGoalMetric}
         />
       </div>
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Secondary Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Additional metrics to learn about experiment impacts, but not
-            primary objectives.
-          </span>
-          <MetricsSelectorTooltip />
+      {setSecondaryMetrics !== undefined && (
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">Secondary Metrics</label>
+          <div className="mb-1">
+            <span className="font-italic">
+              {!forceSingleGoalMetric
+                ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
+                : "Additional metrics to learn about experiment impacts. "}
+            </span>
+            <MetricsSelectorTooltip />
+          </div>
+          <MetricsSelector
+            selected={secondaryMetrics}
+            onChange={setSecondaryMetrics}
+            datasource={datasource}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            includeFacts={true}
+          />
         </div>
-        <MetricsSelector
-          selected={secondaryMetrics}
-          onChange={setSecondaryMetrics}
-          datasource={datasource}
-          exposureQueryId={exposureQueryId}
-          project={project}
-          includeFacts={true}
-        />
-      </div>
+      )}
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you want to monitor, but are NOT specifically trying to
-            improve.{" "}
-          </span>
-          <MetricsSelectorTooltip />
+      {setGuardrailMetrics !== undefined && (
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+          <div className="mb-1">
+            <span className="font-italic">
+              Metrics you want to monitor, but are NOT specifically trying to
+              improve.{" "}
+            </span>
+            <MetricsSelectorTooltip />
+          </div>
+          <MetricsSelector
+            selected={guardrailMetrics}
+            onChange={setGuardrailMetrics}
+            datasource={datasource}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            includeFacts={true}
+          />
         </div>
-        <MetricsSelector
-          selected={guardrailMetrics}
-          onChange={setGuardrailMetrics}
-          datasource={datasource}
-          exposureQueryId={exposureQueryId}
-          project={project}
-          includeFacts={true}
-        />
-      </div>
+      )}
     </>
   );
 }

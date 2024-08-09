@@ -7,6 +7,7 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { GiOctopus } from "react-icons/gi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -425,7 +426,14 @@ const ExperimentsPage = (): React.ReactElement => {
                           >
                             <div className="d-flex flex-column">
                               <div className="d-flex">
-                                <span className="testname">{e.name}</span>
+                                <span className="testname">
+                                  {e.type === "multi-armed-bandit" && (
+                                    <Tooltip body="This is a Multi-Armed Bandit experiment">
+                                      <GiOctopus className="mr-1" />
+                                    </Tooltip>
+                                  )}
+                                  {e.name}
+                                </span>
                                 {e.hasVisualChangesets ? (
                                   <Tooltip
                                     className="d-flex align-items-center ml-2"
@@ -516,7 +524,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.archived ? (
                             ""
                           ) : e.status === "running" && phase ? (
-                            phaseSummary(phase)
+                            phaseSummary(phase, e.type === "multi-armed-bandit")
                           ) : e.status === "stopped" && e.results ? (
                             <ResultsIndicator results={e.results} />
                           ) : (
