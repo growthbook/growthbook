@@ -1323,6 +1323,10 @@ main.main.report {
     color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
+
+    *:last-child {
+      margin-bottom: 0;
+    }
   }
 
   .premium {

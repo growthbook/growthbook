@@ -224,15 +224,16 @@ const MetricsSelector: FC<{
   );
 
   return (
-    <div>
+    <div className="position-relative">
+      {!forceSingleMetric && selected.length > 0 && (
+        <div className="position-absolute" style={{ right: 0, top: -25 }}>
+          <Tooltip body="Copy metrics" tipPosition="top" tipMinWidth="90">
+            <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
+          </Tooltip>
+        </div>
+      )}
       {selector}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+      <div className="d-flex align-items-center justify-content-end">
         <div>
           {!forceSingleMetric && Object.keys(tagCounts).length > 0 && (
             <div className="metric-from-tag text-muted form-inline mt-2">
@@ -243,9 +244,10 @@ const MetricsSelector: FC<{
                 </Tooltip>
               </span>
               <SelectField
-                placeholder="..."
-                value="..."
+                value="choose"
+                placeholder="choose"
                 className="ml-3"
+                style={{ minWidth: 100 }}
                 onChange={(v) => {
                   const newValue = new Set(selected);
                   const tag = v;
@@ -270,9 +272,6 @@ const MetricsSelector: FC<{
             </div>
           )}
         </div>
-        {!forceSingleMetric && selected.length > 0 && (
-          <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
-        )}
       </div>
     </div>
   );

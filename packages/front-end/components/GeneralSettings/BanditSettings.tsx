@@ -117,11 +117,13 @@ export default function BanditSettings({
               />
             </div>
           </div>
-          <small className="form-text text-muted">
-            How long to wait (explore) before changing variation weights.{" "}
-            {page === "org-settings" && <>If empty, uses default of 1 day.</>}
+          <div className="form-text text-muted">
+            <span className="font-italic">
+              How long to wait (explore) before changing variation weights.{" "}
+              {page === "org-settings" && <>If empty, uses default of 1 day.</>}
+            </span>
             {page === "experiment-settings" && (
-              <div className="text-muted">
+              <div className="text-muted small mt-1">
                 Default:{" "}
                 <strong>
                   {settings?.banditBurnInValue?.value ?? 1}{" "}
@@ -129,7 +131,7 @@ export default function BanditSettings({
                 </strong>
               </div>
             )}
-          </small>
+          </div>
         </div>
 
         <div>
@@ -181,12 +183,14 @@ export default function BanditSettings({
               />
             </div>
           </div>
-          <small className="form-text text-muted">
-            How often to analyze experiment results and compute new variation
-            weights.{" "}
-            {page === "org-settings" && <>If empty, uses default of 1 day.</>}
+          <div className="form-text text-muted">
+            <span className="font-italic">
+              How often to analyze experiment results and compute new variation
+              weights.{" "}
+              {page === "org-settings" && <>If empty, uses default of 1 day.</>}
+            </span>
             {page === "experiment-settings" && (
-              <div className="text-muted">
+              <div className="text-muted small mt-1">
                 Default:{" "}
                 <strong>
                   {settings?.banditScheduleValue?.value ?? 1}{" "}
@@ -194,7 +198,7 @@ export default function BanditSettings({
                 </strong>
               </div>
             )}
-          </small>
+          </div>
           {scheduleWarning ? (
             <div className="text-warning-orange mt-2">{scheduleWarning}</div>
           ) : null}
