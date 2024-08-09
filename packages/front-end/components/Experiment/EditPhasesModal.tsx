@@ -31,6 +31,7 @@ export default function EditPhasesModal({
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null
   );
+
   const { apiCall } = useAuth();
 
   if (editPhase === -1) {
