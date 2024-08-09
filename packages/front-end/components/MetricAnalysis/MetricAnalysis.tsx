@@ -636,7 +636,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                               </div>
                               <DateGraph
-                                type={"count"}
+                                type="count"
                                 method="avg"
                                 dates={metricAnalysis.result.dates.map((d) => {
                                   return {

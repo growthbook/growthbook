@@ -193,8 +193,8 @@ const DateGraph: FC<DateGraphProps> = ({
   hoverDate,
 }: DateGraphProps) => {
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
-  const displayCurrency = useCurrency();
 
+  const displayCurrency = useCurrency();
   const metricFormatter = formatter ?? getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
 
@@ -405,6 +405,7 @@ const DateGraph: FC<DateGraphProps> = ({
     height += minGraphHeight - (yMax - expHeight);
     graphHeight = minGraphHeight;
   }
+
   const xScale = useMemo(
     () =>
       scaleTime({
@@ -486,6 +487,7 @@ const DateGraph: FC<DateGraphProps> = ({
   return (
     <ParentSizeModern style={{ position: "relative" }}>
       {({ width }) => {
+
         const xMax = width - marginRight - marginLeft;
 
         const handlePointerMove = (
