@@ -1,8 +1,9 @@
-import { each, isEqual, omit, pick, uniqWith } from "lodash";
+import { isEqual, omit, pick, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import bluebird from "bluebird";
 import {
   Changeset,
   ExperimentInterface,
@@ -638,11 +639,11 @@ export async function deleteExperimentSegment(
     }
   );
 
-  exps.forEach((previous) => {
+  await bluebird.each(exps, async (previous) => {
     const current = cloneDeep(previous);
     current.segment = "";
 
-    onExperimentUpdate({
+    await onExperimentUpdate({
       context,
       oldExperiment: previous,
       newExperiment: current,
@@ -740,7 +741,7 @@ const logExperimentCreated = async (
 
   const emittedEvent = await createEvent(organization.id, payload);
   if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
+    await new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
 };
@@ -799,7 +800,7 @@ const logExperimentUpdated = async ({
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
+    await new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
 };
@@ -968,10 +969,10 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  each(oldExperiments, (changeSet) => {
+  await bluebird.each(oldExperiments, async (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      onExperimentUpdate({
+      await onExperimentUpdate({
         context,
         oldExperiment: previous,
         newExperiment: current,
@@ -1027,7 +1028,7 @@ export async function addLinkedFeatureToExperiment(
     }
   );
 
-  onExperimentUpdate({
+  await onExperimentUpdate({
     context,
     oldExperiment: experiment,
     newExperiment: {
@@ -1065,7 +1066,7 @@ export async function removeLinkedFeatureFromExperiment(
     }
   );
 
-  onExperimentUpdate({
+  await onExperimentUpdate({
     context,
     oldExperiment: experiment,
     newExperiment: {
@@ -1079,15 +1080,15 @@ export async function removeLinkedFeatureFromExperiment(
   });
 }
 
-function logAllChanges(
+async function logAllChanges(
   context: ReqContext | ApiReqContext,
   previousExperiments: ExperimentInterface[],
   applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
 ) {
-  previousExperiments.forEach((previous) => {
+  await bluepbird.each(previousExperiments, async (previous) => {
     const current = applyChanges(cloneDeep(previous));
     if (!current) return;
-    onExperimentUpdate({
+    await onExperimentUpdate({
       context,
       oldExperiment: previous,
       newExperiment: current,
@@ -1139,7 +1140,7 @@ export const logExperimentDeleted = async (
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
+    await new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
 };
