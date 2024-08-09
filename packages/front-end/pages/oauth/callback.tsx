@@ -32,9 +32,11 @@ export default function OAuthCallbackPage() {
             if (!/^\/\w*/.test(redirect)) {
               redirect = "/";
             }
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             router.replace(redirect);
           } catch (e) {
             // just redirect to the home page if there's an error
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             router.replace("/");
           }
         }

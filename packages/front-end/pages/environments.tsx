@@ -60,6 +60,7 @@ const EnvironmentsPage: FC = () => {
           existing={modalOpen}
           close={() => setModalOpen(null)}
           onSuccess={() => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             refreshOrganization();
           }}
         />
@@ -228,6 +229,7 @@ const EnvironmentsPage: FC = () => {
                                     environments: newEnvs.map((env) => env.id),
                                   }),
                                 });
+                                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                 refreshOrganization();
                               }}
                             >
@@ -248,6 +250,7 @@ const EnvironmentsPage: FC = () => {
                                     environments: newEnvs.map((env) => env.id),
                                   }),
                                 });
+                                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                 refreshOrganization();
                               }}
                             >
@@ -292,6 +295,7 @@ const EnvironmentsPage: FC = () => {
                                   },
                                 }),
                               });
+                              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                               refreshOrganization();
                             }}
                             disabled={numConnections > 0}

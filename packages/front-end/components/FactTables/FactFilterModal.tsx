@@ -109,6 +109,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           });
           track("Create Fact Filter");
         }
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         mutateDefinitions();
       })}
       secondaryCTA={

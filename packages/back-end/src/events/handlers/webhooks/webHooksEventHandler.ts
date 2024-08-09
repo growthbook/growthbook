@@ -48,6 +48,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
       eventId: event.id,
       eventWebHookId: eventWebHook.id,
     });
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     notifier.enqueue();
   });
 };

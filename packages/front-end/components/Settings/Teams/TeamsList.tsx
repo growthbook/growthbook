@@ -47,6 +47,7 @@ const TeamsList: FC = () => {
                   <tr
                     key={t.id}
                     onClick={() => {
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       router.push(`/settings/team/${t.id}`);
                     }}
                     style={{ cursor: "pointer" }}
@@ -115,6 +116,7 @@ const TeamsList: FC = () => {
                               await apiCall(`/teams/${t.id}`, {
                                 method: "DELETE",
                               });
+                              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                               refreshOrganization();
                             }}
                           />

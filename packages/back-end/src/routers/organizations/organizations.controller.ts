@@ -2059,6 +2059,7 @@ export async function putDefaultRole(
     context.permissions.throwPermissionError();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   updateOrganization(org.id, {
     settings: {
       ...org.settings,
@@ -2109,6 +2110,7 @@ export async function putGetStartedChecklistItem(
     context.permissions.throwPermissionError();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   addGetStartedChecklistItem(org.id, checklistItem);
 
   res.status(200).json({

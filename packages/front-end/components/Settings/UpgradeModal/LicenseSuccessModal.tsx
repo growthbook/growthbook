@@ -23,6 +23,7 @@ export default function LicenseSuccessModal({
       size="md"
       header={<h3>{header}</h3>}
       submit={() => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         router.push("/settings/team?just-subscribed=true");
         return Promise.resolve();
       }}

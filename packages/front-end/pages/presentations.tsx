@@ -111,6 +111,7 @@ const PresentationPage = (): React.ReactElement => {
       if (res.status === 200) {
         setDeleteLoading(false);
         setDeleteConfirmModal(false);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         mutate();
       } else {
         console.error(res);
@@ -278,6 +279,7 @@ const PresentationPage = (): React.ReactElement => {
         modalState={deleteConfirmModal}
         setModalState={setDeleteConfirmModal}
         onConfirm={() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           confirmDelete();
         }}
       />

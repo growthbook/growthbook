@@ -236,6 +236,7 @@ export default function FeatureModal({
           hasDescription: !!values.description?.length,
           initialRule: "none",
         });
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         values.tags && refreshTags(values.tags);
         refreshWatching();
 

@@ -42,6 +42,7 @@
     "eslint-config-next": "^14.1.0",
     "eslint-config-prettier": "^6.11.0",
     "eslint-import-resolver-typescript": "^3.5.1",
+    "eslint-interactive": "^10.8.0",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-no-async-foreach": "^0.1.1",
     "eslint-plugin-prettier": "^3.1.3",

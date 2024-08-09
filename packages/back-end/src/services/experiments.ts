@@ -822,6 +822,7 @@ export async function createSnapshotAnalysis(
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   addOrUpdateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
@@ -847,6 +848,7 @@ export async function createSnapshotAnalysis(
   analysis.status = "success";
   analysis.error = undefined;
 
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   updateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,

@@ -32,6 +32,7 @@ const BillingPage: FC = () => {
       if (res.status !== 200) {
         throw new Error("There was an error fetching the license");
       }
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       refreshOrganization();
     };
 
@@ -39,6 +40,7 @@ const BillingPage: FC = () => {
       const urlParams = new URLSearchParams(window.location.search);
       // TODO: Get rid of the "org" route, once all license data has been moved off the orgs
       if (urlParams.get("refreshLicense") || urlParams.get("org")) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         refreshLicense();
       }
     }

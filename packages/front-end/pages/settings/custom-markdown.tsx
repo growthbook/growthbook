@@ -66,6 +66,7 @@ const CustomMarkdown: React.FC = () => {
         settings: value,
       }),
     });
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     refreshOrganization();
 
     // show the user that the settings have saved:

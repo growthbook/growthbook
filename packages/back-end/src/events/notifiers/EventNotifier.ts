@@ -46,7 +46,9 @@ export class EventNotifier implements Notifier {
       throw new Error(`jobHandler -> No event for ID ${eventId}`);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     webHooksEventHandler(event);
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     slackEventHandler(event);
   }
 

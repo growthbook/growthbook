@@ -76,6 +76,7 @@ const CreateOrJoinOrganization: FC<{
         body: JSON.stringify({ orgId: org.id }),
       });
       track("Join Organization");
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       updateUser();
       setLoading(false);
       if (resp?.isPending) {
@@ -89,6 +90,7 @@ const CreateOrJoinOrganization: FC<{
         } catch (e) {
           console.warn("Cannot set gb-last-picked-org");
         }
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         router.push("/");
       }
     } catch (e) {
@@ -178,6 +180,7 @@ const CreateOrJoinOrganization: FC<{
                         type="button"
                         className="btn btn-lg btn-primary"
                         onClick={() => {
+                          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                           joinOrgFormSubmit(org);
                         }}
                         disabled={org.currentUserIsPending || false}
@@ -220,6 +223,7 @@ const CreateOrJoinOrganization: FC<{
                         body: JSON.stringify(value),
                       });
                       track("Create Organization");
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       updateUser();
                       setLoading(false);
                     } catch (e) {
@@ -287,6 +291,7 @@ const CreateOrJoinOrganization: FC<{
             onClick={(e) => {
               e.preventDefault();
               setLoading(true);
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               logout();
             }}
           >

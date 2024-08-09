@@ -144,6 +144,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
       setState({ type: "success", message: "Test event sucessfully sent!" });
 
       setTimeout(() => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         mutateEventLogs();
         mutateEventWebHook();
       }, 1500);
@@ -411,6 +412,7 @@ export const EventWebHookDetailContainer = ({
       method: "DELETE",
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     router.replace("/settings/webhooks");
   }, [eventWebHookId, apiCall, router]);
 

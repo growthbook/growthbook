@@ -49,6 +49,7 @@ export default function FeedbackModal({
         const data = Object.fromEntries(formData.entries());
         track("feedback", { source, ...data });
         setFormState("submitted");
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         submitCallback?.();
       }}
       formRef={formRef}

@@ -56,6 +56,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const openSampleExperiment = async () => {
     if (demoDataSourceProjectId && demoExperimentId) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       router.push(`/experiment/${demoExperimentId}`);
     } else {
       track("Create Sample Project", {
@@ -69,6 +70,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
       });
       await mutateDefinitions();
       if (res.experimentId) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         router.push(`/experiment/${res.experimentId}`);
       } else {
         throw new Error("Could not create sample experiment");
@@ -105,6 +107,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               setMetricsOpen(false);
             }}
             onSuccess={() => {
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               mutateDefinitions();
             }}
           />
@@ -201,6 +204,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     imageLeft={true}
                     onClick={(finished) => {
                       if (finished) {
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                         router.push("/datasources");
                       } else {
                         setDataSourceOpen(true);
@@ -234,6 +238,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     imageLeft={false}
                     onClick={(finished) => {
                       if (finished) {
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                         router.push("/metrics");
                       } else {
                         setMetricsOpen(true);
