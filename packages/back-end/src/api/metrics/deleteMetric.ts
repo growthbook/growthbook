@@ -1,3 +1,4 @@
+import { auditDetailsDelete } from "../../services/audit";
 import { createApiRequestHandler } from "../../util/handler";
 import { getMetricValidator } from "../../validators/openapi";
 import { getMetricById, deleteMetricById } from "../../models/MetricModel";
@@ -16,6 +17,15 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
     }
 
     await deleteMetricById(req.context, metric);
+
+    await req.audit({
+      event: "metric.delete",
+      entity: {
+        object: "metric",
+        id: req.params.id,
+      },
+      details: auditDetailsDelete(metric, {}),
+    });
 
     return {
       deletedId: req.params.id,

@@ -1,3 +1,4 @@
+import { auditDetailsCreate } from "../../services/audit";
 import { PostExperimentResponse } from "../../../types/openapi";
 import {
   createExperiment,
@@ -79,6 +80,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const experiment = await createExperiment({
       data: newExperiment,
       context: req.context,
+    });
+
+    await req.audit({
+      event: "experiment.create",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate(experiment, {}),
     });
 
     if (ownerId) {

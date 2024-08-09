@@ -1,3 +1,4 @@
+import { auditDetailsCreate } from "../../services/audit";
 import { PostMetricResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postMetricValidator } from "../../validators/openapi";
@@ -34,6 +35,15 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
     }
 
     const createdMetric = await createMetric(metric);
+
+    await req.audit({
+      event: "metric.create",
+      entity: {
+        object: "metric",
+        id: createdMetric.id,
+      },
+      details: auditDetailsCreate(metric, {}),
+    });
 
     return {
       metric: toMetricApiInterface(req.organization, createdMetric, datasource),

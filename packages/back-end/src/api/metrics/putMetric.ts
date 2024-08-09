@@ -1,3 +1,4 @@
+import { auditDetailsUpdate } from "../../services/audit";
 import { createApiRequestHandler } from "../../util/handler";
 import { getMetricById, updateMetric } from "../../models/MetricModel";
 import { PutMetricResponse } from "../../../types/openapi";
@@ -28,6 +29,17 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
     }
 
     await updateMetric(req.context, metric, updated);
+
+    if (updated.id !== undefined) {
+      await req.audit({
+        event: "metric.update",
+        entity: {
+          object: "metric",
+          id: updated.id,
+        },
+        details: auditDetailsUpdate(metric, updated, {}),
+      });
+    }
 
     return {
       updatedId: req.params.id,
