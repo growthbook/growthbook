@@ -101,6 +101,16 @@ export default function ConnectionSettings({
         />
       );
 
+    case "vertica":
+      return (
+        <PostgresForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
     case "mysql":
       return (
         <MysqlForm
