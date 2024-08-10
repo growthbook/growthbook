@@ -720,11 +720,11 @@ export class GrowthBook<
     if (result.inExperiment) {
       const changeType = getAutoExperimentChangeType(experiment);
 
-      if (changeType === "redirect") {
-        if (!experiment.urlPatterns || !result.value.urlRedirect) {
-          return result;
-        }
-
+      if (
+        changeType === "redirect" &&
+        result.value.urlRedirect &&
+        experiment.urlPatterns
+      ) {
         const url = experiment.persistQueryString
           ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
           : result.value.urlRedirect;
