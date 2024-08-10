@@ -105,7 +105,6 @@ export class GrowthBook<
   private _triggeredExpKeys: Set<string>;
   private _initialized: boolean;
   private _deferredTrackingCalls: Map<string, TrackingData>;
-  private _unsetAntiFlickerTimeout: number | undefined;
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
@@ -168,10 +167,6 @@ export class GrowthBook<
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
-    }
-
-    if (context.antiFlicker && isBrowser) {
-      this._setAntiFlicker();
     }
 
     if (context.experiments) {
@@ -726,11 +721,7 @@ export class GrowthBook<
       const changeType = getAutoExperimentChangeType(experiment);
 
       if (changeType === "redirect") {
-        if (!experiment.urlPatterns) {
-          return result;
-        }
-        if (!result.value.urlRedirect) {
-          this._unsetAntiFlicker();
+        if (!experiment.urlPatterns || !result.value.urlRedirect) {
           return result;
         }
 
@@ -1803,48 +1794,10 @@ export class GrowthBook<
       return this._ctx.navigate;
     } else if (isBrowser) {
       return (url: string) => {
-        this._setAntiFlicker();
         window.location.replace(url);
       };
     }
     return null;
-  }
-
-  private _setAntiFlicker() {
-    if (!this._ctx.disableUrlRedirectExperiments) {
-      this._unsetAntiFlicker();
-      return;
-    }
-    try {
-      window.clearTimeout(this._unsetAntiFlickerTimeout);
-
-      if (!document.getElementById("gb-anti-flicker-style")) {
-        const styleTag = document.createElement("style");
-        styleTag.setAttribute("id", "gb-anti-flicker-style");
-        styleTag.innerHTML =
-          ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
-        document.head.appendChild(styleTag);
-      }
-      document.documentElement.classList.add("gb-anti-flicker");
-
-      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds.
-      // Will be cancelled if an actual redirection begins
-      this._unsetAntiFlickerTimeout = window.setTimeout(
-        () => this._unsetAntiFlicker(),
-        this._ctx.antiFlickerTimeout ?? 3500
-      );
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  private _unsetAntiFlicker() {
-    if (!this._ctx.antiFlicker || !isBrowser) return;
-    try {
-      document.documentElement.classList.remove("gb-anti-flicker");
-    } catch (e) {
-      console.error(e);
-    }
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {

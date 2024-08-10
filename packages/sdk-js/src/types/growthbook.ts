@@ -233,7 +233,9 @@ export interface Context {
   navigate?: NavigateCallback;
   navigateDelay?: number;
   maxNavigateDelay?: number;
+  /** @deprecated */
   antiFlicker?: boolean;
+  /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
