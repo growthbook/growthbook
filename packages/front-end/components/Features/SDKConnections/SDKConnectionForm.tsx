@@ -1139,19 +1139,20 @@ export default function SDKConnectionForm({
                     body={
                       <>
                         <p>
-                          Saved Groups used in Feature and Experiment targeting
-                          will be separated from the rest of the payload to
-                          improve performance when referencing large ID Lists.
+                          Enable the creation &amp; use of ID Lists with over{" "}
+                          {SMALL_GROUP_SIZE_LIMIT} items, which are not
+                          supported by old SDK versions.
                         </p>
                         <p>
-                          This feature must be enabled in order to create lists
-                          of over {SMALL_GROUP_SIZE_LIMIT} items
+                          Ensure that your SDK implementation is up to date
+                          before enabling this feature.
                         </p>
-                        <p className="mb-0 text-warning-orange small">
-                          <FaExclamationCircle /> Ensure that your SDK client is
-                          up to date and supports{" "}
-                          <code className="d-block">savedGroupReferences</code>
-                        </p>
+                        {form.watch("remoteEvalEnabled") && (
+                          <p>
+                            You will also need to update your proxy server for
+                            remote evaluation to continue working correctly.
+                          </p>
+                        )}
                       </>
                     }
                   >
