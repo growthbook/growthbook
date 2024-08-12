@@ -114,9 +114,10 @@ export default function EditSavedGroupPage() {
     }
     return (sdkConnectionData?.connections || []).filter((connection) => {
       return (
-        !getConnectionSDKCapabilities(connection).includes(
+        (!getConnectionSDKCapabilities(connection).includes(
           "savedGroupReferences"
-        ) &&
+        ) ||
+          !connection.savedGroupReferencesEnabled) &&
         (connection.projects?.length === 0 ||
           connection.projects?.some((project) =>
             projectsReferencingSavedGroup.has(project)

@@ -30,15 +30,14 @@ export function useLargeSavedGroupSupport(
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
   (connections || []).forEach((conn) => {
-    if (!conn.sdkVersion || conn.sdkVersion === "0.0.0") {
+    if (getConnectionSDKCapabilities(conn).includes("savedGroupReferences")) {
+      if (conn.savedGroupReferencesEnabled) {
+        supportedConnections.push(conn);
+      } else {
+        unsupportedConnections.push(conn);
+      }
+    } else if (!conn.sdkVersion || conn.sdkVersion === "0.0.0") {
       unversionedConnections.push(conn);
-      return;
-    }
-    if (
-      getConnectionSDKCapabilities(conn).includes("savedGroupReferences") &&
-      conn.savedGroupReferencesEnabled
-    ) {
-      supportedConnections.push(conn);
     } else {
       unsupportedConnections.push(conn);
     }
