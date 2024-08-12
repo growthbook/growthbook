@@ -2037,7 +2037,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
-    ...(metrics ? { metrics } : {}),
+    ...(metrics ? { goalMetrics: metrics } : {}),
     ...(guardrailMetrics ? { guardrails: guardrailMetrics } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
