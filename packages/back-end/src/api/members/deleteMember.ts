@@ -17,6 +17,12 @@ export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
       throw new Error("Could not find user with that ID");
     }
 
+    if (orgUser.managedByIdp) {
+      throw new Error(
+        "This user is managed via an External Identity Provider (IDP) via SCIM 2.0 - User can only be updated via the IDP"
+      );
+    }
+
     try {
       await removeUserFromOrg(req.context.org, orgUser);
 

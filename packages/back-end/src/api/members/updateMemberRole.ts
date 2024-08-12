@@ -15,6 +15,19 @@ export const updateMemberRole = createApiRequestHandler(
       req.context.permissions.throwPermissionError();
     }
 
+    const orgUser = req.context.org.members.find(
+      (member) => member.id === req.params.id
+    );
+
+    if (!orgUser) {
+      throw new Error("Could not find user with that ID");
+    }
+
+    if (orgUser.managedByIdp) {
+      throw new Error(
+        "This user is managed via an External Identity Provider (IDP) via SCIM 2.0 - User can only be updated via the IDP"
+      );
+    }
     const { globalRole, environments } = req.body;
 
     // validate the role
@@ -23,7 +36,6 @@ export const updateMemberRole = createApiRequestHandler(
         throw new Error(`${globalRole} is not a valid role`);
       }
     }
-    //MKTODO: Block updating if this user is being managed externally via an IDP
 
     // validate the environments
     if (environments?.length) {
@@ -36,14 +48,6 @@ export const updateMemberRole = createApiRequestHandler(
           );
         }
       });
-    }
-
-    const orgUser = req.context.org.members.find(
-      (member) => member.id === req.params.id
-    );
-
-    if (!orgUser) {
-      throw new Error("Could not find user with that ID");
     }
 
     const updates: Member = { ...orgUser, role: globalRole || orgUser.role };
