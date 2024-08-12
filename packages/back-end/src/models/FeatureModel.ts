@@ -140,7 +140,7 @@ featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
-const FeatureModel = mongoose.model<LegacyFeatureInterface>(
+export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
   featureSchema
 );
@@ -459,7 +459,7 @@ export const createFeatureEvent = async <
  * @param previous
  * @param current
  */
-const logFeatureUpdatedEvent = async (
+export const logFeatureUpdatedEvent = async (
   context: ReqContext | ApiReqContext,
   previous: FeatureInterface,
   current: FeatureInterface
@@ -478,7 +478,7 @@ const logFeatureUpdatedEvent = async (
  * @param feature
  * @returns event.id
  */
-const logFeatureCreatedEvent = async (
+export const logFeatureCreatedEvent = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface
 ) =>
@@ -494,7 +494,7 @@ const logFeatureCreatedEvent = async (
  * @param organization
  * @param previousFeature
  */
-const logFeatureDeletedEvent = async (
+export const logFeatureDeletedEvent = async (
   context: ReqContext | ApiReqContext,
   previousFeature: FeatureInterface
 ) =>

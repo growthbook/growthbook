@@ -122,7 +122,7 @@ const toInterface = <T, V>(
     ["__v", "_id"]
   ) as BaseEventInterface<T, V>;
 
-const EventModel = mongoose.model<BaseEventInterface<unknown, unknown>>(
+export const EventModel = mongoose.model<BaseEventInterface<unknown, unknown>>(
   "Event",
   eventSchema
 );
@@ -208,13 +208,13 @@ const diffData = <
       Payload
     >;
 
-  const { object, previous_object } = data as {
+  const { object, previous_object, ...remainingData } = data as {
     object: Record<string, unknown>;
     previous_object: Record<string, unknown>;
   };
 
   return ({
-    ...data,
+    ...remainingData,
     object,
     previous_attributes: [
       ...new Set([

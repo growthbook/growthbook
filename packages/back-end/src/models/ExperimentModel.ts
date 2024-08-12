@@ -704,7 +704,7 @@ const findExperiment = async ({
  * @param experiment
  * @return event.id
  */
-const logExperimentCreated = async (
+export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ) => {
@@ -735,7 +735,7 @@ const logExperimentCreated = async (
  * @param current
  * @return previous
  */
-const logExperimentUpdated = async ({
+export const logExperimentUpdated = async ({
   context,
   current,
   previous,

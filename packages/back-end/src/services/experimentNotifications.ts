@@ -41,7 +41,7 @@ const dispatchEvent = async (
     event: "warning",
     object: "experiment",
     data: { object: data },
-    projects: [experiment.project || ""],
+    projects: experiment.project ? [experiment.project] : [],
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
@@ -104,7 +104,7 @@ export const notifyAutoUpdate = ({
 
 export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
 
-const notifyMultipleExposures = async ({
+export const notifyMultipleExposures = async ({
   context,
   experiment,
   results,
@@ -147,7 +147,7 @@ const notifyMultipleExposures = async ({
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
-const notifySrm = async ({
+export const notifySrm = async ({
   context,
   experiment,
   results,
