@@ -2788,8 +2788,8 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/members/user_abc123 \
-              -d '{"globalRole": "experimenter"}' \
+            curl -X POST https://api.growthbook.io/api/v1/members/user_abc123/role \
+              -d '{"role": "experimenter", "environments": ["staging"], ...}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true

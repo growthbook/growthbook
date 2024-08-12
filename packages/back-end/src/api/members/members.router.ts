@@ -12,7 +12,7 @@ const router = Router();
 // Mounted at /api/v1/members
 router.get("/", listMembers);
 router.get("/:id", getMember);
-router.post("/:id", updateMemberRole);
+router.post("/:id/role", updateMemberRole);
 router.delete("/:id", deleteMember);
 
 export default router;
