@@ -34,7 +34,7 @@ import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
 import { ResourceEvents } from "../events/base-types";
 import {
   createEvent,
-  hasPreviousAttributes,
+  hasPreviousObject,
   CreateEventData,
   CreateEventParams,
 } from "./EventModel";
@@ -395,9 +395,7 @@ export const createFeatureEvent = async <
       revision: currentRevision,
     });
 
-    if (
-      !hasPreviousAttributes<"feature", Event, FeatureInterface>(eventData.data)
-    )
+    if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
       return {
         ...eventData,
         object: "feature",
@@ -411,13 +409,13 @@ export const createFeatureEvent = async <
       } as CreateEventParams<"feature", Event>;
 
     const previousRevision = await getRevision(
-      eventData.data.previous_attributes.organization,
-      eventData.data.previous_attributes.id,
-      eventData.data.previous_attributes.version
+      eventData.data.previous_object.organization,
+      eventData.data.previous_object.id,
+      eventData.data.previous_object.version
     );
 
     const previousApiFeature = getApiFeatureObj({
-      feature: eventData.data.previous_attributes,
+      feature: eventData.data.previous_object,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
@@ -429,8 +427,8 @@ export const createFeatureEvent = async <
       object: "feature",
       data: {
         object: currentApiFeature,
-        previous_attributes: getApiFeatureObj({
-          feature: eventData.data.previous_attributes,
+        previous_object: getApiFeatureObj({
+          feature: eventData.data.previous_object,
           organization: eventData.context.org,
           groupMap,
           experimentMap,
@@ -471,7 +469,7 @@ const logFeatureUpdatedEvent = async (
     event: "updated",
     data: {
       object: current,
-      previous_attributes: previous,
+      previous_object: previous,
     },
   });
 

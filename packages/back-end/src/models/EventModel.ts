@@ -7,6 +7,7 @@ import {
   zodNotificationEventNamesEnum,
   zodNotificationEventResources,
   NotificationEventResource,
+  NotificationEvents,
   ResourceEvents,
   NotificationEventPayloadSchemaType,
   NotificationEventPayloadDataType,
@@ -169,9 +170,19 @@ export type CreateEventData<
   Resource extends NotificationEventResource,
   Event extends ResourceEvents<Resource>,
   Payload = NotificationEventPayloadSchemaType<Resource, Event>
-> = NotificationEventPayloadDataType<Resource, Event, Payload, Payload>;
+> = NotificationEvents[Resource][Event] extends {
+  isDiff: true;
+}
+  ? {
+      object: Payload;
+      previous_object: Payload;
+    } & NotificationEventPayloadExtraAttributes<Resource, Event>
+  : { object: Payload } & NotificationEventPayloadExtraAttributes<
+      Resource,
+      Event
+    >;
 
-export const hasPreviousAttributes = <
+export const hasPreviousObject = <
   Resource extends NotificationEventResource,
   Event extends ResourceEvents<Resource>,
   Payload = NotificationEventPayloadSchemaType<Resource, Event>
@@ -179,9 +190,9 @@ export const hasPreviousAttributes = <
   data: CreateEventData<Resource, Event, Payload>
 ): data is {
   object: Payload;
-  previous_attributes: Payload;
+  previous_object: Payload;
 } & NotificationEventPayloadExtraAttributes<Resource, Event> =>
-  Object.keys(data).includes("previous_attributes");
+  Object.keys(data).includes("previous_object");
 
 const diffData = <
   Resource extends NotificationEventResource,
@@ -190,26 +201,32 @@ const diffData = <
 >(
   data: CreateEventData<Resource, Event, Payload>
 ): NotificationEventPayloadDataType<Resource, Event, Payload> => {
-  if (!hasPreviousAttributes(data)) return data;
+  if (!hasPreviousObject(data))
+    return (data as unknown) as NotificationEventPayloadDataType<
+      Resource,
+      Event,
+      Payload
+    >;
 
-  const { object, previous_attributes } = data as {
+  const { object, previous_object } = data as {
     object: Record<string, unknown>;
-    previous_attributes: Record<string, unknown>;
+    previous_object: Record<string, unknown>;
   };
 
   return ({
+    ...data,
     object,
     previous_attributes: [
       ...new Set([
         ...Object.keys(object),
-        ...Object.keys(previous_attributes as object),
+        ...Object.keys(previous_object as object),
       ]),
     ].reduce(
       (diff, key) => ({
         ...diff,
-        ...(isEqual(object[key], previous_attributes[key])
+        ...(isEqual(object[key], previous_object[key])
           ? {}
-          : { [key]: previous_attributes[key] }),
+          : { [key]: previous_object[key] }),
       }),
       {}
     ),

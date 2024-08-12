@@ -772,7 +772,7 @@ const logExperimentUpdated = async ({
     event: "updated",
     data: {
       object: currentApiExperiment,
-      previous_attributes: previousApiExperiment,
+      previous_object: previousApiExperiment,
     },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project])
