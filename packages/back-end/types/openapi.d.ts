@@ -411,9 +411,13 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
-      query: string;
+      query?: string;
       dateCreated: string;
       dateUpdated: string;
+      /** @enum {unknown} */
+      type?: "SQL" | "FACT";
+      factTableId?: string;
+      filters?: (string)[];
     };
     Feature: {
       id: string;
@@ -2906,18 +2910,22 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             segments: ({
                 id: string;
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
                 name: string;
-                query: string;
+                query?: string;
                 dateCreated: string;
                 dateUpdated: string;
+                /** @enum {unknown} */
+                type?: "SQL" | "FACT";
+                factTableId?: string;
+                filters?: (string)[];
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -2941,9 +2949,13 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
-              query: string;
+              query?: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @enum {unknown} */
+              type?: "SQL" | "FACT";
+              factTableId?: string;
+              filters?: (string)[];
             };
           };
         };

@@ -4,6 +4,7 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import bluebird from "bluebird";
+import { v4 as uuidv4 } from "uuid";
 import { ensureAndReturn } from "../util/types";
 import {
   Changeset,
@@ -389,6 +390,15 @@ export async function createExperiment({
     id: uniqid("exp_"),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
+    //set the default phase seed to uuid
+    phases: data.phases
+      ? data.phases.map(({ ...phase }) => {
+          return {
+            ...phase,
+            seed: phase.seed || uuidv4(),
+          };
+        })
+      : [],
     dateCreated: new Date(),
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,
