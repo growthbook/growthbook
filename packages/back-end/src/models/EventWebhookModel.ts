@@ -169,7 +169,7 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => ({
   ...omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]),
-  method: doc.method || "GET",
+  method: doc.method || "POST",
   payloadType: doc.payloadType || "raw",
   headers: doc.headers || {},
   projects: doc.projects || [],
