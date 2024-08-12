@@ -465,9 +465,7 @@ function TargetingForm({
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
               }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
+              helpText={"The globally unique tracking key for the experiment"}
             />
             <FallbackAttributeSelector
               form={form}
