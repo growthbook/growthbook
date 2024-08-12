@@ -1,11 +1,63 @@
 import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
+import { orgHasPremiumFeature } from "enterprise";
 import { updateOrganization } from "../../models/OrganizationModel";
 import { auditDetailsUpdate } from "../../services/audit";
 import { UpdateMemberRoleResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateMemberRoleValidator } from "../../validators/openapi";
-import { Member } from "../../../types/organization";
+import { Member, OrganizationInterface } from "../../../types/organization";
+
+function validateRoleAndEnvs(
+  org: OrganizationInterface,
+  role: string,
+  environments?: string[]
+): { memberIsValid: boolean; reason: string } {
+  try {
+    if (!isRoleValid(role, org)) {
+      throw new Error(`${role}) is not a valid role`);
+    }
+
+    if (role === "noaccess" && !orgHasPremiumFeature(org, "no-access-role")) {
+      throw new Error(
+        "Must have a commercial License Key to gain access to the no-access role."
+      );
+    }
+
+    if (environments?.length) {
+      if (!orgHasPremiumFeature(org, "advanced-permissions")) {
+        throw new Error(
+          "Must have a commercial License Key to restrict permissions by environment."
+        );
+      }
+      environments.forEach((env) => {
+        const environmentIds =
+          org.settings?.environments?.map((e) => e.id) || [];
+        if (!environmentIds.includes(env)) {
+          throw new Error(
+            `${env} is not a valid environment ID for this organization.`
+          );
+        }
+      });
+
+      if (!roleSupportsEnvLimit(role, org)) {
+        throw new Error(
+          `${role} does not support restricting access to certain environments`
+        );
+      }
+    }
+  } catch (e) {
+    return {
+      memberIsValid: false,
+      reason: e.message || "Role information is not valid",
+    };
+  }
+
+  return {
+    memberIsValid: true,
+    reason: "",
+  };
+}
 
 export const updateMemberRole = createApiRequestHandler(
   updateMemberRoleValidator
@@ -28,40 +80,43 @@ export const updateMemberRole = createApiRequestHandler(
         "This user is managed via an External Identity Provider (IDP) via SCIM 2.0 - User can only be updated via the IDP"
       );
     }
-    const { globalRole, environments } = req.body;
 
-    // validate the role
-    if (globalRole) {
-      if (!isRoleValid(globalRole, req.context.org)) {
-        throw new Error(`${globalRole} is not a valid role`);
-      }
+    const { member } = req.body;
+
+    const updatedEnvironments = member.environments || orgUser.environments;
+
+    const updatedMember: Member = {
+      ...orgUser,
+      role: member.role || orgUser.role,
+      environments: updatedEnvironments,
+      limitAccessByEnvironment: !!updatedEnvironments.length,
+      projectRoles: member.projectRoles || orgUser.projectRoles,
+    };
+
+    // First, check the global role data
+    const { memberIsValid, reason } = validateRoleAndEnvs(
+      req.context.org,
+      updatedMember.role,
+      updatedMember.environments
+    );
+
+    if (!memberIsValid) {
+      throw new Error(reason);
     }
 
-    // validate the environments
-    if (environments?.length) {
-      environments.forEach((env) => {
-        const environmentIds =
-          req.context.org.settings?.environments?.map((e) => e.id) || [];
-        if (!environmentIds.includes(env)) {
-          throw new Error(
-            `${env} is not a valid environment ID for this organization.`
-          );
+    // Then, if member.projectRoles was passed in, we need to validate the each projectRole
+    if (member.projectRoles?.length) {
+      updatedMember.projectRoles?.forEach((updatedProjectRole) => {
+        const { memberIsValid, reason } = validateRoleAndEnvs(
+          req.context.org,
+          updatedProjectRole.role,
+          updatedProjectRole.environments
+        );
+
+        if (!memberIsValid) {
+          throw new Error(reason);
         }
       });
-    }
-
-    const updates: Member = { ...orgUser, role: globalRole || orgUser.role };
-
-    // update envs if new role supports it and envs are passed in
-    if (roleSupportsEnvLimit(updates.role, req.context.org) && !!environments) {
-      updates.environments = environments;
-      updates.limitAccessByEnvironment = !!environments.length;
-    }
-
-    // if role doesn't support envs, ensure we update it accordingly
-    if (!roleSupportsEnvLimit(updates.role, req.context.org)) {
-      updates.environments = [];
-      updates.limitAccessByEnvironment = false;
     }
 
     try {
@@ -75,7 +130,7 @@ export const updateMemberRole = createApiRequestHandler(
         throw new Error("User not found in organization");
       }
 
-      updatedOrgMembers[userIndex] = updates;
+      updatedOrgMembers[userIndex] = updatedMember;
 
       await updateOrganization(req.context.org.id, {
         members: updatedOrgMembers,
@@ -87,16 +142,20 @@ export const updateMemberRole = createApiRequestHandler(
           object: "user",
           id: orgUser.id,
         },
-        details: auditDetailsUpdate(orgUser, { ...orgUser, role: globalRole }),
+        details: auditDetailsUpdate(orgUser, updatedMember),
       });
     } catch (e) {
       throw new Error(`Unable to update the user's role: ${e.message}`);
     }
 
     return {
-      globalRole: updates.role,
-      environments: updates.environments,
-      limitAccessByEnvironment: updates.limitAccessByEnvironment,
+      updatedMember: {
+        id: req.params.id,
+        role: updatedMember.role,
+        environments: updatedMember.environments,
+        limitAccessByEnvironment: updatedMember.limitAccessByEnvironment,
+        projectRoles: updatedMember.projectRoles,
+      },
     };
   }
 );

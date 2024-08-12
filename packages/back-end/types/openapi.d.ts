@@ -1433,6 +1433,7 @@ export interface components {
       globalRole: string;
       environments?: (string)[];
       limitAccessByEnvironment?: boolean;
+      managedbyIdp?: boolean;
       teams?: (string)[];
       projectRoles?: ({
           project: string;
@@ -5461,6 +5462,7 @@ export interface operations {
                 globalRole: string;
                 environments?: (string)[];
                 limitAccessByEnvironment?: boolean;
+                managedbyIdp?: boolean;
                 teams?: (string)[];
                 projectRoles?: ({
                     project: string;
@@ -5506,6 +5508,7 @@ export interface operations {
               globalRole: string;
               environments?: (string)[];
               limitAccessByEnvironment?: boolean;
+              managedbyIdp?: boolean;
               teams?: (string)[];
               projectRoles?: ({
                   project: string;
@@ -5536,9 +5539,16 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description The name of the global role. This can be one of GrowthBook's standard roles - read-only, collaborator, engineer, analyst, experimenter, or admin. Enterprise organizations who have defined custom roles can also specify the name of a custom role here. */
-          globalRole?: string;
-          environments?: (string)[];
+          member: {
+            role?: string;
+            environments?: (string)[];
+            projectRoles?: ({
+                project: string;
+                role: string;
+                limitAccessByEnvironment: boolean;
+                environments: (string)[];
+              })[];
+          };
         };
       };
     };
@@ -5546,9 +5556,18 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            globalRole?: string;
-            environments?: (string)[];
-            limitAccessByEnvironment?: boolean;
+            updatedMember: {
+              id: string;
+              role: string;
+              environments: (string)[];
+              limitAccessByEnvironment: boolean;
+              projectRoles?: ({
+                  project: string;
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                })[];
+            };
           };
         };
       };

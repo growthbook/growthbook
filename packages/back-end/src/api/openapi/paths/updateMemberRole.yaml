@@ -8,7 +8,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/members/user_abc123 \
-        -d '{"globalRole": "experimenter"}' \
+        -d '{"role": "experimenter", "environments": ["staging"], ...}' \
         -u secret_abc123DEF456:
 requestBody:
   required: true
@@ -22,12 +22,44 @@ responses:
       application/json:
         schema:
           type: object
+          required:
+            - updatedMember
           properties:
-            globalRole:
-              type: string
-            environments:
-              type: array
-              items:
-                type: string
-            limitAccessByEnvironment:
-              type: boolean
+            updatedMember:
+              type: object
+              required:
+                - id
+                - role
+                - environments
+                - limitAccessByEnvironment
+              properties:
+                id:
+                  type: string
+                role:
+                  type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                limitAccessByEnvironment:
+                  type: boolean
+                projectRoles:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - project
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                    properties:
+                      project:
+                        type: string
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
