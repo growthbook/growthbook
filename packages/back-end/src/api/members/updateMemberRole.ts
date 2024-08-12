@@ -2,13 +2,15 @@ import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
 import { updateOrganization } from "../../models/OrganizationModel";
 import { auditDetailsUpdate } from "../../services/audit";
-import { PutMemberRoleResponse } from "../../../types/openapi";
+import { UpdateMemberRoleResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
-import { putMemberRoleValidator } from "../../validators/openapi";
+import { updateMemberRoleValidator } from "../../validators/openapi";
 import { Member } from "../../../types/organization";
 
-export const putMemberRole = createApiRequestHandler(putMemberRoleValidator)(
-  async (req): Promise<PutMemberRoleResponse> => {
+export const updateMemberRole = createApiRequestHandler(
+  updateMemberRoleValidator
+)(
+  async (req): Promise<UpdateMemberRoleResponse> => {
     if (!req.context.permissions.canManageTeam()) {
       req.context.permissions.throwPermissionError();
     }
@@ -21,6 +23,7 @@ export const putMemberRole = createApiRequestHandler(putMemberRoleValidator)(
         throw new Error(`${globalRole} is not a valid role`);
       }
     }
+    //MKTODO: Block updating if this user is being managed externally via an IDP
 
     // validate the environments
     if (environments?.length) {

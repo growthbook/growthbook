@@ -2778,17 +2778,17 @@ paths:
                 properties:
                   member:
                     $ref: '#/components/schemas/Member'
-    put:
+    post:
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
         - members
       summary: Update a member's global role by ID
-      operationId: putMemberRole
+      operationId: updateMemberRole
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -XPUT https://api.growthbook.io/api/v1/members/user@team.com \
+            curl -X POST https://api.growthbook.io/api/v1/members/user_abc123 \
               -d '{"globalRole": "experimenter"}' \
               -u secret_abc123DEF456:
       requestBody:

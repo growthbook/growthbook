@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getMember } from "./getMember";
 import { listMembers } from "./listMembers";
-import { putMemberRole } from "./putMemberRole";
+import { updateMemberRole } from "./updateMemberRole";
 import { deleteMember } from "./deleteMember";
 
 const router = Router();
@@ -12,7 +12,7 @@ const router = Router();
 // Mounted at /api/v1/members
 router.get("/", listMembers);
 router.get("/:id", getMember);
-router.put("/:id", putMemberRole);
+router.post("/:id", updateMemberRole);
 router.delete("/:id", deleteMember);
 
 export default router;
