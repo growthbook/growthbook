@@ -41,7 +41,7 @@ describe("getAllEventWebHooksForEvent", () => {
           projects: [],
           tags: [],
           headers: {},
-          method: "GET",
+          method: "POST",
           payloadType: "raw",
         },
       ]);
@@ -85,7 +85,7 @@ describe("getAllEventWebHooksForEvent", () => {
           projects: [],
           tags: [],
           headers: {},
-          method: "GET",
+          method: "POST",
           payloadType: "raw",
         },
         {
@@ -94,7 +94,7 @@ describe("getAllEventWebHooksForEvent", () => {
           projects: ["event project"],
           tags: [],
           headers: {},
-          method: "GET",
+          method: "POST",
           payloadType: "raw",
         },
       ]);
