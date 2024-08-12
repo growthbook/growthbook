@@ -219,12 +219,11 @@ paths:
     get:
       $ref: "./paths/listMembers.yaml"
   /members/{id}:
-    get:
-      $ref: "./paths/getMember.yaml"
-    post:
-      $ref: "./paths/updateMemberRole.yaml"
     delete:
       $ref: "./paths/deleteMember.yaml"
+  /members/{id}/role:
+    post:
+      $ref: "./paths/updateMemberRole.yaml"
   /environments:
     get:
       $ref: "./paths/listEnvironments.yaml"

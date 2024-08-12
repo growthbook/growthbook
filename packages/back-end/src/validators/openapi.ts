@@ -338,7 +338,7 @@ export const listMembersValidator = {
   paramsSchema: z.never(),
 };
 
-export const getMemberValidator = {
+export const deleteMemberValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
@@ -346,12 +346,6 @@ export const getMemberValidator = {
 
 export const updateMemberRoleValidator = {
   bodySchema: z.object({ "member": z.object({ "role": z.string().optional(), "environments": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional() }) }).strict(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
-};
-
-export const deleteMemberValidator = {
-  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

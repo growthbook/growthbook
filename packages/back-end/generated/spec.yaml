@@ -2755,17 +2755,17 @@ paths:
                           $ref: '#/components/schemas/Member'
                   - $ref: '#/components/schemas/PaginationFields'
   '/members/{id}':
-    get:
+    delete:
+      summary: Removes a single user from an organization
       parameters:
         - $ref: '#/components/parameters/id'
-      summary: Get a single member
       tags:
         - member
-      operationId: getMember
+      operationId: deleteMember
       x-codeSamples:
         - lang: cURL
           source: |
-            curl https://api.growthbook.io/api/v1/members/member_id \
+            curl -X DELETE https://api.growthbook.io/api/v1/members/member_id \
               -u secret_abc123DEF456:
       responses:
         '200':
@@ -2774,10 +2774,11 @@ paths:
               schema:
                 type: object
                 required:
-                  - member
+                  - deletedId
                 properties:
-                  member:
-                    $ref: '#/components/schemas/Member'
+                  deletedId:
+                    type: string
+  '/members/{id}/role':
     post:
       parameters:
         - $ref: '#/components/parameters/id'
@@ -2876,29 +2877,6 @@ paths:
                               type: array
                               items:
                                 type: string
-    delete:
-      summary: Removes a single user from an organization
-      parameters:
-        - $ref: '#/components/parameters/id'
-      tags:
-        - member
-      operationId: deleteMember
-      x-codeSamples:
-        - lang: cURL
-          source: |
-            curl -X DELETE https://api.growthbook.io/api/v1/members/member_id \
-              -u secret_abc123DEF456:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - deletedId
-                properties:
-                  deletedId:
-                    type: string
   /environments:
     get:
       summary: Get the organization's environments

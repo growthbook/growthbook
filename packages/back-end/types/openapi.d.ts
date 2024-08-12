@@ -204,12 +204,12 @@ export interface paths {
     get: operations["listMembers"];
   };
   "/members/{id}": {
-    /** Get a single member */
-    get: operations["getMember"];
-    /** Update a member's global role by ID */
-    post: operations["updateMemberRole"];
     /** Removes a single user from an organization */
     delete: operations["deleteMember"];
+  };
+  "/members/{id}/role": {
+    /** Update a member's global role by ID */
+    post: operations["updateMemberRole"];
   };
   "/environments": {
     /** Get the organization's environments */
@@ -5489,8 +5489,8 @@ export interface operations {
       };
     };
   };
-  getMember: {
-    /** Get a single member */
+  deleteMember: {
+    /** Removes a single user from an organization */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -5501,28 +5501,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            member: {
-              id: string;
-              name?: string;
-              email: string;
-              globalRole: string;
-              environments?: (string)[];
-              limitAccessByEnvironment?: boolean;
-              managedbyIdp?: boolean;
-              teams?: (string)[];
-              projectRoles?: ({
-                  project: string;
-                  role: string;
-                  limitAccessByEnvironment: boolean;
-                  environments: (string)[];
-                })[];
-              /** Format: date-time */
-              lastLoginDate?: string;
-              /** Format: date-time */
-              dateCreated?: string;
-              /** Format: date-time */
-              dateUpdated?: string;
-            };
+            deletedId: string;
           };
         };
       };
@@ -5568,24 +5547,6 @@ export interface operations {
                   environments: (string)[];
                 })[];
             };
-          };
-        };
-      };
-    };
-  };
-  deleteMember: {
-    /** Removes a single user from an organization */
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
           };
         };
       };
@@ -6995,9 +6956,8 @@ export type ListOrganizationsResponse = operations["listOrganizations"]["respons
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
-export type GetMemberResponse = operations["getMember"]["responses"]["200"]["content"]["application/json"];
-export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
+export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];
 export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];

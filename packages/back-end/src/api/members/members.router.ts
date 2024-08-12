@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { getMember } from "./getMember";
 import { listMembers } from "./listMembers";
 import { updateMemberRole } from "./updateMemberRole";
 import { deleteMember } from "./deleteMember";
@@ -11,7 +10,6 @@ const router = Router();
 // Project Endpoints
 // Mounted at /api/v1/members
 router.get("/", listMembers);
-router.get("/:id", getMember);
 router.post("/:id/role", updateMemberRole);
 router.delete("/:id", deleteMember);
 

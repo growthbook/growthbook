@@ -2,7 +2,7 @@ parameters:
   - $ref: "../parameters.yaml#/id"
 tags:
   - members
-summary: Update a member's global role by ID
+summary: Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it.
 operationId: updateMemberRole
 x-codeSamples:
   - lang: "cURL"
