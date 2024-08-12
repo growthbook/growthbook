@@ -589,10 +589,12 @@ export default abstract class SqlIntegration
   getMetricAnalysisPopulationCTEs({
     settings,
     idJoinMap,
+    factTableMap,
     segment,
   }: {
     settings: MetricAnalysisSettings;
     idJoinMap: Record<string, string>;
+    factTableMap: FactTableMap;
     segment: SegmentInterface | null;
   }): string {
     // get population query
@@ -629,6 +631,7 @@ export default abstract class SqlIntegration
         segment,
         settings.userIdType,
         idJoinMap,
+        factTableMap,
         {
           startDate: settings.startDate,
           endDate: settings.endDate ?? undefined,
@@ -717,6 +720,7 @@ export default abstract class SqlIntegration
     const populationSQL = this.getMetricAnalysisPopulationCTEs({
       settings,
       idJoinMap,
+      factTableMap: params.factTableMap,
       segment: params.segment,
     });
 
@@ -729,7 +733,7 @@ export default abstract class SqlIntegration
       WITH
         ${idJoinSQL}
         ${populationSQL}
-      __factTable AS (${this.getFactTableCTE({
+      __factTable AS (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
         metrics: [metric],
