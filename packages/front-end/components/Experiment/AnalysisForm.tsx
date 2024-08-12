@@ -293,502 +293,507 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
-      <SelectField
-        label="Experiment type"
-        options={[
-          { label: "Standard", value: "standard" },
-          { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
-        ]}
-        value={
-          !hasStickyBucketFeature || !usingStickyBucketing
-            ? "standard"
-            : form.watch("type") ?? "standard"
-        }
-        onChange={(v) => {
-          if (!hasStickyBucketFeature || !usingStickyBucketing) {
-            return;
-          }
-          form.setValue("type", v as ExperimentType);
-          if (v === "multi-armed-bandit") {
-            // equal weights (set in controller)
-            // stats engine reset
-            form.setValue("statsEngine", "bayesian");
-            // 1 primary metric
-            const goalMetric = form.watch("goalMetrics")?.[0];
-            form.setValue("goalMetrics", goalMetric ? [goalMetric] : []);
-          }
-        }}
-        disabled={hasStarted}
-        sort={false}
-        formatOptionLabel={({ value, label }) => {
-          const disabled =
-            value === "multi-armed-bandit" &&
-            (!hasStickyBucketFeature || !usingStickyBucketing);
-          return (
-            <div
-              className={clsx({
-                "cursor-disabled": disabled,
-              })}
-            >
-              <PremiumTooltip
-                commercialFeature={
-                  value === "multi-armed-bandit"
-                    ? "multi-armed-bandits"
-                    : undefined
-                }
-                body={
-                  value === "multi-armed-bandit" &&
-                  !usingStickyBucketing &&
-                  hasStickyBucketFeature ? (
-                    <div>
-                      Enable Sticky Bucketing in your organization settings to
-                      run a Multi-Armed Bandit experiment.
-                    </div>
-                  ) : null
-                }
-              >
-                <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
-              </PremiumTooltip>
-            </div>
-          );
-        }}
-      />
-
-      {type === "multi-armed-bandit" && (
-        <FormProvider {...form}>
-          <BanditSettings
-            page="experiment-settings"
-            settings={scopedSettings}
-          />
-          <hr className="my-3" />
-        </FormProvider>
-      )}
-
-      <SelectField
-        label="Data Source"
-        labelClassName="font-weight-bold"
-        value={datasource?.id || ""}
-        onChange={(newDatasource) => {
-          form.setValue("datasource", newDatasource);
-
-          // If unsetting the datasource, leave all the other settings alone
-          // That way, it will be restored if the user switches back to the previous value
-          if (!newDatasource) {
-            return;
-          }
-
-          // If the exposure query is now invalid
-          const ds = getDatasourceById(newDatasource);
-          if (!getExposureQuery(ds?.settings, form.watch("exposureQueryId"))) {
-            form.setValue("exposureQueryId", "");
-          }
-
-          // If the segment is now invalid
-          const segment = form.watch("segment");
-          if (
-            segment &&
-            getSegmentById(segment)?.datasource !== newDatasource
-          ) {
-            form.setValue("segment", "");
-          }
-
-          const isValidMetric = (id: string) =>
-            getExperimentMetricById(id)?.datasource === newDatasource;
-
-          // If the activationMetric is now invalid
-          const activationMetric = form.watch("activationMetric");
-          if (activationMetric && !isValidMetric(activationMetric)) {
-            form.setValue("activationMetric", "");
-          }
-
-          // Filter the selected metrics to only valid ones
-          const goals = form.watch("goalMetrics");
-          form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-          const secondaryMetrics = form.watch("secondaryMetrics");
-          form.setValue(
-            "secondaryMetrics",
-            secondaryMetrics.filter(isValidMetric)
-          );
-
-          const guardrails = form.watch("guardrailMetrics");
-          form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
-        }}
-        options={datasources
-          .filter(
-            (ds) =>
-              ds.id === experiment.datasource ||
-              isProjectListValidForProject(ds.projects, experiment.project)
-          )
-          .map((d) => ({
-            value: d.id,
-            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-          }))}
-        className="portal-overflow-ellipsis"
-        initialOption="Manual"
-        helpText={
-          <>
-            <strong className="text-danger">Warning:</strong> Changing this will
-            remove all metrics and segments from the experiment.
-          </>
-        }
-      />
-      {datasource?.properties?.exposureQueries && (
+      <div className="mx-2">
         <SelectField
-          label="Experiment Assignment Table"
-          labelClassName="font-weight-bold"
-          value={form.watch("exposureQueryId")}
-          onChange={(v) => form.setValue("exposureQueryId", v)}
-          initialOption="Choose..."
-          required
-          options={exposureQueries.map((q) => {
-            return {
-              label: q.name,
-              value: q.id,
-            };
-          })}
-          helpText={
-            <>
-              <div>
-                Should correspond to the Identifier Type used to randomize units
-                for this experiment
-              </div>
-              {exposureQuery?.userIdType ? (
-                <>
-                  Identifier Type: <code>{exposureQuery?.userIdType}</code>
-                </>
-              ) : null}
-            </>
+          label="Experiment type"
+          options={[
+            { label: "Standard", value: "standard" },
+            { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
+          ]}
+          value={
+            !hasStickyBucketFeature || !usingStickyBucketing
+              ? "standard"
+              : form.watch("type") ?? "standard"
           }
-        />
-      )}
-      {datasource && (
-        <Field
-          label="Experiment Key"
-          labelClassName="font-weight-bold"
-          {...form.register("trackingKey")}
-          helpText={
-            <>
-              Unique identifier for this experiment, used to track impressions
-              and analyze results. Will match against the{" "}
-              <code>experiment_id</code> column in your data source.
-            </>
-          }
-          disabled={!canRunExperiment}
-        />
-      )}
-      {editVariationIds && (
-        <div className="form-group">
-          <label className="font-weight-bold">Variation Ids</label>
-          <div className="row align-items-top">
-            {variations.fields.map((v, i) => (
+          onChange={(v) => {
+            if (!hasStickyBucketFeature || !usingStickyBucketing) {
+              return;
+            }
+            form.setValue("type", v as ExperimentType);
+            if (v === "multi-armed-bandit") {
+              // equal weights (set in controller)
+              // stats engine reset
+              form.setValue("statsEngine", "bayesian");
+              // 1 primary metric
+              const goalMetric = form.watch("goalMetrics")?.[0];
+              form.setValue("goalMetrics", goalMetric ? [goalMetric] : []);
+            }
+          }}
+          disabled={hasStarted}
+          sort={false}
+          formatOptionLabel={({ value, label }) => {
+            const disabled =
+              value === "multi-armed-bandit" &&
+              (!hasStickyBucketFeature || !usingStickyBucketing);
+            return (
               <div
-                className={`col-${Math.max(
-                  Math.round(12 / variations.fields.length),
-                  3
-                )} mb-2`}
-                key={i}
+                className={clsx({
+                  "cursor-disabled": disabled,
+                })}
               >
-                <Field
-                  label={v.name}
-                  labelClassName="mb-0"
-                  containerClassName="mb-1"
-                  {...form.register(`variations.${i}.key`)}
-                  placeholder={i + ""}
-                />
+                <PremiumTooltip
+                  commercialFeature={
+                    value === "multi-armed-bandit"
+                      ? "multi-armed-bandits"
+                      : undefined
+                  }
+                  body={
+                    value === "multi-armed-bandit" &&
+                    !usingStickyBucketing &&
+                    hasStickyBucketFeature ? (
+                      <div>
+                        Enable Sticky Bucketing in your organization settings to
+                        run a Multi-Armed Bandit experiment.
+                      </div>
+                    ) : null
+                  }
+                >
+                  <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
+                </PremiumTooltip>
               </div>
-            ))}
-          </div>
-          <small className="form-text text-muted">
-            Will match against the variation_id column in your data source
-          </small>
-        </div>
-      )}
-      {!!phaseObj && editDates && (
-        <div className="row">
-          <div className="col">
-            <Field
-              label="Start Date (UTC)"
-              labelClassName="font-weight-bold"
-              type="datetime-local"
-              {...form.register("dateStarted")}
-              helpText="Only include users who entered the experiment on or after this date"
+            );
+          }}
+        />
+
+        {type === "multi-armed-bandit" && (
+          <FormProvider {...form}>
+            <BanditSettings
+              page="experiment-settings"
+              settings={scopedSettings}
             />
+            <hr className="my-3" />
+          </FormProvider>
+        )}
+
+        <SelectField
+          label="Data Source"
+          labelClassName="font-weight-bold"
+          value={datasource?.id || ""}
+          onChange={(newDatasource) => {
+            form.setValue("datasource", newDatasource);
+
+            // If unsetting the datasource, leave all the other settings alone
+            // That way, it will be restored if the user switches back to the previous value
+            if (!newDatasource) {
+              return;
+            }
+
+            // If the exposure query is now invalid
+            const ds = getDatasourceById(newDatasource);
+            if (
+              !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
+            ) {
+              form.setValue("exposureQueryId", "");
+            }
+
+            // If the segment is now invalid
+            const segment = form.watch("segment");
+            if (
+              segment &&
+              getSegmentById(segment)?.datasource !== newDatasource
+            ) {
+              form.setValue("segment", "");
+            }
+
+            const isValidMetric = (id: string) =>
+              getExperimentMetricById(id)?.datasource === newDatasource;
+
+            // If the activationMetric is now invalid
+            const activationMetric = form.watch("activationMetric");
+            if (activationMetric && !isValidMetric(activationMetric)) {
+              form.setValue("activationMetric", "");
+            }
+
+            // Filter the selected metrics to only valid ones
+            const goals = form.watch("goalMetrics");
+            form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+            const secondaryMetrics = form.watch("secondaryMetrics");
+            form.setValue(
+              "secondaryMetrics",
+              secondaryMetrics.filter(isValidMetric)
+            );
+
+            const guardrails = form.watch("guardrailMetrics");
+            form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
+          }}
+          options={datasources
+            .filter(
+              (ds) =>
+                ds.id === experiment.datasource ||
+                isProjectListValidForProject(ds.projects, experiment.project)
+            )
+            .map((d) => ({
+              value: d.id,
+              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+            }))}
+          className="portal-overflow-ellipsis"
+          initialOption="Manual"
+          helpText={
+            <>
+              <strong className="text-danger">Warning:</strong> Changing this
+              will remove all metrics and segments from the experiment.
+            </>
+          }
+        />
+        {datasource?.properties?.exposureQueries && (
+          <SelectField
+            label="Experiment Assignment Table"
+            labelClassName="font-weight-bold"
+            value={form.watch("exposureQueryId")}
+            onChange={(v) => form.setValue("exposureQueryId", v)}
+            initialOption="Choose..."
+            required
+            options={exposureQueries.map((q) => {
+              return {
+                label: q.name,
+                value: q.id,
+              };
+            })}
+            helpText={
+              <>
+                <div>
+                  Should correspond to the Identifier Type used to randomize
+                  units for this experiment
+                </div>
+                {exposureQuery?.userIdType ? (
+                  <>
+                    Identifier Type: <code>{exposureQuery?.userIdType}</code>
+                  </>
+                ) : null}
+              </>
+            }
+          />
+        )}
+        {datasource && (
+          <Field
+            label="Experiment Key"
+            labelClassName="font-weight-bold"
+            {...form.register("trackingKey")}
+            helpText={
+              <>
+                Unique identifier for this experiment, used to track impressions
+                and analyze results. Will match against the{" "}
+                <code>experiment_id</code> column in your data source.
+              </>
+            }
+            disabled={!canRunExperiment}
+          />
+        )}
+        {editVariationIds && (
+          <div className="form-group">
+            <label className="font-weight-bold">Variation Ids</label>
+            <div className="row align-items-top">
+              {variations.fields.map((v, i) => (
+                <div
+                  className={`col-${Math.max(
+                    Math.round(12 / variations.fields.length),
+                    3
+                  )} mb-2`}
+                  key={i}
+                >
+                  <Field
+                    label={v.name}
+                    labelClassName="mb-0"
+                    containerClassName="mb-1"
+                    {...form.register(`variations.${i}.key`)}
+                    placeholder={i + ""}
+                  />
+                </div>
+              ))}
+            </div>
+            <small className="form-text text-muted">
+              Will match against the variation_id column in your data source
+            </small>
           </div>
-          {experiment.status === "stopped" && (
+        )}
+        {!!phaseObj && editDates && (
+          <div className="row">
             <div className="col">
               <Field
-                label="End Date (UTC)"
+                label="Start Date (UTC)"
                 labelClassName="font-weight-bold"
                 type="datetime-local"
-                {...form.register("dateEnded")}
-                helpText="Only include users who entered the experiment on or before this date"
+                {...form.register("dateStarted")}
+                helpText="Only include users who entered the experiment on or after this date"
               />
             </div>
-          )}
-        </div>
-      )}
-      {!!datasource && type !== "multi-armed-bandit" && (
-        <MetricSelector
-          datasource={form.watch("datasource")}
-          exposureQueryId={exposureQueryId}
-          project={experiment.project}
-          includeFacts={true}
-          labelClassName="font-weight-bold"
-          label={
-            <>
-              Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
-            </>
-          }
-          initialOption="None"
-          onlyBinomial
-          value={form.watch("activationMetric")}
-          onChange={(value) => form.setValue("activationMetric", value || "")}
-          helpText="Users must convert on this metric before being included"
-        />
-      )}
-      {datasourceProperties?.experimentSegments && (
-        <SelectField
-          label="Segment"
-          labelClassName="font-weight-bold"
-          value={form.watch("segment")}
-          onChange={(value) => form.setValue("segment", value || "")}
-          initialOption="None (All Users)"
-          options={filteredSegments.map((s) => {
-            return {
-              label: s.name,
-              value: s.id,
-            };
-          })}
-          helpText="Only users in this segment will be included"
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries &&
-        type !== "multi-armed-bandit" && (
-          <SelectField
-            label="Metric Conversion Windows"
-            labelClassName="font-weight-bold"
-            value={form.watch("skipPartialData")}
-            onChange={(value) => form.setValue("skipPartialData", value)}
-            options={[
-              {
-                label: "Include In-Progress Conversions",
-                value: "loose",
-              },
-              {
-                label: "Exclude In-Progress Conversions",
-                value: "strict",
-              },
-            ]}
-            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-          />
+            {experiment.status === "stopped" && (
+              <div className="col">
+                <Field
+                  label="End Date (UTC)"
+                  labelClassName="font-weight-bold"
+                  type="datetime-local"
+                  {...form.register("dateEnded")}
+                  helpText="Only include users who entered the experiment on or before this date"
+                />
+              </div>
+            )}
+          </div>
         )}
-      {datasourceProperties?.separateExperimentResultQueries &&
-        type !== "multi-armed-bandit" && (
-          <SelectField
-            label={
-              <AttributionModelTooltip>
-                <strong>Conversion Window Override</strong> <FaQuestionCircle />
-              </AttributionModelTooltip>
-            }
-            value={form.watch("attributionModel")}
-            onChange={(value) => {
-              const model = value as AttributionModel;
-              form.setValue("attributionModel", model);
-            }}
-            options={[
-              {
-                label: "Respect Conversion Windows",
-                value: "firstExposure",
-              },
-              {
-                label: "Ignore Conversion Windows",
-                value: "experimentDuration",
-              },
-            ]}
-          />
-        )}
-      <StatsEngineSelect
-        value={form.watch("statsEngine")}
-        onChange={(v) => {
-          form.setValue("statsEngine", v);
-        }}
-        parentSettings={scopedSettings}
-        allowUndefined={true}
-        disabled={type === "multi-armed-bandit"}
-      />
-      {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
-        "frequentist" && (
-        <div className="d-flex flex-row no-gutters align-items-top">
-          <div className="col-5">
-            <SelectField
-              label={
-                <PremiumTooltip commercialFeature="sequential-testing">
-                  <GBSequential /> Use Sequential Testing
-                </PremiumTooltip>
-              }
-              labelClassName="font-weight-bold"
-              value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
-              onChange={(v) => {
-                form.setValue("sequentialTestingEnabled", v === "on");
-              }}
-              options={[
-                {
-                  label: "On",
-                  value: "on",
-                },
-                {
-                  label: "Off",
-                  value: "off",
-                },
-              ]}
-              helpText="Only applicable to frequentist analyses"
-              disabled={
-                !hasSequentialTestingFeature || usingSequentialTestingDefault
-              }
-            />
-          </div>
-          <div
-            className="col-3 pl-4"
-            style={{
-              opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
-            }}
-          >
-            <Field
-              label="Tuning parameter"
-              type="number"
-              containerClassName="mb-0"
-              min="0"
-              disabled={
-                usingSequentialTestingDefault ||
-                !hasSequentialTestingFeature ||
-                hasFileConfig()
-              }
-              helpText={
-                <>
-                  <span className="ml-2">
-                    (
-                    {orgSettings.sequentialTestingTuningParameter ??
-                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                    is default)
-                  </span>
-                </>
-              }
-              {...form.register("sequentialTestingTuningParameter", {
-                valueAsNumber: true,
-                validate: (v) => {
-                  return !((v ?? 0) <= 0);
-                },
-              })}
-            />
-          </div>
-          <div className="col align-self-center">
-            <label className="ml-5">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                checked={usingSequentialTestingDefault}
-                disabled={!hasSequentialTestingFeature}
-                onChange={(e) =>
-                  setSequentialTestingToDefault(e.target.checked)
-                }
-              />
-              Reset to Organization Default
-            </label>
-          </div>
-        </div>
-      )}
-      {datasourceProperties?.queryLanguage === "sql" && (
-        <div className="row">
-          <div className="col">
-            <Field
-              label="Custom SQL Filter"
-              labelClassName="font-weight-bold"
-              {...form.register("queryFilter")}
-              textarea
-              placeholder="e.g. user_id NOT IN ('123', '456')"
-              helpText="WHERE clause to add to the default experiment query"
-            />
-          </div>
-          <div className="pt-2 border-left col-sm-4 col-lg-6">
-            Available columns:
-            <div className="mb-2 d-flex flex-wrap">
-              {["timestamp", "variation_id"]
-                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
-                .concat(exposureQuery?.dimensions || [])
-                .map((d) => {
-                  return (
-                    <div className="mr-2 mb-2 border px-1" key={d}>
-                      <code>{d}</code>
-                    </div>
-                  );
-                })}
-            </div>
-            <div>
-              <strong>Tip:</strong> Use a subquery inside an <code>IN</code> or{" "}
-              <code>NOT IN</code> clause for more advanced filtering.
-            </div>
-          </div>
-        </div>
-      )}
-      {editMetrics && (
-        <>
-          <ExperimentMetricsSelector
+        {!!datasource && type !== "multi-armed-bandit" && (
+          <MetricSelector
             datasource={form.watch("datasource")}
             exposureQueryId={exposureQueryId}
             project={experiment.project}
-            goalMetrics={form.watch("goalMetrics")}
-            secondaryMetrics={form.watch("secondaryMetrics")}
-            guardrailMetrics={form.watch("guardrailMetrics")}
-            setGoalMetrics={(goalMetrics) =>
-              form.setValue("goalMetrics", goalMetrics)
+            includeFacts={true}
+            labelClassName="font-weight-bold"
+            label={
+              <>
+                Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+              </>
             }
-            setSecondaryMetrics={(secondaryMetrics) =>
-              form.setValue("secondaryMetrics", secondaryMetrics)
-            }
-            setGuardrailMetrics={
-              type !== "multi-armed-bandit"
-                ? (guardrailMetrics) =>
-                    form.setValue("guardrailMetrics", guardrailMetrics)
-                : undefined
-            }
-            forceSingleGoalMetric={type === "multi-armed-bandit"}
+            initialOption="None"
+            onlyBinomial
+            value={form.watch("activationMetric")}
+            onChange={(value) => form.setValue("activationMetric", value || "")}
+            helpText="Users must convert on this metric before being included"
           />
-
-          {hasMetrics && type !== "multi-armed-bandit" && (
-            <div className="form-group mb-2">
-              <PremiumTooltip commercialFeature="override-metrics">
-                Metric Overrides (optional)
-              </PremiumTooltip>
-              <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-                <p className="mb-0">
-                  Override metric behaviors within this experiment.
-                </p>
-                <p className="mb-0">
-                  Leave any fields empty that you do not want to override.
-                </p>
-              </div>
-              <MetricsOverridesSelector
-                experiment={experiment}
-                form={
-                  (form as unknown) as UseFormReturn<EditMetricsFormInterface>
+        )}
+        {datasourceProperties?.experimentSegments && (
+          <SelectField
+            label="Segment"
+            labelClassName="font-weight-bold"
+            value={form.watch("segment")}
+            onChange={(value) => form.setValue("segment", value || "")}
+            initialOption="None (All Users)"
+            options={filteredSegments.map((s) => {
+              return {
+                label: s.name,
+                value: s.id,
+              };
+            })}
+            helpText="Only users in this segment will be included"
+          />
+        )}
+        {datasourceProperties?.separateExperimentResultQueries &&
+          type !== "multi-armed-bandit" && (
+            <SelectField
+              label="Metric Conversion Windows"
+              labelClassName="font-weight-bold"
+              value={form.watch("skipPartialData")}
+              onChange={(value) => form.setValue("skipPartialData", value)}
+              options={[
+                {
+                  label: "Include In-Progress Conversions",
+                  value: "loose",
+                },
+                {
+                  label: "Exclude In-Progress Conversions",
+                  value: "strict",
+                },
+              ]}
+              helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+            />
+          )}
+        {datasourceProperties?.separateExperimentResultQueries &&
+          type !== "multi-armed-bandit" && (
+            <SelectField
+              label={
+                <AttributionModelTooltip>
+                  <strong>Conversion Window Override</strong>{" "}
+                  <FaQuestionCircle />
+                </AttributionModelTooltip>
+              }
+              value={form.watch("attributionModel")}
+              onChange={(value) => {
+                const model = value as AttributionModel;
+                form.setValue("attributionModel", model);
+              }}
+              options={[
+                {
+                  label: "Respect Conversion Windows",
+                  value: "firstExposure",
+                },
+                {
+                  label: "Ignore Conversion Windows",
+                  value: "experimentDuration",
+                },
+              ]}
+            />
+          )}
+        <StatsEngineSelect
+          value={form.watch("statsEngine")}
+          onChange={(v) => {
+            form.setValue("statsEngine", v);
+          }}
+          parentSettings={scopedSettings}
+          allowUndefined={true}
+          disabled={type === "multi-armed-bandit"}
+        />
+        {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+          "frequentist" && (
+          <div className="d-flex flex-row no-gutters align-items-top">
+            <div className="col-5">
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="sequential-testing">
+                    <GBSequential /> Use Sequential Testing
+                  </PremiumTooltip>
                 }
-                disabled={!hasOverrideMetricsFeature}
-                setHasMetricOverrideRiskError={(v: boolean) =>
-                  setHasMetricOverrideRiskError(v)
+                labelClassName="font-weight-bold"
+                value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("sequentialTestingEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                helpText="Only applicable to frequentist analyses"
+                disabled={
+                  !hasSequentialTestingFeature || usingSequentialTestingDefault
                 }
               />
-              {!hasOverrideMetricsFeature && (
-                <UpgradeMessage
-                  showUpgradeModal={() => setUpgradeModal(true)}
-                  commercialFeature="override-metrics"
-                  upgradeMessage="override metrics"
-                />
-              )}
             </div>
-          )}
-        </>
-      )}
+            <div
+              className="col-3 pl-4"
+              style={{
+                opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+              }}
+            >
+              <Field
+                label="Tuning parameter"
+                type="number"
+                containerClassName="mb-0"
+                min="0"
+                disabled={
+                  usingSequentialTestingDefault ||
+                  !hasSequentialTestingFeature ||
+                  hasFileConfig()
+                }
+                helpText={
+                  <>
+                    <span className="ml-2">
+                      (
+                      {orgSettings.sequentialTestingTuningParameter ??
+                        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                      is default)
+                    </span>
+                  </>
+                }
+                {...form.register("sequentialTestingTuningParameter", {
+                  valueAsNumber: true,
+                  validate: (v) => {
+                    return !((v ?? 0) <= 0);
+                  },
+                })}
+              />
+            </div>
+            <div className="col align-self-center">
+              <label className="ml-5">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={usingSequentialTestingDefault}
+                  disabled={!hasSequentialTestingFeature}
+                  onChange={(e) =>
+                    setSequentialTestingToDefault(e.target.checked)
+                  }
+                />
+                Reset to Organization Default
+              </label>
+            </div>
+          </div>
+        )}
+        {datasourceProperties?.queryLanguage === "sql" && (
+          <div className="row">
+            <div className="col">
+              <Field
+                label="Custom SQL Filter"
+                labelClassName="font-weight-bold"
+                {...form.register("queryFilter")}
+                textarea
+                placeholder="e.g. user_id NOT IN ('123', '456')"
+                helpText="WHERE clause to add to the default experiment query"
+              />
+            </div>
+            <div className="pt-2 border-left col-sm-4 col-lg-6">
+              Available columns:
+              <div className="mb-2 d-flex flex-wrap">
+                {["timestamp", "variation_id"]
+                  .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                  .concat(exposureQuery?.dimensions || [])
+                  .map((d) => {
+                    return (
+                      <div className="mr-2 mb-2 border px-1" key={d}>
+                        <code>{d}</code>
+                      </div>
+                    );
+                  })}
+              </div>
+              <div>
+                <strong>Tip:</strong> Use a subquery inside an <code>IN</code>{" "}
+                or <code>NOT IN</code> clause for more advanced filtering.
+              </div>
+            </div>
+          </div>
+        )}
+        {editMetrics && (
+          <>
+            <ExperimentMetricsSelector
+              datasource={form.watch("datasource")}
+              exposureQueryId={exposureQueryId}
+              project={experiment.project}
+              goalMetrics={form.watch("goalMetrics")}
+              secondaryMetrics={form.watch("secondaryMetrics")}
+              guardrailMetrics={form.watch("guardrailMetrics")}
+              setGoalMetrics={(goalMetrics) =>
+                form.setValue("goalMetrics", goalMetrics)
+              }
+              setSecondaryMetrics={(secondaryMetrics) =>
+                form.setValue("secondaryMetrics", secondaryMetrics)
+              }
+              setGuardrailMetrics={
+                type !== "multi-armed-bandit"
+                  ? (guardrailMetrics) =>
+                      form.setValue("guardrailMetrics", guardrailMetrics)
+                  : undefined
+              }
+              forceSingleGoalMetric={type === "multi-armed-bandit"}
+            />
+
+            {hasMetrics && type !== "multi-armed-bandit" && (
+              <div className="form-group mb-2">
+                <PremiumTooltip commercialFeature="override-metrics">
+                  Metric Overrides (optional)
+                </PremiumTooltip>
+                <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
+                  <p className="mb-0">
+                    Override metric behaviors within this experiment.
+                  </p>
+                  <p className="mb-0">
+                    Leave any fields empty that you do not want to override.
+                  </p>
+                </div>
+                <MetricsOverridesSelector
+                  experiment={experiment}
+                  form={
+                    (form as unknown) as UseFormReturn<EditMetricsFormInterface>
+                  }
+                  disabled={!hasOverrideMetricsFeature}
+                  setHasMetricOverrideRiskError={(v: boolean) =>
+                    setHasMetricOverrideRiskError(v)
+                  }
+                />
+                {!hasOverrideMetricsFeature && (
+                  <UpgradeMessage
+                    showUpgradeModal={() => setUpgradeModal(true)}
+                    commercialFeature="override-metrics"
+                    upgradeMessage="override metrics"
+                  />
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </Modal>
   );
 };
