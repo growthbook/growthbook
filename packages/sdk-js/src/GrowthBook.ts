@@ -1794,14 +1794,14 @@ export class GrowthBook<
     if (this._ctx.navigate) {
       return {
         navigate: this._ctx.navigate,
-        delay: 100,
+        delay: 0,
       };
     } else if (isBrowser) {
       return {
         navigate: (url: string) => {
           window.location.replace(url);
         },
-        delay: 0,
+        delay: 100,
       };
     }
     return {
