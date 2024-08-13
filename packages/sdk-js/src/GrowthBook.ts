@@ -748,7 +748,7 @@ export class GrowthBook<
                 ? [
                     promiseTimeout(
                       trackingCall,
-                      this._ctx.maxNavigateDelay ?? 3000
+                      this._ctx.maxNavigateDelay ?? 1500
                     ),
                   ]
                 : []),
