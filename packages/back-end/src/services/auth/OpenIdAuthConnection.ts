@@ -12,7 +12,7 @@ import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
-import { MemoryCache, LruCache } from "../cache";
+import { MemoryCache } from "../cache";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
@@ -50,7 +50,7 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
 
 const clientMap: Map<SSOConnectionInterface, Client> = new Map();
 
-const jwksClients: LruCache<RequestHandler, string> = new LruCache(500);
+const jwksMiddlewareCache: { [key: string]: RequestHandler } = {};
 
 export class OpenIdAuthConnection implements AuthConnection {
   async refresh(
@@ -161,13 +161,16 @@ export class OpenIdAuthConnection implements AuthConnection {
         );
       }
 
-      const clientHash = `${
-        connection.clientId
-      }:${jwksUri}:${issuer}:${algorithms.sort().join(",")}`;
+      const cacheKey = JSON.stringify([
+        jwksUri,
+        connection.clientId,
+        issuer,
+        algorithms,
+      ]);
 
-      let client = jwksClients.get(clientHash);
-      if (!client) {
-        client = jwtExpress({
+      let middleware = jwksMiddlewareCache[cacheKey];
+      if (!middleware) {
+        middleware = jwtExpress({
           secret: jwks.expressJwtSecret({
             cache: true,
             cacheMaxEntries: 50,
@@ -179,9 +182,9 @@ export class OpenIdAuthConnection implements AuthConnection {
           issuer,
           algorithms,
         });
-        jwksClients.put(clientHash, client);
+        jwksMiddlewareCache[cacheKey] = middleware;
       }
-      client(req as Request, res, next);
+      middleware(req as Request, res, next);
     } catch (e) {
       next(e);
     }
