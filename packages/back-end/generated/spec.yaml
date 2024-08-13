@@ -4343,7 +4343,6 @@ components:
         - datasourceId
         - identifierType
         - name
-        - query
         - dateCreated
         - dateUpdated
       properties:
@@ -4363,6 +4362,16 @@ components:
           type: string
         dateUpdated:
           type: string
+        type:
+          enum:
+            - SQL
+            - FACT
+        factTableId:
+          type: string
+        filters:
+          type: array
+          items:
+            type: string
     Feature:
       type: object
       required:

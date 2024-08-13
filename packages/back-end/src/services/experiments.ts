@@ -100,7 +100,7 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
-import { FactTableMap } from "../models/FactTableModel";
+import { FactTableMap, getFactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
@@ -169,6 +169,8 @@ export async function refreshMetric(
       }
     }
 
+    const factTableMap = await getFactTableMap(context);
+
     let days = metricAnalysisDays;
     if (days < 1) {
       days = DEFAULT_METRIC_ANALYSIS_DAYS;
@@ -191,6 +193,7 @@ export async function refreshMetric(
       includeByDate: true,
       segment,
       metric,
+      factTableMap,
     });
   } else {
     throw new Error("Cannot analyze manual metrics");
@@ -2022,6 +2025,7 @@ export function updateExperimentApiPayloadToInterface(
     attributionModel,
     statsEngine,
     regressionAdjustmentEnabled,
+    secondaryMetrics,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2034,8 +2038,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
-    ...(metrics ? { metrics } : {}),
-    ...(guardrailMetrics ? { guardrails: guardrailMetrics } : {}),
+    ...(metrics ? { goalMetrics: metrics } : {}),
+    ...(guardrailMetrics ? { guardrailMetrics } : {}),
+    ...(secondaryMetrics ? { secondaryMetrics } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
