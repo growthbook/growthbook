@@ -208,7 +208,7 @@ export interface paths {
     delete: operations["deleteMember"];
   };
   "/members/{id}/role": {
-    /** Update a member's global role by ID */
+    /** Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it. */
     post: operations["updateMemberRole"];
   };
   "/environments": {
@@ -5508,7 +5508,7 @@ export interface operations {
     };
   };
   updateMemberRole: {
-    /** Update a member's global role by ID */
+    /** Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it. */
     parameters: {
         /** @description The id of the requested resource */
       path: {
