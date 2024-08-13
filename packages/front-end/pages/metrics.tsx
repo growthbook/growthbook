@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
-import { getMetricLink } from "shared/experiments";
+import { getMetricLink, isFactMetricId } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -38,8 +38,10 @@ interface MetricTableItem {
   tags: string[];
   projects: string[];
   owner: string;
+  isRatio: boolean;
   datasource: string;
   dateUpdated: Date | null;
+  dateCreated: Date | null;
   archived: boolean;
   onDuplicate?: () => void;
   onArchive?: (desiredState: boolean) => Promise<void>;
@@ -86,11 +88,13 @@ const MetricsPage = (): React.ReactElement => {
         archived: m.status === "archived",
         datasource: m.datasource || "",
         dateUpdated: m.dateUpdated,
+        dateCreated: m.dateCreated,
         name: m.name,
         owner: m.owner || "",
         projects: m.projects || [],
         tags: m.tags || [],
         type: m.type,
+        isRatio: !!m.denominator,
         onArchive: async (desiredState) => {
           const newStatus = desiredState ? "archived" : "active";
           await apiCall(`/metric/${m.id}`, {
@@ -127,10 +131,12 @@ const MetricsPage = (): React.ReactElement => {
         archived: false,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
+        dateCreated: m.dateCreated,
         name: m.name,
         owner: m.owner,
         projects: m.projects || [],
         tags: m.tags || [],
+        isRatio: m.metricType === "ratio",
         type: m.metricType,
       };
       return item;
@@ -182,6 +188,39 @@ const MetricsPage = (): React.ReactElement => {
     defaultSortField: "name",
     localStorageKey: "metrics",
     searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.type];
+        if (item.archived) is.push("archived");
+        if (item.managedBy) is.push("official");
+        if (isFactMetricId(item.id)) is.push("fact");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.projects?.length) has.push("project", "projects");
+        if (item.tags?.length) has.push("tag", "tags");
+        if (item.datasource) has.push("datasource");
+        return has;
+      },
+      created: (item) => (item.dateCreated ? new Date(item.dateCreated) : null),
+      updated: (item) => (item.dateUpdated ? new Date(item.dateUpdated) : null),
+      name: (item) => item.name,
+      id: (item) => item.id,
+      owner: (item) => [item.owner, item.ownerName],
+      type: (item) => {
+        if (item.isRatio) return "ratio";
+        if (["binomial", "proportion"].includes(item.type))
+          return ["binomial", "proportion"];
+        if (["duration", "revenue"].includes(item.type))
+          return ["mean", item.type];
+        if (["mean", "count"].includes(item.type)) return ["mean", "count"];
+        return item.type;
+      },
+      tag: (item) => item.tags,
+      project: (item) => item.projects,
+      datasource: (item) => [item.datasource, item.datasourceName],
+    },
     filterResults,
   });
 
