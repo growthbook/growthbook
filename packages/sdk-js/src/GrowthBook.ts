@@ -739,7 +739,7 @@ export class GrowthBook<
           return result;
         }
         this._redirectedUrl = url;
-        const navigate = this._getNavigateFunction();
+        const { navigate, delay } = this._getNavigateFunction();
         if (navigate) {
           if (isBrowser) {
             // Wait for the possibly-async tracking callback, bound by min and max delays
@@ -753,7 +753,7 @@ export class GrowthBook<
                   ]
                 : []),
               new Promise((resolve) =>
-                window.setTimeout(resolve, this._ctx.navigateDelay ?? 100)
+                window.setTimeout(resolve, this._ctx.navigateDelay ?? delay)
               ),
             ]).then(() => {
               try {
@@ -1787,17 +1787,27 @@ export class GrowthBook<
     return this._redirectedUrl;
   }
 
-  private _getNavigateFunction():
-    | null
-    | ((url: string) => void | Promise<void>) {
+  private _getNavigateFunction(): {
+    navigate: null | ((url: string) => void | Promise<void>);
+    delay: number;
+  } {
     if (this._ctx.navigate) {
-      return this._ctx.navigate;
+      return {
+        navigate: this._ctx.navigate,
+        delay: 100,
+      };
     } else if (isBrowser) {
-      return (url: string) => {
-        window.location.replace(url);
+      return {
+        navigate: (url: string) => {
+          window.location.replace(url);
+        },
+        delay: 0,
       };
     }
-    return null;
+    return {
+      navigate: null,
+      delay: 0,
+    };
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {
