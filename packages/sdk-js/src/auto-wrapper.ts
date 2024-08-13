@@ -209,6 +209,46 @@ function getAttributes() {
   return attributes;
 }
 
+function setAntiFlicker() {
+  window.clearTimeout(antiFlickerTimeout);
+
+  const timeoutMs =
+    windowContext.antiFlickerTimeout ??
+    (dataContext.antiFlickerTimeout
+      ? parseInt(dataContext.antiFlickerTimeout)
+      : null) ??
+    3500;
+
+  try {
+    if (!document.getElementById("gb-anti-flicker-style")) {
+      const styleTag = document.createElement("style");
+      styleTag.setAttribute("id", "gb-anti-flicker-style");
+      styleTag.innerHTML =
+        ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
+      document.head.appendChild(styleTag);
+    }
+    document.documentElement.classList.add("gb-anti-flicker");
+
+    // Fallback if GrowthBook fails to load in specified time or 3.5 seconds.
+    antiFlickerTimeout = window.setTimeout(unsetAntiFlicker, timeoutMs);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function unsetAntiFlicker() {
+  window.clearTimeout(antiFlickerTimeout);
+  try {
+    document.documentElement.classList.remove("gb-anti-flicker");
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+if (windowContext.antiFlicker || dataContext.antiFlicker) {
+  setAntiFlicker();
+}
+
 // Create sticky bucket service
 let stickyBucketService: StickyBucketService | undefined = undefined;
 if (
@@ -290,6 +330,8 @@ gb.setRenderer(() => {
   document.dispatchEvent(new CustomEvent("growthbookdata"));
 });
 
+let antiFlickerTimeout: number | undefined;
+
 gb.init({
   payload: windowContext.payload,
   streaming: !(
@@ -301,37 +343,8 @@ gb.init({
 }).then(() => {
   if (!(windowContext.antiFlicker || dataContext.antiFlicker)) return;
 
-  const antiFlickerTimeout =
-    windowContext.antiFlickerTimeout ??
-    (dataContext.antiFlickerTimeout
-      ? parseInt(dataContext.antiFlickerTimeout)
-      : null) ??
-    3500;
-
-  const unsetAntiFlicker = () => {
-    try {
-      document.documentElement.classList.remove("gb-anti-flicker");
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   if (gb.getRedirectUrl()) {
-    try {
-      if (!document.getElementById("gb-anti-flicker-style")) {
-        const styleTag = document.createElement("style");
-        styleTag.setAttribute("id", "gb-anti-flicker-style");
-        styleTag.innerHTML =
-          ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
-        document.head.appendChild(styleTag);
-      }
-      document.documentElement.classList.add("gb-anti-flicker");
-
-      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds.
-      window.setTimeout(unsetAntiFlicker, antiFlickerTimeout);
-    } catch (e) {
-      console.error(e);
-    }
+    setAntiFlicker();
   } else {
     unsetAntiFlicker();
   }
