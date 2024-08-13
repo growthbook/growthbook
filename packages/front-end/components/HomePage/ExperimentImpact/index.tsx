@@ -388,6 +388,7 @@ export default function ExperimentImpact({
 
   useEffect(() => {
     // 1 gets latest non-dimension snapshot from latest phase
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     fetchSnapshots();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

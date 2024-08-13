@@ -20,6 +20,7 @@ const RefreshLicenseButton: FC = () => {
     if (res.status !== 200) {
       throw new Error("There was an error fetching the license");
     }
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     refreshOrganization();
   };
 

@@ -108,6 +108,7 @@ const Webhooks: FC = () => {
                           await apiCall(`/legacy-sdk-webhooks/${webhook.id}`, {
                             method: "DELETE",
                           });
+                          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                           mutate();
                         }}
                       />

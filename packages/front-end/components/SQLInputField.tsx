@@ -100,6 +100,7 @@ export default function SQLInputField({
                 className="btn btn-sm btn-primary m-1"
                 onClick={(e) => {
                   e.preventDefault();
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   handleTestQuery();
                 }}
               >

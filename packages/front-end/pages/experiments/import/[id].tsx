@@ -20,6 +20,7 @@ const ImportPage: FC = () => {
           onClose={() => setCreate(null)}
           initialValue={create}
           onCreate={(id) => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             router.push(`/experiment/${id}#results`);
           }}
           isImport={true}

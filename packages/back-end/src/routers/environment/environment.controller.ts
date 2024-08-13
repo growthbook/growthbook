@@ -348,6 +348,7 @@ export const deleteEnvironment = async (
       details: auditDetailsDelete(id),
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     removeEnvironmentFromSlackIntegration({
       organizationId: org.id,
       envId: id,

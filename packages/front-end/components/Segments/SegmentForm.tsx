@@ -107,6 +107,7 @@ const SegmentForm: FC<{
             method: current.id ? "PUT" : "POST",
             body: JSON.stringify({ ...value, type: "SQL" }),
           });
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           mutateDefinitions({});
         })}
       >

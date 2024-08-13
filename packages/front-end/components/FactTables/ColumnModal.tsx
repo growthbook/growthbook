@@ -69,6 +69,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             body: JSON.stringify(value),
           });
         }
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         mutateDefinitions();
       })}
     >

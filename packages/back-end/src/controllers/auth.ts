@@ -184,6 +184,7 @@ export async function postLogin(
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   sendLocalSuccessResponse(req, res, user);
 }
 
@@ -222,6 +223,7 @@ export async function postRegister(
 
   // Create new account
   const user = await createUser({ name, email, password });
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   sendLocalSuccessResponse(req, res, user);
 }
 
@@ -281,6 +283,7 @@ export async function postFirstTimeRegister(
     name: companyname,
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   sendLocalSuccessResponse(req, res, user);
 }
 
@@ -415,5 +418,6 @@ export async function postChangePassword(
   });
 
   // Send back an updated token for the current user so they are not logged out
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
   sendLocalSuccessResponse(req as Request, res, user);
 }

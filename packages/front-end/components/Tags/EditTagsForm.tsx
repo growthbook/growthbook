@@ -25,6 +25,7 @@ const EditTagsForm: FC<{
       close={cancel}
       submit={form.handleSubmit(async (data) => {
         await save(data.tags);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         refreshTags(data.tags);
         mutate();
       })}

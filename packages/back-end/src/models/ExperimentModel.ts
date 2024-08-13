@@ -750,6 +750,7 @@ const logExperimentCreated = async (
 
   const emittedEvent = await createEvent(organization.id, payload);
   if (emittedEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
@@ -809,6 +810,7 @@ const logExperimentUpdated = async ({
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }
@@ -856,6 +858,7 @@ export async function deleteAllExperimentsForAProject({
 
   for (const experiment of experimentsToDelete) {
     await experiment.delete();
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
@@ -1149,6 +1152,7 @@ export const logExperimentDeleted = async (
 
   const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
   }

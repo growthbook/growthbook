@@ -249,6 +249,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                     e.preventDefault();
                     try {
                       setError("");
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       refreshDimension();
                     } catch (e) {
                       setError(e.message);

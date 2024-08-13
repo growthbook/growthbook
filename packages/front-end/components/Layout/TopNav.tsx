@@ -83,6 +83,7 @@ const TopNav: FC<{
         method: "PUT",
         body: JSON.stringify({ name: value.name }),
       });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       updateUser();
     }
 
@@ -132,6 +133,7 @@ const TopNav: FC<{
       <DropdownMenu.Item
         key="sign-out"
         onSelect={() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           logout();
         }}
       >
@@ -174,6 +176,7 @@ const TopNav: FC<{
       <DropdownMenu.Item
         className="dropdown-text-color"
         onClick={() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           router.push("/account/personal-access-tokens");
         }}
       >
@@ -189,6 +192,7 @@ const TopNav: FC<{
       <DropdownMenu.Item
         className="dropdown-text-color"
         onClick={() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           router.push("/reports");
         }}
       >
@@ -204,6 +208,7 @@ const TopNav: FC<{
       <DropdownMenu.Item
         className="dropdown-text-color"
         onClick={() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           router.push("/activity");
         }}
       >

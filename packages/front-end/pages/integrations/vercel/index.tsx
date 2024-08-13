@@ -35,6 +35,7 @@ export default function VercelIntegrationPage() {
   useEffect(() => {
     if (data?.hasToken !== undefined) {
       if (data.hasToken) return setIntegrationAlreadyExists(true);
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       postToken();
     }
   }, [data]);
@@ -72,6 +73,7 @@ export default function VercelIntegrationPage() {
           cta="Continue"
           submit={async () => {
             setIntegrationAlreadyExists(false);
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             postToken();
           }}
           autoCloseOnSubmit={false}

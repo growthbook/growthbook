@@ -48,7 +48,8 @@
       "jsx": true
     },
     "ecmaVersion": 2018,
-    "sourceType": "module"
+    "sourceType": "module",
+    "project": true
   },
   "globals": {
     "Atomics": "readonly",
@@ -66,6 +67,7 @@
       "./packages/front-end/pages"
     ],
     "@next/next/no-img-element": "off",
+    "@typescript-eslint/no-floating-promises": "error",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-explicit-any": 1,

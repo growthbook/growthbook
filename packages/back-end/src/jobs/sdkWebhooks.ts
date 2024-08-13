@@ -257,6 +257,7 @@ async function runWebhookFetch({
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     createSdkWebhookLog({
       webhookId,
       webhookRequestId: webhookID,
@@ -272,6 +273,7 @@ async function runWebhookFetch({
     return res;
   } catch (e) {
     const message = res?.stringBody || e.message;
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     createSdkWebhookLog({
       webhookId,
       webhookRequestId: webhookID,

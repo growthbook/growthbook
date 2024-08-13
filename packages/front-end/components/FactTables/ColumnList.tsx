@@ -90,6 +90,7 @@ export default function ColumnList({ factTable }: Props) {
                 method: "PUT",
                 body: JSON.stringify({}),
               });
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               mutateDefinitions();
             }}
           >

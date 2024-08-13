@@ -464,6 +464,7 @@ export default function ExperimentHeader({
                           body: JSON.stringify({ id: experiment.id }),
                         }
                       );
+                      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                       router.push("/experiments");
                     }}
                   />

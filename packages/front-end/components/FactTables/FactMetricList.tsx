@@ -177,6 +177,7 @@ export default function FactMetricList({ factTable }: Props) {
                                 await apiCall(`/fact-metrics/${metric.id}`, {
                                   method: "DELETE",
                                 });
+                                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                 mutateDefinitions();
                               } finally {
                                 setIsDeleting(false);

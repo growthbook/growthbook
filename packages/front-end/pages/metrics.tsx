@@ -232,6 +232,7 @@ const MetricsPage = (): React.ReactElement => {
     setModalData(null);
   };
   const onSuccess = () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     mutateDefinitions();
   };
 
@@ -456,6 +457,7 @@ const MetricsPage = (): React.ReactElement => {
                     e.preventDefault();
                     metric.onArchive &&
                       (await metric.onArchive(!metric.archived));
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     mutateDefinitions({});
                   }}
                 >
@@ -469,6 +471,7 @@ const MetricsPage = (): React.ReactElement => {
                 key={metric.id}
                 onClick={(e) => {
                   e.preventDefault();
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                   router.push(getMetricLink(metric.id));
                 }}
                 style={{ cursor: "pointer" }}

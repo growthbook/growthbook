@@ -49,6 +49,7 @@ const GoogleAnalyticsForm: FC<{
           className="btn btn-success"
           onClick={(e) => {
             e.preventDefault();
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             redirect();
           }}
         >
@@ -82,6 +83,7 @@ const GoogleAnalyticsForm: FC<{
               className="btn btn-secondary"
               onClick={(e) => {
                 e.preventDefault();
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 redirect();
               }}
             >

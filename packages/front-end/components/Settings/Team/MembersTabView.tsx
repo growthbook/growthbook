@@ -55,7 +55,9 @@ export const MembersTabView: FC = () => {
       }),
     })
       .then(() => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         refreshOrganization();
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
         router.replace(router.pathname, router.pathname, { shallow: true });
       })
       .catch((e) => {

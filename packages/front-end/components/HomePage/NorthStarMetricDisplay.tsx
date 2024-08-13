@@ -89,6 +89,7 @@ const NorthStarMetricDisplay = ({
                     await apiCall(`/metric/${metric.id}/analysis`, {
                       method: "POST",
                     });
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                     mutate();
                   } catch (e) {
                     console.error(e);

@@ -116,6 +116,7 @@ export default function SchemaBrowser({
         setRetryCount(1);
       } else {
         const timer = setTimeout(() => {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
           mutate();
           setRetryCount(retryCount * 2);
         }, retryCount * 1000);
@@ -140,6 +141,7 @@ export default function SchemaBrowser({
         "No schema provided. Please edit the connection settings and try again." &&
       datasource.type === "bigquery"
     ) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       refreshOrCreateInfoSchema("PUT");
     }
   }, [

@@ -59,6 +59,7 @@ export default function UpdateDefaultRoleForm() {
         method: "PUT",
         body: JSON.stringify(data),
       });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       refreshOrganization();
     } catch (e) {
       setDefaultRoleError(e.message);

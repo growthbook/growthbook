@@ -57,6 +57,7 @@ const ExperimentGuide = (): React.ReactElement => {
         setLoadingHypothesis(false);
       }
     };
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     load();
   }, [apiCall, params.hypId]);
 

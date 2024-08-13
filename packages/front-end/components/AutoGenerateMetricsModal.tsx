@@ -191,6 +191,7 @@ export default function AutoGenerateMetricsModal({
 
     if (!selectedSchema) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     getTrackedEvents(selectedDatasource);
   }, [
     availableSchemas,
@@ -257,6 +258,7 @@ export default function AutoGenerateMetricsModal({
     }
 
     if (selectedDatasource?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
       getInformationSchema(selectedDatasource.id);
     }
   }, [apiCall, selectedDatasource?.id]);

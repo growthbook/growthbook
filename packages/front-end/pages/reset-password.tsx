@@ -23,6 +23,7 @@ export default function ResetPasswordPage(): ReactElement {
     }
 
     // Check if token is valid
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     fetch(getApiHost() + "/auth/reset/" + token, { credentials: "include" })
       .then((res) => res.json())
       .then((json: { status: number; message?: string; email?: string }) => {
@@ -92,6 +93,7 @@ export default function ResetPasswordPage(): ReactElement {
             onClick={(e) => {
               e.preventDefault();
               setLoading(true);
+              // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
               router.push("/");
             }}
           >

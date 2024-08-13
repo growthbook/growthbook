@@ -15,6 +15,7 @@ const GitHubIntegrationPage: NextPage = () => {
   const growthbook = useGrowthBook<AppFeatures>();
 
   if (!growthbook || growthbook.isOff("github-integration")) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     router.replace("/404");
   }
 

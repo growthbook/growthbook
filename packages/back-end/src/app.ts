@@ -123,7 +123,7 @@ if (SENTRY_DSN) {
 }
 
 if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
-  init();
+  void init();
 }
 
 app.set("port", process.env.PORT || 3100);

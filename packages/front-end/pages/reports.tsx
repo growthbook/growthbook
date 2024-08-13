@@ -154,6 +154,7 @@ const ReportsPage = (): React.ReactElement => {
               key={report.id}
               onClick={(e) => {
                 e.preventDefault();
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                 router.push(`/report/${report.id}`);
               }}
               style={{ cursor: "pointer" }}

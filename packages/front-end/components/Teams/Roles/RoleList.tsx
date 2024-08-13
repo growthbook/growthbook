@@ -82,6 +82,7 @@ export default function RoleList() {
                                 await apiCall(`/custom-roles/${r.id}`, {
                                   method: "DELETE",
                                 });
+                                // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                 refreshOrganization();
                               }}
                               className="dropdown-item text-danger"
@@ -122,6 +123,7 @@ export default function RoleList() {
                               method: "POST",
                             }
                           );
+                          // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                           refreshOrganization();
                         }}
                         cta={isDeactivated ? "Reactivate" : "Deactivate"}

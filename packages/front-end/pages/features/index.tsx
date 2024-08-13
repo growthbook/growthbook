@@ -553,7 +553,9 @@ export default function FeaturesPage() {
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             router.push(url);
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutate({
               features: [...features, feature],
               linkedExperiments: experiments,

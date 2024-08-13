@@ -78,7 +78,9 @@ export default function DataSourceMetrics({
           {...modalData}
           onClose={() => setModalData(null)}
           onSuccess={() => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutateDefinitions();
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
             mutate();
           }}
           source="datasource-detail"
@@ -289,7 +291,9 @@ export default function DataSourceMetrics({
                                       status: newStatus,
                                     }),
                                   });
+                                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                   mutateDefinitions({});
+                                  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                                   mutate();
                                 }}
                               >

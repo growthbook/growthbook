@@ -109,6 +109,7 @@ const TagsPage: FC = () => {
                               method: "DELETE",
                               body: JSON.stringify({ id: t.id }),
                             });
+                            // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
                             mutateDefinitions();
                           }}
                         />

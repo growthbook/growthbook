@@ -23,6 +23,7 @@ const updateLicense = trackJob(UPDATE_LICENSES_JOB_NAME, async () => {
 
   const org = await getSelfHostedOrganization();
   if (org) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises -- TODO: either mark as void or await.
     licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
   }
 });
