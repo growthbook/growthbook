@@ -3728,13 +3728,6 @@
     teeny-request "^9.0.0"
     uuid "^8.0.0"
 
-"@growthbook/growthbook@1.1.0":
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-1.1.0.tgz#3b9503a1e774c2888637152b0679d8a0df3d50cf"
-  integrity sha512-TBgUnMcYxOVo4dDDZJ8J2Z9DjDy9PlL+J2GpLMMD6SPpw66gSDcnnwGk9H6diHS/IuUmDXNkU+24+L/bXulWww==
-  dependencies:
-    dom-mutator "^0.6.0"
-
 "@growthbook/proxy-eval@^1.0.3":
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/@growthbook/proxy-eval/-/proxy-eval-1.0.3.tgz#0edd196ed1163782e14da18eabf9914016f6fc53"
