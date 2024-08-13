@@ -5524,7 +5524,6 @@ export interface operations {
             projectRoles?: ({
                 project: string;
                 role: string;
-                limitAccessByEnvironment: boolean;
                 environments: (string)[];
               })[];
           };

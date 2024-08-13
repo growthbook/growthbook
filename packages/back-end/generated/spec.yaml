@@ -2790,7 +2790,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/members/user_abc123/role \
-              -d '{"role": "experimenter", "environments": ["staging"], ...}' \
+              -d '{"member" : {"role": "experimenter", "environments": ["staging"], ... }}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2817,15 +2817,12 @@ paths:
                         required:
                           - project
                           - role
-                          - limitAccessByEnvironment
                           - environments
                         properties:
                           project:
                             type: string
                           role:
                             type: string
-                          limitAccessByEnvironment:
-                            type: boolean
                           environments:
                             type: array
                             items:

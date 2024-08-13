@@ -18,15 +18,12 @@ properties:
           required:
             - project
             - role
-            - limitAccessByEnvironment
             - environments
           properties:
             project:
               type: string
             role:
               type: string
-            limitAccessByEnvironment:
-              type: boolean
             environments:
               type: array
               items:

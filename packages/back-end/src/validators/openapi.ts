@@ -345,7 +345,7 @@ export const deleteMemberValidator = {
 };
 
 export const updateMemberRoleValidator = {
-  bodySchema: z.object({ "member": z.object({ "role": z.string().optional(), "environments": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional() }) }).strict(),
+  bodySchema: z.object({ "member": z.object({ "role": z.string().optional(), "environments": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "environments": z.array(z.string()) })).optional() }) }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

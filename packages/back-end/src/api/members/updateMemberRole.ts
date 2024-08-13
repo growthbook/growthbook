@@ -6,7 +6,11 @@ import { auditDetailsUpdate } from "../../services/audit";
 import { UpdateMemberRoleResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateMemberRoleValidator } from "../../validators/openapi";
-import { Member, OrganizationInterface } from "../../../types/organization";
+import {
+  Member,
+  OrganizationInterface,
+  ProjectMemberRole,
+} from "../../../types/organization";
 
 function validateRoleAndEnvs(
   org: OrganizationInterface,
@@ -90,7 +94,6 @@ export const updateMemberRole = createApiRequestHandler(
       role: member.role || orgUser.role,
       environments: updatedEnvironments,
       limitAccessByEnvironment: !!updatedEnvironments.length,
-      projectRoles: member.projectRoles || orgUser.projectRoles,
     };
 
     // First, check the global role data
@@ -106,7 +109,8 @@ export const updateMemberRole = createApiRequestHandler(
 
     // Then, if member.projectRoles was passed in, we need to validate the each projectRole
     if (member.projectRoles?.length) {
-      updatedMember.projectRoles?.forEach((updatedProjectRole) => {
+      const updatedProjectRoles: ProjectMemberRole[] = [];
+      member.projectRoles.forEach((updatedProjectRole) => {
         const { memberIsValid, reason } = validateRoleAndEnvs(
           req.context.org,
           updatedProjectRole.role,
@@ -116,7 +120,19 @@ export const updateMemberRole = createApiRequestHandler(
         if (!memberIsValid) {
           throw new Error(reason);
         }
+
+        updatedProjectRoles.push({
+          ...updatedProjectRole,
+          limitAccessByEnvironment: !!updatedProjectRole.environments.length,
+        });
       });
+
+      updatedMember.projectRoles = updatedProjectRoles;
+    }
+
+    // if an empty projectRoles array was passed in, the org is removing all projectRoles for this user
+    if ("projectRoles" in member && !member.projectRoles?.length) {
+      updatedMember.projectRoles = [];
     }
 
     try {
