@@ -164,7 +164,7 @@ export interface TrackingData {
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>
-) => void;
+) => Promise<void> | void;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
@@ -232,7 +232,10 @@ export interface Context {
   remoteEval?: boolean;
   navigate?: NavigateCallback;
   navigateDelay?: number;
+  maxNavigateDelay?: number;
+  /** @deprecated */
   antiFlicker?: boolean;
+  /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
@@ -398,6 +401,7 @@ export type InitOptions = {
   skipCache?: boolean;
   payload?: FeatureApiResponse;
   streaming?: boolean;
+  cacheSettings?: CacheSettings;
 };
 
 export type InitSyncOptions = {
