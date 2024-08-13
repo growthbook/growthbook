@@ -212,12 +212,15 @@ function getAttributes() {
 function setAntiFlicker() {
   window.clearTimeout(antiFlickerTimeout);
 
-  const timeoutMs =
+  let timeoutMs =
     windowContext.antiFlickerTimeout ??
     (dataContext.antiFlickerTimeout
       ? parseInt(dataContext.antiFlickerTimeout)
       : null) ??
     3500;
+  if (!isFinite(timeoutMs)) {
+    timeoutMs = 3500;
+  }
 
   try {
     if (!document.getElementById("gb-anti-flicker-style")) {
