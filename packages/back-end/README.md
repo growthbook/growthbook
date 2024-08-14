@@ -71,7 +71,7 @@ if (IS_CLOUD) {
 
 ### Adding new commercial features
 
-All back-end code for commercial features should live under the `src/enterprise` directory.
+All back-end code for commercial features should live under the `src/enterprise` directory. The front-end and shared packages have their own `enterprise` directories as well which can be used as needed.
 
 You will also need to edit `packages/shared/src/enterprise/license.ts`. Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
 

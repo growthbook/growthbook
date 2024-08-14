@@ -25,7 +25,7 @@ One sure shot way to run GrowthBook on Windows is through installing [Windows Su
 3. Now, on the terminal, run `wsl --install`
 4. After the installation is complete, restart your computer
 5. Set up your Linux username and password
-6. Run `sudo apt update && sudo apt upgrade` (for Ubuntu or Desbian) to update and upgrade packages
+6. Run `sudo apt update && sudo apt upgrade` (for Ubuntu or Debian) to update and upgrade packages
 
 Now you have the basic Linux system set up, and can follow along with all the other steps.
 
