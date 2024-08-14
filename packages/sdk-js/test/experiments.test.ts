@@ -21,7 +21,15 @@ const mockCallback = (context: Context) => {
     return a;
   });
   context.trackingCallback = onExperimentViewed;
+  return onExperimentViewed.mock;
+};
 
+const mockAsyncCallback = (context: Context) => {
+  const onExperimentViewed = jest.fn();
+  context.trackingCallback = async (experiment, result) => {
+    await sleep(500);
+    onExperimentViewed(experiment, result);
+  };
   return onExperimentViewed.mock;
 };
 
@@ -51,6 +59,38 @@ describe("experiments", () => {
     context.user = { id: "2" };
     const res5 = growthbook.run(exp2);
 
+    expect(mock.calls.length).toEqual(3);
+    expect(mock.calls[0]).toEqual([exp1, res1]);
+    expect(mock.calls[1]).toEqual([exp2, res4]);
+    expect(mock.calls[2]).toEqual([exp2, res5]);
+
+    growthbook.destroy();
+  });
+
+  it("async tracking", async () => {
+    const context: Context = { user: { id: "1" } };
+    const growthbook = new GrowthBook(context);
+    const mock = mockAsyncCallback(context);
+
+    const exp1: Experiment<number> = {
+      key: "my-tracked-test",
+      variations: [0, 1],
+    };
+    const exp2: Experiment<number> = {
+      key: "my-other-tracked-test",
+      variations: [0, 1],
+    };
+
+    const res1 = growthbook.run(exp1);
+    growthbook.run(exp1);
+    growthbook.run(exp1);
+    const res4 = growthbook.run(exp2);
+    context.user = { id: "2" };
+    const res5 = growthbook.run(exp2);
+
+    expect(mock.calls.length).toEqual(0);
+
+    await sleep(1000);
     expect(mock.calls.length).toEqual(3);
     expect(mock.calls[0]).toEqual([exp1, res1]);
     expect(mock.calls[1]).toEqual([exp2, res4]);
