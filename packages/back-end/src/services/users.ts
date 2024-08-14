@@ -2,19 +2,18 @@ import crypto from "crypto";
 import { promisify } from "util";
 import { Request } from "express";
 import md5 from "md5";
-import { UserInterface } from "@back-end/types/user";
+import { UserInterface } from "../../types/user";
 import {
   getAllUserEmailsAcrossAllOrgs,
   getUserByEmail,
   updateUser,
-} from "@back-end/src/models/UserModel";
-import { findOrganizationsByMemberId } from "@back-end/src/models/OrganizationModel";
-import { UserLoginNotificationEvent } from "@back-end/src/events/notification-events";
-import { createEvent } from "@back-end/src/models/EventModel";
-import { UserLoginAuditableProperties } from "@back-end/src/events/event-types";
-import { logger } from "@back-end/src/util/logger";
-import { EventNotifier } from "@back-end/src/events/notifiers/EventNotifier";
-import { IS_CLOUD } from "@back-end/src/util/secrets";
+} from "../models/UserModel";
+import { findOrganizationsByMemberId } from "../models/OrganizationModel";
+import { UserLoginNotificationEvent } from "../events/notification-events";
+import { createEvent } from "../models/EventModel";
+import { UserLoginAuditableProperties } from "../events/event-types";
+import { logger } from "../util/logger";
+import { IS_CLOUD } from "../util/secrets";
 import { validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
@@ -153,10 +152,9 @@ export async function trackLoginForUser({
 
   try {
     // Create a login event for all of a user's organizations
-    const eventCreatePromises = organizationIds.map(async (organizationId) => {
-      const emittedEvent = await createEvent(organizationId, event);
-      if (emittedEvent) new EventNotifier(emittedEvent.id).perform();
-    });
+    const eventCreatePromises = organizationIds.map((organizationId) =>
+      createEvent(organizationId, event)
+    );
     await Promise.all(eventCreatePromises);
   } catch (e) {
     logger.error(e);
