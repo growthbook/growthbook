@@ -34,6 +34,13 @@ function validateRoleAndEnvs(
           "Must have a commercial License Key to restrict permissions by environment."
         );
       }
+
+      if (!roleSupportsEnvLimit(role, org)) {
+        throw new Error(
+          `${role} does not support restricting access to certain environments`
+        );
+      }
+
       environments.forEach((env) => {
         const environmentIds =
           org.settings?.environments?.map((e) => e.id) || [];
@@ -43,12 +50,6 @@ function validateRoleAndEnvs(
           );
         }
       });
-
-      if (!roleSupportsEnvLimit(role, org)) {
-        throw new Error(
-          `${role} does not support restricting access to certain environments`
-        );
-      }
     }
   } catch (e) {
     return {
@@ -87,13 +88,18 @@ export const updateMemberRole = createApiRequestHandler(
 
     const { member } = req.body;
 
-    const updatedEnvironments = member.environments || orgUser.environments;
+    const updatedEnvironments = member.environments
+      ? member.environments
+      : orgUser.environments;
+
+    const updatedLimitAccessByEnv =
+      updatedEnvironments.length > 0 ? true : false;
 
     const updatedMember: Member = {
       ...orgUser,
       role: member.role || orgUser.role,
       environments: updatedEnvironments,
-      limitAccessByEnvironment: !!updatedEnvironments.length,
+      limitAccessByEnvironment: updatedLimitAccessByEnv,
     };
 
     // First, check the global role data
@@ -109,6 +115,11 @@ export const updateMemberRole = createApiRequestHandler(
 
     // Then, if member.projectRoles was passed in, we need to validate the each projectRole
     if (member.projectRoles?.length) {
+      if (!orgHasPremiumFeature(req.context.org, "advanced-permissions")) {
+        throw new Error(
+          "Your plan does not support providing users with project-level permissions."
+        );
+      }
       const updatedProjectRoles: ProjectMemberRole[] = [];
       member.projectRoles.forEach((updatedProjectRole) => {
         const { memberIsValid, reason } = validateRoleAndEnvs(
@@ -148,6 +159,7 @@ export const updateMemberRole = createApiRequestHandler(
 
       updatedOrgMembers[userIndex] = updatedMember;
 
+      //TODO: This is susceptible to race conditions if multiple requests are made for two different users at the same time
       await updateOrganization(req.context.org.id, {
         members: updatedOrgMembers,
       });
