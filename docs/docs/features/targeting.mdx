@@ -221,25 +221,25 @@ Target the same group of users across multiple features and experiments with Sav
 
 ![Saved groups overview](/images/saved-groups-overview.png)
 
-**Types of Saved Groups**
+### Types of Saved Groups
 
-### Condition Groups
+#### Condition Groups
 
 Define advanced targeting rules based on user attributes. For example, target users who are located in the US and on a mobile device.
 
 ![Saved groups condition, showing how to add a US user on a mobile device](/images/saved-groups-condition.png)
 
-### ID Lists
+#### ID Lists
 
 Manually define targeted users via text input or by uploading a CSV. For example, create a beta testers saved group by uploading a CSV of user IDs.
 
-ID Lists are limited to 1 MB.
-
-![Saved Group UI, focusing on adding an ID list](/images/saved-groups-id-list.png)
+ID Lists are limited to 1 MB. Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.
 
 :::note
-Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.
+ID Lists above 100 items requires an Enterprise plan. Enable this feature by editing your SDK connection and toggling on **ID Lists > 100 items**.
 :::
+
+![Saved Group UI, focusing on adding an ID list](/images/saved-groups-id-list.png)
 
 ## Prerequisite Targeting
 
