@@ -28,7 +28,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   private metric?: FactMetricInterface;
 
   checkPermissions(): boolean {
-    return this.context.permissions.canRunMetricQueries(
+    return this.context.permissions.canRunMetricAnalysisQueries(
       this.integration.datasource
     );
   }
@@ -165,7 +165,6 @@ export function processMetricAnalysisQueryResponse(
           type RowType = keyof typeof row;
           const bin_width = row[`bin_width`] ?? 0;
           const value_min = row["value_min"] ?? 0;
-          // TODO fix gross type
           const units_bin = row[`units_bin_${i}` as RowType] as number;
           return {
             start: (row[`bin_width`] ?? 0) * i + value_min,

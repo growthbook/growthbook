@@ -724,8 +724,6 @@ export default abstract class SqlIntegration
       segment: params.segment,
     });
 
-    const histogram_bin_number = DEFAULT_METRIC_HISTOGRAM_BINS;
-
     // TODO check if query broken if segment has template variables
     // TODO return cap numbers
     return format(
@@ -832,7 +830,7 @@ export default abstract class SqlIntegration
             , MIN(${finalValueColumn}) as value_min
             , MAX(${finalValueColumn}) as value_max
             , ${this.ensureFloat("NULL")} AS bin_width
-            ${[...Array(histogram_bin_number).keys()]
+            ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()]
               .map((i) => `, ${this.ensureFloat("NULL")} AS units_bin_${i}`)
               .join("\n")}`
                 : ""
@@ -855,7 +853,7 @@ export default abstract class SqlIntegration
                 ? `
             , MIN(${finalValueColumn}) as value_min
             , MAX(${finalValueColumn}) as value_max
-            , (MAX(${finalValueColumn}) - MIN(${finalValueColumn})) / ${histogram_bin_number}.0 as bin_width
+            , (MAX(${finalValueColumn}) - MIN(${finalValueColumn})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as bin_width
             `
                 : ""
             }
@@ -872,7 +870,7 @@ export default abstract class SqlIntegration
               "1",
               "0"
             )}) as units_bin_0
-            ${[...Array(histogram_bin_number - 2).keys()]
+            ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS - 2).keys()]
               .map(
                 (i) =>
                   `, SUM(${this.ifElse(
@@ -886,11 +884,11 @@ export default abstract class SqlIntegration
               .join("\n")}
             , SUM(${this.ifElse(
               `m.value >= (s.value_min + s.bin_width*${
-                histogram_bin_number - 1
+                DEFAULT_METRIC_HISTOGRAM_BINS - 1
               }.0)`,
               "1",
               "0"
-            )}) as units_bin_${histogram_bin_number - 1}
+            )}) as units_bin_${DEFAULT_METRIC_HISTOGRAM_BINS - 1}
           FROM
             __userMetricOverall m
           CROSS JOIN
@@ -916,6 +914,23 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback
   ): Promise<MetricAnalysisQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
+
+    function parseUnitsBinData(
+      // eslint-disable-next-line
+      row: Record<string, any>
+    ): Partial<MetricAnalysisQueryResponseRow> {
+      const data: Record<string, number> = {};
+
+      for (let i = 0; i < DEFAULT_METRIC_HISTOGRAM_BINS; i++) {
+        const key = `units_bin_${i}`;
+        const parsed = parseFloat(row[key]);
+        if (parsed) {
+          data[key] = parsed;
+        }
+      }
+
+      return data as Partial<MetricAnalysisQueryResponseRow>;
+    }
 
     return {
       rows: rows.map((row) => {
@@ -950,81 +965,7 @@ export default abstract class SqlIntegration
           ...(parseFloat(row.bin_width) && {
             bin_width: parseFloat(row.bin_width),
           }),
-          ...(parseFloat(row.units_bin_0) && {
-            units_bin_0: parseFloat(row.units_bin_0),
-          }),
-          ...(parseFloat(row.units_bin_1) && {
-            units_bin_1: parseFloat(row.units_bin_1),
-          }),
-          ...(parseFloat(row.units_bin_2) && {
-            units_bin_2: parseFloat(row.units_bin_2),
-          }),
-          ...(parseFloat(row.units_bin_3) && {
-            units_bin_3: parseFloat(row.units_bin_3),
-          }),
-          ...(parseFloat(row.units_bin_4) && {
-            units_bin_4: parseFloat(row.units_bin_4),
-          }),
-          ...(parseFloat(row.units_bin_5) && {
-            units_bin_5: parseFloat(row.units_bin_5),
-          }),
-          ...(parseFloat(row.units_bin_6) && {
-            units_bin_6: parseFloat(row.units_bin_6),
-          }),
-          ...(parseFloat(row.units_bin_7) && {
-            units_bin_7: parseFloat(row.units_bin_7),
-          }),
-          ...(parseFloat(row.units_bin_8) && {
-            units_bin_8: parseFloat(row.units_bin_8),
-          }),
-          ...(parseFloat(row.units_bin_9) && {
-            units_bin_9: parseFloat(row.units_bin_9),
-          }),
-          ...(parseFloat(row.units_bin_10) && {
-            units_bin_10: parseFloat(row.units_bin_10),
-          }),
-          ...(parseFloat(row.units_bin_11) && {
-            units_bin_11: parseFloat(row.units_bin_11),
-          }),
-          ...(parseFloat(row.units_bin_12) && {
-            units_bin_12: parseFloat(row.units_bin_12),
-          }),
-          ...(parseFloat(row.units_bin_13) && {
-            units_bin_13: parseFloat(row.units_bin_13),
-          }),
-          ...(parseFloat(row.units_bin_14) && {
-            units_bin_14: parseFloat(row.units_bin_14),
-          }),
-          ...(parseFloat(row.units_bin_15) && {
-            units_bin_15: parseFloat(row.units_bin_15),
-          }),
-          ...(parseFloat(row.units_bin_16) && {
-            units_bin_16: parseFloat(row.units_bin_16),
-          }),
-          ...(parseFloat(row.units_bin_17) && {
-            units_bin_17: parseFloat(row.units_bin_17),
-          }),
-          ...(parseFloat(row.units_bin_18) && {
-            units_bin_18: parseFloat(row.units_bin_18),
-          }),
-          ...(parseFloat(row.units_bin_19) && {
-            units_bin_19: parseFloat(row.units_bin_19),
-          }),
-          ...(parseFloat(row.units_bin_20) && {
-            units_bin_20: parseFloat(row.units_bin_20),
-          }),
-          ...(parseFloat(row.units_bin_21) && {
-            units_bin_21: parseFloat(row.units_bin_21),
-          }),
-          ...(parseFloat(row.units_bin_22) && {
-            units_bin_22: parseFloat(row.units_bin_22),
-          }),
-          ...(parseFloat(row.units_bin_23) && {
-            units_bin_23: parseFloat(row.units_bin_23),
-          }),
-          ...(parseFloat(row.units_bin_24) && {
-            units_bin_24: parseFloat(row.units_bin_24),
-          }),
+          ...parseUnitsBinData(row),
         };
         return ret;
       }),
@@ -4028,14 +3969,14 @@ export default abstract class SqlIntegration
 
       const column =
         filters.length > 0
-          ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
+          ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${value} ELSE NULL END`
           : value;
 
       metricCols.push(`-- ${m.name}
       ${column} as m${i}_value`);
 
       if (addFiltersToWhere && filters.length) {
-        filterWhere.push(`(${filters.join(" AND ")})`);
+        filterWhere.push(`(${filters.join("\n AND ")})`);
       }
 
       // Add denominator column if there is one
@@ -4064,6 +4005,10 @@ export default abstract class SqlIntegration
       }
     });
 
+    if (filterWhere.length) {
+      where.push("(" + filterWhere.join(" OR ") + ")");
+    }
+
     return compileSqlTemplate(
       `-- Fact Table (${factTable.name})
       SELECT
@@ -4074,13 +4019,7 @@ export default abstract class SqlIntegration
           ${sql}
         ) m
         ${join}
-        ${
-          where.length
-            ? `WHERE ${where.join(" AND ")} ${
-                filterWhere.length ? ` AND ${filterWhere.join(" OR ")}` : ""
-              }`
-            : ""
-        }
+        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     `,
       {
         startDate,

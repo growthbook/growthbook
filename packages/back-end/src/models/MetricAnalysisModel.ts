@@ -13,17 +13,28 @@ const BaseClass = MakeModelClass({
     deleteEvent: "metricAnalysis.delete",
   },
   globallyUniqueIds: false,
+  additionalIndexes: [
+    {
+      fields: {
+        organization: 1,
+        metric: 1,
+        dateCreated: -1,
+      },
+    },
+  ],
 });
 
 export class MetricAnalysisModel extends BaseClass {
   protected canRead(doc: MetricAnalysisInterface): boolean {
     const { metric } = this.getForeignRefs(doc);
-    return this.context.hasPermission("readData", metric?.projects || []);
+    return this.context.permissions.canReadMultiProjectResource(
+      metric?.projects || []
+    );
   }
   protected canCreate(doc: MetricAnalysisInterface): boolean {
-    const { metric } = this.getForeignRefs(doc);
-    return this.context.permissions.canRunMetricQueries({
-      projects: metric?.projects || [],
+    const { datasource } = this.getForeignRefs(doc);
+    return this.context.permissions.canCreateMetricAnalysis({
+      projects: datasource?.projects || [],
     });
   }
   protected canUpdate(existing: MetricAnalysisInterface): boolean {
