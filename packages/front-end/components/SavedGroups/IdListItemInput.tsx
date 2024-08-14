@@ -272,10 +272,10 @@ export const IdListItemInput: FC<{
           )}
           <div className="row justify-content-end mr-0">
             <a
-              href="#"
+              role="button"
+              className="btn-link"
               style={{ fontSize: "0.8em" }}
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setRawTextMode((prev) => !prev);
               }}
             >

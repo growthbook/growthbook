@@ -202,7 +202,6 @@ export default function RuleModal({
     setAttributeTargetingSdkIssues,
   ] = useState(false);
   const canSubmit = useMemo(() => {
-    console.log("Computing canSubmit memo");
     return (
       !isCyclic &&
       !prerequisiteTargetingSdkIssues &&
