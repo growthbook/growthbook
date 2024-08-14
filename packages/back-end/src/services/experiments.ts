@@ -2044,6 +2044,7 @@ export function updateExperimentApiPayloadToInterface(
     attributionModel,
     statsEngine,
     regressionAdjustmentEnabled,
+    secondaryMetrics,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2056,8 +2057,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
-    ...(metrics ? { metrics } : {}),
-    ...(guardrailMetrics ? { guardrails: guardrailMetrics } : {}),
+    ...(metrics ? { goalMetrics: metrics } : {}),
+    ...(guardrailMetrics ? { guardrailMetrics } : {}),
+    ...(secondaryMetrics ? { secondaryMetrics } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
