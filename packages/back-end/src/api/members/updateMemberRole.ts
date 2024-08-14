@@ -88,18 +88,14 @@ export const updateMemberRole = createApiRequestHandler(
 
     const { member } = req.body;
 
-    const updatedEnvironments = member.environments
-      ? member.environments
-      : orgUser.environments;
-
-    const updatedLimitAccessByEnv =
-      updatedEnvironments.length > 0 ? true : false;
-
     const updatedMember: Member = {
       ...orgUser,
       role: member.role || orgUser.role,
-      environments: updatedEnvironments,
-      limitAccessByEnvironment: updatedLimitAccessByEnv,
+      environments: member.environments || orgUser.environments,
+      // If environments are passed in, recalculate limitAccessByEnvironment, otherwise, use existing value
+      limitAccessByEnvironment: member.environments
+        ? !!member.environments.length
+        : orgUser.limitAccessByEnvironment,
     };
 
     // First, check the global role data
