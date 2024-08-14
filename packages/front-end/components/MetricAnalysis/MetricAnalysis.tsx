@@ -285,7 +285,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
         {factMetric.metricType === "quantile" ? (
           <div className={`mt-2 mb-2 alert alert-warning`}>
             <span style={{ fontSize: "1.2em" }}>
-              Standalone metric analysis not enabled for quantile metrics.
+              Standalone metric analysis not available for quantile metrics.
             </span>
           </div>
         ) : (

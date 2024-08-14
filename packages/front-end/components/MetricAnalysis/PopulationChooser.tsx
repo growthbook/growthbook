@@ -87,7 +87,9 @@ export default function PopulationChooser({
             <div>{option.label}</div>
           ) : (
             <PremiumTooltip commercialFeature="metric-populations">
-              <span className="text-muted">{option.label}</span>
+              <span className={!hasMetricPopulations ? "text-muted" : ""}>
+                {option.label}
+              </span>
             </PremiumTooltip>
           );
         }}
