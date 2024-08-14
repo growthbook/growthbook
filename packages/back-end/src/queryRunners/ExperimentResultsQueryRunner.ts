@@ -1,4 +1,4 @@
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,

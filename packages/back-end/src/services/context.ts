@@ -2,7 +2,7 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
-import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
+import { CommercialFeature, orgHasPremiumFeature } from "shared/enterprise";
 import {
   OrganizationInterface,
   Permission,

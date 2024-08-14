@@ -30,7 +30,7 @@ import {
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
 import { promiseAllChunks } from "../util/promise";

@@ -8,7 +8,7 @@ import {
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-} from "enterprise";
+} from "shared/enterprise";
 import {
   APP_ORIGIN,
   STRIPE_PRICE,

@@ -110,5 +110,5 @@
   "optionalDependencies": {
     "@babel/core": "^7.19.6"
   },
-  "license": "MIT"
+  "license": "Mixed"
 }

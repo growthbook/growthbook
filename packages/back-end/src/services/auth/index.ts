@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { licenseInit, SSO_CONFIG } from "enterprise";
+import { licenseInit, SSO_CONFIG } from "shared/enterprise";
 import { userHasPermission } from "shared/permissions";
 import { logger } from "../../util/logger";
 import { IS_CLOUD } from "../../util/secrets";

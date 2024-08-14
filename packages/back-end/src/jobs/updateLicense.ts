@@ -5,7 +5,7 @@
  * void within a week if something is not done to unblock the connection.
  */
 import Agenda from "agenda";
-import { licenseInit } from "enterprise";
+import { licenseInit } from "shared/enterprise";
 import { getSelfHostedOrganization } from "../models/OrganizationModel";
 import { trackJob } from "../services/otel";
 import { IS_CLOUD } from "../util/secrets";

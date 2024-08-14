@@ -1,5 +1,5 @@
 import { Response, NextFunction } from "express";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { usingOpenId } from "../../services/auth";
 import { BaseScimRequest, ScimError } from "../../../types/scim";
 

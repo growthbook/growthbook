@@ -15,7 +15,7 @@ import {
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
-import { LicenseInterface } from "enterprise";
+import { LicenseInterface } from "shared/enterprise";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";

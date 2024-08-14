@@ -1,5 +1,5 @@
 import { Stripe } from "stripe";
-import { isActiveSubscriptionStatus } from "enterprise";
+import { isActiveSubscriptionStatus } from "shared/enterprise";
 import { STRIPE_SECRET } from "../util/secrets";
 import {
   findOrganizationByStripeCustomerId,

@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,
   getConnectionsSDKCapabilities,

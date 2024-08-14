@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import { Request, RequestHandler } from "express";
 import z, { Schema, ZodNever } from "zod";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
 import { UserInterface } from "../../types/user";
