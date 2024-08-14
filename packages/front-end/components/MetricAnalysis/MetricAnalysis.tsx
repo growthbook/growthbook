@@ -745,18 +745,12 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     {metricAnalysis?.result?.histogram &&
                       metricAnalysis.result.histogram.length > 0 &&
                       factMetric.metricType !== "proportion" && (
-                        <div className="mb-4">
-                          <div className="row mt-3">
-                            <div className="col-auto">
-                              <h4 className="mb-1 mt-1">
-                                Histogram of Metric value by{" "}
-                                <code>
-                                  {metricAnalysis.settings.userIdType}
-                                </code>{" "}
-                                Totals
-                              </h4>
-                            </div>
-                          </div>
+                        <div className="mt-5 mb-2">
+                          <strong className="ml-4 align-bottom">
+                            Histogram of Metric Value by{" "}
+                            <code>{metricAnalysis.settings.userIdType}</code>{" "}
+                            Totals
+                          </strong>
                           <HistogramGraph
                             data={metricAnalysis.result.histogram}
                             formatter={formatter}

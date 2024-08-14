@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
@@ -39,7 +39,7 @@ function getTooltipDataFromDatapoint(
   }
   const x =
     (data.length > 0 ? (index + 0.5) / (data.length + 1) : 0) * innerWidth;
-  const y = (yScale(datapoint.units ?? 0) ?? 0) as number;
+  const y = (yScale(datapoint.units) ?? 0) as number;
   return { x, y, d: datapoint };
 }
 
@@ -82,18 +82,34 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
   const width = (containerBounds?.width || 0) + marginRight + marginLeft;
   const yMax = height - marginTop - marginBottom;
   const xMax = containerBounds?.width || 0;
-  const graphHeight = yMax;
   const binWidth = xMax / data.length;
+  const numTicks = useMemo(() => {
+    const maxXVal = data[data.length - 1];
+    const formattedMaxVal = formatter(maxXVal.end);
+    let n = Math.min(data.length + 1, 20);
+    if (formattedMaxVal.length >= 8) n /= 2;
+    if (width < 1200) n /= 2;
+    if (width < 728) n /= 2;
+    return n;
+  }, [data, width, formatter]);
+  const numYTicks = 5;
 
-  const xScale = scaleLinear({
-    domain: [0, data.length],
-    range: [0, xMax],
-  });
+  const xScale = useMemo(
+    () =>
+      scaleLinear({
+        domain: [0, data.length],
+        range: [0, xMax],
+      }),
+    [data, xMax]
+  );
 
-  const yScale = scaleLinear({
-    domain: [0, Math.max(...data.map((d) => d.units))],
-    range: [yMax, 0],
-  });
+  const yScale = useMemo(() => {
+    const maxVal = Math.max(...data.map((d) => d.units));
+    return scaleLinear({
+      domain: [0, maxVal * 1.05], // extra top padding
+      range: [yMax, 0],
+    });
+  }, [data, yMax]);
 
   const {
     showTooltip,
@@ -175,7 +191,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                 position: "absolute",
                 overflow: "hidden",
                 width: xMax,
-                height: graphHeight,
+                height: yMax,
                 marginLeft: marginLeft,
                 marginTop: marginTop,
               }}
@@ -220,13 +236,14 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                   top={yMax}
                   scale={xScale}
                   stroke={"var(--text-color-table)"}
-                  tickStroke="#333"
+                  tickStroke={"var(--text-color-table)"}
+                  numTicks={numTicks}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 10,
                     textAnchor: "middle",
+                    dx: -10,
                   })}
-                  numTicks={data.length + 1}
                   tickFormat={(v) => {
                     const i = v as number;
                     return i < data.length
@@ -238,11 +255,12 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                   scale={yScale}
                   stroke={"var(--text-color-table)"}
                   tickStroke={"var(--text-color-table)"}
+                  numTicks={numYTicks}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 12,
                     textAnchor: "end",
-                    dx: -10,
+                    dx: -5,
                   })}
                   label="Count"
                   labelClassName="h5"
