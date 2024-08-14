@@ -38,7 +38,9 @@ export const postMetricAnalysis = async (
     metricObj.datasource,
     true
   );
-  if (!context.permissions.canRunMetricQueries(integration.datasource)) {
+  if (
+    !context.permissions.canRunMetricAnalysisQueries(integration.datasource)
+  ) {
     context.permissions.throwPermissionError();
   }
   if (
