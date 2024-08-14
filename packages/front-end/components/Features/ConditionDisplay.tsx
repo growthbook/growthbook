@@ -204,9 +204,23 @@ function getConditionParts({
         {hasMultiValues(operator) ? (
           <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
-          <span className="mr-1 border px-2 bg-light rounded">
-            {getValue(operator, value, savedGroups)}
-          </span>
+          (() => {
+            const v = getValue(operator, value, savedGroups);
+            return (
+              <span
+                className="mr-1 border px-2 bg-light rounded"
+                style={{
+                  whiteSpace: "pre",
+                  textDecoration:
+                    v !== v.trim()
+                      ? "underline wavy rgba(255, 127, 0, .75)"
+                      : "",
+                }}
+              >
+                {v}
+              </span>
+            );
+          })()
         ) : (
           ""
         )}

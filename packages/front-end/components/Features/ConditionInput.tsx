@@ -569,6 +569,14 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
+                      style={
+                        value !== value.trim()
+                          ? {
+                              textDecoration:
+                                "underline wavy rgba(255, 127, 0, .75)",
+                            }
+                          : undefined
+                      }
                       required
                     />
                   ) : (
