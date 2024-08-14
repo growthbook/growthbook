@@ -3094,7 +3094,8 @@ td.disabled {
   cursor: not-allowed;
 }
 .gb-select-wrapper.error .gb-select__control,
-.form-group.error .gb-multi-select__control {
+.form-group.error .gb-multi-select__control,
+.form-group.error input[type="text"] {
   border-color: colors.$danger !important;
 }
 

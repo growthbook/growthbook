@@ -379,6 +379,38 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
+            let displayType:
+              | "select-only"
+              | "array-field"
+              | "enum"
+              | "number"
+              | "string"
+              | null = null;
+            if (
+              [
+                "$exists",
+                "$notExists",
+                "$true",
+                "$false",
+                "$empty",
+                "$notEmpty",
+              ].includes(operator)
+            ) {
+              displayType = "select-only";
+            } else if (["$in", "$nin"].includes(operator)) {
+              displayType = "array-field";
+            } else if (attribute.enum.length) {
+              displayType = "enum";
+            } else if (attribute.datatype === "number") {
+              displayType = "number";
+            } else if (
+              ["string", "secureString"].includes(attribute.datatype)
+            ) {
+              displayType = "string";
+            }
+            const hasExtraWhitespace =
+              displayType === "string" && value !== value.trim();
+
             return (
               <li key={i} className={styles.listitem}>
                 <div className={`row ${styles.listrow}`}>
@@ -430,14 +462,7 @@ export default function ConditionInput(props: Props) {
                       }}
                     />
                   </div>
-                  {[
-                    "$exists",
-                    "$notExists",
-                    "$true",
-                    "$false",
-                    "$empty",
-                    "$notEmpty",
-                  ].includes(operator) ? (
+                  {displayType === "select-only" ? (
                     ""
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
                     savedGroupOptions.length > 0 ? (
@@ -487,7 +512,7 @@ export default function ConditionInput(props: Props) {
                       required
                       className={localTargetingIssues ? "error" : ""}
                     />
-                  ) : ["$in", "$nin"].includes(operator) ? (
+                  ) : displayType === "array-field" ? (
                     <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
                       {rawTextMode ? (
                         <Field
@@ -528,7 +553,7 @@ export default function ConditionInput(props: Props) {
                         Switch to {rawTextMode ? "token" : "raw text"} mode
                       </span>
                     </div>
-                  ) : attribute.enum.length ? (
+                  ) : displayType === "enum" ? (
                     <SelectField
                       options={attribute.enum.map((v) => ({
                         label: v,
@@ -543,7 +568,7 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : attribute.datatype === "number" ? (
+                  ) : displayType === "number" ? (
                     <Field
                       type="number"
                       step="any"
@@ -554,9 +579,7 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : ["string", "secureString"].includes(
-                      attribute.datatype
-                    ) ? (
+                  ) : displayType === "string" ? (
                     <Field
                       type={
                         attribute.format === "date" &&
@@ -568,7 +591,16 @@ export default function ConditionInput(props: Props) {
                       onChange={handleFieldChange}
                       name="value"
                       className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
+                      containerClassName={clsx("col-sm-12 col-md mb-2", {
+                        error: hasExtraWhitespace,
+                      })}
+                      helpText={
+                        hasExtraWhitespace ? (
+                          <small className="text-danger">
+                            Extra whitespace detected
+                          </small>
+                        ) : undefined
+                      }
                       required
                     />
                   ) : (
