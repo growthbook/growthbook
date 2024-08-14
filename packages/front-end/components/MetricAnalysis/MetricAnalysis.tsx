@@ -64,33 +64,26 @@ function MetricAnalysisOverview({
     options?: Intl.NumberFormatOptions
   ) => string;
 }) {
-  let numeratorText: string;
-  let denominatorText: JSX.Element;
-  let numeratorValue: JSX.Element;
-  let denominatorValue: JSX.Element;
+  let numeratorText = "Metric Total: ";
+  let numeratorValue: string =
+    metricType === "proportion"
+      ? formatNumber(result.units * result.mean)
+      : formatter(result.units * result.mean);
+  let denominatorText: string | JSX.Element = (
+    <>
+      {"Unique "}
+      <code>{userIdType}</code>
+      {": "}
+    </>
+  );
+  let denominatorValue: string = formatNumber(result.units);
   if (metricType === "ratio" && numeratorFormatter && denominatorFormatter) {
     numeratorText = "Numerator: ";
-    denominatorText = <>{"Denominator: "}</>;
-    numeratorValue = <>{numeratorFormatter(result.numerator ?? 0)}</>;
-    denominatorValue = <>{denominatorFormatter(result.denominator ?? 0)}</>;
-  } else {
-    numeratorText = "Metric Total: ";
-    numeratorValue = (
-      <>
-        {metricType === "proportion"
-          ? formatNumber(result.units * result.mean)
-          : formatter(result.units * result.mean)}
-      </>
-    );
-    denominatorText = (
-      <>
-        {"Unique "}
-        <code>{userIdType}</code>
-        {": "}
-      </>
-    );
-    denominatorValue = <>{formatNumber(result.units)}</>;
+    denominatorText = "Denominator: ";
+    numeratorValue = numeratorFormatter(result.numerator ?? 0);
+    denominatorValue = denominatorFormatter(result.denominator ?? 0);
   }
+
   return (
     <div className="mb-4">
       <div className="row mt-3">
@@ -160,11 +153,11 @@ function settingsMatch(
   settings: MetricAnalysisSettings,
   desiredSettings: CreateMetricAnalysisProps
 ) {
-  return (
-    settings.userIdType === desiredSettings.userIdType &&
-    settings.lookbackDays === desiredSettings.lookbackDays &&
-    settings.populationType === desiredSettings.populationType &&
-    settings.populationId === desiredSettings.populationId
+  // skip strict date checking
+  const fieldsThatCanDiffer = ["startDate", "endDate"];
+  return Object.entries(settings).every(
+    ([key, value]) =>
+      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key)
   );
 }
 

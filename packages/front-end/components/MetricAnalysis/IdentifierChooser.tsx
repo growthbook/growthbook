@@ -29,7 +29,7 @@ export default function IdentifierChooser({
           return { label: d, value: d };
         })}
         formatOptionLabel={({ label }) => {
-          return <code>{`${label}`}</code>;
+          return <code>{label}</code>;
         }}
         value={value}
         onChange={(v) => {
