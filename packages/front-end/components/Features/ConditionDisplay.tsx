@@ -205,7 +205,7 @@ function getConditionParts({
           <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
           <span
-            className="mr-1 border px-1 bg-light rounded"
+            className="mr-1 border px-2 bg-light rounded"
             style={{ whiteSpace: "pre" }}
           >
             {getValue(operator, value, savedGroups)}
