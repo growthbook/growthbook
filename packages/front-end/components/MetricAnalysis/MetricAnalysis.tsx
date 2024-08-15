@@ -290,7 +290,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           </div>
         ) : (
           <>
-            <div className="row mb-3 align-items-center">
+            <div
+              className="d-flex flex-wrap mb-3 align-items-center"
+              style={{ gap: "1rem 0", margin: "0 -0.5rem" }}
+            >
               <div className="col-auto form-inline pr-5">
                 <div>
                   <div className="uppercase-title text-muted">Date Range</div>
@@ -372,10 +375,12 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               </div>
               <div style={{ flex: 1 }} />
               {queries.length > 0 && matchedSettings && (
-                <QueriesLastRun
-                  status={queryStatus}
-                  dateCreated={metricAnalysis?.dateCreated}
-                />
+                <div className="col-auto">
+                  <QueriesLastRun
+                    status={queryStatus}
+                    dateCreated={metricAnalysis?.dateCreated}
+                  />
+                </div>
               )}
               {queries.length > 0 &&
               ["failed", "partially-succeeded"].includes(queryStatus) ? (
@@ -452,36 +457,34 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   </form>
                 )}
               </div>
-              <div className="cols">
-                <MetricAnalysisMoreMenu
-                  metricAnalysis={metricAnalysis}
-                  forceRefresh={async () => {
-                    try {
-                      const data: CreateMetricAnalysisProps = {
-                        ...getDesiredSettings(
-                          factMetric.id,
-                          getValues(),
-                          endOfToday
-                        ),
-                        force: true,
-                      };
-                      track("MetricAnalysis_ForceUpdate", {
-                        type: factMetric.metricType,
-                        populationType: data.populationType,
-                        days: data.lookbackDays,
-                      });
-                      await apiCall(`/metric-analysis`, {
-                        method: "POST",
-                        body: JSON.stringify(data),
-                      });
-                      mutate();
-                    } catch (e) {
-                      console.error(e);
-                    }
-                  }}
-                  canRunMetricQuery={canRunMetricQuery}
-                />
-              </div>
+              <MetricAnalysisMoreMenu
+                metricAnalysis={metricAnalysis}
+                forceRefresh={async () => {
+                  try {
+                    const data: CreateMetricAnalysisProps = {
+                      ...getDesiredSettings(
+                        factMetric.id,
+                        getValues(),
+                        endOfToday
+                      ),
+                      force: true,
+                    };
+                    track("MetricAnalysis_ForceUpdate", {
+                      type: factMetric.metricType,
+                      populationType: data.populationType,
+                      days: data.lookbackDays,
+                    });
+                    await apiCall(`/metric-analysis`, {
+                      method: "POST",
+                      body: JSON.stringify(data),
+                    });
+                    mutate();
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                canRunMetricQuery={canRunMetricQuery}
+              />
             </div>
 
             {metricAnalysis ? (
