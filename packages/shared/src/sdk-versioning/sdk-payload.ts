@@ -5,8 +5,14 @@ import {
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
+import { OrganizationInterface } from "back-end/types/organization";
 import { SavedGroupsValues, SavedGroupInterface } from "../types";
-import { NodeHandler, recursiveWalk } from "../util";
+import {
+  getSavedGroupValueType,
+  getTypedSavedGroupValues,
+  NodeHandler,
+  recursiveWalk,
+} from "../util";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -47,7 +53,8 @@ export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
   capabilities: SDKCapability[],
   savedGroups: SavedGroupInterface[],
-  savedGroupReferencesEnabled: boolean
+  savedGroupReferencesEnabled: boolean,
+  organization: OrganizationInterface
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -72,10 +79,13 @@ export const scrubFeatures = (
         return;
       }
       feature.rules.forEach((rule) => {
-        recursiveWalk(rule.condition, replaceSavedGroups(savedGroupsMap));
+        recursiveWalk(
+          rule.condition,
+          replaceSavedGroups(savedGroupsMap, organization)
+        );
         recursiveWalk(
           rule.parentConditions,
-          replaceSavedGroups(savedGroupsMap)
+          replaceSavedGroups(savedGroupsMap, organization)
         );
       });
     });
@@ -130,7 +140,8 @@ export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
   capabilities: SDKCapability[],
   savedGroups: SavedGroupInterface[],
-  savedGroupReferencesEnabled: boolean
+  savedGroupReferencesEnabled: boolean,
+  organization: OrganizationInterface
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
@@ -146,11 +157,11 @@ export const scrubExperiments = (
     experiments.forEach((experimentDefinition) => {
       recursiveWalk(
         experimentDefinition.condition,
-        replaceSavedGroups(savedGroupsMap)
+        replaceSavedGroups(savedGroupsMap, organization)
       );
       recursiveWalk(
         experimentDefinition.parentConditions,
-        replaceSavedGroups(savedGroupsMap)
+        replaceSavedGroups(savedGroupsMap, organization)
       );
     });
   }
@@ -207,14 +218,28 @@ export const scrubSavedGroups = (
 
 // Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
 const replaceSavedGroups: (
-  savedGroups: Record<string, SavedGroupInterface>
-) => NodeHandler = (savedGroups: Record<string, SavedGroupInterface>) => {
+  savedGroups: Record<string, SavedGroupInterface>,
+  organization: OrganizationInterface
+) => NodeHandler = (
+  savedGroups: Record<string, SavedGroupInterface>,
+  organization
+) => {
   return ([key, value], object) => {
     if (key === "$inGroup" || key === "$notInGroup") {
       const group = savedGroups[value];
-      object[savedGroupOperatorReplacements[key]] = group?.passByReferenceOnly
-        ? []
-        : group?.values || [];
+
+      if (group?.passByReferenceOnly) {
+        object[savedGroupOperatorReplacements[key]] = [];
+      } else {
+        const values = group
+          ? getTypedSavedGroupValues(
+              group.values || [],
+              getSavedGroupValueType(group, organization)
+            )
+          : [];
+        object[savedGroupOperatorReplacements[key]] = values;
+      }
+
       delete object[key];
     }
   };
