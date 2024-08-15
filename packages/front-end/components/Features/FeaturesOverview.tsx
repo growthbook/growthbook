@@ -29,18 +29,18 @@ import clsx from "clsx";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
-import { GBAddCircle, GBEdit } from "@/components/Icons";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useAuth } from "@/services/auth";
-import RuleModal from "@/components/Features/RuleModal";
-import ForceSummary from "@/components/Features/ForceSummary";
-import RuleList from "@/components/Features/RuleList";
-import track from "@/services/track";
-import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
-import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
-import EditProjectForm from "@/components/Experiment/EditProjectForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import { GBAddCircle, GBEdit } from "@front-end/components/Icons";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useAuth } from "@front-end/services/auth";
+import RuleModal from "@front-end/components/Features/RuleModal";
+import ForceSummary from "@front-end/components/Features/ForceSummary";
+import RuleList from "@front-end/components/Features/RuleList";
+import track from "@front-end/services/track";
+import EditDefaultValueModal from "@front-end/components/Features/EditDefaultValueModal";
+import EnvironmentToggle from "@front-end/components/Features/EnvironmentToggle";
+import EditProjectForm from "@front-end/components/Experiment/EditProjectForm";
+import EditTagsForm from "@front-end/components/Tags/EditTagsForm";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
 import {
   getFeatureDefaultValue,
   getRules,
@@ -49,30 +49,30 @@ import {
   getAffectedRevisionEnvs,
   getPrerequisites,
   useFeaturesList,
-} from "@/services/features";
-import AssignmentTester from "@/components/Archetype/AssignmentTester";
-import Tab from "@/components/Tabs/Tab";
-import Modal from "@/components/Modal";
-import DraftModal from "@/components/Features/DraftModal";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import DiscussionThread from "@/components/DiscussionThread";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import EditSchemaModal from "@/components/Features/EditSchemaModal";
-import Code from "@/components/SyntaxHighlighting/Code";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
-import EventUser from "@/components/Avatar/EventUser";
-import RevertModal from "@/components/Features/RevertModal";
-import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
-import FixConflictsModal from "@/components/Features/FixConflictsModal";
-import Revisionlog from "@/components/Features/RevisionLog";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import CopyRuleModal from "@/components/Features/CopyRuleModal";
-import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+} from "@front-end/services/features";
+import AssignmentTester from "@front-end/components/Archetype/AssignmentTester";
+import Tab from "@front-end/components/Tabs/Tab";
+import Modal from "@front-end/components/Modal";
+import DraftModal from "@front-end/components/Features/DraftModal";
+import RevisionDropdown from "@front-end/components/Features/RevisionDropdown";
+import DiscussionThread from "@front-end/components/DiscussionThread";
+import EditOwnerModal from "@front-end/components/Owner/EditOwnerModal";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import EditSchemaModal from "@front-end/components/Features/EditSchemaModal";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import EventUser from "@front-end/components/Avatar/EventUser";
+import RevertModal from "@front-end/components/Features/RevertModal";
+import EditRevisionCommentModal from "@front-end/components/Features/EditRevisionCommentModal";
+import FixConflictsModal from "@front-end/components/Features/FixConflictsModal";
+import Revisionlog from "@front-end/components/Features/RevisionLog";
+import { useCopyToClipboard } from "@front-end/hooks/useCopyToClipboard";
+import { SimpleTooltip } from "@front-end/components/SimpleTooltip/SimpleTooltip";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import CopyRuleModal from "@front-end/components/Features/CopyRuleModal";
+import CustomMarkdown from "@front-end/components/Markdown/CustomMarkdown";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";

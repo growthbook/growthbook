@@ -33,27 +33,27 @@ import {
   useEnvironments,
   useFeaturesList,
   validateFeatureRule,
-} from "@/services/features";
-import track from "@/services/track";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useExperiments } from "@/hooks/useExperiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useIncrementer } from "@/hooks/useIncrementer";
-import { useAuth } from "@/services/auth";
-import useSDKConnections from "@/hooks/useSDKConnections";
+} from "@front-end/services/features";
+import track from "@front-end/services/track";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useExperiments } from "@front-end/hooks/useExperiments";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useIncrementer } from "@front-end/hooks/useIncrementer";
+import { useAuth } from "@front-end/services/auth";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
-} from "@/components/Experiment/HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
-import Toggle from "@/components/Forms/Toggle";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
-import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
-import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+} from "@front-end/components/Experiment/HashVersionSelector";
+import PrerequisiteTargetingField from "@front-end/components/Features/PrerequisiteTargetingField";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import SelectField from "@front-end/components/Forms/SelectField";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import StatusIndicator from "@front-end/components/Experiment/StatusIndicator";
+import Toggle from "@front-end/components/Forms/Toggle";
+import { getNewExperimentDatasourceDefaults } from "@front-end/components/Experiment/NewExperimentForm";
+import TargetingInfo from "@front-end/components/Experiment/TabbedPage/TargetingInfo";
+import EditTargetingModal from "@front-end/components/Experiment/EditTargetingModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";

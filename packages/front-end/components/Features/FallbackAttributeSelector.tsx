@@ -9,16 +9,16 @@ import {
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKAttribute } from "@back-end/types/organization";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { DocLink } from "@/components/DocLink";
-import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { DocLink } from "@front-end/components/DocLink";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Toggle from "@front-end/components/Forms/Toggle";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import MinSDKVersionsList from "@front-end/components/Features/MinSDKVersionsList";
 
 export interface Props {
   // eslint-disable-next-line

@@ -3,13 +3,15 @@ import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { SMALL_GROUP_SIZE_LIMIT } from "shared/util";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import SelectField, {
+  isSingleValue,
+} from "@front-end/components/Forms/SelectField";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
-} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/components/SavedGroups/LargeSavedGroupSupportWarning";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export interface Props {
   value: SavedGroupTargeting[];

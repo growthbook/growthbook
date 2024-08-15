@@ -4,10 +4,10 @@ import {
 } from "back-end/types/experimentLaunchChecklist";
 import { useEffect, useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import Modal from "@/components/Modal";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import Modal from "@front-end/components/Modal";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 import SortableExperimentChecklist from "./SortableExperimentChecklist";
 import ExperimentChecklistEmptyState from "./ExperimentChecklistEmptyState";
 import NewExperimentChecklistItem from "./NewExperimentChecklistItem";

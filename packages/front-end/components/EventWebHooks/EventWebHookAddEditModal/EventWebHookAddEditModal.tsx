@@ -4,12 +4,12 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import clsx from "clsx";
 import { PiCheckCircleFill, PiXSquare } from "react-icons/pi";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
 import {
   eventWebHookMethods,
   EventWebHookMethod,
@@ -19,10 +19,10 @@ import {
   EventWebHookModalMode,
   notificationEventNames,
   webhookIcon,
-} from "@/components/EventWebHooks/utils";
-import { useEnvironments } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import TagsInput from "@/components/Tags/TagsInput";
+} from "@front-end/components/EventWebHooks/utils";
+import { useEnvironments } from "@front-end/services/features";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import TagsInput from "@front-end/components/Tags/TagsInput";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;

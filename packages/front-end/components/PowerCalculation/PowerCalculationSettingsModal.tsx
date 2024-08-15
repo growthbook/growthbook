@@ -10,15 +10,15 @@ import {
 } from "shared/experiments";
 import { OrganizationSettings } from "@back-end/types/organization";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
-import PercentField from "@/components/Forms/PercentField";
-import Toggle from "@/components/Forms/Toggle";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { ensureAndReturn } from "@/types/utils";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import Modal from "@front-end/components/Modal";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import Field from "@front-end/components/Forms/Field";
+import PercentField from "@front-end/components/Forms/PercentField";
+import Toggle from "@front-end/components/Forms/Toggle";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { ensureAndReturn } from "@front-end/types/utils";
 import {
   config,
   isValidPowerCalculationParams,

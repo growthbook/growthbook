@@ -5,9 +5,9 @@ import {
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useConfidenceLevels from "@front-end/hooks/useConfidenceLevels";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import usePValueThreshold from "@front-end/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props

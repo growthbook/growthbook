@@ -1,8 +1,8 @@
 import React, { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import ClickToReveal from "@/components/Settings/ClickToReveal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ClickToReveal from "@front-end/components/Settings/ClickToReveal";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;

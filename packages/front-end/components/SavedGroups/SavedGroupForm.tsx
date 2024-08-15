@@ -7,17 +7,17 @@ import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
-import { useIncrementer } from "@/hooks/useIncrementer";
-import { useAuth } from "@/services/auth";
-import useMembers from "@/hooks/useMembers";
-import { useAttributeSchema } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { useIncrementer } from "@front-end/hooks/useIncrementer";
+import { useAuth } from "@front-end/services/auth";
+import useMembers from "@front-end/hooks/useMembers";
+import { useAttributeSchema } from "@front-end/services/features";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import ConditionInput from "@front-end/components/Features/ConditionInput";
+import { IdListItemInput } from "@front-end/components/SavedGroups/IdListItemInput";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
 
 const SavedGroupForm: FC<{
   close: () => void;

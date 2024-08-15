@@ -1,7 +1,7 @@
 import { PiSealQuestion } from "react-icons/pi";
-import { useUser } from "@/services/UserContext";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@front-end/services/UserContext";
+import styles from "@front-end/components/GetStarted/GetStarted.module.scss";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import PaidFeatureBadge from "./PaidFeatureBadge";
 
 interface Props {

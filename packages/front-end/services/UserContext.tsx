@@ -37,12 +37,12 @@ import {
   isCloud,
   isMultiOrg,
   isSentryEnabled,
-} from "@/services/env";
-import useApi from "@/hooks/useApi";
-import { useAuth, UserOrganizations } from "@/services/auth";
-import track from "@/services/track";
-import { AppFeatures } from "@/types/app-features";
-import { sha256 } from "@/services/utils";
+} from "@front-end/services/env";
+import useApi from "@front-end/hooks/useApi";
+import { useAuth, UserOrganizations } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import { AppFeatures } from "@front-end/types/app-features";
+import { sha256 } from "@front-end/services/utils";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;

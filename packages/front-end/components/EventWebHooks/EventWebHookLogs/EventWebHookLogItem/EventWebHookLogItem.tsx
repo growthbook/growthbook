@@ -2,7 +2,7 @@ import React, { FC } from "react";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import classNames from "classnames";
 import { datetime } from "shared/dates";
-import { useIconForState } from "@/components/EventWebHooks/utils";
+import { useIconForState } from "@front-end/components/EventWebHooks/utils";
 
 type EventWebHookLogItemProps = {
   log: EventWebHookLogInterface;

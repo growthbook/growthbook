@@ -9,16 +9,18 @@ import {
 import { useForm } from "react-hook-form";
 import { EventUserLoggedIn } from "back-end/src/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
-import { getCurrentUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import Button from "@/components/Button";
-import RadioSelector from "@/components/Forms/RadioSelector";
-import { ExpandableDiff } from "@/components/Features/DraftModal";
-import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getCurrentUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import { useEnvironments } from "@front-end/services/features";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import Button from "@front-end/components/Button";
+import RadioSelector from "@front-end/components/Forms/RadioSelector";
+import { ExpandableDiff } from "@front-end/components/Features/DraftModal";
+import Revisionlog, {
+  MutateLog,
+} from "@front-end/components/Features/RevisionLog";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 export interface Props {
   feature: FeatureInterface;
   version: number;

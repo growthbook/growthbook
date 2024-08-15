@@ -14,28 +14,32 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBEdit, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import {
+  GBEdit,
+  GBHashLock,
+  GBRemoteEvalIcon,
+} from "@front-end/components/Icons";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import SDKConnectionForm from "@front-end/components/Features/SDKConnections/SDKConnectionForm";
 import CodeSnippetModal, {
   getApiBaseUrl,
-} from "@/components/Features/CodeSnippetModal";
-import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
-import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
-import Button from "@/components/Button";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { isCloud } from "@/services/env";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import PageHead from "@/components/Layout/PageHead";
-import { useEnvironments } from "@/services/features";
-import Badge from "@/components/Badge";
-import ProjectBadges from "@/components/ProjectBadges";
-import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+} from "@front-end/components/Features/CodeSnippetModal";
+import SDKLanguageLogo from "@front-end/components/Features/SDKConnections/SDKLanguageLogo";
+import ProxyTestButton from "@front-end/components/Features/SDKConnections/ProxyTestButton";
+import Button from "@front-end/components/Button";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { isCloud } from "@front-end/services/env";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import PageHead from "@front-end/components/Layout/PageHead";
+import { useEnvironments } from "@front-end/services/features";
+import Badge from "@front-end/components/Badge";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import SdkWebhooks from "@front-end/pages/sdks/SdkWebhooks";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (

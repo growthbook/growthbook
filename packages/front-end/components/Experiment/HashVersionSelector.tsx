@@ -2,10 +2,10 @@ import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import MinSDKVersionsList from "@front-end/components/Features/MinSDKVersionsList";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (

@@ -4,12 +4,12 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import { useAuth } from "@/services/auth";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
-import VariationsTable from "@/components/Experiment/VariationsTable";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import MarkdownInlineEdit from "@front-end/components/Markdown/MarkdownInlineEdit";
+import { useAuth } from "@front-end/services/auth";
+import HeaderWithEdit from "@front-end/components/Layout/HeaderWithEdit";
+import { PreLaunchChecklist } from "@front-end/components/Experiment/PreLaunchChecklist";
+import VariationsTable from "@front-end/components/Experiment/VariationsTable";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

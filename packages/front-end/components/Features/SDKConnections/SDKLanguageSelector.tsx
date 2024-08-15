@@ -1,7 +1,7 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
+import Tab from "@front-end/components/Tabs/Tab";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,

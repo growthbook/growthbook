@@ -2,18 +2,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import IdLists from "@/components/SavedGroups/IdLists";
-import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import { useAttributeSchema } from "@/services/features";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import IdLists from "@front-end/components/SavedGroups/IdLists";
+import ConditionGroups from "@front-end/components/SavedGroups/ConditionGroups";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import { useAttributeSchema } from "@front-end/services/features";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Modal from "@front-end/components/Modal";
+import HistoryTable from "@front-end/components/HistoryTable";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
+import Tab from "@front-end/components/Tabs/Tab";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined

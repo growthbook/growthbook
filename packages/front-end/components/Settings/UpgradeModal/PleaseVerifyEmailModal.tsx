@@ -1,11 +1,11 @@
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { FaCheckCircle } from "react-icons/fa";
-import { useUser } from "@/services/UserContext";
-import Modal from "@/components/Modal";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
+import { useUser } from "@front-end/services/UserContext";
+import Modal from "@front-end/components/Modal";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
 import styles from "./index.module.scss";
 
 interface Props {

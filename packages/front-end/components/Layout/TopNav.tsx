@@ -16,27 +16,27 @@ import Head from "next/head";
 import { DropdownMenu, Text } from "@radix-ui/themes";
 import router from "next/router";
 import clsx from "clsx";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
 import {
   allowSelfOrgCreation,
   isCloud,
   isMultiOrg,
   showMultiOrgSelfSelector,
   usingSSO,
-} from "@/services/env";
-import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
-import Modal from "@/components/Modal";
-import Avatar from "@/components/Avatar/Avatar";
-import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
-import Field from "@/components/Forms/Field";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
-import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import useGlobalMenu from "@/services/useGlobalMenu";
+} from "@front-end/services/env";
+import { useCelebrationLocalStorage } from "@front-end/hooks/useCelebration";
+import Modal from "@front-end/components/Modal";
+import Avatar from "@front-end/components/Avatar/Avatar";
+import ChangePasswordModal from "@front-end/components/Auth/ChangePasswordModal";
+import Field from "@front-end/components/Forms/Field";
+import OverflowText from "@front-end/components/Experiment/TabbedPage/OverflowText";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useAppearanceUITheme } from "@front-end/services/AppearanceUIThemeProvider";
+import AccountPlanNotices from "@front-end/components/Layout/AccountPlanNotices";
+import AccountPlanBadge from "@front-end/components/Layout/AccountPlanBadge";
+import useGlobalMenu from "@front-end/services/useGlobalMenu";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 

@@ -6,21 +6,21 @@ import {
   ReactElement,
 } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { dataSourceConnections } from "@/services/eventSchema";
-import Button from "@/components/Button";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { getInitialSettings } from "@/services/datasources";
-import { DocLink, DocSection } from "@/components/DocLink";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import Modal from "@/components/Modal";
-import ConnectionSettings from "@/components/Settings/ConnectionSettings";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { ensureAndReturn } from "@/types/utils";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useProjectOptions from "@/hooks/useProjectOptions";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { dataSourceConnections } from "@front-end/services/eventSchema";
+import Button from "@front-end/components/Button";
+import SelectField from "@front-end/components/Forms/SelectField";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import { getInitialSettings } from "@front-end/services/datasources";
+import { DocLink, DocSection } from "@front-end/components/DocLink";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import Modal from "@front-end/components/Modal";
+import ConnectionSettings from "@front-end/components/Settings/ConnectionSettings";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { ensureAndReturn } from "@front-end/types/utils";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import useProjectOptions from "@front-end/hooks/useProjectOptions";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;

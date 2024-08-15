@@ -1,11 +1,11 @@
 import { PiCheckCircle, PiX } from "react-icons/pi";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useGetStarted } from "@/services/GetStartedProvider";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useGetStarted } from "@front-end/services/GetStartedProvider";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import Button from "@front-end/components/Button";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import styles from "./TopNav.module.scss";
 
 const manualSteps = ["attributes", "environments"];

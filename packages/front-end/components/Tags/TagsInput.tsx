@@ -1,9 +1,9 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
 import { TagInterface } from "back-end/types/tag";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import { isLight } from "./Tag";
 
 export interface ColorOption {

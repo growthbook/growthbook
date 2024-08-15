@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@back-end/*": ["./packages/back-end/*"],
+      "@front-end/*": ["./packages/front-end/*"]
+    }
+  }
+}

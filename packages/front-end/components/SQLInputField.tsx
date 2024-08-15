@@ -3,12 +3,12 @@ import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "back-end/src/types/Integration";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAuth } from "@/services/auth";
-import { validateSQL } from "@/services/datasources";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import DisplayTestQueryResults from "@front-end/components/Settings/DisplayTestQueryResults";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useAuth } from "@front-end/services/auth";
+import { validateSQL } from "@front-end/services/datasources";
 import { CursorData } from "./Segments/SegmentForm";
 
 type TestQueryResults = {

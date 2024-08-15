@@ -5,17 +5,17 @@ import {
 import { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useSearch } from "@/services/search";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
-import SortedTags from "@/components/Tags/SortedTags";
-import MetricName from "@/components/Metrics/MetricName";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { useSearch } from "@front-end/services/search";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBAddCircle } from "@front-end/components/Icons";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import MetricName from "@front-end/components/Metrics/MetricName";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {

@@ -5,19 +5,19 @@ import { FaPencilAlt } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { datetime } from "shared/dates";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import { useCopyToClipboard } from "@front-end/hooks/useCopyToClipboard";
+import { useEventWebhookLogs } from "@front-end/hooks/useEventWebhookLogs";
 import {
   EventWebHookEditParams,
   useIconForState,
   webhookIcon,
   displayedEvents,
-} from "@/components/EventWebHooks/utils";
-import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useDefinitions } from "@/services/DefinitionsContext";
+} from "@front-end/components/EventWebHooks/utils";
+import { EventWebHookAddEditModal } from "@front-end/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;

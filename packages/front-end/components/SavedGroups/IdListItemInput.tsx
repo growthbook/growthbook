@@ -9,8 +9,8 @@ import {
   FaRetweet,
 } from "react-icons/fa";
 import clsx from "clsx";
-import Field from "@/components/Forms/Field";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import Field from "@front-end/components/Forms/Field";
+import StringArrayField from "@front-end/components/Forms/StringArrayField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";

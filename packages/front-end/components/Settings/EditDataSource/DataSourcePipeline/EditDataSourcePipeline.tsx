@@ -2,11 +2,11 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
-import Field from "@/components/Forms/Field";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Modal from "@front-end/components/Modal";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Field from "@front-end/components/Forms/Field";
+import { DataSourceQueryEditingModalBaseProps } from "@front-end/components/Settings/EditDataSource/types";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;

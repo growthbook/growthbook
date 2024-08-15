@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { FC } from "react";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { EventWebHookListContainer } from "@front-end/components/EventWebHooks/EventWebHookList/EventWebHookList";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();

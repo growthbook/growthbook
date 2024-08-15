@@ -2,9 +2,9 @@ import { FC } from "react";
 import { LicenseMetaData } from "enterprise";
 import { FaDownload } from "react-icons/fa";
 import { snakeCase } from "lodash";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import Button from "@front-end/components/Button";
 
 const DownloadLicenseUsageButton: FC = () => {
   const { apiCall } = useAuth();

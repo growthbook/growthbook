@@ -8,14 +8,14 @@ import {
   WebhookPayloadFormat,
 } from "back-end/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { isCloud } from "@/services/env";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import { DocLink } from "@/components/DocLink";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import { isCloud } from "@front-end/services/env";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import SelectField from "@front-end/components/Forms/SelectField";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import { DocLink } from "@front-end/components/DocLink";
 
 const WebhooksModal: FC<{
   close: () => void;

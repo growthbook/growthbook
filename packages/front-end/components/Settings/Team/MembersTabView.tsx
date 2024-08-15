@@ -1,22 +1,22 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import InviteList from "@/components/Settings/Team/InviteList";
-import MemberList from "@/components/Settings/Team/MemberList";
-import { redirectWithTimeout, useAuth } from "@/services/auth";
-import SSOSettings from "@/components/Settings/SSOSettings";
-import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
-import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
-import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
-import { isCloud, isMultiOrg } from "@/services/env";
-import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
-import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
-import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEmailModal";
-import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
-import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
-import track from "@/services/track";
+import InviteList from "@front-end/components/Settings/Team/InviteList";
+import MemberList from "@front-end/components/Settings/Team/MemberList";
+import { redirectWithTimeout, useAuth } from "@front-end/services/auth";
+import SSOSettings from "@front-end/components/Settings/SSOSettings";
+import { useUser } from "@front-end/services/UserContext";
+import usePermissions from "@front-end/hooks/usePermissions";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import SelectField from "@front-end/components/Forms/SelectField";
+import OrphanedUsersList from "@front-end/components/Settings/Team/OrphanedUsersList";
+import PendingMemberList from "@front-end/components/Settings/Team/PendingMemberList";
+import { isCloud, isMultiOrg } from "@front-end/services/env";
+import AutoApproveMembersToggle from "@front-end/components/Settings/Team/AutoApproveMembersToggle";
+import UpdateDefaultRoleForm from "@front-end/components/Settings/Team/UpdateDefaultRoleForm";
+import VerifyingEmailModal from "@front-end/components/Settings/UpgradeModal/VerifyingEmailModal";
+import PleaseVerifyEmailModal from "@front-end/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
+import LicenseSuccessModal from "@front-end/components/Settings/UpgradeModal/LicenseSuccessModal";
+import track from "@front-end/services/track";
 
 export const MembersTabView: FC = () => {
   const {

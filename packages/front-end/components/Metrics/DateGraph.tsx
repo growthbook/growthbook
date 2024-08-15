@@ -19,9 +19,9 @@ import { ScaleLinear } from "d3-scale";
 import { date, getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
-import { getMetricFormatter } from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { PartialOn } from "@/types/utils";
+import { getMetricFormatter } from "@front-end/services/metrics";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { PartialOn } from "@front-end/types/utils";
 import styles from "./DateGraph.module.scss";
 
 interface Datapoint {

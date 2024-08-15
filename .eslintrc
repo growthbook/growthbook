@@ -19,6 +19,7 @@
       "typescript": {
         "alwaysTryTypes": true,
         "project": [
+	  "tsconfig.base.json",
           "packages/*/tsconfig.json"
         ]
       }

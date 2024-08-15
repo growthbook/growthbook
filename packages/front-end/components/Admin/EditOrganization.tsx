@@ -1,9 +1,9 @@
 import { useState, FC } from "react";
 import { OrganizationInterface } from "@back-end/types/organization";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import { isCloud } from "@/services/env";
-import Toggle from "@/components/Forms/Toggle";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import { isCloud } from "@front-end/services/env";
+import Toggle from "@front-end/components/Forms/Toggle";
 
 const EditOrganization: FC<{
   onEdit: () => void;

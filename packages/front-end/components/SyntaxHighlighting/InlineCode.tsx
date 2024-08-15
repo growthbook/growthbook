@@ -6,7 +6,7 @@ import {
 import { Suspense } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { useAppearanceUITheme } from "@front-end/services/AppearanceUIThemeProvider";
 import { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
 

@@ -6,7 +6,7 @@ import {
   webhookIcon,
   useIconForState,
   displayedEvents,
-} from "@/components/EventWebHooks/utils";
+} from "@front-end/components/EventWebHooks/utils";
 
 type EventWebHookListItemProps = {
   href: string;

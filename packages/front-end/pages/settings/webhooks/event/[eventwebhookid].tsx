@@ -2,10 +2,10 @@ import React from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { EventWebHookDetailContainer } from "@/components/EventWebHooks/EventWebHookDetail/EventWebHookDetail";
-import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs";
-import useApi from "@/hooks/useApi";
-import PageHead from "@/components/Layout/PageHead";
+import { EventWebHookDetailContainer } from "@front-end/components/EventWebHooks/EventWebHookDetail/EventWebHookDetail";
+import { EventWebHookLogsContainer } from "@front-end/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs";
+import useApi from "@front-end/hooks/useApi";
+import PageHead from "@front-end/components/Layout/PageHead";
 
 const EventWebHookDetailPage: NextPage = () => {
   const router = useRouter();

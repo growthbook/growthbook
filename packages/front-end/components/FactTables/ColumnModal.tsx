@@ -8,12 +8,12 @@ import {
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
 
 export interface Props {
   factTable: FactTableInterface;

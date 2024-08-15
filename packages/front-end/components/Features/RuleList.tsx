@@ -16,14 +16,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useAuth } from "@/services/auth";
+import { useAuth } from "@front-end/services/auth";
 import {
   getRules,
   isRuleDisabled,
   isRuleFullyCovered,
-} from "@/services/features";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+} from "@front-end/services/features";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({

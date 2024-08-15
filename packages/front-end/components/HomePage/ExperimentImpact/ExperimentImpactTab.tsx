@@ -3,9 +3,9 @@ import React, { ReactElement } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import ExperimentStatusIndicator from "@front-end/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import ResultsIndicator from "@front-end/components/Experiment/ResultsIndicator";
 import {
   ExperimentImpactData,
   ExperimentImpactType,

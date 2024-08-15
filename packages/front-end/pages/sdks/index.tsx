@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { WebhookInterface } from "@back-end/types/webhook";
-import SDKConnectionsList from "@/components/Features/SDKConnections/SDKConnectionsList";
+import SDKConnectionsList from "@front-end/components/Features/SDKConnections/SDKConnectionsList";
 import SDKEndpoints, {
   getPublishableKeys,
-} from "@/components/Features/SDKEndpoints";
-import Webhooks from "@/components/Settings/Webhooks";
-import useApi from "@/hooks/useApi";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { GBArrowLeft } from "@/components/Icons";
+} from "@front-end/components/Features/SDKEndpoints";
+import Webhooks from "@front-end/components/Settings/Webhooks";
+import useApi from "@front-end/hooks/useApi";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { GBArrowLeft } from "@front-end/components/Icons";
 
 export default function SDKsPage() {
   const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");

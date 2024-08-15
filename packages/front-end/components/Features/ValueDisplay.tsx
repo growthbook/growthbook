@@ -1,7 +1,7 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { CSSProperties, useMemo } from "react";
 import stringify from "json-stringify-pretty-compact";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import InlineCode from "@front-end/components/SyntaxHighlighting/InlineCode";
 
 export default function ValueDisplay({
   value,

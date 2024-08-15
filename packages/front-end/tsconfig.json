@@ -1,4 +1,5 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "es2019",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -14,11 +15,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "baseUrl": "./",
-    "paths": {
-      "@/*": ["./*"],
-      "@back-end/*": ["../back-end/*"]
-    },
     "incremental": true
   },
   "exclude": ["node_modules"],

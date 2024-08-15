@@ -1,9 +1,9 @@
 import React, { useEffect } from "react";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { DifferenceType } from "back-end/types/stats";
-import { getExposureQuery } from "@/services/datasources";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import { getExposureQuery } from "@front-end/services/datasources";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 export interface Props {
   value: string;

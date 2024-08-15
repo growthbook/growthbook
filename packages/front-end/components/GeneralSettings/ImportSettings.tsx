@@ -2,10 +2,10 @@ import Link from "next/link";
 import { OrganizationSettings } from "back-end/types/organization";
 import { FaUpload } from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "@/types/app-features";
-import { DocLink } from "@/components/DocLink";
-import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
-import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
+import { AppFeatures } from "@front-end/types/app-features";
+import { DocLink } from "@front-end/components/DocLink";
+import BackupConfigYamlButton from "@front-end/components/Settings/BackupConfigYamlButton";
+import RestoreConfigYamlButton from "@front-end/components/Settings/RestoreConfigYamlButton";
 
 export default function ImportSettings({
   hasFileConfig,

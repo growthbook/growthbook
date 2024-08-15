@@ -9,41 +9,41 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Markdown from "@/components/Markdown/Markdown";
-import useApi from "@/hooks/useApi";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Markdown from "@front-end/components/Markdown/Markdown";
+import useApi from "@front-end/hooks/useApi";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
-import DateResults from "@/components/Experiment/DateResults";
-import { useAuth } from "@/services/auth";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+} from "@front-end/components/Queries/RunQueriesButton";
+import DateResults from "@front-end/components/Experiment/DateResults";
+import { useAuth } from "@front-end/services/auth";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
+import Tab from "@front-end/components/Tabs/Tab";
 import {
   GBCircleArrowLeft,
   GBCuped,
   GBEdit,
   GBSequential,
-} from "@/components/Icons";
-import ConfigureReport from "@/components/Report/ConfigureReport";
-import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import Toggle from "@/components/Forms/Toggle";
-import Field from "@/components/Forms/Field";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
-import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { trackReport } from "@/services/track";
-import CompactResults from "@/components/Experiment/CompactResults";
-import BreakDownResults from "@/components/Experiment/BreakDownResults";
-import DimensionChooser from "@/components/Dimensions/DimensionChooser";
-import PageHead from "@/components/Layout/PageHead";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
+} from "@front-end/components/Icons";
+import ConfigureReport from "@front-end/components/Report/ConfigureReport";
+import ResultMoreMenu from "@front-end/components/Experiment/ResultMoreMenu";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Field from "@front-end/components/Forms/Field";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
+import Modal from "@front-end/components/Modal";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useUser } from "@front-end/services/UserContext";
+import VariationIdWarning from "@front-end/components/Experiment/VariationIdWarning";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { trackReport } from "@front-end/services/track";
+import CompactResults from "@front-end/components/Experiment/CompactResults";
+import BreakDownResults from "@front-end/components/Experiment/BreakDownResults";
+import DimensionChooser from "@front-end/components/Dimensions/DimensionChooser";
+import PageHead from "@front-end/components/Layout/PageHead";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import DifferenceTypeChooser from "@front-end/components/Experiment/DifferenceTypeChooser";
 
 export default function ReportPage() {
   const router = useRouter();

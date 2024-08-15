@@ -1,8 +1,8 @@
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useState } from "react";
 import { isDefined } from "shared/util";
-import { isCloud } from "@/services/env";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { isCloud } from "@front-end/services/env";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 export interface Props {
   ssoConnection: Partial<SSOConnectionInterface> | null;

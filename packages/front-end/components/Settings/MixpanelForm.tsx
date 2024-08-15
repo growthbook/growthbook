@@ -1,6 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 const MixpanelForm: FC<{
   params: Partial<MixpanelConnectionParams>;

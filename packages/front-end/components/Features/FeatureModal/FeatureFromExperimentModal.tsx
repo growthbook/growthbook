@@ -15,22 +15,22 @@ import {
   filterEnvironmentsByExperiment,
   validateFeatureValue,
 } from "shared/util";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import track from "@front-end/services/track";
 import {
   getDefaultValue,
   useEnvironments,
   getDefaultVariationValue,
   validateFeatureRule,
   useFeaturesList,
-} from "@/services/features";
-import { useWatching } from "@/services/WatchProvider";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import SelectField from "@/components/Forms/SelectField";
-import FeatureValueField from "@/components/Features/FeatureValueField";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+} from "@front-end/services/features";
+import { useWatching } from "@front-end/services/WatchProvider";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
+import SelectField from "@front-end/components/Forms/SelectField";
+import FeatureValueField from "@front-end/components/Features/FeatureValueField";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";

@@ -29,8 +29,8 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getExperimentMetricFormatter } from "@/services/metrics";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import { getExperimentMetricFormatter } from "@front-end/services/metrics";
 
 export type ExperimentTableRow = {
   label: string;

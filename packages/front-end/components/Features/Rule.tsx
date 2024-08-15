@@ -10,15 +10,19 @@ import {
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/dist/util";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
-import { getUpcomingScheduleRule } from "@/services/scheduleRules";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import {
+  getRules,
+  isRuleDisabled,
+  useEnvironments,
+} from "@front-end/services/features";
+import { getUpcomingScheduleRule } from "@front-end/services/scheduleRules";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Button from "@front-end/components/Button";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";

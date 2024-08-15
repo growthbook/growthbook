@@ -1,5 +1,5 @@
 import { MdClose } from "react-icons/md";
-import Portal from "@/components/Modal/Portal";
+import Portal from "@front-end/components/Modal/Portal";
 
 export type Props = {
   close: () => void;

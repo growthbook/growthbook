@@ -1,12 +1,12 @@
 import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import SubscriptionInfo from "@front-end/components/Settings/SubscriptionInfo";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import useStripeSubscription from "@front-end/hooks/useStripeSubscription";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);

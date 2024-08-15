@@ -1,10 +1,10 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 const ApiKeysModal: FC<{
   close: () => void;

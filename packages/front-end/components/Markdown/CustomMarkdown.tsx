@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import Handlebars from "handlebars";
 import { PiNote } from "react-icons/pi";
 import clsx from "clsx";
-import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
+import { useUser } from "@front-end/services/UserContext";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import Modal from "@front-end/components/Modal";
 import Markdown from "./Markdown";
 import styles from "./CustomMarkdown.module.scss";
 

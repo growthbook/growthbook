@@ -1,8 +1,8 @@
 import React, { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import Link from "next/link";
-import useApi from "@/hooks/useApi";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@front-end/hooks/useApi";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
 
 const ApiKeys: FC = () => {

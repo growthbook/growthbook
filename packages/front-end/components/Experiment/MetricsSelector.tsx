@@ -2,12 +2,12 @@ import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import { DataSourceSettings } from "back-end/types/datasource";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricName from "@/components/Metrics/MetricName";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import MetricName from "@front-end/components/Metrics/MetricName";
+import ClickToCopy from "@front-end/components/Settings/ClickToCopy";
 
 type MetricOption = {
   id: string;

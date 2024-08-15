@@ -4,8 +4,8 @@ import Link from "next/link";
 import { SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import React from "react";
 import { PiInfoFill, PiWarningFill } from "react-icons/pi";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { useUser } from "@front-end/services/UserContext";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;

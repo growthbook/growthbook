@@ -5,14 +5,14 @@ import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import { EventUserLoggedIn } from "back-end/src/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
-import { useAddComputedFields, useSearch } from "@/services/search";
-import useApi from "@/hooks/useApi";
-import Field from "@/components/Forms/Field";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Pagination from "@/components/Pagination";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAddComputedFields, useSearch } from "@front-end/services/search";
+import useApi from "@front-end/hooks/useApi";
+import Field from "@front-end/components/Forms/Field";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Pagination from "@front-end/components/Pagination";
+import OverflowText from "@front-end/components/Experiment/TabbedPage/OverflowText";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 export interface Props {
   features: FeatureInterface[];
 }

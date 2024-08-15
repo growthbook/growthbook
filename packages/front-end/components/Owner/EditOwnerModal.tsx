@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import useMembers from "@/hooks/useMembers";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+import useMembers from "@front-end/hooks/useMembers";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
 
 const EditOwnerModal: FC<{
   owner: string;

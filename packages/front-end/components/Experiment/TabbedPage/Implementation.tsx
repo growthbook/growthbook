@@ -4,11 +4,11 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "@back-end/types/url-redirect";
-import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
-import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
-import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
-import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import AddLinkedChanges from "@front-end/components/Experiment/LinkedChanges/AddLinkedChanges";
+import RedirectLinkedChanges from "@front-end/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import FeatureLinkedChanges from "@front-end/components/Experiment/LinkedChanges/FeatureLinkedChanges";
+import VisualLinkedChanges from "@front-end/components/Experiment/LinkedChanges/VisualLinkedChanges";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import TargetingInfo from "./TargetingInfo";
 
 export interface Props {

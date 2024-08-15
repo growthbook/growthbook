@@ -1,10 +1,10 @@
 import { InformationSchemaTablesInterface } from "@back-end/src/types/Integration";
 import React, { useEffect, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 type Props = {
   datasourceId: string;

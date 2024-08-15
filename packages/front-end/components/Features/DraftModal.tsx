@@ -8,12 +8,15 @@ import {
   filterEnvironmentsByFeature,
   mergeResultHasChanges,
 } from "shared/util";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Button from "@/components/Button";
-import Field from "@/components/Forms/Field";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  getAffectedRevisionEnvs,
+  useEnvironments,
+} from "@front-end/services/features";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import Button from "@front-end/components/Button";
+import Field from "@front-end/components/Forms/Field";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 export interface Props {
   feature: FeatureInterface;

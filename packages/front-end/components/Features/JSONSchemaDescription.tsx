@@ -1,6 +1,6 @@
 import { MdInfoOutline } from "react-icons/md";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export default function JSONSchemaDescription({
   jsonSchema,

@@ -16,16 +16,18 @@ import {
   useAttributeMap,
   useAttributeSchema,
   getDefaultOperator,
-} from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import StringArrayField from "@/components/Forms/StringArrayField";
+} from "@front-end/services/features";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import SelectField, {
+  isSingleValue,
+} from "@front-end/components/Forms/SelectField";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import StringArrayField from "@front-end/components/Forms/StringArrayField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
-} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/components/SavedGroups/LargeSavedGroupSupportWarning";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {

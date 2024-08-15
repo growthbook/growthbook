@@ -11,9 +11,9 @@ import {
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { FaRedo } from "react-icons/fa";
-import track from "@/services/track";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@front-end/services/track";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import Button from "./Button";
 import { DocLink } from "./DocLink";
 import Modal from "./Modal";

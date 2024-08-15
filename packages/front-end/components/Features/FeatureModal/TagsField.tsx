@@ -1,5 +1,5 @@
 import { FC } from "react";
-import TagsInput from "@/components/Tags/TagsInput";
+import TagsInput from "@front-end/components/Tags/TagsInput";
 
 const TagsField: FC<{
   value: string[];

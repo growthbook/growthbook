@@ -9,16 +9,16 @@ import {
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import Modal from "@/components/Modal";
-import RadioSelector from "@/components/Forms/RadioSelector";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import { getQueryStatus } from "@front-end/components/Queries/RunQueriesButton";
+import Modal from "@front-end/components/Modal";
+import RadioSelector from "@front-end/components/Forms/RadioSelector";
 import {
   DimensionSlicesRunner,
   getLatestDimensionSlices,
-} from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
-import track, { trackSnapshot } from "@/services/track";
+} from "@front-end/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
+import track, { trackSnapshot } from "@front-end/services/track";
 
 type HealthTabOnboardingModalProps = {
   open: boolean;

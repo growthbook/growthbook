@@ -1,16 +1,16 @@
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { SegmentInterface } from "@back-end/types/segment";
-import { GBArrowLeft } from "@/components/Icons";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import useMembers from "@/hooks/useMembers";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAuth } from "@/services/auth";
+import { GBArrowLeft } from "@front-end/components/Icons";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import useMembers from "@front-end/hooks/useMembers";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { OfficialBadge } from "@front-end/components/Metrics/MetricName";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useAuth } from "@front-end/services/auth";
 
 type Props = {
   goBack: () => void;

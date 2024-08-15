@@ -10,15 +10,15 @@ import { hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
 import clsx from "clsx";
-import track from "@/services/track";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import track from "@front-end/services/track";
+import { useAuth } from "@front-end/services/auth";
+import useApi from "@front-end/hooks/useApi";
+import { useUser } from "@front-end/services/UserContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import InitialSDKConnectionForm from "@front-end/components/Features/SDKConnections/InitialSDKConnectionForm";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 type CheckListItem = {
   display: string | ReactElement;

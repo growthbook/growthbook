@@ -5,10 +5,10 @@ import {
 } from "back-end/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
-import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
+import { useAuth } from "@front-end/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import { validateSavedGroupTargeting } from "@front-end/components/Features/SavedGroupTargetingField";
 
 export interface Props {
   close: () => void;

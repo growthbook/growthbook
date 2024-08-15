@@ -1,10 +1,10 @@
 import { FeatureInterface, FeatureRule } from "@back-end/types/feature";
 import { filterEnvironmentsByFeature } from "shared/dist/util";
 import { useState } from "react";
-import { getRules, useEnvironments } from "@/services/features";
-import Modal from "@/components/Modal";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
+import { getRules, useEnvironments } from "@front-end/services/features";
+import Modal from "@front-end/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
 
 export interface Props {
   feature: FeatureInterface;

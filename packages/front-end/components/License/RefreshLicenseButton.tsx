@@ -1,9 +1,9 @@
 import { FC } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { LicenseInterface } from "enterprise";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import Button from "@front-end/components/Button";
 
 const RefreshLicenseButton: FC = () => {
   const { apiCall } = useAuth();

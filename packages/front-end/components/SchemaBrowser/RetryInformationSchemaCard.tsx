@@ -1,5 +1,5 @@
 import { InformationSchemaInterface } from "@back-end/src/types/Integration";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export default function RetryInformationSchemaCard({
   informationSchema,

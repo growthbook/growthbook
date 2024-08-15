@@ -1,5 +1,5 @@
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useUser } from "@front-end/services/UserContext";
 
 const PaidFeatureBadge = ({ type }: { type: "pro" | "enterprise" }) => {
   const { accountPlan } = useUser();

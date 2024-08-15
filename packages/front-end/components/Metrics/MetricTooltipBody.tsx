@@ -10,11 +10,11 @@ import { StatsEngine } from "@back-end/types/stats";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
-} from "@/services/utils";
-import { ExperimentTableRow } from "@/services/experiments";
-import Markdown from "@/components/Markdown/Markdown";
-import SortedTags from "@/components/Tags/SortedTags";
-import { getPercentileLabel } from "@/services/metrics";
+} from "@front-end/services/utils";
+import { ExperimentTableRow } from "@front-end/services/experiments";
+import Markdown from "@front-end/components/Markdown/Markdown";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import { getPercentileLabel } from "@front-end/services/metrics";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 

@@ -3,15 +3,15 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
-import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { useUser } from "@/services/UserContext";
-import PageHead from "@/components/Layout/PageHead";
-import { useExperiments } from "@/hooks/useExperiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
-import { useGetStarted } from "@/services/GetStartedProvider";
+import DocumentationSidebar from "@front-end/components/GetStarted/DocumentationSidebar";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import { useUser } from "@front-end/services/UserContext";
+import PageHead from "@front-end/components/Layout/PageHead";
+import { useExperiments } from "@front-end/hooks/useExperiments";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import styles from "@front-end/components/GetStarted/GetStarted.module.scss";
+import { useGetStarted } from "@front-end/services/GetStartedProvider";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();

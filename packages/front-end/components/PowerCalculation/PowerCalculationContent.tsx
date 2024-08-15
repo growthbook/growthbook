@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { ensureAndReturn } from "@/types/utils";
-import { GBHeadingArrowLeft } from "@/components/Icons";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { ensureAndReturn } from "@front-end/types/utils";
+import { GBHeadingArrowLeft } from "@front-end/components/Icons";
 import {
   PowerCalculationParams,
   PowerCalculationResults,

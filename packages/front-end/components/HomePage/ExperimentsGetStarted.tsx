@@ -3,21 +3,24 @@ import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import MetricForm from "@/components/Metrics/MetricForm";
-import { DocLink } from "@/components/DocLink";
-import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
-import GetStartedStep from "@/components/HomePage/GetStartedStep";
-import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import track from "@/services/track";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Button";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import {
+  envAllowsCreatingMetrics,
+  hasFileConfig,
+} from "@front-end/services/env";
+import NewDataSourceForm from "@front-end/components/Settings/NewDataSourceForm";
+import MetricForm from "@front-end/components/Metrics/MetricForm";
+import { DocLink } from "@front-end/components/DocLink";
+import DocumentationLinksSidebar from "@front-end/components/HomePage/DocumentationLinksSidebar";
+import GetStartedStep from "@front-end/components/HomePage/GetStartedStep";
+import ImportExperimentModal from "@front-end/components/Experiment/ImportExperimentModal";
+import { useDemoDataSourceProject } from "@front-end/hooks/useDemoDataSourceProject";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import track from "@front-end/services/track";
+import NewExperimentForm from "@front-end/components/Experiment/NewExperimentForm";
+import Button from "@front-end/components/Button";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();

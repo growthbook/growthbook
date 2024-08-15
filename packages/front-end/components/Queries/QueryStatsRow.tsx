@@ -1,7 +1,7 @@
 import { QueryInterface, QueryStatistics } from "back-end/types/query";
 import { ReactElement } from "react";
 import { MdInfoOutline } from "react-icons/md";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
 
 const numberFormatter = Intl.NumberFormat();
 

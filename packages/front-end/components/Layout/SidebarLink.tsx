@@ -7,11 +7,11 @@ import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "@back-end/types/organization";
 import { Permissions } from "shared/permissions";
-import { AppFeatures } from "@/types/app-features";
-import { isCloud, isMultiOrg } from "@/services/env";
-import { PermissionFunctions, useUser } from "@/services/UserContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { AppFeatures } from "@front-end/types/app-features";
+import { isCloud, isMultiOrg } from "@front-end/services/env";
+import { PermissionFunctions, useUser } from "@front-end/services/UserContext";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {

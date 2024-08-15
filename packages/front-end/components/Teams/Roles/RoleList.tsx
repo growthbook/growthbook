@@ -1,15 +1,15 @@
 import { RESERVED_ROLE_IDS } from "shared/permissions";
 import router from "next/router";
 import Link from "next/link";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useUser } from "@/services/UserContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useAuth } from "@/services/auth";
-import Tag from "@/components/Tags/Tag";
-import Button from "@/components/Button";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { useUser } from "@front-end/services/UserContext";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { useAuth } from "@front-end/services/auth";
+import Tag from "@front-end/components/Tags/Tag";
+import Button from "@front-end/components/Button";
+import ConfirmButton from "@front-end/components/Modal/ConfirmButton";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export default function RoleList() {
   const { roles, refreshOrganization, organization } = useUser();

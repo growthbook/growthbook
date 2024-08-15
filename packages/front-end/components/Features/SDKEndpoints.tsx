@@ -1,15 +1,15 @@
 import { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import ClickToReveal from "@/components/Settings/ClickToReveal";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { useAuth } from "@front-end/services/auth";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useEnvironments } from "@front-end/services/features";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import ClickToReveal from "@front-end/components/Settings/ClickToReveal";
+import ClickToCopy from "@front-end/components/Settings/ClickToCopy";
 import { getApiBaseUrl } from "./CodeSnippetModal";
 
 export function getPublishableKeys(

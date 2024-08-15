@@ -5,17 +5,17 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { getScopedSettings } from "shared/settings";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
-import Button from "@/components/Button";
-import TempMessage from "@/components/TempMessage";
-import ProjectModal from "@/components/Projects/ProjectModal";
-import MemberList from "@/components/Settings/Team/MemberList";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { GBCircleArrowLeft, GBEdit } from "@front-end/components/Icons";
+import Button from "@front-end/components/Button";
+import TempMessage from "@front-end/components/TempMessage";
+import ProjectModal from "@front-end/components/Projects/ProjectModal";
+import MemberList from "@front-end/components/Settings/Team/MemberList";
+import StatsEngineSelect from "@front-end/components/Settings/forms/StatsEngineSelect";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;

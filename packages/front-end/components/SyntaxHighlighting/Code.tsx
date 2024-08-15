@@ -8,8 +8,8 @@ import {
   tomorrow as dark,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useAppearanceUITheme } from "@front-end/services/AppearanceUIThemeProvider";
+import { useCopyToClipboard } from "@front-end/hooks/useCopyToClipboard";
 import PrismFallback from "./PrismFallback";
 
 // Lazy-load syntax highlighting to improve page load time

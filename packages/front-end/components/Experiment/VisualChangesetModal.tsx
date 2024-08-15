@@ -4,12 +4,12 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { isURLTargeted, UrlTarget } from "@growthbook/growthbook";
-import SelectField from "@/components/Forms/SelectField";
-import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "@/components/Forms/Field";
-import { GBAddCircle } from "@/components/Icons";
-import Modal from "@/components/Modal";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { useAuth } from "@front-end/services/auth";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Field from "@front-end/components/Forms/Field";
+import { GBAddCircle } from "@front-end/components/Icons";
+import Modal from "@front-end/components/Modal";
 
 const defaultType = "simple";
 

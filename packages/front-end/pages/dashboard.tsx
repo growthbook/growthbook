@@ -1,10 +1,10 @@
 import React from "react";
 import Head from "next/head";
-import { useExperiments } from "@/hooks/useExperiments";
-import Dashboard from "@/components/HomePage/Dashboard";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
+import { useExperiments } from "@front-end/hooks/useExperiments";
+import Dashboard from "@front-end/components/HomePage/Dashboard";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import ExperimentsGetStarted from "@front-end/components/HomePage/ExperimentsGetStarted";
 
 export default function Analysis(): React.ReactElement {
   const { ready, error: definitionsError, project } = useDefinitions();

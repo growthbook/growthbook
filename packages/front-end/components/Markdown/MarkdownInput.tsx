@@ -11,9 +11,9 @@ import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
-import { useAuth } from "@/services/auth";
-import { uploadFile } from "@/services/files";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAuth } from "@front-end/services/auth";
+import { uploadFile } from "@front-end/services/files";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;

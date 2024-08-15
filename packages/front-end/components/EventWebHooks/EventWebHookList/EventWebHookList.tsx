@@ -1,11 +1,11 @@
 import React, { FC, useCallback, useState } from "react";
 import { FaBolt } from "react-icons/fa";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
-import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
-import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
-import { docUrl, DocLink } from "@/components/DocLink";
+import useApi from "@front-end/hooks/useApi";
+import { useAuth } from "@front-end/services/auth";
+import { EventWebHookEditParams } from "@front-end/components/EventWebHooks/utils";
+import { EventWebHookAddEditModal } from "@front-end/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { docUrl, DocLink } from "@front-end/components/DocLink";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {

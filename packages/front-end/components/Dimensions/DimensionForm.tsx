@@ -3,15 +3,15 @@ import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
-import { validateSQL } from "@/services/datasources";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import useMembers from "@/hooks/useMembers";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { validateSQL } from "@front-end/services/datasources";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import useMembers from "@front-end/hooks/useMembers";
+import EditSqlModal from "@front-end/components/SchemaBrowser/EditSqlModal";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 const DimensionForm: FC<{
   close: () => void;

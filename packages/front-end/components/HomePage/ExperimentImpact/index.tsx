@@ -7,19 +7,22 @@ import { getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { useAuth } from "@/services/auth";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
-import MetricSelector from "@/components/Experiment/MetricSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import { useAuth } from "@front-end/services/auth";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import {
+  formatNumber,
+  getExperimentMetricFormatter,
+} from "@front-end/services/metrics";
+import MetricSelector from "@front-end/components/Experiment/MetricSelector";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import Field from "@front-end/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
+import Tab from "@front-end/components/Tabs/Tab";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 

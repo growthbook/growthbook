@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { isDefined } from "shared/util";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import TagsInput from "./TagsInput";
 
 interface ItemWithTags {

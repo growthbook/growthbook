@@ -5,19 +5,19 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
-import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import PageHead from "@/components/Layout/PageHead";
-import { useExperiments } from "@/hooks/useExperiments";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useGetStarted } from "@/services/GetStartedProvider";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
+import DocumentationSidebar from "@front-end/components/GetStarted/DocumentationSidebar";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
+import PageHead from "@front-end/components/Layout/PageHead";
+import { useExperiments } from "@front-end/hooks/useExperiments";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useGetStarted } from "@front-end/services/GetStartedProvider";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import ViewSampleDataButton from "@front-end/components/GetStarted/ViewSampleDataButton";
+import styles from "@front-end/components/GetStarted/GetStarted.module.scss";
 
 const ExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();

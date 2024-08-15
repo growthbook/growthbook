@@ -9,15 +9,15 @@ import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { QueryInterface } from "back-end/types/query";
 import { capitalize } from "lodash";
-import { useSearch } from "@/services/search";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import useApi from "@/hooks/useApi";
-import PageHead from "@/components/Layout/PageHead";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import ExpandableQuery from "@/components/Queries/ExpandableQuery";
-import usePermissions from "@/hooks/usePermissions";
+import { useSearch } from "@front-end/services/search";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import useApi from "@front-end/hooks/useApi";
+import PageHead from "@front-end/components/Layout/PageHead";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Modal from "@front-end/components/Modal";
+import ExpandableQuery from "@front-end/components/Queries/ExpandableQuery";
+import usePermissions from "@front-end/hooks/usePermissions";
 
 const DataSourceQueries = (): React.ReactElement => {
   const permissions = usePermissions();

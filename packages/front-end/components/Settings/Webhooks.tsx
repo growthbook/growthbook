@@ -2,14 +2,14 @@ import React, { FC, Fragment } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck } from "react-icons/fa";
 import { ago } from "shared/dates";
-import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useApi from "@front-end/hooks/useApi";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import OverflowText from "@front-end/components/Experiment/TabbedPage/OverflowText";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(

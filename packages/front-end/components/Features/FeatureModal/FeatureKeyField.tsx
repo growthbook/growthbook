@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { UseFormRegisterReturn } from "react-hook-form";
-import Field from "@/components/Forms/Field";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import Field from "@front-end/components/Forms/Field";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
 
 const FeatureKeyField: FC<{
   keyField: UseFormRegisterReturn;

@@ -4,7 +4,10 @@ import {
   InformationSchemaTablesInterface,
 } from "@back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
-import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import {
+  GroupedValue,
+  SingleValue,
+} from "@front-end/components/Forms/SelectField";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(

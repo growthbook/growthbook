@@ -1,9 +1,9 @@
 import { useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
-import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
+import Modal from "@front-end/components/Modal";
 
 export default function EditTitleDescription({
   cancel,

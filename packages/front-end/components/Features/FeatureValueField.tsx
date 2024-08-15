@@ -11,14 +11,14 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
-import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Modal from "@/components/Modal";
-import { GBAddCircle } from "@/components/Icons";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Field from "@front-end/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
+import { useUser } from "@front-end/services/UserContext";
+import SelectField from "@front-end/components/Forms/SelectField";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import Modal from "@front-end/components/Modal";
+import { GBAddCircle } from "@front-end/components/Icons";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export interface Props {
   valueType: FeatureValueType;
