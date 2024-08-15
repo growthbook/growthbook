@@ -3,7 +3,7 @@ import {
   SDKConnectionInterface,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
   FaCheck,
@@ -23,6 +23,7 @@ import {
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
+  SMALL_GROUP_SIZE_LIMIT,
 } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -95,6 +96,8 @@ export default function SDKConnectionForm({
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
+  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
+
   useEffect(() => {
     if (edit) return;
     track("View SDK Connection Form");
@@ -135,6 +138,8 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
+      savedGroupReferencesEnabled:
+        initialValue.savedGroupReferencesEnabled ?? false,
     },
   });
 
@@ -188,6 +193,17 @@ export default function SDKConnectionForm({
   );
 
   const showRedirectSettings = latestSdkCapabilities.includes("redirects");
+
+  const showSavedGroupSettings = useMemo(
+    () => currentSdkCapabilities.includes("savedGroupReferences"),
+    [currentSdkCapabilities]
+  );
+
+  useEffect(() => {
+    if (!showSavedGroupSettings) {
+      form.setValue("savedGroupReferencesEnabled", false);
+    }
+  }, [showSavedGroupSettings, form]);
 
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
@@ -1098,6 +1114,53 @@ export default function SDKConnectionForm({
                   {...form.register("proxyHost")}
                 />
               )}
+            </div>
+          </div>
+        )}
+        {showSavedGroupSettings && (
+          <div className="mt-1">
+            <label>Saved Groups</label>
+            <div className="mt-2">
+              <div className="mb-4 d-flex align-items-center">
+                <Toggle
+                  id="sdk-connection-large-saved-groups-toggle"
+                  value={form.watch("savedGroupReferencesEnabled")}
+                  setValue={(val) =>
+                    form.setValue("savedGroupReferencesEnabled", val)
+                  }
+                  disabled={!hasLargeSavedGroupFeature}
+                />
+                <label
+                  className="ml-2 mb-0 cursor-pointer"
+                  htmlFor="sdk-connection-large-saved-groups-toggle"
+                >
+                  <PremiumTooltip
+                    commercialFeature="large-saved-groups"
+                    body={
+                      <>
+                        <p>
+                          Enable the creation &amp; use of ID Lists with over{" "}
+                          {SMALL_GROUP_SIZE_LIMIT} items, which are not
+                          supported by old SDK versions.
+                        </p>
+                        <p>
+                          Ensure that your SDK implementation is up to date
+                          before enabling this feature.
+                        </p>
+                        {form.watch("remoteEvalEnabled") && (
+                          <p>
+                            You will also need to update your proxy server for
+                            remote evaluation to continue working correctly.
+                          </p>
+                        )}
+                      </>
+                    }
+                  >
+                    Include ID Lists with &gt;{SMALL_GROUP_SIZE_LIMIT} items (
+                    <DocLink docSection="savedGroups">docs</DocLink>)
+                  </PremiumTooltip>
+                </label>
+              </div>
             </div>
           </div>
         )}

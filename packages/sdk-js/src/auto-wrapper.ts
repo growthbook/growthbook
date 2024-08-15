@@ -1,6 +1,7 @@
 import Cookies from "js-cookie";
 import {
   BrowserCookieStickyBucketService,
+  CacheSettings,
   Context,
   FeatureApiResponse,
   GrowthBook,
@@ -17,6 +18,9 @@ type WindowContext = Context & {
   useStickyBucketService?: "cookie" | "localStorage";
   stickyBucketPrefix?: string;
   payload?: FeatureApiResponse;
+  cacheSettings?: CacheSettings;
+  antiFlicker?: boolean;
+  antiFlickerTimeout?: number;
 };
 declare global {
   interface Window {
@@ -205,6 +209,49 @@ function getAttributes() {
   return attributes;
 }
 
+function setAntiFlicker() {
+  window.clearTimeout(antiFlickerTimeout);
+
+  let timeoutMs =
+    windowContext.antiFlickerTimeout ??
+    (dataContext.antiFlickerTimeout
+      ? parseInt(dataContext.antiFlickerTimeout)
+      : null) ??
+    3500;
+  if (!isFinite(timeoutMs)) {
+    timeoutMs = 3500;
+  }
+
+  try {
+    if (!document.getElementById("gb-anti-flicker-style")) {
+      const styleTag = document.createElement("style");
+      styleTag.setAttribute("id", "gb-anti-flicker-style");
+      styleTag.innerHTML =
+        ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
+      document.head.appendChild(styleTag);
+    }
+    document.documentElement.classList.add("gb-anti-flicker");
+
+    // Fallback if GrowthBook fails to load in specified time or 3.5 seconds.
+    antiFlickerTimeout = window.setTimeout(unsetAntiFlicker, timeoutMs);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function unsetAntiFlicker() {
+  window.clearTimeout(antiFlickerTimeout);
+  try {
+    document.documentElement.classList.remove("gb-anti-flicker");
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+if (windowContext.antiFlicker || dataContext.antiFlicker) {
+  setAntiFlicker();
+}
+
 // Create sticky bucket service
 let stickyBucketService: StickyBucketService | undefined = undefined;
 if (
@@ -233,20 +280,47 @@ if (
 const gb = new GrowthBook({
   ...dataContext,
   remoteEval: !!dataContext.remoteEval,
-  trackingCallback: (e, r) => {
-    const p = { experiment_id: e.key, variation_id: r.key };
+  trackingCallback: async (e, r) => {
+    const promises: Promise<unknown>[] = [];
+    const eventParams = { experiment_id: e.key, variation_id: r.key };
 
     // GA4 - gtag
-    window.gtag && window.gtag("event", "experiment_viewed", p);
+    if (window.gtag) {
+      let gtagResolve;
+      const gtagPromise = new Promise((resolve) => {
+        gtagResolve = resolve;
+      });
+      promises.push(gtagPromise);
+      window.gtag("event", "experiment_viewed", {
+        ...eventParams,
+        event_callback: gtagResolve,
+      });
+    }
 
     // GTM - dataLayer
-    window.dataLayer &&
-      window.dataLayer.push({ event: "experiment_viewed", ...p });
+    if (window.dataLayer) {
+      let datalayerResolve;
+      const datalayerPromise = new Promise((resolve) => {
+        datalayerResolve = resolve;
+      });
+      promises.push(datalayerPromise);
+      window.dataLayer.push({
+        event: "experiment_viewed",
+        ...eventParams,
+        eventCallback: datalayerResolve,
+      });
+    }
 
     // Segment - analytics.js
-    window.analytics &&
-      window.analytics.track &&
-      window.analytics.track("Experiment Viewed", p);
+    if (window.analytics && window.analytics.track) {
+      window.analytics.track("Experiment Viewed", eventParams);
+      const segmentPromise = new Promise((resolve) =>
+        window.setTimeout(resolve, 300)
+      );
+      promises.push(segmentPromise);
+    }
+
+    await Promise.all(promises);
   },
   ...windowContext,
   attributes: getAttributes(),
@@ -259,6 +333,8 @@ gb.setRenderer(() => {
   document.dispatchEvent(new CustomEvent("growthbookdata"));
 });
 
+let antiFlickerTimeout: number | undefined;
+
 gb.init({
   payload: windowContext.payload,
   streaming: !(
@@ -266,6 +342,15 @@ gb.init({
     dataContext.noStreaming ||
     windowContext.backgroundSync === false
   ),
+  cacheSettings: windowContext.cacheSettings,
+}).then(() => {
+  if (!(windowContext.antiFlicker || dataContext.antiFlicker)) return;
+
+  if (gb.getRedirectUrl()) {
+    setAntiFlicker();
+  } else {
+    unsetAntiFlicker();
+  }
 });
 
 // Poll for URL changes and update GrowthBook

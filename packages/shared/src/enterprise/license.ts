@@ -62,7 +62,9 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "custom-markdown"
-  | "experiment-impact";
+  | "experiment-impact"
+  | "large-saved-groups";
+
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -220,6 +222,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-roles",
     "custom-markdown",
     "experiment-impact",
+    "large-saved-groups",
   ]),
 };
 

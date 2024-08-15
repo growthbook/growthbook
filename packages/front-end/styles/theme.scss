@@ -39,6 +39,10 @@
   --alert-info-border-color: #bee5eb;
   --alert-info-color: #0c5460;
 
+  --alert-info-purple-background: #7b45ea0d;
+  --alert-info-purple-border-color: #7b45ea1a;
+  --alert-info-purple-color: #7b45ea;
+
   --alert-warn-background: #fff3cd;
   --alert-warn-border-color: #ffeeba;
   --alert-warn-color: #856404;
@@ -74,6 +78,7 @@
   --select-hover-background: #f2f7ff;
 
   --disabled-background: #eaeaea;
+  --disabled-content: #b9bbc6;
 
   --bg-muted-yellow: #f5f2dc;
 
@@ -108,6 +113,9 @@
   --header-revision-log: #ebe4ff;
 
   --callout-grey: #e8e8e8;
+
+  --radio-button-fill: #6e56cf;
+  --file-picker-browse: #{colors.$gray-600};
 }
 
 @mixin dark-theme {
@@ -152,6 +160,10 @@
   --alert-info-border-color: #{darken(#0c5460, 0%)};
   --alert-info-color: #d1ecf1;
 
+  --alert-info-purple-background: #7b45ea0d;
+  --alert-info-purple-border-color: #7b45ea1a;
+  --alert-info-purple-color: #7b45ea;
+
   --alert-warn-background: #{darken(#856404, 15%)};
   --alert-warn-border-color: #{darken(#856404, 8%)};
   --alert-warn-color: #fff3cd;
@@ -187,6 +199,7 @@
   --select-hover-background: #{colors.$gray-800};
 
   --disabled-background: #3f3f3f;
+  --disabled-content: #b9bbc6;
 
   --bg-muted-yellow: #4c4a44;
 
@@ -221,6 +234,9 @@
   --header-revision-log: #33255b;
 
   --callout-grey: #2a2a2a;
+
+  --radio-button-fill: #6e56cf;
+  --file-picker-browse: #{colors.$gray-400};
 }
 
 .theme--light,
