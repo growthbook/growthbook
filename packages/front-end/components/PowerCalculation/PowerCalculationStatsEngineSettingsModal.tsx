@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import RadioSelector from "@/components/Forms/RadioSelector";
-import { DocLink } from "@/components/DocLink";
-import Toggle from "@/components/Forms/Toggle";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
+import RadioSelector from "@front-end/components/Forms/RadioSelector";
+import { DocLink } from "@front-end/components/DocLink";
+import Toggle from "@front-end/components/Forms/Toggle";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import Modal from "@front-end/components/Modal";
 import { StatsEngineSettings } from "./types";
 
 export type Props = {

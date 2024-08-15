@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { DataExportFileResponse } from "back-end/types/data-exports";
-import { useAuth } from "@/services/auth";
-import { saveAs } from "@/services/files";
+import { useAuth } from "@front-end/services/auth";
+import { saveAs } from "@front-end/services/files";
 
 type DownloadDataExportOptions = {
   url: string;

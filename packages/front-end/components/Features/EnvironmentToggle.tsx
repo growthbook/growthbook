@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import Modal from "@front-end/components/Modal";
+import Toggle from "@front-end/components/Forms/Toggle";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 export interface Props {
   feature: FeatureInterface;

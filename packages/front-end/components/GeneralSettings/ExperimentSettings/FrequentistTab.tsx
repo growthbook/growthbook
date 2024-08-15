@@ -1,13 +1,13 @@
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { PValueCorrection } from "back-end/types/stats";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
-import SelectField from "@/components/Forms/SelectField";
-import { GBSequential } from "@/components/Icons";
-import { hasFileConfig } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Field from "@front-end/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { GBSequential } from "@front-end/components/Icons";
+import { hasFileConfig } from "@front-end/services/env";
+import { useUser } from "@front-end/services/UserContext";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
 import { StatsEngineSettingsForm } from "./StatsEngineSettings";
 
 export default function FrequentistTab({

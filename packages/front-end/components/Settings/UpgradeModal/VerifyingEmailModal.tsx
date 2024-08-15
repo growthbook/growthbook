@@ -1,8 +1,8 @@
 import router from "next/router";
 import { useEffect, useState } from "react";
-import Modal from "@/components/Modal";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
+import Modal from "@front-end/components/Modal";
+import { useUser } from "@front-end/services/UserContext";
+import { useAuth } from "@front-end/services/auth";
 import LicenseSuccessModal from "./LicenseSuccessModal";
 import UpgradeModal from ".";
 

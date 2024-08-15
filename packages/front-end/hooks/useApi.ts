@@ -1,5 +1,5 @@
 import useSWR, { SWRConfiguration } from "swr";
-import { useAuth } from "@/services/auth";
+import { useAuth } from "@front-end/services/auth";
 
 export interface UseApiOptions {
   autoRevalidate?: boolean;

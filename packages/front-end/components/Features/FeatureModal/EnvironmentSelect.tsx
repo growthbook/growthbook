@@ -1,9 +1,9 @@
 import { FC } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Toggle from "@/components/Forms/Toggle";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Toggle from "@front-end/components/Forms/Toggle";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const EnvironmentSelect: FC<{
   environmentSettings: Record<string, FeatureEnvironment>;

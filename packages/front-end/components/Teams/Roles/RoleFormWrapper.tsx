@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
-import PageHead from "@/components/Layout/PageHead";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
+import PageHead from "@front-end/components/Layout/PageHead";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { useUser } from "@front-end/services/UserContext";
 
 export default function RoleFormWrapper({
   children,

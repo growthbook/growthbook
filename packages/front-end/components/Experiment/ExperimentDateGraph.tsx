@@ -15,7 +15,7 @@ import { ScaleLinear } from "d3-scale";
 import { date } from "shared/dates";
 import { variant_0, variant_1, variant_2, variant_3 } from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
-import { pValueFormatter } from "@/services/experiments";
+import { pValueFormatter } from "@front-end/services/experiments";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {

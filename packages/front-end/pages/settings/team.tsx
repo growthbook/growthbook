@@ -1,15 +1,15 @@
 import { FC, useState } from "react";
 import { FaUsers, FaPlusCircle } from "react-icons/fa";
 import Link from "next/link";
-import TeamsList from "@/components/Settings/Teams/TeamsList";
-import TeamModal from "@/components/Teams/TeamModal";
-import { Team, useUser } from "@/services/UserContext";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
-import RoleList from "@/components/Teams/Roles/RoleList";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import TeamsList from "@front-end/components/Settings/Teams/TeamsList";
+import TeamModal from "@front-end/components/Teams/TeamModal";
+import { Team, useUser } from "@front-end/services/UserContext";
+import Tabs from "@front-end/components/Tabs/Tabs";
+import Tab from "@front-end/components/Tabs/Tab";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { MembersTabView } from "@front-end/components/Settings/Team/MembersTabView";
+import RoleList from "@front-end/components/Teams/Roles/RoleList";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();

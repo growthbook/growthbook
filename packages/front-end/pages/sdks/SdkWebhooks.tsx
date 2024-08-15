@@ -8,18 +8,18 @@ import {
 } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
-import useApi from "@/hooks/useApi";
-import WebhooksModal from "@/components/Settings/WebhooksModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { GBAddCircle } from "@/components/Icons";
-import { DocLink } from "@/components/DocLink";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ClickToReveal from "@/components/Settings/ClickToReveal";
+import useApi from "@front-end/hooks/useApi";
+import WebhooksModal from "@front-end/components/Settings/WebhooksModal";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useUser } from "@front-end/services/UserContext";
+import Button from "@front-end/components/Button";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import { GBAddCircle } from "@front-end/components/Icons";
+import { DocLink } from "@front-end/components/DocLink";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import ClickToReveal from "@front-end/components/Settings/ClickToReveal";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",

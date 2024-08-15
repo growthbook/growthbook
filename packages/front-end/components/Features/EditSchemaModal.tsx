@@ -14,15 +14,15 @@ import {
   simpleToJSONSchema,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { GBAddCircle } from "@/components/Icons";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import { useAuth } from "@front-end/services/auth";
+import Field from "@front-end/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Modal from "@front-end/components/Modal";
+import SelectField from "@front-end/components/Forms/SelectField";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import { GBAddCircle } from "@front-end/components/Icons";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import OverflowText from "@front-end/components/Experiment/TabbedPage/OverflowText";
 
 export interface Props {
   feature: FeatureInterface;

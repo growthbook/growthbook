@@ -9,15 +9,15 @@ import {
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
 import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
-import { useAuth } from "@/services/auth";
-import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
-import Button from "@/components/Button";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@front-end/services/auth";
+import ResultsDownloadButton from "@front-end/components/Experiment/ResultsDownloadButton";
+import Button from "@front-end/components/Button";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import ViewAsyncQueriesButton from "@front-end/components/Queries/ViewAsyncQueriesButton";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { trackReport } from "@front-end/services/track";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
   editMetrics,

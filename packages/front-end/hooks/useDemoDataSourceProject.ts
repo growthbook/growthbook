@@ -6,9 +6,9 @@ import {
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useExperiments } from "@/hooks/useExperiments";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useExperiments } from "@front-end/hooks/useExperiments";
 
 type UseDemoDataSourceProject = {
   ready: boolean;

@@ -17,15 +17,15 @@ import {
   BsExclamationCircle,
   BsLightbulb,
 } from "react-icons/bs";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
 import {
   ChangeType,
   ReleasePlan,
-} from "@/components/Experiment/EditTargetingModal";
-import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
-import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { DocLink } from "@/components/DocLink";
+} from "@front-end/components/Experiment/EditTargetingModal";
+import TargetingInfo from "@front-end/components/Experiment/TabbedPage/TargetingInfo";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { DocLink } from "@front-end/components/DocLink";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

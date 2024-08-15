@@ -27,12 +27,12 @@ import {
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { getUpcomingScheduleRule } from "@/services/scheduleRules";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import useApi from "@/hooks/useApi";
-import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
+import { getUpcomingScheduleRule } from "@front-end/services/scheduleRules";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
+import { validateSavedGroupTargeting } from "@front-end/components/Features/SavedGroupTargetingField";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import useApi from "@front-end/hooks/useApi";
+import { isExperimentRefRuleSkipped } from "@front-end/components/Features/ExperimentRefSummary";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";

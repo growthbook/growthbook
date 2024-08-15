@@ -6,10 +6,10 @@ import {
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
 import { datetime } from "shared/dates";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
-import Modal from "@/components/Modal";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { getExposureQuery } from "@front-end/services/datasources";
+import Modal from "@front-end/components/Modal";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const FilterSummary: FC<{

@@ -5,7 +5,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { decimalToPercent } from "@/services/utils";
+import { decimalToPercent } from "@front-end/services/utils";
 
 export function getMetricConversionTitle(type: MetricType): string {
   // TODO: support more metric types

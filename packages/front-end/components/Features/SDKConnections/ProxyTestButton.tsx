@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { ProxyTestResult } from "back-end/types/sdk-connection";
 import { BsArrowRepeat } from "react-icons/bs";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Button from "@/components/Button";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import Button from "@front-end/components/Button";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 export default function ProxyTestButton({
   host,

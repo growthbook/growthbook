@@ -1,11 +1,11 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
+import { useAuth } from "@front-end/services/auth";
+import usePermissions from "@front-end/hooks/usePermissions";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import { useUser } from "@front-end/services/UserContext";
+import SelectField from "@front-end/components/Forms/SelectField";
 
 const EditOrganizationModal: FC<{
   name: string;

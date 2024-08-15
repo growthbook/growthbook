@@ -1,4 +1,4 @@
-import { filterSearchTerm, transformQuery } from "@/services/search";
+import { filterSearchTerm, transformQuery } from "@front-end/services/search";
 
 describe("useSearch", () => {
   describe("transformQuery", () => {

@@ -1,5 +1,5 @@
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import { useUser } from "@/services/UserContext";
+import useStripeSubscription from "@front-end/hooks/useStripeSubscription";
+import { useUser } from "@front-end/services/UserContext";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",

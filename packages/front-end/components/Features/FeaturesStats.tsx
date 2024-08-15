@@ -3,14 +3,14 @@ import { useMemo, useState } from "react";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { OrganizationSettings } from "back-end/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
-import Code from "@/components/SyntaxHighlighting/Code";
-import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBPremiumBadge } from "@/components/Icons";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import { useUser } from "@front-end/services/UserContext";
+import Button from "@front-end/components/Button";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBPremiumBadge } from "@front-end/components/Icons";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const generatePlatformUrl = (
   platformUrl: string,

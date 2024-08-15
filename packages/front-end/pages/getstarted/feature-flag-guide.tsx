@@ -3,17 +3,17 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
-import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { useFeaturesList } from "@/services/features";
-import { useUser } from "@/services/UserContext";
-import PageHead from "@/components/Layout/PageHead";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useGetStarted } from "@/services/GetStartedProvider";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
+import DocumentationSidebar from "@front-end/components/GetStarted/DocumentationSidebar";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import { useFeaturesList } from "@front-end/services/features";
+import { useUser } from "@front-end/services/UserContext";
+import PageHead from "@front-end/components/Layout/PageHead";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useGetStarted } from "@front-end/services/GetStartedProvider";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import ViewSampleDataButton from "@front-end/components/GetStarted/ViewSampleDataButton";
+import styles from "@front-end/components/GetStarted/GetStarted.module.scss";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { organization } = useUser();

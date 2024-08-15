@@ -6,15 +6,15 @@ import {
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "@back-end/types/organization";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Tab from "@/components/Tabs/Tab";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBCuped } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
-import { useUser } from "@/services/UserContext";
-import { hasFileConfig } from "@/services/env";
-import Field from "@/components/Forms/Field";
+import ControlledTabs from "@front-end/components/Tabs/ControlledTabs";
+import StatsEngineSelect from "@front-end/components/Settings/forms/StatsEngineSelect";
+import Tab from "@front-end/components/Tabs/Tab";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import { GBCuped } from "@front-end/components/Icons";
+import Toggle from "@front-end/components/Forms/Toggle";
+import { useUser } from "@front-end/services/UserContext";
+import { hasFileConfig } from "@front-end/services/env";
+import Field from "@front-end/components/Forms/Field";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 

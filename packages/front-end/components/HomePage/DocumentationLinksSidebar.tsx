@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { FiArrowRight } from "react-icons/fi";
-import usePermissions from "@/hooks/usePermissions";
-import track from "@/services/track";
-import { DocLink } from "@/components/DocLink";
+import usePermissions from "@front-end/hooks/usePermissions";
+import track from "@front-end/services/track";
+import { DocLink } from "@front-end/components/DocLink";
 
 export default function DocumentationLinksSidebar() {
   const permissions = usePermissions();

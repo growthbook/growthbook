@@ -1,14 +1,16 @@
 import React from "react";
 import { MetricInterface } from "back-end/types/metric";
-import useApi from "@/hooks/useApi";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@front-end/hooks/useApi";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
-import { useAuth } from "@/services/auth";
-import DateGraph, { DraftExperiment } from "@/components/Metrics/DateGraph";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+} from "@front-end/components/Queries/RunQueriesButton";
+import { useAuth } from "@front-end/services/auth";
+import DateGraph, {
+  DraftExperiment,
+} from "@front-end/components/Metrics/DateGraph";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const NorthStarMetricDisplay = ({
   metricId,

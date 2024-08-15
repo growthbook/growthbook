@@ -4,14 +4,14 @@ import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ProjectModal from "@/components/Projects/ProjectModal";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import ProjectModal from "@front-end/components/Projects/ProjectModal";
+import { useAuth } from "@front-end/services/auth";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();

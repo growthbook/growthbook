@@ -1,10 +1,10 @@
 import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
 import styles from "./EditLicenseForm.module.scss";
 
 const EditLicenseModal: FC<{

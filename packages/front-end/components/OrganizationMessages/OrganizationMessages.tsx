@@ -1,8 +1,8 @@
 import React, { FC, useMemo } from "react";
 import md5 from "md5";
 import { OrganizationMessage } from "back-end/types/organization";
-import { useUser } from "@/services/UserContext";
-import Markdown from "@/components/Markdown/Markdown";
+import { useUser } from "@front-end/services/UserContext";
+import Markdown from "@front-end/components/Markdown/Markdown";
 
 type OrganizationMessagesProps = {
   messages: OrganizationMessage[];

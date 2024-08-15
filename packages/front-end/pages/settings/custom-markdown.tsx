@@ -1,15 +1,15 @@
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { GBCircleArrowLeft } from "@/components/Icons";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { useUser } from "@/services/UserContext";
-import TempMessage from "@/components/TempMessage";
-import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { DocLink } from "@/components/DocLink";
+import { GBCircleArrowLeft } from "@front-end/components/Icons";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
+import { OrganizationSettingsWithMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import { useUser } from "@front-end/services/UserContext";
+import TempMessage from "@front-end/components/TempMessage";
+import { useAuth } from "@front-end/services/auth";
+import Modal from "@front-end/components/Modal";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { DocLink } from "@front-end/components/DocLink";
 
 const SaveMessage = ({ showMessage, close }) => {
   return (

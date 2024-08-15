@@ -1,7 +1,7 @@
 import { Variation } from "@back-end/types/experiment";
-import { generateVariationId } from "@/services/features";
-import { GBAddCircle } from "@/components/Icons";
-import SortableVariationsList from "@/components/Features/SortableVariationsList";
+import { generateVariationId } from "@front-end/services/features";
+import { GBAddCircle } from "@front-end/components/Icons";
+import SortableVariationsList from "@front-end/components/Features/SortableVariationsList";
 import { SortableExperimentVariationCard } from "./SortableVariationData";
 
 export interface Props {

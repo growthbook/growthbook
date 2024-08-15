@@ -5,12 +5,12 @@ import { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
 import { PrerequisiteStateResult } from "shared/util";
-import { condToJson, jsonToConds } from "@/services/features";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import { condToJson, jsonToConds } from "@front-end/services/features";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import CodeTextArea from "@front-end/components/Forms/CodeTextArea";
+import StringArrayField from "@front-end/components/Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {

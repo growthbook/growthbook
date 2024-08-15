@@ -1,4 +1,4 @@
-import Modal from "@/components/Modal";
+import Modal from "@front-end/components/Modal";
 
 interface Props {
   close: () => void;

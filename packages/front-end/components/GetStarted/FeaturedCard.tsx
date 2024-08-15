@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { PiArrowSquareOut, PiPlayFill } from "react-icons/pi";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
+import styles from "@front-end/components/GetStarted/GetStarted.module.scss";
 
 interface Props {
   handleClick?: () => void;

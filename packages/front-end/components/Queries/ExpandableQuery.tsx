@@ -11,9 +11,9 @@ import clsx from "clsx";
 import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { FaBoltLightning } from "react-icons/fa6";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{

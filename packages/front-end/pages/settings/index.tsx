@@ -12,24 +12,24 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@back-end/types/organization";
 import Link from "next/link";
-import { useAuth } from "@/services/auth";
-import { hasFileConfig, isCloud } from "@/services/env";
-import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Button";
+import { useAuth } from "@front-end/services/auth";
+import { hasFileConfig, isCloud } from "@front-end/services/env";
+import TempMessage from "@front-end/components/TempMessage";
+import Button from "@front-end/components/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
-} from "@/hooks/useOrganizationMetricDefaults";
-import { useUser } from "@/services/UserContext";
-import { useCurrency } from "@/hooks/useCurrency";
-import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
-import ImportSettings from "@/components/GeneralSettings/ImportSettings";
-import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
-import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
-import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
-import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
+} from "@front-end/hooks/useOrganizationMetricDefaults";
+import { useUser } from "@front-end/services/UserContext";
+import { useCurrency } from "@front-end/hooks/useCurrency";
+import OrganizationAndLicenseSettings from "@front-end/components/GeneralSettings/OrganizationAndLicenseSettings";
+import ImportSettings from "@front-end/components/GeneralSettings/ImportSettings";
+import NorthStarMetricSettings from "@front-end/components/GeneralSettings/NorthStarMetricSettings";
+import ExperimentSettings from "@front-end/components/GeneralSettings/ExperimentSettings";
+import MetricsSettings from "@front-end/components/GeneralSettings/MetricsSettings";
+import FeaturesSettings from "@front-end/components/GeneralSettings/FeaturesSettings";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
+import DatasourceSettings from "@front-end/components/GeneralSettings/DatasourceSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 

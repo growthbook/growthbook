@@ -1,6 +1,6 @@
-import Field from "@/components/Forms/Field";
-import { hasFileConfig } from "@/services/env";
-import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
+import Field from "@front-end/components/Forms/Field";
+import { hasFileConfig } from "@front-end/services/env";
+import BayesianPriorSettings from "@front-end/components/Settings/BayesianPriorSettings";
 import { StatsEngineSettingsForm } from "./StatsEngineSettings";
 
 export default function BayesianTab({

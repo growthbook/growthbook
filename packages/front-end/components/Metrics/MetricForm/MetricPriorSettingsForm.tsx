@@ -2,8 +2,8 @@ import { MetricPriorSettings } from "@back-end/types/fact-table";
 import { MetricDefaults } from "@back-end/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useState } from "react";
-import Toggle from "@/components/Forms/Toggle";
-import Field from "@/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
+import Field from "@front-end/components/Forms/Field";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

@@ -4,18 +4,18 @@ import { DimensionInterface } from "back-end/types/dimension";
 import clsx from "clsx";
 import Link from "next/link";
 import { ago } from "shared/dates";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
-import DimensionForm from "@/components/Dimensions/DimensionForm";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { hasFileConfig } from "@/services/env";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
-import { DocLink } from "@/components/DocLink";
-import Code, { Language } from "@/components/SyntaxHighlighting/Code";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import Button from "@front-end/components/Button";
+import DimensionForm from "@front-end/components/Dimensions/DimensionForm";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { hasFileConfig } from "@front-end/services/env";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import { GBAddCircle } from "@front-end/components/Icons";
+import { DocLink } from "@front-end/components/DocLink";
+import Code, { Language } from "@front-end/components/SyntaxHighlighting/Code";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const DimensionsPage: FC = () => {
   const {

@@ -2,13 +2,13 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { Environment } from "back-end/types/organization";
 import { GbVercelEnvMap } from "back-end/types/vercel";
-import { useAuth } from "@/services/auth";
-import EnvironmentModal from "@/components/Settings/EnvironmentModal";
-import SelectField from "@/components/Forms/SelectField";
-import Modal from "@/components/Modal";
-import useApi from "@/hooks/useApi";
-import { useEnvironments } from "@/services/features";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@front-end/services/auth";
+import EnvironmentModal from "@front-end/components/Settings/EnvironmentModal";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Modal from "@front-end/components/Modal";
+import useApi from "@front-end/hooks/useApi";
+import { useEnvironments } from "@front-end/services/features";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 export default function VercelIntegrationPage() {
   const router = useRouter();

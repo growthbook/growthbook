@@ -1,8 +1,8 @@
 import { CommercialFeature } from "enterprise";
 import clsx from "clsx";
-import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
-import { GBPremiumBadge } from "@/components/Icons";
+import { useUser } from "@front-end/services/UserContext";
+import { isCloud } from "@front-end/services/env";
+import { GBPremiumBadge } from "@front-end/components/Icons";
 import styles from "./UpgradeMessage.module.scss";
 
 export default function UpgradeMessage({

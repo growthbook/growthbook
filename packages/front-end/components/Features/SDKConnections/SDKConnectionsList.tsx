@@ -10,16 +10,20 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import StatusCircle from "@/components/Helpers/StatusCircle";
-import ProjectBadges from "@/components/ProjectBadges";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useEnvironments } from "@/services/features";
-import Badge from "@/components/Badge";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import {
+  GBAddCircle,
+  GBHashLock,
+  GBRemoteEvalIcon,
+} from "@front-end/components/Icons";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import useSDKConnections from "@front-end/hooks/useSDKConnections";
+import StatusCircle from "@front-end/components/Helpers/StatusCircle";
+import ProjectBadges from "@front-end/components/ProjectBadges";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useEnvironments } from "@front-end/services/features";
+import Badge from "@front-end/components/Badge";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 

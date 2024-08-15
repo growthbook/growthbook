@@ -15,12 +15,12 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
 } from "shared/constants";
-import { useAuth } from "@/services/auth";
-import { useConfigJson } from "@/services/config";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
-import Page from "@/components/Modal/Page";
-import PagedModal from "@/components/Modal/PagedModal";
+import { useAuth } from "@front-end/services/auth";
+import { useConfigJson } from "@front-end/services/config";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
+import Page from "@front-end/components/Modal/Page";
+import PagedModal from "@front-end/components/Modal/PagedModal";
 import UploadConfigYml from "./UploadConfigYml";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {

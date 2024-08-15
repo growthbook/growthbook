@@ -1,4 +1,5 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "module": "commonjs",
     "esModuleInterop": true,
@@ -13,9 +14,6 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
-    "paths": {
-      "@back-end/*": ["../back-end/*"]
-    },
     "resolveJsonModule": true
   },
   "include": ["src/**/*"]

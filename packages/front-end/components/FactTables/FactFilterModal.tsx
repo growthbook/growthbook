@@ -8,15 +8,15 @@ import {
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Button";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import MarkdownInput from "@front-end/components/Markdown/MarkdownInput";
+import InlineCode from "@front-end/components/SyntaxHighlighting/InlineCode";
+import DisplayTestQueryResults from "@front-end/components/Settings/DisplayTestQueryResults";
+import Button from "@front-end/components/Button";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {

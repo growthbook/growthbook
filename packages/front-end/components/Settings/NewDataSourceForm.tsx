@@ -14,23 +14,23 @@ import { MetricType } from "@back-end/types/metric";
 import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useRouter } from "next/router";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { getInitialSettings } from "@/services/datasources";
+import { useAuth } from "@front-end/services/auth";
+import track from "@front-end/services/track";
+import { getInitialSettings } from "@front-end/services/datasources";
 import {
   eventSchemas,
   dataSourceConnections,
   eventSchema,
-} from "@/services/eventSchema";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import { GBCircleArrowLeft } from "@/components/Icons";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useProjectOptions from "@/hooks/useProjectOptions";
-import Tooltip from "@/components/Tooltip/Tooltip";
+} from "@front-end/services/eventSchema";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import { GBCircleArrowLeft } from "@front-end/components/Icons";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import useProjectOptions from "@front-end/hooks/useProjectOptions";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";

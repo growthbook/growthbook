@@ -18,8 +18,8 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
-import useApi from "@/hooks/useApi";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useApi from "@front-end/hooks/useApi";
+import { useLocalStorage } from "@front-end/hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];

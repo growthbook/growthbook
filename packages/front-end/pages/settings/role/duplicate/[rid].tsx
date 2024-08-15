@@ -1,9 +1,9 @@
 import { FC } from "react";
 import router from "next/router";
 import { Role } from "@back-end/types/organization";
-import RoleForm from "@/components/Teams/Roles/RoleForm";
-import RoleFormWrapper from "@/components/Teams/Roles/RoleFormWrapper";
-import { useUser } from "@/services/UserContext";
+import RoleForm from "@front-end/components/Teams/Roles/RoleForm";
+import RoleFormWrapper from "@front-end/components/Teams/Roles/RoleFormWrapper";
+import { useUser } from "@front-end/services/UserContext";
 
 const CustomRolePage: FC = () => {
   const { roles } = useUser();

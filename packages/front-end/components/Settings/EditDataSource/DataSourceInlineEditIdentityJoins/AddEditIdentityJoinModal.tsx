@@ -6,11 +6,11 @@ import {
 
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { validateSQL } from "@/services/datasources";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import Code from "@/components/SyntaxHighlighting/Code";
+import Modal from "@front-end/components/Modal";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import { validateSQL } from "@front-end/services/datasources";
+import EditSqlModal from "@front-end/components/SchemaBrowser/EditSqlModal";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 import { isDuplicateIdentityJoin } from "./utils";
 
 type AddEditIdentityJoinModalProps = {

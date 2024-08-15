@@ -1,4 +1,4 @@
-import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
+import { groupApiKeysByType } from "@front-end/services/secret-api-keys.utils";
 describe("secret API keys utils", () => {
   describe("groupApiKeysByType", () => {
     const input = [

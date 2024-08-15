@@ -1,8 +1,8 @@
 import { useFormContext } from "react-hook-form";
 import { DEFAULT_TEST_QUERY_DAYS } from "shared/constants";
-import SelectField from "@/components/Forms/SelectField";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Field from "@front-end/components/Forms/Field";
 
 export default function DatasourceSettings() {
   const form = useFormContext();

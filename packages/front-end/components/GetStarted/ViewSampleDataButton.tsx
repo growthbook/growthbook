@@ -1,11 +1,11 @@
 import { ProjectInterface } from "@back-end/types/project";
 import { useRouter } from "next/router";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import Button from "@/components/Button";
-import track from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDemoDataSourceProject } from "@front-end/hooks/useDemoDataSourceProject";
+import Button from "@front-end/components/Button";
+import track from "@front-end/services/track";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 const ViewSampleDataButton = ({
   resource = "experiment",

@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import useApi from "@/hooks/useApi";
+import useApi from "@front-end/hooks/useApi";
 
 const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;

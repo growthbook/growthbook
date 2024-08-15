@@ -1,5 +1,5 @@
-import { supportedCurrencies } from "@/services/settings";
-import { useUser } from "@/services/UserContext";
+import { supportedCurrencies } from "@front-end/services/settings";
+import { useUser } from "@front-end/services/UserContext";
 
 export function useCurrency(): string {
   const { settings } = useUser();

@@ -1,6 +1,6 @@
 import React from "react";
 import { NextPage } from "next";
-import { EventDetailContainer } from "@/components/Events/EventDetail/EventDetail";
+import { EventDetailContainer } from "@front-end/components/Events/EventDetail/EventDetail";
 
 const EventDetailPage: NextPage = () => {
   return (

@@ -16,17 +16,19 @@ import {
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
-import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useUser } from "@front-end/services/UserContext";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useAuth } from "@front-end/services/auth";
+import Button from "@front-end/components/Button";
+import { GBAddCircle } from "@front-end/components/Icons";
+import Results, {
+  ResultsMetricFilters,
+} from "@front-end/components/Experiment/Results";
+import AnalysisForm from "@front-end/components/Experiment/AnalysisForm";
+import ExperimentReportsList from "@front-end/components/Experiment/ExperimentReportsList";
+import { useSnapshot } from "@front-end/components/Experiment/SnapshotProvider";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 

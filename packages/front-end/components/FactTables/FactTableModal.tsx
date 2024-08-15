@@ -8,19 +8,22 @@ import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
-import track from "@/services/track";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import Code from "@/components/SyntaxHighlighting/Code";
-import { usesEventName } from "@/components/Metrics/MetricForm";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useAuth } from "@front-end/services/auth";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import {
+  getInitialMetricQuery,
+  validateSQL,
+} from "@front-end/services/datasources";
+import track from "@front-end/services/track";
+import Modal from "@front-end/components/Modal";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import { getNewExperimentDatasourceDefaults } from "@front-end/components/Experiment/NewExperimentForm";
+import MultiSelectField from "@front-end/components/Forms/MultiSelectField";
+import EditSqlModal from "@front-end/components/SchemaBrowser/EditSqlModal";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
+import { usesEventName } from "@front-end/components/Metrics/MetricForm";
 
 export interface Props {
   existing?: FactTableInterface;

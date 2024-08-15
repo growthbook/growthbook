@@ -8,11 +8,11 @@ import { FormProvider, useForm } from "react-hook-form";
 import { Role } from "@back-end/types/organization";
 import router from "next/router";
 import { useState } from "react";
-import Field from "@/components/Forms/Field";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
-import TempMessage from "@/components/TempMessage";
+import Field from "@front-end/components/Forms/Field";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import Button from "@front-end/components/Button";
+import TempMessage from "@front-end/components/TempMessage";
 
 export default function RoleForm({
   role,

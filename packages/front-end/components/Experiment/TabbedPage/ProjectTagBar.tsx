@@ -2,11 +2,11 @@ import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import Link from "next/link";
-import { GBEdit } from "@/components/Icons";
-import SortedTags from "@/components/Tags/SortedTags";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
+import { GBEdit } from "@front-end/components/Icons";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { useUser } from "@front-end/services/UserContext";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

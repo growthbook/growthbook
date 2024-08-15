@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { FaEye } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import { useWatching } from "@/services/WatchProvider";
+import { useAuth } from "@front-end/services/auth";
+import { useWatching } from "@front-end/services/WatchProvider";
 
 const WatchButton: FC<{
   item: string;

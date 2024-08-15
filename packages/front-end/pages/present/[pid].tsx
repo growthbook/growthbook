@@ -4,11 +4,11 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PresentationInterface } from "back-end/types/presentation";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import useSwitchOrg from "@/services/useSwitchOrg";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import useApi from "@/hooks/useApi";
+import useSwitchOrg from "@front-end/services/useSwitchOrg";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import useApi from "@front-end/hooks/useApi";
 const DynamicPresentation = dynamic(
-  () => import("@/components/Share/Presentation"),
+  () => import("@front-end/components/Share/Presentation"),
   {
     ssr: false,
     //loading: () => (<p>Loading...</p>) // this causes a lint error

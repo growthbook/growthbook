@@ -1,8 +1,8 @@
 import { InformationSchemaInterface } from "@back-end/src/types/Integration";
 import { FaDatabase, FaRedo } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuth } from "@front-end/services/auth";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
 
 export default function SchemaBrowserWrapper({
   children,

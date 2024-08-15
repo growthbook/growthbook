@@ -3,9 +3,9 @@ import { useRouter } from "next/router";
 import { EventInterface } from "back-end/types/event";
 import { datetime } from "shared/dates";
 import { NotificationEvent } from "back-end/src/events/notification-events";
-import useApi from "@/hooks/useApi";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import Code from "@/components/SyntaxHighlighting/Code";
+import useApi from "@front-end/hooks/useApi";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 type EventDetailProps = {
   event: EventInterface<NotificationEvent>;

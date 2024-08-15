@@ -1,14 +1,14 @@
 import React, { FC, useCallback, useState } from "react";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { AuthContextValue, useAuth } from "@/services/auth";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import { useUser } from "@/services/UserContext";
-import track from "@/services/track";
-import Button from "@/components/Button";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import LoadingSpinner from "@front-end/components/LoadingSpinner";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import { AuthContextValue, useAuth } from "@front-end/services/auth";
+import { useDemoDataSourceProject } from "@front-end/hooks/useDemoDataSourceProject";
+import { useUser } from "@front-end/services/UserContext";
+import track from "@front-end/services/track";
+import Button from "@front-end/components/Button";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 
 type DemoDataSourcePageProps = {
   error: string | null;

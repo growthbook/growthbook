@@ -8,7 +8,7 @@ import {
   cloneElement,
   ReactNode,
 } from "react";
-import useGlobalMenu from "@/services/useGlobalMenu";
+import useGlobalMenu from "@front-end/services/useGlobalMenu";
 import DropdownLink from "./DropdownLink";
 import styles from "./Dropdown.module.scss";
 

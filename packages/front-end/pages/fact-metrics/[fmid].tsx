@@ -9,30 +9,30 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCuped, GBEdit } from "@/components/Icons";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
-import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import PageHead from "@/components/Layout/PageHead";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import SortedTags from "@/components/Tags/SortedTags";
-import FactMetricModal from "@/components/FactTables/FactMetricModal";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
-import RightRailSection from "@/components/Layout/RightRailSection";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getPercentileLabel } from "@/services/metrics";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { capitalizeFirstLetter } from "@/services/utils";
-import MetricName from "@/components/Metrics/MetricName";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
+import { GBCuped, GBEdit } from "@front-end/components/Icons";
+import MoreMenu from "@front-end/components/Dropdown/MoreMenu";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { useAuth } from "@front-end/services/auth";
+import EditProjectsForm from "@front-end/components/Projects/EditProjectsForm";
+import PageHead from "@front-end/components/Layout/PageHead";
+import EditTagsForm from "@front-end/components/Tags/EditTagsForm";
+import SortedTags from "@front-end/components/Tags/SortedTags";
+import FactMetricModal from "@front-end/components/FactTables/FactMetricModal";
+import InlineCode from "@front-end/components/SyntaxHighlighting/InlineCode";
+import RightRailSectionGroup from "@front-end/components/Layout/RightRailSectionGroup";
+import RightRailSection from "@front-end/components/Layout/RightRailSection";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "@front-end/hooks/useOrganizationMetricDefaults";
+import { getPercentileLabel } from "@front-end/services/metrics";
+import MarkdownInlineEdit from "@front-end/components/Markdown/MarkdownInlineEdit";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { capitalizeFirstLetter } from "@front-end/services/utils";
+import MetricName from "@front-end/components/Metrics/MetricName";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@front-end/components/Metrics/MetricPriorRightRailSectionGroup";
+import EditOwnerModal from "@front-end/components/Owner/EditOwnerModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();

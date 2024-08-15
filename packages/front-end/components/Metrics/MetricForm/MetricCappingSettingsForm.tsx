@@ -1,7 +1,7 @@
 import { CappingType } from "back-end/types/fact-table";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Field from "@front-end/components/Forms/Field";
+import SelectField from "@front-end/components/Forms/SelectField";
+import Toggle from "@front-end/components/Forms/Toggle";
 
 export function MetricCappingSettingsForm({
   form,

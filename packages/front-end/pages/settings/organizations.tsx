@@ -1,11 +1,11 @@
 import { FC } from "react";
-import CreateOrJoinOrganization from "@/components/Auth/CreateOrJoinOrganization";
+import CreateOrJoinOrganization from "@front-end/components/Auth/CreateOrJoinOrganization";
 import {
   allowSelfOrgCreation,
   isCloud,
   isMultiOrg,
   showMultiOrgSelfSelector,
-} from "@/services/env";
+} from "@front-end/services/env";
 
 const CreateOrJoinOrganizationPage: FC = () => {
   if (

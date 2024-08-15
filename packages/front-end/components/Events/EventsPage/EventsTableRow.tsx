@@ -4,8 +4,8 @@ import { NotificationEvent } from "back-end/src/events/notification-events";
 import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import Link from "next/link";
-import { getEventText } from "@/components/Events/EventsPage/utils";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { getEventText } from "@front-end/components/Events/EventsPage/utils";
+import Code from "@front-end/components/SyntaxHighlighting/Code";
 
 type EventsTableRowProps = {
   event: EventInterface<NotificationEvent>;

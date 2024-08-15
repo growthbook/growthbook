@@ -1,9 +1,9 @@
 import { useFormContext } from "react-hook-form";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { MetricDefaults } from "@back-end/types/organization";
-import { hasFileConfig } from "@/services/env";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import { hasFileConfig } from "@front-end/services/env";
+import Field from "@front-end/components/Forms/Field";
+import Toggle from "@front-end/components/Forms/Toggle";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

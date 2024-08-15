@@ -15,15 +15,15 @@ import { IconType } from "react-icons";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
-import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
-import { useGetStarted } from "@/services/GetStartedProvider";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import FeaturedCard from "@/components/GetStarted/FeaturedCard";
+import DocumentationSidebar from "@front-end/components/GetStarted/DocumentationSidebar";
+import UpgradeModal from "@front-end/components/Settings/UpgradeModal";
+import styles from "@front-end/components/GetStarted/GetStarted.module.scss";
+import YouTubeLightBox from "@front-end/components/GetStarted/YoutubeLightbox";
+import { useGetStarted } from "@front-end/services/GetStartedProvider";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import FeaturedCard from "@front-end/components/GetStarted/FeaturedCard";
 
 function WorkspaceLink({
   Icon,

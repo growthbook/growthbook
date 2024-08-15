@@ -2,11 +2,11 @@ import { FC } from "react";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import useApi from "@/hooks/useApi";
-import { useUser } from "@/services/UserContext";
+import useApi from "@front-end/hooks/useApi";
+import { useUser } from "@front-end/services/UserContext";
 import LoadingOverlay from "./LoadingOverlay";
 import Avatar from "./Avatar/Avatar";
-//import { phaseSummary } from "@/services/utils";
+//import { phaseSummary } from "@front-end/services/utils";
 
 const eventActionMapping = {
   "experiment.start": "started experiment",

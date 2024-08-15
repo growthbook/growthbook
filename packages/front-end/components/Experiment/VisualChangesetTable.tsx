@@ -10,17 +10,17 @@ import {
 } from "back-end/types/visual-changeset";
 import { FaPencilAlt, FaTimesCircle } from "react-icons/fa";
 import clsx from "clsx";
-import track from "@/services/track";
-import { GBEdit } from "@/components/Icons";
-import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { appendQueryParamsToURL } from "@/services/utils";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
-import LinkedChange from "@/components/Experiment/LinkedChange";
+import track from "@front-end/services/track";
+import { GBEdit } from "@front-end/components/Icons";
+import OpenVisualEditorLink from "@front-end/components/OpenVisualEditorLink";
+import DeleteButton from "@front-end/components/DeleteButton/DeleteButton";
+import { appendQueryParamsToURL } from "@front-end/services/utils";
+import { useAuth } from "@front-end/services/auth";
+import { useUser } from "@front-end/services/UserContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import VisualChangesetModal from "@front-end/components/Experiment/VisualChangesetModal";
+import EditDOMMutatonsModal from "@front-end/components/Experiment/EditDOMMutationsModal";
+import LinkedChange from "@front-end/components/Experiment/LinkedChange";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;

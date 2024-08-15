@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import { useUser } from "@/services/UserContext";
+import Field from "@front-end/components/Forms/Field";
+import Modal from "@front-end/components/Modal";
+import { useUser } from "@front-end/services/UserContext";
 
 interface Props {
   close: () => void;

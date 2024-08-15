@@ -1,6 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField from "@front-end/components/Forms/SelectField";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 

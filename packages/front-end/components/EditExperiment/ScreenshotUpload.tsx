@@ -8,9 +8,9 @@ import { useDropzone } from "react-dropzone";
 import { Screenshot } from "back-end/types/experiment";
 import clsx from "clsx";
 import { BiImageAdd } from "react-icons/bi";
-import { useAuth } from "@/services/auth";
-import { uploadFile } from "@/services/files";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAuth } from "@front-end/services/auth";
+import { uploadFile } from "@front-end/services/files";
+import LoadingOverlay from "@front-end/components/LoadingOverlay";
 import styles from "./ScreenshotUpload.module.scss";
 
 type props = {

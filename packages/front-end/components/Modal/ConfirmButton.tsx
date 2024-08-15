@@ -1,5 +1,5 @@
 import { ReactNode, FC, useState, ReactElement } from "react";
-import Modal from "@/components/Modal";
+import Modal from "@front-end/components/Modal";
 
 const ConfirmButton: FC<{
   onClick: () => Promise<void>;

@@ -1,7 +1,7 @@
 import { date } from "shared/dates";
-import { phaseSummary } from "@/services/utils";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField from "@/components/Forms/SelectField";
+import { phaseSummary } from "@front-end/services/utils";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import SelectField from "@front-end/components/Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {

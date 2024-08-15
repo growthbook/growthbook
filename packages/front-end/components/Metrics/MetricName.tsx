@@ -4,9 +4,9 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { getPercentileLabel } from "@/services/metrics";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { getPercentileLabel } from "@front-end/services/metrics";
 
 export function PercentileLabel({
   metric,

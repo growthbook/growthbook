@@ -1,4 +1,4 @@
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
 
 export default function BuildInformationSchemaCard({
   refreshOrCreateInfoSchema,

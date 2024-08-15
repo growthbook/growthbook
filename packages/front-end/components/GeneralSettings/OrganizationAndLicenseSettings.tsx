@@ -2,11 +2,11 @@ import { FaPencilAlt } from "react-icons/fa";
 import React, { useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
-import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
-import { isCloud, isMultiOrg } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
+import ShowLicenseInfo from "@front-end/components/License/ShowLicenseInfo";
+import EditOrganizationModal from "@front-end/components/Settings/EditOrganizationModal";
+import { isCloud, isMultiOrg } from "@front-end/services/env";
+import { useUser } from "@front-end/services/UserContext";
+import usePermissions from "@front-end/hooks/usePermissions";
 
 export default function OrganizationAndLicenseSettings({
   org,

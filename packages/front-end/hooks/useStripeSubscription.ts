@@ -1,6 +1,6 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { getValidDate } from "shared/dates";
-import { useUser } from "@/services/UserContext";
+import { useUser } from "@front-end/services/UserContext";
 
 export default function useStripeSubscription() {
   const selfServePricingEnabled = useFeature("self-serve-billing").on;

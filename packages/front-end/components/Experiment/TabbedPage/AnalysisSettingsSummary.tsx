@@ -15,24 +15,24 @@ import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBEdit } from "@/components/Icons";
-import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import { trackSnapshot } from "@/services/track";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { useAuth } from "@/services/auth";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useUser } from "@/services/UserContext";
-import { isOutdated } from "@/components/Experiment/AnalysisSettingsBar";
+import { useDefinitions } from "@front-end/services/DefinitionsContext";
+import Tooltip from "@front-end/components/Tooltip/Tooltip";
+import { GBEdit } from "@front-end/components/Icons";
+import ResultMoreMenu from "@front-end/components/Experiment/ResultMoreMenu";
+import { trackSnapshot } from "@front-end/services/track";
+import { useSnapshot } from "@front-end/components/Experiment/SnapshotProvider";
+import { useAuth } from "@front-end/services/auth";
+import useOrgSettings from "@front-end/hooks/useOrgSettings";
+import { useUser } from "@front-end/services/UserContext";
+import { isOutdated } from "@front-end/components/Experiment/AnalysisSettingsBar";
 import RunQueriesButton, {
   getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
-import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import MetricName from "@/components/Metrics/MetricName";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+} from "@front-end/components/Queries/RunQueriesButton";
+import RefreshSnapshotButton from "@front-end/components/Experiment/RefreshSnapshotButton";
+import ViewAsyncQueriesButton from "@front-end/components/Queries/ViewAsyncQueriesButton";
+import MetricName from "@front-end/components/Metrics/MetricName";
+import AnalysisForm from "@front-end/components/Experiment/AnalysisForm";
+import usePermissionsUtil from "@front-end/hooks/usePermissionsUtils";
 import OverflowText from "./OverflowText";
 
 export interface Props {

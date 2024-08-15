@@ -1,7 +1,7 @@
 import { FaPlusCircle } from "react-icons/fa";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@front-end/services/UserContext";
+import PremiumTooltip from "@front-end/components/Marketing/PremiumTooltip";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,
