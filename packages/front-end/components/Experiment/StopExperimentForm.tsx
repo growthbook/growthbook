@@ -192,7 +192,8 @@ const StopExperimentForm: FC<{
             </div>
           </div>
 
-          {(lastPhase?.coverage ?? 1) < 1 ? (
+          {!form.watch("excludeFromPayload") &&
+          (lastPhase?.coverage ?? 1) < 1 ? (
             <div className="alert alert-warning">
               <FaExclamationTriangle className="mr-1" />
               Currently only{" "}
