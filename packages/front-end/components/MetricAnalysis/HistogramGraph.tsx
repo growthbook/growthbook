@@ -37,8 +37,7 @@ function getTooltipDataFromDatapoint(
   if (index === -1) {
     return null;
   }
-  const x =
-    (data.length > 0 ? (index + 0.5) / (data.length + 1) : 0) * innerWidth;
+  const x = (data.length > 0 ? (index + 0.5) / data.length : 0) * innerWidth;
   const y = (yScale(datapoint.units) ?? 0) as number;
   return { x, y, d: datapoint };
 }
@@ -136,8 +135,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
         hideTooltip();
         return;
       }
-      const innerWidth =
-        width - marginLeft - marginRight + width / data.length - 1;
+      const innerWidth = width - marginLeft - marginRight;
       const tooltipData = getTooltipDataFromDatapoint(
         datapoint,
         data,
