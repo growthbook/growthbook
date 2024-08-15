@@ -548,7 +548,7 @@ export async function getExperimentsToUpdateLegacy(
       organization: true,
     })
     .limit(100)
-    .sort({ lastSnapshotAttempt: 1 })
+    .sort({ nextSnapshotAttempt: 1 })
     .toArray();
 
   return experiments.map((exp) => ({
