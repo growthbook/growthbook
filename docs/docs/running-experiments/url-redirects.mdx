@@ -83,7 +83,7 @@ Settings** → **Experiment Health Settings**.
 
 SRM warnings are a common problem when running client-side URL Redirect tests, regardless of what experimentation platform is used. When using GrowthBook's [JavaScript](https://docs.growthbook.io/lib/js), [React](https://docs.growthbook.io/lib/react), [Vue.js](https://docs.growthbook.io/lib/vue), or [HTML](https://docs.growthbook.io/lib/script-tag) SDKs to run URL Redirect tests, SRM warnings may occur. The issue is especially pronounced while also using [Google Tag Manager (GTM)](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook).
 
-The inherent latency of the [trackingCallback](https://docs.growthbook.io/lib/js#experimentation-ab-testing) causes the URL Redirect to take place before the `trackingCallback` can complete, which means a much larger exposure to the control URL than to the redirect URL. Thus, it's likely that significantly more traffic will be sent to the control URL than what was configured for the experiment, which triggers an SRM warning.
+The inherent latency of the [trackingCallback](https://docs.growthbook.io/lib/js#experimentation-ab-testing) causes the URL Redirect to take place before the `trackingCallback` can complete, which means tracking more exposures to the control URL than to the redirect URL. Thus, it's likely that significantly more traffic will be sent to the control URL than what was configured for the experiment, which triggers an SRM warning.
 
 ### Increase the Delay Before Triggering a URL Redirect
 
