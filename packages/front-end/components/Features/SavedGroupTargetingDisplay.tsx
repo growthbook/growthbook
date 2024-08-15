@@ -35,16 +35,23 @@ export default function SavedGroupTargetingDisplay({
             <div className="mr-1">{getDescription(s)}</div>
             <div>
               {s.ids.length > 1 && "( "}
-              {s.ids.map((id) => (
-                <Link
-                  href="/saved-groups"
-                  key={id}
-                  className={`border px-2 bg-light rounded mr-1`}
-                  title="Manage Saved Groups"
-                >
-                  {getSavedGroupById(id)?.groupName || id}
-                </Link>
-              ))}
+              {s.ids.map((id) => {
+                const group = getSavedGroupById(id);
+                const link =
+                  group?.type === "list"
+                    ? `/saved-groups/${group.id}`
+                    : "/saved-groups#conditionGroups";
+                return (
+                  <Link
+                    href={link}
+                    key={id}
+                    className={`border px-2 bg-light rounded mr-1`}
+                    title="Manage Saved Group"
+                  >
+                    {group?.groupName || id}
+                  </Link>
+                );
+              })}
               {s.ids.length > 1 && ")"}
             </div>
           </div>

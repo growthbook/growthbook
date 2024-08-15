@@ -1,4 +1,3 @@
-import { SavedGroupInterface } from "back-end/types/saved-group";
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
 import {
@@ -7,6 +6,7 @@ import {
 } from "back-end/types/feature";
 import Link from "next/link";
 import { isDefined } from "shared/util";
+import { SavedGroupInterface } from "shared/src/types";
 import { useDefinitions } from "@front-end/services/DefinitionsContext";
 import {
   Condition,
@@ -208,7 +208,10 @@ function getConditionParts({
         {hasMultiValues(operator) ? (
           <MultiValueDisplay value={value} />
         ) : needsValue(operator) ? (
-          <span className="mr-1 border px-2 bg-light rounded">
+          <span
+            className="mr-1 border px-2 bg-light rounded"
+            style={{ whiteSpace: "pre" }}
+          >
             {getValue(operator, value, savedGroups)}
           </span>
         ) : (

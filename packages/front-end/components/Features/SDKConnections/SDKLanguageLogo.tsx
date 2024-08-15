@@ -291,17 +291,17 @@ export default function SDKLanguageLogo({
   let versionText: ReactElement | null = null;
   if (version !== undefined && !hideVersion) {
     versionText = (
-      <>
+      <span className="nowrap">
         <span className="text-info small ml-2">ver. {version || "0"}</span>
         {versionOutdated && (
-          <Tooltip body={<>A new SDK version may be available</>}>
+          <Tooltip body="A new SDK version may be available">
             <HiOutlineExclamationCircle
               className="text-warning-orange position-relative"
-              style={{ top: -2, left: 2 }}
+              style={showLabel ? { top: -2, left: 2 } : { left: 4 }}
             />
           </Tooltip>
         )}
-      </>
+      </span>
     );
   }
 
@@ -312,12 +312,10 @@ export default function SDKLanguageLogo({
         className="m-0"
         title={titlePrefix + label}
       />
-      {showLabel && (
-        <span className="ml-1">
-          {label}
-          {versionText}
-        </span>
-      )}
+      <span className="ml-1">
+        {showLabel && label}
+        {versionText}
+      </span>
       {!hideExtra ? extra : null}
     </span>
   );
