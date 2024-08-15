@@ -41,6 +41,8 @@ import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMo
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import track from "@/services/track";
 
+const LOOKBACK_DAY_OPTIONS = [7, 14, 30, 180, 365];
+
 function MetricAnalysisOverview({
   name,
   metricType,
@@ -124,7 +126,9 @@ function MetricAnalysisOverview({
 }
 
 function getLookbackSelected(lookbackDays: number): string {
-  return [7, 14, 30].includes(lookbackDays) ? `${lookbackDays}` : `custom`;
+  return LOOKBACK_DAY_OPTIONS.includes(lookbackDays)
+    ? `${lookbackDays}`
+    : `custom`;
 }
 
 function getDesiredSettings(
@@ -304,18 +308,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       <SelectField
                         containerClassName={"select-dropdown-underline"}
                         options={[
-                          {
-                            label: "Last 7 Days",
-                            value: "7",
-                          },
-                          {
-                            label: "Last 14 Days",
-                            value: "14",
-                          },
-                          {
-                            label: "Last 30 Days",
-                            value: "30",
-                          },
+                          ...LOOKBACK_DAY_OPTIONS.map((days) => ({
+                            label: `Last ${days} Days`,
+                            value: `${days}`,
+                          })),
                           {
                             label: "Custom Lookback",
                             value: "custom",
@@ -540,15 +536,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     {metricAnalysis?.result?.dates &&
                       metricAnalysis.result.dates.length > 0 && (
                         <div className="mb-4">
-                          <div className="row mt-3">
-                            <div className="col-auto">
-                              <h4 className="mb-1 mt-1">
-                                {factMetric.metricType === "proportion"
-                                  ? "Conversions"
-                                  : "Metric Value"}{" "}
-                                Over Time
-                              </h4>
-                            </div>
+                          <div className="mt-3">
+                            <h4 className="mb-1 mt-1">
+                              {factMetric.metricType === "proportion"
+                                ? "Conversions"
+                                : "Metric Value"}{" "}
+                              Over Time
+                            </h4>
                           </div>
 
                           {factMetric.metricType != "proportion" && (
@@ -754,11 +748,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       metricAnalysis.result.histogram.length > 0 &&
                       factMetric.metricType !== "proportion" && (
                         <div className="mt-5 mb-2">
-                          <strong className="ml-4 align-bottom">
+                          <h4 className="align-bottom">
                             Histogram of Metric Value by{" "}
                             <code>{metricAnalysis.settings.userIdType}</code>{" "}
                             Totals
-                          </strong>
+                          </h4>
                           <HistogramGraph
                             data={metricAnalysis.result.histogram}
                             formatter={formatter}
