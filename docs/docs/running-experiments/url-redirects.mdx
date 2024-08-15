@@ -27,26 +27,77 @@ Setting up tests where the redirect URL only varies from the original by the que
 
 ## Implementation
 
-URL Redirect tests require integrating one of our [SDKs](/lib) into your application. Currently, URL Redirect tests are only supported in our [Script Tag](/lib/script-tag), [Javascript](/lib/js), and [ReactJS](/lib/js) SDKs. Support for other SDKs is coming soon. Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Connections**, select your SDK connection, click **Edit**, and ensure that "Enable URL Redirect experiments" is toggled on.
+URL Redirect tests require integrating one of our [SDKs](/lib) into your application. Currently, URL Redirect tests are only supported in our [Script Tag](/lib/script-tag), [Javascript](/lib/js), and [ReactJS](/lib/js) SDKs — as well as natively supported in all of our [Edge SDKs](/lib/edge/cloudflare).
 
-### HTML Script Tag
+Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Connections**, select your SDK connection, click **Edit**, and ensure that "Enable URL Redirect experiments" is toggled on.
+
+### HTML Script Tag SDK
 
 The easiest option is to use our [Script Tag](/lib/script-tag) SDK. This involves adding a single `<script>` tag to the HEAD of your website. This option fully works out-of-the-box with no configuration required.
 
-### Client-Side JavaScript and React
+Like the JavaScript and React SDKs, the HTML Script tag supports setting a custom `navigate` function, `navigateDelay`, and `maxNavigateDelay`. See the JavaScript and React section [below](#front-end-javascript-and-react-sdks) for more information.
+
+#### Anti-flicker
+
+The Script Tag is the only front-end SDK that natively provides an anti-flicker mechanism (off by default).
+
+- `antiFlicker` - If `true`, a white screen will be shown as soon as the SDK loads and will persist until either a URL redirect finishes _or_ no redirect is triggered. This helps to minimize any "flicker" a user might see while the page navigates. Defaults to `false`.
+- `antiFlickerTimeout` - the maximum number of milliseconds that the anti-flicker white screen will be shown. Defaults to `3500` (3.5 seconds).
+
+:::note improving Anti-flicker
+
+There will be a small visible flicker between page render and SDK load (which is usually loaded asynchronously). If you want to completely eliminate all flicker between initial page load and redirection, embed this code into the `<head>` of your page...
+
+```html
+<style id="gb-anti-flicker-style">
+  .gb-anti-flicker { opacity: 0 !important; pointer-events: none; }
+</style>
+```
+
+... and add a class name to the `<body>` of your page:
+
+```html
+<body class="gb-anti-flicker">
+```
+
+Optionally add a script to the `<head>` to remove your anti-flicker screen after 3 seconds, in case the SDK never successfully loads:
+
+```html
+<script language="text/javascript">
+  window.setTimeout(() => {
+    document.documentElement.classList.remove("gb-anti-flicker");
+  }, 3000);
+</script>
+```
+
+:::
+
+### Edge SDKs
+
+The preferred way to run URL redirect tests is by implementing either on the backend or edge server (CDN).
+
+In a front-end environment, failing to complete the tracking callback before the navigation triggers can lead to substantial [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm) and could invalidate your experiment results. Similarly, flickering can cause a degraded user experience which may end up skewing the experiment results in favor of the control (no redirect).
+
+We provide native support for edge redirect tests without any of the flickering or tracking delays. Read more: [Edge SDKs](/lib/edge/cloudflare#turnkey-edge-app)
+
+### Front-end JavaScript and React SDKs
 
 A more advanced integration involves using our [Javascript](/lib/js) or [ReactJS](/lib/js) client-side SDKs.
 
-Besides the standard implementation described in the SDK docs, there are 4 additional settings that control the redirect behavior.
+Besides the standard implementation described in the SDK docs, there are additional settings that control the redirect behavior.
 
 - `navigate` - a callback function to perform the redirect. Defaults to `(url) => window.location.replace(url)`.
-- `navigateDelay` - the number of milliseconds to wait before redirecting. Use this to give time for your analytics tracking callback to finish. Defaults to `100`
-- `antiFlicker` - If `true`, a white screen will be shown while the redirect is happening to avoid the user seeing a "flicker". Defaults to `false`.
-- `antiFlickerTimeout` - the maximum number of milliseconds that the anti-flicker white screen will be shown. Defaults to `3500` (3.5 seconds).
+- `navigateDelay` - the number of milliseconds to wait before redirecting. Use this to give time for your analytics tracking callback to finish. If your tracking callback is properly implemented as async, then you should set this value as low as possible. Defaults to `100` (0.1 seconds).
+- `maxNavigateDelay` - the maximum number of milliseconds that navigation will be delayed while any async tracking callback is still in flight. If the tracking callback exceeds this value, navigate will be fired. Note that missed tracking calls is generally the largest contributor to [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm). Defaults to `1000` (1 second).
+
+_Deprecated:_
+
+- `antiFlicker` - only available in the Script Tag
+- `antiFlickerTimeout` - only available in the Script Tag
 
 #### Single Page Apps (SPAs)
 
-If you have a Single Page App (SPA), it's recommended to use your own `navigate` function to avoid doing full-page redirects. In this case, you also want to set `navigateDelay` to 0. Here's an example in Next.js
+If you have a SPA, it's recommended to use your own `navigate` function to avoid doing full-page redirects. In this case, also set `navigateDelay` to 0. Here is an example in Next.js:
 
 ```jsx
 import router from "next/router";
@@ -54,6 +105,8 @@ import router from "next/router";
 const gb = new GrowthBook({
     navigate: (url) => router.replace(url),
     navigateDelay: 0,
+    maxNavigateDelay: 0 // only needed if your tracking callback is async
+
     // ... other settings
 });
 ```
@@ -66,8 +119,6 @@ router.events.on("routeChangeComplete", (url) => {
 })
 ```
 
-### Node.js / Edge Workers <Pill>beta</Pill>
+### Node.js <Pill>beta</Pill>
 
-It's possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end as well, in either a Node.js application or in an edge worker.
-
-Reach out to us on Slack or at hello@growthbook.io if you're interested in helping us beta test this and we can help you get set up.
+It is possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end. You must implement your own `navigate` function.
