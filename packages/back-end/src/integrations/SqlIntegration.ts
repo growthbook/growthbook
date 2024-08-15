@@ -66,6 +66,7 @@ import {
   DropTableQueryResponse,
   DropTableQueryParams,
   TestQueryParams,
+  AutoFactMetricToCreate,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
@@ -3168,6 +3169,56 @@ export default abstract class SqlIntegration
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
+
+  factMetricAlreadyExists(
+    existingFactMetrics: FactMetricInterface[],
+    autoFactMetric: AutoFactMetricToCreate
+  ): boolean {
+    return existingFactMetrics.some((existing) => {
+      console.log({ existing });
+      console.log({ autoFactMetric });
+      //TODO: Improve this logic
+      return (
+        existing.metricType === autoFactMetric.metricType &&
+        existing.numerator.column === autoFactMetric.numerator.column
+      );
+    });
+  }
+
+  getAutoFactMetricsToCreate(
+    existingFactMetrics: FactMetricInterface[],
+    factTable: FactTableInterface
+  ): AutoFactMetricToCreate[] {
+    const autoFactMetricsToCreate: AutoFactMetricToCreate[] = [];
+
+    autoFactMetricsToCreate.push({
+      name: `${factTable.eventName} count`,
+      metricType: "proportion",
+      shouldCreate: true,
+      alreadyExists: false,
+      numerator: {
+        factTableId: factTable.id,
+        column: "$$count",
+        filters: [],
+      },
+      denominator: null,
+      datasource: factTable.datasource,
+      inverse: false,
+    });
+
+    return autoFactMetricsToCreate.map((factMetricToCreate) => {
+      const alreadyExists = this.factMetricAlreadyExists(
+        existingFactMetrics,
+        factMetricToCreate
+      );
+      return {
+        ...factMetricToCreate,
+        alreadyExists,
+        shouldCreate: !alreadyExists,
+      };
+    });
+  }
+
   getMetricsToCreate(
     result: TrackedEventData,
     schemaFormat: AutoFactTableSchemas,
@@ -3243,7 +3294,7 @@ export default abstract class SqlIntegration
     groupByColumn?: string
   ) {
     const end = new Date();
-    const start = subDays(new Date(), 7);
+    const start = subDays(new Date(), 700);
 
     return `
       SELECT
@@ -3265,6 +3316,7 @@ export default abstract class SqlIntegration
     `;
   }
 
+  //MKTODO: This is the current function
   async getAutoFactTablesToCreate(
     existingFactTables: FactTableInterface[],
     schema: string

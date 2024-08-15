@@ -91,6 +91,21 @@ router.delete(
   factTableController.deleteFactFilter
 );
 
+router.get(
+  "/fact-tables/:id/auto-metrics",
+  validateRequestMiddleware({ params: factTableParams }),
+  factTableController.getFactMetricsFromFactTable
+);
+
+router.post(
+  "/fact-tables/:id/auto-metrics",
+  //MKTODO: Add validation here
+  // validateRequestMiddleware({ params: factTableParams,
+  //   body: {metricsToCreate: FactMetricInterface[]}
+  //  }),
+  factTableController.postAutoFactMetrics
+);
+
 router.post("/fact-metrics", factTableController.postFactMetric);
 
 router.put("/fact-metrics/:id", factTableController.putFactMetric);

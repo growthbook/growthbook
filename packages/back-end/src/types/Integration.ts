@@ -16,6 +16,7 @@ import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 import {
+  CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
   MetricQuantileSettings,
@@ -249,7 +250,17 @@ export interface AutoFactTableToCreate
   shouldCreate: boolean;
   alreadyExists: boolean;
   userIdTypes: string[];
+  factMetricsToCreate?: AutoFactMetricToCreate[];
 }
+
+//MKTODO: Build this based off the CreateProps<FactMetricInterface> instead
+export type AutoFactMetricToCreate = Pick<
+  CreateFactMetricProps,
+  "name" | "metricType" | "numerator" | "denominator" | "datasource" | "inverse"
+> & {
+  alreadyExists: boolean;
+  shouldCreate: boolean;
+};
 
 export type AutoMetricToCreate = {
   name: string;
@@ -511,6 +522,10 @@ export interface SourceIntegrationInterface {
     existingFactTables: FactTableInterface[],
     schema: string
   ) => Promise<AutoFactTableToCreate[]>;
+  getAutoFactMetricsToCreate?: (
+    existingFactMetrics: FactMetricInterface[],
+    factTable: FactTableInterface
+  ) => AutoFactMetricToCreate[];
   getAutoMetricsToCreate?: (
     existingMetrics: MetricInterface[],
     schema: string

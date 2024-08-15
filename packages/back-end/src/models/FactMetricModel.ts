@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
+  CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
   LegacyFactMetricInterface,
@@ -75,6 +76,11 @@ export class FactMetricModel extends BaseClass {
     }
 
     return newDoc;
+  }
+
+  //TODO: This needs a lot of work
+  public async createFactMetrics(metricsToCreate: CreateFactMetricProps[]) {
+    return await this._dangerousGetCollection().insertMany(metricsToCreate);
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
