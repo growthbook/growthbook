@@ -94,7 +94,7 @@ function MetricAnalysisOverview({
         </div>
       </div>
       <div className="d-flex flex-row align-items-end">
-        <div className="ml-0 appbox p-3 text-center row align-items-center">
+        <div className="appbox p-3 text-center row align-items-center">
           <div className="col-auto">
             <div className="border-bottom row">
               <div className="mr-2">{numeratorText}</div>
@@ -303,7 +303,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               <div className="col-auto form-inline pr-5">
                 <div>
                   <div className="uppercase-title text-muted">Date Range</div>
-                  <div className="row align-items-center">
+                  <div className="row nowrap align-items-center">
                     <div className="col-auto">
                       <SelectField
                         containerClassName={"select-dropdown-underline"}
