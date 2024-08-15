@@ -1,5 +1,5 @@
-import { OrganizationInterface } from "@back-end/types/organization";
-import { AttributeMap } from "@back-end/src/services/features";
+import { OrganizationInterface } from "back-end/types/organization";
+import { AttributeMap } from "back-end/src/services/features";
 import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
 
 export const SMALL_GROUP_SIZE_LIMIT = 100;
