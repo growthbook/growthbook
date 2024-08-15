@@ -610,7 +610,7 @@ export default abstract class SqlIntegration
       ),
       __population AS (
         -- All recent users
-        SELECT DISTINCT
+        SELECT
           ${settings.userIdType}
         FROM
             __rawExperiment

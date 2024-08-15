@@ -56,7 +56,9 @@ export default function PopulationChooser({
       <div className="uppercase-title text-muted">
         Population{" "}
         <Tooltip
-          body={`The metric values will only come from units in this population. For experiment assignment tables, any unit exposed to an experiment in the selected date window is in the population`}
+          body={`The metric values will only come from units in this population. 
+            For experiment assignment tables, any unit exposed to an
+            experiment in the selected date window is in the population.`}
         >
           <FaQuestionCircle />
         </Tooltip>

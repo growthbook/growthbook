@@ -37,8 +37,9 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
-import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import OutdatedBadge from "@/components/OutdatedBadge";
+import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
 
 const LOOKBACK_DAY_OPTIONS = [7, 14, 30, 180, 365];
@@ -165,6 +166,22 @@ function settingsMatch(
   );
 }
 
+function isOutdated(
+  factMetric: FactMetricInterface,
+  analysis?: MetricAnalysisInterface | null
+): { outdated: boolean; reasons: string[] } {
+  if (analysis && factMetric.dateUpdated > analysis.dateCreated) {
+    return {
+      outdated: true,
+      reasons: ["The metric was updated since last analysis"],
+    };
+  }
+  return {
+    outdated: false,
+    reasons: [],
+  };
+}
+
 function getAnalysisSettingsForm(
   settings: MetricAnalysisSettings | undefined,
   userIdTypes: string[] | undefined
@@ -284,6 +301,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const matchedSettings =
     metricAnalysis && settingsMatch(metricAnalysis.settings, desiredSettings);
 
+  const outdated = isOutdated(factMetric, metricAnalysis);
   return (
     <div className="mb-4">
       <h3>Metric Analysis</h3>
@@ -372,14 +390,20 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                 />
               </div>
               <div style={{ flex: 1 }} />
-              {queries.length > 0 && matchedSettings && (
-                <div className="col-auto">
-                  <QueriesLastRun
-                    status={queryStatus}
-                    dateCreated={metricAnalysis?.dateCreated}
-                  />
-                </div>
-              )}
+              {queries.length > 0 &&
+                queryStatus !== "running" &&
+                matchedSettings && (
+                  <div className="col-auto">
+                    {outdated.outdated ? (
+                      <OutdatedBadge reasons={outdated.reasons} />
+                    ) : (
+                      <QueriesLastRun
+                        status={queryStatus}
+                        dateCreated={metricAnalysis?.dateCreated}
+                      />
+                    )}
+                  </div>
+                )}
               {queries.length > 0 &&
               ["failed", "partially-succeeded"].includes(queryStatus) ? (
                 <ViewAsyncQueriesButton
@@ -556,15 +580,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                           <>
                                             <p>
                                               {`This figure shows the numerator total
-                                      on a day divided by denominator total on a day
-                                      ${
+                                      on a day divided by denominator total on a day${
                                         metricAnalysis.settings
                                           .populationType != "factTable"
-                                          ? `for units (e.g. users) that appear in the population at
-                                          any time in the selected window`
-                                          : ``
-                                      }
-                                      .`}
+                                          ? ` for units (e.g. users) that appear in the population at
+                                          any time in the selected window.`
+                                          : `.`
+                                      }`}
                                             </p>
                                             <p>
                                               The standard deviation shows the
@@ -577,13 +599,12 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                               {`This figure shows the average metric value
                                       on a day divided by number of unique units
                                       (e.g. users) that appear in the metric source
-                                      on that day
-                                      ${
+                                      on that day${
                                         metricAnalysis.settings
                                           .populationType != "factTable"
-                                          ? `and in the population at any time in the selected window`
+                                          ? ` and in the population at any time in the selected window.`
                                           : ``
-                                      }.`}
+                                      }`}
                                             </p>
                                             <p>
                                               The standard deviation shows the

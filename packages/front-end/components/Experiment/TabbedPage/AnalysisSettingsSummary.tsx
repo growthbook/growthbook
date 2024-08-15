@@ -4,7 +4,6 @@ import {
   FaDatabase,
   FaExclamationTriangle,
   FaFlask,
-  FaInfoCircle,
   FaTable,
 } from "react-icons/fa";
 import React, { ReactElement, useState } from "react";
@@ -29,10 +28,11 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import QueriesLastRun from "@/components/Queries/QueriesLastRun";
+import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -298,28 +298,7 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto">
           {hasData &&
             (outdated && status !== "running" ? (
-              <Tooltip
-                body={
-                  reasons.length === 1 ? (
-                    reasons[0]
-                  ) : reasons.length > 0 ? (
-                    <ul className="ml-0 pl-3 mb-0">
-                      {reasons.map((reason, i) => (
-                        <li key={i}>{reason}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    ""
-                  )
-                }
-              >
-                <div
-                  className="badge badge-warning d-block py-1"
-                  style={{ width: 100, marginBottom: 3 }}
-                >
-                  Out of Date <FaInfoCircle />
-                </div>
-              </Tooltip>
+              <OutdatedBadge reasons={reasons} />
             ) : (
               <QueriesLastRun
                 status={status}

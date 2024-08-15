@@ -124,14 +124,16 @@ export function processMetricAnalysisQueryResponse(
     let stddev: number;
     if (isRatioMetric(metric)) {
       mean = main_sum / (denominator_sum ?? 0);
-      stddev = ratioVarianceFromSums({
-        numerator_sum: main_sum,
-        numerator_sum_squares: main_sum_squares,
-        denominator_sum: denominator_sum ?? 0,
-        denominator_sum_squares: denominator_sum_squares ?? 0,
-        numerator_denominator_sum_product: main_denominator_sum_product ?? 0,
-        n: units,
-      });
+      stddev = Math.sqrt(
+        ratioVarianceFromSums({
+          numerator_sum: main_sum,
+          numerator_sum_squares: main_sum_squares,
+          denominator_sum: denominator_sum ?? 0,
+          denominator_sum_squares: denominator_sum_squares ?? 0,
+          numerator_denominator_sum_product: main_denominator_sum_product ?? 0,
+          n: units,
+        })
+      );
     } else if (metric.metricType === "proportion") {
       mean = main_sum / units;
       stddev = mean * Math.sqrt(proportionVarianceFromSums(main_sum, units));
