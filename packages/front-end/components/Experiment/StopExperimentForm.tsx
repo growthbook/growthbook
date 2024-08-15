@@ -5,6 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -22,6 +23,15 @@ const StopExperimentForm: FC<{
   const isStopped = experiment.status === "stopped";
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+
+  const phases = experiment.phases || [];
+  const lastPhaseIndex = phases.length - 1;
+  const lastPhase = phases[lastPhaseIndex];
+
+  const percentFormatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    maximumFractionDigits: 2,
+  });
 
   const form = useForm({
     defaultValues: {
@@ -181,6 +191,19 @@ const StopExperimentForm: FC<{
               </small>
             </div>
           </div>
+
+          {!form.watch("excludeFromPayload") &&
+          (lastPhase?.coverage ?? 1) < 1 ? (
+            <div className="alert alert-warning">
+              <FaExclamationTriangle className="mr-1" />
+              Currently only{" "}
+              <strong>{percentFormatter.format(lastPhase.coverage)}</strong> of
+              traffic is directed at this experiment. Upon rollout,{" "}
+              <strong>100%</strong> of traffic will be directed towards the
+              released variation.
+            </div>
+          ) : null}
+
           {!form.watch("excludeFromPayload") ? (
             <div className="row">
               <SelectField
