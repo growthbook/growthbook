@@ -12,52 +12,59 @@ export async function createMetricAnalysis(
   metricAnalysisSettings: MetricAnalysisSettings,
   useCache: boolean = true
 ): Promise<MetricAnalysisQueryRunner> {
-  if (metric.datasource) {
-    const integration = await getIntegrationFromDatasourceId(
-      context,
-      metric.datasource,
-      true
-    );
+  if (!metric.datasource) {
+    throw new Error("Cannot analyze manual metrics");
+  }
 
-    const factTableMap = await getFactTableMap(context);
-
-    let segment: SegmentInterface | null = null;
-    if (
-      metricAnalysisSettings.populationType === "segment" &&
+  let segment: SegmentInterface | null = null;
+  if (
+    metricAnalysisSettings.populationType === "segment" &&
+    metricAnalysisSettings.populationId
+  ) {
+    segment = await context.models.segments.getById(
       metricAnalysisSettings.populationId
-    ) {
-      segment = await context.models.segments.getById(
-        metricAnalysisSettings.populationId
-      );
-      if (!segment) {
-        throw new Error("Segment not found");
-      }
-    }
-    // TODO settings and snapshot
-
-    const model = await context.models.metricAnalysis.create({
-      metric: metric.id,
-      runStarted: null,
-      status: "running",
-
-      settings: metricAnalysisSettings,
-      queries: [],
-    });
-
-    const queryRunner = new MetricAnalysisQueryRunner(
-      context,
-      model,
-      integration,
-      useCache
     );
-    await queryRunner.startAnalysis({
+    if (!segment) {
+      throw new Error("Segment not found");
+    }
+  }
+
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    metric.datasource,
+    true
+  );
+
+  const factTableMap = await getFactTableMap(context);
+
+  const model = await context.models.metricAnalysis.create({
+    metric: metric.id,
+    runStarted: null,
+    status: "running",
+
+    settings: metricAnalysisSettings,
+    queries: [],
+  });
+
+  const queryRunner = new MetricAnalysisQueryRunner(
+    context,
+    model,
+    integration,
+    useCache
+  );
+
+  await queryRunner
+    .startAnalysis({
       settings: metricAnalysisSettings,
       metric: metric,
       factTableMap: factTableMap,
       segment: segment,
+    })
+    .catch((e) => {
+      context.models.metricAnalysis.updateById(model.id, {
+        status: "error",
+        error: e.message,
+      });
     });
-    return queryRunner;
-  } else {
-    throw new Error("Cannot analyze manual metrics");
-  }
+  return queryRunner;
 }

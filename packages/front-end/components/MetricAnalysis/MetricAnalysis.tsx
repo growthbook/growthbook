@@ -215,6 +215,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const onHoverCallback = (ret: { d: number | null }) => {
     setHoverDate(ret.d);
   };
+  const [error, setError] = useState<string | null>(null);
 
   const endOfToday = new Date();
   // use end of day to allow query caching to work within local working day
@@ -278,6 +279,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   );
   const matchedSettings =
     metricAnalysis && settingsMatch(metricAnalysis.settings, desiredSettings);
+
   return (
     <div className="mb-4">
       <h3>Metric Analysis</h3>
@@ -330,7 +332,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       />
                     </div>
                     {watch("lookbackSelected") === "custom" && (
-                      <div className="col-auto">
+                      <div className="col-auto" style={{ marginTop: "-10px" }}>
                         <Field
                           type="number"
                           min={1}
@@ -420,6 +422,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
+                      setError(null);
                       const data = getDesiredSettings(
                         factMetric.id,
                         getValues(),
@@ -437,7 +440,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         });
                         mutate();
                       } catch (e) {
-                        console.error(e);
+                        setError(e.message);
                       }
                     }}
                   >
@@ -461,6 +464,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                 metricAnalysis={metricAnalysis}
                 forceRefresh={async () => {
                   try {
+                    setError(null);
                     const data: CreateMetricAnalysisProps = {
                       ...getDesiredSettings(
                         factMetric.id,
@@ -480,13 +484,20 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     });
                     mutate();
                   } catch (e) {
-                    console.error(e);
+                    setError(e.message);
                   }
                 }}
                 canRunMetricQuery={canRunMetricQuery}
               />
             </div>
 
+            {error || metricAnalysis?.error ? (
+              <div className={`mt-2 mb-2 alert alert-danger`}>
+                <span style={{ fontSize: "1.2em" }}>
+                  {`Analysis error: ${error || metricAnalysis?.error}`}
+                </span>
+              </div>
+            ) : null}
             {metricAnalysis ? (
               <>
                 {!matchedSettings ? (
@@ -498,6 +509,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         className="btn-link"
                         onClick={(e) => {
                           e.preventDefault();
+                          setError(null);
                           track("MetricAnalysis_ResetSettings");
                           reset(
                             getAnalysisSettingsForm(
@@ -514,13 +526,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   </div>
                 ) : (
                   <>
-                    {metricAnalysis.error && (
-                      <div className={`mt-2 mb-2 alert alert-danger`}>
-                        <span style={{ fontSize: "1.2em" }}>
-                          {`Analysis error: ${metricAnalysis?.error}`}
-                        </span>
-                      </div>
-                    )}
                     {metricAnalysis?.result && (
                       <MetricAnalysisOverview
                         name={factMetric.name}
