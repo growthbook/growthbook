@@ -94,7 +94,7 @@ function MetricAnalysisOverview({
         </div>
       </div>
       <div className="d-flex flex-row align-items-end">
-        <div className="appbox p-3 text-center row align-items-center">
+        <div className="ml-0 appbox p-3 text-center row align-items-center">
           <div className="col-auto">
             <div className="border-bottom row">
               <div className="mr-2">{numeratorText}</div>
