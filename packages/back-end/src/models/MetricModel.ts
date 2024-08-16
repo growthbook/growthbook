@@ -357,8 +357,12 @@ export async function getMetricById(
 export async function getMetricsByIds(
   context: ReqContext | ApiReqContext,
   ids: string[]
-) {
+): Promise<MetricInterface[]> {
   const metrics: MetricInterface[] = [];
+
+  if (!ids.length) {
+    return metrics;
+  }
 
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
