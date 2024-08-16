@@ -91,6 +91,19 @@ const SnowflakeForm: FC<{
           placeholder=""
         />
       </div>
+      <div className="form-group col-md-12">
+        <label>
+          Access URL (Optional){" "}
+          <Tooltip body="Overrides Account to point GrowthBook at a specific URL" />
+        </label>
+        <input
+          type="text"
+          className="form-control"
+          name="accessUrl"
+          value={params.accessUrl || ""}
+          onChange={onParamChange}
+        />
+      </div>
     </div>
   );
 };

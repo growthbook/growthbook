@@ -33,6 +33,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   const account = conn.account.replace(/\.us-west-2$/, "");
   const connection = createConnection({
     account,
+    accessUrl: conn.accessUrl,
     username: conn.username,
     password: conn.password,
     database: conn.database,
