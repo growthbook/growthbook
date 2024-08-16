@@ -2207,7 +2207,7 @@ export async function getLinkedFeatureInfo(
 
     const draftMatches =
       revisions
-        .filter((r) => r.status === "draft")
+        .filter((r) => r.status === "draft" || r.status === "pending-review")
         .map((r) => getMatchingRules(feature, filter, environments, r))
         .filter((matches) => matches.length > 0)[0] || [];
 
