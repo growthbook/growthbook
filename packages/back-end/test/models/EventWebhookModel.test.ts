@@ -9,14 +9,17 @@ describe("getAllEventWebHooksForEvent", () => {
       jest.spyOn(EventWebHookModel, "find").mockImplementation(() => [
         {
           toJSON: () => ({ name: "webhook with no filter on projects" }),
+          type: "raw",
           projects: [],
         },
         {
           toJSON: () => ({ name: "webhook with filter for event project" }),
+          type: "raw",
           projects: ["event project"],
         },
         {
           toJSON: () => ({ name: "webhook with filter for foo project" }),
+          type: "raw",
           projects: ["foo"],
         },
       ]);
@@ -34,6 +37,7 @@ describe("getAllEventWebHooksForEvent", () => {
         events: "feature.created",
         organizationId: "aabb",
       });
+
       expect(ret).toEqual([
         {
           name: "webhook with no filter on projects",
@@ -42,7 +46,7 @@ describe("getAllEventWebHooksForEvent", () => {
           tags: [],
           headers: {},
           method: "POST",
-          payloadType: "raw",
+          type: "raw",
         },
       ]);
     });
@@ -53,14 +57,17 @@ describe("getAllEventWebHooksForEvent", () => {
       jest.spyOn(EventWebHookModel, "find").mockImplementation(() => [
         {
           toJSON: () => ({ name: "webhook with no filter on projects" }),
+          type: "raw",
           projects: [],
         },
         {
           toJSON: () => ({ name: "webhook with filter for event project" }),
+          type: "raw",
           projects: ["event project"],
         },
         {
           toJSON: () => ({ name: "webhook with filter for foo projects" }),
+          type: "raw",
           projects: ["foo"],
         },
       ]);
@@ -86,7 +93,7 @@ describe("getAllEventWebHooksForEvent", () => {
           tags: [],
           headers: {},
           method: "POST",
-          payloadType: "raw",
+          type: "raw",
         },
         {
           name: "webhook with filter for event project",
@@ -95,7 +102,7 @@ describe("getAllEventWebHooksForEvent", () => {
           tags: [],
           headers: {},
           method: "POST",
-          payloadType: "raw",
+          type: "raw",
         },
       ]);
     });
