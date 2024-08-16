@@ -148,6 +148,7 @@ export default function ConnectionSettings({
         <SnowflakeForm
           existing={existing}
           onParamChange={onParamChange}
+          onManualParamChange={onManualParamChange}
           params={datasource?.params || {}}
         />
       );
