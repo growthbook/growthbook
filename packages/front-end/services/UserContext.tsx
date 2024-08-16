@@ -7,7 +7,6 @@ import {
   ExpandedMember,
   OrganizationInterface,
   OrganizationSettings,
-  Permission,
   Role,
   ProjectScopedPermission,
   UserPermissions,
@@ -31,7 +30,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import { Permissions } from "shared/permissions";
 import {
   getSuperadminDefaultRole,
   isCloud,
@@ -115,7 +114,6 @@ export interface UserContextValue {
   getUserDisplay: (id: string, fallback?: boolean) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
@@ -149,7 +147,6 @@ interface UserResponse {
 }
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: { ...DEFAULT_PERMISSIONS, check: () => false },
   settings: {},
   users: new Map(),
   roles: [],
@@ -319,46 +316,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
-  const permissionsCheck = useCallback(
-    (
-      permission: Permission,
-      project?: string[] | string,
-      envs?: string[]
-    ): boolean => {
-      if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
-        return false;
-
-      return userHasPermission(
-        currentOrg.currentUserPermissions,
-        permission,
-        project,
-        envs ? [...envs] : undefined
-      );
-    },
-    [currentOrg, data?.userId]
-  );
-
-  const permissions = useMemo(() => {
-    // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
-    const permissions: Record<GlobalPermission, boolean> = {
-      ...DEFAULT_PERMISSIONS,
-    };
-
-    for (const permission in permissions) {
-      permissions[permission] =
-        currentOrg?.currentUserPermissions?.global.permissions[permission] ||
-        false;
-    }
-
-    return {
-      ...permissions,
-      check: permissionsCheck,
-    };
-  }, [
-    currentOrg?.currentUserPermissions?.global.permissions,
-    permissionsCheck,
-  ]);
-
   const permissionsUtil = useMemo(() => {
     return new Permissions(
       currentOrg?.currentUserPermissions || {
@@ -425,7 +382,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         getUserDisplay: getUserDisplay,
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
-        permissions,
         permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
         license: currentOrg?.license,

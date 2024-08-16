@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from "express";
 import { licenseInit, SSO_CONFIG } from "enterprise";
-import { userHasPermission } from "shared/permissions";
 import { logger } from "../../util/logger";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -10,7 +9,6 @@ import {
   getUserByEmail,
 } from "../../models/UserModel";
 import { getOrganizationById, validateLoginMethod } from "../organizations";
-import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { hasOrganization, updateMember } from "../../models/OrganizationModel";
@@ -20,7 +18,6 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
-import { getUserPermissions } from "../../util/organization.util";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
@@ -95,31 +92,6 @@ export async function processJWT(
     superAdmin: false,
     verified: verified || false,
     name: name || "",
-  };
-
-  req.checkPermissions = (
-    permission: Permission,
-    project?: string | string[],
-    envs?: string[] | Set<string>
-  ) => {
-    if (!req.userId || !req.organization) return false;
-
-    const userPermissions = getUserPermissions(
-      req.currentUser,
-      req.organization,
-      req.teams
-    );
-
-    if (
-      !userHasPermission(
-        userPermissions,
-        permission,
-        project,
-        envs ? [...envs] : undefined
-      )
-    ) {
-      throw new Error("You do not have permission to complete that action.");
-    }
   };
 
   const user = await getUserFromJWT(req.user);

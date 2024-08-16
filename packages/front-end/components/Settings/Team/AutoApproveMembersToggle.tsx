@@ -4,8 +4,8 @@ import Toggle from "@/components/Forms/Toggle";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function AutoApproveMembersToggle({
   mutate,
@@ -13,7 +13,7 @@ export default function AutoApproveMembersToggle({
   mutate: () => void;
 }) {
   const { organization, users } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const [togglingAutoApprove, setTogglingAutoApprove] = useState(false);
@@ -37,7 +37,7 @@ export default function AutoApproveMembersToggle({
         // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'verified' does not exist on type 'never'... Remove this comment to see the full error message
         value={!owner?.verified ? false : !!organization?.autoApproveMembers}
         // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'verified' does not exist on type 'never'... Remove this comment to see the full error message
-        disabled={!permissions.manageTeam || !owner?.verified}
+        disabled={!permissionsUtil.canManageTeam() || !owner?.verified}
         setValue={async (on) => {
           if (togglingAutoApprove) return;
           if (on && organization?.autoApproveMembers) return;

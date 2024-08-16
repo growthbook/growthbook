@@ -1,11 +1,11 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const EditOrganizationModal: FC<{
   name: string;
@@ -16,8 +16,8 @@ const EditOrganizationModal: FC<{
   const { apiCall, setOrgName } = useAuth();
   const { users } = useUser();
   const existingEmails = Array.from(users).map(([, user]) => user.email);
-  const permissions = usePermissions();
-  const canEdit = permissions.check("organizationSettings");
+  const permissions = usePermissionsUtil();
+  const canEdit = permissions.canManageOrgSettings();
 
   const form = useForm({
     defaultValues: {
