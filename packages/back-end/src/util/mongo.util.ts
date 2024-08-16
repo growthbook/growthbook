@@ -1,4 +1,3 @@
-import { omit } from "lodash";
 import type { Document } from "mongodb";
 import type { Document as MongooseDocument } from "mongoose";
 import mongoose from "mongoose";
@@ -147,7 +146,9 @@ export function removeMongooseFields<T>(
   if (doc.toJSON) {
     doc = doc.toJSON({ flattenMaps: true });
   }
-  return omit(doc, ["_id", "__v"]) as T;
+  delete doc._id;
+  delete doc.__v;
+  return doc as T;
 }
 
 export function getCollection(name: string) {
