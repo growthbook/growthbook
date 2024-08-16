@@ -12,11 +12,13 @@ import { errorStringFromZodResult } from "../util/validation";
 import { EventWebHookInterface } from "../../types/event-webhook";
 import { logger } from "../util/logger";
 import {
-  eventWebHookPayloadTypes,
-  EventWebHookPayloadType,
+  deprecatedEventWebHookPayloadTypes,
+  DeprecatedEventWebHookPayloadType,
+  eventWebHookTypes,
+  EventWebHookType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "../types/EventWebHook";
+} from "../validators/event-webhook";
 import { ReqContext } from "../../types/organization";
 import { createEvent } from "./EventModel";
 
@@ -68,7 +70,7 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.enum(eventWebHookPayloadTypes);
+        const zodSchema = z.enum(deprecatedEventWebHookPayloadTypes);
 
         const result = zodSchema.safeParse(value);
 
@@ -80,6 +82,30 @@ const eventWebHookSchema = new mongoose.Schema({
               result: JSON.stringify(result, null, 2),
             },
             "Invalid Payload Type"
+          );
+        }
+
+        return result.success;
+      },
+    },
+  },
+  type: {
+    type: String,
+    required: true,
+    validate: {
+      validator(value: unknown) {
+        const zodSchema = z.enum(eventWebHookTypes);
+
+        const result = zodSchema.safeParse(value);
+
+        if (!result.success) {
+          const errorString = errorStringFromZodResult(result);
+          logger.error(
+            {
+              error: JSON.stringify(errorString, null, 2),
+              result: JSON.stringify(result, null, 2),
+            },
+            "Invalid EventWebhook Type"
           );
         }
 
@@ -160,22 +186,36 @@ const eventWebHookSchema = new mongoose.Schema({
 
 eventWebHookSchema.index({ organizationId: 1 });
 
-type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
+type EventWebHookDocument = mongoose.Document &
+  EventWebHookInterface & { payloadType?: DeprecatedEventWebHookPayloadType };
 
 /**
  * Convert the Mongo document to an EventWebHookDocument, omitting Mongo default fields __v, _id
  * @param doc
  * @returns
  */
-const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => ({
-  ...omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]),
-  method: doc.method || "POST",
-  payloadType: doc.payloadType || "raw",
-  headers: doc.headers || {},
-  projects: doc.projects || [],
-  tags: doc.tags || [],
-  environments: doc.environments || [],
-});
+const toInterface = async (
+  doc: EventWebHookDocument
+): Promise<EventWebHookInterface> => {
+  const type =
+    doc.type ||
+    (doc.payloadType === undefined || doc.payloadType === "raw"
+      ? "legacy"
+      : doc.payloadType);
+
+  if (!doc.type)
+    await EventWebHookModel.updateOne({ id: doc.id }, { $set: { type } });
+
+  return {
+    ...omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]),
+    method: doc.method || "POST",
+    type,
+    headers: doc.headers || {},
+    projects: doc.projects || [],
+    tags: doc.tags || [],
+    environments: doc.environments || [],
+  };
+};
 
 export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   "EventWebHook",
@@ -191,7 +231,7 @@ type CreateEventWebHookOptions = {
   projects: string[];
   tags: string[];
   environments: string[];
-  payloadType: EventWebHookPayloadType;
+  type: EventWebHookType;
   method: EventWebHookMethod;
   headers: Record<string, string>;
 };
@@ -210,7 +250,7 @@ export const createEventWebHook = async ({
   projects,
   tags,
   environments,
-  payloadType,
+  type,
   method,
   headers,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
@@ -230,7 +270,7 @@ export const createEventWebHook = async ({
     projects,
     tags,
     environments,
-    payloadType,
+    type,
     method,
     headers,
     lastRunAt: null,
@@ -238,7 +278,7 @@ export const createEventWebHook = async ({
     lastResponseBody: null,
   });
 
-  return toInterface(doc);
+  return await toInterface(doc);
 };
 
 /**
@@ -255,7 +295,7 @@ export const getEventWebHookById = async (
       id: eventWebHookId,
       organizationId,
     });
-    return !doc ? null : toInterface(doc);
+    return !doc ? null : await toInterface(doc);
   } catch (e) {
     logger.error(e, "getEventWebHookById");
     return null;
@@ -304,7 +344,7 @@ export type UpdateEventWebHookAttributes = {
   tags?: string[];
   environments?: string[];
   projects?: string[];
-  payloadType?: EventWebHookPayloadType;
+  type?: EventWebHookType;
   method?: EventWebHookMethod;
   headers?: Record<string, string>;
 };
@@ -375,7 +415,7 @@ export const getAllEventWebHooks = async (
     ["dateCreated", -1],
   ]);
 
-  return docs.map(toInterface);
+  return Promise.all(docs.map(toInterface));
 };
 
 const filterOptional = <T>(want: T[] = [], has: T[]) => {
@@ -415,7 +455,7 @@ export const getAllEventWebHooksForEvent = async ({
     return true;
   });
 
-  return docs.map(toInterface);
+  return Promise.all(docs.map(toInterface));
 };
 
 export const sendEventWebhookTestEvent = async (

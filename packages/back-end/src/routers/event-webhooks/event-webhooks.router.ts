@@ -5,7 +5,7 @@ import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import { zodNotificationEventNamesEnum } from "../../events/base-types";
 import {
   eventWebHookMethods,
-  eventWebHookPayloadTypes,
+  eventWebHookTypes,
 } from "../../validators/event-webhook";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
@@ -35,7 +35,7 @@ router.post(
         projects: z.array(z.string()),
         tags: z.array(z.string()),
         environments: z.array(z.string()),
-        payloadType: z.enum(eventWebHookPayloadTypes),
+        type: z.enum(eventWebHookTypes),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),
       })
@@ -113,7 +113,7 @@ router.put(
         projects: z.array(z.string()),
         tags: z.array(z.string()),
         environments: z.array(z.string()),
-        payloadType: z.enum(eventWebHookPayloadTypes),
+        type: z.enum(eventWebHookTypes),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),
       })

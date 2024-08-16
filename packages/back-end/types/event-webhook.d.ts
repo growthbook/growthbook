@@ -1,5 +1,5 @@
 export {
-  EventWebHookPayloadType,
+  EventWebHookType,
   EventWebHookMethod,
   EventWebHookInterface,
 } from "../src/validators/event-webhook";

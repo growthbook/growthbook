@@ -1,9 +1,17 @@
 import { z } from "zod";
 import { zodNotificationEventNamesEnum } from "../events/base-types";
 
-export const eventWebHookPayloadTypes = ["raw", "slack", "discord"] as const;
+export const deprecatedEventWebHookPayloadTypes = [
+  "raw",
+  "slack",
+  "discord",
+] as const;
 
-export type EventWebHookPayloadType = typeof eventWebHookPayloadTypes[number];
+export type DeprecatedEventWebHookPayloadType = typeof deprecatedEventWebHookPayloadTypes[number];
+
+export const eventWebHookTypes = ["legacy", "raw", "slack", "discord"] as const;
+
+export type EventWebHookType = typeof eventWebHookTypes[number];
 
 export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
@@ -22,7 +30,7 @@ export const eventWebHookInterface = z
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     environments: z.array(z.string()),
-    payloadType: z.enum(eventWebHookPayloadTypes),
+    type: z.enum(eventWebHookTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
     signingKey: z.string().min(2),

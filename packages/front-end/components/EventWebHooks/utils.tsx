@@ -6,16 +6,16 @@ import {
   PiCheckCircleLight,
 } from "react-icons/pi";
 import {
-  EventWebHookPayloadType,
+  EventWebHookType,
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
 
 export type {
-  EventWebHookPayloadType,
+  EventWebHookType,
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
 
-export const eventWebHookPayloadTypes = ["raw", "slack", "discord"] as const;
+export const eventWebHookTypes = ["raw", "slack", "discord"] as const;
 
 export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
@@ -27,7 +27,7 @@ export type EventWebHookEditParams = {
   tags: string[];
   environments: string[];
   projects: string[];
-  payloadType: EventWebHookPayloadType;
+  type: EventWebHookType;
   method: EventWebHookMethod;
   headers: string;
 };

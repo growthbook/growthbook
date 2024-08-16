@@ -21,7 +21,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
 }) => {
   const {
     name,
-    payloadType,
+    type,
     url,
     events,
     enabled,
@@ -31,7 +31,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
 
   const iconForState = useIconForState(lastState);
 
-  if (!payloadType) return null;
+  if (!type) return null;
 
   return (
     <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
@@ -39,7 +39,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
         <div className="ml-2">
           <div className="m-2 p-2 border rounded">
             <img
-              src={webhookIcon[payloadType]}
+              src={webhookIcon[type]}
               style={{ height: "2rem", width: "2rem" }}
             />
           </div>
@@ -66,7 +66,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
                 </span>
               </div>
             )}
-            {payloadType === "raw" && (
+            {type === "raw" && (
               <span className="text-muted ml-2 d-flex">
                 |
                 <div

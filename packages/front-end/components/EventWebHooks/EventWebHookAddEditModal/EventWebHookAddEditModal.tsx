@@ -13,7 +13,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import {
   eventWebHookMethods,
   EventWebHookMethod,
-  EventWebHookPayloadType,
+  EventWebHookType,
   EventWebHookEditParams,
   eventWebHookEventOptions,
   EventWebHookModalMode,
@@ -32,10 +32,10 @@ type EventWebHookAddEditModalProps = {
   error: string | null;
 };
 
-const eventWebHookPayloadTypes = ["raw", "slack", "discord"] as const;
+const eventWebHookTypes = ["raw", "slack", "discord"] as const;
 
 const forcedParamsMap: {
-  [key in EventWebHookPayloadType]?: {
+  [key in EventWebHookType]?: {
     method: EventWebHookMethod;
     headers: string;
   };
@@ -44,7 +44,8 @@ const forcedParamsMap: {
   discord: { method: "POST", headers: "{}" },
 };
 
-const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
+const eventWebHookPayloadValues: { [k in EventWebHookType]: string } = {
+  legacy: "Legacy (deprecated)",
   raw: "Raw",
   slack: "Slack",
   discord: "Discord",
@@ -155,7 +156,7 @@ const EventWebHookAddEditSettings = ({
   const environmentSettings = useEnvironments();
   const environments = environmentSettings.map((env) => env.id);
 
-  const selectedPayloadType = form.watch("payloadType");
+  const selectedType = form.watch("type");
   const selectedEnvironments = form.watch("environments");
   const selectedProjects = form.watch("projects");
   const selectedTags = form.watch("tags");
@@ -166,7 +167,7 @@ const EventWebHookAddEditSettings = ({
     <>
       <SelectField
         label={<b>Payload Type</b>}
-        value={form.watch("payloadType")}
+        value={form.watch("type")}
         placeholder="Choose payload type"
         formatOptionLabel={({ label }) => (
           <span>
@@ -178,12 +179,12 @@ const EventWebHookAddEditSettings = ({
             {eventWebHookPayloadValues[label]}
           </span>
         )}
-        options={eventWebHookPayloadTypes.map((key) => ({
+        options={eventWebHookTypes.map((key) => ({
           label: key,
           value: key,
         }))}
-        onChange={(value: EventWebHookPayloadType) => {
-          form.setValue("payloadType", value);
+        onChange={(value: EventWebHookType) => {
+          form.setValue("type", value);
           handleFormValidation();
         }}
       />
@@ -200,7 +201,7 @@ const EventWebHookAddEditSettings = ({
         />
       </div>
 
-      {selectedPayloadType === "raw" && (
+      {selectedType === "raw" && (
         <div className="mt-4">
           <SelectField
             label={<b>Method</b>}
@@ -225,7 +226,7 @@ const EventWebHookAddEditSettings = ({
           placeholder="https://example.com/growthbook-webhook"
           {...form.register("url")}
           helpText={
-            selectedPayloadType === "raw" && (
+            selectedType === "raw" && (
               <>
                 Must accept <code>{form.watch("method")}</code> requests
               </>
@@ -238,7 +239,7 @@ const EventWebHookAddEditSettings = ({
         />
       </div>
 
-      {selectedPayloadType === "raw" && (
+      {selectedType === "raw" && (
         <div className="mt-4">
           <CodeTextArea
             label={
@@ -421,18 +422,12 @@ const EventWebHookAddEditSettings = ({
 
 type Step = "create" | "confirm" | "edit";
 
-const buttonText = ({
-  step,
-  payloadType,
-}: {
-  step: Step;
-  payloadType: EventWebHookPayloadType;
-}) => {
+const buttonText = ({ step, type }: { step: Step; type: EventWebHookType }) => {
   let invalidStep: never;
 
   switch (step) {
     case "create":
-      if (payloadType === "raw") return "Create";
+      if (type === "raw") return "Create";
       return "Next >";
 
     case "confirm":
@@ -481,13 +476,13 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             environments: [],
             projects: [],
             tags: [],
-            payloadType: "raw",
+            type: "raw",
             method: "POST",
             headers: "{}",
           },
   });
 
-  const forcedParams = forcedParamsMap[form.watch("payloadType")];
+  const forcedParams = forcedParamsMap[form.watch("type")];
 
   const filteredValues = useCallback(
     (values) => ({ ...values, ...forcedParams }),
@@ -495,7 +490,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   );
 
   const handleSubmit = useMemo(() => {
-    if (step === "create" && form.watch("payloadType") !== "raw")
+    if (step === "create" && form.watch("type") !== "raw")
       return () => setStep("confirm");
 
     return form.handleSubmit(async (rawValues) => {
@@ -516,7 +511,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       name: z.string().trim().min(2),
       enabled: z.boolean(),
       events: z.array(z.enum(notificationEventNames)).min(1),
-      payloadType: z.enum(eventWebHookPayloadTypes),
+      type: z.enum(eventWebHookTypes),
       tags: z.array(z.string()),
       projects: z.array(z.string()),
       environments: z.array(z.string()),
@@ -534,7 +529,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   return (
     <Modal
       header={modalTitle}
-      cta={buttonText({ step, payloadType: form.watch("payloadType") })}
+      cta={buttonText({ step, type: form.watch("type") })}
       includeCloseCta={false}
       open={isOpen}
       error={error ?? undefined}
@@ -557,7 +552,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           onClick={handleSubmit}
           className="btn btn-primary"
         >
-          {buttonText({ step, payloadType: form.watch("payloadType") })}
+          {buttonText({ step, type: form.watch("type") })}
         </button>
       }
     >

@@ -57,7 +57,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   const {
     id: webhookId,
     lastRunAt,
-    payloadType,
+    type,
     enabled,
     environments = [],
     projects: projectIds,
@@ -152,7 +152,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     }
   }, [setState, mutateEventLogs, mutateEventWebHook, webhookId, apiCall]);
 
-  if (!payloadType) return null;
+  if (!type) return null;
 
   return (
     <div>
@@ -169,7 +169,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           {/* Title */}
           <div className="m-2 p-2 border rounded">
             <img
-              src={webhookIcon[payloadType]}
+              src={webhookIcon[type]}
               style={{ height: "2rem", width: "2rem" }}
             />
           </div>
@@ -229,7 +229,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           )}
         </div>
 
-        {payloadType === "raw" && (
+        {type === "raw" && (
           <div className="ml-2 d-flex align-items-center">
             <div className="text-main">
               <b>Secret:</b>
@@ -373,7 +373,7 @@ export const EventWebHookDetailContainer = ({
                 "name",
                 "url",
                 "enabled",
-                "payloadType",
+                "type",
                 "projects",
                 "tags",
                 "environments",

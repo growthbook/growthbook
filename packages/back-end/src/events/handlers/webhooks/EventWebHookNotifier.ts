@@ -110,13 +110,13 @@ export class EventWebHookNotifier implements Notifier {
     }
 
     const payload = await (async () => {
-      let invalidPayloadType: never;
-      const { payloadType } = eventWebHook;
+      let invalidType: never;
+      const { type } = eventWebHook;
 
-      if (!payloadType) return event.data;
+      if (!type) return event.data;
 
-      switch (payloadType) {
-        case "raw": {
+      switch (type) {
+        case "legacy": {
           const legacyPayload:
             | LegacyNotificationEvent
             | undefined = event.version
@@ -124,6 +124,10 @@ export class EventWebHookNotifier implements Notifier {
             : event.data;
           return legacyPayload;
         }
+
+        case "raw":
+          if (!event.version) throw new Error("Internal error");
+          return event.data;
 
         case "slack": {
           if (!event.version)
@@ -145,8 +149,8 @@ export class EventWebHookNotifier implements Notifier {
         }
 
         default:
-          invalidPayloadType = payloadType;
-          throw `Invalid payload type: ${invalidPayloadType}`;
+          invalidType = type;
+          throw `Invalid webhook type: ${invalidType}`;
       }
     })();
     if (!payload) {

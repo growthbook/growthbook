@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import {
   EventWebHookInterface,
-  EventWebHookPayloadType,
+  EventWebHookType,
   EventWebHookMethod,
 } from "../../../types/event-webhook";
 import * as EventWebHook from "../../models/EventWebhookModel";
@@ -96,7 +96,7 @@ type PostEventWebHooksRequest = AuthRequest & {
     tags: string[];
     environments: string[];
     projects: string[];
-    payloadType: EventWebHookPayloadType;
+    type: EventWebHookType;
     method: EventWebHookMethod;
     headers: Record<string, string>;
   };
@@ -123,7 +123,7 @@ export const createEventWebHook = async (
     tags = [],
     projects = [],
     environments = [],
-    payloadType = "raw",
+    type = "raw",
     method = "POST",
     headers = {},
   } = req.body;
@@ -137,7 +137,7 @@ export const createEventWebHook = async (
     projects,
     environments,
     tags,
-    payloadType,
+    type,
     method,
     headers,
   });
