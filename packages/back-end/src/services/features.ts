@@ -500,6 +500,7 @@ export type FeatureDefinitionsResponseArgs = {
   savedGroups: SavedGroupInterface[];
   savedGroupAttributeKeys?: Record<string, string>;
   savedGroupReferencesEnabled?: boolean;
+  organization: OrganizationInterface;
 };
 async function getFeatureDefinitionsResponse({
   features,
@@ -517,6 +518,7 @@ async function getFeatureDefinitionsResponse({
   savedGroups,
   savedGroupAttributeKeys,
   savedGroupReferencesEnabled = false,
+  organization,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -571,7 +573,10 @@ async function getFeatureDefinitionsResponse({
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
   );
-  let savedGroupsValues = getSavedGroupsValuesFromInterfaces(savedGroups);
+  let savedGroupsValues = getSavedGroupsValuesFromInterfaces(
+    savedGroups,
+    organization
+  );
   if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
 
@@ -597,13 +602,15 @@ async function getFeatureDefinitionsResponse({
     features,
     capabilities,
     savedGroups,
-    savedGroupReferencesEnabled
+    savedGroupReferencesEnabled,
+    organization
   );
   experiments = scrubExperiments(
     experiments,
     capabilities,
     savedGroups,
-    savedGroupReferencesEnabled
+    savedGroupReferencesEnabled,
+    organization
   );
   const scrubbedSavedGroups = scrubSavedGroups(
     savedGroupsValues,
@@ -752,6 +759,7 @@ export async function getFeatureDefinitions({
         savedGroups: usedSavedGroups || [],
         savedGroupAttributeKeys,
         savedGroupReferencesEnabled,
+        organization: context.org,
       });
     }
   } catch (e) {
@@ -863,6 +871,7 @@ export async function getFeatureDefinitions({
     savedGroups,
     savedGroupAttributeKeys,
     savedGroupReferencesEnabled,
+    organization: context.org,
   });
 }
 

@@ -1248,6 +1248,7 @@ export async function postExperimentStop(
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      coverage: !excludeFromPayload ? 1 : phases[phases.length - 1].coverage,
       reason,
     };
     changes.phases = phases;
