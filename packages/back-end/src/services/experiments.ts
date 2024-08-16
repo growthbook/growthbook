@@ -22,6 +22,7 @@ import {
   MatchingRule,
   validateCondition,
   isDefined,
+  DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -2207,7 +2208,7 @@ export async function getLinkedFeatureInfo(
 
     const draftMatches =
       revisions
-        .filter((r) => r.status === "draft" || r.status === "pending-review")
+        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .map((r) => getMatchingRules(feature, filter, environments, r))
         .filter((matches) => matches.length > 0)[0] || [];
 
