@@ -253,10 +253,9 @@ export interface AutoFactTableToCreate
   factMetricsToCreate?: AutoFactMetricToCreate[];
 }
 
-//MKTODO: Build this based off the CreateProps<FactMetricInterface> instead
 export type AutoFactMetricToCreate = Pick<
   CreateFactMetricProps,
-  "name" | "metricType" | "numerator" | "denominator" | "datasource" | "inverse"
+  "name" | "metricType" | "numerator" | "denominator" | "datasource"
 > & {
   alreadyExists: boolean;
   shouldCreate: boolean;

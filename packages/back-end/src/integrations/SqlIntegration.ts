@@ -3175,8 +3175,6 @@ export default abstract class SqlIntegration
     autoFactMetric: AutoFactMetricToCreate
   ): boolean {
     return existingFactMetrics.some((existing) => {
-      console.log({ existing });
-      console.log({ autoFactMetric });
       //TODO: Improve this logic
       return (
         existing.metricType === autoFactMetric.metricType &&
@@ -3191,9 +3189,25 @@ export default abstract class SqlIntegration
   ): AutoFactMetricToCreate[] {
     const autoFactMetricsToCreate: AutoFactMetricToCreate[] = [];
 
+    // Create Proportion Metric
     autoFactMetricsToCreate.push({
       name: `${factTable.eventName} count`,
       metricType: "proportion",
+      shouldCreate: true,
+      alreadyExists: false,
+      numerator: {
+        factTableId: factTable.id,
+        column: "$$distinctUsers",
+        filters: [],
+      },
+      denominator: null,
+      datasource: factTable.datasource,
+    });
+
+    // Create Mean Metric
+    autoFactMetricsToCreate.push({
+      name: `${factTable.eventName} mean`,
+      metricType: "mean",
       shouldCreate: true,
       alreadyExists: false,
       numerator: {
@@ -3203,7 +3217,6 @@ export default abstract class SqlIntegration
       },
       denominator: null,
       datasource: factTable.datasource,
-      inverse: false,
     });
 
     return autoFactMetricsToCreate.map((factMetricToCreate) => {

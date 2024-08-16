@@ -78,9 +78,32 @@ export class FactMetricModel extends BaseClass {
     return newDoc;
   }
 
-  //TODO: This needs a lot of work
+  public async getByFactTableId(
+    orgId: string,
+    factTableId: string
+  ): Promise<FactMetricInterface[]> {
+    const query = {
+      $and: [
+        { organization: orgId },
+        {
+          $or: [
+            { "numerator.factTableId": factTableId },
+            { "denominator.factTableId": factTableId },
+          ],
+        },
+      ],
+    };
+    return await this._find(query);
+  }
+
   public async createFactMetrics(metricsToCreate: CreateFactMetricProps[]) {
-    return await this._dangerousGetCollection().insertMany(metricsToCreate);
+    const docs: FactMetricInterface[] = [];
+    //TODO: Should I do a try/catch block here? And only pass in those that succeed?
+    // validate each metricToCreate
+    for (const factMetricToCreate of metricsToCreate) {
+      docs.push(await this.getDocFromRawData(factMetricToCreate));
+    }
+    return await this._dangerousGetCollection().insertMany(docs);
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {

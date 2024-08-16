@@ -1,13 +1,5 @@
 import type { Response } from "express";
-import {
-  DEFAULT_FACT_METRIC_WINDOW,
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-  DEFAULT_METRIC_WINDOW_HOURS,
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
-import uniqid from "uniqid";
+import { getCreateMetricPropsFromBody } from "../../api/fact-metrics/postFactMetric";
 import { AutoFactMetricToCreate } from "../../types/Integration";
 import { ReqContext } from "../../../types/organization";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -22,6 +14,7 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
+  CreateFactMetricProps,
 } from "../../../types/fact-table";
 import {
   createFactTable,
@@ -438,18 +431,11 @@ export const getFactMetricsFromFactTable = async (
       );
     }
 
-    // Get existing fact metrics for this fact table
-    //TODO: Can I instead just pass these in? - Maybe not to make it more reusable
-    //TODO: Create a method on the FactMetricModel to getFactMetricsByFactTableId
-    const allFactMetrics = await context.models.factMetrics.getAll();
-
-    const existingFactMetrics = allFactMetrics.filter(
-      (m) =>
-        m.numerator.factTableId === factTable.id ||
-        (m.denominator && m.denominator.factTableId === factTable.id)
+    const existingFactMetrics = await context.models.factMetrics.getByFactTableId(
+      context.org.id,
+      factTable.id
     );
 
-    // get autoMetricsToCreate - pass in existing metrics
     const autoFactMetricsToCreate = await integration.getAutoFactMetricsToCreate(
       existingFactMetrics,
       factTable
@@ -467,62 +453,29 @@ export const getFactMetricsFromFactTable = async (
 };
 
 export const postAutoFactMetrics = async (
-  req: AuthRequest<
-    { autoFactMetricsToCreate: AutoFactMetricToCreate[] },
-    { id: string }
-  >,
+  req: AuthRequest<{ autoFactMetricsToCreate: AutoFactMetricToCreate[] }>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
   const context = getContextFromReq(req);
 
-  const metricsToCreate: FactMetricInterface[] = req.body.autoFactMetricsToCreate.map(
-    (metric) => {
-      return {
-        // TODO: Switch this back to being the CreateFactMetricProps (aka, remove id, date, org, etc)
-        // TODO: Figure out how to set the defaults here in a better way
-        // TODO: Only pass these in if shouldCreate is true
-        id: uniqid("fact__"),
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        organization: context.org.id,
-        owner: "",
-        datasource: metric.datasource,
-        name: metric.name,
-        description: "",
-        tags: [],
-        projects: [],
-        inverse: metric.inverse,
-        metricType: metric.metricType,
-        numerator: metric.numerator,
-        denominator: metric.denominator,
-        cappingSettings: {
-          type: "",
-          value: 0,
+  const metricsToCreate: CreateFactMetricProps[] = [];
+
+  for (const metric of req.body.autoFactMetricsToCreate) {
+    if (metric.shouldCreate) {
+      const doc = await getCreateMetricPropsFromBody(
+        {
+          name: metric.name,
+          metricType: metric.metricType,
+          numerator: metric.numerator,
+          denominator: metric.denominator || undefined,
         },
-        priorSettings: {
-          override: false,
-          proper: false,
-          mean: 0,
-          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-        },
-        maxPercentChange: 0,
-        minPercentChange: 0,
-        winRisk: DEFAULT_WIN_RISK_THRESHOLD,
-        loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
-        regressionAdjustmentDays: 0,
-        regressionAdjustmentEnabled: false,
-        regressionAdjustmentOverride: false,
-        quantileSettings: null,
-        minSampleSize: 150,
-        windowSettings: {
-          type: DEFAULT_FACT_METRIC_WINDOW,
-          delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-          windowValue: DEFAULT_METRIC_WINDOW_HOURS,
-          windowUnit: "hours",
-        },
-      };
+        context.org,
+        async (id: string) => await getFactTable(context, id)
+      );
+
+      metricsToCreate.push(doc);
     }
-  );
+  }
 
   try {
     //TODO: Instead of doing it directly, queue it up in a job

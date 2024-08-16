@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AutoFactMetricToCreate } from "@back-end/src/types/Integration"; //MKTODO: Fix this import
+import { AutoFactMetricToCreate } from "back-end/src/types/Integration";
 import { useAuth } from "@/services/auth";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -25,13 +25,10 @@ export default function AutoGenerateFactMetricsModal({
       close={() => setShowAutoGenerateFactMetricsModal(false)}
       submit={async () => {
         try {
-          const res = await apiCall(
-            `/fact-tables/${factTableId}/auto-metrics`,
-            {
-              method: "POST",
-              body: JSON.stringify({ autoFactMetricsToCreate }),
-            }
-          );
+          const res = await apiCall(`/fact-tables/auto-metrics`, {
+            method: "POST",
+            body: JSON.stringify({ autoFactMetricsToCreate }),
+          });
           console.log({ res });
         } catch (e) {
           console.log(e);
@@ -44,12 +41,11 @@ export default function AutoGenerateFactMetricsModal({
         <Button
           onClick={async () => {
             try {
-              const res: any = await apiCall(
-                `/fact-tables/${factTableId}/auto-metrics`,
-                {
-                  method: "GET",
-                }
-              );
+              const res = await apiCall<{
+                autoFactMetricsToCreate: AutoFactMetricToCreate[];
+              }>(`/fact-tables/${factTableId}/auto-metrics`, {
+                method: "GET",
+              });
               console.log({ res });
               setAutoFactMetricsToCreate(res.autoFactMetricsToCreate);
             } catch (e) {

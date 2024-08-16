@@ -420,7 +420,7 @@ export abstract class BaseModel<
     return migrated;
   }
 
-  protected async _createOne(
+  protected async getDocFromRawData(
     rawData: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ) {
@@ -464,6 +464,15 @@ export abstract class BaseModel<
     }
 
     await this.beforeCreate(doc, writeOptions);
+
+    return doc;
+  }
+
+  protected async _createOne(
+    rawData: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ) {
+    const doc = await this.getDocFromRawData(rawData, writeOptions);
 
     await this._dangerousGetCollection().insertOne(doc);
 
