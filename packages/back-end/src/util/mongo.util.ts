@@ -146,6 +146,8 @@ export function removeMongooseFields<T>(
   if (doc.toJSON) {
     doc = doc.toJSON({ flattenMaps: true });
   }
+
+  // Delete mongoose fields rather than using lodash.omit for perf reasons since this is called a lot
   delete doc._id;
   delete doc.__v;
   return doc as T;
