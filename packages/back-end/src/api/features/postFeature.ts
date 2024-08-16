@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { PostFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";

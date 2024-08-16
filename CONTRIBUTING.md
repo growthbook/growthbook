@@ -25,7 +25,7 @@ One sure shot way to run GrowthBook on Windows is through installing [Windows Su
 3. Now, on the terminal, run `wsl --install`
 4. After the installation is complete, restart your computer
 5. Set up your Linux username and password
-6. Run `sudo apt update && sudo apt upgrade` (for Ubuntu or Desbian) to update and upgrade packages
+6. Run `sudo apt update && sudo apt upgrade` (for Ubuntu or Debian) to update and upgrade packages
 
 Now you have the basic Linux system set up, and can follow along with all the other steps.
 
@@ -80,14 +80,17 @@ This repository is a monorepo with the following packages:
 
 - **packages/front-end** is a Next.js app and contains the full UI of the GrowthBook app.
 - **packages/back-end** is an Express app and serves as the REST api for the front-end.
-- **package/shared** is a collection of Typescript functions and constants shared between the front-end and back-end.
-- **package/enterprise** contains proprietary code governed under the GrowthBook Enterprise license. We typically do not accept outside contributions for this package.
+- **packages/shared** is a collection of Typescript functions and constants shared between the front-end and back-end.
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
 - **packages/stats** is our Python stats engine (`gbstats` on PyPi)
 - **docs** is a Docusaurus instance for our documentation site (https://docs.growthbook.io).
 
 Depending on what you're changing, you may need to edit one or more of these packages.
+
+### Enterprise Code
+
+The `front-end`, `back-end`, and `shared` packages each have an `enterprise` directory containing non-open source code. We typically do not accept outside contributions to these directories. Please reach out if you have any questions.
 
 ### Working on the main app
 

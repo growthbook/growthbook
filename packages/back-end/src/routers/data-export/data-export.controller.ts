@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import { EventUserForResponseLocals } from "../../events/event-types";

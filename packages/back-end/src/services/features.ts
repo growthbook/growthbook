@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,

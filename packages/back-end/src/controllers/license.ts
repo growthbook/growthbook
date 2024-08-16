@@ -7,7 +7,7 @@ import {
   postCreateTrialEnterpriseLicenseToLicenseServer,
   postResendEmailVerificationEmailToLicenseServer,
   postVerifyEmailToLicenseServer,
-} from "enterprise";
+} from "shared/enterprise";
 import md5 from "md5";
 import {
   getLicenseMetaData,

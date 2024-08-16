@@ -8,7 +8,7 @@ import {
   getLicense,
   getLicenseError,
   licenseInit,
-} from "enterprise";
+} from "shared/enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   getRoles,

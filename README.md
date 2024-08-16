@@ -76,7 +76,7 @@ If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=re
 
 ## License
 
-GrowthBook is an Open Core product. The bulk of the code is under the permissive MIT license, and the `packages/enterprise` directory has its own separate commercial license.
+GrowthBook is an Open Core product. The bulk of the code is under the permissive MIT license. There are several directories that are governed under a separate commercial license, the GrowthBook Enterprise License.
 
 View the `LICENSE` file in this repository for the full text and details.
 

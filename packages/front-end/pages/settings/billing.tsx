@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from "react";
-import { LicenseInterface } from "enterprise";
+import { LicenseInterface } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";

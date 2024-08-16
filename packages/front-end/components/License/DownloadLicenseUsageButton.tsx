@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { LicenseMetaData } from "enterprise";
+import { LicenseMetaData } from "shared/enterprise";
 import { FaDownload } from "react-icons/fa";
 import { snakeCase } from "lodash";
 import { useAuth } from "@/services/auth";

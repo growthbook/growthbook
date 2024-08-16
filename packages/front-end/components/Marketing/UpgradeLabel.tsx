@@ -1,4 +1,4 @@
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";

@@ -7,7 +7,7 @@ import {
   isActiveSubscriptionStatus,
   isAirGappedLicenseKey,
   postSubscriptionUpdateToLicenseServer,
-} from "enterprise";
+} from "shared/enterprise";
 import {
   areProjectRolesValid,
   isRoleValid,
