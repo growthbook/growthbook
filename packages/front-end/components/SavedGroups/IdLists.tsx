@@ -155,7 +155,7 @@ export default function IdLists({ groups, mutate }: Props) {
                         <td>
                           {s.passByReferenceOnly && (
                             <Tooltip
-                              body={`Contains >${SMALL_GROUP_SIZE_LIMIT} items`}
+                              body={`May contain >${SMALL_GROUP_SIZE_LIMIT} items`}
                               tipPosition="top"
                             >
                               <PiCellSignalFull className="text-color-primary h2 mb-0" />

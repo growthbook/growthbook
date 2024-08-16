@@ -10,9 +10,13 @@ import {
  */
 export type SavedGroupSource = "inline" | "runtime";
 
-export type LegacySavedGroupInterface = Omit<SavedGroupInterface, "type"> & {
+export type LegacySavedGroupInterface = Omit<
+  Omit<SavedGroupInterface, "type">,
+  "values"
+> & {
   source?: SavedGroupSource;
   type?: SavedGroupType;
+  values?: string[];
 };
 
 export type CreateSavedGroupProps = z.infer<typeof postSavedGroupBodyValidator>;

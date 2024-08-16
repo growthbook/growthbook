@@ -42,6 +42,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { getEnvironments } from "../services/organizations";
 import { LegacySavedGroupInterface } from "../../types/saved-group";
+import { AttributeMap } from "../services/features";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -851,7 +852,8 @@ export function migrateSnapshot(
 }
 
 export function migrateSavedGroup(
-  legacy: LegacySavedGroupInterface
+  legacy: LegacySavedGroupInterface,
+  attributeMap: AttributeMap
 ): SavedGroupInterface {
   // Add `type` field to legacy groups
   const { source, type, ...otherFields } = legacy;
@@ -874,6 +876,18 @@ export function migrateSavedGroup(
         },
       },
     });
+  }
+
+  // Migrate improperly typed attributes
+  if (group.type === "list" && group.values && group.attributeKey) {
+    if (attributeMap.get(group.attributeKey) === "number") {
+      group.values = group.values.map((val) => {
+        if (typeof val === "string") {
+          return parseFloat(val);
+        }
+        return val;
+      });
+    }
   }
 
   return group;

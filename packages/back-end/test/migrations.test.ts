@@ -41,6 +41,7 @@ import {
 import { Queries } from "../types/query";
 import { ExperimentPhase } from "../types/experiment";
 import { LegacySavedGroupInterface } from "../types/saved-group";
+import { AttributeMap } from "../src/services/features";
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart and conversion*Hours", () => {
@@ -1850,14 +1851,18 @@ describe("saved group migrations", () => {
     dateCreated: new Date(),
     dateUpdated: new Date(),
   };
+  const attributeMap: AttributeMap = new Map([["foo", "string"]]);
 
   it("migrates old saved groups without source", () => {
     expect(
-      migrateSavedGroup({
-        ...baseSavedGroup,
-        attributeKey: "foo",
-        values: ["a", "b"],
-      })
+      migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: ["a", "b"],
+        },
+        attributeMap
+      )
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1868,12 +1873,15 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=inline", () => {
     expect(
-      migrateSavedGroup({
-        ...baseSavedGroup,
-        attributeKey: "foo",
-        values: ["a", "b"],
-        source: "inline",
-      })
+      migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: ["a", "b"],
+          source: "inline",
+        },
+        attributeMap
+      )
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1884,12 +1892,15 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=runtime", () => {
     expect(
-      migrateSavedGroup({
-        ...baseSavedGroup,
-        attributeKey: "foo",
-        values: [],
-        source: "runtime",
-      })
+      migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+        },
+        attributeMap
+      )
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1901,13 +1912,16 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=list", () => {
     expect(
-      migrateSavedGroup({
-        ...baseSavedGroup,
-        attributeKey: "foo",
-        values: ["a", "b"],
-        source: "inline",
-        type: "list",
-      })
+      migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: ["a", "b"],
+          source: "inline",
+          type: "list",
+        },
+        attributeMap
+      )
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1918,14 +1932,17 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=condition", () => {
     expect(
-      migrateSavedGroup({
-        ...baseSavedGroup,
-        attributeKey: "foo",
-        values: [],
-        source: "runtime",
-        type: "condition",
-        condition: JSON.stringify({ id: { $eq: "123" } }),
-      })
+      migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+          type: "condition",
+          condition: JSON.stringify({ id: { $eq: "123" } }),
+        },
+        attributeMap
+      )
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",

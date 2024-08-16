@@ -1284,7 +1284,7 @@ export interface components {
       /** @description When type = 'list', this is the attribute key the group is based on */
       attributeKey?: string;
       /** @description When type = 'list', this is the list of values for the attribute key */
-      values?: (string)[];
+      values?: (string)[] | (number)[];
       description?: string;
       /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
       passByReferenceOnly?: boolean;
@@ -5121,7 +5121,7 @@ export interface operations {
                 /** @description When type = 'list', this is the attribute key the group is based on */
                 attributeKey?: string;
                 /** @description When type = 'list', this is the list of values for the attribute key */
-                values?: (string)[];
+                values?: (string)[] | (number)[];
                 description?: string;
                 /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
                 passByReferenceOnly?: boolean;
@@ -5180,7 +5180,7 @@ export interface operations {
               /** @description When type = 'list', this is the attribute key the group is based on */
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
-              values?: (string)[];
+              values?: (string)[] | (number)[];
               description?: string;
               /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
               passByReferenceOnly?: boolean;
@@ -5217,7 +5217,7 @@ export interface operations {
               /** @description When type = 'list', this is the attribute key the group is based on */
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
-              values?: (string)[];
+              values?: (string)[] | (number)[];
               description?: string;
               /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
               passByReferenceOnly?: boolean;
@@ -5268,7 +5268,7 @@ export interface operations {
               /** @description When type = 'list', this is the attribute key the group is based on */
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
-              values?: (string)[];
+              values?: (string)[] | (number)[];
               description?: string;
               /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
               passByReferenceOnly?: boolean;

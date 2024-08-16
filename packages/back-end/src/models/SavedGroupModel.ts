@@ -9,6 +9,8 @@ import {
   UpdateSavedGroupProps,
 } from "../../types/saved-group";
 import { migrateSavedGroup } from "../util/migrations";
+import { AttributeMap, getAttributeMap } from "../services/features";
+import { getOrganizationById } from "../services/organizations";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {
@@ -45,13 +47,16 @@ interface GetAllSavedGroupsOptions {
   includeLargeSavedGroupValues?: boolean;
 }
 
-const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
+const toInterface = (
+  doc: SavedGroupDocument,
+  attributeMap: AttributeMap
+): SavedGroupInterface => {
   const legacy = omit(
     doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
     ["__v", "_id"]
   );
 
-  return migrateSavedGroup(legacy);
+  return migrateSavedGroup(legacy, attributeMap);
 };
 
 export function parseSavedGroupString(list: string) {
@@ -74,7 +79,13 @@ export async function createSavedGroup(
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
-  return toInterface(newGroup);
+
+  const org = await getOrganizationById(organization);
+  if (!org) {
+    throw new Error("Could not create saved group. Organization not found.");
+  }
+
+  return toInterface(newGroup, getAttributeMap(org));
 }
 
 export async function getAllSavedGroups(
@@ -99,7 +110,14 @@ export async function getAllSavedGroups(
         ),
       ])
     ).flat();
-  return savedGroups.map(toInterface);
+
+  const org = await getOrganizationById(organization);
+  if (!org) {
+    throw new Error("Could not get saved groups. Organization not found.");
+  }
+
+  const attributeMap = getAttributeMap(org);
+  return savedGroups.map((group) => toInterface(group, attributeMap));
 }
 
 export async function getSavedGroupById(
@@ -111,7 +129,12 @@ export async function getSavedGroupById(
     organization: organization,
   });
 
-  return savedGroup ? toInterface(savedGroup) : null;
+  const org = await getOrganizationById(organization);
+  if (!org) {
+    throw new Error("Could not get saved group. Organization not found.");
+  }
+
+  return savedGroup ? toInterface(savedGroup, getAttributeMap(org)) : null;
 }
 
 export async function getSavedGroupsById(
@@ -123,7 +146,15 @@ export async function getSavedGroupsById(
     organization: organization,
   });
 
-  return savedGroups ? savedGroups.map((group) => toInterface(group)) : [];
+  const org = await getOrganizationById(organization);
+  if (!org) {
+    throw new Error("Could not get saved groups. Organization not found.");
+  }
+  const attributeMap = getAttributeMap(org);
+
+  return savedGroups
+    ? savedGroups.map((group) => toInterface(group, attributeMap))
+    : [];
 }
 
 export async function updateSavedGroupById(

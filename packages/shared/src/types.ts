@@ -1,5 +1,5 @@
 // The data going out in an sdk payload to map from a saved group ID to its array of values
-export type SavedGroupsValues = Record<string, (string | number)[]>;
+export type SavedGroupsValues = Record<string, string[] | number[]>;
 
 export type GroupMap = Map<
   string,
@@ -7,7 +7,7 @@ export type GroupMap = Map<
     SavedGroupInterface,
     "type" | "condition" | "attributeKey" | "passByReferenceOnly"
   > & {
-    values?: (string | number)[];
+    values?: string[] | number[];
   }
 >;
 
@@ -19,7 +19,7 @@ export interface SavedGroupInterface {
   type: SavedGroupType;
   condition?: string;
   attributeKey?: string;
-  values?: string[];
+  values?: string[] | number[];
   dateUpdated: Date;
   dateCreated: Date;
   description?: string;

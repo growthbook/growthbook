@@ -31,9 +31,13 @@ properties:
     type: string
   values:
     description: When type = 'list', this is the list of values for the attribute key
-    type: array
-    items:
-      type: string
+    oneOf:
+      - type: array
+        items:
+          type: string
+      - type: array
+        items:
+          type: number
   description:
     type: string
   passByReferenceOnly:

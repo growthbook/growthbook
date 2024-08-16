@@ -125,7 +125,7 @@ export function replaceSavedGroupsInCondition(
     /[\s|\n]*"\$(inGroup|notInGroup)"[\s|\n]*:[\s|\n]*"([^"]*)"[\s|\n]*/g,
     (match: string, operator: string, groupId: string) => {
       const newOperator = operator === "inGroup" ? "$in" : "$nin";
-      const ids: (string | number)[] = groupMap.get(groupId)?.values ?? [];
+      const ids: string[] | number[] = groupMap.get(groupId)?.values ?? [];
       return `"${newOperator}": ${JSON.stringify(ids)}`;
     }
   );

@@ -14,7 +14,11 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useEnvironments, useFeaturesList } from "@/services/features";
+import {
+  useAttributeMap,
+  useEnvironments,
+  useFeaturesList,
+} from "@/services/features";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
@@ -41,7 +45,13 @@ export default function EditSavedGroupPage() {
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
-  const values = savedGroup?.values || [];
+  const attributeMap = useAttributeMap();
+  const isNumericList =
+    attributeMap.get(savedGroup?.attributeKey || "")?.datatype === "number";
+  // Manipulate values locally as strings and then convert back to numbers as needed when sending requests
+  const values = (savedGroup?.values || []).map((val: number | string) =>
+    val.toString()
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
   const filteredValues = values.filter((v) => v.match(filter));
@@ -192,7 +202,9 @@ export default function EditSavedGroupPage() {
               await apiCall(`/saved-groups/${savedGroup.id}/add-items`, {
                 method: "POST",
                 body: JSON.stringify({
-                  items: itemsToAdd,
+                  items: isNumericList
+                    ? itemsToAdd.map(parseFloat)
+                    : itemsToAdd,
                   passByReferenceOnly,
                 }),
               });
@@ -201,7 +213,9 @@ export default function EditSavedGroupPage() {
               await apiCall(`/saved-groups/${savedGroup.id}`, {
                 method: "PUT",
                 body: JSON.stringify({
-                  values: itemsToAdd,
+                  values: isNumericList
+                    ? itemsToAdd.map(parseFloat)
+                    : itemsToAdd,
                   passByReferenceOnly,
                 }),
               });
@@ -381,7 +395,11 @@ export default function EditSavedGroupPage() {
                         `/saved-groups/${savedGroup.id}/remove-items`,
                         {
                           method: "POST",
-                          body: JSON.stringify({ items: [...selected] }),
+                          body: JSON.stringify({
+                            items: isNumericList
+                              ? [...selected].map(parseFloat)
+                              : [...selected],
+                          }),
                         }
                       );
                       const newValues = values.filter(

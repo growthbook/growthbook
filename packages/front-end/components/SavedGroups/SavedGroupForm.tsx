@@ -4,7 +4,7 @@ import {
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
+import { ID_LIST_DATATYPES, validateAndFixCondition } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -203,15 +203,20 @@ const SavedGroupForm: FC<{
             disabled={!!current.attributeKey}
             onChange={(v) => form.setValue("attributeKey", v)}
             placeholder="Choose one..."
-            options={attributeSchema.map((a) => ({
-              value: a.property,
-              label: a.property,
-            }))}
+            options={attributeSchema
+              // TODO: inform users that this filter is happening
+              .filter((a) => ID_LIST_DATATYPES.includes(a.datatype))
+              .map((a) => ({
+                value: a.property,
+                label: a.property,
+              }))}
             helpText={current.attributeKey && "This field cannot be edited."}
           />
           {!current.id && (
             <IdListItemInput
-              values={form.watch("values") || []}
+              values={(form.watch("values") || []).map((val: number | string) =>
+                val.toString()
+              )}
               passByReferenceOnly={false}
               bypassSmallListSizeLimit={false}
               setValues={(newValues) => {

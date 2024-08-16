@@ -7,12 +7,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
 import { OrganizationInterface } from "back-end/types/organization";
 import { SavedGroupsValues, SavedGroupInterface } from "../types";
-import {
-  getSavedGroupValueType,
-  getTypedSavedGroupValues,
-  NodeHandler,
-  recursiveWalk,
-} from "../util";
+import { NodeHandler, recursiveWalk } from "../util";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -220,10 +215,7 @@ export const scrubSavedGroups = (
 const replaceSavedGroups: (
   savedGroups: Record<string, SavedGroupInterface>,
   organization: OrganizationInterface
-) => NodeHandler = (
-  savedGroups: Record<string, SavedGroupInterface>,
-  organization
-) => {
+) => NodeHandler = (savedGroups: Record<string, SavedGroupInterface>) => {
   return ([key, value], object) => {
     if (key === "$inGroup" || key === "$notInGroup") {
       const group = savedGroups[value];
@@ -231,13 +223,7 @@ const replaceSavedGroups: (
       if (group?.passByReferenceOnly) {
         object[savedGroupOperatorReplacements[key]] = [];
       } else {
-        const values = group
-          ? getTypedSavedGroupValues(
-              group.values || [],
-              getSavedGroupValueType(group, organization)
-            )
-          : [];
-        object[savedGroupOperatorReplacements[key]] = values;
+        object[savedGroupOperatorReplacements[key]] = group.values || [];
       }
 
       delete object[key];

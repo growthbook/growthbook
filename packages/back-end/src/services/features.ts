@@ -92,6 +92,16 @@ import {
 
 export type AttributeMap = Map<string, string>;
 
+export function getAttributeMap(organization: OrganizationInterface) {
+  const attributes = organization.settings?.attributeSchema;
+
+  const attributeMap: AttributeMap = new Map();
+  attributes?.forEach((attribute) => {
+    attributeMap.set(attribute.property, attribute.datatype);
+  });
+  return attributeMap;
+}
+
 export function generateFeaturesPayload({
   features,
   experimentMap,
@@ -300,13 +310,6 @@ export async function getSavedGroupMap(
   organization: OrganizationInterface,
   savedGroups?: SavedGroupInterface[]
 ): Promise<GroupMap> {
-  const attributes = organization.settings?.attributeSchema;
-
-  const attributeMap: AttributeMap = new Map();
-  attributes?.forEach((attribute) => {
-    attributeMap.set(attribute.property, attribute.datatype);
-  });
-
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups =
     typeof savedGroups === "undefined"
@@ -315,30 +318,9 @@ export async function getSavedGroupMap(
         })
       : savedGroups;
 
-  function getGroupValues(
-    values: string[],
-    type?: string
-  ): string[] | number[] {
-    if (type === "number") {
-      return values.map((v) => parseFloat(v));
-    }
-    return values;
-  }
-
   const groupMap: GroupMap = new Map(
     allGroups.map((group) => {
-      let values: (string | number)[] = [];
-      if (group.type === "list" && group.attributeKey && group.values) {
-        const attributeType = attributeMap?.get(group.attributeKey);
-        values = getGroupValues(group.values, attributeType);
-      }
-      return [
-        group.id,
-        {
-          ...group,
-          values,
-        },
-      ];
+      return [group.id, group];
     })
   );
 
@@ -573,10 +555,7 @@ async function getFeatureDefinitionsResponse({
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
   );
-  let savedGroupsValues = getSavedGroupsValuesFromInterfaces(
-    savedGroups,
-    organization
-  );
+  let savedGroupsValues = getSavedGroupsValuesFromInterfaces(savedGroups);
   if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
 

@@ -126,7 +126,7 @@ describe("payload scrubbing", () => {
       dateCreated: new Date(2020, 1, 5, 10, 0, 0),
       dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
       type: "list",
-      values: ["1", "2", "3"],
+      values: [1, 2, 3],
       attributeKey: "num",
       passByReferenceOnly: false,
     },
@@ -219,7 +219,7 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
-    savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups, baseOrg),
+    savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups),
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

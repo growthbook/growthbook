@@ -6,7 +6,7 @@ export const postSavedGroupBodyValidator = z.object({
   type: z.enum(["condition", "list"]),
   condition: z.string().optional(),
   attributeKey: z.string().optional(),
-  values: z.string().array().optional(),
+  values: z.union([z.string().array(), z.number().array()]).optional(),
   description: z.string().optional(),
   passByReferenceOnly: z.boolean().optional(),
 });
@@ -14,7 +14,7 @@ export const postSavedGroupBodyValidator = z.object({
 export const putSavedGroupBodyValidator = z.object({
   groupName: z.string().optional(),
   owner: z.string().optional(),
-  values: z.string().array().optional(),
+  values: z.union([z.string().array(), z.number().array()]).optional(),
   condition: z.string().optional(),
   description: z.string().optional(),
   passByReferenceOnly: z.boolean().optional(),
