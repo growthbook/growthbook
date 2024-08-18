@@ -542,7 +542,7 @@ export default function FactMetricPage() {
           </div>
         </div>
         <div className="col-12 col-md-4">
-          <div className="appbox p-3" style={{ marginTop: "7px" }}>
+          <div className="appbox p-3">
             <RightRailSection
               title="Advanced Settings"
               open={() => setEditOpen(true)}

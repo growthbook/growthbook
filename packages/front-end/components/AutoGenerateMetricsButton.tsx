@@ -35,7 +35,7 @@ export default function AutoGenerateMetricsButton({
         <button
           className={clsx(
             size === "lg" ? "btn-lg" : "",
-            "btn btn-outline-info font-weight-bold text-nowrap mr-1"
+            "btn btn-outline-info font-weight-bold text-nowrap mr-2"
           )}
           onClick={() => setShowAutoGenerateMetricsModal(true)}
         >
