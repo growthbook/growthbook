@@ -24,6 +24,7 @@ import {
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
+  determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
@@ -1192,12 +1193,13 @@ export async function postExperimentStatus(
     };
     changes.phases = phases;
   }
-  // If starting an experiment from draft, use the current date as the phase start date
+  // Starting an experiment from draft
   else if (
     experiment.status === "draft" &&
     status === "running" &&
     phases?.length > 0
   ) {
+    // use the current date as the phase start date
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateStarted: new Date(),
@@ -1216,6 +1218,9 @@ export async function postExperimentStatus(
         changes.phases[
           changes.phases.length - 1
         ].variationWeights = getEqualWeights(experiment.variations.length ?? 0);
+        // scheduling
+        const nextUpdate = determineNextBanditSchedule(changes);
+        changes.nextSnapshotAttempt = nextUpdate;
       }
     }
   }

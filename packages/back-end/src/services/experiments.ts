@@ -67,6 +67,7 @@ import {
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import {
+  Changeset,
   ExperimentInterface,
   ExperimentPhase,
   LinkedFeatureEnvState,
@@ -571,6 +572,45 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   if (hours < 1) hours = 1;
   if (hours > 168) hours = 168;
   return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+export function determineNextBanditSchedule(exp: Changeset) {
+  const start = exp?.banditPhaseDateStarted?.getTime() ?? Date.now();
+
+  if (exp.banditPhase === "explore") {
+    if (exp.banditBurnInValue === undefined) {
+      throw new Error(
+        "Cannot schedule next experiment update. banditBurnInValue is unset."
+      );
+    }
+    if (exp.banditBurnInUnit === undefined) {
+      throw new Error(
+        "Cannot schedule next experiment update. banditBurnInUnit is unset."
+      );
+    }
+
+    const hoursMultiple = exp.banditBurnInUnit === "days" ? 24 : 1;
+    return new Date(
+      start + exp.banditBurnInValue * hoursMultiple * 60 * 60 * 1000
+    );
+  } else if (exp.banditPhase === "exploit") {
+    if (exp.banditScheduleValue === undefined) {
+      throw new Error(
+        "Cannot schedule next experiment update. banditScheduleValue is unset."
+      );
+    }
+    if (exp.banditScheduleUnit === undefined) {
+      throw new Error(
+        "Cannot schedule next experiment update. banditScheduleUnit is unset."
+      );
+    }
+
+    const hoursMultiple = exp.banditScheduleUnit === "days" ? 24 : 1;
+    const interval = exp.banditScheduleValue * hoursMultiple * 60 * 60 * 1000;
+    const elapsedTime = Date.now() - start;
+    const intervalsPassed = Math.floor(elapsedTime / interval);
+    return new Date(start + (intervalsPassed + 1) * interval);
+  }
 }
 
 export async function createSnapshot({
