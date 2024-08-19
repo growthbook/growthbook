@@ -23,7 +23,8 @@ export type DataSourceType =
   | "clickhouse"
   | "presto"
   | "databricks"
-  | "mixpanel";
+  | "mixpanel"
+  | "vertica";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -269,6 +270,10 @@ interface PostgresDataSource extends DataSourceBase {
   type: "postgres";
 }
 
+interface VerticaDataSource extends DataSourceBase {
+  type: "vertica";
+}
+
 interface BigQueryDataSource extends DataSourceBase {
   type: "bigquery";
 }
@@ -309,6 +314,11 @@ export type PostgresDataSourceWithParams = WithParams<
   PostgresDataSource,
   PostgresConnectionParams
 >;
+
+export type VerticaDataSourceWithParams = WithParams<
+  VerticaDataSource,
+  PostgresConnectionParams
+>;
 export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
   MysqlConnectionParams
@@ -338,6 +348,7 @@ export type DataSourceInterface =
   | GoogleAnalyticsDataSource
   | SnowflakeDataSource
   | PostgresDataSource
+  | VerticaDataSource
   | MysqlDataSource
   | MssqlDataSource
   | BigQueryDataSource
@@ -352,6 +363,7 @@ export type DataSourceInterfaceWithParams =
   | GoogleAnalyticsDataSourceWithParams
   | SnowflakeDataSourceWithParams
   | PostgresDataSourceWithParams
+  | VerticaDataSourceWithParams
   | MysqlDataSourceWithParams
   | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams

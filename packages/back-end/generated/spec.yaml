@@ -946,6 +946,8 @@ paths:
                   type: boolean
                 remoteEvalEnabled:
                   type: boolean
+                savedGroupReferencesEnabled:
+                  type: boolean
       responses:
         '200':
           content:
@@ -1030,6 +1032,8 @@ paths:
                 hashSecureAttributes:
                   type: boolean
                 remoteEvalEnabled:
+                  type: boolean
+                savedGroupReferencesEnabled:
                   type: boolean
       responses:
         '200':
@@ -4343,7 +4347,6 @@ components:
         - datasourceId
         - identifierType
         - name
-        - query
         - dateCreated
         - dateUpdated
       properties:
@@ -4363,6 +4366,16 @@ components:
           type: string
         dateUpdated:
           type: string
+        type:
+          enum:
+            - SQL
+            - FACT
+        factTableId:
+          type: string
+        filters:
+          type: array
+          items:
+            type: string
     Feature:
       type: object
       required:
@@ -4805,6 +4818,8 @@ components:
         hashSecureAttributes:
           type: boolean
         remoteEvalEnabled:
+          type: boolean
+        savedGroupReferencesEnabled:
           type: boolean
     Experiment:
       type: object
@@ -5316,7 +5331,8 @@ components:
                 enum:
                   - simple
                   - regex
-              pattern: string
+              pattern:
+                type: string
         editorUrl:
           type: string
         experiment:
@@ -5437,6 +5453,11 @@ components:
           type: array
           items:
             type: string
+        description:
+          type: string
+        passByReferenceOnly:
+          description: Whether the saved group must be referenced by ID rather than its list of items for performance reasons
+          type: boolean
     Organization:
       type: object
       properties:

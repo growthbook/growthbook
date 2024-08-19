@@ -31,6 +31,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface memberOrgProps {
   id: string;
@@ -249,41 +250,62 @@ function OrganizationRow({
                   {organization.invites.length}
                 </div>
               </div>
-              <div className="row">
-                <div className="col-2 text-right">Subscription:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.subscription?.planNickname
-                    ? organization?.subscription?.planNickname +
-                      " (" +
-                      organization?.subscription?.status +
-                      ")"
-                    : "none"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Seats on subscription:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.subscription?.qty &&
-                  organization?.subscription?.status === "active"
-                    ? organization.subscription.qty
-                    : ""}
-                  {organization?.freeSeats
-                    ? ` (${organization.freeSeats} free seats)`
-                    : ""}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Enterprise (legacy):</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.enterprise ? "yes" : "no"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">License Key:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.licenseKey ? organization.licenseKey : "-"}
-                </div>
-              </div>
+              {isCloud() && (
+                <>
+                  <div className="row">
+                    <div className="col-2 text-right">
+                      Subscription (legacy):
+                    </div>
+                    <div className="col-auto font-weight-bold">
+                      {organization?.subscription?.planNickname
+                        ? organization?.subscription?.planNickname +
+                          " (" +
+                          organization?.subscription?.status +
+                          ")"
+                        : "none"}
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="col-2 text-right">Enterprise (legacy):</div>
+                    <div className="col-auto font-weight-bold">
+                      {organization?.enterprise ? "yes" : "no"}
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="col-2 text-right">License Key:</div>
+                    <div className="col-auto font-weight-bold">
+                      {organization?.licenseKey ? organization.licenseKey : "-"}
+                    </div>
+                  </div>
+                  {((license ||
+                    licenseLoading ||
+                    organization?.subscription?.status === "active") && (
+                    <div className="row">
+                      <div className="col-2 text-right">Seats</div>
+                      <div className="col-auto font-weight-bold">
+                        {licenseLoading && <LoadingSpinner />}
+                        {license && license.seats}
+                        {!licenseLoading && !license && (
+                          <>
+                            {organization?.subscription?.qty &&
+                            organization?.subscription?.status === "active"
+                              ? organization.subscription.qty
+                              : ""}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )) || // Only show free seats if they are on a free plan, ie. there is no license, no subscription, nor are they on a legacy enterprise
+                    (!organization?.enterprise && (
+                      <div className="row">
+                        <div className="col-2 text-right">Free Seats:</div>
+                        <div className="col-auto font-weight-bold">
+                          {organization?.freeSeats ?? 3}
+                        </div>
+                      </div>
+                    ))}
+                </>
+              )}
             </div>
             <div className="mb-3">
               <Collapsible

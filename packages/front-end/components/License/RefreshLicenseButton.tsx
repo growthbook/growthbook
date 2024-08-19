@@ -25,7 +25,7 @@ const RefreshLicenseButton: FC = () => {
 
   return (
     <>
-      <Button color="outline-primary" onClick={refresh}>
+      <Button color="outline-primary" className="nowrap" onClick={refresh}>
         <BsArrowRepeat /> Refresh
       </Button>
     </>
