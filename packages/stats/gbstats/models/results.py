@@ -53,6 +53,7 @@ VariationResponse = Union[
 class BanditResponse:
     banditWeights: Optional[List[float]]
     banditUpdateMessage: Optional[str]
+    bestArmProbabilities: Optional[List[float]]
     additionalReward: Optional[float]
 
 

@@ -3,6 +3,7 @@ from dataclasses import field
 from typing import List, Literal, Optional, Dict
 
 import numpy as np
+import random
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm  # type: ignore
 
@@ -18,7 +19,7 @@ from gbstats.models.statistics import (
     BanditStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
-from gbstats.utils import truncated_normal_mean
+from gbstats.utils import truncated_normal_mean, variance_of_ratios
 
 
 # Configs
@@ -54,6 +55,8 @@ class BanditConfig(BayesianConfig):
 class BanditWeights:
     update_message: str
     weights: List[float] | None
+    best_arm_probabilities: List[float] | None
+    seed: int
 
 
 # Results
@@ -270,12 +273,44 @@ class Bandits:
     def array_shape(self) -> tuple:
         return (self.num_periods, self.num_variations)
 
+    @staticmethod
+    def attribute_array(
+        stats: Dict[int, List[BanditStatistic]],
+        array_shape: tuple,
+        attribute_1: str,
+        attribute_2: str = "",
+    ):
+        """
+        Extracts a specified attribute from nested data structures and reshapes it.
+        Args:
+            stats: A dictionary of lists containing objects with the specified attribute.
+            array_shape: The desired shape of the output array.
+            attribute_1: The name of the first attribute to extract.
+            attribute_2: The name of the sub-attribute to extract (if needed).
+
+        Returns:
+            A NumPy array containing the extracted attributes, reshaped to the specified shape.
+        """
+        values = [
+            getattr(getattr(item, attribute_1), attribute_2)
+            if attribute_2
+            else getattr(item, attribute_1)
+            for sublist in stats.values()
+            for item in sublist
+        ]
+        return np.array(values).reshape(array_shape)
+
     @property
     def counts_array(self) -> np.ndarray:
-        counts = [
-            n for sublist in self.stats.values() for item in sublist for n in [item.n]
-        ]
-        return np.array(counts).reshape(self.array_shape)
+        return self.attribute_array(self.stats, self.array_shape, "n")
+
+    @property
+    def means_array(self) -> np.ndarray:
+        return self.attribute_array(self.stats, self.array_shape, "mean")
+
+    @property
+    def variances_array(self) -> np.ndarray:
+        return self.attribute_array(self.stats, self.array_shape, "variance")
 
     # sample sizes by variation
     @property
@@ -291,9 +326,9 @@ class Bandits:
     def period_weights(self) -> np.ndarray:
         """given the total traffic (across variations) for each period, what is the percentage that was allocated to each period?
         Args:
-            counts_array: n_phases x n_variations array of traffic whose (i, j)th element corresponds to the ith phase for the jth variation.
+            counts_array: num_periods x num_variations array of traffic whose (i, j)th element corresponds to the ith phase for the jth variation.
         Returns:
-            weights: n_phases x 1 vector of final weights.
+            weights: num_periods x 1 vector of final weights.
         """
         # sum traffic across variations for a specific phase to get the total traffic for that phase
         total_count = sum(self.period_counts)
@@ -314,47 +349,45 @@ class Bandits:
                 raise ValueError(error_string)
             return self.counts_array / self.variation_counts
 
-    @property
-    def means_array(self) -> np.ndarray:
-        means = [
-            m
-            for sublist in self.stats.values()
-            for item in sublist
-            for m in [item.mean]
-        ]
-        return np.array(means).reshape(self.array_shape)
-
-    @property
-    def variances_array(self) -> np.ndarray:
-        variances = [
-            m
-            for sublist in self.stats.values()
-            for item in sublist
-            for m in [item.variance]
-        ]
-        return np.array(variances).reshape(self.array_shape)
+    # given num_periods x num_variations arrays of means and weights, returns the weighted means across periods.
+    @staticmethod
+    def construct_weighted_means(means_array, weights_array):
+        return np.sum(means_array * weights_array, axis=0)
 
     @property
     def variation_means(self) -> np.ndarray:
-        return np.sum(self.means_array * self.weights_array, axis=0)
+        return self.construct_weighted_means(self.means_array, self.weights_array)
 
-    @property
-    def variation_variances(self) -> np.ndarray:
-        # find elements where n = 0
-        positive_sample_size = self.counts_array != 0
+    # find elements of an array that are positive
+    @staticmethod
+    def find_positive_sample_size(arr: np.ndarray) -> np.ndarray:
+        return arr > 0
+
+    @staticmethod
+    def construct_weighted_variances(
+        variances_array: np.ndarray, weights_array: np.ndarray, counts_array: np.ndarray
+    ) -> np.ndarray:
         # array of variances of the sample mean
-        sample_mean_variances_by_period = np.zeros(self.array_shape)
+        sample_mean_variances_by_period = np.zeros(variances_array.shape)
+        # find elements where n > 0
+        positive_sample_size = Bandits.find_positive_sample_size(counts_array)
         # update the array only where the sample size is positive
         sample_mean_variances_by_period[positive_sample_size] = (
-            self.variances_array[positive_sample_size]
-            / self.counts_array[positive_sample_size]
+            variances_array[positive_sample_size] / counts_array[positive_sample_size]
         )
         # construct the variance of the weighted mean
         sample_mean_variances = np.sum(
-            sample_mean_variances_by_period * (self.weights_array) ** 2, axis=0
+            sample_mean_variances_by_period * (weights_array) ** 2, axis=0
         )
         # scale by number of counts to get back to distributional variance
-        return sample_mean_variances * self.variation_counts
+        variation_counts = np.sum(counts_array, axis=0)
+        return sample_mean_variances * variation_counts
+
+    @property
+    def variation_variances(self) -> np.ndarray:
+        return self.construct_weighted_variances(
+            self.variances_array, self.weights_array, self.counts_array
+        )
 
     @property
     def prior_precision(self) -> np.ndarray:
@@ -411,22 +444,38 @@ class Bandits:
         min_n = 100
         if any(self.variation_counts < min_n):
             update_message = "some variation counts fewer than " + str(min_n)
-            return BanditWeights(update_message=update_message, weights=None)
-        rng = np.random.default_rng(seed=self.bandit_weights_seed)
+            return BanditWeights(
+                update_message=update_message,
+                weights=None,
+                best_arm_probabilities=None,
+                seed=0,
+            )
+        seed = (
+            self.bandit_weights_seed
+            if self.bandit_weights_seed
+            else random.randint(0, 1000000)
+        )
+        rng = np.random.default_rng(seed=seed)
         y = rng.multivariate_normal(
             mean=self.posterior_mean,
             cov=np.diag(self.posterior_variance),
             size=self.n_samples,
         )
+        row_maxes = np.max(y, axis=1)
+        best_arm_probabilities = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
         if self.config.top_two:
             p = self.top_two_weights(y)
         else:
-            row_maxes = np.max(y, axis=1)
-            p = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
+            p = best_arm_probabilities
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
-        return BanditWeights(update_message=update_message, weights=p.tolist())
+        return BanditWeights(
+            update_message=update_message,
+            weights=p.tolist(),
+            best_arm_probabilities=best_arm_probabilities,
+            seed=seed,
+        )
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod
@@ -455,3 +504,201 @@ class Bandits:
         for i in range(n_variations):
             final_counts[i] = dict_0.get(i, 0) + dict_1.get(i, 0)
         return final_counts / sum(final_counts)
+
+
+class BanditsRatio(Bandits):
+    @property
+    def means_array(self):
+        raise NotImplementedError(
+            "RatioStatistic means cannot be combined over periods"
+        )
+
+    @property
+    def variances_array(self):
+        raise NotImplementedError(
+            "RatioStatistic variances cannot be combined over periods"
+        )
+
+    @property
+    def numerator_means_array(self) -> np.ndarray:
+        return self.attribute_array(self.stats, self.array_shape, "m_statistic", "mean")
+
+    @property
+    def denominator_means_array(self) -> np.ndarray:
+        return self.attribute_array(self.stats, self.array_shape, "d_statistic", "mean")
+
+    @property
+    def numerator_means(self) -> np.ndarray:
+        return self.construct_weighted_means(
+            self.numerator_means_array, self.weights_array
+        )
+
+    @property
+    def denominator_means(self) -> np.ndarray:
+        return self.construct_weighted_means(
+            self.denominator_means_array, self.weights_array
+        )
+
+    @property
+    def variation_means(self) -> np.ndarray:
+        return self.numerator_means / self.denominator_means
+
+    @property
+    def numerator_variances_array(self) -> np.ndarray:
+        return self.attribute_array(
+            self.stats, self.array_shape, "m_statistic", "variance"
+        )
+
+    @property
+    def denominator_variances_array(self) -> np.ndarray:
+        return self.attribute_array(
+            self.stats, self.array_shape, "d_statistic", "variance"
+        )
+
+    @property
+    def ratio_covariances_array(self) -> np.ndarray:
+        return self.attribute_array(self.stats, self.array_shape, "covariance")
+
+    @property
+    def numerator_variances(self) -> np.ndarray:
+        return self.construct_weighted_variances(
+            self.numerator_variances_array, self.weights_array, self.counts_array
+        )
+
+    @property
+    def denominator_variances(self) -> np.ndarray:
+        return self.construct_weighted_variances(
+            self.denominator_variances_array, self.weights_array, self.counts_array
+        )
+
+    @property
+    def covariances(self) -> np.ndarray:
+        return self.construct_weighted_variances(
+            self.ratio_covariances_array, self.weights_array, self.counts_array
+        )
+
+    @property
+    def variation_variances(self) -> np.ndarray:
+        return np.array(
+            [
+                variance_of_ratios(
+                    self.numerator_means[variation],
+                    self.numerator_variances[variation]
+                    / self.variation_counts[variation],
+                    self.denominator_means[variation],
+                    self.denominator_variances[variation]
+                    / self.variation_counts[variation],
+                    self.covariances[variation] / self.variation_counts[variation],
+                )
+                if self.variation_counts[variation] > 0
+                else 0
+                for variation in range(self.num_variations)
+            ]
+        )
+
+    def compute_additional_reward(self) -> float:
+        return 0
+
+
+class BanditsCuped(Bandits):
+    @staticmethod
+    def construct_mean(sums: np.ndarray, counts: np.ndarray) -> np.ndarray:
+        positive_counts = counts > 0
+        means = np.zeros(sums.shape)
+        means[positive_counts] = sums[positive_counts] / counts[positive_counts]
+        return means
+
+    @property
+    def post_sum(self):
+        return self.attribute_array(
+            self.stats, self.array_shape, "post_statistic", "sum"
+        )
+
+    @property
+    def post_mean(self):
+        return self.construct_mean(self.post_sum, self.counts_array)
+
+    @property
+    def post_variance(self):
+        return self.attribute_array(
+            self.stats, self.array_shape, "post_statistic", "variance"
+        )
+
+    @property
+    def pre_sum(self):
+        return self.attribute_array(
+            self.stats, self.array_shape, "pre_statistic", "sum"
+        )
+
+    @property
+    def pre_mean(self):
+        return self.construct_mean(self.pre_sum, self.counts_array)
+
+    @property
+    def pre_variance(self):
+        return self.attribute_array(
+            self.stats, self.array_shape, "pre_statistic", "variance"
+        )
+
+    @property
+    def post_pre_sum_of_products_array(self):
+        return self.attribute_array(
+            self.stats, self.array_shape, "post_pre_sum_of_products"
+        )
+
+    @property
+    def theta_array(self):
+        return self.attribute_array(self.stats, self.array_shape, "theta")
+
+    @property
+    def means_array(self):
+        return self.post_mean - self.theta_array * self.pre_mean
+
+    @property
+    def variances_array(self):
+        return (
+            self.post_variance
+            + pow(self.theta_array, 2) * self.pre_variance
+            - 2 * self.theta_array * self.covariance
+        )
+
+    @property
+    def covariance(self):
+        cov_array = np.zeros(self.array_shape)
+        bigger_than_one = self.counts_array > 1
+        cov_array[bigger_than_one] = (
+            self.post_pre_sum_of_products_array[bigger_than_one]
+            - self.post_sum[bigger_than_one]
+            * self.pre_sum[bigger_than_one]
+            / self.counts_array[bigger_than_one]
+        ) / (
+            self.counts_array[bigger_than_one]
+            - np.ones(self.array_shape)[bigger_than_one]
+        )
+        return cov_array
+
+    @property
+    def variation_means_post(self) -> np.ndarray:
+        return self.construct_weighted_means(self.post_mean, self.weights_array)
+
+    @property
+    def variation_variances_post(self) -> np.ndarray:
+        return self.construct_weighted_variances(
+            self.post_variance, self.weights_array, self.counts_array
+        )
+
+    @property
+    def variation_means_pre(self) -> np.ndarray:
+        return self.construct_weighted_means(self.pre_mean, self.weights_array)
+
+    @property
+    def variation_variances_pre(self) -> np.ndarray:
+        return self.construct_weighted_variances(
+            self.pre_variance, self.weights_array, self.counts_array
+        )
+
+    @property
+    def variation_post_pre_sum_of_products(self) -> np.ndarray:
+        return self.construct_weighted_means(
+            self.post_pre_sum_of_products_array, self.weights_array
+        )

@@ -11,6 +11,8 @@ from gbstats.bayesian.tests import (
     GaussianPrior,
     BanditConfig,
     Bandits,
+    BanditsRatio,
+    BanditsCuped,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -615,7 +617,10 @@ def get_bandit_response(
 ) -> BanditResponse:
     if len(rows) == 0:
         return BanditResponse(
-            banditWeights=None, banditUpdateMessage="no rows", additionalReward=None
+            banditWeights=None,
+            banditUpdateMessage="no rows",
+            additionalReward=None,
+            bestArmProbabilities=None,
         )
     pdrows = pd.DataFrame(rows)
     pdrows = pdrows.loc[pdrows["dimension"] == ""]
@@ -626,22 +631,33 @@ def get_bandit_response(
         var_names=settings.var_names,
         bandit=True,
     )
-    bandit_sample_mean_stats = create_bandit_sample_mean_statistics(df, metric)
-    if any(value is None for value in bandit_sample_mean_stats.values()):
+    bandit_stats = create_bandit_sample_mean_statistics(df, metric)
+    if any(value is None for value in bandit_stats.values()):
         error_str = "not all statistics are instance of type BanditStatistic"
         return BanditResponse(
-            banditWeights=None, banditUpdateMessage=error_str, additionalReward=None
+            banditWeights=None,
+            bestArmProbabilities=None,
+            banditUpdateMessage=error_str,
+            additionalReward=None,
         )
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
         bandit_weights_seed=settings.bandit_weights_seed,
+        weight_by_period=settings.weight_by_period,
+        top_two=settings.top_two,
     )
-    b = Bandits(bandit_sample_mean_stats, bandit_config)
+    if metric.statistic_type == "ratio":
+        b = BanditsRatio(bandit_stats, bandit_config)
+    elif metric.statistic_type == "mean_ra":
+        b = BanditsCuped(bandit_stats, bandit_config)
+    else:
+        b = Bandits(bandit_stats, bandit_config)
     weights = b.compute_variation_weights()
     additional_reward = b.compute_additional_reward()
     return BanditResponse(
         banditWeights=weights.weights,
+        bestArmProbabilities=weights.best_arm_probabilities,
         banditUpdateMessage=weights.update_message,
         additionalReward=additional_reward,
     )
