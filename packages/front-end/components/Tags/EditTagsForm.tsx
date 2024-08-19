@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
+import track from "@/services/track";
 import TagsInput from "./TagsInput";
 
 const EditTagsForm: FC<{
@@ -27,6 +28,9 @@ const EditTagsForm: FC<{
         await save(data.tags);
         refreshTags(data.tags);
         mutate();
+        track("edit-tags", {
+          numTags: data.tags.length,
+        });
       })}
       cta="Save"
     >
