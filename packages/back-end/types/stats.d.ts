@@ -63,6 +63,7 @@ export type ExperimentMetricAnalysis = {
 export type BanditResponse = {
   banditUpdateMessage?: string;
   banditWeights?: number[];
+  bestArmProbabilities?: number[];
   additionalReward: number;
 };
 

@@ -23,6 +23,17 @@ def truncated_normal_mean(mu, sigma, a, b) -> float:
     return float(mn)
 
 
+# given numerator random variable M (mean = mean_m, var = var_m),
+# denominator random variable D (mean = mean_d, var = var_d),
+# and covariance cov_m_d, what is the variance of M / D?
+def variance_of_ratios(mean_m, var_m, mean_d, var_d, cov_m_d) -> float:
+    return (
+        var_m / mean_d**2
+        + var_d * mean_m**2 / mean_d**4
+        - 2 * cov_m_d * mean_m / mean_d**3
+    )
+
+
 # Run a chi-squared test to make sure the observed traffic split matches the expected one
 def check_srm(users: List[int], weights: List[float]) -> float:
     # Convert count of users into ratios

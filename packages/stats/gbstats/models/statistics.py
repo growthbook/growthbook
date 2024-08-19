@@ -4,6 +4,7 @@ from typing import Union
 import numpy as np
 import scipy.stats
 from pydantic.dataclasses import dataclass
+from gbstats.utils import variance_of_ratios
 
 
 @dataclass
@@ -97,15 +98,12 @@ class RatioStatistic(Statistic):
     def variance(self):
         if self.d_statistic.mean == 0 or self.n <= 1:
             return 0
-        return (
-            self.m_statistic.variance / pow(self.d_statistic.mean, 2)
-            - 2
-            * self.covariance
-            * self.m_statistic.mean
-            / pow(self.d_statistic.mean, 3)
-            + pow(self.m_statistic.mean, 2)
-            * self.d_statistic.variance
-            / pow(self.d_statistic.mean, 4)
+        return variance_of_ratios(
+            self.m_statistic.mean,
+            self.m_statistic.variance,
+            self.d_statistic.mean,
+            self.d_statistic.variance,
+            self.covariance,
         )
 
     @property
@@ -302,6 +300,6 @@ TestStatistic = Union[
 BanditStatistic = Union[
     ProportionStatistic,
     SampleMeanStatistic,
-    # RatioStatistic,
-    # RegressionAdjustedStatistic,
+    RatioStatistic,
+    RegressionAdjustedStatistic,
 ]

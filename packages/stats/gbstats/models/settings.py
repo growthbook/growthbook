@@ -31,6 +31,8 @@ class BanditSettingsForStatsEngine:
     var_ids: List[str]
     decision_metric: str = ""
     bandit_weights_seed: int = 100
+    weight_by_period: bool = True
+    top_two: bool = True
 
 
 @dataclass
