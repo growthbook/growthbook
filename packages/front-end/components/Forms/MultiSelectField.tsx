@@ -20,9 +20,9 @@ import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import {
-  GroupedValue,
   ReactSelectProps,
   SingleValue,
+  Option,
   useSelectOptions,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
@@ -73,8 +73,6 @@ const Input = (props: InputProps) => {
   const { onPaste } = props.selectProps;
   return <components.Input onPaste={onPaste} {...props} />;
 };
-
-type Option = SingleValue | GroupedValue;
 
 const MultiSelectField: FC<
   Omit<

@@ -411,9 +411,13 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
-      query: string;
+      query?: string;
       dateCreated: string;
       dateUpdated: string;
+      /** @enum {unknown} */
+      type?: "SQL" | "FACT";
+      factTableId?: string;
+      filters?: (string)[];
     };
     Feature: {
       id: string;
@@ -902,6 +906,7 @@ export interface components {
       sseEnabled?: boolean;
       hashSecureAttributes?: boolean;
       remoteEvalEnabled?: boolean;
+      savedGroupReferencesEnabled?: boolean;
     };
     Experiment: {
       id: string;
@@ -1280,6 +1285,9 @@ export interface components {
       attributeKey?: string;
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
+      description?: string;
+      /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+      passByReferenceOnly?: boolean;
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -2906,18 +2914,22 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             segments: ({
                 id: string;
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
                 name: string;
-                query: string;
+                query?: string;
                 dateCreated: string;
                 dateUpdated: string;
+                /** @enum {unknown} */
+                type?: "SQL" | "FACT";
+                factTableId?: string;
+                filters?: (string)[];
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -2941,9 +2953,13 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
-              query: string;
+              query?: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @enum {unknown} */
+              type?: "SQL" | "FACT";
+              factTableId?: string;
+              filters?: (string)[];
             };
           };
         };
@@ -2995,6 +3011,7 @@ export interface operations {
                 sseEnabled?: boolean;
                 hashSecureAttributes?: boolean;
                 remoteEvalEnabled?: boolean;
+                savedGroupReferencesEnabled?: boolean;
               })[];
           } & {
             limit: number;
@@ -3027,6 +3044,7 @@ export interface operations {
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3061,6 +3079,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3106,6 +3125,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3137,6 +3157,7 @@ export interface operations {
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3171,6 +3192,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -5100,6 +5122,9 @@ export interface operations {
                 attributeKey?: string;
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
+                description?: string;
+                /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+                passByReferenceOnly?: boolean;
               })[];
           }) & {
             limit: number;
@@ -5156,6 +5181,9 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5190,6 +5218,9 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5238,6 +5269,9 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };

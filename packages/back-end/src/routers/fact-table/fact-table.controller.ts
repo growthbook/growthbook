@@ -179,6 +179,17 @@ export const deleteFactTable = async (
     context.permissions.throwPermissionError();
   }
 
+  // check if for fact segments using this before deleting
+  const segments = await context.models.segments.getByFactTableId(factTable.id);
+
+  if (segments.length) {
+    throw new Error(
+      `The following segments are defined via this fact table: ${segments.map(
+        (segment) => `\n - ${segment.name}`
+      )}`
+    );
+  }
+
   await deleteFactTableInDb(context, factTable);
 
   res.status(200).json({
@@ -310,6 +321,19 @@ export const deleteFactFilter = async (
   }
   if (!context.permissions.canDeleteFactFilter(factTable)) {
     context.permissions.throwPermissionError();
+  }
+
+  //Before deleting a fact filter, check if it's used by a fact segment
+  const segments = (
+    await context.models.segments.getByFactTableId(factTable.id)
+  ).filter((segment) => segment.filters?.includes(req.params.filterId));
+
+  if (segments.length) {
+    throw new Error(
+      `The following segments are using this filter: ${segments.map(
+        (segment) => `\n - ${segment.name}`
+      )}`
+    );
   }
 
   await deleteFactFilterInDb(context, factTable, req.params.filterId);

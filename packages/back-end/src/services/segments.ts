@@ -7,8 +7,11 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     name: segment.name,
     owner: segment.owner || "",
     identifierType: segment.userIdType || "user_id",
-    query: segment.sql,
+    query: segment.sql || "",
     datasourceId: segment.datasource || "",
+    type: segment.type,
+    factTableId: segment.factTableId || "",
+    filters: segment.filters || [],
     dateCreated: segment.dateCreated?.toISOString() || "",
     dateUpdated: segment.dateUpdated?.toISOString() || "",
   };

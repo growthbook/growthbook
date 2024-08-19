@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { SavedGroupInterface } from "shared/src/types";
 import { ApiSavedGroup } from "../../types/openapi";
 import {
   CreateSavedGroupProps,
   LegacySavedGroupInterface,
-  SavedGroupInterface,
   UpdateSavedGroupProps,
 } from "../../types/saved-group";
 import { migrateSavedGroup } from "../util/migrations";
@@ -30,6 +30,8 @@ const savedGroupSchema = new mongoose.Schema({
     type: String,
   },
   attributeKey: String,
+  description: String,
+  passByReferenceOnly: Boolean,
 });
 
 type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
@@ -38,6 +40,10 @@ const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
   "savedGroup",
   savedGroupSchema
 );
+
+interface GetAllSavedGroupsOptions {
+  includeLargeSavedGroupValues?: boolean;
+}
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
   const legacy = omit(
@@ -72,11 +78,27 @@ export async function createSavedGroup(
 }
 
 export async function getAllSavedGroups(
-  organization: string
+  organization: string,
+  options: GetAllSavedGroupsOptions = {}
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
-    organization,
-  });
+  const savedGroups: SavedGroupDocument[] =
+    // Query legacy saved groups separately from large (pass-by-reference-only) groups
+    // and conditionally include the values for the latter
+    (
+      await Promise.all([
+        SavedGroupModel.find({
+          organization,
+          passByReferenceOnly: { $in: [null, false] },
+        }),
+        SavedGroupModel.find(
+          {
+            organization,
+            passByReferenceOnly: true,
+          },
+          options.includeLargeSavedGroupValues ? {} : { values: 0 }
+        ),
+      ])
+    ).flat();
   return savedGroups.map(toInterface);
 }
 
@@ -90,6 +112,18 @@ export async function getSavedGroupById(
   });
 
   return savedGroup ? toInterface(savedGroup) : null;
+}
+
+export async function getSavedGroupsById(
+  savedGroupIds: string[],
+  organization: string
+): Promise<SavedGroupInterface[]> {
+  const savedGroups = await SavedGroupModel.find({
+    id: savedGroupIds,
+    organization: organization,
+  });
+
+  return savedGroups ? savedGroups.map((group) => toInterface(group)) : [];
 }
 
 export async function updateSavedGroupById(
@@ -133,5 +167,7 @@ export function toSavedGroupApiInterface(
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
+    description: savedGroup.description,
+    passByReferenceOnly: savedGroup.passByReferenceOnly,
   };
 }

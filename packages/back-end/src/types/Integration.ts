@@ -191,6 +191,7 @@ export type MetricValueParams = {
   to: Date;
   metric: MetricInterface;
   name: string;
+  factTableMap: FactTableMap;
   segment?: SegmentInterface;
   includeByDate?: boolean;
 };
