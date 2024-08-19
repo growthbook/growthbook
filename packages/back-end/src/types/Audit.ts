@@ -44,6 +44,7 @@ export const entityEvents = {
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
   factTable: ["autocreate"],
+  factMetric: ["autocreate"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

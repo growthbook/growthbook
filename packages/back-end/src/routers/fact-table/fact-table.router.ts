@@ -98,7 +98,7 @@ router.get(
 );
 
 router.post(
-  "/fact-tables/auto-metrics",
+  "/fact-tables/auto-metrics/:factTableId",
   //MKTODO: Add validation here
   // validateRequestMiddleware({ params: factTableParams,
   //   body: {metricsToCreate: FactMetricInterface[]}

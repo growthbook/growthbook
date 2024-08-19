@@ -25,10 +25,13 @@ export default function AutoGenerateFactMetricsModal({
       close={() => setShowAutoGenerateFactMetricsModal(false)}
       submit={async () => {
         try {
-          const res = await apiCall(`/fact-tables/auto-metrics`, {
-            method: "POST",
-            body: JSON.stringify({ autoFactMetricsToCreate }),
-          });
+          const res = await apiCall(
+            `/fact-tables/auto-metrics/${factTableId}`,
+            {
+              method: "POST",
+              body: JSON.stringify({ autoFactMetricsToCreate }),
+            }
+          );
           console.log({ res });
         } catch (e) {
           console.log(e);

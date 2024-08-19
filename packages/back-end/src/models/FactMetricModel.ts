@@ -99,11 +99,23 @@ export class FactMetricModel extends BaseClass {
   public async createFactMetrics(metricsToCreate: CreateFactMetricProps[]) {
     const docs: FactMetricInterface[] = [];
     //TODO: Should I do a try/catch block here? And only pass in those that succeed?
-    // validate each metricToCreate
     for (const factMetricToCreate of metricsToCreate) {
       docs.push(await this.getDocFromRawData(factMetricToCreate));
     }
-    return await this._dangerousGetCollection().insertMany(docs);
+
+    const results = await this._dangerousGetCollection().insertMany(docs);
+
+    const insertedFactMetrics: FactMetricInterface[] = [];
+
+    for (const insertedId in results.insertedIds) {
+      const inserted = await this._findOne({
+        _id: results.insertedIds[insertedId],
+      });
+
+      if (inserted) insertedFactMetrics.push(inserted);
+    }
+
+    return insertedFactMetrics;
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
