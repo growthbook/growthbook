@@ -6,6 +6,7 @@
     "dev": "docusaurus start --port 3200 --no-open",
     "docusaurus": "docusaurus",
     "start": "docusaurus start --port 3200",
+    "gen": "ts-node -r tsconfig-paths/register ./scripts/gen-event-webhook-doc.ts",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
@@ -40,7 +41,10 @@
     "@docusaurus/module-type-aliases": "^3.4.0",
     "@docusaurus/types": "^3.4.0",
     "docusaurus-plugin-module-alias": "^0.0.2",
-    "typescript": "^5.3.3"
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.3.3",
+    "zod": "^3.23.8"
   },
   "browserslist": {
     "production": [
