@@ -39,6 +39,10 @@ const eventSchema = new mongoose.Schema({
     required: true,
     enum: zodNotificationEventResources,
   },
+  objectId: {
+    type: String,
+    require: false,
+  },
   event: {
     type: String,
     required: true,
@@ -240,6 +244,7 @@ export type CreateEventParams<
 > = {
   context: ReqContext;
   object: Resource;
+  objectId?: string;
   event: Event;
   data: CreateEventData<Resource, Event, Payload>;
   containsSecrets: boolean;
@@ -254,6 +259,7 @@ export const createEvent = async <
 >({
   context,
   object,
+  objectId,
   event,
   data,
   containsSecrets,
@@ -280,6 +286,7 @@ export const createEvent = async <
         : null,
     },
     organizationId: context.org.id,
+    ...(objectId ? { objectId } : {}),
   });
 
 /**

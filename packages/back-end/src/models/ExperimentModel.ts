@@ -719,6 +719,7 @@ export const logExperimentCreated = async (
   await createEvent({
     context,
     object: "experiment",
+    objectId: experiment.id,
     event: "created",
     data: {
       object: apiExperiment,
@@ -769,6 +770,7 @@ export const logExperimentUpdated = async ({
   await createEvent({
     context,
     object: "experiment",
+    objectId: current.id,
     event: "updated",
     data: {
       object: currentApiExperiment,
@@ -1083,6 +1085,7 @@ export const logExperimentDeleted = async (
   await createEvent({
     context,
     object: "experiment",
+    objectId: experiment.id,
     event: "deleted",
     data: {
       object: apiExperiment,

@@ -40,6 +40,7 @@ const dispatchEvent = async (
     context,
     event: "warning",
     object: "experiment",
+    objectId: experiment.id,
     data: { object: data },
     projects: experiment.project ? [experiment.project] : [],
     environments: changedEnvs,

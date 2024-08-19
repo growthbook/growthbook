@@ -16,6 +16,7 @@ type Webhook = {
     readonly extra?: ZodType<any>;
     readonly description: string;
     readonly isDiff?: boolean;
+    readonly firstVersion?: string;
   };
 };
 

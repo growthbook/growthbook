@@ -433,6 +433,7 @@ export const sendEventWebhookTestEvent = async (
   await createEvent({
     context,
     object: "webhook",
+    objectId: webhook.id,
     event: "test",
     data: { object: { webhookId: webhook.id } },
     containsSecrets: false,

@@ -425,6 +425,7 @@ export const createFeatureEvent = async <
     return {
       ...eventData,
       object: "feature",
+      objectId: eventData.data.object.id,
       data: {
         object: currentApiFeature,
         previous_object: getApiFeatureObj({
