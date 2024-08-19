@@ -217,32 +217,33 @@ We use the MongoDB query syntax because it is easy to read and write and is well
 
 ## Saved Groups
 
-In addition to targeting by attributes, GrowthBook has also the concept of **Saved Groups**, which makes it easy to target the same group of users across multiple features/experiments.
+Target the same group of users across multiple features and experiments with Saved Groups, ensuring consistent user targeting across your projects. For instance, easily manage beta testers or high-value customers by defining a group once and reusing it everywhere.
 
-Once you define your Saved Groups, you can easily reference them from any Feature rule or Experiment. Updates to saved groups apply immediately and will be instantly propagated to all matching Features and Experiments.
+![Saved groups overview](/images/saved-groups-overview.png)
 
-![Saved Group Targeting](/images/saved-groups-targeting.png)
+### Types of Saved Groups
 
-There are two types of Saved Groups:
+#### Condition Groups
 
-- **ID Lists** - Pick an attribute and define a list of values directly within the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
-- **Condition Groups** - Configure advanced targeting rules based on a user's attributes. For example, "all users located in the US on a mobile device".
+Define advanced targeting rules based on user attributes. For example, target users who are located in the US and on a mobile device.
+
+![Saved groups condition, showing how to add a US user on a mobile device](/images/saved-groups-condition.png)
+
+#### ID Lists
+
+Manually define targeted users via text input or by uploading a CSV. For example, create a beta testers saved group by uploading a CSV of user IDs.
+
+ID Lists are limited to 1 MB. Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.
 
 :::note
-
-ID Lists are currently limited to a maximum of **100 values**. These values are included directly in the payload sent to your SDKs and large payloads can slow down your application. Support for largers lists is coming soon!
-
+ID Lists above 100 items require an Enterprise plan and compatible SDK. Enable this feature by editing your SDK connection and toggling on **ID Lists > 100 items**. If the the toggle isn't visible, your SDK is not compatible with this feature.
 :::
 
-![Saved Groups UI](/images/saved-groups.png)
+![Saved Group UI, focusing on adding an ID list](/images/saved-groups-id-list.png)
 
-:::note
+## Prerequisite Targeting
 
-GrowthBook 2.7 introduced a naming change. "Inline Groups" were renamed to "ID Lists". "Runtime Groups" were renamed to "Condition Groups" and now support arbitrary targeting conditions.
-
-Only ID Lists can be referenced in the **Target by Attribute** field. Both types of Saved Groups can be referenced with the newer **Saved Group Targeting** field.
-
-:::
+You can add prerequisite targeting to any feature or experiment. For more information, see the [Prerequisite Features](/features/prerequisites#inline-prerequisite-targeting) page.
 
 ## Prerequisite Targeting
 

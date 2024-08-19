@@ -1,7 +1,14 @@
-import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import { getMatchingRules } from "shared/util";
+import {
+  getMatchingRules,
+  SMALL_GROUP_SIZE_LIMIT,
+  truncateString,
+} from "shared/util";
+import Link from "next/link";
+import { SavedGroupInterface } from "shared/src/types";
+import { FaMagnifyingGlass } from "react-icons/fa6";
+import { PiCellSignalFull, PiInfoFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -12,8 +19,8 @@ import { GBAddCircle } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { MultiValuesDisplay } from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -36,7 +43,7 @@ export default function IdLists({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "list");
   }, [groups]);
 
-  const { features } = useFeaturesList();
+  const { features } = useFeaturesList(false);
 
   const environments = useEnvironments();
 
@@ -70,13 +77,13 @@ export default function IdLists({ groups, mutate }: Props) {
     localStorageKey: "savedGroups",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
-    searchFields: ["groupName^3", "attributeKey^2", "owner", "values"],
+    searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
   });
 
   if (!idLists) return <LoadingOverlay />;
 
   return (
-    <div className="mb-5 appbox p-3 bg-white">
+    <div className="mb-5 p-3 bg-white">
       {savedGroupForm && (
         <SavedGroupForm
           close={() => setSavedGroupForm(null)}
@@ -103,18 +110,24 @@ export default function IdLists({ groups, mutate }: Props) {
         ) : null}
       </div>
       <p className="text-gray mb-1">
-        With <strong>ID Lists</strong>, you pick an attribute and add a list of
-        included values directly within the GrowthBook UI.
+        Specify a list of values to include for an attribute.
       </p>
       <p className="text-gray">
-        For example, a &quot;Beta Testers&quot; group containing a specific set
-        of <code>device_id</code> values.
+        For example, create a &quot;Beta Testers&quot; group identified by a
+        specific set of <code>device_id</code> values.
       </p>
+      {idLists.some((list) => list.passByReferenceOnly) && (
+        <p>
+          <PiInfoFill /> Too many large lists will cause too large of a payload,
+          and your server may not support it.
+        </p>
+      )}
       {idLists.length > 0 && (
         <>
-          <div className="row mb-2 align-items-center">
+          <div className="row mb-4 align-items-center">
             <div className="col-auto">
               <Field
+                prepend={<FaMagnifyingGlass />}
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
@@ -123,12 +136,13 @@ export default function IdLists({ groups, mutate }: Props) {
           </div>
           <div className="row mb-0">
             <div className="col-12">
-              <table className="table appbox gbtable">
+              <table className="table gbtable">
                 <thead>
                   <tr>
+                    <th></th>
                     <SortableTH field={"groupName"}>Name</SortableTH>
                     <SortableTH field="attributeKey">Attribute</SortableTH>
-                    <th>Values</th>
+                    <th>Description</th>
                     <SortableTH field={"owner"}>Owner</SortableTH>
                     <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                     {(canUpdate || canDelete) && <th></th>}
@@ -138,11 +152,29 @@ export default function IdLists({ groups, mutate }: Props) {
                   {items.map((s) => {
                     return (
                       <tr key={s.id}>
-                        <td>{s.groupName}</td>
+                        <td>
+                          {s.passByReferenceOnly && (
+                            <Tooltip
+                              body={`Contains >${SMALL_GROUP_SIZE_LIMIT} items`}
+                              tipPosition="top"
+                            >
+                              <PiCellSignalFull className="text-color-primary h2 mb-0" />
+                            </Tooltip>
+                          )}
+                        </td>
+                        <td>
+                          <Link
+                            className="text-color-primary"
+                            key={s.id}
+                            href={`/saved-groups/${s.id}`}
+                          >
+                            {s.groupName}
+                          </Link>
+                        </td>
                         <td>{s.attributeKey}</td>
                         <td>
                           <div className="d-flex flex-wrap">
-                            <MultiValuesDisplay values={s.values || []} />
+                            {truncateString(s.description || "", 40)}
                           </div>
                         </td>
                         <td>{s.owner}</td>

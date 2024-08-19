@@ -193,7 +193,27 @@ export default function RuleModal({
     prerequisiteTargetingSdkIssues,
     setPrerequisiteTargetingSdkIssues,
   ] = useState(false);
-  const canSubmit = !isCyclic && !prerequisiteTargetingSdkIssues;
+  const [
+    savedGroupTargetingSdkIssues,
+    setSavedGroupTargetingSdkIssues,
+  ] = useState(false);
+  const [
+    attributeTargetingSdkIssues,
+    setAttributeTargetingSdkIssues,
+  ] = useState(false);
+  const canSubmit = useMemo(() => {
+    return (
+      !isCyclic &&
+      !prerequisiteTargetingSdkIssues &&
+      !savedGroupTargetingSdkIssues &&
+      !attributeTargetingSdkIssues
+    );
+  }, [
+    isCyclic,
+    prerequisiteTargetingSdkIssues,
+    savedGroupTargetingSdkIssues,
+    attributeTargetingSdkIssues,
+  ]);
 
   if (showUpgradeModal) {
     return (
@@ -745,9 +765,7 @@ export default function RuleModal({
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
               }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
+              helpText={"The globally unique tracking key for the experiment"}
             />
           </div>
         </div>
@@ -812,6 +830,8 @@ export default function RuleModal({
             setValue={(savedGroups) =>
               form.setValue("savedGroups", savedGroups)
             }
+            project={feature.project || ""}
+            setSavedGroupTargetingSdkIssues={setSavedGroupTargetingSdkIssues}
           />
           <hr />
           <ConditionInput
@@ -819,6 +839,7 @@ export default function RuleModal({
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
             project={feature.project || ""}
+            setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
           />
           <hr />
           <PrerequisiteTargetingField

@@ -293,3 +293,39 @@ updated:>"2024-06-05" has:experiment
 ```
 
 Show all features that have experiment rules and were updated after June 5th, 2024
+
+### Metrics Syntax Fields
+
+| Syntax field | Description                                                                                                                                                                                                                                                                                                                                                                         |
+| :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| name         | The metric name (eg: name:~revenue)                                                                                                                                                                                                                                                                                                                                                 |
+| id           | The metric's id (eg: id:met_abc123)                                                                                                                                                                                                                                                                                                                                                 |
+| type         | The type of metric. Either `proportion`, `mean`, `ratio`, or `quantile`. We also support some legacy naming if you prefer to search with that: `binomial`, `count`, `revenue`, and `duration`.                                                                                                                                                                                      |
+| owner        | The creator of the metric (eg: owner:pat)                                                                                                                                                                                                                                                                                                                                           |
+| tag          | Search by metric tag tag                                                                                                                                                                                                                                                                                                                                                            |
+| project      | The metric's project                                                                                                                                                                                                                                                                                                                                                                |
+| datasource   | Metrics that use a specific data source (eg: datasource:bigquery)                                                                                                                                                                                                                                                                                                                   |
+| created      | The metric's creation date, in UTC. The date entered is parsed so supports most formats                                                                                                                                                                                                                                                                                             |
+| updated      | The date the metric was last updated, in UTC. The date entered is parsed so supports most formats                                                                                                                                                                                                                                                                                   |
+| is           | supports searching on the metric properties. Supported fields <br /><br /><table><tbody><tr><td>archived</td><td>If the metric is archived</td></tr><tr><td>official</td><td>If the metric is Official and managed by the API or a config file instead of the GrowthBook UI</td></tr><tr><td>fact</td><td>If the metric is defined on top of a Fact Table</td></tr></tbody></table> |
+| has          | supports searching on various metric properties. Supported fields <br /><br /><table><tbody><tr><td>projects</td><td>The metric is scoped to specific projects</td></tr><tr><td>tags</td><td>The metric has at least one tag</td></tr><tr><td>datasource</td><td>The metric has a datasource</td></tr></tbody></table>                                                              |
+
+#### Examples
+
+```
+type:ratio name:~session
+```
+
+All ratio metrics where the name contains "session"
+
+```
+tag:checkout is:fact
+```
+
+All fact metrics with the tag "checkout"
+
+```
+updated:>"2024-06-05" owner:jeremy
+```
+
+Show all metrics owned by "jeremy" that were updated after June 5th, 2024

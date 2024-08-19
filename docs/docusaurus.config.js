@@ -32,13 +32,15 @@ const config = {
       "data-website-id": "c4406b9f-35c5-43ca-b0c1-e7c0e261831f", // Safe to expose publicly
       "data-project-name": "GrowthBook",
       "data-project-color": "#7817d3",
-      "data-modal-example-questions": "How do I run an experiment?",
-      "data-project-logo":
-        "https://docs.growthbook.io/images/chatbot-icon-white.png",
+      "data-modal-example-questions":
+        "How do I create a feature flag?, How do I run an experiment?",
+      "data-project-logo": "/img/gb-logo-white.svg",
+      "data-modal-image": "/img/gb-logo-ai.svg",
+      "data-button-width": "72px",
+      "data-button-height": "72px",
       async: true,
     },
   ],
-
   presets: [
     [
       "classic",
