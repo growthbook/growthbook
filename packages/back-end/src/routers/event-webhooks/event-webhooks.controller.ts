@@ -360,13 +360,9 @@ type PostTestEventWebHooksRequest = AuthRequest & {
   };
 };
 
-type PostTestEventWebHooksResponse = {
-  eventId: string;
-};
-
 export const createTestEventWebHook = async (
   req: PostTestEventWebHooksRequest,
-  res: Response<PostTestEventWebHooksResponse | PrivateApiErrorResponse>
+  res: Response<unknown | PrivateApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
 

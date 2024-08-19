@@ -125,7 +125,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     try {
       const response = await apiCall<{
         error?: string;
-        eventId?: string;
       }>("/event-webhooks/test", {
         method: "POST",
         body: JSON.stringify({ webhookId }),
