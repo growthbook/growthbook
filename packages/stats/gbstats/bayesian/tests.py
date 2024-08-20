@@ -153,7 +153,7 @@ class EffectBayesianABTest(BayesianABTest):
                 self.config.prior_effect.proper,
             )
         elif not self.relative and self.config.prior_type == "relative":
-            if self.config.prior_effect.proper and self.stat_a.unadjusted_mean <= 0:
+            if self.config.prior_effect.proper and self.stat_a.unadjusted_mean == 0:
                 return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
             scaled_prior_effect = GaussianPrior(
                 self.config.prior_effect.mean * abs(self.stat_a.unadjusted_mean),
@@ -178,7 +178,7 @@ class EffectBayesianABTest(BayesianABTest):
         )
 
         post_prec = 1 / data_variance + (
-            0 if not scaled_prior_effect.proper else 1 / scaled_prior_effect.variance
+            1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
         )
         self.mean_diff = (
             (
