@@ -52,16 +52,8 @@ const SavedGroupForm: FC<{
       type,
       values: current.values || [],
       description: current.description || "",
-      passByReferenceOnly: current.passByReferenceOnly || false,
     },
   });
-
-  const [disableSubmit, setDisableSubmit] = useState(false);
-
-  const [
-    attributeTargetingSdkIssues,
-    setAttributeTargetingSdkIssues,
-  ] = useState(false);
 
   const isValid =
     !!form.watch("groupName") &&
@@ -84,7 +76,7 @@ const SavedGroupForm: FC<{
         type === "condition" ? "Condition Group" : "ID List"
       }`}
       cta={current.id ? "Save" : "Submit"}
-      ctaEnabled={isValid && !disableSubmit && !attributeTargetingSdkIssues}
+      ctaEnabled={isValid}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
           const conditionRes = validateAndFixCondition(value.condition, (c) => {
@@ -104,7 +96,6 @@ const SavedGroupForm: FC<{
             owner: value.owner,
             values: value.values,
             description: value.description,
-            passByReferenceOnly: value.passByReferenceOnly,
           };
           await apiCall(`/saved-groups/${current.id}`, {
             method: "PUT",
@@ -191,7 +182,6 @@ const SavedGroupForm: FC<{
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require
-          setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
         />
       ) : (
         <>
@@ -212,17 +202,9 @@ const SavedGroupForm: FC<{
           {!current.id && (
             <IdListItemInput
               values={form.watch("values") || []}
-              passByReferenceOnly={false}
-              bypassSmallListSizeLimit={false}
               setValues={(newValues) => {
                 form.setValue("values", newValues);
               }}
-              setPassByReferenceOnly={(passByReferenceOnly) =>
-                form.setValue("passByReferenceOnly", passByReferenceOnly)
-              }
-              groupReferencedByUnsupportedSdks={false}
-              disableSubmit={disableSubmit}
-              setDisableSubmit={setDisableSubmit}
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           )}

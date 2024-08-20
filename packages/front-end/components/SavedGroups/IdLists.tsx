@@ -1,14 +1,10 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import {
-  getMatchingRules,
-  SMALL_GROUP_SIZE_LIMIT,
-  truncateString,
-} from "shared/util";
+import { getMatchingRules, truncateString } from "shared/util";
 import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { PiCellSignalFull, PiInfoFill } from "react-icons/pi";
+import { PiInfoFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -20,7 +16,6 @@ import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -116,12 +111,12 @@ export default function IdLists({ groups, mutate }: Props) {
         For example, create a &quot;Beta Testers&quot; group identified by a
         specific set of <code>device_id</code> values.
       </p>
-      {idLists.some((list) => list.passByReferenceOnly) && (
-        <p>
-          <PiInfoFill /> Too many large lists will cause too large of a payload,
-          and your server may not support it.
-        </p>
-      )}
+
+      <p>
+        <PiInfoFill /> Too many large lists will cause too large of a payload,
+        and your server may not support it.
+      </p>
+      {/* TODO: add upsell here */}
       {idLists.length > 0 && (
         <>
           <div className="row mb-4 align-items-center">
@@ -139,7 +134,6 @@ export default function IdLists({ groups, mutate }: Props) {
               <table className="table gbtable">
                 <thead>
                   <tr>
-                    <th></th>
                     <SortableTH field={"groupName"}>Name</SortableTH>
                     <SortableTH field="attributeKey">Attribute</SortableTH>
                     <th>Description</th>
@@ -152,16 +146,6 @@ export default function IdLists({ groups, mutate }: Props) {
                   {items.map((s) => {
                     return (
                       <tr key={s.id}>
-                        <td>
-                          {s.passByReferenceOnly && (
-                            <Tooltip
-                              body={`Contains >${SMALL_GROUP_SIZE_LIMIT} items`}
-                              tipPosition="top"
-                            >
-                              <PiCellSignalFull className="text-color-primary h2 mb-0" />
-                            </Tooltip>
-                          )}
-                        </td>
                         <td>
                           <Link
                             className="text-color-primary"

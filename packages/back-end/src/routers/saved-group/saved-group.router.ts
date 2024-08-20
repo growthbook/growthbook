@@ -53,7 +53,6 @@ router.post(
     body: z
       .object({
         items: z.array(z.string()),
-        passByReferenceOnly: z.boolean().optional(),
       })
       .strict(),
   }),
@@ -71,7 +70,6 @@ router.post(
     body: z
       .object({
         items: z.array(z.string()),
-        passByReferenceOnly: z.boolean().optional(),
       })
       .strict(),
   }),

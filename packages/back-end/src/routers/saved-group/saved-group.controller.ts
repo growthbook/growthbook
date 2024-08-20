@@ -31,7 +31,7 @@ import { savedGroupUpdated } from "../../services/savedGroups";
 // region GET /saved-groups
 type ListSavedGroupsRequest = AuthRequest<
   Record<string, never>,
-  { includeLargeSavedGroupValues: boolean }
+  Record<string, never>
 >;
 
 type ListSavedGroupsResponse = {
@@ -51,15 +51,12 @@ export const getSavedGroups = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { includeLargeSavedGroupValues } = req.params;
 
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
   }
 
-  const savedGroups = await getAllSavedGroups(org.id, {
-    includeLargeSavedGroupValues,
-  });
+  const savedGroups = await getAllSavedGroups(org.id);
 
   return res.status(200).json({
     status: 200,
@@ -98,7 +95,6 @@ export const postSavedGroup = async (
     type,
     condition,
     description,
-    passByReferenceOnly,
   } = req.body;
 
   if (!context.permissions.canCreateSavedGroup()) {
@@ -144,7 +140,6 @@ export const postSavedGroup = async (
     owner: owner || userName,
     attributeKey,
     description,
-    passByReferenceOnly,
   });
 
   await req.audit({
@@ -209,7 +204,7 @@ export const getSavedGroup = async (
 // region POST /saved-groups/:id/add-items
 
 type PostSavedGroupAddItemsRequest = AuthRequest<
-  { items: string[]; passByReferenceOnly?: boolean },
+  { items: string[] },
   { id: string }
 >;
 
@@ -230,7 +225,7 @@ export const postSavedGroupAddItems = async (
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { items, passByReferenceOnly } = req.body;
+  const { items } = req.body;
 
   if (!id) {
     throw new Error("Must specify saved group id");
@@ -271,8 +266,6 @@ export const postSavedGroupAddItems = async (
 
   const changes = await updateSavedGroupById(id, org.id, {
     values: newValues,
-    passByReferenceOnly:
-      passByReferenceOnly || savedGroup.passByReferenceOnly || false,
   });
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
@@ -299,7 +292,7 @@ export const postSavedGroupAddItems = async (
 // region POST /saved-groups/:id/remove-items
 
 type PostSavedGroupRemoveItemsRequest = AuthRequest<
-  { items: string[]; passByReferenceOnly?: boolean },
+  { items: string[] },
   { id: string }
 >;
 
@@ -397,14 +390,7 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const {
-    groupName,
-    owner,
-    values,
-    condition,
-    description,
-    passByReferenceOnly,
-  } = req.body;
+  const { groupName, owner, values, condition, description } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -457,10 +443,6 @@ export const putSavedGroup = async (
       throw new Error("Description must be at most 100 characters");
     }
     fieldsToUpdate.description = description;
-  }
-
-  if (passByReferenceOnly !== savedGroup.passByReferenceOnly) {
-    fieldsToUpdate.passByReferenceOnly = passByReferenceOnly;
   }
 
   // If there are no changes, return early

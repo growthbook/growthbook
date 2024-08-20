@@ -6,7 +6,6 @@ import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp, PiInfoFill } from "react-icons/pi";
 import Link from "next/link";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -18,7 +17,6 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -35,7 +33,6 @@ export default function EditSavedGroupPage() {
   const savedGroup = data?.savedGroup;
   const { features } = useFeaturesList(false);
   const environments = useEnvironments();
-  const { data: sdkConnectionData } = useSDKConnections();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
@@ -54,7 +51,6 @@ export default function EditSavedGroupPage() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
-  const [disableSubmit, setDisableSubmit] = useState(true);
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
     "replace"
   );
@@ -65,9 +61,6 @@ export default function EditSavedGroupPage() {
   ] = useState<null | Partial<SavedGroupInterface>>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [passByReferenceOnly, setPassByReferenceOnly] = useState(
-    savedGroup?.passByReferenceOnly || false
-  );
 
   const mutateValues = useCallback(
     (newValues: string[]) => {
@@ -82,14 +75,9 @@ export default function EditSavedGroupPage() {
     [mutate, savedGroup]
   );
 
-  const {
-    featuresReferencingSavedGroup,
-    projectsReferencingSavedGroup,
-  } = useMemo(() => {
+  const featuresReferencingSavedGroup = useMemo(() => {
     const featuresReferencingSavedGroup: Set<string> = new Set();
-    const projectsReferencingSavedGroup: Set<string> = new Set();
-    if (!savedGroup)
-      return { featuresReferencingSavedGroup, projectsReferencingSavedGroup };
+    if (!savedGroup) return featuresReferencingSavedGroup;
     features.forEach((feature) => {
       const matches = getMatchingRules(
         feature,
@@ -102,42 +90,17 @@ export default function EditSavedGroupPage() {
 
       if (matches.length > 0) {
         featuresReferencingSavedGroup.add(feature.id);
-        projectsReferencingSavedGroup.add(feature.project || "");
       }
     });
-    return { featuresReferencingSavedGroup, projectsReferencingSavedGroup };
+    return featuresReferencingSavedGroup;
   }, [savedGroup, features, environments]);
-
-  const referencingUnsupportedSdkConnections = useMemo(() => {
-    if (projectsReferencingSavedGroup.size === 0) {
-      return [];
-    }
-    return (sdkConnectionData?.connections || []).filter((connection) => {
-      return (
-        (!getConnectionSDKCapabilities(connection).includes(
-          "savedGroupReferences"
-        ) ||
-          !connection.savedGroupReferencesEnabled) &&
-        (connection.projects?.length === 0 ||
-          connection.projects?.some((project) =>
-            projectsReferencingSavedGroup.has(project)
-          ))
-      );
-    });
-  }, [sdkConnectionData, projectsReferencingSavedGroup]);
-
-  const convertingLegacyWithUnsupportedConnections =
-    !savedGroup?.passByReferenceOnly &&
-    passByReferenceOnly &&
-    referencingUnsupportedSdkConnections.length > 0;
 
   const getConfirmationContent = useMemo(() => {
     return getSavedGroupMessage(featuresReferencingSavedGroup);
   }, [featuresReferencingSavedGroup]);
 
-  const legacyLargeSavedGroup =
-    (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
-    !savedGroup?.passByReferenceOnly;
+  const showSavedGroupPerfWarning =
+    (savedGroup?.values?.length || 0) > SMALL_GROUP_SIZE_LIMIT;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -181,11 +144,7 @@ export default function EditSavedGroupPage() {
           size="lg"
           header="Add Items to List"
           cta="Save"
-          ctaEnabled={
-            itemsToAdd.length > 0 &&
-            !disableSubmit &&
-            !convertingLegacyWithUnsupportedConnections
-          }
+          ctaEnabled={itemsToAdd.length > 0}
           submit={async () => {
             let newValues: Set<string>;
             if (importOperation === "append") {
@@ -193,7 +152,6 @@ export default function EditSavedGroupPage() {
                 method: "POST",
                 body: JSON.stringify({
                   items: itemsToAdd,
-                  passByReferenceOnly,
                 }),
               });
               newValues = new Set([...values, ...itemsToAdd]);
@@ -202,7 +160,6 @@ export default function EditSavedGroupPage() {
                 method: "PUT",
                 body: JSON.stringify({
                   values: itemsToAdd,
-                  passByReferenceOnly,
                 }),
               });
               newValues = new Set(itemsToAdd);
@@ -251,23 +208,7 @@ export default function EditSavedGroupPage() {
             </div>
             <IdListItemInput
               values={itemsToAdd}
-              passByReferenceOnly={savedGroup.passByReferenceOnly || false}
-              bypassSmallListSizeLimit={legacyLargeSavedGroup}
-              groupReferencedByUnsupportedSdks={
-                referencingUnsupportedSdkConnections.length > 0
-              }
               setValues={(newValues) => setItemsToAdd(newValues)}
-              setPassByReferenceOnly={setPassByReferenceOnly}
-              disableSubmit={
-                disableSubmit || convertingLegacyWithUnsupportedConnections
-              }
-              setDisableSubmit={setDisableSubmit}
-              limit={
-                SMALL_GROUP_SIZE_LIMIT -
-                (importOperation === "append"
-                  ? savedGroup.values?.length || 0
-                  : 0)
-              }
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </>
@@ -326,12 +267,10 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div>{savedGroup.description}</div>
-        {legacyLargeSavedGroup && (
+        {showSavedGroupPerfWarning && (
           <div className="alert alert-info">
             <PiInfoFill style={{ marginTop: "-2px" }} />
-            We&apos;ve added new restrictions on how large ID lists (over{" "}
-            {SMALL_GROUP_SIZE_LIMIT} items) can be used. This ID list has been
-            grandfathered in, and is not subject to these restrictions.{" "}
+            TODO: new info/warning/upsell here
             <DocLink docSection="savedGroups">Learn more</DocLink>
           </div>
         )}
