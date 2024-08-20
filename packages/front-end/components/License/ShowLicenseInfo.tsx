@@ -83,14 +83,14 @@ const ShowLicenseInfo: FC<{
             {permissionsUtil.canManageBilling() && !usesLicenseInfoOnModel && (
               <div className="form-group row mt-3 mb-0">
                 {showInput && (
-                  <div className="col-sm-2">
+                  <div className="col-auto mr-3 nowrap">
                     <div>
                       <strong>License Key: </strong>
                     </div>
                     <div
-                      className="d-inline-block mt-1 mb-2 text-center text-muted"
+                      className="d-inline-block mt-1 mb-2 nowrap text-center text-muted"
                       style={{
-                        width: 100,
+                        width: 105,
                         borderBottom: "1px solid #cccccc",
                         pointerEvents: "none",
                         overflow: "hidden",
@@ -152,7 +152,7 @@ const ShowLicenseInfo: FC<{
                 {license && (
                   <>
                     {license.id.startsWith("license") && (
-                      <div className="col">
+                      <div className="col-2">
                         <RefreshLicenseButton />
                       </div>
                     )}

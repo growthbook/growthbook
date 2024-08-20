@@ -11,6 +11,7 @@ import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
+import SharedConnectionSettings from "./SharedConnectionSettings";
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -27,12 +28,20 @@ export default function ConnectionSettings({
   setDirty,
   hasError,
 }: Props) {
-  const setParams = (params: { [key: string]: string }) => {
+  // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
+  const setParams = (
+    params: { [key: string]: string },
+    settings: { [key: string]: string } = {}
+  ) => {
     const newVal = {
       ...datasource,
       params: {
         ...datasource.params,
         ...params,
+      },
+      settings: {
+        ...datasource.settings,
+        ...settings,
       },
     };
 
@@ -42,6 +51,9 @@ export default function ConnectionSettings({
   const onParamChange: ChangeEventHandler<HTMLInputElement> = (e) => {
     setParams({ [e.target.name]: e.target.value });
   };
+  const onSettingChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+    setParams({}, { [e.target.name]: e.target.value });
+  };
   const onManualParamChange = (name, value) => {
     setParams({ [name]: value });
   };
@@ -49,9 +61,10 @@ export default function ConnectionSettings({
   if (!datasource.type) return null;
 
   let invalidType: never;
+  let datasourceComponent = <></>;
   switch (datasource.type) {
     case "athena":
-      return (
+      datasourceComponent = (
         <AthenaForm
           existing={existing}
           onParamChange={onParamChange}
@@ -59,9 +72,9 @@ export default function ConnectionSettings({
           setParams={setParams}
         />
       );
-
+      break;
     case "presto":
-      return (
+      datasourceComponent = (
         <PrestoForm
           existing={existing}
           onParamChange={onParamChange}
@@ -70,9 +83,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "databricks":
-      return (
+      datasourceComponent = (
         <DatabricksForm
           existing={existing}
           onParamChange={onParamChange}
@@ -80,9 +93,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "redshift":
-      return (
+      datasourceComponent = (
         <PostgresForm
           existing={existing}
           onParamChange={onParamChange}
@@ -90,9 +103,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "postgres":
-      return (
+      datasourceComponent = (
         <PostgresForm
           existing={existing}
           onParamChange={onParamChange}
@@ -100,9 +113,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "vertica":
-      return (
+      datasourceComponent = (
         <PostgresForm
           existing={existing}
           onParamChange={onParamChange}
@@ -110,9 +123,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "mysql":
-      return (
+      datasourceComponent = (
         <MysqlForm
           existing={existing}
           onParamChange={onParamChange}
@@ -120,9 +133,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "mssql":
-      return (
+      datasourceComponent = (
         <MssqlForm
           existing={existing}
           onParamChange={onParamChange}
@@ -130,9 +143,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "google_analytics":
-      return (
+      datasourceComponent = (
         <GoogleAnalyticsForm
           existing={existing}
           onParamChange={onParamChange}
@@ -142,18 +155,18 @@ export default function ConnectionSettings({
           projects={datasource?.projects || []}
         />
       );
-
+      break;
     case "snowflake":
-      return (
+      datasourceComponent = (
         <SnowflakeForm
           existing={existing}
           onParamChange={onParamChange}
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "clickhouse":
-      return (
+      datasourceComponent = (
         <ClickHouseForm
           existing={existing}
           onParamChange={onParamChange}
@@ -161,9 +174,9 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     case "bigquery":
-      return (
+      datasourceComponent = (
         <BigQueryForm
           existing={existing}
           setParams={setParams}
@@ -171,9 +184,9 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
         />
       );
-
+      break;
     case "mixpanel":
-      return (
+      datasourceComponent = (
         <MixpanelForm
           existing={existing}
           onParamChange={onParamChange}
@@ -181,9 +194,18 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
         />
       );
-
+      break;
     default:
       invalidType = datasource.type;
       throw `Invalid type: ${invalidType}`;
   }
+  return (
+    <>
+      {datasourceComponent}
+      <SharedConnectionSettings
+        onSettingChange={onSettingChange}
+        settings={datasource?.settings || {}}
+      />
+    </>
+  );
 }
