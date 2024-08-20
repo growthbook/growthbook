@@ -11,6 +11,7 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
+  determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
@@ -21,7 +22,7 @@ import {
   getContextForAgendaJobByOrgId,
 } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
+import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
 import { notifyAutoUpdate } from "../services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
@@ -189,6 +190,29 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     logger.info(
       "Successfully Refreshed Results for experiment " + experimentId
     );
+
+    if (experiment.type === "multi-armed-bandit") {
+      const changes: Changeset = {};
+
+      switch (experiment.banditPhase) {
+        case "explore":
+          changes.banditPhase = "exploit";
+          changes.banditPhaseDateStarted = new Date();
+          break;
+        case "exploit":
+          // todo: set weights
+          // todo: persist weight changes to log
+          break;
+      }
+      const nextUpdate = determineNextBanditSchedule(changes);
+      changes.nextSnapshotAttempt = nextUpdate;
+
+      await updateExperiment({
+        context,
+        experiment,
+        changes,
+      });
+    }
 
     // todo: eliminate this code path entirely in favor of proper notifications?
     if (experiment.type !== "multi-armed-bandit") {
