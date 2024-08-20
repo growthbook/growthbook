@@ -334,12 +334,12 @@ async function _getSnapshot(
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot(
-    experimentObj.id,
-    parseInt(phase),
+  return await getLatestSnapshot({
+    experiment: experimentObj.id,
+    phase: parseInt(phase),
     dimension,
-    withResults
-  );
+    withResults,
+  });
 }
 
 async function _getSnapshots(

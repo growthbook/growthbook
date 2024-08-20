@@ -192,10 +192,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     // todo: eliminate this code path entirely in favor of proper notifications?
     if (experiment.type !== "multi-armed-bandit") {
-      const lastSnapshot = await getLatestSnapshot(
-        experiment.id,
-        experiment.phases.length - 1
-      );
+      const lastSnapshot = await getLatestSnapshot({
+        experiment: experiment.id,
+        phase: experiment.phases.length - 1,
+      });
       if (lastSnapshot) {
         await sendSignificanceEmail(
           context,

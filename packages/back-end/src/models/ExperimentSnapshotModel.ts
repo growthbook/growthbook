@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import {
+  CreateSnapshotSource,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
@@ -290,17 +291,27 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
-export async function getLatestSnapshot(
-  experiment: string,
-  phase: number,
-  dimension?: string,
-  withResults: boolean = true
-): Promise<ExperimentSnapshotInterface | null> {
+export async function getLatestSnapshot({
+  experiment,
+  phase,
+  dimension,
+  withResults = true,
+  source,
+}: {
+  experiment: string;
+  phase: number;
+  dimension?: string;
+  withResults?: boolean;
+  source?: CreateSnapshotSource;
+}): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     experiment,
     phase,
     dimension: dimension || null,
   };
+  if (source) {
+    query.source = source;
+  }
 
   // First try getting new snapshots that have a `status` field
   let all = await ExperimentSnapshotModel.find(
