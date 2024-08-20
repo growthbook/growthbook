@@ -1141,7 +1141,7 @@ export default function SDKConnectionForm({
                           Reduce the size of your payload by moving ID List
                           Saved Groups from inline evaluation to a separate key
                           in the payload json. Re-using an ID List in multiple
-                          features/experiments will no longer meaningfully
+                          features or experiments will no longer meaningfully
                           increase the size of your payload.
                         </p>
                         <p>
