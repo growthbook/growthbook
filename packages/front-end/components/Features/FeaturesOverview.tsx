@@ -38,8 +38,6 @@ import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
-import EditProjectForm from "@/components/Experiment/EditProjectForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import {
   getFeatureDefaultValue,
@@ -56,7 +54,6 @@ import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import DiscussionThread from "@/components/DiscussionThread";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -88,12 +85,6 @@ export default function FeaturesOverview({
   revisions,
   experiments,
   mutate,
-  editProjectModal,
-  setEditProjectModal,
-  editTagsModal,
-  setEditTagsModal,
-  editOwnerModal,
-  setEditOwnerModal,
   version,
   setVersion,
   dependents,
@@ -106,12 +97,6 @@ export default function FeaturesOverview({
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => Promise<unknown>;
-  editProjectModal: boolean;
-  setEditProjectModal: (b: boolean) => void;
-  editTagsModal: boolean;
-  setEditTagsModal: (b: boolean) => void;
-  editOwnerModal: boolean;
-  setEditOwnerModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
   dependents: number;
@@ -1220,19 +1205,6 @@ export default function FeaturesOverview({
             setVersion={setVersion}
           />
         )}
-        {editOwnerModal && (
-          <EditOwnerModal
-            cancel={() => setEditOwnerModal(false)}
-            owner={feature.owner}
-            save={async (owner) => {
-              await apiCall(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ owner }),
-              });
-            }}
-            mutate={mutate}
-          />
-        )}
         {editValidator && (
           <EditSchemaModal
             close={() => setEditValidator(false)}
@@ -1264,34 +1236,6 @@ export default function FeaturesOverview({
             mutate={mutate}
           />
         )}
-        {editProjectModal && (
-          <EditProjectForm
-            label={
-              <>
-                Projects{" "}
-                <Tooltip
-                  body={
-                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
-                  }
-                />
-              </>
-            }
-            permissionRequired={(project) =>
-              permissionsUtil.canUpdateFeature({ project }, {})
-            }
-            apiEndpoint={`/feature/${feature.id}`}
-            cancel={() => setEditProjectModal(false)}
-            mutate={mutate}
-            method="PUT"
-            current={feature.project}
-            additionalMessage={
-              <div className="alert alert-danger">
-                Changing the project may prevent this Feature Flag and any
-                linked Experiments from being sent to users.
-              </div>
-            }
-          />
-        )}
         {revertIndex > 0 && (
           <RevertModal
             close={() => setRevertIndex(0)}
@@ -1316,19 +1260,6 @@ export default function FeaturesOverview({
             <h3>Revision {revision.version}</h3>
             <Revisionlog feature={feature} revision={revision} />
           </Modal>
-        )}
-        {editTagsModal && (
-          <EditTagsForm
-            tags={feature.tags || []}
-            save={async (tags) => {
-              await apiCall(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ tags }),
-              });
-            }}
-            cancel={() => setEditTagsModal(false)}
-            mutate={mutate}
-          />
         )}
         {reviewModal && revision && (
           <RequestReviewModal
