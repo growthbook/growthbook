@@ -3,26 +3,26 @@ import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import {
-  DEFAULT_STATS_ENGINE,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import {
-  getSnapshotAnalysis,
+  DRAFT_REVISION_STATUSES,
   generateVariationId,
-  isAnalysisAllowed,
   getMatchingRules,
+  getSnapshotAnalysis,
+  isAnalysisAllowed,
+  isDefined,
   MatchingRule,
   validateCondition,
-  isDefined,
-  DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -38,6 +38,7 @@ import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {
+  CreateSnapshotSource,
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -102,7 +103,7 @@ import {
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
+import { getQueryMap, QueryMap } from "../queryRunners/QueryRunner";
 import { FactTableMap, getFactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
@@ -110,14 +111,14 @@ import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel"
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
 import { ProjectInterface } from "../../types/project";
-import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { getMetricForSnapshot, getReportVariations } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
+  analyzeExperimentResults,
+  getMetricsAndQueryDataForStatsEngine,
+  getMetricSettingsForStatsEngine,
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-  analyzeExperimentResults,
-  getMetricSettingsForStatsEngine,
-  getMetricsAndQueryDataForStatsEngine,
   runSnapshotAnalyses,
   runSnapshotAnalysis,
   writeSnapshotAnalyses,
@@ -511,11 +512,10 @@ export async function createManualSnapshot({
         ],
       },
     ],
+    source: "manual",
   };
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
-
-  return snapshot;
+  return await createExperimentSnapshotModel({ data, context });
 }
 
 export async function parseDimensionId(
@@ -623,6 +623,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
+  source,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -633,6 +634,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  source: CreateSnapshotSource;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -679,21 +681,29 @@ export async function createSnapshot({
         }),
     ],
     status: "running",
+    source,
   };
 
-  const nextUpdate =
-    determineNextDate(organization.settings?.updateSchedule || null) ||
-    undefined;
+  let scheduleNextSnapshot = true;
+  if (experiment.type === "multi-armed-bandit" && source !== "schedule") {
+    scheduleNextSnapshot = false;
+  }
 
-  await updateExperiment({
-    context,
-    experiment,
-    changes: {
-      lastSnapshotAttempt: new Date(),
-      nextSnapshotAttempt: nextUpdate,
-      autoSnapshots: nextUpdate !== null,
-    },
-  });
+  if (scheduleNextSnapshot) {
+    const nextUpdate =
+      determineNextDate(organization.settings?.updateSchedule || null) ||
+      undefined;
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        lastSnapshotAttempt: new Date(),
+        nextSnapshotAttempt: nextUpdate,
+        autoSnapshots: nextUpdate !== null,
+      },
+    });
+  }
 
   const snapshot = await createExperimentSnapshotModel({ data, context });
 

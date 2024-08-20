@@ -89,6 +89,7 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import {
+  CreateSnapshotSource,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
@@ -651,6 +652,7 @@ export async function postExperiments(
           dimension: "",
           phase: 0,
           useCache: true,
+          source: "ad-hoc",
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -1893,6 +1895,7 @@ async function createExperimentSnapshot({
   dimension,
   phase,
   useCache = true,
+  source,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1900,6 +1903,7 @@ async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
+  source: CreateSnapshotSource;
 }) {
   let project = null;
   if (experiment.project) {
@@ -1964,6 +1968,7 @@ async function createExperimentSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
+    source,
   });
   const snapshot = queryRunner.model;
 
@@ -2093,6 +2098,7 @@ export async function postSnapshot(
       dimension,
       phase,
       useCache,
+      source: "ad-hoc",
     });
 
     await req.audit({

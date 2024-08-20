@@ -116,6 +116,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   ],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
+  source: String,
 });
 experimentSnapshotSchema.index({
   experiment: 1,

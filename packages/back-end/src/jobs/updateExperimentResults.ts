@@ -153,10 +153,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
-    const lastSnapshot = await getLatestSnapshot(
-      experiment.id,
-      experiment.phases.length - 1
-    );
 
     const {
       regressionAdjustmentEnabled,
@@ -185,6 +181,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricMap,
       factTableMap,
       useCache: true,
+      source: "schedule",
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
@@ -193,13 +190,20 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       "Successfully Refreshed Results for experiment " + experimentId
     );
 
-    if (lastSnapshot) {
-      await sendSignificanceEmail(
-        context,
-        experiment,
-        lastSnapshot,
-        currentSnapshot
+    // todo: eliminate this code path entirely in favor of proper notifications?
+    if (experiment.type !== "multi-armed-bandit") {
+      const lastSnapshot = await getLatestSnapshot(
+        experiment.id,
+        experiment.phases.length - 1
       );
+      if (lastSnapshot) {
+        await sendSignificanceEmail(
+          context,
+          experiment,
+          lastSnapshot,
+          currentSnapshot
+        );
+      }
     }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);

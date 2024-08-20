@@ -113,6 +113,8 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
 }
 
+export type CreateSnapshotSource = "schedule" | "ad-hoc" | "manual"; // todo: add "report" type?
+
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
@@ -167,6 +169,7 @@ export interface ExperimentSnapshotInterface {
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
+  source?: CreateSnapshotSource;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
