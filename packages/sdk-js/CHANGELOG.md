@@ -1,6 +1,6 @@
 # Changelog
 
-## **1.2.0** - Aug 14, 2024
+## **1.2.0** - Aug 20, 2024
 
 - Make `trackingCallback` optionally async; await it when navigating in a URL redirect test
 - Fix bug related to `stickyBucketAssignmentDocs` not being read when attributes change
