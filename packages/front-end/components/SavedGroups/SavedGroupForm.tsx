@@ -238,9 +238,7 @@ const SavedGroupForm: FC<{
           />
           {!current.id && (
             <IdListItemInput
-              values={(form.watch("values") || []).map((val: number | string) =>
-                val.toString()
-              )}
+              values={form.watch("values") || []}
               passByReferenceOnly={false}
               bypassSmallListSizeLimit={false}
               setValues={(newValues) => {

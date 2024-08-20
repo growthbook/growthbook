@@ -389,7 +389,7 @@ export const postSavedGroupRemoveItems = async (
     (value) => !toRemove.has(value)
   );
   const changes = await updateSavedGroupById(id, org.id, {
-    values: [...newValues],
+    values: newValues,
   });
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
