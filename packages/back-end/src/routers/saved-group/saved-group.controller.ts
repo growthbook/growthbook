@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
   formatByteSizeString,
+  ID_LIST_DATATYPES,
   LARGE_GROUP_SIZE_LIMIT_BYTES,
   validateCondition,
 } from "shared/util";
@@ -104,7 +105,7 @@ export const postSavedGroup = async (
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
   }
-
+  let uniqValues = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const conditionRes = validateCondition(condition);
@@ -120,20 +121,33 @@ export const postSavedGroup = async (
     if (!attributeKey) {
       throw new Error("Must specify an attributeKey");
     }
+    const attributeSchema = org.settings?.attributeSchema || [];
+    const datatype = attributeSchema.find(
+      (sdkAttr) => sdkAttr.property === attributeKey
+    )?.datatype;
+    if (!datatype) {
+      throw new Error("Unknown attributeKey");
+    }
+    if (!ID_LIST_DATATYPES.includes(datatype)) {
+      throw new Error(
+        "Cannot create an ID List for the given attribute key. Try using a condition group instead."
+      );
+    }
+    const valueSet = new Set(values?.map((val) => val.toString()));
+    uniqValues =
+      datatype === "number" ? [...valueSet].map(parseFloat) : [...valueSet];
+    if (
+      new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+    ) {
+      throw new Error(
+        `The maximum size for a list is ${formatByteSizeString(
+          LARGE_GROUP_SIZE_LIMIT_BYTES
+        )}.`
+      );
+    }
   }
   if (typeof description === "string" && description.length > 100) {
     throw new Error("Description must be at most 100 characters");
-  }
-
-  const uniqValues = [...new Set(values)];
-  if (
-    new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
-  ) {
-    throw new Error(
-      `The maximum size for a list is ${formatByteSizeString(
-        LARGE_GROUP_SIZE_LIMIT_BYTES
-      )}.`
-    );
   }
 
   const savedGroup = await createSavedGroup(org.id, {
@@ -209,7 +223,7 @@ export const getSavedGroup = async (
 // region POST /saved-groups/:id/add-items
 
 type PostSavedGroupAddItemsRequest = AuthRequest<
-  { items: string[]; passByReferenceOnly?: boolean },
+  { items: string[] | number[]; passByReferenceOnly?: boolean },
   { id: string }
 >;
 
@@ -258,9 +272,28 @@ export const postSavedGroupAddItems = async (
     throw new Error("Must provide a list of items to add");
   }
 
-  const newValues = [...new Set([...(savedGroup.values || []), ...items])];
+  const attributeSchema = org.settings?.attributeSchema || [];
+  const datatype = attributeSchema.find(
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+  )?.datatype;
+  if (!datatype) {
+    throw new Error("Unknown attributeKey");
+  }
+  if (!ID_LIST_DATATYPES.includes(datatype)) {
+    throw new Error(
+      "Cannot add items to this group. The attribute key's datatype is not supported."
+    );
+  }
+  const valueSet = new Set(savedGroup.values?.map((val) => val.toString()));
+  const newValues = [
+    ...new Set([...valueSet, ...items.map((val) => val.toString())]),
+  ];
+
+  const typedValues =
+    datatype === "number" ? [...newValues].map(parseFloat) : [...newValues];
+
   if (
-    new Blob([JSON.stringify(newValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+    new Blob([JSON.stringify(typedValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
   ) {
     throw new Error(
       `The maximum size for a list is ${formatByteSizeString(
@@ -270,7 +303,7 @@ export const postSavedGroupAddItems = async (
   }
 
   const changes = await updateSavedGroupById(id, org.id, {
-    values: newValues,
+    values: typedValues,
     passByReferenceOnly:
       passByReferenceOnly || savedGroup.passByReferenceOnly || false,
   });
@@ -299,7 +332,7 @@ export const postSavedGroupAddItems = async (
 // region POST /saved-groups/:id/remove-items
 
 type PostSavedGroupRemoveItemsRequest = AuthRequest<
-  { items: string[]; passByReferenceOnly?: boolean },
+  { items: string[] | number[]; passByReferenceOnly?: boolean },
   { id: string }
 >;
 
@@ -348,12 +381,29 @@ export const postSavedGroupRemoveItems = async (
     throw new Error("Must provide a list of items to remove");
   }
 
-  const toRemove = new Set(items);
-  const newValues = (savedGroup.values || []).filter(
-    (value) => !toRemove.has(value)
-  );
+  const attributeSchema = org.settings?.attributeSchema || [];
+  const datatype = attributeSchema.find(
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+  )?.datatype;
+  if (!datatype) {
+    throw new Error("Unknown attributeKey");
+  }
+  if (!ID_LIST_DATATYPES.includes(datatype)) {
+    throw new Error(
+      "Cannot remove items from this group. The attribute key's datatype is not supported."
+    );
+  }
+  const toRemove = new Set(items.map((val) => val.toString()));
+
+  const valueSet = (savedGroup.values || []).map((val) => val.toString());
+
+  const newValues = valueSet.filter((value) => !toRemove.has(value));
+
+  const typedValues =
+    datatype === "number" ? [...newValues].map(parseFloat) : [...newValues];
+
   const changes = await updateSavedGroupById(id, org.id, {
-    values: newValues,
+    values: typedValues,
   });
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
