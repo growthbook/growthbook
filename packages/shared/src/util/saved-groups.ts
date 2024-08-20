@@ -1,3 +1,5 @@
+import { OrganizationInterface } from "back-end/types/organization";
+import { AttributeMap } from "back-end/src/services/features";
 import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
 
 export const SMALL_GROUP_SIZE_LIMIT = 100;
@@ -18,7 +20,8 @@ export function getSavedGroupsValuesFromGroupMap(
 }
 
 export function getSavedGroupsValuesFromInterfaces(
-  savedGroups: SavedGroupInterface[]
+  savedGroups: SavedGroupInterface[],
+  organization: OrganizationInterface
 ): SavedGroupsValues {
   return Object.fromEntries(
     savedGroups
@@ -26,7 +29,42 @@ export function getSavedGroupsValuesFromInterfaces(
         (savedGroup) =>
           savedGroup.type === "list" && savedGroup.values !== undefined
       )
-      .map((savedGroup) => [savedGroup.id, savedGroup.values])
+      .map((savedGroup) => {
+        const values = getTypedSavedGroupValues(
+          savedGroup.values || [],
+          getSavedGroupValueType(savedGroup, organization)
+        );
+        return [savedGroup.id, values];
+      })
     // TODO: maybe fix type inference
   ) as SavedGroupsValues;
+}
+
+export function getTypedSavedGroupValues(
+  values: string[],
+  type?: string
+): string[] | number[] {
+  if (type === "number") {
+    return values.map((v) => parseFloat(v));
+  }
+  return values;
+}
+
+export function getSavedGroupValueType(
+  group: SavedGroupInterface,
+  organization: OrganizationInterface
+): string {
+  const attributes = organization.settings?.attributeSchema;
+
+  const attributeMap: AttributeMap = new Map();
+  attributes?.forEach((attribute) => {
+    attributeMap.set(attribute.property, attribute.datatype);
+  });
+
+  if (group.type === "list" && group.attributeKey && group.values) {
+    const attributeType = attributeMap?.get(group.attributeKey);
+    return attributeType || "";
+  }
+
+  return "";
 }

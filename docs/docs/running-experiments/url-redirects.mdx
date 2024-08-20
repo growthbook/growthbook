@@ -72,16 +72,6 @@ A small flicker will remain between page and SDK load (which usually happens asy
 </script>
 ```
 
-
-
-### Edge SDKs
-
-The best practice for running URL redirect tests is to implement them on the backend or edge server (CDN).
-
-In a front-end environment, failing to complete the tracking callback before the navigation triggers can lead to substantial [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm) errors and could invalidate your experiment results. Similarly, flickering can cause a degraded user experience, which may end up skewing the experiment results in favor of the control (no redirect).
-
-We provide native support for edge redirect tests without screen flickering or tracking delays. Learn more about our [Edge SDKs](/lib/edge/cloudflare#turnkey-edge-app).
-
 ### Front-End JavaScript and React SDKs
 
 A more advanced integration involves using our [Javascript](/lib/js) or [ReactJS](/lib/js) client-side SDKs.
@@ -121,6 +111,41 @@ router.events.on("routeChangeComplete", (url) => {
 })
 ```
 
+### Edge SDKs
+
+The best practice for running URL redirect tests is to implement them on the backend or edge server (CDN).
+
+In a front-end environment, failing to complete the tracking callback before the navigation triggers can lead to substantial [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm) errors and could invalidate your experiment results. Similarly, flickering can cause a degraded user experience, which may end up skewing the experiment results in favor of the control (no redirect).
+
+We provide native support for edge redirect tests without screen flickering or tracking delays. Learn more about our [Edge SDKs](/lib/edge/cloudflare#turnkey-edge-app).
+
 ### Node.js <Pill>beta</Pill>
 
 It is possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end. You must implement your own `navigate` function.
+
+## Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests
+
+[Sample Ratio Mismatch (SRM) warnings](https://docs.growthbook.io/using/experimenting#sample-ratio-mismatch-srm) happen when the actual traffic split in an experiment is significantly different from the traffic split configured for the experiment. For instance, if a 50/50 traffic split was configured for an experiment but a significantly different traffic split is observed, like a 46/54 split, an SRM warning will be triggered.
+
+GrowthBook only shows SRM warnings if the p-value is less than 0.001, which means it's extremely unlikely to occur by chance. This p-value threshold is customizable in **Settings** → **General** → **Experiment
+Settings** → **Experiment Health Settings**.
+
+### Why am I seeing SRM warnings on my URL Redirect test?
+
+SRM warnings are a common problem when running front-end URL redirect tests, regardless of what experimentation platform is used. When using GrowthBook's [JavaScript](https://docs.growthbook.io/lib/js), [React](https://docs.growthbook.io/lib/react), [Vue.js](https://docs.growthbook.io/lib/vue), or [Script Tag](https://docs.growthbook.io/lib/script-tag) SDKs to run URL Redirect tests, SRM warnings may occur. The issue is especially pronounced while also using [Google Tag Manager (GTM)](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook).
+
+The inherent latency of the [trackingCallback](https://docs.growthbook.io/lib/js#experimentation-ab-testing) sometimes causes the URL Redirect to take place before the `trackingCallback` can complete, which means a disproportionately larger number of exposures are tracked for the control URL versus the redirect URL. This triggers a SRM warning.
+
+### What can I do to reduce or eliminate SRM warnings?
+
+1. The best way to eliminate a Signal Ratio Mismatch with URL Redirect tests is to use one of our **Edge Worker SDKs** instead of a front-end SDK. See our Edge SDK documentation for [Cloudflare Workers](https://docs.growthbook.io/lib/edge/cloudflare), [Fastly Compute](https://docs.growthbook.io/lib/edge/fastly), and [AWS Lambda@Edge](https://docs.growthbook.io/lib/edge/lambda).
+
+2. If you opt to use a front-end SDK (JS, React, or Vue), you can still greatly reduce or nearly eliminate SRM by implementing an **async tracking callback**. If your event tracking vendor supports async callbacks, then simply ensure that the `trackingCallback` that you pass into the GrowthBook SDK constructor awaits a successful network request for the tracked event. If you are using our HTML Script Tag, this is automatically handled for _GA4_ and _GTM_ tracking calls.
+
+:::note
+
+GrowthBook JavaScript and React SDKs introduced **async tracking callbacks** in version `1.2.0`.
+
+:::
+
+3. If you are unable to use a async tracking callback, you can try increasing the `navigateDelay` timeout passed into the GrowthBook SDK constructor. This defers the URL redirection until after a minimum time, increasing the likelihood that your tracking callback is successfully dispatched before page redirection. The default delay is 1000 ms (1 second), however some network conditions or SDK implementations do better with a navigate delay of 2 to 3 seconds. _Segment_ recommends a 300 ms delay; if you are using our HTML Script Tag with _Segment_, this is automatically set to 300 ms.

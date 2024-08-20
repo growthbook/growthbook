@@ -63,6 +63,7 @@ export type CommercialFeature =
   | "quantile-metrics"
   | "custom-markdown"
   | "experiment-impact"
+  | "metric-populations"
   | "large-saved-groups";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -166,6 +167,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "metric-populations",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -187,6 +189,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "metric-populations",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -222,6 +225,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-roles",
     "custom-markdown",
     "experiment-impact",
+    "metric-populations",
     "large-saved-groups",
   ]),
 };

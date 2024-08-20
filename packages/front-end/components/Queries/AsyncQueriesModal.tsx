@@ -20,6 +20,7 @@ const AsyncQueriesModal: FC<{
 
   const [showStats, setShowStats] = useState(false);
   const hasStats = data?.queries?.some((q) => q.statistics !== undefined);
+  const datasourceId = data?.queries?.find((q) => q.datasource)?.datasource;
 
   const contents = (
     <>
@@ -37,6 +38,15 @@ const AsyncQueriesModal: FC<{
           running them again.
         </div>
       )}
+      {data &&
+        data.queries.filter((q) => q?.status === "queued").length > 0 &&
+        datasourceId && (
+          <div className="alert alert-warning">
+            One or more of these queries is waiting to run. Click{" "}
+            <a href={`/datasources/queries/${datasourceId}`}>here</a> to see the
+            status of all your queries
+          </div>
+        )}
       {hasStats ? (
         <div className="mb-4">
           <a

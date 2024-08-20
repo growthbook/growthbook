@@ -151,7 +151,7 @@ export default function FactMetricList({ factTable }: Props) {
                   </td>
                   <td>{metric.metricType}</td>
                   <td>
-                    <SortedTags tags={metric.tags} />
+                    <SortedTags tags={metric.tags} useFlex={true} />
                   </td>
                   <td>
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}

@@ -1,5 +1,6 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import cloneDeep from "lodash/cloneDeep";
+import { OrganizationInterface } from "back-end/types/organization";
 import {
   getConnectionSDKCapabilities,
   scrubFeatures,
@@ -30,6 +31,28 @@ const baseConnection: SDKConnectionInterface = {
     version: "1.0.0",
     error: "",
     lastError: null,
+  },
+};
+
+const baseOrg: OrganizationInterface = {
+  dateCreated: new Date(),
+  id: "",
+  invites: [],
+  members: [],
+  name: "",
+  ownerEmail: "",
+  url: "",
+  settings: {
+    attributeSchema: [
+      {
+        datatype: "string",
+        property: "id",
+      },
+      {
+        datatype: "number",
+        property: "num",
+      },
+    ],
   },
 };
 
@@ -81,6 +104,7 @@ describe("payload scrubbing", () => {
       dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
       type: "list",
       values: ["1", "2", "3"],
+      attributeKey: "id",
       passByReferenceOnly: false,
     },
     {
@@ -93,6 +117,18 @@ describe("payload scrubbing", () => {
       type: "list",
       values: ["4", "5", "6"],
       passByReferenceOnly: true,
+    },
+    {
+      id: "legacy_numeric_group_id",
+      organization: baseConnection.organization,
+      groupName: "legacy numeric group name",
+      owner: "test user",
+      dateCreated: new Date(2020, 1, 5, 10, 0, 0),
+      dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
+      type: "list",
+      values: ["1", "2", "3"],
+      attributeKey: "num",
+      passByReferenceOnly: false,
     },
   ];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -131,6 +167,14 @@ describe("payload scrubbing", () => {
             condition: {
               id: {
                 $inGroup: "large_group_id",
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              num: {
+                $inGroup: "legacy_numeric_group_id",
               },
             },
             force: "variant",
@@ -175,8 +219,9 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
-    savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups),
+    savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups, baseOrg),
   };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const savedGroupScrubbedPayload: any = {
     features: {
@@ -213,6 +258,14 @@ describe("payload scrubbing", () => {
             condition: {
               id: {
                 $in: [],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              num: {
+                $in: [1, 2, 3],
               },
             },
             force: "variant",
@@ -300,6 +353,14 @@ describe("payload scrubbing", () => {
             },
             force: "variant",
           },
+          {
+            condition: {
+              num: {
+                $in: [1, 2, 3],
+              },
+            },
+            force: "variant",
+          },
         ],
       },
     },
@@ -383,6 +444,14 @@ describe("payload scrubbing", () => {
             },
             force: "variant",
           },
+          {
+            condition: {
+              num: {
+                $in: [1, 2, 3],
+              },
+            },
+            force: "variant",
+          },
         ],
       },
     },
@@ -437,7 +506,8 @@ describe("payload scrubbing", () => {
       scrubbed.features,
       capabilities,
       savedGroups,
-      false
+      false,
+      baseOrg
     );
     scrubbed.features = scrubbedFeatures;
     scrubbed.savedGroups = scrubSavedGroups(
@@ -461,7 +531,8 @@ describe("payload scrubbing", () => {
       scrubbed.features,
       capabilities,
       savedGroups,
-      true
+      true,
+      baseOrg
     );
     scrubbed.features = scrubbedFeatures;
     scrubbed.savedGroups = scrubSavedGroups(
@@ -488,7 +559,8 @@ describe("payload scrubbing", () => {
       scrubbed.features,
       capabilities,
       savedGroups,
-      true
+      true,
+      baseOrg
     );
     scrubbed.features = scrubbedFeatures;
     scrubbed.savedGroups = scrubSavedGroups(
@@ -515,7 +587,8 @@ describe("payload scrubbing", () => {
       scrubbed.features,
       capabilities,
       savedGroups,
-      true
+      true,
+      baseOrg
     );
     scrubbed.savedGroups = scrubSavedGroups(
       scrubbed.savedGroups,
@@ -543,7 +616,8 @@ describe("payload scrubbing", () => {
       scrubbed.features,
       capabilities,
       savedGroups,
-      true
+      true,
+      baseOrg
     );
     scrubbed.savedGroups = scrubSavedGroups(
       scrubbed.savedGroups,
