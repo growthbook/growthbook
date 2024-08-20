@@ -35,6 +35,7 @@ import {
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/src/types";
+import { clone } from "lodash";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -1222,7 +1223,8 @@ export function applySavedGroupHashing(
   attributes: SDKAttributeSchema,
   salt: string
 ): SavedGroupInterface[] {
-  return savedGroups.map((group) => {
+  const clonedGroups = clone(savedGroups);
+  clonedGroups.forEach((group) => {
     const attribute = attributes.find(
       (attr) => attr.property === group.attributeKey
     );
@@ -1235,8 +1237,8 @@ export function applySavedGroupHashing(
         doHash: attribute.hashAttribute,
       });
     }
-    return group;
   });
+  return clonedGroups;
 }
 
 interface hashStringsArgs {
