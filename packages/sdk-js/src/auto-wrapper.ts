@@ -209,6 +209,8 @@ function getAttributes() {
   return attributes;
 }
 
+let antiFlickerTimeout: number | undefined;
+
 function setAntiFlicker() {
   window.clearTimeout(antiFlickerTimeout);
 
@@ -276,6 +278,7 @@ if (
       undefined,
   });
 }
+
 // Create GrowthBook instance
 const gb = new GrowthBook({
   ...dataContext,
@@ -332,8 +335,6 @@ const gb = new GrowthBook({
 gb.setRenderer(() => {
   document.dispatchEvent(new CustomEvent("growthbookdata"));
 });
-
-let antiFlickerTimeout: number | undefined;
 
 gb.init({
   payload: windowContext.payload,
