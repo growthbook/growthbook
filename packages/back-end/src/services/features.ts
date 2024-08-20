@@ -498,7 +498,6 @@ export type FeatureDefinitionsResponseArgs = {
   projects: string[];
   capabilities: SDKCapability[];
   savedGroups: SavedGroupInterface[];
-  savedGroupAttributeKeys?: Record<string, string>;
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
 };
@@ -516,7 +515,6 @@ async function getFeatureDefinitionsResponse({
   projects,
   capabilities,
   savedGroups,
-  savedGroupAttributeKeys,
   savedGroupReferencesEnabled = false,
   organization,
 }: FeatureDefinitionsResponseArgs) {
@@ -573,10 +571,6 @@ async function getFeatureDefinitionsResponse({
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
   );
-  let savedGroupsValues = getSavedGroupsValuesFromInterfaces(
-    savedGroups,
-    organization
-  );
   if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
 
@@ -588,15 +582,17 @@ async function getFeatureDefinitionsResponse({
       );
     }
 
-    if (savedGroupAttributeKeys) {
-      savedGroupsValues = applySavedGroupHashing(
-        savedGroupsValues,
-        attributes,
-        savedGroupAttributeKeys,
-        secureAttributeSalt
-      );
-    }
+    savedGroups = applySavedGroupHashing(
+      savedGroups,
+      attributes,
+      secureAttributeSalt
+    );
   }
+
+  const savedGroupsValues = getSavedGroupsValuesFromInterfaces(
+    savedGroups,
+    organization
+  );
 
   features = scrubFeatures(
     features,
@@ -722,9 +718,6 @@ export async function getFeatureDefinitions({
       }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
-      let savedGroupAttributeKeys:
-        | Record<string, string>
-        | undefined = undefined;
       const { features, experiments, savedGroupsInUse } = cached.contents;
       const usedSavedGroups = await getSavedGroupsById(
         savedGroupsInUse,
@@ -734,12 +727,6 @@ export async function getFeatureDefinitions({
         if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
           secureAttributeSalt = context.org.settings?.secureAttributeSalt;
           attributes = context.org.settings?.attributeSchema;
-          savedGroupAttributeKeys = Object.fromEntries(
-            usedSavedGroups.map((savedGroup) => [
-              savedGroup.id,
-              savedGroup.attributeKey || "",
-            ])
-          );
         }
       }
 
@@ -757,7 +744,6 @@ export async function getFeatureDefinitions({
         projects: projects || [],
         capabilities,
         savedGroups: usedSavedGroups || [],
-        savedGroupAttributeKeys,
         savedGroupReferencesEnabled,
         organization: context.org,
       });
@@ -774,7 +760,6 @@ export async function getFeatureDefinitions({
       attributes = context.org.settings?.attributeSchema;
     }
   }
-  let savedGroupAttributeKeys: Record<string, string> | undefined = undefined;
   const savedGroups = await getAllSavedGroups(context.org.id, {
     includeLargeSavedGroupValues: true,
   });
@@ -785,12 +770,6 @@ export async function getFeatureDefinitions({
   ) {
     secureAttributeSalt = context.org?.settings?.secureAttributeSalt;
     attributes = context.org.settings?.attributeSchema;
-    savedGroupAttributeKeys = Object.fromEntries(
-      savedGroups.map((savedGroup) => [
-        savedGroup.id,
-        savedGroup.attributeKey || "",
-      ])
-    );
   }
 
   // Generate the feature definitions
@@ -869,7 +848,6 @@ export async function getFeatureDefinitions({
     projects: projects || [],
     capabilities,
     savedGroups,
-    savedGroupAttributeKeys,
     savedGroupReferencesEnabled,
     organization: context.org,
   });
@@ -1238,32 +1216,27 @@ export function applyExperimentHashing(
   });
 }
 
-// Specific hashing entrypoint for idList values
+// Specific hashing entrypoint for SavedGroup objects
 export function applySavedGroupHashing(
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupInterface[],
   attributes: SDKAttributeSchema,
-  savedGroupAttributeKeys: Record<string, string>,
   salt: string
-): SavedGroupsValues {
-  return Object.fromEntries(
-    Object.entries(savedGroups).map(([savedGroupId, savedGroupItems]) => {
-      const attribute = attributes.find(
-        (attr) => attr.property === savedGroupAttributeKeys[savedGroupId]
-      );
-      return attribute
-        ? [
-            savedGroupId,
-            hashStrings({
-              obj: savedGroupItems,
-              salt,
-              attributes,
-              attribute,
-              doHash: attribute.hashAttribute,
-            }),
-          ]
-        : [savedGroupId, savedGroupItems];
-    })
-  );
+): SavedGroupInterface[] {
+  return savedGroups.map((group) => {
+    const attribute = attributes.find(
+      (attr) => attr.property === group.attributeKey
+    );
+    if (attribute) {
+      group.values = hashStrings({
+        obj: group.values,
+        salt,
+        attributes,
+        attribute,
+        doHash: attribute.hashAttribute,
+      });
+    }
+    return group;
+  });
 }
 
 interface hashStringsArgs {
