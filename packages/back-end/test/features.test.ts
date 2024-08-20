@@ -1469,6 +1469,10 @@ describe("SDK Payloads", () => {
       datatype: "secureString",
       hashAttribute: true,
     };
+    const organization = cloneDeep(baseOrganization);
+    organization.settings = {
+      attributeSchema: [secureStringAttr],
+    };
     const groupDef: SavedGroupInterface = {
       id: "groupId",
       type: "list",
@@ -1503,7 +1507,7 @@ describe("SDK Payloads", () => {
         projects: [],
         capabilities: [],
         savedGroups: [cloneDeep(groupDef)],
-        organization: baseOrganization,
+        organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
       });
@@ -1534,7 +1538,7 @@ describe("SDK Payloads", () => {
         capabilities: ["savedGroupReferences"],
         savedGroupReferencesEnabled: true,
         savedGroups: [cloneDeep(groupDef)],
-        organization: baseOrganization,
+        organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
       });
