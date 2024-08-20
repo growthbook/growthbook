@@ -57,7 +57,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       }
       if (!ID_LIST_DATATYPES.includes(datatype)) {
         throw new Error(
-          "Cannot create an ID List for the given attribute key. Try using a condition group instead."
+          "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
         );
       }
       if (condition) {

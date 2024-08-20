@@ -105,7 +105,7 @@ export const postSavedGroup = async (
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
   }
-  let uniqValues = undefined;
+  const uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const conditionRes = validateCondition(condition);
@@ -130,12 +130,10 @@ export const postSavedGroup = async (
     }
     if (!ID_LIST_DATATYPES.includes(datatype)) {
       throw new Error(
-        "Cannot create an ID List for the given attribute key. Try using a condition group instead."
+        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
       );
     }
-    const valueSet = new Set(values?.map((val) => val.toString()));
-    uniqValues =
-      datatype === "number" ? [...valueSet].map(parseFloat) : [...valueSet];
+    const uniqValues = [...new Set(values)];
     if (
       new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
     ) {
@@ -223,7 +221,7 @@ export const getSavedGroup = async (
 // region POST /saved-groups/:id/add-items
 
 type PostSavedGroupAddItemsRequest = AuthRequest<
-  { items: string[] | number[]; passByReferenceOnly?: boolean },
+  { items: string[]; passByReferenceOnly?: boolean },
   { id: string }
 >;
 
@@ -284,16 +282,9 @@ export const postSavedGroupAddItems = async (
       "Cannot add items to this group. The attribute key's datatype is not supported."
     );
   }
-  const valueSet = new Set(savedGroup.values?.map((val) => val.toString()));
-  const newValues = [
-    ...new Set([...valueSet, ...items.map((val) => val.toString())]),
-  ];
-
-  const typedValues =
-    datatype === "number" ? [...newValues].map(parseFloat) : [...newValues];
-
+  const newValues = [...new Set([...(savedGroup.values || []), ...items])];
   if (
-    new Blob([JSON.stringify(typedValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+    new Blob([JSON.stringify(newValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
   ) {
     throw new Error(
       `The maximum size for a list is ${formatByteSizeString(
@@ -303,7 +294,7 @@ export const postSavedGroupAddItems = async (
   }
 
   const changes = await updateSavedGroupById(id, org.id, {
-    values: typedValues,
+    values: newValues,
     passByReferenceOnly:
       passByReferenceOnly || savedGroup.passByReferenceOnly || false,
   });
@@ -332,7 +323,7 @@ export const postSavedGroupAddItems = async (
 // region POST /saved-groups/:id/remove-items
 
 type PostSavedGroupRemoveItemsRequest = AuthRequest<
-  { items: string[] | number[]; passByReferenceOnly?: boolean },
+  { items: string[]; passByReferenceOnly?: boolean },
   { id: string }
 >;
 
@@ -393,17 +384,12 @@ export const postSavedGroupRemoveItems = async (
       "Cannot remove items from this group. The attribute key's datatype is not supported."
     );
   }
-  const toRemove = new Set(items.map((val) => val.toString()));
-
-  const valueSet = (savedGroup.values || []).map((val) => val.toString());
-
-  const newValues = valueSet.filter((value) => !toRemove.has(value));
-
-  const typedValues =
-    datatype === "number" ? [...newValues].map(parseFloat) : [...newValues];
-
+  const toRemove = new Set(items);
+  const newValues = (savedGroup.values || []).filter(
+    (value) => !toRemove.has(value)
+  );
   const changes = await updateSavedGroupById(id, org.id, {
-    values: typedValues,
+    values: [...newValues],
   });
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
