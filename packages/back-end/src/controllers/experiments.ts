@@ -1221,8 +1221,13 @@ export async function postExperimentStatus(
           changes.phases.length - 1
         ].variationWeights = getEqualWeights(experiment.variations.length ?? 0);
         // scheduling
-        const nextUpdate = determineNextBanditSchedule(changes);
-        changes.nextSnapshotAttempt = nextUpdate;
+        const updatedExperiment = {
+          ...experiment,
+          ...changes,
+        } as ExperimentInterface;
+        changes.nextSnapshotAttempt = determineNextBanditSchedule(
+          updatedExperiment
+        );
       }
     }
   }

@@ -68,7 +68,6 @@ import {
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import {
-  Changeset,
   ExperimentInterface,
   ExperimentPhase,
   LinkedFeatureEnvState,
@@ -574,7 +573,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export function determineNextBanditSchedule(exp: Changeset) {
+export function determineNextBanditSchedule(exp: ExperimentInterface) {
   const start = exp?.banditPhaseDateStarted?.getTime() ?? Date.now();
 
   if (exp.banditPhase === "explore") {

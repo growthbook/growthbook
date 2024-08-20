@@ -204,8 +204,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
           // todo: persist weight changes to log
           break;
       }
-      const nextUpdate = determineNextBanditSchedule(changes);
-      changes.nextSnapshotAttempt = nextUpdate;
+      const updatedExperiment = {
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface;
+      changes.nextSnapshotAttempt = determineNextBanditSchedule(
+        updatedExperiment
+      );
 
       await updateExperiment({
         context,
