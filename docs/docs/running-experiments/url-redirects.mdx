@@ -71,3 +71,26 @@ router.events.on("routeChangeComplete", (url) => {
 It's possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end as well, in either a Node.js application or in an edge worker.
 
 Reach out to us on Slack or at hello@growthbook.io if you're interested in helping us beta test this and we can help you get set up.
+
+## Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests
+
+[Sample Ratio Mismatch (SRM) warnings](https://docs.growthbook.io/using/experimenting#sample-ratio-mismatch-srm) happen when the actual traffic split in an experiment is significantly different from the traffic split configured for the experiment. For instance, if a 50/50 traffic split was configured for an experiment but a significantly different traffic split is observed, like a 46/54 split, an SRM warning will be triggered.
+
+GrowthBook only shows SRM warnings if the p-value is less than 0.001, which means it's extremely unlikely to occur by chance. This p-value threshold is customizable in **Settings** → **General** → **Experiment 
+Settings** → **Experiment Health Settings**.
+
+### Why Am I Seeing SRM Warnings on My URL Redirect Test?
+
+SRM warnings are a common problem when running client-side URL Redirect tests, regardless of what experimentation platform is used. When using GrowthBook's [JavaScript](https://docs.growthbook.io/lib/js), [React](https://docs.growthbook.io/lib/react), [Vue.js](https://docs.growthbook.io/lib/vue), or [HTML](https://docs.growthbook.io/lib/script-tag) SDKs to run URL Redirect tests, SRM warnings may occur. The issue is especially pronounced while also using [Google Tag Manager (GTM)](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook).
+
+The inherent latency of the [trackingCallback](https://docs.growthbook.io/lib/js#experimentation-ab-testing) causes the URL Redirect to take place before the `trackingCallback` can complete, which means tracking more exposures to the control URL than to the redirect URL. Thus, it's likely that significantly more traffic will be sent to the control URL than what was configured for the experiment, which triggers an SRM warning.
+
+### Increase the Delay Before Triggering a URL Redirect
+
+GrowthBook minimizes the effects of this as much as possible in our client-side SDKs. If SRM warnings are still appearing on client-side URL Redirect tests, the issue can be mitigated further by increasing the amount of completion time the `trackingCallback` is given. This is achieved by setting the `context.navigateDelay` to a larger number, such as 300 ms instead of the default 100ms, in accordance with our guide on [Optional Configuration Settings](https://docs.growthbook.io/lib/script-tag#optional-configuration-settings).
+
+For some tracking libraries, such as [Google Analytics (GA4)](https://docs.growthbook.io/guide/GA4-google-analytics), GrowthBook waits until the `trackingCallback` finishes, which is usually much faster than 300 ms unless the end user is on a very slow network. For other tracking libraries, like [Segment](https://docs.growthbook.io/event-trackers/segment), we follow their suggestion to wait 300 ms.
+
+### Avoid SRM Warnings on URL Redirect Tests by Using the Growthbook Edge SDK
+
+If performance is critical, we recommend doing A/B testing using Edge Workers instead of on the client. We have Edge SDK examples for [Cloudflare Workers](https://docs.growthbook.io/lib/edge/cloudflare), [Fastly Compute](https://docs.growthbook.io/lib/edge/fastly), and [AWS Lambda@Edge](https://docs.growthbook.io/lib/edge/lambda).
