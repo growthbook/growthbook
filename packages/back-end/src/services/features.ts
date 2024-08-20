@@ -502,7 +502,7 @@ export type FeatureDefinitionsResponseArgs = {
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
 };
-async function getFeatureDefinitionsResponse({
+export async function getFeatureDefinitionsResponse({
   features,
   experiments,
   dateUpdated,
