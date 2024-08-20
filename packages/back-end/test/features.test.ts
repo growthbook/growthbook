@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { GroupMap } from "shared/src/types";
+import { GroupMap, SavedGroupInterface } from "shared/src/types";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -12,9 +12,18 @@ import {
 } from "../src/util/features";
 import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
-import { hashStrings } from "../src/services/features";
-import { SDKAttributeSchema } from "../types/organization";
+import {
+  getFeatureDefinitionsResponse,
+  hashStrings,
+  sha256,
+} from "../src/services/features";
+import {
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "../types/organization";
 import { ExperimentInterface } from "../types/experiment";
+import { FeatureDefinitionWithProject } from "../types/api";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
@@ -40,6 +49,16 @@ const baseFeature: FeatureInterface = {
       rules: [],
     },
   },
+};
+
+const baseOrganization: OrganizationInterface = {
+  id: "123",
+  url: "foo",
+  dateCreated: new Date(),
+  name: "",
+  ownerEmail: "",
+  members: [],
+  invites: [],
 };
 
 describe("getParsedCondition", () => {
@@ -1441,6 +1460,106 @@ describe("SDK Payloads", () => {
           key: "testing",
         },
       ],
+    });
+  });
+
+  describe("Saved Groups", () => {
+    const secureStringAttr: SDKAttribute = {
+      property: "id",
+      datatype: "secureString",
+      hashAttribute: true,
+    };
+    const organization = cloneDeep(baseOrganization);
+    organization.settings = {
+      attributeSchema: [secureStringAttr],
+    };
+    const groupDef: SavedGroupInterface = {
+      id: "groupId",
+      type: "list",
+      attributeKey: "id",
+      values: ["1", "2", "3"],
+      organization: "123",
+      groupName: "",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+    const featureDef: FeatureDefinitionWithProject = {
+      defaultValue: true,
+      rules: [
+        {
+          id: "1",
+          condition: {
+            id: {
+              $inGroup: "groupId",
+            },
+          },
+          force: false,
+        },
+      ],
+    };
+
+    it("Hashes secure attributes in inline saved groups", async () => {
+      const { features, savedGroups } = await getFeatureDefinitionsResponse({
+        features: { featureName: cloneDeep(featureDef) },
+        experiments: [],
+        dateUpdated: new Date(),
+        projects: [],
+        capabilities: [],
+        savedGroups: [cloneDeep(groupDef)],
+        organization: organization,
+        attributes: [secureStringAttr],
+        secureAttributeSalt: "salt",
+      });
+      expect(features).toEqual({
+        featureName: {
+          defaultValue: true,
+          rules: [
+            {
+              condition: {
+                id: {
+                  $in: ["1", "2", "3"].map((val) => sha256(val, "salt")),
+                },
+              },
+              force: false,
+            },
+          ],
+        },
+      });
+      expect(savedGroups).toEqual(undefined);
+    });
+
+    it("Hashes secure attributes in referenced saved groups", async () => {
+      const { features, savedGroups } = await getFeatureDefinitionsResponse({
+        features: { featureName: cloneDeep(featureDef) },
+        experiments: [],
+        dateUpdated: new Date(),
+        projects: [],
+        capabilities: ["savedGroupReferences"],
+        savedGroupReferencesEnabled: true,
+        savedGroups: [cloneDeep(groupDef)],
+        organization: organization,
+        attributes: [secureStringAttr],
+        secureAttributeSalt: "salt",
+      });
+      expect(features).toEqual({
+        featureName: {
+          defaultValue: true,
+          rules: [
+            {
+              condition: {
+                id: {
+                  $inGroup: "groupId",
+                },
+              },
+              force: false,
+            },
+          ],
+        },
+      });
+      expect(savedGroups).toEqual({
+        groupId: ["1", "2", "3"].map((val) => sha256(val, "salt")),
+      });
     });
   });
 });
