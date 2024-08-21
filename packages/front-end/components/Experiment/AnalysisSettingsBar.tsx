@@ -16,6 +16,7 @@ import {
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -196,36 +197,45 @@ export default function AnalysisSettingsBar({
               >
                 <label
                   htmlFor={"toggle-experiment-regression-adjustment"}
-                  className={`d-flex btn btn-outline-${
-                    !hasRegressionAdjustmentFeature
-                      ? "teal-disabled"
-                      : regressionAdjustmentEnabled
-                      ? "teal"
-                      : "teal-off"
-                  } my-0 pl-2 pr-1 py-1 form-inline`}
+                  className={clsx(
+                    `d-flex my-0 pl-2 pr-1 py-1 form-inline`,
+                    experiment.type !== "multi-armed-bandit"
+                      ? `btn btn-outline-${
+                          !hasRegressionAdjustmentFeature
+                            ? "teal-disabled"
+                            : regressionAdjustmentEnabled
+                            ? "teal"
+                            : "teal-off"
+                        }`
+                      : ""
+                  )}
                 >
                   <GBCuped />
                   <span className="mx-1 font-weight-bold">CUPED</span>
-                  <Toggle
-                    id="toggle-experiment-regression-adjustment"
-                    value={!!regressionAdjustmentEnabled}
-                    setValue={(value) => {
-                      if (
-                        onRegressionAdjustmentChange &&
-                        hasRegressionAdjustmentFeature
-                      ) {
-                        onRegressionAdjustmentChange(value).catch((e) => {
-                          console.error(e);
-                        });
+                  {experiment.type !== "multi-armed-bandit" ? (
+                    <Toggle
+                      id="toggle-experiment-regression-adjustment"
+                      value={!!regressionAdjustmentEnabled}
+                      setValue={(value) => {
+                        if (
+                          onRegressionAdjustmentChange &&
+                          hasRegressionAdjustmentFeature
+                        ) {
+                          onRegressionAdjustmentChange(value).catch((e) => {
+                            console.error(e);
+                          });
+                        }
+                      }}
+                      className={`teal m-0`}
+                      style={{ transform: "scale(0.8)" }}
+                      disabled={
+                        !hasRegressionAdjustmentFeature ||
+                        !canEditAnalysisSettings
                       }
-                    }}
-                    className={`teal m-0`}
-                    style={{ transform: "scale(0.8)" }}
-                    disabled={
-                      !hasRegressionAdjustmentFeature ||
-                      !canEditAnalysisSettings
-                    }
-                  />
+                    />
+                  ) : (
+                    <span>{regressionAdjustmentEnabled ? "ON" : "OFF"}</span>
+                  )}
                   {!regressionAdjustmentHasValidMetrics && (
                     <Tooltip
                       popperClassName="text-left"

@@ -85,6 +85,8 @@ export default function AnalysisSettingsSummary({
     {}
   );
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
@@ -247,7 +249,8 @@ export default function AnalysisSettingsSummary({
       )}
       <div className="row align-items-center text-muted">
         <div className="col-auto">
-          {canEditAnalysisSettings ? (
+          {!(isBandit && experiment.status === "running") &&
+          canEditAnalysisSettings ? (
             <a
               href="#"
               onClick={(e) => {

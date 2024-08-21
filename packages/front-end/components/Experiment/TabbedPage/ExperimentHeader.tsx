@@ -4,7 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
-import { FaHeartPulse } from "react-icons/fa6";
+import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import React, { ReactNode, useState } from "react";
@@ -505,9 +505,15 @@ export default function ExperimentHeader({
                 <TabButton
                   active={tab === "results"}
                   display={
-                    <>
-                      <PiChartBarHorizontalFill /> Results
-                    </>
+                    experiment.type !== "multi-armed-bandit" ? (
+                      <>
+                        <PiChartBarHorizontalFill /> Results
+                      </>
+                    ) : (
+                      <>
+                        <FaMagnifyingGlassChart /> Explore
+                      </>
+                    )
                   }
                   anchor="results"
                   onClick={() => setTab("results")}

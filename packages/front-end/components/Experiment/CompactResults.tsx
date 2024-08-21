@@ -5,7 +5,11 @@ import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import {
+  ExperimentStatus,
+  ExperimentType,
+  MetricOverride,
+} from "back-end/types/experiment";
 import {
   DifferenceType,
   PValueCorrection,
@@ -72,6 +76,7 @@ const CompactResults: FC<{
   mainTableOnly?: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
+  experimentType?: ExperimentType;
 }> = ({
   editMetrics,
   variations,
@@ -102,6 +107,7 @@ const CompactResults: FC<{
   mainTableOnly,
   noStickyHeader,
   noTooltip,
+  experimentType,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -290,8 +296,14 @@ const CompactResults: FC<{
           id={id}
           hasRisk={hasRisk(rows)}
           tableRowAxis="metric"
-          labelHeader="Goal Metrics"
-          editMetrics={editMetrics}
+          labelHeader={
+            experimentType !== "multi-armed-bandit"
+              ? "Goal Metrics"
+              : "Goal Metric"
+          }
+          editMetrics={
+            experimentType !== "multi-armed-bandit" ? editMetrics : undefined
+          }
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
@@ -300,8 +312,14 @@ const CompactResults: FC<{
             regressionAdjustmentEnabled,
             statsEngine
           )}
-          metricFilter={metricFilter}
-          setMetricFilter={setMetricFilter}
+          metricFilter={
+            experimentType !== "multi-armed-bandit" ? metricFilter : undefined
+          }
+          setMetricFilter={
+            experimentType !== "multi-armed-bandit"
+              ? setMetricFilter
+              : undefined
+          }
           metricTags={allMetricTags}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}

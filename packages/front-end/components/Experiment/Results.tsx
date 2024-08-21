@@ -383,6 +383,7 @@ const Results: FC<{
             setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
             setTab={setTab}
+            experimentType={experiment.type}
           />
         </>
       ) : null}

@@ -7,7 +7,7 @@ export interface Props {
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
-  setGoalMetrics: (goalMetrics: string[]) => void;
+  setGoalMetrics?: (goalMetrics: string[]) => void;
   setSecondaryMetrics?: (secondaryMetrics: string[]) => void;
   setGuardrailMetrics?: (guardrailMetrics: string[]) => void;
   autoFocus?: boolean;
@@ -29,29 +29,31 @@ export default function ExperimentMetricsSelector({
 }: Props) {
   return (
     <>
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">
-          {!forceSingleGoalMetric ? "Goal Metrics" : "Goal Metric"}
-        </label>
-        <div className="mb-1">
-          <span className="font-italic">
-            {!forceSingleGoalMetric
-              ? "The primary metrics you are trying to improve with this experiment. "
-              : "Choose the goal metric that will be used to update variation weights. "}
-          </span>
-          <MetricsSelectorTooltip />
+      {setGoalMetrics !== undefined && (
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">
+            {!forceSingleGoalMetric ? "Goal Metrics" : "Goal Metric"}
+          </label>
+          <div className="mb-1">
+            <span className="font-italic">
+              {!forceSingleGoalMetric
+                ? "The primary metrics you are trying to improve with this experiment. "
+                : "Choose the goal metric that will be used to update variation weights. "}
+            </span>
+            <MetricsSelectorTooltip />
+          </div>
+          <MetricsSelector
+            selected={goalMetrics}
+            onChange={setGoalMetrics}
+            datasource={datasource}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            autoFocus={autoFocus}
+            includeFacts={true}
+            forceSingleMetric={forceSingleGoalMetric}
+          />
         </div>
-        <MetricsSelector
-          selected={goalMetrics}
-          onChange={setGoalMetrics}
-          datasource={datasource}
-          exposureQueryId={exposureQueryId}
-          project={project}
-          autoFocus={autoFocus}
-          includeFacts={true}
-          forceSingleMetric={forceSingleGoalMetric}
-        />
-      </div>
+      )}
 
       {setSecondaryMetrics !== undefined && (
         <div className="form-group">
