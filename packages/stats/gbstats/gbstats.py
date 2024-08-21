@@ -30,7 +30,8 @@ from gbstats.models.results import (
     FrequentistVariationResponse,
     MetricStats,
     MultipleExperimentMetricAnalysis,
-    BanditResponse,
+    BanditResult,
+    SingleVariationResult,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -622,13 +623,15 @@ def get_bandit_response(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     settings: BanditSettingsForStatsEngine,
-) -> BanditResponse:
+) -> BanditResult:
     if len(rows) == 0:
-        return BanditResponse(
+        return BanditResult(
+            singleVariationResults=None,
             banditWeights=None,
-            banditUpdateMessage="no rows",
-            additionalReward=None,
             bestArmProbabilities=None,
+            additionalReward=None,
+            seed=0,
+            banditUpdateMessage="no rows",
         )
     pdrows = pd.DataFrame(rows)
     pdrows = pdrows.loc[pdrows["dimension"] == ""]
@@ -642,11 +645,13 @@ def get_bandit_response(
     bandit_stats = create_bandit_sample_mean_statistics(df, metric)
     if any(value is None for value in bandit_stats.values()):
         error_str = "not all statistics are instance of type BanditStatistic"
-        return BanditResponse(
+        return BanditResult(
+            singleVariationResults=None,
             banditWeights=None,
             bestArmProbabilities=None,
-            banditUpdateMessage=error_str,
             additionalReward=None,
+            seed=0,
+            banditUpdateMessage=error_str,
         )
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
     bandit_config = BanditConfig(
@@ -654,6 +659,7 @@ def get_bandit_response(
         bandit_weights_seed=settings.bandit_weights_seed,
         weight_by_period=settings.weight_by_period,
         top_two=settings.top_two,
+        alpha=settings.alpha,
     )
     if metric.statistic_type == "ratio":
         b = BanditsRatio(bandit_stats, bandit_config)
@@ -661,13 +667,25 @@ def get_bandit_response(
         b = BanditsCuped(bandit_stats, bandit_config)
     else:
         b = Bandits(bandit_stats, bandit_config)
-    weights = b.compute_variation_weights()
-    additional_reward = b.compute_additional_reward()
-    return BanditResponse(
-        banditWeights=weights.weights,
-        bestArmProbabilities=weights.best_arm_probabilities,
-        banditUpdateMessage=weights.update_message,
-        additionalReward=additional_reward,
+    bandit_result = b.compute_result()
+    single_variation_results = None
+    if (
+        bandit_result.bandit_update_message == "successfully_updated"
+        and bandit_result.ci
+    ):
+        single_variation_results = [
+            SingleVariationResult(n, mn, ci)
+            for n, mn, ci in zip(
+                b.variation_counts, b.variation_means, bandit_result.ci
+            )
+        ]
+    return BanditResult(
+        singleVariationResults=single_variation_results,
+        banditWeights=bandit_result.bandit_weights,
+        bestArmProbabilities=bandit_result.best_arm_probabilities,
+        additionalReward=bandit_result.additional_reward,
+        seed=bandit_result.seed,
+        banditUpdateMessage=bandit_result.bandit_update_message,
     )
 
 
@@ -703,10 +721,10 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
 
 def process_experiment_results(
     data: Dict[str, Any]
-) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResponse]]:
+) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResult]]:
     d = process_data_dict(data)
     results: List[ExperimentMetricAnalysis] = []
-    bandit_result: Optional[BanditResponse] = None
+    bandit_result: Optional[BanditResult] = None
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
             if metric in d.metrics:
@@ -740,14 +758,14 @@ def process_multiple_experiment_results(
     for exp_data in data:
         try:
             exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
-            fixed_results, bandit_response = process_experiment_results(
+            fixed_results, bandit_result = process_experiment_results(
                 exp_data_proc.data
             )
             results.append(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data_proc.id,
                     results=fixed_results,
-                    banditResponse=bandit_response,
+                    banditResult=bandit_result,
                     error=None,
                 )
             )
@@ -756,7 +774,7 @@ def process_multiple_experiment_results(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data["id"],
                     results=[],
-                    banditResponse=None,
+                    banditResult=None,
                     error=str(e)[:64],
                 )
             )

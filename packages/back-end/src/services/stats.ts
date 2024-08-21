@@ -73,7 +73,8 @@ export interface BanditSettingsForStatsEngine {
   decision_metric: string;
   bandit_weights_seed: number;
   weight_by_period: boolean;
-  top_two: boolean; 
+  top_two: boolean;
+  alpha: number; 
 }
 
 export interface BanditSettingsForStatsEngine {

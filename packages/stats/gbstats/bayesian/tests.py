@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import field
-from typing import List, Literal, Optional, Dict
+from typing import List, Literal, Optional, Dict, Tuple
 
 import numpy as np
 import random
@@ -19,7 +19,11 @@ from gbstats.models.statistics import (
     BanditStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
-from gbstats.utils import truncated_normal_mean, variance_of_ratios
+from gbstats.utils import (
+    truncated_normal_mean,
+    variance_of_ratios,
+    gaussian_credible_interval,
+)
 
 
 # Configs
@@ -52,11 +56,15 @@ class BanditConfig(BayesianConfig):
 
 
 @dataclass
-class BanditWeights:
-    update_message: str
-    weights: List[float] | None
-    best_arm_probabilities: List[float] | None
+class BanditResponse:
+    users: Optional[List[float]]
+    cr: Optional[List[float]]
+    ci: Optional[List[Tuple[float, float]]]
+    bandit_weights: Optional[List[float]]
+    best_arm_probabilities: Optional[List[float]]
+    additional_reward: Optional[float]
     seed: int
+    bandit_update_message: Optional[str]
 
 
 # Results
@@ -99,7 +107,7 @@ class BayesianABTest(BaseABTest):
         return BayesianTestResult(
             chance_to_win=0.5,
             expected=0,
-            ci=[0, 0],
+            ci=(0, 0),
             uplift=Uplift(dist="normal", mean=0, stddev=0),
             risk=[0, 0],
             error_message=error_message,
@@ -108,12 +116,6 @@ class BayesianABTest(BaseABTest):
 
     def has_empty_input(self):
         return self.stat_a.n == 0 or self.stat_b.n == 0
-
-    def credible_interval(
-        self, mean_diff: float, std_diff: float, alpha: float
-    ) -> List[float]:
-        ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
-        return ci.tolist()
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
         if self.inverse:
@@ -132,7 +134,7 @@ class BayesianABTest(BaseABTest):
         return BayesianTestResult(
             chance_to_win=result.chance_to_win,
             expected=result.expected * adjustment,
-            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+            ci=(result.ci[0] * adjustment, result.ci[1] * adjustment),
             uplift=Uplift(
                 dist=result.uplift.dist,
                 mean=result.uplift.mean * adjustment,
@@ -214,7 +216,7 @@ class EffectBayesianABTest(BayesianABTest):
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        ci = self.credible_interval(self.mean_diff, self.std_diff, self.alpha)
+        ci = gaussian_credible_interval(self.mean_diff, self.std_diff, self.alpha)
 
         risk = self.get_risk(self.mean_diff, self.std_diff)
         # flip risk for inverse metrics
@@ -259,6 +261,13 @@ class Bandits:
         self.stats = stats
         self.config = config
 
+    @staticmethod
+    def construct_mean(sums: np.ndarray, counts: np.ndarray) -> np.ndarray:
+        positive_counts = counts > 0
+        means = np.zeros(sums.shape)
+        means[positive_counts] = sums[positive_counts] / counts[positive_counts]
+        return means
+
     @property
     def bandit_weights_seed(self) -> int:
         return self.config.bandit_weights_seed
@@ -281,7 +290,7 @@ class Bandits:
         array_shape: tuple,
         attribute_1: str,
         attribute_2: str = "",
-    ):
+    ) -> np.ndarray:
         """
         Extracts a specified attribute from nested data structures and reshapes it.
         Args:
@@ -353,7 +362,7 @@ class Bandits:
 
     # given num_periods x num_variations arrays of means and weights, returns the weighted means across periods.
     @staticmethod
-    def construct_weighted_means(means_array, weights_array):
+    def construct_weighted_means(means_array, weights_array) -> np.ndarray:
         return np.sum(means_array * weights_array, axis=0)
 
     @property
@@ -512,15 +521,19 @@ class Bandits:
         return float(np.sum(counts_diff * self.means_array))
 
     # function that computes thompson sampling variation weights
-    def compute_variation_weights(self) -> BanditWeights:
+    def compute_result(self) -> BanditResponse:
         min_n = 100
         if any(self.variation_counts < min_n):
             update_message = "some variation counts fewer than " + str(min_n)
-            return BanditWeights(
-                update_message=update_message,
-                weights=None,
+            return BanditResponse(
+                users=None,
+                cr=None,
+                ci=None,
+                bandit_weights=None,
                 best_arm_probabilities=None,
+                additional_reward=None,
                 seed=0,
+                bandit_update_message=update_message,
             )
         seed = (
             self.bandit_weights_seed
@@ -542,16 +555,24 @@ class Bandits:
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
-        return BanditWeights(
-            update_message=update_message,
-            weights=p.tolist(),
-            best_arm_probabilities=best_arm_probabilities,
+        credible_intervals = [
+            gaussian_credible_interval(mn, s, self.config.alpha)
+            for mn, s in zip(self.posterior_mean, np.sqrt(self.posterior_variance))
+        ]
+        return BanditResponse(
+            users=self.variation_counts.tolist(),
+            cr=self.variation_means.tolist(),
+            ci=credible_intervals,
+            bandit_weights=p.tolist(),
+            best_arm_probabilities=best_arm_probabilities.tolist(),
+            additional_reward=self.compute_additional_reward(),
             seed=seed,
+            bandit_update_message=update_message,
         )
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod
-    def top_two_weights(y) -> np.ndarray:
+    def top_two_weights(y: np.ndarray) -> np.ndarray:
         """Calculates the proportion of times each column contains the largest or second largest element in a row.
         Args:
         arr: A 2D NumPy array.
@@ -613,7 +634,7 @@ class BanditsRatio(Bandits):
 
     @property
     def variation_means(self) -> np.ndarray:
-        return self.numerator_means / self.denominator_means
+        return self.construct_mean(self.numerator_means, self.denominator_means)
 
     @property
     def numerator_variances_array(self) -> np.ndarray:
@@ -673,13 +694,6 @@ class BanditsRatio(Bandits):
 
 
 class BanditsCuped(Bandits):
-    @staticmethod
-    def construct_mean(sums: np.ndarray, counts: np.ndarray) -> np.ndarray:
-        positive_counts = counts > 0
-        means = np.zeros(sums.shape)
-        means[positive_counts] = sums[positive_counts] / counts[positive_counts]
-        return means
-
     @property
     def post_sum(self):
         return self.attribute_array(
