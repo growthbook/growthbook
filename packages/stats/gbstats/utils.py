@@ -1,9 +1,10 @@
 import importlib.metadata
-from typing import List
+from typing import List, Tuple
 
 import packaging.version
 from scipy.stats import truncnorm
 from scipy.stats.distributions import chi2  # type: ignore
+from scipy.stats import norm  # type: ignore
 
 
 def check_gbstats_compatibility(nb_version: str) -> None:
@@ -50,3 +51,10 @@ def check_srm(users: List[int], weights: List[float]) -> float:
         x = x + ((o - e) ** 2) / e
 
     return chi2.sf(x, len(users) - 1)  # type: ignore
+
+
+def gaussian_credible_interval(
+    mean_diff: float, std_diff: float, alpha: float
+) -> Tuple[float, float]:
+    ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
+    return ci.tolist()

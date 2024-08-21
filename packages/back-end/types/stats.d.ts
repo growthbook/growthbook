@@ -7,6 +7,14 @@ export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
+
+interface BaseResponse {
+  cr: number;
+  value: number;
+  users: number;
+  ci?: [number, number];
+}
+
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -60,16 +68,24 @@ export type ExperimentMetricAnalysis = {
   }[];
 }[];
 
-export type BanditResponse = {
-  banditUpdateMessage?: string;
+export type SingleVariationResult = {
+  users?: number;
+  cr?: number;
+  ci?: [number, number];
+};
+
+export type BanditResult = {
+  singleVariationResults?: SingleVariationResult[];
   banditWeights?: number[];
   bestArmProbabilities?: number[];
   additionalReward: number;
+  seed: number;
+  banditUpdateMessage?: string;
 };
 
 export type MultipleExperimentMetricAnalysis = {
   id: string;
   results: ExperimentMetricAnalysis;
-  banditResponse?: BanditResponse;
+  banditResult?: BanditResult;
   error?: string;
 };

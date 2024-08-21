@@ -33,6 +33,7 @@ class BanditSettingsForStatsEngine:
     bandit_weights_seed: int = 100
     weight_by_period: bool = True
     top_two: bool = True
+    alpha: float = 0.05
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
