@@ -16,7 +16,6 @@ import {
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -189,30 +188,25 @@ export default function AnalysisSettingsBar({
               </div>
             )}
           <div style={{ flex: 1 }} />
-          <div className="col-auto">
-            {regressionAdjustmentAvailable && (
-              <PremiumTooltip
-                commercialFeature="regression-adjustment"
-                className="form-inline"
-              >
-                <label
-                  htmlFor={"toggle-experiment-regression-adjustment"}
-                  className={clsx(
-                    `d-flex my-0 pl-2 pr-1 py-1 form-inline`,
-                    experiment.type !== "multi-armed-bandit"
-                      ? `btn btn-outline-${
-                          !hasRegressionAdjustmentFeature
-                            ? "teal-disabled"
-                            : regressionAdjustmentEnabled
-                            ? "teal"
-                            : "teal-off"
-                        }`
-                      : ""
-                  )}
+          {experiment.type !== "multi-armed-bandit" && (
+            <div className="col-auto">
+              {regressionAdjustmentAvailable && (
+                <PremiumTooltip
+                  commercialFeature="regression-adjustment"
+                  className="form-inline"
                 >
-                  <GBCuped />
-                  <span className="mx-1 font-weight-bold">CUPED</span>
-                  {experiment.type !== "multi-armed-bandit" ? (
+                  <label
+                    htmlFor={"toggle-experiment-regression-adjustment"}
+                    className={`d-flex btn btn-outline-${
+                      !hasRegressionAdjustmentFeature
+                        ? "teal-disabled"
+                        : regressionAdjustmentEnabled
+                        ? "teal"
+                        : "teal-off"
+                    } my-0 pl-2 pr-1 py-1 form-inline`}
+                  >
+                    <GBCuped />
+                    <span className="mx-1 font-weight-bold">CUPED</span>
                     <Toggle
                       id="toggle-experiment-regression-adjustment"
                       value={!!regressionAdjustmentEnabled}
@@ -233,37 +227,35 @@ export default function AnalysisSettingsBar({
                         !canEditAnalysisSettings
                       }
                     />
-                  ) : (
-                    <span>{regressionAdjustmentEnabled ? "ON" : "OFF"}</span>
-                  )}
-                  {!regressionAdjustmentHasValidMetrics && (
-                    <Tooltip
-                      popperClassName="text-left"
-                      body={
-                        <>
-                          <p>
-                            This experiment does not have any metrics suitable
-                            for CUPED regression adjustment.
-                          </p>
-                          <p className="mb-0">
-                            Please check your metric definitions, as well as any
-                            experiment-level metric overrides.
-                          </p>
-                        </>
-                      }
-                    >
-                      <div
-                        className="text-warning-orange position-absolute p-1"
-                        style={{ top: -11, right: 2 }}
+                    {!regressionAdjustmentHasValidMetrics && (
+                      <Tooltip
+                        popperClassName="text-left"
+                        body={
+                          <>
+                            <p>
+                              This experiment does not have any metrics suitable
+                              for CUPED regression adjustment.
+                            </p>
+                            <p className="mb-0">
+                              Please check your metric definitions, as well as
+                              any experiment-level metric overrides.
+                            </p>
+                          </>
+                        }
                       >
-                        <FaExclamationCircle />
-                      </div>
-                    </Tooltip>
-                  )}
-                </label>
-              </PremiumTooltip>
-            )}
-          </div>
+                        <div
+                          className="text-warning-orange position-absolute p-1"
+                          style={{ top: -11, right: 2 }}
+                        >
+                          <FaExclamationCircle />
+                        </div>
+                      </Tooltip>
+                    )}
+                  </label>
+                </PremiumTooltip>
+              )}
+            </div>
+          )}
           {showMoreMenu && (
             <div className="col-auto">
               <ResultMoreMenu
