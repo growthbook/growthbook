@@ -23,7 +23,6 @@ import {
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
-  SMALL_GROUP_SIZE_LIMIT,
 } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -1139,11 +1138,14 @@ export default function SDKConnectionForm({
                     body={
                       <>
                         <p>
-                          Enable the creation &amp; use of ID Lists with over{" "}
-                          {SMALL_GROUP_SIZE_LIMIT} items, which are not
-                          supported by old SDK versions.
+                          Reduce the size of your payload by moving ID List
+                          Saved Groups from inline evaluation to a separate key
+                          in the payload json. Re-using an ID List in multiple
+                          features or experiments will no longer meaningfully
+                          increase the size of your payload.
                         </p>
                         <p>
+                          This feature is not supported by old SDK versions.
                           Ensure that your SDK implementation is up to date
                           before enabling this feature.
                         </p>
@@ -1156,8 +1158,7 @@ export default function SDKConnectionForm({
                       </>
                     }
                   >
-                    Include ID Lists with &gt;{SMALL_GROUP_SIZE_LIMIT} items (
-                    <DocLink docSection="savedGroups">docs</DocLink>)
+                    Pass ID Lists by reference <FaInfoCircle />
                   </PremiumTooltip>
                 </label>
               </div>

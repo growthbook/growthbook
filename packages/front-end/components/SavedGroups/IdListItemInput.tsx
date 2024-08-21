@@ -9,6 +9,7 @@ import {
   FaRetweet,
 } from "react-icons/fa";
 import clsx from "clsx";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import LargeSavedGroupSupportWarning, {
@@ -51,6 +52,10 @@ export const IdListItemInput: FC<{
   );
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
+  const orgBypassSmallListSizeLimit = !useFeatureValue(
+    "apply-saved-group-id-list-size-limit",
+    false
+  );
 
   const {
     supportedConnections,
@@ -70,14 +75,24 @@ export const IdListItemInput: FC<{
   const [nonLegacyImport, setNonLegacyImport] = useState(false);
 
   useEffect(() => {
-    if (values.length > limit && !bypassSmallListSizeLimit) {
+    if (
+      values.length > limit &&
+      !bypassSmallListSizeLimit &&
+      !orgBypassSmallListSizeLimit
+    ) {
       setNonLegacyImport(true);
       setPassByReferenceOnly(true);
     } else {
       setNonLegacyImport(false);
       setPassByReferenceOnly(false);
     }
-  }, [values, limit, bypassSmallListSizeLimit, setPassByReferenceOnly]);
+  }, [
+    values,
+    limit,
+    bypassSmallListSizeLimit,
+    orgBypassSmallListSizeLimit,
+    setPassByReferenceOnly,
+  ]);
 
   useEffect(() => {
     if (supportedConnections.length > 0) {
@@ -85,7 +100,8 @@ export const IdListItemInput: FC<{
     } else if (
       nonLegacyImport &&
       !passByReferenceOnly &&
-      !bypassSmallListSizeLimit
+      !bypassSmallListSizeLimit &&
+      !orgBypassSmallListSizeLimit
     ) {
       setDisableSubmit(true);
     } else {
@@ -97,6 +113,7 @@ export const IdListItemInput: FC<{
     nonLegacyImport,
     passByReferenceOnly,
     bypassSmallListSizeLimit,
+    orgBypassSmallListSizeLimit,
   ]);
 
   return (
@@ -136,21 +153,23 @@ export const IdListItemInput: FC<{
           </label>
         </div>
       </div>
-      {!passByReferenceOnly && !bypassSmallListSizeLimit && (
-        <LargeSavedGroupSupportWarning
-          type={
-            groupReferencedByUnsupportedSdks
-              ? "in_use_saved_group"
-              : "saved_group_creation"
-          }
-          openUpgradeModal={openUpgradeModal}
-          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          supportedConnections={supportedConnections}
-          unsupportedConnections={unsupportedConnections}
-          unversionedConnections={unversionedConnections}
-          upgradeWarningToError={disableSubmit}
-        />
-      )}
+      {!passByReferenceOnly &&
+        !bypassSmallListSizeLimit &&
+        !orgBypassSmallListSizeLimit && (
+          <LargeSavedGroupSupportWarning
+            type={
+              groupReferencedByUnsupportedSdks
+                ? "in_use_saved_group"
+                : "saved_group_creation"
+            }
+            openUpgradeModal={openUpgradeModal}
+            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+            supportedConnections={supportedConnections}
+            unsupportedConnections={unsupportedConnections}
+            unversionedConnections={unversionedConnections}
+            upgradeWarningToError={disableSubmit}
+          />
+        )}
       {importMethod === "file" && (
         <>
           <div

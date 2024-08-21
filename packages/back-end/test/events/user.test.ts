@@ -37,6 +37,7 @@ describe("user events", () => {
 
     const expected = {
       organizationId: "org",
+      objectId: "user-id",
       payload: {
         containsSecrets: true,
         data: {

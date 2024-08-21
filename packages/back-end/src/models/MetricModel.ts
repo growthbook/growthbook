@@ -230,6 +230,7 @@ async function findMetrics(
   additionalQuery?: Partial<MetricInterface>
 ) {
   const metrics: MetricInterface[] = [];
+  const metricIds = new Set<string>();
 
   // If using config.yml, first check there
   if (usingFileConfig()) {
@@ -250,6 +251,7 @@ async function findMetrics(
       .filter((m) => !filter || filter(m))
       .forEach((m) => {
         metrics.push(m);
+        metricIds.add(m.id);
       });
 
     // If metrics are locked down to just a config file, return immediately
@@ -272,10 +274,11 @@ async function findMetrics(
     )
     .toArray();
   docs.forEach((doc) => {
-    if (metrics.some((m) => m.id === doc.id)) {
+    if (metricIds.has(doc.id)) {
       return;
     }
     metrics.push(toInterface(doc));
+    metricIds.add(doc.id);
   });
 
   return metrics.filter((m) =>
@@ -354,8 +357,12 @@ export async function getMetricById(
 export async function getMetricsByIds(
   context: ReqContext | ApiReqContext,
   ids: string[]
-) {
+): Promise<MetricInterface[]> {
   const metrics: MetricInterface[] = [];
+
+  if (!ids.length) {
+    return metrics;
+  }
 
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {

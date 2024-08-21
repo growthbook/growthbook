@@ -151,6 +151,7 @@ export async function trackLoginForUser({
           containsSecrets: true,
         },
         organizationId,
+        objectId: user.id,
       })
     );
     await Promise.all(eventCreatePromises);
