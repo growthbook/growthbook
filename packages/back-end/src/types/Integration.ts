@@ -153,6 +153,7 @@ interface ExperimentBaseQueryParams {
   dimensions: Dimension[];
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
+  banditPeriods?: Date[];
 }
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
@@ -338,6 +339,7 @@ export type PastExperimentResponseRows = {
 
 export type ExperimentMetricQueryResponseRows = {
   dimension: string;
+  bandit_period?: string;
   variation: string;
   users: number;
   count: number;
