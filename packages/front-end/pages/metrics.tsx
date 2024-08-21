@@ -490,6 +490,7 @@ const MetricsPage = (): React.ReactElement => {
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
+                    useFlex={true}
                   />
                 </td>
                 <td className="col-2">

@@ -130,23 +130,9 @@ class EffectBayesianABTest(BayesianABTest):
         config: EffectBayesianConfig = EffectBayesianConfig(),
     ):
         super().__init__(stat_a, stat_b, config)
-        # rescale prior if needed
-        if self.relative and config.prior_type == "absolute":
-            self.prior_effect = GaussianPrior(
-                config.prior_effect.mean / abs(self.stat_a.unadjusted_mean),
-                config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.proper,
-            )
-        elif not self.relative and config.prior_type == "relative":
-            self.prior_effect = GaussianPrior(
-                config.prior_effect.mean * abs(self.stat_a.unadjusted_mean),
-                config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.proper,
-            )
-        else:
-            self.prior_effect = config.prior_effect
         self.stat_a = stat_a
         self.stat_b = stat_b
+        self.config = config
 
     def compute_result(self):
         if (
@@ -157,6 +143,23 @@ class EffectBayesianABTest(BayesianABTest):
             return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
         if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+
+        # rescale prior if needed
+        scaled_prior_effect = self.config.prior_effect
+        if self.relative and self.config == "absolute":
+            scaled_prior_effect = GaussianPrior(
+                self.config.prior_effect.mean / abs(self.stat_a.unadjusted_mean),
+                self.config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
+                self.config.prior_effect.proper,
+            )
+        elif not self.relative and self.config.prior_type == "relative":
+            if self.config.prior_effect.proper and self.stat_a.unadjusted_mean == 0:
+                return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
+            scaled_prior_effect = GaussianPrior(
+                self.config.prior_effect.mean * abs(self.stat_a.unadjusted_mean),
+                self.config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
+                self.config.prior_effect.proper,
+            )
 
         data_variance = frequentist_variance(
             self.stat_a.variance,
@@ -174,17 +177,16 @@ class EffectBayesianABTest(BayesianABTest):
             self.stat_a.unadjusted_mean,
         )
 
-        post_prec = (
-            1 / data_variance
-            + int(self.prior_effect.proper) / self.prior_effect.variance
+        post_prec = 1 / data_variance + (
+            1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
         )
         self.mean_diff = (
             (
                 data_mean / data_variance
-                + self.prior_effect.mean / self.prior_effect.variance
+                + scaled_prior_effect.mean / scaled_prior_effect.variance
             )
             / post_prec
-            if self.prior_effect.proper
+            if scaled_prior_effect.proper
             else data_mean
         )
 

@@ -83,7 +83,7 @@ export default function IdLists({ groups, mutate }: Props) {
   if (!idLists) return <LoadingOverlay />;
 
   return (
-    <div className="mb-5 p-3 bg-white">
+    <div className="mb-5 p-3 bg-white appbox border-top-0">
       {savedGroupForm && (
         <SavedGroupForm
           close={() => setSavedGroupForm(null)}

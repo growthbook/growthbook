@@ -29,6 +29,8 @@ interface Datapoint {
   v: number | null; // value
   s?: number | null; // standard deviation
   c?: number | null; // count
+  num?: number | null; // numerator
+  den?: number | null; // denominator
   oor?: boolean; // out of range
 }
 
@@ -85,10 +87,10 @@ function getTooltipContents(
   type: MetricType,
   method: "sum" | "avg",
   smoothBy: "day" | "week",
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   displayCurrency?: string
 ) {
   if (!d || d.oor) return null;
-  const formatter = getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
   return (
     <>
@@ -172,6 +174,7 @@ interface DateGraphProps {
   experiments?: DraftExperiment[];
   height?: number;
   margin?: [number, number, number, number];
+  formatter?: (value: number, options?: Intl.NumberFormatOptions) => string;
   onHover?: (ret: { d: number | null }) => void;
   hoverDate?: number | null;
 }
@@ -185,13 +188,14 @@ const DateGraph: FC<DateGraphProps> = ({
   experiments = [],
   height = 220,
   margin = [15, 15, 30, 80],
+  formatter,
   onHover,
   hoverDate,
 }: DateGraphProps) => {
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
-  const displayCurrency = useCurrency();
 
-  const formatter = getMetricFormatter(type);
+  const displayCurrency = useCurrency();
+  const metricFormatter = formatter ?? getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
 
   const [
@@ -401,6 +405,7 @@ const DateGraph: FC<DateGraphProps> = ({
     height += minGraphHeight - (yMax - expHeight);
     graphHeight = minGraphHeight;
   }
+
   const xScale = useMemo(
     () =>
       scaleTime({
@@ -547,6 +552,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         type,
                         method,
                         smoothBy,
+                        metricFormatter,
                         displayCurrency
                       )}
                   </TooltipWithBounds>
@@ -744,7 +750,7 @@ const DateGraph: FC<DateGraphProps> = ({
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
-                      : formatter(v as number, formatterOptions)
+                      : metricFormatter(v as number, formatterOptions)
                   }
                 />
               </Group>

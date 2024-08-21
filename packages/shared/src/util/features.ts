@@ -25,6 +25,13 @@ import { ApiFeature } from "back-end/types/openapi";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload, isDefined } from ".";
 
+export const DRAFT_REVISION_STATUSES = [
+  "draft",
+  "approved",
+  "changes-requested",
+  "pending-review",
+];
+
 export function getValidation(feature: FeatureInterface) {
   try {
     if (!feature?.jsonSchema) {

@@ -76,7 +76,10 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   if (!conditionGroups) return <LoadingOverlay />;
 
   return (
-    <div className="mb-5  p-3 bg-white">
+    <div
+      className="mb-5 p-3 bg-white appbox border-top-0"
+      style={{ borderRadius: "0 0 5px 5px" }}
+    >
       {savedGroupForm && (
         <SavedGroupForm
           close={() => setSavedGroupForm(null)}
