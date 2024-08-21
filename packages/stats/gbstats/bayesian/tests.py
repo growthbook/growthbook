@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import field
-from typing import List, Literal, Optional, Dict, Tuple
+from typing import List, Literal, Optional, Dict
 
 import numpy as np
 import random
@@ -59,7 +59,7 @@ class BanditConfig(BayesianConfig):
 class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
-    ci: Optional[List[Tuple[float, float]]]
+    ci: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     additional_reward: Optional[float]
@@ -107,7 +107,7 @@ class BayesianABTest(BaseABTest):
         return BayesianTestResult(
             chance_to_win=0.5,
             expected=0,
-            ci=(0, 0),
+            ci=[0, 0],
             uplift=Uplift(dist="normal", mean=0, stddev=0),
             risk=[0, 0],
             error_message=error_message,
@@ -134,7 +134,7 @@ class BayesianABTest(BaseABTest):
         return BayesianTestResult(
             chance_to_win=result.chance_to_win,
             expected=result.expected * adjustment,
-            ci=(result.ci[0] * adjustment, result.ci[1] * adjustment),
+            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
             uplift=Uplift(
                 dist=result.uplift.dist,
                 mean=result.uplift.mean * adjustment,

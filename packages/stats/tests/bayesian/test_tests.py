@@ -46,14 +46,13 @@ class TestBinom(TestCase):
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.04082,
-                ci=(-0.24779, 0.32943),
+                ci=[-0.24779, 0.32943],
                 uplift=Uplift(dist="normal", mean=0.04082, stddev=0.14725),
                 chance_to_win=0.60918,
                 risk=[0.0814, 0.04058],
                 risk_type="relative",
             )
         )
-
         result_rounded_dict = round_results_dict(asdict(result))
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 
@@ -75,7 +74,7 @@ class TestNorm(TestCase):
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.05,
-                ci=(-0.02, 0.12),
+                ci=[-0.02, 0.12],
                 uplift=Uplift(dist="normal", mean=0.05, stddev=0.03572),
                 chance_to_win=0.91923,
                 risk=[0.05131, 0.00131],
@@ -97,7 +96,7 @@ class TestNorm(TestCase):
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.05063,
-                ci=(-0.01893, 0.12019),
+                ci=[-0.01893, 0.12019],
                 uplift=Uplift(dist="normal", mean=0.05063, stddev=0.03549),
                 chance_to_win=0.92315,
                 risk=[0.05186, 0.00123],

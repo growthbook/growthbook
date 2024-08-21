@@ -1,5 +1,5 @@
 import importlib.metadata
-from typing import List, Tuple
+from typing import List
 
 import packaging.version
 from scipy.stats import truncnorm
@@ -55,6 +55,6 @@ def check_srm(users: List[int], weights: List[float]) -> float:
 
 def gaussian_credible_interval(
     mean_diff: float, std_diff: float, alpha: float
-) -> Tuple[float, float]:
+) -> List[float]:
     ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
     return ci.tolist()

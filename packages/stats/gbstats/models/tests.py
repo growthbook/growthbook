@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import List
 
 from pydantic.dataclasses import dataclass
 
@@ -30,7 +30,7 @@ class Uplift:
 @dataclass
 class TestResult:
     expected: float
-    ci: Tuple[float, float]
+    ci: List[float]
     uplift: Uplift
 
 
