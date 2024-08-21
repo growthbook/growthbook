@@ -14,6 +14,7 @@ import {
 } from "@/components/PowerCalculation/types";
 
 import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
+import track from "@/services/track";
 
 const WEEKS = 9;
 const INITIAL_FORM_PARAMS = { metrics: {} } as const;
@@ -106,7 +107,6 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
-
     return powerMetricWeeks(finalParams);
   }, [finalParams]);
   return (
@@ -115,6 +115,16 @@ const PowerCalculationPage = (): React.ReactElement => {
         <PowerCalculationSettingsModal
           close={() => setShowModal(false)}
           onSuccess={(p) => {
+            track("power-calculation-settings-update", {
+              numMetrics: p.metrics.length,
+              metricsMetaData: Object.keys(p.metrics).map((m: string) => {
+                const metric = p.metrics[m];
+                return {
+                  type: metric.type,
+                  effectSize: metric.effectSize,
+                };
+              }),
+            });
             setSettingsModalParams(p);
             setPowerCalculationParams(p);
             setStatsEngineSettings(modalStatsEngineSettings);
