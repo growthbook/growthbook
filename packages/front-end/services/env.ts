@@ -19,6 +19,7 @@ const env: EnvironmentInitValue = {
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
   usingFileProxy: false,
+  superadminDefaultRole: "readonly",
 };
 
 export async function initEnv() {
@@ -90,4 +91,7 @@ export function storeSegmentsInMongo() {
 }
 export function usingFileProxy() {
   return env.usingFileProxy;
+}
+export function getSuperadminDefaultRole() {
+  return env.superadminDefaultRole;
 }

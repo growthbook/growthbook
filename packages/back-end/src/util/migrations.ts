@@ -8,6 +8,7 @@ import {
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
+import { SavedGroupInterface } from "shared/src/types";
 import {
   ExperimentReportArgs,
   LegacyReportInterface,
@@ -40,10 +41,7 @@ import {
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { getEnvironments } from "../services/organizations";
-import {
-  LegacySavedGroupInterface,
-  SavedGroupInterface,
-} from "../../types/saved-group";
+import { LegacySavedGroupInterface } from "../../types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -67,7 +65,7 @@ function adjustWeights(weights: number[]): number[] {
 }
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
-  const newDoc = cloneDeep(doc);
+  const newDoc = { ...doc };
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -536,7 +534,7 @@ export function upgradeExperimentDoc(
 
       phase.coverage = phase.coverage ?? 1;
       phase.condition = phase.condition || "";
-      phase.seed = phase.seed || experiment.trackingKey;
+      phase.seed = phase.seed || experiment.trackingKey; //support for old experiments where tracking key was used as seed instead of UUID
       phase.namespace = phase.namespace || {
         enabled: false,
         name: "",

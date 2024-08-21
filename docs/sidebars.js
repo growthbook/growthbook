@@ -108,7 +108,6 @@ const sidebars = {
           type: "doc",
           id: "running-experiments/url-redirects",
           label: "URL Redirects",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -180,6 +179,11 @@ const sidebars = {
               type: "doc",
               id: "warehouses/postgres",
               label: "Postgres",
+            },
+            {
+              type: "doc",
+              id: "warehouses/vertica",
+              label: "Vertica",
             },
             {
               type: "doc",
