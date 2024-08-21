@@ -90,7 +90,7 @@ function App({
       console.log("Failed to fetch GrowthBook feature definitions");
     });
     track("page-load", {
-      pathname: router.pathname,
+      pathName: router.pathname,
     });
   }, [router.pathname]);
 
