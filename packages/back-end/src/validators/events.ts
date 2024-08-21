@@ -9,12 +9,16 @@ const eventUserLoggedIn = z
   })
   .strict();
 
+export type EventUserLoggedIn = z.infer<typeof eventUserLoggedIn>;
+
 const eventUserApiKey = z
   .object({
     type: z.literal("api_key"),
     apiKey: z.string(),
   })
   .strict();
+
+export type EventUserApiKey = z.infer<typeof eventUserApiKey>;
 
 export const eventUser = z.union([
   eventUserLoggedIn,

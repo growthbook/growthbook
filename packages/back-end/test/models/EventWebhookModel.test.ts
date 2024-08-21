@@ -34,7 +34,17 @@ describe("getAllEventWebHooksForEvent", () => {
         events: "feature.created",
         organizationId: "aabb",
       });
-      expect(ret).toEqual([{ name: "webhook with no filter on projects" }]);
+      expect(ret).toEqual([
+        {
+          name: "webhook with no filter on projects",
+          environments: [],
+          projects: [],
+          tags: [],
+          headers: {},
+          method: "POST",
+          payloadType: "raw",
+        },
+      ]);
     });
   });
 
@@ -69,8 +79,24 @@ describe("getAllEventWebHooksForEvent", () => {
         organizationId: "aabb",
       });
       expect(ret).toEqual([
-        { name: "webhook with no filter on projects" },
-        { name: "webhook with filter for event project" },
+        {
+          name: "webhook with no filter on projects",
+          environments: [],
+          projects: [],
+          tags: [],
+          headers: {},
+          method: "POST",
+          payloadType: "raw",
+        },
+        {
+          name: "webhook with filter for event project",
+          environments: [],
+          projects: ["event project"],
+          tags: [],
+          headers: {},
+          method: "POST",
+          payloadType: "raw",
+        },
       ]);
     });
   });

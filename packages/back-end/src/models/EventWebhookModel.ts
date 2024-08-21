@@ -17,6 +17,8 @@ import {
   eventWebHookMethods,
   EventWebHookMethod,
 } from "../types/EventWebHook";
+import { ReqContext } from "../../types/organization";
+import { createEvent } from "./EventModel";
 
 const eventWebHookSchema = new mongoose.Schema({
   id: {
@@ -165,8 +167,15 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @param doc
  * @returns
  */
-const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
-  omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
+const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => ({
+  ...omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]),
+  method: doc.method || "POST",
+  payloadType: doc.payloadType || "raw",
+  headers: doc.headers || {},
+  projects: doc.projects || [],
+  tags: doc.tags || [],
+  environments: doc.environments || [],
+});
 
 export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   "EventWebHook",
@@ -407,4 +416,29 @@ export const getAllEventWebHooksForEvent = async ({
   });
 
   return docs.map(toInterface);
+};
+
+export const sendEventWebhookTestEvent = async (
+  context: ReqContext,
+  webhookId: string
+) => {
+  if (!context.permissions.canCreateEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const webhook = await getEventWebHookById(webhookId, context.org.id);
+
+  if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
+
+  await createEvent({
+    context,
+    object: "webhook",
+    objectId: webhook.id,
+    event: "test",
+    data: { object: { webhookId: webhook.id } },
+    containsSecrets: false,
+    projects: [],
+    tags: [],
+    environments: [],
+  });
 };

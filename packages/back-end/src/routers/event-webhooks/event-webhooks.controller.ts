@@ -11,9 +11,9 @@ import {
   deleteEventWebHookById,
   getEventWebHookById,
   updateEventWebHook,
+  sendEventWebhookTestEvent,
   UpdateEventWebHookAttributes,
 } from "../../models/EventWebhookModel";
-import { createEvent } from "../../models/EventModel";
 import * as EventWebHookLog from "../../models/EventWebHookLogModel";
 
 import { AuthRequest } from "../../types/AuthRequest";
@@ -22,9 +22,7 @@ import {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
 } from "../../../types/event-webhook-log";
-import { WebhookTestEvent } from "../../events/notification-events";
 import { NotificationEventName } from "../../events/base-types";
-import { EventNotifier } from "../../events/notifiers/EventNotifier";
 
 // region GET /event-webhooks
 
@@ -362,56 +360,17 @@ type PostTestEventWebHooksRequest = AuthRequest & {
   };
 };
 
-type PostTestEventWebHooksResponse = {
-  eventId: string;
-};
-
 export const createTestEventWebHook = async (
   req: PostTestEventWebHooksRequest,
-  res: Response<PostTestEventWebHooksResponse | PrivateApiErrorResponse>
+  res: Response<unknown | PrivateApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-  const {
-    org: { id: organizationId },
-  } = context;
   const { webhookId } = req.body;
 
-  const webhook = await EventWebHook.getEventWebHookById(
-    webhookId,
-    organizationId
-  );
+  await sendEventWebhookTestEvent(context, webhookId);
 
-  if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
-
-  const payload: WebhookTestEvent = {
-    event: "webhook.test",
-    object: "webhook",
-    data: { webhookId },
-    user: req.userId
-      ? {
-          type: "dashboard",
-          id: req.userId,
-          email: req.email,
-          name: req.name || "",
-        }
-      : null,
-    projects: [],
-    tags: [],
-    environments: [],
-    containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(organizationId, payload);
-
-  if (!emittedEvent) throw new Error("Error while creating event!");
-
-  new EventNotifier(emittedEvent.id).perform();
-
-  return res.json({ eventId: emittedEvent.id });
+  return res.status(200);
 };
 
 // endregion POST /event-webhooks/test
