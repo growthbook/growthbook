@@ -125,7 +125,6 @@ export async function trackLoginForUser({
       createEventWithPayload({
         payload: {
           object: "user",
-          objectId: user.id,
           event: "user.login",
           user: {
             type: "dashboard",
@@ -152,6 +151,7 @@ export async function trackLoginForUser({
           containsSecrets: true,
         },
         organizationId,
+        objectId: user.id,
       })
     );
     await Promise.all(eventCreatePromises);
