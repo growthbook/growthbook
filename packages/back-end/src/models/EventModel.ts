@@ -137,12 +137,14 @@ export const createEventWithPayload = async <
 >({
   payload,
   organizationId,
+  objectId,
 }: {
   payload: Omit<
     NotificationEventPayload<Resource, Event>,
     "api_version" | "created"
   >;
   organizationId: string;
+  objectId?: string;
 }) => {
   try {
     const eventId = `event-${randomUUID()}`;
@@ -155,6 +157,7 @@ export const createEventWithPayload = async <
       dateCreated: new Date(),
       organizationId,
       data: { ...payload, api_version: API_VERSION, created: Date.now() },
+      ...(objectId ? { objectId } : {}),
     });
 
     const event = toInterface(doc) as BaseEventInterface<
