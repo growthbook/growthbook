@@ -1,5 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 import { ReqContext } from "../../types/organization";
 import {
   AutoFactTableSchemas,
@@ -196,6 +197,13 @@ export type MetricValueParams = {
   includeByDate?: boolean;
 };
 
+export type MetricAnalysisParams = {
+  settings: MetricAnalysisSettings;
+  metric: FactMetricInterface;
+  factTableMap: FactTableMap;
+  segment: SegmentInterface | null;
+};
+
 export type MetricValueResultDate = {
   date: string;
   count: number;
@@ -270,7 +278,51 @@ export type MetricValueQueryResponseRow = {
   main_sum: number;
   main_sum_squares: number;
 };
+
 export type MetricValueQueryResponseRows = MetricValueQueryResponseRow[];
+
+export type MetricAnalysisQueryResponseRow = {
+  date: string;
+  data_type: string;
+  capped: boolean;
+  units: number;
+  main_sum: number;
+  main_sum_squares: number;
+  denominator_sum?: number;
+  denominator_sum_squares?: number;
+  main_denominator_sum_product?: number;
+
+  value_min?: number;
+  value_max?: number;
+  bin_width?: number;
+  units_bin_0?: number;
+  units_bin_1?: number;
+  units_bin_2?: number;
+  units_bin_3?: number;
+  units_bin_4?: number;
+  units_bin_5?: number;
+  units_bin_6?: number;
+  units_bin_7?: number;
+  units_bin_8?: number;
+  units_bin_9?: number;
+  units_bin_10?: number;
+  units_bin_11?: number;
+  units_bin_12?: number;
+  units_bin_13?: number;
+  units_bin_14?: number;
+  units_bin_15?: number;
+  units_bin_16?: number;
+  units_bin_17?: number;
+  units_bin_18?: number;
+  units_bin_19?: number;
+  units_bin_20?: number;
+  units_bin_21?: number;
+  units_bin_22?: number;
+  units_bin_23?: number;
+  units_bin_24?: number;
+};
+
+export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
   exposure_query: string;
@@ -336,6 +388,7 @@ export type QueryResponse<Rows = Record<string, any>[]> = {
 };
 
 export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
+export type MetricAnalysisQueryResponse = QueryResponse<MetricAnalysisQueryResponseRows>;
 export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMetricsQueryResponseRows>;
@@ -459,6 +512,11 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
+  getMetricAnalysisQuery(params: MetricAnalysisParams): string;
+  runMetricAnalysisQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricAnalysisQueryResponse>;
   getDropUnitsTableQuery(params: DropTableQueryParams): string;
   runDropTableQuery(
     query: string,

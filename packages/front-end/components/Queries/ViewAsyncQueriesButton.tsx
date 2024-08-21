@@ -12,7 +12,7 @@ const ViewAsyncQueriesButton: FC<{
   color?: string;
   className?: string;
   inline?: boolean;
-  ctaCommponent?: (onClick: () => void) => ReactNode;
+  ctaComponent?: (onClick: () => void) => ReactNode;
   condensed?: boolean;
   icon?: JSX.Element | string | null;
   status?: QueryStatus;
@@ -23,7 +23,7 @@ const ViewAsyncQueriesButton: FC<{
   error,
   className = "",
   inline = false,
-  ctaCommponent,
+  ctaComponent,
   condensed = false,
   icon,
   status,
@@ -35,8 +35,8 @@ const ViewAsyncQueriesButton: FC<{
 
   return (
     <>
-      {ctaCommponent ? (
-        ctaCommponent(() => {
+      {ctaComponent ? (
+        ctaComponent(() => {
           if (!queries.length) return;
           setOpen(!open);
         })

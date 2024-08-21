@@ -952,6 +952,8 @@ paths:
                   type: boolean
                 remoteEvalEnabled:
                   type: boolean
+                savedGroupReferencesEnabled:
+                  type: boolean
       responses:
         '200':
           content:
@@ -1036,6 +1038,8 @@ paths:
                 hashSecureAttributes:
                   type: boolean
                 remoteEvalEnabled:
+                  type: boolean
+                savedGroupReferencesEnabled:
                   type: boolean
       responses:
         '200':
@@ -4991,6 +4995,8 @@ components:
           type: boolean
         remoteEvalEnabled:
           type: boolean
+        savedGroupReferencesEnabled:
+          type: boolean
     Experiment:
       type: object
       required:
@@ -5623,6 +5629,11 @@ components:
           type: array
           items:
             type: string
+        description:
+          type: string
+        passByReferenceOnly:
+          description: Whether the saved group must be referenced by ID rather than its list of items for performance reasons
+          type: boolean
     Organization:
       type: object
       properties:

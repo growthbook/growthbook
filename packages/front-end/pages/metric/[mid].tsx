@@ -663,7 +663,7 @@ const MetricPage: FC = () => {
                           <ViewAsyncQueriesButton
                             queries={metric.queries.map((q) => q.query)}
                             error={metric.analysisError}
-                            ctaCommponent={(onClick) => (
+                            ctaComponent={(onClick) => (
                               <a
                                 className="alert-link"
                                 href="#"

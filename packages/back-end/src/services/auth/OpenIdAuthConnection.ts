@@ -20,10 +20,7 @@ import {
 import { AuthChecksCookie, SSOConnectionIdCookie } from "../../util/cookie";
 import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "../../util/secrets";
 import { getSSOConnectionById } from "../../models/SSOConnectionModel";
-import {
-  getAuditableUserPropertiesFromRequest,
-  trackLoginForUser,
-} from "../users";
+import { getUserLoginPropertiesFromRequest, trackLoginForUser } from "../users";
 import { getHttpOptions } from "../../util/http.util";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
@@ -115,7 +112,7 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     const email = tokenSet.claims().email;
     if (email) {
-      const trackingProperties = getAuditableUserPropertiesFromRequest(req);
+      const trackingProperties = getUserLoginPropertiesFromRequest(req);
       trackLoginForUser({
         ...trackingProperties,
         email,

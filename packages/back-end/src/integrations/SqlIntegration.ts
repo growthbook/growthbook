@@ -16,7 +16,9 @@ import {
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
+  DEFAULT_METRIC_HISTOGRAM_BINS,
 } from "shared/constants";
+import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
@@ -59,6 +61,9 @@ import {
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   FactMetricData,
+  MetricAnalysisParams,
+  MetricAnalysisQueryResponse,
+  MetricAnalysisQueryResponseRow,
   AutoFactTableToCreate,
   TrackedEventData,
   AutoMetricTrackedEvent,
@@ -579,6 +584,393 @@ export default abstract class SqlIntegration
       `,
       this.getFormatDialect()
     );
+  }
+
+  getMetricAnalysisPopulationCTEs({
+    settings,
+    idJoinMap,
+    factTableMap,
+    segment,
+  }: {
+    settings: MetricAnalysisSettings;
+    idJoinMap: Record<string, string>;
+    factTableMap: FactTableMap;
+    segment: SegmentInterface | null;
+  }): string {
+    // get population query
+    if (settings.populationType === "exposureQuery") {
+      const exposureQuery = this.getExposureQuery(settings.populationId || "");
+
+      return `
+      __rawExperiment AS (
+        ${compileSqlTemplate(exposureQuery.query, {
+          startDate: settings.startDate,
+          endDate: settings.endDate ?? undefined,
+        })}
+      ),
+      __population AS (
+        -- All recent users
+        SELECT
+          ${settings.userIdType}
+        FROM
+            __rawExperiment
+        WHERE
+            timestamp >= ${this.toTimestamp(settings.startDate)}
+            ${
+              settings.endDate
+                ? `AND timestamp <= ${this.toTimestamp(settings.endDate)}`
+                : ""
+            }
+        ),`;
+    }
+
+    if (settings.populationType === "segment" && segment) {
+      // TODO segment missing
+      return `
+      __segment as (${this.getSegmentCTE(
+        segment,
+        settings.userIdType,
+        idJoinMap,
+        factTableMap,
+        {
+          startDate: settings.startDate,
+          endDate: settings.endDate ?? undefined,
+        }
+      )}),
+      __population AS (
+        SELECT DISTINCT
+          ${settings.userIdType}
+        FROM
+          __segment e
+        WHERE
+            date >= ${this.toTimestamp(settings.startDate)}
+            ${
+              settings.endDate
+                ? `AND date <= ${this.toTimestamp(settings.endDate)}`
+                : ""
+            }
+      ),`;
+    }
+
+    return "";
+  }
+
+  getMetricAnalysisStatisticClauses(
+    finalValueColumn: string,
+    finalDenominatorColumn: string,
+    ratioMetric: boolean
+  ): string {
+    return `, COUNT(*) as units
+            , SUM(${finalValueColumn}) as main_sum
+            , SUM(POWER(${finalValueColumn}, 2)) as main_sum_squares
+            ${
+              ratioMetric
+                ? `
+            , SUM(${finalDenominatorColumn}) as denominator_sum
+            , SUM(POWER(${finalDenominatorColumn}, 2)) as denominator_sum_squares
+            , SUM(${finalDenominatorColumn} * ${finalValueColumn}) as main_denominator_sum_product
+            `
+                : ""
+            }`;
+  }
+
+  getMetricAnalysisQuery(params: MetricAnalysisParams): string {
+    const { metric, settings } = params;
+
+    // Get any required identity join queries; only use same id type for now,
+    // so not needed
+    const idTypeObjects = [
+      getUserIdTypes(metric, params.factTableMap),
+      //...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+      //settings.segment ? [settings.segment.userIdType || "user_id"] : [],
+    ];
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
+      idTypeObjects,
+      settings.startDate,
+      settings.endDate ?? undefined,
+      settings.userIdType
+    );
+
+    const metricData = this.getMetricData(
+      metric,
+      {
+        attributionModel: "experimentDuration",
+        regressionAdjustmentEnabled: false,
+        startDate: settings.startDate,
+        endDate: settings.endDate ?? undefined,
+      },
+      null,
+      "m0"
+    );
+
+    const createHistogram = metric.metricType === "mean";
+    const finalValueColumn = this.capCoalesceValue(
+      "value",
+      metric,
+      "cap",
+      "value_capped"
+    );
+    const finalDenominatorColumn = this.capCoalesceValue(
+      "denominator",
+      metric,
+      "cap",
+      "denominator_capped"
+    );
+
+    const populationSQL = this.getMetricAnalysisPopulationCTEs({
+      settings,
+      idJoinMap,
+      factTableMap: params.factTableMap,
+      segment: params.segment,
+    });
+
+    // TODO check if query broken if segment has template variables
+    // TODO return cap numbers
+    return format(
+      `-- ${metric.name} Metric Analysis
+      WITH
+        ${idJoinSQL}
+        ${populationSQL}
+      __factTable AS (${this.getFactMetricCTE({
+        baseIdType,
+        idJoinMap,
+        metrics: [metric],
+        endDate: metricData.metricEnd,
+        startDate: metricData.metricStart,
+        factTableMap: params.factTableMap,
+        addFiltersToWhere: settings.populationType == "metric",
+      })})
+        , __userMetricDaily AS (
+          -- Get aggregated metric per user by day
+          SELECT
+          ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
+            , ${this.dateTrunc("timestamp")} AS date
+            , ${this.getAggregateMetricColumn(
+              metricData.metric,
+              false,
+              `f.${metricData.alias}_value`
+            )} AS value
+                  ${
+                    metricData.ratioMetric
+                      ? `, ${this.getAggregateMetricColumn(
+                          metricData.metric,
+                          true,
+                          `f.${metricData.alias}_denominator`
+                        )} AS denominator`
+                      : ""
+                  }
+          
+          ${
+            populationSQL
+              ? `
+            FROM __population p 
+            LEFT JOIN __factTable f ON (f.${baseIdType} = p.${baseIdType})`
+              : `
+            FROM __factTable f`
+          } 
+          GROUP BY
+            ${this.dateTrunc("f.timestamp")}
+            , ${populationSQL ? "p" : "f"}.${baseIdType}
+        )
+        , __userMetricOverall as (
+          -- Re-sum across all users (NOTE DOES NOT WORK FOR CERTAIN AGGREGATIONS!)
+          SELECT
+            ${baseIdType}
+            , ${
+              metric.metricType === "proportion"
+                ? "MAX(COALESCE(value, 0))"
+                : "SUM(COALESCE(value, 0))"
+            } as value
+             ${
+               metricData.ratioMetric // ALL AGGREGATIONS?
+                 ? `,${
+                     metric.metricType === "proportion"
+                       ? "MAX(COALESCE(denominator, 0))"
+                       : "SUM(COALESCE(denominator, 0))"
+                   } as denominator`
+                 : ""
+             }
+          FROM
+            __userMetricDaily
+          GROUP BY
+            ${baseIdType}
+        )
+        ${
+          metricData.isPercentileCapped
+            ? `
+        , __capValue AS (
+            ${this.percentileCapSelectClause(
+              [
+                {
+                  valueCol: "value",
+                  outputCol: "value_capped",
+                  percentile: metricData.metric.cappingSettings.value ?? 1,
+                  ignoreZeros:
+                    metricData.metric.cappingSettings.ignoreZeros ?? false,
+                },
+              ],
+              "__userMetricOverall"
+            )}
+        )
+        `
+            : ""
+        }
+        , __statisticsDaily AS (
+          SELECT
+            date
+            , MAX(${this.castToString("'date'")}) AS data_type
+            ${this.getMetricAnalysisStatisticClauses(
+              finalValueColumn,
+              finalDenominatorColumn,
+              metricData.ratioMetric
+            )}
+            ${
+              createHistogram
+                ? `
+            , MIN(${finalValueColumn}) as value_min
+            , MAX(${finalValueColumn}) as value_max
+            , ${this.ensureFloat("NULL")} AS bin_width
+            ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()]
+              .map((i) => `, ${this.ensureFloat("NULL")} AS units_bin_${i}`)
+              .join("\n")}`
+                : ""
+            }
+          FROM __userMetricDaily
+          ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+          GROUP BY date
+        )
+        , __statisticsOverall AS (
+          SELECT
+            ${this.castToDate("NULL")} AS date
+            , MAX(${this.castToString("'overall'")}) AS data_type
+            ${this.getMetricAnalysisStatisticClauses(
+              finalValueColumn,
+              finalDenominatorColumn,
+              metricData.ratioMetric
+            )}
+            ${
+              createHistogram
+                ? `
+            , MIN(${finalValueColumn}) as value_min
+            , MAX(${finalValueColumn}) as value_max
+            , (MAX(${finalValueColumn}) - MIN(${finalValueColumn})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as bin_width
+            `
+                : ""
+            }
+          FROM __userMetricOverall
+        ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+        )
+        ${
+          createHistogram
+            ? `
+        , __histogram AS (
+          SELECT
+            SUM(${this.ifElse(
+              "m.value < (s.value_min + s.bin_width)",
+              "1",
+              "0"
+            )}) as units_bin_0
+            ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS - 2).keys()]
+              .map(
+                (i) =>
+                  `, SUM(${this.ifElse(
+                    `m.value >= (s.value_min + s.bin_width*${
+                      i + 1
+                    }.0) AND m.value < (s.value_min + s.bin_width*${i + 2}.0)`,
+                    "1",
+                    "0"
+                  )}) as units_bin_${i + 1}`
+              )
+              .join("\n")}
+            , SUM(${this.ifElse(
+              `m.value >= (s.value_min + s.bin_width*${
+                DEFAULT_METRIC_HISTOGRAM_BINS - 1
+              }.0)`,
+              "1",
+              "0"
+            )}) as units_bin_${DEFAULT_METRIC_HISTOGRAM_BINS - 1}
+          FROM
+            __userMetricOverall m
+          CROSS JOIN
+            __statisticsOverall s
+        ) `
+            : ""
+        }
+        SELECT
+            *
+        FROM __statisticsOverall
+        ${createHistogram ? `CROSS JOIN __histogram` : ""}
+        UNION ALL
+        SELECT
+            *
+        FROM __statisticsDaily
+      `,
+      this.getFormatDialect()
+    );
+  }
+
+  async runMetricAnalysisQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricAnalysisQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
+
+    function parseUnitsBinData(
+      // eslint-disable-next-line
+      row: Record<string, any>
+    ): Partial<MetricAnalysisQueryResponseRow> {
+      const data: Record<string, number> = {};
+
+      for (let i = 0; i < DEFAULT_METRIC_HISTOGRAM_BINS; i++) {
+        const key = `units_bin_${i}`;
+        const parsed = parseFloat(row[key]);
+        if (parsed) {
+          data[key] = parsed;
+        }
+      }
+
+      return data as Partial<MetricAnalysisQueryResponseRow>;
+    }
+
+    return {
+      rows: rows.map((row) => {
+        const {
+          date,
+          data_type,
+          units,
+          capped,
+          main_sum,
+          main_sum_squares,
+          denominator_sum,
+          denominator_sum_squares,
+          main_denominator_sum_product,
+          value_min,
+          value_max,
+        } = row;
+
+        const ret: MetricAnalysisQueryResponseRow = {
+          date: date ? this.convertDate(date).toISOString() : "",
+          data_type: data_type ?? "",
+          capped: (capped ?? "uncapped") == "capped",
+          units: parseFloat(units) || 0,
+          main_sum: parseFloat(main_sum) || 0,
+          main_sum_squares: parseFloat(main_sum_squares) || 0,
+          denominator_sum: parseFloat(denominator_sum) || 0,
+          denominator_sum_squares: parseFloat(denominator_sum_squares) || 0,
+          main_denominator_sum_product:
+            parseFloat(main_denominator_sum_product) || 0,
+
+          value_min: parseFloat(value_min) || 0,
+          value_max: parseFloat(value_max) || 0,
+          ...(parseFloat(row.bin_width) && {
+            bin_width: parseFloat(row.bin_width),
+          }),
+          ...parseUnitsBinData(row),
+        };
+        return ret;
+      }),
+      statistics: statistics,
+    };
   }
 
   getQuantileBoundsFromQueryResponse(
@@ -1598,7 +1990,10 @@ export default abstract class SqlIntegration
 
   private getMetricData(
     metric: ExperimentMetricInterface,
-    settings: ExperimentSnapshotSettings,
+    settings: Pick<
+      ExperimentSnapshotSettings,
+      "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
+    > & { endDate?: Date },
     activationMetric: ExperimentMetricInterface | null,
     alias: string
   ): FactMetricData {
@@ -3503,6 +3898,7 @@ export default abstract class SqlIntegration
     startDate,
     endDate,
     experimentId,
+    addFiltersToWhere,
   }: {
     metrics: FactMetricInterface[];
     factTableMap: FactTableMap;
@@ -3511,6 +3907,7 @@ export default abstract class SqlIntegration
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
+    addFiltersToWhere?: boolean;
   }) {
     const factTable = factTableMap.get(
       metrics[0]?.numerator?.factTableId || ""
@@ -3552,6 +3949,10 @@ export default abstract class SqlIntegration
     }
 
     const metricCols: string[] = [];
+    // optionally, you can add metric filters to the WHERE clause
+    // to filter to rows that match a metric. We AND together each metric
+    // filters, before OR together all of the different metrics filters
+    const filterWhere: string[] = [];
     metrics.forEach((m, i) => {
       if (m.numerator.factTableId !== factTable.id) {
         throw new Error(
@@ -3568,11 +3969,15 @@ export default abstract class SqlIntegration
 
       const column =
         filters.length > 0
-          ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
+          ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${value} ELSE NULL END`
           : value;
 
       metricCols.push(`-- ${m.name}
       ${column} as m${i}_value`);
+
+      if (addFiltersToWhere && filters.length) {
+        filterWhere.push(`(${filters.join("\n AND ")})`);
+      }
 
       // Add denominator column if there is one
       if (isRatioMetric(m) && m.denominator) {
@@ -3593,8 +3998,16 @@ export default abstract class SqlIntegration
             : value;
         metricCols.push(`-- ${m.name} (denominator)
         ${column} as m${i}_denominator`);
+
+        if (addFiltersToWhere && filters.length) {
+          filterWhere.push(`(${filters.join(" AND ")})`);
+        }
       }
     });
+
+    if (filterWhere.length) {
+      where.push("(" + filterWhere.join(" OR ") + ")");
+    }
 
     return compileSqlTemplate(
       `-- Fact Table (${factTable.name})
@@ -3788,7 +4201,7 @@ export default abstract class SqlIntegration
       sql = metric.sql || "";
     }
 
-    // Add a rough date filter to improve query performance
+    // Add date filter
     if (startDate) {
       where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
     }

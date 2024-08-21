@@ -17,6 +17,7 @@ import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
   ExperimentUnitsQueryResponse,
+  MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
@@ -59,6 +60,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
       this.params = { projectId: "", secret: "", username: "" };
       this.decryptionError = true;
     }
+  }
+  getMetricAnalysisQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runMetricAnalysisQuery(): Promise<MetricAnalysisQueryResponse> {
+    throw new Error("Method not implemented.");
   }
   getDropUnitsTableQuery(): string {
     throw new Error("Method not implemented.");

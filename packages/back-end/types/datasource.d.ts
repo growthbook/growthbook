@@ -220,6 +220,7 @@ export type DataSourceSettings = {
     userIdColumn?: string;
   };
   pipelineSettings?: DataSourcePipelineSettings;
+  maxConcurrentQueries?: number;
 };
 
 interface DataSourceBase {

@@ -4,7 +4,6 @@ import {
   FaDatabase,
   FaExclamationTriangle,
   FaFlask,
-  FaInfoCircle,
   FaTable,
 } from "react-icons/fa";
 import React, { ReactElement, useState } from "react";
@@ -12,7 +11,6 @@ import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -30,6 +28,8 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import QueriesLastRun from "@/components/Queries/QueriesLastRun";
+import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -298,61 +298,12 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto">
           {hasData &&
             (outdated && status !== "running" ? (
-              <Tooltip
-                body={
-                  reasons.length === 1 ? (
-                    reasons[0]
-                  ) : reasons.length > 0 ? (
-                    <ul className="ml-0 pl-3 mb-0">
-                      {reasons.map((reason, i) => (
-                        <li key={i}>{reason}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    ""
-                  )
-                }
-              >
-                <div
-                  className="badge badge-warning d-block py-1"
-                  style={{ width: 100, marginBottom: 3 }}
-                >
-                  Out of Date <FaInfoCircle />
-                </div>
-              </Tooltip>
+              <OutdatedBadge reasons={reasons} />
             ) : (
-              <div
-                className="text-muted text-right"
-                style={{ maxWidth: 130, fontSize: "0.8em" }}
-              >
-                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                  last updated
-                  {status === "partially-succeeded" && (
-                    <Tooltip
-                      body={
-                        <span style={{ lineHeight: 1.5 }}>
-                          Some of the queries had an error. The partial results
-                          are displayed below.
-                        </span>
-                      }
-                    >
-                      <FaExclamationTriangle
-                        size={14}
-                        className="text-danger ml-1"
-                        style={{ marginTop: -4 }}
-                      />
-                    </Tooltip>
-                  )}
-                </div>
-                <div className="d-flex align-items-center">
-                  <div
-                    style={{ lineHeight: 1 }}
-                    title={datetime(snapshot?.dateCreated ?? "")}
-                  >
-                    {ago(snapshot?.dateCreated ?? "")}
-                  </div>
-                </div>
-              </div>
+              <QueriesLastRun
+                status={status}
+                dateCreated={snapshot?.dateCreated}
+              />
             ))}
         </div>
 
