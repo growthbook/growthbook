@@ -41,7 +41,7 @@ const eventSchema = new mongoose.Schema({
   },
   objectId: {
     type: String,
-    require: false,
+    required: false,
   },
   event: {
     type: String,

@@ -125,6 +125,7 @@ export async function trackLoginForUser({
       createEventWithPayload({
         payload: {
           object: "user",
+          objectId: user.id,
           event: "user.login",
           user: {
             type: "dashboard",
