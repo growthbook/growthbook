@@ -115,15 +115,6 @@ const PowerCalculationPage = (): React.ReactElement => {
         <PowerCalculationSettingsModal
           close={() => setShowModal(false)}
           onSuccess={(p) => {
-            console.log(
-              Object.keys(p.metrics).map((m: string) => {
-                const metric = p.metrics[m];
-                return {
-                  type: metric.type,
-                  effectSize: metric.effectSize,
-                };
-              })
-            );
             track("power-calculation-settings-update", {
               numMetrics: p.metrics.length,
               metricsMetaData: Object.keys(p.metrics).map((m: string) => {
