@@ -3582,14 +3582,26 @@ export default abstract class SqlIntegration
     existingFactMetrics: FactMetricInterface[],
     factTable: FactTableInterface
   ): AutoFactMetricToCreate[] {
+    const event = factTable.eventName;
+    // based on these docs - https://support.google.com/analytics/answer/9267735?hl=en&ref_topic=13367566&sjid=16477269010846037969-NA
+    const ga4InvertedEvents: string[] = [
+      "refund",
+      "disqualify_lead",
+      "app_remove",
+      "app_store_refund",
+      "app_store_subscription_cancel",
+      "error",
+    ];
+
     const autoFactMetricsToCreate: AutoFactMetricToCreate[] = [];
 
     // Create Proportion Metric
     autoFactMetricsToCreate.push({
-      name: `${factTable.eventName} count`,
+      name: `${event} count`,
       metricType: "proportion",
       shouldCreate: true,
       alreadyExists: false,
+      inverse: ga4InvertedEvents.includes(event) || false,
       numerator: {
         factTableId: factTable.id,
         column: "$$distinctUsers",
@@ -3601,9 +3613,10 @@ export default abstract class SqlIntegration
 
     // Create Mean Metric
     autoFactMetricsToCreate.push({
-      name: `${factTable.eventName} mean`,
+      name: `${event} mean`,
       metricType: "mean",
       shouldCreate: true,
+      inverse: ga4InvertedEvents.includes(event) || false,
       alreadyExists: false,
       numerator: {
         factTableId: factTable.id,
@@ -3614,6 +3627,7 @@ export default abstract class SqlIntegration
       datasource: factTable.datasource,
     });
 
+    //TODO: Update logic to support more metrics
     return autoFactMetricsToCreate.map((factMetricToCreate) => {
       const alreadyExists = this.factMetricAlreadyExists(
         existingFactMetrics,

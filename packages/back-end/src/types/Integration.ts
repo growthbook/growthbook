@@ -263,7 +263,7 @@ export interface AutoFactTableToCreate
 
 export type AutoFactMetricToCreate = Pick<
   CreateFactMetricProps,
-  "name" | "metricType" | "numerator" | "denominator" | "datasource"
+  "name" | "metricType" | "numerator" | "denominator" | "datasource" | "inverse"
 > & {
   alreadyExists: boolean;
   shouldCreate: boolean;
