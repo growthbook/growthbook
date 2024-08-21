@@ -10,6 +10,7 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "@back-end/types/report";
+import { BsLightbulb } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -307,6 +308,17 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
+
+      {experiment.type === "multi-armed-bandit" &&
+      (showCompactResults || showDateResults || showBreakDownResults) ? (
+        <div className="alert alert-info mx-3 mb-4">
+          <BsLightbulb className="mr-2" />
+          These are bandit results. Bandits are better than regular experiments
+          at directing traffic to the best variation but they can suffer from
+          bias. Learn more (link).
+        </div>
+      ) : null}
+
       {showDateResults ? (
         <DateResults
           goalMetrics={experiment.goalMetrics}
