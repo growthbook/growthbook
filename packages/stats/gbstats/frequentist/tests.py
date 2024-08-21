@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import Optional, Tuple
+from typing import Optional, List
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -119,7 +119,7 @@ class TTest(BaseABTest):
 
     @property
     @abstractmethod
-    def confidence_interval(self) -> Tuple[float, float]:
+    def confidence_interval(self) -> List[float]:
         pass
 
     def _default_output(
@@ -130,7 +130,7 @@ class TTest(BaseABTest):
         """
         return FrequentistTestResult(
             expected=0,
-            ci=(0, 0),
+            ci=[0, 0],
             p_value=1,
             uplift=Uplift(
                 dist="normal",
@@ -180,7 +180,7 @@ class TTest(BaseABTest):
         adjustment = self.stat_b.n / p / d
         return FrequentistTestResult(
             expected=result.expected * adjustment,
-            ci=(result.ci[0] * adjustment, result.ci[1] * adjustment),
+            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
             p_value=result.p_value,
             uplift=Uplift(
                 dist=result.uplift.dist,
@@ -196,9 +196,9 @@ class TwoSidedTTest(TTest):
         return 2 * (1 - t.cdf(abs(self.critical_value), self.dof))  # type: ignore
 
     @property
-    def confidence_interval(self) -> Tuple[float, float]:
+    def confidence_interval(self) -> List[float]:
         width: float = t.ppf(1 - self.alpha / 2, self.dof) * np.sqrt(self.variance)
-        return (self.point_estimate - width, self.point_estimate + width)
+        return [self.point_estimate - width, self.point_estimate + width]
 
 
 class OneSidedTreatmentGreaterTTest(TTest):
@@ -207,9 +207,9 @@ class OneSidedTreatmentGreaterTTest(TTest):
         return 1 - t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
-    def confidence_interval(self) -> Tuple[float, float]:
+    def confidence_interval(self) -> List[float]:
         width: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
-        return (self.point_estimate - width, np.inf)
+        return [self.point_estimate - width, np.inf]
 
 
 class OneSidedTreatmentLesserTTest(TTest):
@@ -218,9 +218,9 @@ class OneSidedTreatmentLesserTTest(TTest):
         return t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
-    def confidence_interval(self) -> Tuple[float, float]:
+    def confidence_interval(self) -> List[float]:
         width: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
-        return (-np.inf, self.point_estimate - width)
+        return [-np.inf, self.point_estimate - width]
 
 
 class SequentialTwoSidedTTest(TTest):
@@ -237,7 +237,7 @@ class SequentialTwoSidedTTest(TTest):
         super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict))
 
     @property
-    def confidence_interval(self) -> Tuple[float, float]:
+    def confidence_interval(self) -> List[float]:
         # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
         N = self.stat_a.n + self.stat_b.n
         rho = self.rho
@@ -250,7 +250,7 @@ class SequentialTwoSidedTTest(TTest):
                 / (np.power(N * rho, 2))
             )
         )
-        return (self.point_estimate - width, self.point_estimate + width)
+        return [self.point_estimate - width, self.point_estimate + width]
 
     @property
     def rho(self) -> float:

@@ -11,7 +11,7 @@ from gbstats.models.tests import Uplift
 class SingleVariationResult:
     users: Optional[List[float]]
     cr: Optional[List[float]]
-    ci: Optional[Tuple[float, float]]
+    ci: Optional[List[float]]
 
 
 @dataclass
