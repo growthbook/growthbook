@@ -1,7 +1,4 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   FaChartBar,
   FaDatabase,
@@ -40,7 +37,7 @@ import OverflowText from "./OverflowText";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  linkedFeatures: LinkedFeatureInfo[];
+  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -52,7 +49,7 @@ export interface Props {
 
 export default function AnalysisSettingsSummary({
   experiment,
-  linkedFeatures,
+  envs,
   mutate,
   statsEngine,
   editMetrics,
@@ -242,8 +239,8 @@ export default function AnalysisSettingsSummary({
       {analysisModal && (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
+          envs={envs}
           experiment={experiment}
-          linkedFeatures={linkedFeatures}
           mutate={mutate}
           phase={experiment.phases.length - 1}
           editDates={true}

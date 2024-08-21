@@ -1,7 +1,4 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -55,7 +52,7 @@ export default function AnalysisSettingsBar({
   setBaselineRow,
   differenceType,
   setDifferenceType,
-  linkedFeatures,
+  envs,
 }: {
   mutateExperiment: () => void;
   setAnalysisSettings: (
@@ -64,7 +61,7 @@ export default function AnalysisSettingsBar({
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
-  linkedFeatures: LinkedFeatureInfo[];
+  envs: string[];
   alwaysShowPhaseSelector?: boolean;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
@@ -114,7 +111,7 @@ export default function AnalysisSettingsBar({
     <div>
       {modalOpen && experiment && (
         <AnalysisForm
-          linkedFeatures={linkedFeatures}
+          envs={envs}
           cancel={() => setModalOpen(false)}
           experiment={experiment}
           mutate={mutateExperiment}

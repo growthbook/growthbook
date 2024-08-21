@@ -7,10 +7,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import {
-  getAffectedEnvsForExperiment,
-  includeExperimentInPayload,
-} from "shared/util";
+import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -55,6 +52,7 @@ const ExperimentPage = (): ReactElement => {
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
+    envs: string[];
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${eid}`);
 
@@ -74,6 +72,7 @@ const ExperimentPage = (): ReactElement => {
     visualChangesets = [],
     linkedFeatures = [],
     urlRedirects = [],
+    envs = [],
   } = data;
 
   const canEditExperiment =
@@ -81,7 +80,6 @@ const ExperimentPage = (): ReactElement => {
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEnvsForExperiment({ experiment, linkedFeatures });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
@@ -255,6 +253,7 @@ const ExperimentPage = (): ReactElement => {
             newPhase={newPhase}
             editPhases={editPhases}
             editPhase={editPhase}
+            envs={envs}
             editTargeting={editTargeting}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
