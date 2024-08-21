@@ -32,6 +32,7 @@ type Definitions = {
   tags: TagInterface[];
   factTables: FactTableInterface[];
   factMetrics: FactMetricInterface[];
+  _factMetricsIncludingArchived: FactMetricInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -75,6 +76,7 @@ const defaultValue: DefinitionContextValue = {
   projects: [],
   factTables: [],
   factMetrics: [],
+  _factMetricsIncludingArchived: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -142,6 +144,20 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metrics;
   }, [data?.metrics]);
 
+  const activeFactMetrics = useMemo(() => {
+    if (!data || !data.factMetrics) {
+      return [];
+    }
+    return data.factMetrics.filter((m) => m.status !== "archived");
+  }, [data?.factMetrics]);
+
+  const allFactMetrics = useMemo(() => {
+    if (!data || !data.factMetrics) {
+      return [];
+    }
+    return data.factMetrics;
+  }, [data?.factMetrics]);
+
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
   const getDimensionById = useGetById(data?.dimensions);
@@ -184,7 +200,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       projects: data.projects,
       project: filteredProject,
       factTables: data.factTables,
-      factMetrics: data.factMetrics,
+      factMetrics: activeFactMetrics,
+      _factMetricsIncludingArchived: allFactMetrics,
       setProject,
       getMetricById,
       getDatasourceById,

@@ -34,19 +34,24 @@ export function getMetricsForFactTable(
 }
 
 export default function FactMetricList({ factTable }: Props) {
-  const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
 
   const { apiCall } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { factMetrics, mutateDefinitions } = useDefinitions();
+  const {
+    _factMetricsIncludingArchived: factMetrics,
+    mutateDefinitions,
+  } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
   const metrics = getMetricsForFactTable(factMetrics, factTable.id);
 
   const [editMetric, setEditMetric] = useState<
+    FactMetricInterface | undefined
+  >();
+  const [duplicateMetric, setDuplicateMetric] = useState<
     FactMetricInterface | undefined
   >();
 
@@ -84,11 +89,11 @@ export default function FactMetricList({ factTable }: Props) {
           source="fact-table"
         />
       )}
-      {editOpen && (
+      {duplicateMetric && (
         <FactMetricModal
-          close={() => setEditOpen("")}
-          initialFactTable={factTable.id}
-          existing={metrics.find((m) => m.id === editOpen)}
+          close={() => setDuplicateMetric(undefined)}
+          existing={duplicateMetric}
+          duplicate
           source="fact-table"
         />
       )}
@@ -164,6 +169,41 @@ export default function FactMetricList({ factTable }: Props) {
                           onClick={() => setEditMetric(metric)}
                         >
                           Edit
+                        </button>
+                      )}
+                      {canCreateMetrics && (
+                        <button
+                          className="btn dropdown-item"
+                          onClick={() =>
+                            setDuplicateMetric({
+                              ...metric,
+                              name: `${metric.name} (Copy)`,
+                            })
+                          }
+                        >
+                          Duplicate
+                        </button>
+                      )}
+                      {canEdit(metric) && (
+                        <button
+                          className="btn dropdown-item"
+                          onClick={async () => {
+                            const newStatus =
+                              metric.status === "archived"
+                                ? "active"
+                                : "archived";
+                            await apiCall(`/fact-metrics/${metric.id}`, {
+                              method: "PUT",
+                              body: JSON.stringify({
+                                status: newStatus,
+                              }),
+                            });
+                            mutateDefinitions();
+                          }}
+                        >
+                          {metric.status === "archived"
+                            ? "Unarchive"
+                            : "Archive"}
                         </button>
                       )}
                       {canDelete(metric) && (
