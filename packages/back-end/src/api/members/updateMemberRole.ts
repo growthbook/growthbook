@@ -37,7 +37,7 @@ function validateRoleAndEnvs(
 
       if (!roleSupportsEnvLimit(role, org)) {
         throw new Error(
-          `${role} does not support restricting access to certain environments`
+          `${role} does not support restricting access to certain environments.`
         );
       }
 
@@ -92,10 +92,7 @@ export const updateMemberRole = createApiRequestHandler(
       ...orgUser,
       role: member.role || orgUser.role,
       environments: member.environments || orgUser.environments,
-      // If environments are passed in, recalculate limitAccessByEnvironment, otherwise, use existing value
-      limitAccessByEnvironment: member.environments
-        ? !!member.environments.length
-        : orgUser.limitAccessByEnvironment,
+      limitAccessByEnvironment: !!member.environments?.length,
     };
 
     // First, check the global role data
