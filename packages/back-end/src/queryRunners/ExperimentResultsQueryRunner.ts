@@ -274,7 +274,7 @@ export const startExperimentResultQueries = async (
     org
   );
 
-  const singlePromises = singles.map(async (m) => {
+  for (const m of singles) {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
@@ -308,9 +308,9 @@ export const startExperimentResultQueries = async (
         queryType: "experimentMetric",
       })
     );
-  });
+  }
 
-  const groupPromises = groups.map(async (m, i) => {
+  for (const [i, m] of groups.entries()) {
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
       dimensions: dimensionObj ? [dimensionObj] : [],
@@ -343,9 +343,7 @@ export const startExperimentResultQueries = async (
         queryType: "experimentMultiMetric",
       })
     );
-  });
-
-  await Promise.all([...singlePromises, ...groupPromises]);
+  }
 
   let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {

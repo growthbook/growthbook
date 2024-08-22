@@ -62,7 +62,6 @@ export default function ProjectBadges({
   }
 
   const showMissingProjectErr = filteredProjects.some((p) => !p);
-
   return (
     <>
       {filteredProjects.map((p, i) => {

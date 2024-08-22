@@ -19,7 +19,6 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { NotificationEvent } from "back-end/src/events/notification-events";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -28,12 +27,15 @@ class PermissionError extends Error {
   }
 }
 
+type NotificationEvent = {
+  containsSecrets: boolean;
+  projects: string[];
+};
+
 export class Permissions {
   private userPermissions: UserPermissions;
-  private superAdmin: boolean;
-  constructor(permissions: UserPermissions, superAdmin: boolean) {
+  constructor(permissions: UserPermissions) {
     this.userPermissions = permissions;
-    this.superAdmin = superAdmin;
   }
 
   //Global Permissions
@@ -129,9 +131,7 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
-  public canViewEvent = (
-    event: Pick<NotificationEvent, "containsSecrets" | "projects">
-  ): boolean => {
+  public canViewEvent = (event: NotificationEvent): boolean => {
     // Contains secrets (or is an old event where we weren't tracking this field yet)
     if (event.containsSecrets !== false) {
       return this.canViewAuditLogs();
@@ -632,6 +632,18 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  public canCreateMetricAnalysis = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunMetricAnalysisQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
   // ENV_SCOPED_PERMISSIONS
   public canPublishFeature = (
     feature: Pick<FeatureInterface, "project">,
@@ -788,10 +800,6 @@ export class Permissions {
   public canReadMultiProjectResource = (
     projects: string[] | undefined
   ): boolean => {
-    if (this.superAdmin) {
-      return true;
-    }
-
     // If the resource doesn't have a projects property or it's an empty array
     // that means it's in all projects
     if (!projects || !projects.length) {
@@ -812,10 +820,6 @@ export class Permissions {
   };
 
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
-    if (this.superAdmin) {
-      return true;
-    }
-
     return this.userPermissions.global.permissions[permissionToCheck] || false;
   }
 
@@ -901,10 +905,6 @@ export class Permissions {
     project: string,
     envs?: string[]
   ) {
-    if (this.superAdmin) {
-      return true;
-    }
-
     const usersPermissionsToCheck =
       this.userPermissions.projects[project] || this.userPermissions.global;
 

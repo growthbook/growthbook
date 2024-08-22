@@ -130,16 +130,11 @@ export function hasPermission(
 }
 
 export const userHasPermission = (
-  superAdmin: boolean,
   userPermissions: UserPermissions,
   permission: Permission,
   project?: string | (string | undefined)[] | undefined,
   envs?: string[]
 ): boolean => {
-  if (superAdmin) {
-    return true;
-  }
-
   let checkProjects: (string | undefined)[];
   if (Array.isArray(project)) {
     checkProjects = project.length > 0 ? project : [undefined];

@@ -22,6 +22,7 @@ import {
   MatchingRule,
   validateCondition,
   isDefined,
+  DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -47,6 +48,7 @@ import {
 import {
   getMetricById,
   getMetricMap,
+  getMetricsByIds,
   insertMetric,
 } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
@@ -97,10 +99,10 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
+import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
-import { FactTableMap } from "../models/FactTableModel";
+import { FactTableMap, getFactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
@@ -148,6 +150,24 @@ export async function getExperimentMetricById(
   return getMetricById(context, metricId);
 }
 
+export async function getExperimentMetricsByIds(
+  context: Context,
+  metricIds: string[]
+): Promise<ExperimentMetricInterface[]> {
+  const factMetricIds: string[] = [];
+  const nonFactMetricIds: string[] = [];
+  metricIds.forEach((id) => {
+    if (isFactMetricId(id)) {
+      factMetricIds.push(id);
+    } else {
+      nonFactMetricIds.push(id);
+    }
+  });
+  const factMetrics = await context.models.factMetrics.getByIds(factMetricIds);
+  const metrics = await getMetricsByIds(context, nonFactMetricIds);
+  return [...factMetrics, ...metrics];
+}
+
 export async function refreshMetric(
   context: Context,
   metric: MetricInterface,
@@ -169,6 +189,8 @@ export async function refreshMetric(
       }
     }
 
+    const factTableMap = await getFactTableMap(context);
+
     let days = metricAnalysisDays;
     if (days < 1) {
       days = DEFAULT_METRIC_ANALYSIS_DAYS;
@@ -179,7 +201,7 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(
+    const queryRunner = new LegacyMetricAnalysisQueryRunner(
       context,
       metric,
       integration
@@ -191,6 +213,7 @@ export async function refreshMetric(
       includeByDate: true,
       segment,
       metric,
+      factTableMap,
     });
   } else {
     throw new Error("Cannot analyze manual metrics");
@@ -2022,6 +2045,7 @@ export function updateExperimentApiPayloadToInterface(
     attributionModel,
     statsEngine,
     regressionAdjustmentEnabled,
+    secondaryMetrics,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2034,8 +2058,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
-    ...(metrics ? { metrics } : {}),
-    ...(guardrailMetrics ? { guardrails: guardrailMetrics } : {}),
+    ...(metrics ? { goalMetrics: metrics } : {}),
+    ...(guardrailMetrics ? { guardrailMetrics } : {}),
+    ...(secondaryMetrics ? { secondaryMetrics } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
@@ -2202,7 +2227,7 @@ export async function getLinkedFeatureInfo(
 
     const draftMatches =
       revisions
-        .filter((r) => r.status === "draft")
+        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .map((r) => getMatchingRules(feature, filter, environments, r))
         .filter((matches) => matches.length > 0)[0] || [];
 

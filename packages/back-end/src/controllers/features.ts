@@ -86,8 +86,8 @@ import {
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import {
-  EventAuditUserForResponseLocals,
-  EventAuditUserLoggedIn,
+  EventUserForResponseLocals,
+  EventUserLoggedIn,
 } from "../events/event-types";
 import {
   CACHE_CONTROL_MAX_AGE,
@@ -133,6 +133,7 @@ export async function getPayloadParamsFromApiKey(
   includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -163,6 +164,7 @@ export async function getPayloadParamsFromApiKey(
       includeRedirectExperiments: connection.includeRedirectExperiments,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
+      savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
     };
   }
   // Old, legacy API Key
@@ -225,6 +227,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeRedirectExperiments,
       hashSecureAttributes,
       remoteEvalEnabled,
+      savedGroupReferencesEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
 
     const context = await getContextForAgendaJobByOrgId(organization);
@@ -255,6 +258,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeExperimentNames,
       includeRedirectExperiments,
       hashSecureAttributes,
+      savedGroupReferencesEnabled:
+        savedGroupReferencesEnabled &&
+        capabilities.includes("savedGroupReferences"),
     });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -389,7 +395,7 @@ export async function postFeatures(
   req: AuthRequest<Partial<FeatureInterface>>,
   res: Response<
     { status: 200; feature: FeatureInterface },
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) {
   const context = getContextFromReq(req);
@@ -664,7 +670,7 @@ export async function postFeatureReviewOrComment(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  const createdByUser = revision.createdBy as EventAuditUserLoggedIn;
+  const createdByUser = revision.createdBy as EventUserLoggedIn;
 
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
@@ -820,10 +826,7 @@ export async function postFeaturePublish(
 
 export async function postFeatureRevert(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -915,10 +918,7 @@ export async function postFeatureRevert(
 
 export async function postFeatureFork(
   req: AuthRequest<never, { id: string; version: string }>,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org, environments } = context;
@@ -962,7 +962,7 @@ export async function postFeatureFork(
 
 export async function postFeatureDiscard(
   req: AuthRequest<never, { id: string; version: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1010,10 +1010,7 @@ export async function postFeatureRule(
     { rule: FeatureRule; environment: string },
     { id: string; version: string }
   >,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1080,7 +1077,7 @@ export async function postFeatureSync(
   >,
   res: Response<
     { status: 200; feature: FeatureInterface },
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) {
   const context = getContextFromReq(req);
@@ -1195,10 +1192,7 @@ export async function postFeatureSync(
 
 export async function postFeatureExperimentRefRule(
   req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -1365,7 +1359,7 @@ async function getDraftRevision(
 
 export async function putRevisionComment(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1408,10 +1402,7 @@ export async function putRevisionComment(
 
 export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -1452,7 +1443,7 @@ export async function postFeatureDefaultValue(
 
 export async function postFeatureSchema(
   req: AuthRequest<Omit<JSONSchemaDef, "date">, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -1491,10 +1482,7 @@ export async function putFeatureRule(
     { rule: Partial<FeatureRule>; environment: string; i: number },
     { id: string; version: string }
   >,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1545,7 +1533,7 @@ export async function putFeatureRule(
 
 export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { environments } = context;
@@ -1604,10 +1592,7 @@ export async function postFeatureMoveRule(
     { environment: string; from: number; to: number },
     { id: string; version: string }
   >,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -1683,10 +1668,7 @@ export async function deleteFeatureRule(
     { environment: string; i: number },
     { id: string; version: string }
   >,
-  res: Response<
-    { status: 200; version: number },
-    EventAuditUserForResponseLocals
-  >
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -1748,7 +1730,7 @@ export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
   res: Response<
     { status: 200; feature: FeatureInterface },
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) {
   const context = getContextFromReq(req);
@@ -1819,7 +1801,7 @@ export async function putFeature(
 
 export async function deleteFeatureById(
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -1868,7 +1850,7 @@ export async function postFeatureEvaluate(
   >,
   res: Response<
     { status: 200; results: FeatureTestResult[] },
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) {
   const { id, version } = req.params;
@@ -1913,7 +1895,7 @@ export async function postFeatureEvaluate(
 
 export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -2243,7 +2225,7 @@ export async function getRealtimeUsage(
 
 export async function toggleStaleFFDetectionForFeature(
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -2268,7 +2250,7 @@ export async function toggleStaleFFDetectionForFeature(
 
 export async function postPrerequisite(
   req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -2300,7 +2282,7 @@ export async function putPrerequisite(
     { prerequisite: FeaturePrerequisite; i: number },
     { id: string }
   >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -2333,7 +2315,7 @@ export async function putPrerequisite(
 
 export async function deletePrerequisite(
   req: AuthRequest<{ i: number }, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;

@@ -109,6 +109,7 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
+import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 
@@ -406,8 +407,14 @@ app.get("/metric/:id", metricsController.getMetric);
 app.put("/metric/:id", metricsController.putMetric);
 app.delete("/metric/:id", metricsController.deleteMetric);
 app.get("/metric/:id/usage", metricsController.getMetricUsage);
-app.post("/metric/:id/analysis", metricsController.postMetricAnalysis);
-app.post("/metric/:id/analysis/cancel", metricsController.cancelMetricAnalysis);
+app.post("/metric/:id/analysis", metricsController.postLegacyMetricAnalysis);
+app.post(
+  "/metric/:id/analysis/cancel",
+  metricsController.cancelLegacyMetricAnalysis
+);
+
+// Metric Analyses
+app.use(metricAnalysisRouter);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);
@@ -701,6 +708,14 @@ app.use("/teams", teamRouter);
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
 app.put("/admin/organization", adminController.putOrganization);
+app.put("/admin/organization/disable", adminController.disableOrganization);
+app.put("/admin/organization/enable", adminController.enableOrganization);
+app.get(
+  "/admin/organization/:orgId/members",
+  adminController.getOrganizationMembers
+);
+app.get("/admin/members", adminController.getMembers);
+app.put("/admin/member", adminController.putMember);
 
 // License
 app.get("/license", licenseController.getLicenseData);

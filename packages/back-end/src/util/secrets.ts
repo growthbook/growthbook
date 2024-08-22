@@ -255,3 +255,6 @@ export const USE_PROXY =
   !!process.env.http_proxy ||
   !!process.env.https_proxy ||
   !!process.env.HTTPS_PROXY;
+
+export const SUPERADMIN_DEFAULT_ROLE =
+  process.env.SUPERADMIN_DEFAULT_ROLE ?? "readonly";

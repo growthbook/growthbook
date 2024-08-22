@@ -130,6 +130,7 @@ const organizationSchema = new mongoose.Schema({
   getStartedChecklistItems: [String],
   customRoles: {},
   deactivatedRoles: [],
+  disabled: Boolean,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -225,6 +226,7 @@ export async function findAllOrganizations(
           { ownerEmail: regex },
           { id: regex },
           { externalId: regex },
+          { verifiedDomain: regex },
         ],
       }
     : {};
@@ -325,6 +327,21 @@ export async function findOrganizationsByMemberId(userId: string) {
           id: userId,
         },
       },
+      disabled: { $ne: true },
+    })
+    .toArray();
+  return docs.map(toInterface);
+}
+
+export async function findOrganizationsByMemberIds(userId: string[]) {
+  const docs = await getCollection(COLLECTION)
+    .find({
+      members: {
+        $elemMatch: {
+          id: { $in: userId },
+        },
+      },
+      disabled: { $ne: true },
     })
     .toArray();
   return docs.map(toInterface);
@@ -333,6 +350,7 @@ export async function findOrganizationsByMemberId(userId: string) {
 export async function findOrganizationByInviteKey(key: string) {
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
+    disabled: { $ne: true },
   });
   return doc ? toInterface(doc) : null;
 }
@@ -393,7 +411,10 @@ export async function removeProjectFromProjectRoles(
 }
 
 export async function findOrganizationsByDomain(domain: string) {
-  const docs = await OrganizationModel.find({ verifiedDomain: domain });
+  const docs = await OrganizationModel.find({
+    verifiedDomain: domain,
+    disabled: { $ne: true },
+  });
   return docs.map(toInterface);
 }
 

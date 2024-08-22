@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { generateVariationId } from "@/services/features";
 import Modal from "@/components/Modal";
+import track from "@/services/track";
 import ExperimentVariationsInput from "./ExperimentVariationsInput";
 
 const EditVariationsForm: FC<{
@@ -55,6 +56,7 @@ const EditVariationsForm: FC<{
           body: JSON.stringify(data),
         });
         mutate();
+        track("edited-variations");
       })}
       cta="Save"
     >
