@@ -30,7 +30,7 @@ class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
     decision_metric: str = ""
-    bandit_weights_seed: int = 100
+    bandit_weights_seed: int = 0
     weight_by_period: bool = True
     top_two: bool = True
     alpha: float = 0.05
