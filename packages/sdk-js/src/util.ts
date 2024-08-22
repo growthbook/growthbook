@@ -83,7 +83,7 @@ export function getUrlRegExp(regexString: string): RegExp | undefined {
   }
 }
 
-export function isURLTargeted(url: string, targets: UrlTarget[]) {
+export function isURLTargeted(url: string, targets: UrlTarget[]): boolean {
   if (!targets.length) return false;
   let hasIncludeRules = false;
   let isIncluded = false;

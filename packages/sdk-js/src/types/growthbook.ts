@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook, StickyBucketService } from "..";
+import type { StickyBucketService } from "..";
 import { ConditionInterface, ParentConditionInterface } from "./mongrule";
-
-declare global {
-  interface Window {
-    _growthbook?: GrowthBook;
-  }
-}
 
 export type VariationMeta = {
   passthrough?: boolean;
