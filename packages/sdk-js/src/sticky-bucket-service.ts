@@ -91,7 +91,10 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
       // Ignore localStorage errors
     }
   }
-  async getAssignments(attributeName: string, attributeValue: string) {
+  async getAssignments(
+    attributeName: string,
+    attributeValue: string
+  ): Promise<StickyAssignmentsDocument | null> {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.localStorage) return doc;
@@ -146,7 +149,10 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     this.res = res;
     this.cookieAttributes = cookieAttributes;
   }
-  async getAssignments(attributeName: string, attributeValue: string) {
+  async getAssignments(
+    attributeName: string,
+    attributeValue: string
+  ): Promise<StickyAssignmentsDocument | null> {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.req) return doc;
@@ -198,7 +204,10 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
     this.jsCookie = jsCookie;
     this.cookieAttributes = cookieAttributes;
   }
-  async getAssignments(attributeName: string, attributeValue: string) {
+  async getAssignments(
+    attributeName: string,
+    attributeValue: string
+  ): Promise<StickyAssignmentsDocument | null> {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.jsCookie) return doc;
@@ -253,7 +262,10 @@ export class RedisStickyBucketService extends StickyBucketService {
     return docs;
   }
 
-  async getAssignments(_attributeName: string, _attributeValue: string) {
+  async getAssignments(
+    _attributeName: string,
+    _attributeValue: string
+  ): Promise<null> {
     // not implemented
     return null;
   }

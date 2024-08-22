@@ -503,7 +503,7 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
-  public async updateAttributes(attributes: Attributes) {
+  public async updateAttributes(attributes: Attributes): Promise<void> {
     return this.setAttributes({ ...this._ctx.attributes, ...attributes });
   }
 
@@ -548,32 +548,35 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes() {
+  public getAttributes(): Attributes {
     return { ...this._ctx.attributes, ...this._attributeOverrides };
   }
 
-  public getForcedVariations() {
+  public getForcedVariations(): Record<string, number> {
     return this._ctx.forcedVariations || {};
   }
 
-  public getForcedFeatures() {
+  public getForcedFeatures(): Map<string, unknown> {
     // eslint-disable-next-line
     return this._forcedFeatureValues || new Map<string, any>();
   }
 
-  public getStickyBucketAssignmentDocs() {
+  public getStickyBucketAssignmentDocs(): Record<
+    string,
+    StickyAssignmentsDocument
+  > {
     return this._ctx.stickyBucketAssignmentDocs || {};
   }
 
-  public getUrl() {
+  public getUrl(): string {
     return this._ctx.url || "";
   }
 
-  public getFeatures() {
+  public getFeatures(): Record<string, FeatureDefinition> {
     return this._ctx.features || {};
   }
 
-  public getExperiments() {
+  public getExperiments(): AutoExperiment[] {
     return this._ctx.experiments || [];
   }
 
@@ -603,7 +606,10 @@ export class GrowthBook<
     }
   }
 
-  public getAllResults() {
+  public getAllResults(): Map<
+    string,
+    { experiment: Experiment<unknown>; result: Result<unknown> }
+  > {
     return new Map(this._assigned);
   }
 
@@ -655,7 +661,9 @@ export class GrowthBook<
     return result;
   }
 
-  public triggerExperiment(key: string) {
+  public triggerExperiment(
+    key: string
+  ): Result<AutoExperimentVariation>[] | null {
     this._triggeredExpKeys.add(key);
     if (!this._ctx.experiments) return null;
     const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
@@ -663,7 +671,7 @@ export class GrowthBook<
       .map((exp) => {
         return this._runAutoExperiment(exp);
       })
-      .filter((res) => res !== null);
+      .filter((res): res is Result<AutoExperimentVariation> => res !== null);
   }
 
   public triggerAutoExperiments() {
