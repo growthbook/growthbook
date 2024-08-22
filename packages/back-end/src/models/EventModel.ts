@@ -15,6 +15,7 @@ import {
   NotificationEventPayload,
 } from "../events/base-types";
 import { EventInterface, BaseEventInterface } from "../../types/event";
+import { eventData } from "../validators/events";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { ReqContext } from "../../types/organization";
@@ -58,37 +59,7 @@ const eventSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        // NotificationEventPayload<EventName, ResourceType, DataType>
-        const zodSchema = z
-          .object({
-            event: z.enum(zodNotificationEventNamesEnum),
-            object: z.enum(zodNotificationEventResources),
-            data: z.any(),
-            projects: z.array(z.string()),
-            environments: z.array(z.string()),
-            tags: z.array(z.string()),
-            containsSecrets: z.boolean(),
-            user: z.union([
-              z
-                .object({
-                  type: z.literal("dashboard"),
-                  id: z.string(),
-                  email: z.string(),
-                  name: z.string(),
-                })
-                .strict(),
-              z
-                .object({
-                  type: z.literal("api_key"),
-                  apiKey: z.string(),
-                })
-                .strict(),
-              z.null(),
-            ]),
-          })
-          .strict();
-
-        const result = zodSchema.safeParse(value);
+        const result = eventData(z.any()).safeParse(value);
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
