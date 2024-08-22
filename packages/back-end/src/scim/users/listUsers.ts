@@ -54,9 +54,6 @@ export async function listUsers(
     totalResults: filteredUsers.length,
     Resources: resources,
     startIndex: queryOptions.startIndex,
-    itemsPerPage:
-      resources.length < queryOptions.count
-        ? resources.length
-        : queryOptions.count,
+    itemsPerPage: queryOptions.count,
   });
 }

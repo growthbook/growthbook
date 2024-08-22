@@ -29,10 +29,8 @@ export type {
   AutoExperiment,
   AutoExperimentChangeType,
   AutoExperimentVariation,
-  BrowserCookieStickyBucketService,
   CacheSettings,
   DOMMutation,
-  ExpressCookieStickyBucketService,
   FeatureApiResponse,
   FeatureDefinitions,
   Helpers,
@@ -40,18 +38,15 @@ export type {
   InitResponse,
   LoadFeaturesOptions,
   LocalStorageCompat,
-  LocalStorageStickyBucketService,
   NavigateCallback,
   ParentConditionInterface,
   Polyfills,
   PrefetchOptions,
-  RedisStickyBucketService,
   RefreshFeaturesOptions,
   RenderFunction,
   StickyAssignments,
   StickyAssignmentsDocument,
   StickyAttributeKey,
-  StickyBucketService,
   StickyExperimentKey,
   TrackingCallback,
   TrackingData,
@@ -60,6 +55,14 @@ export type {
   WidenPrimitives,
   GrowthBookPayload,
   InitSyncOptions,
+} from "@growthbook/growthbook";
+
+export {
+  StickyBucketService,
+  LocalStorageStickyBucketService,
+  BrowserCookieStickyBucketService,
+  ExpressCookieStickyBucketService,
+  RedisStickyBucketService,
 } from "@growthbook/growthbook";
 
 export type {

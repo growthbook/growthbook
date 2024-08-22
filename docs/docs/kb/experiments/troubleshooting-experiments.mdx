@@ -80,6 +80,10 @@ You can read more about the [rules for changing experiment targeting](/app/makin
 
 If your experiment is suffering from these issues, unfortunately the only solution may be to restart the experiment (you can do this by creating a new phase and choosing to re-randomize traffic). Of course, some amount of bias and SRM may be preferable to throwing out your data, but this depends on the magnitude of the problem.
 
+### Solution 5 (URL Redirects): Ensure trackingCallback fires
+
+If you're seeing SRM warnings while running a URL Redirect test, especially if you are using a front-end SDK such as the HTML, JavaScript, React, or Vue.js SDKs, please review the [Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests](https://docs.growthbook.io/app/url-redirects#sample-ratio-mismatch-srm-warnings-on-url-redirect-tests) documentation.
+
 ## Problem 3: Multiple Exposures
 
 We default to allowing 1 percent of units (e.g. users) in an experiment have multiple exposures without raising a warning due to the fact that many experimenters have slight mismatches in hashing attributes and warehouse tracking that can cause minor errors. You can adjust this in your organization settings under Settings > General > Experiment Settings.

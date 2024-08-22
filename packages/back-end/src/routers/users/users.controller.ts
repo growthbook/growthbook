@@ -39,6 +39,7 @@ export async function getUser(req: AuthRequest, res: Response) {
       agreedToTerms,
     });
     req.userId = user.id;
+    req.currentUser = user;
   }
 
   if (!req.userId) {

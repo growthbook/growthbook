@@ -6,7 +6,7 @@ import { zodNotificationEventNamesEnum } from "../../events/base-types";
 import {
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-} from "../../types/EventWebHook";
+} from "../../validators/event-webhook";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();

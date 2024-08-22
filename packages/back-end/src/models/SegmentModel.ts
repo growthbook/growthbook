@@ -18,6 +18,10 @@ const BaseClass = MakeModelClass({
   readonlyFields: ["datasource"],
 });
 
+type LegacySegmentInterface = Omit<SegmentInterface, "type"> & {
+  type?: "SQL" | "FACT";
+};
+
 export class SegmentModel extends BaseClass {
   protected canRead(): boolean {
     return this.context.permissions.canReadSingleProjectResource("");
@@ -46,5 +50,34 @@ export class SegmentModel extends BaseClass {
     datasourceId: string
   ): Promise<SegmentInterface[]> {
     return await this._find({ datasource: datasourceId });
+  }
+
+  public async getByFactTableId(
+    factTableId: string
+  ): Promise<SegmentInterface[]> {
+    return await this._find({ factTableId });
+  }
+
+  protected migrate(legacySegment: LegacySegmentInterface): SegmentInterface {
+    // if legacySegment doesn't have a type, it's a legacy, which only allowed SQL
+    return { ...legacySegment, type: legacySegment.type || "SQL" };
+  }
+
+  protected async customValidation(segment: SegmentInterface): Promise<void> {
+    if (segment.type === "SQL") {
+      if (!segment.sql) {
+        throw new Error(
+          `${segment.name} is a SQL type Segment, but contains no SQL value`
+        );
+      }
+    }
+
+    if (segment.type === "FACT") {
+      if (!segment.factTableId) {
+        throw new Error(
+          `${segment.name} is a FACT type Segment, but contains no factTableId`
+        );
+      }
+    }
   }
 }

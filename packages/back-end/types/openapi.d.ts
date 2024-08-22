@@ -199,6 +199,18 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/members": {
+    /** Get all organization members */
+    get: operations["listMembers"];
+  };
+  "/members/{id}": {
+    /** Removes a single user from an organization */
+    delete: operations["deleteMember"];
+  };
+  "/members/{id}/role": {
+    /** Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it. */
+    post: operations["updateMemberRole"];
+  };
   "/environments": {
     /** Get the organization's environments */
     get: operations["listEnvironments"];
@@ -411,9 +423,13 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
-      query: string;
+      query?: string;
       dateCreated: string;
       dateUpdated: string;
+      /** @enum {unknown} */
+      type?: "SQL" | "FACT";
+      factTableId?: string;
+      filters?: (string)[];
     };
     Feature: {
       id: string;
@@ -902,6 +918,7 @@ export interface components {
       sseEnabled?: boolean;
       hashSecureAttributes?: boolean;
       remoteEvalEnabled?: boolean;
+      savedGroupReferencesEnabled?: boolean;
     };
     Experiment: {
       id: string;
@@ -1280,6 +1297,9 @@ export interface components {
       attributeKey?: string;
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
+      description?: string;
+      /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+      passByReferenceOnly?: boolean;
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -1410,6 +1430,28 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
     };
+    Member: {
+      id: string;
+      name?: string;
+      email: string;
+      globalRole: string;
+      environments?: (string)[];
+      limitAccessByEnvironment?: boolean;
+      managedbyIdp?: boolean;
+      teams?: (string)[];
+      projectRoles?: ({
+          project: string;
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+        })[];
+      /** Format: date-time */
+      lastLoginDate?: string;
+      /** Format: date-time */
+      dateCreated?: string;
+      /** Format: date-time */
+      dateUpdated?: string;
+    };
   };
   responses: {
     Error: never;
@@ -1435,6 +1477,12 @@ export interface components {
     branch: string;
     /** @description Name of versino control platform like GitHub or Gitlab. */
     platform: "github" | "gitlab" | "bitbucket";
+    /** @description Name of the user. */
+    userName: string;
+    /** @description Email address of the user. */
+    userEmail: string;
+    /** @description Name of the global role */
+    globalRole: string;
   };
   requestBodies: never;
   headers: never;
@@ -2906,18 +2954,22 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             segments: ({
                 id: string;
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
                 name: string;
-                query: string;
+                query?: string;
                 dateCreated: string;
                 dateUpdated: string;
+                /** @enum {unknown} */
+                type?: "SQL" | "FACT";
+                factTableId?: string;
+                filters?: (string)[];
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -2941,9 +2993,13 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
-              query: string;
+              query?: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @enum {unknown} */
+              type?: "SQL" | "FACT";
+              factTableId?: string;
+              filters?: (string)[];
             };
           };
         };
@@ -2995,6 +3051,7 @@ export interface operations {
                 sseEnabled?: boolean;
                 hashSecureAttributes?: boolean;
                 remoteEvalEnabled?: boolean;
+                savedGroupReferencesEnabled?: boolean;
               })[];
           } & {
             limit: number;
@@ -3027,6 +3084,7 @@ export interface operations {
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3061,6 +3119,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3106,6 +3165,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3137,6 +3197,7 @@ export interface operations {
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3171,6 +3232,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -5100,6 +5162,9 @@ export interface operations {
                 attributeKey?: string;
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
+                description?: string;
+                /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+                passByReferenceOnly?: boolean;
               })[];
           }) & {
             limit: number;
@@ -5156,6 +5221,9 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5190,6 +5258,9 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5238,6 +5309,9 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5377,6 +5451,122 @@ export interface operations {
               name?: string;
               /** @description The email address of the organization owner */
               ownerEmail?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  listMembers: {
+    /** Get all organization members */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Name of the user. */
+        /** @description Email address of the user. */
+        /** @description Name of the global role */
+      query: {
+        limit?: number;
+        offset?: number;
+        userName?: string;
+        userEmail?: string;
+        globalRole?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            members: ({
+                id: string;
+                name?: string;
+                email: string;
+                globalRole: string;
+                environments?: (string)[];
+                limitAccessByEnvironment?: boolean;
+                managedbyIdp?: boolean;
+                teams?: (string)[];
+                projectRoles?: ({
+                    project: string;
+                    role: string;
+                    limitAccessByEnvironment: boolean;
+                    environments: (string)[];
+                  })[];
+                /** Format: date-time */
+                lastLoginDate?: string;
+                /** Format: date-time */
+                dateCreated?: string;
+                /** Format: date-time */
+                dateUpdated?: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  deleteMember: {
+    /** Removes a single user from an organization */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  updateMemberRole: {
+    /** Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it. */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          member: {
+            role?: string;
+            environments?: (string)[];
+            projectRoles?: ({
+                project: string;
+                role: string;
+                environments: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            updatedMember: {
+              id: string;
+              role: string;
+              environments: (string)[];
+              limitAccessByEnvironment: boolean;
+              projectRoles?: ({
+                  project: string;
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                })[];
             };
           };
         };
@@ -6707,35 +6897,38 @@ export interface operations {
     };
   };
 }
+import { z } from "zod";
+import * as openApiValidators from "../src/validators/openapi";
 
 // Schemas
-export type ApiPaginationFields = components["schemas"]["PaginationFields"];
-export type ApiDimension = components["schemas"]["Dimension"];
-export type ApiMetric = components["schemas"]["Metric"];
-export type ApiProject = components["schemas"]["Project"];
-export type ApiEnvironment = components["schemas"]["Environment"];
-export type ApiSegment = components["schemas"]["Segment"];
-export type ApiFeature = components["schemas"]["Feature"];
-export type ApiFeatureEnvironment = components["schemas"]["FeatureEnvironment"];
-export type ApiFeatureRule = components["schemas"]["FeatureRule"];
-export type ApiFeatureDefinition = components["schemas"]["FeatureDefinition"];
-export type ApiFeatureForceRule = components["schemas"]["FeatureForceRule"];
-export type ApiFeatureRolloutRule = components["schemas"]["FeatureRolloutRule"];
-export type ApiFeatureExperimentRule = components["schemas"]["FeatureExperimentRule"];
-export type ApiFeatureExperimentRefRule = components["schemas"]["FeatureExperimentRefRule"];
-export type ApiSdkConnection = components["schemas"]["SdkConnection"];
-export type ApiExperiment = components["schemas"]["Experiment"];
-export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];
-export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAnalysisSettings"];
-export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
-export type ApiDataSource = components["schemas"]["DataSource"];
-export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
-export type ApiVisualChange = components["schemas"]["VisualChange"];
-export type ApiSavedGroup = components["schemas"]["SavedGroup"];
-export type ApiOrganization = components["schemas"]["Organization"];
-export type ApiFactTable = components["schemas"]["FactTable"];
-export type ApiFactTableFilter = components["schemas"]["FactTableFilter"];
-export type ApiFactMetric = components["schemas"]["FactMetric"];
+export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
+export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidator>;
+export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
+export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
+export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
+export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
+export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
+export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
+export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
+export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;
+export type ApiFeatureForceRule = z.infer<typeof openApiValidators.apiFeatureForceRuleValidator>;
+export type ApiFeatureRolloutRule = z.infer<typeof openApiValidators.apiFeatureRolloutRuleValidator>;
+export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatureExperimentRuleValidator>;
+export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
+export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
+export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
+export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
+export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
+export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
+export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
+export type ApiVisualChangeset = z.infer<typeof openApiValidators.apiVisualChangesetValidator>;
+export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeValidator>;
+export type ApiSavedGroup = z.infer<typeof openApiValidators.apiSavedGroupValidator>;
+export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationValidator>;
+export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
+export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
+export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
+export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -6783,6 +6976,9 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
+export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];
 export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
