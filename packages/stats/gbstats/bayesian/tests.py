@@ -528,6 +528,31 @@ class Bandits:
             final_counts[i] = dict_0.get(i, 0) + dict_1.get(i, 0)
         return final_counts / sum(final_counts)
 
+    @staticmethod
+    def sum_from_moments(n, mn):
+        return n * mn
+
+    @staticmethod
+    def sum_squares_from_moments(n, mn, v):
+        return (n - 1) * v + n * mn**2
+
+    @staticmethod
+    def dot_product_from_moments(n, mn_x, mn_y, cov_x_y):
+        return (n - 1) * cov_x_y + n * mn_x * mn_y
+
+    def make_statistic(self, dimension, variation_index, variation_value):
+        n = self.variation_counts[variation_index]
+        mn = self.variation_means[variation_index]
+        v = self.variation_variances[variation_index]
+        return {
+            "dimension": dimension,
+            "variation": variation_value,
+            "users": n,
+            "count": n,
+            "main_sum": self.sum_from_moments(n, mn),
+            "main_sum_squares": self.sum_squares_from_moments(n, mn, v),
+        }
+
 
 class BanditsRatio(Bandits):
     @property
@@ -621,6 +646,27 @@ class BanditsRatio(Bandits):
 
     def compute_additional_reward(self) -> float:
         return 0
+
+    def make_statistic(self, dimension, variation_index, variation_value):
+        n = self.variation_counts[variation_index]
+        mn_num = self.numerator_means[variation_index]
+        v_num = self.numerator_variances[variation_index]
+        mn_den = self.denominator_means[variation_index]
+        v_den = self.denominator_variances[variation_index]
+        cov_num_den = self.covariances[variation_index]
+        return {
+            "dimension": dimension,
+            "variation": variation_value,
+            "users": n,
+            "count": n,
+            "main_sum": self.sum_from_moments(n, mn_num),
+            "main_sum_squares": self.sum_squares_from_moments(n, mn_num, v_num),
+            "denominator_sum": self.sum_from_moments(n, mn_den),
+            "denominator_sum_squares": self.sum_squares_from_moments(n, mn_den, v_den),
+            "main_denominator_sum_product": self.dot_product_from_moments(
+                n, mn_num, mn_den, cov_num_den
+            ),
+        }
 
 
 class BanditsCuped(Bandits):
@@ -718,3 +764,23 @@ class BanditsCuped(Bandits):
         return self.construct_weighted_means(
             self.post_pre_sum_of_products_array, self.weights_array
         )
+
+    def make_statistic(self, dimension, variation_index, variation_value):
+        n = self.variation_counts[variation_index]
+        mn_post = self.variation_means_post[variation_index]
+        v_post = self.variation_variances_post[variation_index]
+        mn_pre = self.variation_means_pre[variation_index]
+        v_pre = self.variation_variances_pre[variation_index]
+        return {
+            "dimension": dimension,
+            "variation": variation_value,
+            "users": n,
+            "count": n,
+            "main_sum": self.sum_from_moments(n, mn_post),
+            "main_sum_squares": self.sum_squares_from_moments(n, mn_post, v_post),
+            "covariate_sum": self.sum_from_moments(n, mn_pre),
+            "covariate_sum_squares": self.sum_squares_from_moments(n, mn_pre, v_pre),
+            "main_covariate_sum_product": self.variation_post_pre_sum_of_products[
+                variation_index
+            ],
+        }

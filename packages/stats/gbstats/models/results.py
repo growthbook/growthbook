@@ -9,8 +9,8 @@ from gbstats.models.tests import Uplift
 # Data classes for return to the back end
 @dataclass
 class SingleVariationResult:
-    users: Optional[List[float]]
-    cr: Optional[List[float]]
+    users: Optional[float]
+    cr: Optional[float]
     ci: Optional[List[float]]
 
 
