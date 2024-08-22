@@ -3570,7 +3570,7 @@ export default abstract class SqlIntegration
     autoFactMetric: AutoFactMetricToCreate
   ): boolean {
     return existingFactMetrics.some((existing) => {
-      //TODO: Improve this logic
+      //TODO: This logic is pretty simple and could be improved
       return (
         existing.metricType === autoFactMetric.metricType &&
         existing.numerator.column === autoFactMetric.numerator.column
@@ -3583,15 +3583,35 @@ export default abstract class SqlIntegration
     factTable: FactTableInterface
   ): AutoFactMetricToCreate[] {
     const event = factTable.eventName;
-    // based on these docs - https://support.google.com/analytics/answer/9267735?hl=en&ref_topic=13367566&sjid=16477269010846037969-NA
-    const ga4InvertedEvents: string[] = [
+    // based on these docs
+    // - https://support.google.com/analytics/answer/9267735?hl=en&ref_topic=13367566&sjid=16477269010846037969-NA
+    // - https://www.rudderstack.com/docs/event-spec/standard-events/
+    // - https://www.rudderstack.com/docs/event-spec/ecommerce-events-spec/
+    // - https://segment.com/docs/connections/spec/semantic/
+    // - https://segment.com/docs/connections/spec/b2b-saas/
+    // - https://segment.com/docs/connections/spec/ecommerce/v2/
+    const invertedEvents: string[] = [
       "refund",
       "disqualify_lead",
       "app_remove",
       "app_store_refund",
       "app_store_subscription_cancel",
       "error",
+      "Product Removed",
+      "Order Refunded",
+      "Order Cancelled",
+      "Coupon Denied",
+      "Account Deleted",
+      "Acount Removed User",
+      "Application Uninstalled",
+      "Application Crashed",
+      "Push Notification Bounced",
+      "Email Bounced",
+      "Email Marked as Spam",
+      "Unsubscribed",
     ];
+
+    const inverse = invertedEvents.includes(event);
 
     const autoFactMetricsToCreate: AutoFactMetricToCreate[] = [];
 
@@ -3601,7 +3621,7 @@ export default abstract class SqlIntegration
       metricType: "proportion",
       shouldCreate: true,
       alreadyExists: false,
-      inverse: ga4InvertedEvents.includes(event) || false,
+      inverse,
       numerator: {
         factTableId: factTable.id,
         column: "$$distinctUsers",
@@ -3616,7 +3636,7 @@ export default abstract class SqlIntegration
       name: `${event} mean`,
       metricType: "mean",
       shouldCreate: true,
-      inverse: ga4InvertedEvents.includes(event) || false,
+      inverse,
       alreadyExists: false,
       numerator: {
         factTableId: factTable.id,
@@ -3716,7 +3736,7 @@ export default abstract class SqlIntegration
     groupByColumn?: string
   ) {
     const end = new Date();
-    const start = subDays(new Date(), 700);
+    const start = subDays(new Date(), 7);
 
     return `
       SELECT
@@ -3738,7 +3758,6 @@ export default abstract class SqlIntegration
     `;
   }
 
-  //MKTODO: This is the current function
   async getAutoFactTablesToCreate(
     existingFactTables: FactTableInterface[],
     schema: string
