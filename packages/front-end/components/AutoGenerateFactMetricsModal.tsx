@@ -24,14 +24,12 @@ export default function AutoGenerateFactMetricsModal({
       header="Discover Fact Metrics"
       close={() => setShowAutoGenerateFactMetricsModal(false)}
       submit={async () => {
+        const id = factTableId;
         try {
-          const res = await apiCall(
-            `/fact-tables/auto-metrics/${factTableId}`,
-            {
-              method: "POST",
-              body: JSON.stringify({ autoFactMetricsToCreate }),
-            }
-          );
+          const res = await apiCall(`/fact-tables/auto-metrics/${id}`, {
+            method: "POST",
+            body: JSON.stringify({ autoFactMetricsToCreate }),
+          });
           console.log({ res });
         } catch (e) {
           console.log(e);

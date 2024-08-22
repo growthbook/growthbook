@@ -99,9 +99,9 @@ router.get(
 );
 
 router.post(
-  "/fact-tables/auto-metrics/:factTableId",
+  "/fact-tables/auto-metrics/:id",
   validateRequestMiddleware({
-    params: z.object({ factTableId: z.string() }).strict(),
+    params: factTableParams,
     body: postAutoFactMetricsPropsValidator,
   }),
   factTableController.postAutoFactMetrics
