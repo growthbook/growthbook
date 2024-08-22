@@ -9,6 +9,7 @@ import {
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
+  postAutoFactMetricsPropsValidator,
 } from "./fact-table.validators";
 import * as rawFactTableController from "./fact-table.controller";
 
@@ -99,10 +100,10 @@ router.get(
 
 router.post(
   "/fact-tables/auto-metrics/:factTableId",
-  //MKTODO: Add validation here
-  // validateRequestMiddleware({ params: factTableParams,
-  //   body: {metricsToCreate: FactMetricInterface[]}
-  //  }),
+  validateRequestMiddleware({
+    params: z.object({ factTableId: z.string() }).strict(),
+    body: postAutoFactMetricsPropsValidator,
+  }),
   factTableController.postAutoFactMetrics
 );
 
