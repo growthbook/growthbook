@@ -60,6 +60,7 @@ export default function track(
   const org = currentUser?.org;
   const id = currentUser?.id;
   const role = currentUser?.role;
+  const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
 
   // Mask the hostname and sanitize URLs to avoid leaking private info
   const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
@@ -76,6 +77,7 @@ export default function track(
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,
+    account_plan: effectiveAccountPlan,
     configFile: hasFileConfig(),
     role: id ? role : "",
     // Track anonymous hashed identifiers for all deployments
