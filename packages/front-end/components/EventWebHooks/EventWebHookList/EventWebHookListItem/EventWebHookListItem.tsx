@@ -3,7 +3,7 @@ import Link from "next/link";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { datetime } from "shared/dates";
 import {
-  webhookIcon,
+  WebhookIcon,
   useIconForState,
   displayedEvents,
 } from "@/components/EventWebHooks/utils";
@@ -19,15 +19,8 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   href,
   eventWebHook,
 }) => {
-  const {
-    name,
-    payloadType,
-    url,
-    events,
-    enabled,
-    lastState,
-    lastRunAt,
-  } = eventWebHook;
+  const { name, payloadType, url, events, enabled, lastState, lastRunAt } =
+    eventWebHook;
 
   const iconForState = useIconForState(lastState);
 
@@ -38,8 +31,8 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
       <div className="d-flex">
         <div className="ml-2">
           <div className="m-2 p-2 border rounded">
-            <img
-              src={webhookIcon[payloadType]}
+            <WebhookIcon
+              type={payloadType}
               style={{ height: "2rem", width: "2rem" }}
             />
           </div>

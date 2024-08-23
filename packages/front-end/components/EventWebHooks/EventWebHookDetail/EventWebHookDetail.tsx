@@ -12,7 +12,7 @@ import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import {
   EventWebHookEditParams,
   useIconForState,
-  webhookIcon,
+  WebhookIcon,
   displayedEvents,
 } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
@@ -167,8 +167,8 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         <div className="d-flex align-items-center">
           {/* Title */}
           <div className="m-2 p-2 border rounded">
-            <img
-              src={webhookIcon[payloadType]}
+            <WebhookIcon
+              type={payloadType}
               style={{ height: "2rem", width: "2rem" }}
             />
           </div>
@@ -378,9 +378,9 @@ export const EventWebHookDetailContainer = ({
                 "environments",
                 "method",
                 "headers",
-              ])
+              ]),
             ),
-          }
+          },
         );
 
         if (response.error) {
@@ -394,7 +394,7 @@ export const EventWebHookDetailContainer = ({
         handleUpdateError("Unknown error");
       }
     },
-    [mutateEventWebHook, apiCall, eventWebHookId]
+    [mutateEventWebHook, apiCall, eventWebHookId],
   );
 
   const handleDelete = useCallback(async () => {
