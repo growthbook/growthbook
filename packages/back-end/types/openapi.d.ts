@@ -1764,6 +1764,31 @@ export interface operations {
                       variationId: string;
                     })[];
                   experimentId: string;
+                } | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: any;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -1816,6 +1841,31 @@ export interface operations {
                         variationId: string;
                       })[];
                     experimentId: string;
+                  } | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: any;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
@@ -2262,6 +2312,31 @@ export interface operations {
                       variationId: string;
                     })[];
                   experimentId: string;
+                } | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: any;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -2314,6 +2389,31 @@ export interface operations {
                         variationId: string;
                       })[];
                     experimentId: string;
+                  } | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: any;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
