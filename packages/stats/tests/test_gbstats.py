@@ -7,7 +7,6 @@ import pandas as pd
 
 from gbstats.gbstats import (
     AnalysisSettingsForStatsEngine,
-    BanditSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
     detect_unknown_variations,
     diff_for_daily_time_series,
@@ -16,7 +15,6 @@ from gbstats.gbstats import (
     get_metric_df,
     format_results,
     variation_statistic_from_metric_row,
-    get_bandit_response,
 )
 from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
 
@@ -24,126 +22,49 @@ DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
 
 COUNT_METRIC = MetricSettingsForStatsEngine(
-    id="count_metric",
-    name="count_metric",
+    id="",
+    name="",
     inverse=False,
     statistic_type="mean",
     main_metric_type="count",
 )
 
-QUERY_OUTPUT = [
-    {
-        "dimension": "one",
-        "variation": "one",
-        "main_sum": 300,
-        "main_sum_squares": 869,
-        "users": 120,
-        "count": 120,
-    },
-    {
-        "dimension": "one",
-        "variation": "zero",
-        "main_sum": 270,
-        "main_sum_squares": 848.79,
-        "users": 100,
-        "count": 100,
-    },
-    {
-        "dimension": "two",
-        "variation": "one",
-        "main_sum": 770,
-        "main_sum_squares": 3571,
-        "users": 220,
-        "count": 220,
-    },
-    {
-        "dimension": "two",
-        "variation": "zero",
-        "main_sum": 740,
-        "main_sum_squares": 3615.59,
-        "users": 200,
-        "count": 200,
-    },
-]
-
-MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT)
-
-# used for testing bandits
-QUERY_OUTPUT_BANDITS = [
-    {
-        "dimension": "",
-        "period": 0,
-        "variation": "zero",
-        "main_sum": 270,
-        "main_sum_squares": 848.79,
-        "users": 100,
-        "count": 100,
-    },
-    {
-        "dimension": "",
-        "period": 0,
-        "variation": "one",
-        "main_sum": 300,
-        "main_sum_squares": 869,
-        "users": 120,
-        "count": 120,
-    },
-    {
-        "dimension": "",
-        "period": 0,
-        "variation": "two",
-        "main_sum": 740,
-        "main_sum_squares": 1615.59,
-        "users": 200,
-        "count": 200,
-    },
-    {
-        "dimension": "",
-        "period": 0,
-        "variation": "three",
-        "main_sum": 770,
-        "main_sum_squares": 1571,
-        "users": 220,
-        "count": 220,
-    },
-    {
-        "dimension": "",
-        "period": 1,
-        "variation": "zero",
-        "main_sum": 270,
-        "main_sum_squares": 848.79,
-        "users": 100,
-        "count": 100,
-    },
-    {
-        "dimension": "",
-        "period": 1,
-        "variation": "one",
-        "main_sum": 300,
-        "main_sum_squares": 869,
-        "users": 120,
-        "count": 120,
-    },
-    {
-        "dimension": "",
-        "period": 1,
-        "variation": "two",
-        "main_sum": 740,
-        "main_sum_squares": 1615.59,
-        "users": 200,
-        "count": 200,
-    },
-    {
-        "dimension": "",
-        "period": 1,
-        "variation": "three",
-        "main_sum": 770,
-        "main_sum_squares": 1571,
-        "users": 220,
-        "count": 220,
-    },
-]
-
+MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "one",
+            "variation": "one",
+            "main_sum": 300,
+            "main_sum_squares": 869,
+            "users": 120,
+            "count": 120,
+        },
+        {
+            "dimension": "one",
+            "variation": "zero",
+            "main_sum": 270,
+            "main_sum_squares": 848.79,
+            "users": 100,
+            "count": 100,
+        },
+        {
+            "dimension": "two",
+            "variation": "one",
+            "main_sum": 770,
+            "main_sum_squares": 3571,
+            "users": 220,
+            "count": 220,
+        },
+        {
+            "dimension": "two",
+            "variation": "zero",
+            "main_sum": 740,
+            "main_sum_squares": 3615.59,
+            "users": 200,
+            "count": 200,
+        },
+    ]
+)
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
@@ -302,15 +223,6 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
-)
-
-# confirm with sonnet that var_ids are right;
-# before was failing at "get_metric_df" due to wrong var_id_mapping
-BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
-    var_names=["zero", "one", "two", "three"],
-    var_ids=["zero", "one", "two", "three"],
-    decision_metric="count_metric",
-    bandit_weights_seed=10,
 )
 
 
@@ -537,6 +449,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS)
+
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
@@ -802,31 +715,11 @@ class TestFormatResults(TestCase):
                 analysis=dataclasses.replace(
                     DEFAULT_ANALYSIS, stats_engine="frequentist"
                 ),
-            ),
-            0,
+            )
         )
         for res in result:
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
-
-
-class TestBandit(TestCase):
-    def setUp(self):
-        # preprocessing steps
-        self.rows = QUERY_OUTPUT_BANDITS
-        self.metric = COUNT_METRIC
-        self.analysis = BANDIT_ANALYSIS
-        self.update_messages = [
-            "successfully updated",
-        ]
-        self.true_weights = [0.37530, 0.13345, 0.24645, 0.2448]
-        self.true_additional_reward = 192.0
-
-    def test_get_bandit_response(self):
-        result = get_bandit_response(self.rows, self.metric, self.analysis)
-        self.assertEqual(result.banditUpdateMessage, self.update_messages[0])
-        self.assertEqual(result.banditWeights, self.true_weights)
-        self.assertEqual(result.additionalReward, self.true_additional_reward)
 
 
 if __name__ == "__main__":

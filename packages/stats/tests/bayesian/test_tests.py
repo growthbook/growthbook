@@ -11,7 +11,6 @@ from gbstats.bayesian.tests import (
     EffectBayesianABTest,
     GaussianPrior,
     EffectBayesianConfig,
-    Bandits,
 )
 from gbstats.models.statistics import (
     ProportionStatistic,

@@ -298,10 +298,3 @@ TestStatistic = Union[
     QuantileStatistic,
     QuantileClusteredStatistic,
 ]
-
-BanditStatistic = Union[
-    ProportionStatistic,
-    SampleMeanStatistic,
-    # RatioStatistic,
-    # RegressionAdjustedStatistic,
-]
