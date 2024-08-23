@@ -686,7 +686,7 @@ export function updateExperimentBanditSettings({
   if (!changes.phases[lastIndex].banditWeights) {
     changes.phases[lastIndex].banditWeights = [];
   }
-  changes.phases[lastIndex].banditWeights.push({
+  changes.phases[lastIndex].banditWeights?.push({
     date: dateCreated,
     weights,
     snapshotId: snapshot?.id,
