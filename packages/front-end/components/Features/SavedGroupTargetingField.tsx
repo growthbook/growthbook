@@ -67,7 +67,7 @@ export default function SavedGroupTargetingField({
       <label>Target by Saved Groups</label>
       <div className="mb-1">
         <LargeSavedGroupPerformanceWarning
-          type="targeting_rule"
+          style="text"
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}

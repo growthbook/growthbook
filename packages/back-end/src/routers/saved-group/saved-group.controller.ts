@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
   formatByteSizeString,
-  LARGE_GROUP_SIZE_LIMIT_BYTES,
+  SAVED_GROUP_SIZE_LIMIT_BYTES,
   validateCondition,
 } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
@@ -41,7 +41,7 @@ type ListSavedGroupsResponse = {
 
 /**
  * GET /saved-groups
- * Create a saved-group resource
+ * List all saved-group resources
  * @param req
  * @param res
  */
@@ -123,11 +123,11 @@ export const postSavedGroup = async (
 
   const uniqValues = [...new Set(values)];
   if (
-    new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+    new Blob([JSON.stringify(uniqValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
   ) {
     throw new Error(
       `The maximum size for a list is ${formatByteSizeString(
-        LARGE_GROUP_SIZE_LIMIT_BYTES
+        SAVED_GROUP_SIZE_LIMIT_BYTES
       )}.`
     );
   }
@@ -255,11 +255,11 @@ export const postSavedGroupAddItems = async (
 
   const newValues = [...new Set([...(savedGroup.values || []), ...items])];
   if (
-    new Blob([JSON.stringify(newValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+    new Blob([JSON.stringify(newValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
   ) {
     throw new Error(
       `The maximum size for a list is ${formatByteSizeString(
-        LARGE_GROUP_SIZE_LIMIT_BYTES
+        SAVED_GROUP_SIZE_LIMIT_BYTES
       )}. Adding these items to the list would exceed the limit.`
     );
   }

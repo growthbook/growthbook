@@ -12,15 +12,7 @@ const router = express.Router();
 
 const savedGroupController = wrapController(rawSavedGroupController);
 
-router.get(
-  "/",
-  validateRequestMiddleware({
-    params: z
-      .object({ includeLargeSavedGroupValues: z.boolean().optional() })
-      .strict(),
-  }),
-  savedGroupController.getSavedGroups
-);
+router.get("/", savedGroupController.getSavedGroups);
 
 router.get(
   "/:id",

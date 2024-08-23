@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from "react";
-import { LARGE_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
+import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -81,7 +81,7 @@ export const IdListItemInput: FC<{
         </div>
       </div>
       <LargeSavedGroupPerformanceWarning
-        type="saved_group_creation"
+        style="banner"
         openUpgradeModal={openUpgradeModal}
         hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
         supportedConnections={supportedConnections}
@@ -117,7 +117,7 @@ export const IdListItemInput: FC<{
                   setFileErrorMessage("Only .csv file types are supported");
                   return;
                 }
-                if (file.size > LARGE_GROUP_SIZE_LIMIT_BYTES) {
+                if (file.size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
                   setFileErrorMessage("File size must be less than 1 MB");
                   return;
                 }

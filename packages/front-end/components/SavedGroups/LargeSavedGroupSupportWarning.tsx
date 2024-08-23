@@ -44,13 +44,12 @@ export function useLargeSavedGroupSupport(
 }
 
 type LargeSavedGroupSupportWarningProps = LargeSavedGroupSupport & {
-  type: "saved_group_creation" | "targeting_rule";
+  style: "banner" | "text";
   openUpgradeModal?: () => void;
-  upgradeWarningToError?: boolean;
 };
 
 export default function LargeSavedGroupPerformanceWarning({
-  type,
+  style,
   openUpgradeModal,
   hasLargeSavedGroupFeature,
   supportedConnections,
@@ -62,9 +61,15 @@ export default function LargeSavedGroupPerformanceWarning({
         <PiInfoFill /> Performance improvements for Saved Groups are available
         with an Enterprise plan.
         {openUpgradeModal && (
-          <span className="underline cursor-pointer" onClick={openUpgradeModal}>
-            Upgrade &gt;
-          </span>
+          <>
+            {" "}
+            <span
+              className="underline cursor-pointer"
+              onClick={openUpgradeModal}
+            >
+              Upgrade &gt;
+            </span>
+          </>
         )}
       </div>
     );
@@ -72,9 +77,7 @@ export default function LargeSavedGroupPerformanceWarning({
   if (unsupportedConnections.length === 0) return <></>;
 
   const containerClassName =
-    type === "targeting_rule"
-      ? `text-warning-muted`
-      : `alert alert-warning mt-2 p-3`;
+    style === "text" ? `text-warning-muted` : `alert alert-warning mt-2 p-3`;
 
   const copy = `${
     supportedConnections.length > 0 ? "Some of your" : "Your"

@@ -513,7 +513,7 @@ describe("payload scrubbing", () => {
       false
     );
 
-    // no change to payload for default connection (javascript, 0.27.0)
+    // only payload change for default connection (javascript, 0.27.0) is saved groups being inline
     expect(scrubbed).toStrictEqual(savedGroupScrubbedPayload);
   });
 
@@ -566,7 +566,7 @@ describe("payload scrubbing", () => {
       true
     );
 
-    // no change to payload for default connection (javascript, 0.27.0)
+    // fully scrubs payload for risky connection (python, 0.0.0)
     expect(scrubbed).toStrictEqual(fullyScrubbedPayload);
   });
 

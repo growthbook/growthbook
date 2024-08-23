@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { getMatchingRules, SMALL_GROUP_SIZE_LIMIT } from "shared/util";
+import { getMatchingRules } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiInfoFill } from "react-icons/pi";
+import { PiArrowsDownUp } from "react-icons/pi";
 import Link from "next/link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -20,7 +20,9 @@ import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { DocLink } from "@/components/DocLink";
+import LargeSavedGroupPerformanceWarning, {
+  useLargeSavedGroupSupport,
+} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 
 const NUM_PER_PAGE = 10;
 
@@ -54,6 +56,12 @@ export default function EditSavedGroupPage() {
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
     "replace"
   );
+
+  const {
+    hasLargeSavedGroupFeature,
+    supportedConnections,
+    unsupportedConnections,
+  } = useLargeSavedGroupSupport();
 
   const [
     savedGroupForm,
@@ -98,9 +106,6 @@ export default function EditSavedGroupPage() {
   const getConfirmationContent = useMemo(() => {
     return getSavedGroupMessage(featuresReferencingSavedGroup);
   }, [featuresReferencingSavedGroup]);
-
-  const showSavedGroupPerfWarning =
-    (savedGroup?.values?.length || 0) > SMALL_GROUP_SIZE_LIMIT;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -267,175 +272,167 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div>{savedGroup.description}</div>
-        {showSavedGroupPerfWarning && (
-          <div className="alert alert-info">
-            <PiInfoFill style={{ marginTop: "-2px" }} />
-            TODO: new info/warning/upsell here
-            <DocLink docSection="savedGroups">Learn more</DocLink>
-          </div>
-        )}
         <hr />
-        <>
-          <div className="row m-0 mb-4 align-items-center justify-content-between">
-            <div className="">
-              <Field
-                placeholder="Search..."
-                type="search"
-                value={filter}
-                onChange={(e) => {
-                  setFilter(e.target.value);
-                }}
-              />
-            </div>
-            <div className="">
-              <button
-                className="btn btn-outline-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAddItems(true);
-                }}
-              >
-                <div className="row align-items-center m-0 p-1">
-                  <span className="mr-1 lh-full">
-                    <FaPlusCircle />
-                  </span>
-                  <span className="lh-full">Edit List Items</span>
-                </div>
-              </button>
-            </div>
-          </div>
-          <h4>ID List Items</h4>
-          <div className="row m-0 mb-3 align-items-center justify-content-between">
-            <div className="row m-0 align-items-center">
-              {selected.size > 0 && (
-                <>
-                  <DeleteButton
-                    text={`Delete Selected (${selected.size})`}
-                    title={`Delete selected item${
-                      selected.size > 1 ? "s" : ""
-                    }`}
-                    getConfirmationContent={async () => ""}
-                    onClick={async () => {
-                      await apiCall(
-                        `/saved-groups/${savedGroup.id}/remove-items`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({ items: [...selected] }),
-                        }
-                      );
-                      const newValues = values.filter(
-                        (value) => !selected.has(value)
-                      );
-                      mutateValues(newValues);
-                      setSelected(new Set());
-                    }}
-                    link={true}
-                    useIcon={true}
-                    displayName={`${selected.size} selected item${
-                      selected.size > 1 ? "s" : ""
-                    }`}
-                  />
-                </>
-              )}
-            </div>
-            <div className="d-flex align-items-center">
-              {values.length > 0 && (
-                <div className="mr-3">
-                  {(start + 1).toLocaleString()}-
-                  {(start + valuesPage.length).toLocaleString()} of{" "}
-                  {(values.length || 0).toLocaleString()}
-                </div>
-              )}
-              <div
-                className="cursor-pointer text-color-primary"
-                onClick={() => {
-                  setSortNewestFirst(!sortNewestFirst);
-                  setCurrentPage(1);
-                }}
-              >
-                <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                <span className="lh-full align-middle">
-                  {sortNewestFirst ? "Newest" : "Oldest"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <table className="table gbtable table-hover appbox">
-            <thead>
-              <tr>
-                <th style={{ width: "48px" }}>
-                  <input
-                    type="checkbox"
-                    checked={
-                      values.length > 0 && selected.size === values.length
-                    }
-                    readOnly={true}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelected(new Set(values));
-                      } else {
-                        setSelected(new Set());
-                      }
-                    }}
-                  />
-                </th>
-                <th>{savedGroup.attributeKey}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {valuesPage.map((value) => {
-                return (
-                  <tr
-                    key={value}
-                    onClick={() => {
-                      if (selected.has(value)) {
-                        const newSelected = new Set(selected);
-                        newSelected.delete(value);
-                        setSelected(newSelected);
-                      } else {
-                        setSelected(new Set(selected).add(value));
-                      }
-                    }}
-                  >
-                    <td>
-                      <input
-                        type="checkbox"
-                        readOnly={true}
-                        checked={selected.has(value)}
-                      />
-                    </td>
-                    <td>{value}</td>
-                  </tr>
-                );
-              })}
-              {!values.length && (
-                <tr>
-                  <td colSpan={2}>
-                    This group doesn&apos;t have any items yet
-                  </td>
-                </tr>
-              )}
-              {values.length && !filteredValues.length ? (
-                <tr>
-                  <td colSpan={2}>No matching items</td>
-                </tr>
-              ) : (
-                <></>
-              )}
-            </tbody>
-          </table>
-          {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
-            <Pagination
-              numItemsTotal={values.length}
-              currentPage={currentPage}
-              perPage={NUM_PER_PAGE}
-              onPageChange={(d) => {
-                setCurrentPage(d);
+        <LargeSavedGroupPerformanceWarning
+          style="banner"
+          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+          supportedConnections={supportedConnections}
+          unsupportedConnections={unsupportedConnections}
+          openUpgradeModal={() => setUpgradeModal(true)}
+        />
+        <div className="row m-0 mb-4 align-items-center justify-content-between">
+          <div className="">
+            <Field
+              placeholder="Search..."
+              type="search"
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value);
               }}
             />
-          )}
-        </>
+          </div>
+          <div className="">
+            <button
+              className="btn btn-outline-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setAddItems(true);
+              }}
+            >
+              <div className="row align-items-center m-0 p-1">
+                <span className="mr-1 lh-full">
+                  <FaPlusCircle />
+                </span>
+                <span className="lh-full">Edit List Items</span>
+              </div>
+            </button>
+          </div>
+        </div>
+        <h4>ID List Items</h4>
+        <div className="row m-0 mb-3 align-items-center justify-content-between">
+          <div className="row m-0 align-items-center">
+            {selected.size > 0 && (
+              <>
+                <DeleteButton
+                  text={`Delete Selected (${selected.size})`}
+                  title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
+                  getConfirmationContent={async () => ""}
+                  onClick={async () => {
+                    await apiCall(
+                      `/saved-groups/${savedGroup.id}/remove-items`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({ items: [...selected] }),
+                      }
+                    );
+                    const newValues = values.filter(
+                      (value) => !selected.has(value)
+                    );
+                    mutateValues(newValues);
+                    setSelected(new Set());
+                  }}
+                  link={true}
+                  useIcon={true}
+                  displayName={`${selected.size} selected item${
+                    selected.size > 1 ? "s" : ""
+                  }`}
+                />
+              </>
+            )}
+          </div>
+          <div className="d-flex align-items-center">
+            {values.length > 0 && (
+              <div className="mr-3">
+                {(start + 1).toLocaleString()}-
+                {(start + valuesPage.length).toLocaleString()} of{" "}
+                {(values.length || 0).toLocaleString()}
+              </div>
+            )}
+            <div
+              className="cursor-pointer text-color-primary"
+              onClick={() => {
+                setSortNewestFirst(!sortNewestFirst);
+                setCurrentPage(1);
+              }}
+            >
+              <PiArrowsDownUp className="mr-1 lh-full align-middle" />
+              <span className="lh-full align-middle">
+                {sortNewestFirst ? "Newest" : "Oldest"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <table className="table gbtable table-hover appbox">
+          <thead>
+            <tr>
+              <th style={{ width: "48px" }}>
+                <input
+                  type="checkbox"
+                  checked={values.length > 0 && selected.size === values.length}
+                  readOnly={true}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelected(new Set(values));
+                    } else {
+                      setSelected(new Set());
+                    }
+                  }}
+                />
+              </th>
+              <th>{savedGroup.attributeKey}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {valuesPage.map((value) => {
+              return (
+                <tr
+                  key={value}
+                  onClick={() => {
+                    if (selected.has(value)) {
+                      const newSelected = new Set(selected);
+                      newSelected.delete(value);
+                      setSelected(newSelected);
+                    } else {
+                      setSelected(new Set(selected).add(value));
+                    }
+                  }}
+                >
+                  <td>
+                    <input
+                      type="checkbox"
+                      readOnly={true}
+                      checked={selected.has(value)}
+                    />
+                  </td>
+                  <td>{value}</td>
+                </tr>
+              );
+            })}
+            {!values.length && (
+              <tr>
+                <td colSpan={2}>This group doesn&apos;t have any items yet</td>
+              </tr>
+            )}
+            {values.length && !filteredValues.length ? (
+              <tr>
+                <td colSpan={2}>No matching items</td>
+              </tr>
+            ) : (
+              <></>
+            )}
+          </tbody>
+        </table>
+        {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
+          <Pagination
+            numItemsTotal={values.length}
+            currentPage={currentPage}
+            perPage={NUM_PER_PAGE}
+            onPageChange={(d) => {
+              setCurrentPage(d);
+            }}
+          />
+        )}
       </div>
     </>
   );
