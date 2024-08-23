@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import "./globals";
 import type { StickyBucketService } from "..";
 import { ConditionInterface, ParentConditionInterface } from "./mongrule";
 
@@ -9,6 +10,7 @@ export type VariationMeta = {
   name?: string;
 };
 
+/** Rules that define a feature, included on {@link FeatureDefinition} */
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
@@ -39,11 +41,13 @@ export type FeatureRule<T = any> = {
   }>;
 };
 
+/** Feature default value and rules */
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
 }
 
+/** The reason for a feature's evaluation */
 export type FeatureResultSource =
   | "unknownFeature"
   | "defaultValue"
@@ -53,6 +57,7 @@ export type FeatureResultSource =
   | "prerequisite"
   | "cyclicPrerequisite";
 
+/** A feature's evaluation result */
 export interface FeatureResult<T = any> {
   value: T | null;
   source: FeatureResultSource;
@@ -74,6 +79,7 @@ export type UrlTarget = {
   pattern: string;
 };
 
+/** Represents an experiment */
 export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
@@ -128,6 +134,7 @@ export type ExperimentOverride = {
   url?: RegExp | string;
 };
 
+/** Experiment result data */
 export interface Result<T> {
   value: T;
   variationId: number;
@@ -143,6 +150,7 @@ export interface Result<T> {
   stickyBucketUsed?: boolean;
 }
 
+/** Defines user attributes for feature targeting and assinging persistent variations in A/B tests */
 export type Attributes = Record<string, any>;
 
 export type RealtimeUsageData = {
@@ -150,11 +158,13 @@ export type RealtimeUsageData = {
   on: boolean;
 };
 
+/** Data required to track experiment results */
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
 }
 
+/** Function fired when an experiment is evaluated */
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>
@@ -168,6 +178,7 @@ export type ApplyDomChangesCallback = (
 
 export type RenderFunction = () => void;
 
+/** GrowthBook data */
 export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
@@ -255,6 +266,7 @@ export type SubscriptionFunction = (
 
 export type VariationRange = [number, number];
 
+/** Info about whether a payload was set and where it came from */
 export interface InitResponse {
   // If a payload was set
   success: boolean;
@@ -390,6 +402,7 @@ export type CacheSettings = {
 export type ApiHost = string;
 export type ClientKey = string;
 
+/** Options to set when initializing GrowthBook */
 export type InitOptions = {
   timeout?: number;
   skipCache?: boolean;
@@ -398,6 +411,7 @@ export type InitOptions = {
   cacheSettings?: CacheSettings;
 };
 
+/** Options to set when initializing GrowthBook synchronously */
 export type InitSyncOptions = {
   payload: FeatureApiResponse;
   streaming?: boolean;
@@ -410,6 +424,7 @@ export type LoadFeaturesOptions = {
   skipCache?: boolean;
 };
 
+/** Options to set when refreshing features */
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;

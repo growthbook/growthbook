@@ -1,8 +1,9 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "exports": "./src/index.ts",
   "publish": {
-    "include": ["README.md", "CHANGELOG.md", "src/**/*.ts"]
+    "include": ["README.md", "CHANGELOG.md", "src/**/*.ts"],
+    "exclude": ["globals.ts"]
   }
 }

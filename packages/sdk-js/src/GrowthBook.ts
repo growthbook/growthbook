@@ -65,6 +65,7 @@ const isBrowser =
 
 const SDK_VERSION = loadSDKVersion();
 
+/** Main GrowthBook class */
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AppFeatures extends Record<string, any> = Record<string, any>
@@ -956,6 +957,11 @@ export class GrowthBook<
     return this.evalFeature(id);
   }
 
+  /**
+   * Evaluates a feature, returning the value, reason why the value was returned (source), and other details.
+   * @param id The feature ID to evaluate
+   * @returns {FeatureResult} The result of the feature evaluation
+   */
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
