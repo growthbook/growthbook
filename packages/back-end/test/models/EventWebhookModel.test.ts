@@ -56,11 +56,17 @@ describe("getAllEventWebHooksForEvent", () => {
           projects: [],
         },
         {
-          toJSON: () => ({ name: "webhook with filter for event project" }),
+          toJSON: () => ({
+            name: "webhook with filter for event project",
+            projects: ["event project"],
+          }),
           projects: ["event project"],
         },
         {
-          toJSON: () => ({ name: "webhook with filter for foo projects" }),
+          toJSON: () => ({
+            name: "webhook with filter for foo projects",
+            projects: ["foo"],
+          }),
           projects: ["foo"],
         },
       ]);
