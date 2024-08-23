@@ -306,6 +306,7 @@ export async function getExperiment(
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments,
     linkedFeatures,
   });
 
@@ -2658,11 +2659,7 @@ export async function deleteVisualChangeset(
     visualChangeset.experiment
   );
 
-  if (!experiment) {
-    throw new Error("Experiment not found");
-  }
-
-  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const linkedFeatureIds = experiment?.linkedFeatures || [];
 
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
 
