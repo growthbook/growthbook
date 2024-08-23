@@ -16,6 +16,7 @@ import {
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
   getSettingsForSnapshotMetrics,
+  updateExperimentBanditSettings,
 } from "../services/experiments";
 import {
   getConfidenceLevelsForOrg,
@@ -198,19 +199,22 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         case "explore":
           changes.banditPhase = "exploit";
           changes.banditPhaseDateStarted = new Date();
+          changes.nextSnapshotAttempt = determineNextBanditSchedule({
+            ...experiment,
+            ...changes,
+          } as ExperimentInterface);
           break;
         case "exploit":
-          // todo: set weights
-          // todo: persist weight changes to log
-          // todo: add 0th weight change on experiment start (event split)
+          Object.assign(
+            changes,
+            updateExperimentBanditSettings({
+              experiment,
+              changes,
+              snapshot: currentSnapshot,
+            })
+          );
           break;
       }
-
-      // scheduling
-      changes.nextSnapshotAttempt = determineNextBanditSchedule({
-        ...experiment,
-        ...changes,
-      } as ExperimentInterface);
 
       await updateExperiment({
         context,
