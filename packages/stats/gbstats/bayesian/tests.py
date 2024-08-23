@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import field
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -13,7 +13,10 @@ from gbstats.messages import (
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.models.statistics import TestStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+    BanditStatistic,
+)
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import truncated_normal_mean
 
@@ -36,6 +39,21 @@ class BayesianConfig(BaseConfig):
 @dataclass
 class EffectBayesianConfig(BayesianConfig):
     prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
+
+
+@dataclass
+class BanditConfig(BayesianConfig):
+    bandit_weights_seed: int = 0
+    top_two: bool = True
+    prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
+    min_variation_weight: float = 0.01
+    weight_by_period: bool = True
+
+
+@dataclass
+class BanditWeights:
+    update_message: str
+    weights: List[float] | None
 
 
 # Results
@@ -225,3 +243,217 @@ class EffectBayesianABTest(BayesianABTest):
         risk_ctrl = float((1.0 - prob_ctrl_is_better) * mn_pos)
         risk_trt = -float(prob_ctrl_is_better * mn_neg)
         return [risk_ctrl, risk_trt]
+
+
+class Bandits:
+    def __init__(
+        self,
+        stats: Dict[
+            int, List[BanditStatistic]
+        ],  # keys are 0, 1, 2, etc. mapping to periods; values are lists of length n_variations of summary_statistics
+        config: BanditConfig,
+    ):
+        self.stats = stats
+        self.config = config
+
+    @property
+    def bandit_weights_seed(self) -> int:
+        return self.config.bandit_weights_seed
+
+    @property
+    def num_periods(self) -> int:
+        return len(self.stats)
+
+    @property
+    def num_variations(self) -> int:
+        return len(self.stats[0])
+
+    @property
+    def array_shape(self) -> tuple:
+        return (self.num_periods, self.num_variations)
+
+    @property
+    def counts_array(self) -> np.ndarray:
+        counts = [
+            n for sublist in self.stats.values() for item in sublist for n in [item.n]
+        ]
+        return np.array(counts).reshape(self.array_shape)
+
+    # sample sizes by variation
+    @property
+    def variation_counts(self) -> np.ndarray:
+        return np.sum(self.counts_array, axis=0)
+
+    # sample sizes by period
+    @property
+    def period_counts(self) -> np.ndarray:
+        return np.sum(self.counts_array, axis=1)
+
+    @property
+    def period_weights(self) -> np.ndarray:
+        """given the total traffic (across variations) for each period, what is the percentage that was allocated to each period?
+        Args:
+            counts_array: n_phases x n_variations array of traffic whose (i, j)th element corresponds to the ith phase for the jth variation.
+        Returns:
+            weights: n_phases x 1 vector of final weights.
+        """
+        # sum traffic across variations for a specific phase to get the total traffic for that phase
+        total_count = sum(self.period_counts)
+        if total_count:
+            return self.period_counts / total_count
+        else:
+            return np.full((self.num_variations,), 1 / self.num_variations)
+
+    @property
+    def weights_array(self) -> np.ndarray:
+        if self.config.weight_by_period:
+            return np.tile(
+                np.expand_dims(self.period_weights, axis=1), (1, self.num_variations)
+            )
+        else:
+            if any(self.variation_counts == 0):
+                error_string = "Need at least 1 observation per variation per period if not weighting by period."
+                raise ValueError(error_string)
+            return self.counts_array / self.variation_counts
+
+    @property
+    def means_array(self) -> np.ndarray:
+        means = [
+            m
+            for sublist in self.stats.values()
+            for item in sublist
+            for m in [item.mean]
+        ]
+        return np.array(means).reshape(self.array_shape)
+
+    @property
+    def variances_array(self) -> np.ndarray:
+        variances = [
+            m
+            for sublist in self.stats.values()
+            for item in sublist
+            for m in [item.variance]
+        ]
+        return np.array(variances).reshape(self.array_shape)
+
+    @property
+    def variation_means(self) -> np.ndarray:
+        return np.sum(self.means_array * self.weights_array, axis=0)
+
+    @property
+    def variation_variances(self) -> np.ndarray:
+        # find elements where n = 0
+        positive_sample_size = self.counts_array != 0
+        # array of variances of the sample mean
+        sample_mean_variances_by_period = np.zeros(self.array_shape)
+        # update the array only where the sample size is positive
+        sample_mean_variances_by_period[positive_sample_size] = (
+            self.variances_array[positive_sample_size]
+            / self.counts_array[positive_sample_size]
+        )
+        # construct the variance of the weighted mean
+        sample_mean_variances = np.sum(
+            sample_mean_variances_by_period * (self.weights_array) ** 2, axis=0
+        )
+        # scale by number of counts to get back to distributional variance
+        return sample_mean_variances * self.variation_counts
+
+    @property
+    def prior_precision(self) -> np.ndarray:
+        return np.full(
+            (self.num_variations,),
+            int(self.config.prior_distribution.proper)
+            / self.config.prior_distribution.variance,
+        )
+
+    @property
+    def data_precision(self) -> np.ndarray:
+        return np.array(
+            [
+                float(n) / v if v > 0 else 0
+                for n, v in zip(self.variation_counts, self.variation_variances)
+            ]
+        )
+
+    @property
+    def posterior_precision(self) -> np.ndarray:
+        return self.prior_precision + self.data_precision
+
+    @property
+    def posterior_variance(self) -> np.ndarray:
+        return 1 / self.posterior_precision
+
+    @property
+    def prior_mean(self) -> np.ndarray:
+        return np.full((self.num_variations,), self.config.prior_distribution.mean)
+
+    @property
+    def posterior_mean(self) -> np.ndarray:
+        return self.posterior_variance * (
+            self.prior_precision * self.prior_mean
+            + self.data_precision * self.variation_means
+        )
+
+    # number of Monte Carlo samples to perform when sampling to estimate weights for the SDK
+    @property
+    def n_samples(self):
+        return int(1e4)
+
+    # given n_periods x n_variations arrays of counts and means, what is the additional reward compared to fixed weight balanced design?
+    def compute_additional_reward(self) -> float:
+        variation_counts_balanced = np.tile(
+            np.expand_dims(self.period_counts, axis=1) / self.num_variations,
+            (1, self.num_variations),
+        )
+        counts_diff = self.counts_array - variation_counts_balanced
+        return float(np.sum(counts_diff * self.means_array))
+
+    # function that computes thompson sampling variation weights
+    def compute_variation_weights(self) -> BanditWeights:
+        min_n = 100
+        if any(self.variation_counts < min_n):
+            update_message = "some variation counts fewer than " + str(min_n)
+            return BanditWeights(update_message=update_message, weights=None)
+        rng = np.random.default_rng(seed=self.bandit_weights_seed)
+        y = rng.multivariate_normal(
+            mean=self.posterior_mean,
+            cov=np.diag(self.posterior_variance),
+            size=self.n_samples,
+        )
+        if self.config.top_two:
+            p = self.top_two_weights(y)
+        else:
+            row_maxes = np.max(y, axis=1)
+            p = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
+        update_message = "successfully updated"
+        p[p < self.config.min_variation_weight] = self.config.min_variation_weight
+        p /= sum(p)
+        return BanditWeights(update_message=update_message, weights=p.tolist())
+
+    # function that takes weights for largest realization and turns into top two weights
+    @staticmethod
+    def top_two_weights(y) -> np.ndarray:
+        """Calculates the proportion of times each column contains the largest or second largest element in a row.
+        Args:
+        arr: A 2D NumPy array.
+        Returns:
+        A NumPy array of proportions, one for each column.
+        """
+        # Get indices of sorted elements in each row
+        sorted_indices = np.argsort(y, axis=1)
+        # counts for number of times each variation was the largest
+        unique_0, counts_0 = np.unique(
+            sorted_indices[:, -1][:, np.newaxis], return_counts=True
+        )
+        # counts for number of times each variation was the second largest
+        unique_1, counts_1 = np.unique(
+            sorted_indices[:, -2][:, np.newaxis], return_counts=True
+        )
+        # put inside dicts and loop over count to ensure arms that are never the biggest are included
+        dict_0 = dict(zip(unique_0, counts_0))
+        dict_1 = dict(zip(unique_1, counts_1))
+        n_variations = y.shape[1]
+        final_counts = np.zeros((n_variations,))
+        for i in range(n_variations):
+            final_counts[i] = dict_0.get(i, 0) + dict_1.get(i, 0)
+        return final_counts / sum(final_counts)
