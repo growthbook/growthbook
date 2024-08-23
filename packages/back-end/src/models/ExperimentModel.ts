@@ -17,12 +17,6 @@ import {
   generateTrackingKey,
   toExperimentApiInterface,
 } from "../services/experiments";
-import {
-  ExperimentCreatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-} from "../events/notification-events";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
 import {
@@ -733,11 +727,10 @@ const findExperiment = async ({
  * @param experiment
  * @return event.id
  */
-const logExperimentCreated = async (
+export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
-): Promise<string | undefined> => {
-  const { org: organization } = context;
+) => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
@@ -746,24 +739,19 @@ const logExperimentCreated = async (
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentCreatedNotificationEvent = {
+  await createEvent({
+    context,
     object: "experiment",
-    event: "experiment.created",
-    user: context.auditUser,
+    objectId: experiment.id,
+    event: "created",
     data: {
-      current: apiExperiment,
+      object: apiExperiment,
     },
     projects: [apiExperiment.project],
     tags: apiExperiment.tags,
     environments: changedEnvs,
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(organization.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 };
 
 /**
@@ -771,7 +759,7 @@ const logExperimentCreated = async (
  * @param current
  * @return previous
  */
-const logExperimentUpdated = async ({
+export const logExperimentUpdated = async ({
   context,
   current,
   previous,
@@ -779,11 +767,12 @@ const logExperimentUpdated = async ({
   context: ReqContext | ApiReqContext;
   current: ExperimentInterface;
   previous: ExperimentInterface;
-}): Promise<string | undefined> => {
+}) => {
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
     previous
   );
+
   const currentApiExperimentPromise = toExperimentApiInterface(
     context,
     current
@@ -796,17 +785,19 @@ const logExperimentUpdated = async ({
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+
   const changedEnvs = hasPayloadChanges
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentUpdatedNotificationEvent = {
+  await createEvent({
+    context,
     object: "experiment",
-    event: "experiment.updated",
-    user: context.auditUser,
+    objectId: current.id,
+    event: "updated",
     data: {
-      previous: previousApiExperiment,
-      current: currentApiExperiment,
+      object: currentApiExperiment,
+      previous_object: previousApiExperiment,
     },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project])
@@ -816,13 +807,7 @@ const logExperimentUpdated = async ({
     ),
     environments: changedEnvs,
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 };
 
 /**
@@ -1138,7 +1123,7 @@ export async function getExperimentsUsingSegment(
 export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
-): Promise<string | undefined> => {
+) => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
@@ -1147,24 +1132,19 @@ export const logExperimentDeleted = async (
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentDeletedNotificationEvent = {
+  await createEvent({
+    context,
     object: "experiment",
-    event: "experiment.deleted",
-    user: context.auditUser,
+    objectId: experiment.id,
+    event: "deleted",
     data: {
-      previous: apiExperiment,
+      object: apiExperiment,
     },
     projects: [apiExperiment.project],
     environments: changedEnvs,
     tags: apiExperiment.tags,
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 };
 
 // type guard

@@ -2,8 +2,6 @@ import { includeExperimentInPayload } from "shared/util";
 import { Context } from "../models/BaseModel";
 import { createEvent } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
-import { ExperimentWarningNotificationEvent } from "../events/notification-events";
 import {
   ExperimentSnapshotDocument,
   getDefaultAnalysisResults,
@@ -38,27 +36,17 @@ const dispatchEvent = async (
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentWarningNotificationEvent = {
-    event: "experiment.warning",
+  await createEvent({
+    context,
+    event: "warning",
     object: "experiment",
-    data,
-    user: {
-      type: "dashboard",
-      id: context.userId,
-      email: context.email,
-      name: context.userName,
-    },
-    projects: [experiment.project || ""],
+    objectId: experiment.id,
+    data: { object: data },
+    projects: experiment.project ? [experiment.project] : [],
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-
-  if (!emittedEvent) throw new Error("Error while creating event!");
-
-  new EventNotifier(emittedEvent.id).perform();
+  });
 };
 
 export const memoizeNotification = async ({
@@ -117,7 +105,7 @@ export const notifyAutoUpdate = ({
 
 export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
 
-const notifyMultipleExposures = async ({
+export const notifyMultipleExposures = async ({
   context,
   experiment,
   results,
@@ -160,7 +148,7 @@ const notifyMultipleExposures = async ({
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
-const notifySrm = async ({
+export const notifySrm = async ({
   context,
   experiment,
   results,

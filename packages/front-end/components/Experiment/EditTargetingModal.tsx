@@ -32,6 +32,7 @@ import SavedGroupTargetingField, {
 } from "@/components/Features/SavedGroupTargetingField";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import track from "@/services/track";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -188,6 +189,7 @@ export default function EditTargetingModal({
       body: JSON.stringify(value),
     });
     mutate();
+    track("edit-experiment-targeting");
   });
 
   if (safeToEdit) {

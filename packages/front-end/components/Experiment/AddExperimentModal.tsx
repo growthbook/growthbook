@@ -24,10 +24,9 @@ const AddExperimentModal: FC<{
   const settings = useOrgSettings();
 
   const permissionsUtil = usePermissionsUtil();
-  const hasRunExperimentsPermission = permissionsUtil.canRunExperiment(
-    { project },
-    []
-  );
+  const hasCreateExperimentsPermission = permissionsUtil.canCreateExperiment({
+    project,
+  });
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
@@ -127,7 +126,7 @@ const AddExperimentModal: FC<{
                       </div>
                     ),
                     value: "new",
-                    disabled: !hasRunExperimentsPermission,
+                    disabled: !hasCreateExperimentsPermission,
                   },
                   {
                     label: (

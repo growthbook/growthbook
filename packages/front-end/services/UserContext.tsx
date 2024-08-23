@@ -190,6 +190,7 @@ let currentUser: null | {
   id: string;
   org: string;
   role: string;
+  effectiveAccountPlan: string;
 } = null;
 export function getCurrentUser() {
   return currentUser;
@@ -277,8 +278,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       org: orgId || "",
       id: data?.userId || "",
       role: user?.role || "",
+      effectiveAccountPlan: currentOrg?.effectiveAccountPlan ?? "",
     };
-  }, [orgId, data?.userId, user?.role]);
+  }, [orgId, currentOrg?.effectiveAccountPlan, data?.userId, user?.role]);
 
   useEffect(() => {
     if (orgId && data?.userId) {
