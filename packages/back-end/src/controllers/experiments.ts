@@ -24,10 +24,10 @@ import {
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
-  determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
+  resetExperimentBanditSettings,
   SnapshotAnalysisParams,
 } from "../services/experiments";
 import { MetricInterface, MetricStats } from "../../types/metric";
@@ -1182,14 +1182,15 @@ export async function postExperimentStatus(
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
   if (
     experiment.status === "running" &&
     status === "stopped" &&
     phases?.length > 0 &&
-    !phases[phases.length - 1].dateEnded
+    !phases[lastIndex].dateEnded
   ) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
+    phases[lastIndex] = {
+      ...phases[lastIndex],
       reason,
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
     };
@@ -1201,32 +1202,27 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
+    const now = new Date();
     // use the current date as the phase start date
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
-      dateStarted: new Date(),
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      dateStarted: now,
     };
     changes.phases = phases;
 
     if (experiment.type === "multi-armed-bandit") {
-      // change the bandit phase if unset
+      // reset bandit settings if the current bandit phase is inactive
       if (
         experiment.banditPhase === "paused" ||
         experiment.banditPhase === undefined
       ) {
-        changes.banditPhase = "explore";
-        changes.banditPhaseDateStarted = new Date();
-        // equal weights
-        changes.phases[
-          changes.phases.length - 1
-        ].variationWeights = getEqualWeights(experiment.variations.length ?? 0);
-        // scheduling
-        const updatedExperiment = {
-          ...experiment,
-          ...changes,
-        } as ExperimentInterface;
-        changes.nextSnapshotAttempt = determineNextBanditSchedule(
-          updatedExperiment
+        Object.assign(
+          changes,
+          resetExperimentBanditSettings({
+            experiment,
+            changes,
+            now,
+          })
         );
       }
     }
@@ -1244,13 +1240,14 @@ export async function postExperimentStatus(
     changes.phases = phases;
 
     if (experiment.type === "multi-armed-bandit") {
-      // change the bandit phase
-      changes.banditPhase = "explore";
-      changes.banditPhaseDateStarted = new Date();
-      // equal weights
-      changes.phases[
-        changes.phases.length - 1
-      ].variationWeights = getEqualWeights(experiment.variations.length ?? 0);
+      // reset bandit settings
+      Object.assign(
+        changes,
+        resetExperimentBanditSettings({
+          experiment,
+          changes,
+        })
+      );
     }
   }
 

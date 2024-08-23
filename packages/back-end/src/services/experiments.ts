@@ -27,6 +27,7 @@ import {
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getEqualWeights,
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
@@ -68,6 +69,7 @@ import {
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import {
+  Changeset,
   ExperimentInterface,
   ExperimentPhase,
   LinkedFeatureEnvState,
@@ -573,7 +575,9 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export function determineNextBanditSchedule(exp: ExperimentInterface) {
+export function determineNextBanditSchedule(
+  exp: ExperimentInterface
+): Date | undefined {
   const start = exp?.banditPhaseDateStarted?.getTime() ?? Date.now();
 
   if (exp.banditPhase === "explore") {
@@ -610,6 +614,91 @@ export function determineNextBanditSchedule(exp: ExperimentInterface) {
     const intervalsPassed = Math.floor(elapsedTime / interval);
     return new Date(start + (intervalsPassed + 1) * interval);
   }
+}
+
+export function resetExperimentBanditSettings({
+  experiment,
+  changes,
+  now = new Date(),
+}: {
+  experiment: ExperimentInterface;
+  changes?: Changeset;
+  now?: Date;
+}): Changeset {
+  if (!changes) {
+    changes = {};
+  }
+  if (!changes.phases) {
+    changes.phases = [...experiment.phases];
+  }
+  const lastIndex = changes.phases.length - 1;
+
+  changes.banditPhase = "explore";
+  changes.banditPhaseDateStarted = now;
+
+  // equal weights
+  const weights = getEqualWeights(experiment.variations.length ?? 0);
+  changes.phases[lastIndex].variationWeights = weights;
+
+  // log first weight change event
+  changes.phases[lastIndex].banditWeights = [
+    {
+      date: now,
+      weights,
+    },
+  ];
+
+  // scheduling
+  changes.nextSnapshotAttempt = determineNextBanditSchedule({
+    ...experiment,
+    ...changes,
+  } as ExperimentInterface);
+
+  return changes;
+}
+
+export function updateExperimentBanditSettings({
+  experiment,
+  changes,
+  snapshot,
+}: {
+  experiment: ExperimentInterface;
+  changes?: Changeset;
+  snapshot?: ExperimentSnapshotInterface;
+}): Changeset {
+  if (!changes) {
+    changes = {};
+  }
+  if (!changes.phases) {
+    changes.phases = [...experiment.phases];
+  }
+  const lastIndex = changes.phases.length - 1;
+
+  const banditResults = snapshot?.analyses?.[0]?.banditResults;
+  const dateCreated = snapshot?.analyses?.[0]?.dateCreated ?? new Date();
+
+  // apply weights
+  const weights =
+    banditResults?.banditWeights ?? changes.phases[lastIndex].variationWeights;
+  changes.phases[lastIndex].variationWeights = weights;
+
+  // log weight change event
+  if (!changes.phases[lastIndex].banditWeights) {
+    changes.phases[lastIndex].banditWeights = [];
+  }
+  changes.phases[lastIndex].banditWeights.push({
+    date: dateCreated,
+    weights,
+    snapshotId: snapshot?.id,
+  });
+
+  // scheduling
+  changes.nextSnapshotAttempt = determineNextBanditSchedule({
+    ...experiment,
+    ...changes,
+  } as ExperimentInterface);
+
+  return changes;
 }
 
 export async function createSnapshot({

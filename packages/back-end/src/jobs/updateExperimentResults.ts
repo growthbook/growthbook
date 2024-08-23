@@ -202,15 +202,15 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         case "exploit":
           // todo: set weights
           // todo: persist weight changes to log
+          // todo: add 0th weight change on experiment start (event split)
           break;
       }
-      const updatedExperiment = {
+
+      // scheduling
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
         ...experiment,
         ...changes,
-      } as ExperimentInterface;
-      changes.nextSnapshotAttempt = determineNextBanditSchedule(
-        updatedExperiment
-      );
+      } as ExperimentInterface);
 
       await updateExperiment({
         context,

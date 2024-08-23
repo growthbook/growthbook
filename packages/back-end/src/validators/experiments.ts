@@ -15,6 +15,14 @@ export const experimentResultsType = [
 ] as const;
 export type ExperimentResultsType = typeof experimentResultsType[number];
 
+export const banditWeightEvent = z
+  .object({
+    date: z.date(),
+    weights: z.array(z.number()),
+    snapshotId: z.string().optional(), // 0th may not have snapshot
+  })
+  .strict();
+
 export const experimentPhase = z
   .object({
     dateStarted: z.date(),
@@ -28,6 +36,7 @@ export const experimentPhase = z
     namespace: namespaceValue,
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
+    banditWeights: z.array(banditWeightEvent).optional(),
   })
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;

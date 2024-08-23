@@ -122,6 +122,10 @@ export interface ExperimentSnapshotAnalysis {
   status: "running" | "success" | "error";
   error?: string;
   results: ExperimentReportResultDimension[];
+
+  // todo: bandit results?
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  banditResults?: any;
 }
 
 export interface SnapshotSettingsVariation {
