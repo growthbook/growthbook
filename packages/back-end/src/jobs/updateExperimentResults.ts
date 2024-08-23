@@ -166,6 +166,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment,
       organization,
       regressionAdjustmentEnabled
+      // todo: bandit settings here
     );
 
     const metricMap = await getMetricMap(context);
@@ -197,6 +198,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
       switch (experiment.banditPhase) {
         case "explore":
+          // todo: make sure ad-hoc doesn't trigger the exploit phase
           changes.banditPhase = "exploit";
           changes.banditPhaseDateStarted = new Date();
           changes.nextSnapshotAttempt = determineNextBanditSchedule({

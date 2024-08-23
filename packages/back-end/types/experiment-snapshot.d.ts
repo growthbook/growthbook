@@ -122,10 +122,6 @@ export interface ExperimentSnapshotAnalysis {
   status: "running" | "success" | "error";
   error?: string;
   results: ExperimentReportResultDimension[];
-
-  // todo: bandit results?
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  banditResults?: any;
 }
 
 export interface SnapshotSettingsVariation {
@@ -157,6 +153,7 @@ export interface ExperimentSnapshotSettings {
   endDate: Date;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
+  // todo: banditSettings
 }
 
 export interface ExperimentSnapshotInterface {
@@ -182,6 +179,9 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  // todo: define banditResult
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  banditResult?: any;
 
   health?: ExperimentSnapshotHealth;
 }

@@ -641,10 +641,14 @@ export function resetExperimentBanditSettings({
   changes.phases[lastIndex].variationWeights = weights;
 
   // log first weight change event
-  changes.phases[lastIndex].banditWeights = [
+  changes.phases[lastIndex].banditEvents = [
     {
       date: now,
-      weights,
+      banditResult: {
+        weights,
+        // todo: probability?
+        // todo: mean?
+      },
     },
   ];
 
@@ -674,21 +678,21 @@ export function updateExperimentBanditSettings({
   }
   const lastIndex = changes.phases.length - 1;
 
-  const banditResults = snapshot?.analyses?.[0]?.banditResults;
+  const banditResult = snapshot?.banditResult;
   const dateCreated = snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
   // apply weights
   const weights =
-    banditResults?.banditWeights ?? changes.phases[lastIndex].variationWeights;
+    banditResult?.banditWeights ?? changes.phases[lastIndex].variationWeights;
   changes.phases[lastIndex].variationWeights = weights;
 
   // log weight change event
-  if (!changes.phases[lastIndex].banditWeights) {
-    changes.phases[lastIndex].banditWeights = [];
+  if (!changes.phases[lastIndex].banditEvents) {
+    changes.phases[lastIndex].banditEvents = [];
   }
-  changes.phases[lastIndex].banditWeights?.push({
+  changes.phases[lastIndex].banditEvents?.push({
     date: dateCreated,
-    weights,
+    banditResult,
     snapshotId: snapshot?.id,
   });
 
