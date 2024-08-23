@@ -15,6 +15,7 @@ import {
   getFilterDataForNotificationEvent,
 } from "../utils";
 import { ExperimentWarningNotificationPayload } from "../../../validators/experiment-warnings";
+import { ExperimentInfoSignificancePayload } from "../../../validators/experiment-info";
 
 // region Filtering
 
@@ -65,6 +66,11 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "experiment.warning":
       return buildSlackMessageForExperimentWarningEvent(event.data.object);
+
+    case "experiment.info.significance":
+      return buildSlackMessageForExperimentInfoSignificanceEvent(
+        event.data.object
+      );
 
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(
@@ -365,6 +371,33 @@ const buildSlackMessageForExperimentDeletedEvent = (
           text:
             `The experiment *${experimentName}* has been deleted.` +
             getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentInfoSignificanceEvent = ({
+  experimentName,
+  metricName,
+  threshold,
+}: ExperimentInfoSignificancePayload): SlackMessage => {
+  const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
+
+  const text = `Metric ${metricName} has crossed significance threshold of ${percentFormatter(
+    threshold
+  )} chance to win in experiment ${experimentName}.`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `Metric *${metricName}* has crossed significance threshold of *${percentFormatter(
+            threshold
+          )}* chance to win in experiment *${experimentName}*.`,
         },
       },
     ],

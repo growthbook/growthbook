@@ -81,6 +81,7 @@ export const experimentNotification = [
   "auto-update",
   "multiple-exposures",
   "srm",
+  "significance",
 ] as const;
 
 export type ExperimentNotification = typeof experimentNotification[number];
