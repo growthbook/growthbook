@@ -130,22 +130,21 @@ export default function IdLists({ groups, mutate }: Props) {
           For example, create a &quot;Beta Testers&quot; group identified by a
           specific set of <code>device_id</code> values.
         </p>
-        <p>
-          {unsupportedConnections.length > 0 ? (
-            <LargeSavedGroupPerformanceWarning
-              style="text"
-              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-              supportedConnections={supportedConnections}
-              unsupportedConnections={unsupportedConnections}
-              openUpgradeModal={() => setUpgradeModal(true)}
-            />
-          ) : (
-            <>
-              <PiInfoFill /> Too many large lists will cause too large of a
-              payload, and your server may not support it.
-            </>
-          )}
-        </p>
+
+        {unsupportedConnections.length > 0 ? (
+          <LargeSavedGroupPerformanceWarning
+            style="text"
+            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+            supportedConnections={supportedConnections}
+            unsupportedConnections={unsupportedConnections}
+            openUpgradeModal={() => setUpgradeModal(true)}
+          />
+        ) : (
+          <p>
+            <PiInfoFill /> Too many large lists will cause too large of a
+            payload, and your server may not support it.
+          </p>
+        )}
 
         {idLists.length > 0 && (
           <>

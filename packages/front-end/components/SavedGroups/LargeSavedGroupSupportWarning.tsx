@@ -76,6 +76,7 @@ export default function LargeSavedGroupPerformanceWarning({
   }
   if (unsupportedConnections.length === 0) return <></>;
 
+  const ContainerTag = style === "text" ? "p" : "div";
   const containerClassName =
     style === "text" ? `text-warning-muted` : `alert alert-warning mt-2 p-3`;
 
@@ -84,11 +85,11 @@ export default function LargeSavedGroupPerformanceWarning({
   } SDK connections don't have Saved Group performance improvements enabled`;
 
   return (
-    <div className={containerClassName}>
+    <ContainerTag className={containerClassName}>
       <PiInfoFill /> {copy}{" "}
       <Link className="text-warning-muted underline" href="/sdks">
         View SDKs &gt;
       </Link>
-    </div>
+    </ContainerTag>
   );
 }
