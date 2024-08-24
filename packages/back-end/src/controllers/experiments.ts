@@ -1227,20 +1227,18 @@ export async function postExperimentStatus(
       }
     }
   }
-
   // If starting a stopped experiment, clear the phase end date
   else if (
     experiment.status === "stopped" &&
     status === "running" &&
     phases?.length > 0
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- we don't want the dateEnded
-    const { dateEnded: _, ...newPhase } = phases[phases.length - 1];
-    phases[phases.length - 1] = newPhase;
+    const newPhase = { ...phases[lastIndex] };
+    delete newPhase.dateEnded;
+    phases[lastIndex] = newPhase;
     changes.phases = phases;
 
     if (experiment.type === "multi-armed-bandit") {
-      // reset bandit settings
       Object.assign(
         changes,
         resetExperimentBanditSettings({
@@ -1437,6 +1435,9 @@ export async function deleteExperimentPhase(
 
   if (!changes.phases.length) {
     changes.status = "draft";
+    if (experiment.type === "multi-armed-bandit") {
+      changes.banditPhase = "paused";
+    }
   }
   const updated = await updateExperiment({
     context,
