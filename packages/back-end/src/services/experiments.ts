@@ -35,6 +35,7 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { BanditResult } from "@back-end/src/validators/experiments";
 import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
@@ -646,8 +647,7 @@ export function resetExperimentBanditSettings({
       date: now,
       banditResult: {
         weights,
-        // todo: probability?
-        // todo: mean?
+        bestArmProbabilities: weights,
       },
     },
   ];
@@ -678,12 +678,12 @@ export function updateExperimentBanditSettings({
   }
   const lastIndex = changes.phases.length - 1;
 
-  const banditResult = snapshot?.banditResult;
+  const banditResult: BanditResult = snapshot?.banditResult ?? {};
   const dateCreated = snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
   // apply weights
   const weights =
-    banditResult?.banditWeights ?? changes.phases[lastIndex].variationWeights;
+    banditResult.weights ?? changes.phases[lastIndex].variationWeights;
   changes.phases[lastIndex].variationWeights = weights;
 
   // log weight change event

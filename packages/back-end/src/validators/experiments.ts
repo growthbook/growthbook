@@ -15,14 +15,27 @@ export const experimentResultsType = [
 ] as const;
 export type ExperimentResultsType = typeof experimentResultsType[number];
 
+export const singleVariationResult = z.object({
+  users: z.number().optional(),
+  cr: z.number().optional(),
+  ci: z.tuple([z.number(), z.number()]).optional(),
+});
+
+export const banditResult = z.object({
+  singleVariationResults: z.array(singleVariationResult).optional(),
+  weights: z.array(z.number()).optional(),
+  bestArmProbabilities: z.array(z.number()).optional(),
+  additionalReward: z.number().optional(),
+  seed: z.number().optional(),
+  banditUpdateMessage: z.string().optional(),
+});
+
+export type BanditResult = z.infer<typeof banditResult>;
+
 export const banditEvent = z
   .object({
     date: z.date(),
-    banditResult: z.object({
-      weights: z.array(z.number()).optional(),
-      // todo: probability
-      // todo: mean + sd
-    }),
+    banditResult: banditResult,
     snapshotId: z.string().optional(), // 0th may not have snapshot
   })
   .strict();

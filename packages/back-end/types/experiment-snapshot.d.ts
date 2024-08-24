@@ -1,3 +1,4 @@
+import { BanditResult } from "@back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
@@ -179,9 +180,7 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
-  // todo: define banditResult
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  banditResult?: any;
+  banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;
 }

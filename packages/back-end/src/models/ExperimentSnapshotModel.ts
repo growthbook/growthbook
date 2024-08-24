@@ -87,7 +87,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
-  // todo: implement banditResult
+  // todo: implement banditResult?
   banditResult: {},
   health: {
     _id: false,
