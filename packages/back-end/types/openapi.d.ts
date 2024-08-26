@@ -1789,6 +1789,15 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -1862,6 +1871,15 @@ export interface operations {
                     };
                     coverage?: number;
                     values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
                         value: string;
                         weight: number;
                         name?: string;
@@ -2337,6 +2355,15 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -2410,6 +2437,15 @@ export interface operations {
                     };
                     coverage?: number;
                     values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
                         value: string;
                         weight: number;
                         name?: string;

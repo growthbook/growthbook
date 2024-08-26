@@ -1365,7 +1365,8 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       };
       return experimentRefRule;
     } else if (r.type === "experiment") {
-      if (!r.values) {
+      const values = r.values || r.value;
+      if (!values) {
         throw new Error("Missing values");
       }
       const experimentRule: ExperimentRule = {
@@ -1378,7 +1379,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         trackingKey: r.trackingKey ?? "",
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
-        values: r.values,
+        values: values,
       };
       return experimentRule;
     } else if (r.type === "force") {

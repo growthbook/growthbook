@@ -61,3 +61,19 @@ properties:
           type: number
         name:
           type: string
+  value:
+    deprecated: true
+    description: Support passing values under the value key as that was the original spec for FeatureExperimentRules
+    type: array
+    items:
+      type: object
+      required:
+        - value
+        - weight
+      properties:
+        value:
+          type: string
+        weight:
+          type: number
+        name:
+          type: string
