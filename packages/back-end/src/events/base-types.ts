@@ -69,10 +69,10 @@ export const notificationEvents = {
         "Triggered when a warning condition is detected on an experiment",
     },
     "info.significance": {
-       schema: experimentInfoSignificance,
-       description:
-	"Triggered when a primary metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win)"
-     }
+      schema: experimentInfoSignificance,
+      description:
+        "Triggered when a primary metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win)",
+    },
   },
   user: {
     login: {
