@@ -540,7 +540,7 @@ class Bandits:
     def dot_product_from_moments(n, mn_x, mn_y, cov_x_y):
         return (n - 1) * cov_x_y + n * mn_x * mn_y
 
-    def make_statistic(self, dimension, variation_index, variation_value):
+    def make_row(self, dimension, variation_index, variation_value):
         n = self.variation_counts[variation_index]
         mn = self.variation_means[variation_index]
         v = self.variation_variances[variation_index]
@@ -647,7 +647,7 @@ class BanditsRatio(Bandits):
     def compute_additional_reward(self) -> float:
         return 0
 
-    def make_statistic(self, dimension, variation_index, variation_value):
+    def make_row(self, dimension, variation_index, variation_value):
         n = self.variation_counts[variation_index]
         mn_num = self.numerator_means[variation_index]
         v_num = self.numerator_variances[variation_index]
@@ -765,7 +765,7 @@ class BanditsCuped(Bandits):
             self.post_pre_sum_of_products_array, self.weights_array
         )
 
-    def make_statistic(self, dimension, variation_index, variation_value):
+    def make_row(self, dimension, variation_index, variation_value):
         n = self.variation_counts[variation_index]
         mn_post = self.variation_means_post[variation_index]
         v_post = self.variation_variances_post[variation_index]
