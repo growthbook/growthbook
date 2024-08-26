@@ -267,211 +267,217 @@ const ArchetypeResults: FC<{
           </tr>
         </thead>
         <tbody>
-          {archetype.map((archetype: ArchetypeInterface) => (
-            <Fragment key={archetype.id}>
-              <tr
-                key={archetype.id}
-                className={`${
-                  showExpandedResultsId === archetype.id
-                    ? styles.rowExpanded
-                    : ""
-                }`}
-              >
-                <td>
-                  <Tooltip
-                    body={
-                      <>
-                        <Code
-                          code={JSON.stringify(
-                            JSON.parse(archetype.attributes),
-                            null,
-                            2
-                          )}
-                          language="json"
-                        />
-                      </>
-                    }
-                  >
-                    {archetype.name}
-                    {archetype.description && (
-                      <>
-                        <br />
-                        <span className="small text-muted">
-                          {archetype.description}
-                        </span>
-                      </>
-                    )}
-                  </Tooltip>
-                </td>
-                {featureResults[archetype.id].map(
-                  (result: FeatureTestResult) => (
-                    <td
-                      key={result.env}
-                      className={`${styles.valueCell} cursor-pointer ${
-                        showExpandedResultsId === archetype.id &&
-                        showExpandedResultsEnv === result.env
-                          ? styles.cellExpanded
-                          : ""
-                      }`}
-                      onClick={() => {
-                        if (enableAdvDebug) {
-                          if (
-                            showExpandedResults &&
+          {archetype.map((archetype: ArchetypeInterface) => {
+            if (!archetype.attributes) {
+              archetype.attributes = "{}";
+            }
+            let attrDisplay = "";
+            try {
+              const attrsObj = JSON.parse(archetype.attributes);
+              attrDisplay = JSON.stringify(attrsObj, null, 2);
+            } catch (e) {
+              console.error("Error parsing archetype attributes", e);
+            }
+            return (
+              <Fragment key={archetype.id}>
+                <tr
+                  key={archetype.id}
+                  className={`${
+                    showExpandedResultsId === archetype.id
+                      ? styles.rowExpanded
+                      : ""
+                  }`}
+                >
+                  <td>
+                    <Tooltip
+                      body={
+                        <>
+                          <Code code={attrDisplay} language="json" />
+                        </>
+                      }
+                    >
+                      {archetype.name}
+                      {archetype.description && (
+                        <>
+                          <br />
+                          <span className="small text-muted">
+                            {archetype.description}
+                          </span>
+                        </>
+                      )}
+                    </Tooltip>
+                  </td>
+                  {featureResults[archetype.id] &&
+                    featureResults[archetype.id].map(
+                      (result: FeatureTestResult) => (
+                        <td
+                          key={result.env}
+                          className={`${styles.valueCell} cursor-pointer ${
                             showExpandedResultsId === archetype.id &&
                             showExpandedResultsEnv === result.env
-                          ) {
-                            // the current details are already open, so close them:
-                            setShowExpandedResults(false);
-                            setShowExpandedResultsId(null);
-                            setShowExpandedResultsEnv(null);
-                          } else {
-                            setShowExpandedResults(true);
-                            setShowExpandedResultsId(archetype.id);
-                            setShowExpandedResultsEnv(result.env);
-                          }
-                        }
-                      }}
-                    >
-                      {result.enabled ? (
-                        <>
-                          <Tooltip
-                            className="d-inline-block"
-                            body={
-                              <>
-                                {!detailsMap.get(archetype.id + result.env)
-                                  .results.enabled ? (
-                                  <div className="text-center p-2 text-muted">
-                                    Feature disabled for this environment
-                                  </div>
-                                ) : (
-                                  <div className="">
-                                    <span className="text-muted">
-                                      Matched rule:
-                                    </span>{" "}
-                                    <strong>
-                                      {
-                                        detailsMap.get(
-                                          archetype.id + result.env
-                                        ).matchedRuleName
-                                      }
-                                    </strong>
-                                  </div>
-                                )}
-                                <h5 className="mt-3">Debug Log</h5>
-                                <div
-                                  className={`border bg-light border-light rounded px-3 py-1 ${styles.tooltiplog}`}
-                                >
-                                  {detailsMap
-                                    .get(archetype.id + result.env)
-                                    .debugLog.map((log: string, i) => (
-                                      <div
-                                        className="row align-items-center my-3"
-                                        key={i}
-                                      >
-                                        <div className="col-2">
-                                          {detailsMap.get(
-                                            archetype.id + result.env
-                                          )?.results?.result?.source ===
-                                            "defaultValue" &&
-                                          i ===
+                              ? styles.cellExpanded
+                              : ""
+                          }`}
+                          onClick={() => {
+                            if (enableAdvDebug) {
+                              if (
+                                showExpandedResults &&
+                                showExpandedResultsId === archetype.id &&
+                                showExpandedResultsEnv === result.env
+                              ) {
+                                // the current details are already open, so close them:
+                                setShowExpandedResults(false);
+                                setShowExpandedResultsId(null);
+                                setShowExpandedResultsEnv(null);
+                              } else {
+                                setShowExpandedResults(true);
+                                setShowExpandedResultsId(archetype.id);
+                                setShowExpandedResultsEnv(result.env);
+                              }
+                            }
+                          }}
+                        >
+                          {result.enabled ? (
+                            <>
+                              <Tooltip
+                                className="d-inline-block"
+                                body={
+                                  <>
+                                    {!detailsMap.get(archetype.id + result.env)
+                                      .results.enabled ? (
+                                      <div className="text-center p-2 text-muted">
+                                        Feature disabled for this environment
+                                      </div>
+                                    ) : (
+                                      <div className="">
+                                        <span className="text-muted">
+                                          Matched rule:
+                                        </span>{" "}
+                                        <strong>
+                                          {
                                             detailsMap.get(
                                               archetype.id + result.env
-                                            ).debugLog.length -
-                                              1 ? (
-                                            <></>
-                                          ) : (
-                                            <div
-                                              key={i}
-                                              className={`text-light border rounded-circle bg-purple ${styles.ruleCircle}`}
-                                              style={{
-                                                width: 28,
-                                                height: 28,
-                                                lineHeight: "26px",
-                                                textAlign: "center",
-                                                fontWeight: "bold",
-                                              }}
-                                            >
-                                              {i + 1}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="col">{log}</div>
+                                            ).matchedRuleName
+                                          }
+                                        </strong>
                                       </div>
-                                    ))}
-                                </div>
-                              </>
-                            }
-                          >
-                            <>
-                              <div>
-                                <ValueDisplay
-                                  value={
-                                    typeof result.result?.value === "string"
-                                      ? result.result.value
-                                      : JSON.stringify(
-                                          result.result?.value ?? null
-                                        )
-                                  }
-                                  type={feature.valueType}
-                                  full={true}
-                                />
-                              </div>
-                              <span className="text-muted small">
-                                {
-                                  detailsMap.get(archetype.id + result.env)
-                                    ?.brief
+                                    )}
+                                    <h5 className="mt-3">Debug Log</h5>
+                                    <div
+                                      className={`border bg-light border-light rounded px-3 py-1 ${styles.tooltiplog}`}
+                                    >
+                                      {detailsMap
+                                        .get(archetype.id + result.env)
+                                        .debugLog.map((log: string, i) => (
+                                          <div
+                                            className="row align-items-center my-3"
+                                            key={i}
+                                          >
+                                            <div className="col-2">
+                                              {detailsMap.get(
+                                                archetype.id + result.env
+                                              )?.results?.result?.source ===
+                                                "defaultValue" &&
+                                              i ===
+                                                detailsMap.get(
+                                                  archetype.id + result.env
+                                                ).debugLog.length -
+                                                  1 ? (
+                                                <></>
+                                              ) : (
+                                                <div
+                                                  key={i}
+                                                  className={`text-light border rounded-circle bg-purple ${styles.ruleCircle}`}
+                                                  style={{
+                                                    width: 28,
+                                                    height: 28,
+                                                    lineHeight: "26px",
+                                                    textAlign: "center",
+                                                    fontWeight: "bold",
+                                                  }}
+                                                >
+                                                  {i + 1}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="col">{log}</div>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  </>
                                 }
-                              </span>
+                              >
+                                <>
+                                  <div>
+                                    <ValueDisplay
+                                      value={
+                                        typeof result.result?.value === "string"
+                                          ? result.result.value
+                                          : JSON.stringify(
+                                              result.result?.value ?? null
+                                            )
+                                      }
+                                      type={feature.valueType}
+                                      full={true}
+                                    />
+                                  </div>
+                                  <span className="text-muted small">
+                                    {
+                                      detailsMap.get(archetype.id + result.env)
+                                        ?.brief
+                                    }
+                                  </span>
+                                </>
+                              </Tooltip>
                             </>
-                          </Tooltip>
-                        </>
-                      ) : (
-                        <span className="text-muted">disabled</span>
-                      )}
-                    </td>
-                  )
-                )}
-                <td className={styles.showOnHover}>
-                  <MoreMenu>
-                    {canEdit ? (
-                      <button
-                        className="dropdown-item"
-                        onClick={() => {
-                          setEditArchetype(archetype);
-                        }}
-                      >
-                        Edit
-                      </button>
-                    ) : null}
-                    {canDelete ? (
-                      <DeleteButton
-                        className="dropdown-item"
-                        displayName="Archetype"
-                        text="Delete"
-                        useIcon={false}
-                        onClick={async () => {
-                          await apiCall(`/archetype/${archetype.id}`, {
-                            method: "DELETE",
-                          });
-                          onChange();
-                        }}
-                      />
-                    ) : null}
-                  </MoreMenu>
-                </td>
-              </tr>
-              {showExpandedResults &&
-                showExpandedResultsId === archetype.id && (
-                  <>
-                    {expandedResults(
-                      detailsMap.get(
-                        showExpandedResultsId + showExpandedResultsEnv
+                          ) : (
+                            <span className="text-muted">disabled</span>
+                          )}
+                        </td>
                       )
                     )}
-                  </>
-                )}
-            </Fragment>
-          ))}
+                  <td className={styles.showOnHover}>
+                    <MoreMenu>
+                      {canEdit ? (
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            setEditArchetype(archetype);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {canDelete ? (
+                        <DeleteButton
+                          className="dropdown-item"
+                          displayName="Archetype"
+                          text="Delete"
+                          useIcon={false}
+                          onClick={async () => {
+                            await apiCall(`/archetype/${archetype.id}`, {
+                              method: "DELETE",
+                            });
+                            onChange();
+                          }}
+                        />
+                      ) : null}
+                    </MoreMenu>
+                  </td>
+                </tr>
+                {showExpandedResults &&
+                  showExpandedResultsId === archetype.id && (
+                    <>
+                      {expandedResults(
+                        detailsMap.get(
+                          showExpandedResultsId + showExpandedResultsEnv
+                        )
+                      )}
+                    </>
+                  )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
       {editArchetype && (
