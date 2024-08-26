@@ -262,21 +262,27 @@ def analyze_metric_df(
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
-    for i in range(num_variations):
-        if i == 0:
-            df["baseline_cr"] = 0
-            df["baseline_mean"] = None
-            df["baseline_stddev"] = None
-        else:
-            df[f"v{i}_cr"] = 0
-            df[f"v{i}_mean"] = None
-            df[f"v{i}_stddev"] = None
-            df[f"v{i}_expected"] = 0
-            df[f"v{i}_p_value"] = None
-            df[f"v{i}_risk"] = None
-            df[f"v{i}_prob_beat_baseline"] = None
-            df[f"v{i}_uplift"] = None
-            df[f"v{i}_error_message"] = None
+    df["baseline_cr"] = 0
+    df["baseline_mean"] = None
+    df["baseline_stddev"] = None
+
+    def dummy_df(i):
+        return pd.DataFrame(
+            {
+                f"v{i}_cr": [i],
+                f"v{i}_mean": [None],
+                f"v{i}_stddev": [None],
+                f"v{i}_expected": [i],
+                f"v{i}_p_value": [None],
+                f"v{i}_risk": [None],
+                f"v{i}_prob_beat_baseline": [None],
+                f"v{i}_uplift": [None],
+                f"v{i}_error_message": [None],
+            }
+        )
+
+    for i in range(1, num_variations):
+        df = pd.concat([df, dummy_df(i)], axis=1)
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
@@ -289,7 +295,6 @@ def analyze_metric_df(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
-
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev
@@ -666,7 +671,7 @@ def get_weighted_rows(
         b = preprocess_bandits(rows, metric, bandit_settings, dimension)
         if b.stats:
             for index, variation in enumerate(settings[0].var_ids):
-                weighted_rows.append(b.make_statistic(dimension, index, variation))
+                weighted_rows.append(b.make_row(dimension, index, variation))
     return weighted_rows
 
 
