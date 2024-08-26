@@ -48,7 +48,11 @@ class EffectBayesianConfig(BayesianConfig):
 
 @dataclass
 class BanditConfig(BayesianConfig):
+<<<<<<< HEAD
     bandit_weights_seed: int = 0
+=======
+    bandit_weights_seed: int = 1
+>>>>>>> b6df533b4 (pulling changes from main)
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
@@ -271,6 +275,7 @@ class Bandits:
     @property
     def bandit_weights_seed(self) -> int:
         return self.config.bandit_weights_seed
+<<<<<<< HEAD
 
     @property
     def num_periods(self) -> int:
@@ -364,6 +369,8 @@ class Bandits:
     @staticmethod
     def construct_weighted_means(means_array, weights_array) -> np.ndarray:
         return np.sum(means_array * weights_array, axis=0)
+=======
+>>>>>>> b6df533b4 (pulling changes from main)
 
     @property
     def bandit_weights_seed(self) -> int:
@@ -524,6 +531,7 @@ class Bandits:
     def compute_result(self) -> BanditResponse:
         min_n = 100
         if any(self.variation_counts < min_n):
+<<<<<<< HEAD
             update_message = "some variation counts fewer than " + str(min_n)
             return BanditResponse(
                 users=None,
@@ -541,17 +549,31 @@ class Bandits:
             else random.randint(0, 1000000)
         )
         rng = np.random.default_rng(seed=seed)
+=======
+            update_message = "some variation counts smaller than " + str(min_n)
+            p = None
+            return BanditWeights(update_message=update_message, weights=p)
+        rng = np.random.default_rng(seed=self.bandit_weights_seed)
+>>>>>>> b6df533b4 (pulling changes from main)
         y = rng.multivariate_normal(
             mean=self.posterior_mean,
             cov=np.diag(self.posterior_variance),
             size=self.n_samples,
         )
+<<<<<<< HEAD
         row_maxes = np.max(y, axis=1)
         best_arm_probabilities = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
         if self.config.top_two:
             p = self.top_two_weights(y)
         else:
             p = best_arm_probabilities
+=======
+        if self.config.top_two:
+            p = self.top_two_weights(y)
+        else:
+            row_maxes = np.max(y, axis=1)
+            p = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
+>>>>>>> b6df533b4 (pulling changes from main)
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
@@ -572,7 +594,11 @@ class Bandits:
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod
+<<<<<<< HEAD
     def top_two_weights(y: np.ndarray) -> np.ndarray:
+=======
+    def top_two_weights(y) -> np.ndarray:
+>>>>>>> b6df533b4 (pulling changes from main)
         """Calculates the proportion of times each column contains the largest or second largest element in a row.
         Args:
         arr: A 2D NumPy array.
@@ -603,6 +629,7 @@ class Bandits:
         return n * mn
 
     @staticmethod
+<<<<<<< HEAD
     def sum_squares_from_moments(n, mn, v):
         return (n - 1) * v + n * mn**2
 
@@ -854,3 +881,14 @@ class BanditsCuped(Bandits):
                 variation_index
             ],
         }
+=======
+    def additional_reward(variation_counts, variation_means) -> float:
+        # sample sizes per period
+        period_counts = np.expand_dims(np.sum(variation_counts, axis=1), axis=1)
+        n_variations = variation_counts.shape[1]
+        variation_counts_balanced = np.tile(
+            period_counts / n_variations, (1, n_variations)
+        )
+        counts_diff = variation_counts - variation_counts_balanced
+        return np.sum(counts_diff * variation_means)
+>>>>>>> b6df533b4 (pulling changes from main)

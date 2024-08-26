@@ -311,6 +311,7 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 # before was failing at "get_metric_df" due to wrong var_id_mapping
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
+<<<<<<< HEAD
     var_ids=["zero", "one", "two", "three"],
     decision_metric="count_metric",
     bandit=True,
@@ -324,6 +325,22 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_ids=["zero", "one", "two", "three"],
     decision_metric="count_metric",
     bandit_weights_seed=10,
+=======
+    var_ids=["0", "1", "2", "3"],
+    weights=[0.25, 0.25, 0.25, 0.25],
+    baseline_index=0,
+    dimension="All",
+    stats_engine="bayesian",
+    sequential_testing_enabled=False,
+    sequential_tuning_parameter=5000,
+    difference_type="relative",
+    phase_length_days=1,
+    alpha=0.05,
+    max_dimensions=20,
+    decision_metric="count_metric",
+    bandit=True,
+    bandit_weights_seed=100,
+>>>>>>> b6df533b4 (pulling changes from main)
 )
 
 
@@ -826,6 +843,7 @@ class TestFormatResults(TestCase):
 class TestBandit(TestCase):
     def setUp(self):
         # preprocessing steps
+<<<<<<< HEAD
         self.rows = QUERY_OUTPUT_BANDITS
         self.metric = COUNT_METRIC
         self.dummy_analysis = copy.deepcopy(DEFAULT_ANALYSIS)
@@ -906,6 +924,50 @@ class TestBandit(TestCase):
         self.assertEqual(result.banditUpdateMessage, self.update_messages[0])
         self.assertEqual(result.banditWeights, self.true_weights)
         self.assertEqual(result.additionalReward, self.true_additional_reward)
+=======
+        self.rows = MULTI_DIMENSION_STATISTICS_DF_BANDITS
+        self.metric = COUNT_METRIC
+        self.analysis = BANDIT_ANALYSIS
+        self.max_dimensions = self.analysis.max_dimensions
+        # If we're doing a daily time series, we need to diff the data
+        if self.analysis.dimension == "pre:datedaily":
+            self.rows = diff_for_daily_time_series(self.rows)
+        # Convert raw SQL result into a dataframe of dimensions
+        self.df = get_metric_df(
+            rows=self.rows,
+            var_id_map={"zero": 0, "one": 1, "two": 2, "three": 3},
+            var_names=self.analysis.var_names,
+        )
+        self.update_messages = [
+            "some variation counts smaller than 100",
+            "successfully updated",
+        ]
+        self.true_weights = [None, [0.39755, 0.10465, 0.397, 0.1008]]
+
+    def test_analyze_metric_df(self):
+        result = analyze_metric_df(
+            self.df,
+            metric=COUNT_METRIC,
+            analysis=BANDIT_ANALYSIS,
+        )
+        self.assertEqual(result["bandit_update_message"][0], self.update_messages[0])
+        self.assertEqual(result["bandit_update_message"][1], self.update_messages[1])
+        self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
+        self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
+
+    def test_get_bandit_weights(self):
+        reduced = reduce_dimensionality(
+            df=self.df,
+            max=self.max_dimensions,
+            keep_other=self.metric.statistic_type
+            not in ["quantile_event", "quantile_unit"],
+        )
+        result = get_bandit_weights(reduced, self.metric, self.analysis)
+        self.assertEqual(result["bandit_update_message"][0], self.update_messages[0])
+        self.assertEqual(result["bandit_update_message"][1], self.update_messages[1])
+        self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
+        self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
+>>>>>>> b6df533b4 (pulling changes from main)
 
 
 if __name__ == "__main__":
