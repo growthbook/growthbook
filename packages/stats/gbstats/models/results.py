@@ -67,6 +67,12 @@ VariationResponse = Union[
 
 
 @dataclass
+class BanditResponse:
+    banditWeights: Optional[float]
+    banditErrorMessage: Optional[str]
+
+
+@dataclass
 class DimensionResponse:
     dimension: str
     srm: float
