@@ -17,6 +17,7 @@ type Webhook = {
     readonly description: string;
     readonly isDiff?: boolean;
     readonly firstVersion?: string;
+    readonly noDoc?: boolean;
   };
 };
 
@@ -76,6 +77,7 @@ export const notificationEvents = {
       schema: webhookTestEventSchema,
       description: "Triggered when a webhook is being tested",
       isDiff: false,
+      noDoc: true,
     },
   },
 } as const;
