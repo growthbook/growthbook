@@ -20,6 +20,9 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
 
+const MAX_REFERENCES = 100;
+const MAX_REFERENCES_PER_TYPE = 10;
+
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
@@ -176,27 +179,32 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 >
                   <BsXCircle size={16} />
                 </a>
-                <div>
+                <div style={{ maxHeight: 300, overflowY: "auto" }}>
                   {features.length > 0 && (
                     <>
                       <div className="mt-1 text-muted font-weight-bold">
                         Features:
                       </div>
-                      <div
-                        className="mb-2"
-                        style={{ maxHeight: 300, overflowY: "auto" }}
-                      >
+                      <div className="mb-2">
                         <ul className="pl-3 mb-0">
-                          {features.map((feature, i) => (
-                            <li
-                              key={"f_" + i}
-                              className="my-1"
-                              style={{ maxWidth: 320 }}
-                            >
-                              <a href={`/features/${feature.id}`}>
-                                {feature.id}
-                              </a>
-                            </li>
+                          {features.map((feature, j) => (
+                            <>
+                              {j < MAX_REFERENCES_PER_TYPE ? (
+                                <li
+                                  key={"f_" + j}
+                                  className="my-1"
+                                  style={{ maxWidth: 320 }}
+                                >
+                                  <a href={`/features/${feature.id}`}>
+                                    {feature.id}
+                                  </a>
+                                </li>
+                              ) : j === MAX_REFERENCES_PER_TYPE ? (
+                                <li key={"f_" + j} className="my-1">
+                                  <em>{features.length - j} more...</em>
+                                </li>
+                              ) : null}
+                            </>
                           ))}
                         </ul>
                       </div>
@@ -207,19 +215,24 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mt-1 text-muted font-weight-bold">
                         Experiments:
                       </div>
-                      <div
-                        className="mb-2"
-                        style={{ maxHeight: 300, overflowY: "auto" }}
-                      >
+                      <div className="mb-2">
                         <ul className="pl-3 mb-0">
-                          {experiments.map((exp, i) => (
-                            <li
-                              key={"e_" + i}
-                              className="my-1"
-                              style={{ maxWidth: 320 }}
-                            >
-                              <a href={`/experiments/${exp.id}`}>{exp.name}</a>
-                            </li>
+                          {experiments.map((exp, j) => (
+                            <>
+                              {j < MAX_REFERENCES_PER_TYPE ? (
+                                <li
+                                  key={"e_" + j}
+                                  className="my-1"
+                                  style={{ maxWidth: 320 }}
+                                >
+                                  <a href={`/features/${exp.id}`}>{exp.id}</a>
+                                </li>
+                              ) : j === MAX_REFERENCES_PER_TYPE ? (
+                                <li key={"e_" + j} className="my-1">
+                                  <em>{exp.length - j} more...</em>
+                                </li>
+                              ) : null}
+                            </>
                           ))}
                         </ul>
                       </div>
@@ -230,21 +243,26 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mt-1 text-muted font-weight-bold">
                         Condition Groups:
                       </div>
-                      <div
-                        className="mb-2"
-                        style={{ maxHeight: 300, overflowY: "auto" }}
-                      >
+                      <div className="mb-2">
                         <ul className="pl-3 mb-0">
-                          {groups.map((group, i) => (
-                            <li
-                              key={"g_" + i}
-                              className="my-1"
-                              style={{ maxWidth: 320 }}
-                            >
-                              <a href={`/saved-groups#conditionGroups`}>
-                                {group.groupName}
-                              </a>
-                            </li>
+                          {groups.map((group, j) => (
+                            <>
+                              {j < MAX_REFERENCES_PER_TYPE ? (
+                                <li
+                                  key={"g_" + j}
+                                  className="my-1"
+                                  style={{ maxWidth: 320 }}
+                                >
+                                  <a href={`/saved-groups#conditionGroups`}>
+                                    {group.groupName}
+                                  </a>
+                                </li>
+                              ) : j === MAX_REFERENCES_PER_TYPE ? (
+                                <li key={"g_" + j} className="my-1">
+                                  <em>{groups.length - j} more...</em>
+                                </li>
+                              ) : null}
+                            </>
                           ))}
                         </ul>
                       </div>
@@ -265,7 +283,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 setShowReferences(showReferences !== i ? i : null);
               }}
             >
-              {numReferences} reference
+              {numReferences > MAX_REFERENCES
+                ? MAX_REFERENCES + "+"
+                : numReferences}{" "}
+              reference
               {numReferences !== 1 && "s"}
               {showReferences === i ? (
                 <BiHide className="ml-2" />
