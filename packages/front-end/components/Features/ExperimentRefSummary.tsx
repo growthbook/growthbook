@@ -67,6 +67,7 @@ export default function ExperimentRefSummary({
 }) {
   const { variations } = rule;
   const type = feature.valueType;
+  const featureDefault = feature.defaultValue;
 
   const { namespaces } = useOrgSettings();
 
@@ -261,7 +262,11 @@ export default function ExperimentRefSummary({
                       {j}.
                     </td>
                     <td>
-                      <ValueDisplay value={value} type={type} />
+                      <ValueDisplay
+                        value={value}
+                        type={type}
+                        defaultVal={featureDefault}
+                      />
                       <ValidateValue value={value} feature={feature} />
                     </td>
                     <td>{variation.name}</td>

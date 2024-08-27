@@ -1,6 +1,7 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { CSSProperties, useMemo } from "react";
 import stringify from "json-stringify-pretty-compact";
+import dynamic from "next/dynamic";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 export default function ValueDisplay({
@@ -9,12 +10,14 @@ export default function ValueDisplay({
   full = true,
   additionalStyle = {},
   fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" },
+  defaultVal = "",
 }: {
   value: string;
   type: FeatureValueType;
   full?: boolean;
   additionalStyle?: CSSProperties;
   fullStyle?: CSSProperties;
+  defaultVal?: string;
 }) {
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
@@ -61,6 +64,15 @@ export default function ValueDisplay({
         {formatted}
       </div>
     );
+  }
+
+  if (type === "json" && defaultVal != "") {
+    // the json diff code needs a window to attach to, so must be loaded dynamically
+    const JsonDiff = dynamic(() => import("../Features/JsonDiff"), {
+      ssr: false,
+    });
+
+    return <JsonDiff value={value} defaultVal={defaultVal} />;
   }
 
   return (
