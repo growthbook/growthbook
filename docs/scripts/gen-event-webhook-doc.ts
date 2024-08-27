@@ -30,7 +30,7 @@ const events = Object.keys(notificationEvents).reduce(
 );
 
 const eventTableEntry = ({ name, description }) =>
-  `| **[${name}](#${name})** | _${description}_ |`;
+  `| **[${name}](#${name.replace(".", "")})** | _${description}_ |`;
 
 const quote = "```";
 

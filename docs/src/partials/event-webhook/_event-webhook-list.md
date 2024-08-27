@@ -1,14 +1,14 @@
 
   | Event name | Description |
   |------------|-------------|
-  | **[feature.created](#feature.created)** | _Triggered when a feature is created_ |
-| **[feature.updated](#feature.updated)** | _Triggered when a feature is updated_ |
-| **[feature.deleted](#feature.deleted)** | _Triggered when a feature is deleted_ |
-| **[experiment.created](#experiment.created)** | _Triggered when an experiment is created_ |
-| **[experiment.updated](#experiment.updated)** | _Triggered when an experiment is updated_ |
-| **[experiment.deleted](#experiment.deleted)** | _Triggered when an experiment is deleted_ |
-| **[experiment.warning](#experiment.warning)** | _Triggered when a warning condition is detected on an experiment_ |
-| **[user.login](#user.login)** | _Triggered when a user logs in_ |
+  | **[feature.created](#featurecreated)** | _Triggered when a feature is created_ |
+| **[feature.updated](#featureupdated)** | _Triggered when a feature is updated_ |
+| **[feature.deleted](#featuredeleted)** | _Triggered when a feature is deleted_ |
+| **[experiment.created](#experimentcreated)** | _Triggered when an experiment is created_ |
+| **[experiment.updated](#experimentupdated)** | _Triggered when an experiment is updated_ |
+| **[experiment.deleted](#experimentdeleted)** | _Triggered when an experiment is deleted_ |
+| **[experiment.warning](#experimentwarning)** | _Triggered when a warning condition is detected on an experiment_ |
+| **[user.login](#userlogin)** | _Triggered when a user logs in_ |
 
   
 ### feature.created
