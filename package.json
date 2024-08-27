@@ -8,7 +8,7 @@
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
     "clean": "wsrun -m clean && rimraf node_modules && yarn cache clean",
-    "doc-gen": "cd docs && yarn gen",
+    "doc-gen": "cd docs && yarn && yarn gen",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
     "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -p 'enterprise' -c dev",
