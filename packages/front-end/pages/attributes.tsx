@@ -225,11 +225,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   className="my-1"
                                   style={{ maxWidth: 320 }}
                                 >
-                                  <a href={`/features/${exp.id}`}>{exp.id}</a>
+                                  <a href={`/experiment/${exp.id}`}>
+                                    {exp.name}
+                                  </a>
                                 </li>
                               ) : j === MAX_REFERENCES_PER_TYPE ? (
                                 <li key={"e_" + j} className="my-1">
-                                  <em>{exp.length - j} more...</em>
+                                  <em>{experiments.length - j} more...</em>
                                 </li>
                               ) : null}
                             </>
