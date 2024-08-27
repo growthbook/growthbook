@@ -1,14 +1,16 @@
-| Event name                                    | Description                                                       |
-| --------------------------------------------- | ----------------------------------------------------------------- |
-| **[feature.created](#feature.created)**       | _Triggered when a feature is created_                             |
-| **[feature.updated](#feature.updated)**       | _Triggered when a feature is updated_                             |
-| **[feature.deleted](#feature.deleted)**       | _Triggered when a feature is deleted_                             |
-| **[experiment.created](#experiment.created)** | _Triggered when an experiment is created_                         |
-| **[experiment.updated](#experiment.updated)** | _Triggered when an experiment is updated_                         |
-| **[experiment.deleted](#experiment.deleted)** | _Triggered when an experiment is deleted_                         |
-| **[experiment.warning](#experiment.warning)** | _Triggered when a warning condition is detected on an experiment_ |
-| **[user.login](#user.login)**                 | _Triggered when a user logs in_                                   |
 
+  | Event name | Description |
+  |------------|-------------|
+  | **[feature.created](#feature.created)** | _Triggered when a feature is created_ |
+| **[feature.updated](#feature.updated)** | _Triggered when a feature is updated_ |
+| **[feature.deleted](#feature.deleted)** | _Triggered when a feature is deleted_ |
+| **[experiment.created](#experiment.created)** | _Triggered when an experiment is created_ |
+| **[experiment.updated](#experiment.updated)** | _Triggered when an experiment is updated_ |
+| **[experiment.deleted](#experiment.deleted)** | _Triggered when an experiment is deleted_ |
+| **[experiment.warning](#experiment.warning)** | _Triggered when a warning condition is detected on an experiment_ |
+| **[user.login](#user.login)** | _Triggered when a user logs in_ |
+
+  
 ### feature.created
 
 Triggered when a feature is created
@@ -184,8 +186,8 @@ Triggered when a feature is created
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
 
 ### feature.updated
 
@@ -508,8 +510,8 @@ Triggered when a feature is updated
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
 
 ### feature.deleted
 
@@ -686,8 +688,8 @@ Triggered when a feature is deleted
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
 
 ### experiment.created
 
@@ -824,8 +826,8 @@ Triggered when an experiment is created
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
 
 ### experiment.updated
 
@@ -1068,8 +1070,8 @@ Triggered when an experiment is updated
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
 
 ### experiment.deleted
 
@@ -1206,8 +1208,8 @@ Triggered when an experiment is deleted
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
 
 ### experiment.warning
 
@@ -1255,8 +1257,8 @@ Triggered when a warning condition is detected on an experiment
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
 
 ### user.login
 
@@ -1296,5 +1298,5 @@ Triggered when a user logs in
     containsSecrets: boolean;
 }
 ```
-
 </details>
+
