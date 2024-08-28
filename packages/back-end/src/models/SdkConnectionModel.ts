@@ -48,6 +48,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
+  trackingDatasource: String,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -167,6 +168,7 @@ export const createSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    trackingDatasource: z.string().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -243,6 +245,7 @@ export const editSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    trackingDatasource: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
   })

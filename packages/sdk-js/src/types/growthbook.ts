@@ -239,6 +239,8 @@ export interface Context {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
+  enableEventTracking?: boolean;
+  enableFeatureUsageTracking?: boolean;
 }
 
 export type PrefetchOptions = Pick<

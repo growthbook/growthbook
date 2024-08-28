@@ -24,6 +24,7 @@ export type EditSDKConnectionParams = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  trackingDatasource?: string;
   remoteEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
@@ -41,6 +42,7 @@ export type CreateSDKConnectionParams = {
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
+  trackingDatasource?: string;
   remoteEvalEnabled?: boolean;
 };
 
@@ -70,6 +72,7 @@ export interface SDKConnectionInterface {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  trackingDatasource?: string;
 
   // URL slug for fetching features from the API
   key: string;

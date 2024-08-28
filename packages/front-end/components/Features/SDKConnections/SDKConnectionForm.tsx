@@ -79,7 +79,7 @@ export default function SDKConnectionForm({
   cta?: string;
 }) {
   const environments = useEnvironments();
-  const { project, projects, getProjectById } = useDefinitions();
+  const { project, projects, getProjectById, datasources } = useDefinitions();
   const projectIds = projects.map((p) => p.id);
 
   const { apiCall } = useAuth();
@@ -108,6 +108,10 @@ export default function SDKConnectionForm({
 
   const [languageError, setLanguageError] = useState<string | null>(null);
 
+  // TODO: better way to figure out if auto tracking is supported
+  const autoTrackingDBs = datasources.filter((d) => d.type === "clickhouse");
+  const supportsAutoTracking = autoTrackingDBs.length > 0;
+
   const form = useForm({
     defaultValues: {
       name: initialValue.name ?? "",
@@ -134,6 +138,7 @@ export default function SDKConnectionForm({
       includeExperimentNames: initialValue.includeExperimentNames ?? true,
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
+      trackingDatasource: initialValue.trackingDatasource ?? "",
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -1163,6 +1168,25 @@ export default function SDKConnectionForm({
                 </label>
               </div>
             </div>
+          </div>
+        )}
+
+        {supportsAutoTracking && ["frontend", "nocode"].includes(languageType) && (
+          <div className="mt-5">
+            <SelectField
+              label="Tracking Datasource"
+              helpText="Enable built-in exposure/event tracking. Will be inserted to the selected datasource."
+              initialOption="None"
+              value={form.watch("trackingDatasource")}
+              onChange={(datasource) =>
+                form.setValue("trackingDatasource", datasource)
+              }
+              options={autoTrackingDBs.map((d) => ({
+                label: d.name,
+                value: d.id,
+              }))}
+              sort={false}
+            />
           </div>
         )}
       </div>

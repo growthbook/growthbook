@@ -475,6 +475,31 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
+export interface InsertTrackEventProps {
+  event_name: string;
+  value?: number;
+  properties?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
+}
+
+export interface InsertFeatureUsageProps {
+  feature: string;
+  env: string;
+  revision: string;
+  ruleId: string;
+  variationId: string;
+}
+
+export interface FeatureUsageAggregateRow {
+  timestamp: Date;
+  env: string;
+  revision: string;
+  ruleId: string;
+  variationId: string;
+  evaluations: number;
+}
+export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
+
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
@@ -592,4 +617,11 @@ export interface SourceIntegrationInterface {
     requireSchema?: boolean
   ): string;
   cancelQuery?(externalId: string): Promise<void>;
+  createAutoTrackTables?(): Promise<void>;
+  insertTrackEvent?(data: InsertTrackEventProps): Promise<void>;
+  insertFeatureUsage?(data: InsertFeatureUsageProps): Promise<void>;
+  getFeatureUsage?(
+    feature: string,
+    lookback: FeatureUsageLookback
+  ): Promise<FeatureUsageAggregateRow[]>;
 }

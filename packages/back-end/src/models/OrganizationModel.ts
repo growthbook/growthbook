@@ -4,6 +4,7 @@ import { cloneDeep } from "lodash";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
 import { TeamInterface } from "@back-end/types/team";
+import { ClickHouseConnectionParams } from "@back-end/types/integrations/clickhouse";
 import {
   Invite,
   Member,
@@ -14,12 +15,17 @@ import {
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
-import { IS_CLOUD } from "../util/secrets";
+import { CLICKHOUSE_URI, IS_CLOUD } from "../util/secrets";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
 } from "../util/mongo.util";
+import { getContextForAgendaJobByOrgObject } from "../services/organizations";
+import { logger } from "../util/logger";
+import { getSourceIntegrationObject } from "../services/datasource";
+import { createDataSource } from "./DataSourceModel";
+import { createFactTable } from "./FactTableModel";
 
 const baseMemberFields = {
   _id: false,
@@ -209,7 +215,230 @@ export async function createOrganization({
     },
     getStartedChecklistItems: [],
   });
-  return toInterface(doc);
+  const org = toInterface(doc);
+
+  // Create default data source if configured via env vars
+  if (CLICKHOUSE_URI) {
+    try {
+      // Create a data source
+      const parsed = new URL(CLICKHOUSE_URI);
+      const context = getContextForAgendaJobByOrgObject(org);
+      const params: ClickHouseConnectionParams = {
+        username: parsed.username,
+        password: parsed.password,
+        database: parsed.pathname,
+        port: parseInt(parsed.port),
+        url: parsed.host,
+      };
+      const ds = await createDataSource(
+        context,
+        "ClickHouse (Included)",
+        "clickhouse",
+        params,
+        {
+          userIdTypes: [
+            {
+              userIdType: "anonymous_id",
+            },
+          ],
+          queries: {
+            exposure: [
+              {
+                id: "anonymous_id",
+                dimensions: [],
+                name: "Anonymous Id Experiments",
+                query: `       
+SELECT 
+  anonymous_id,
+  timestamp,
+  simpleJSONExtractString(properties, 'experiment_id') as experiment_id,
+  simpleJSONExtractString(properties, 'variation_id') as variation_id
+FROM events 
+WHERE
+  event_name = 'Experiment Viewed'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+                `,
+                userIdType: "anonymous_id",
+              },
+            ],
+          },
+        }
+      );
+
+      // Create empty tables in the data source
+      const integration = getSourceIntegrationObject(context, ds, true);
+      if (integration.createAutoTrackTables) {
+        await integration.createAutoTrackTables();
+      }
+
+      // Create a fact table for events
+      await createFactTable(context, {
+        name: "Events",
+        description: "",
+        datasource: ds.id,
+        owner: userId,
+        eventName: "",
+        projects: [],
+        userIdTypes: ["anonymous_id"],
+        sql: `
+SELECT
+  uuid,
+  timestamp,
+  anonymous_id,
+  event_name,
+  value,
+  properties,
+  browser,
+  deviceType,
+  url,
+  path,
+  host,
+  query,
+  pageTitle,
+  utmSource,
+  utmMedium,
+  utmCampaign,
+  utmTerm,
+  utmContent
+FROM events 
+WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+        `,
+        tags: [],
+        columns: [
+          {
+            column: "uuid",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "timestamp",
+            datatype: "date",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "anonymous_id",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "event_name",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "value",
+            datatype: "number",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "properties",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "browser",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "deviceType",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "url",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "path",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "host",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "query",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "pageTitle",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "utmSource",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "utmMedium",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "utmCampaign",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "utmTerm",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+          {
+            column: "utmContent",
+            datatype: "string",
+            name: "",
+            description: "",
+            numberFormat: "",
+          },
+        ],
+      });
+    } catch (e) {
+      logger.error(e, "Failed to auto-create data source and fact table");
+    }
+  }
+
+  return org;
 }
 
 export async function findAllOrganizations(

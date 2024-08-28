@@ -110,6 +110,7 @@ import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
+import { trackRouter } from "./routers/track/track.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 
@@ -251,6 +252,16 @@ if (!IS_CLOUD) {
       origin: "*",
     }),
     (req, res) => res.send(200)
+  );
+
+  // Public track endpoint for SDKs
+  app.use(
+    "/api/track/",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    trackRouter
   );
 }
 

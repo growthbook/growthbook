@@ -20,6 +20,7 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
+  FeatureUsageData,
   JSONSchemaDef,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
@@ -109,6 +110,10 @@ import { ReqContext } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
 import { ApiReqContext } from "../../types/api";
 import { getAllCodeRefsForFeature } from "../models/FeatureCodeRefs";
+import { getSDKConnectionsByPayloadKeys } from "../jobs/sdkWebhooks";
+import { getSourceIntegrationObject } from "../services/datasource";
+import { getDataSourceById } from "../models/DataSourceModel";
+import { FeatureUsageLookback } from "../types/Integration";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -2144,6 +2149,97 @@ export async function getFeatureById(
     revisions,
     experiments: [...experimentsMap.values()],
     codeRefs,
+  });
+}
+
+export async function getFeatureUsage(
+  req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
+  res: Response<{ status: 200; usage: FeatureUsageData }>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const { id } = req.params;
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const environments = getEnvironments(org);
+
+  const sdkConnections = await getSDKConnectionsByPayloadKeys(
+    context,
+    environments.map((e) => ({
+      environment: e.id,
+      project: feature.project || "",
+    }))
+  );
+
+  // TODO: What if multiple sdk connections have tracking enabled?
+  const sdkConnection = sdkConnections.find((c) => c.trackingDatasource);
+  if (!sdkConnection) {
+    throw new Error(
+      "No SDK connection found for this feature with tracking enabled"
+    );
+  }
+
+  const ds = await getDataSourceById(
+    context,
+    sdkConnection.trackingDatasource || ""
+  );
+  if (!ds) {
+    throw new Error("Could not find tracking datasource");
+  }
+
+  const integration = getSourceIntegrationObject(context, ds, true);
+  if (!integration.getFeatureUsage) {
+    throw new Error("Tracking datasource does not support feature usage");
+  }
+
+  const lookback = req.query.lookback || "15minute";
+
+  const data = await integration.getFeatureUsage(feature.id, lookback);
+
+  const usage: FeatureUsageData = {
+    total: 0,
+    defaultValue: 0,
+    environments: {},
+  };
+
+  const validEnvs = new Set(environments.map((e) => e.id));
+
+  data.forEach((d) => {
+    if (!d.env || !validEnvs.has(d.env)) return;
+
+    usage.total += d.evaluations;
+
+    usage.environments[d.env] = usage.environments[d.env] || {
+      total: 0,
+      rules: {},
+    };
+    usage.environments[d.env].total += d.evaluations;
+
+    if (d.ruleId === "$default") {
+      usage.defaultValue += d.evaluations;
+    } else if (d.ruleId) {
+      usage.environments[d.env].rules[d.ruleId] = usage.environments[d.env]
+        .rules[d.ruleId] || { total: 0, variations: {} };
+      usage.environments[d.env].rules[d.ruleId].total += d.evaluations;
+
+      if (d.variationId) {
+        usage.environments[d.env].rules[d.ruleId].variations[d.variationId] =
+          usage.environments[d.env].rules[d.ruleId].variations[d.variationId] ||
+          0;
+        usage.environments[d.env].rules[d.ruleId].variations[d.variationId] +=
+          d.evaluations;
+      }
+    }
+  });
+
+  res.status(200).json({
+    status: 200,
+    usage,
   });
 }
 

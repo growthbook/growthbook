@@ -258,3 +258,5 @@ export const USE_PROXY =
 
 export const SUPERADMIN_DEFAULT_ROLE =
   process.env.SUPERADMIN_DEFAULT_ROLE ?? "readonly";
+
+export const CLICKHOUSE_URI = process.env.CLICKHOUSE_URI || "";

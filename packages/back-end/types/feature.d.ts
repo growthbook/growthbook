@@ -70,3 +70,21 @@ export interface FeatureTestResult {
   log?: [string, any][];
   featureDefinition?: FeatureDefinition;
 }
+
+export interface FeatureUsageData {
+  total: number;
+  defaultValue: number;
+  environments: Record<
+    string,
+    {
+      total: number;
+      rules: Record<
+        string,
+        {
+          total: number;
+          variations: Record<string, number>;
+        }
+      >;
+    }
+  >;
+}
