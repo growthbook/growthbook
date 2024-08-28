@@ -339,7 +339,7 @@ async function _getSnapshot(
   );
 }
 
-async function _getSnapshots(
+export async function _getSnapshots(
   context: ReqContext | ApiReqContext,
   experimentObjs: ExperimentInterface[],
   dimension?: string,

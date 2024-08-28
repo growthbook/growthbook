@@ -592,9 +592,41 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
+export async function getExperimentsUsingMetric(
+  context: ReqContext | ApiReqContext,
+  metricId: string,
+  // limit to fewer than 1000 for speed
+  limit: number | undefined = 10
+): Promise<ExperimentInterface[]> {
+  const experiments = await findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      $or: [
+        { metrics: metricId },
+        { goalMetrics: metricId },
+        { guardrails: metricId },
+        { guardrailMetrics: metricId },
+        { secondaryMetrics: metricId },
+        { activationMetric: metricId },
+      ],
+      archived: {
+        $ne: true,
+      },
+    },
+    // hard cap at 1000 to prevent too many results
+    limit !== undefined ? limit : 1000,
+    { _id: -1 }
+  );
+
+  return experiments;
+}
+
 export async function getRecentExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
-  metricId: string
+  metricId: string,
+  limit: number | undefined = 10,
+  fullExperiment: boolean = false
 ): Promise<
   Pick<
     ExperimentInterface,
@@ -617,10 +649,14 @@ export async function getRecentExperimentsUsingMetric(
         $ne: true,
       },
     },
-    10,
+    // hard cap at 1000 to prevent too many results
+    limit !== undefined ? limit : 1000,
     { _id: -1 }
   );
 
+  if (fullExperiment) {
+    return experiments;
+  }
   return experiments.map((exp) => ({
     id: exp.id,
     name: exp.name,

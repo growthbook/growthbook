@@ -1,7 +1,12 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useState } from "react";
-import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { useEffect, useState } from "react";
+import {
+  FaChartLine,
+  FaExternalLinkAlt,
+  FaFlask,
+  FaTimes,
+} from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { quantileMetricType } from "shared/experiments";
@@ -34,6 +39,13 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
+import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import TabButton from "@/components/Tabs/TabButton";
+import TabButtons from "@/components/Tabs/TabButtons";
+
+export const metricTabs = ["analysis", "experiments"] as const;
+export type MetricTab = typeof metricTabs[number];
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -184,6 +196,22 @@ export default function FactMetricPage() {
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+
+  const [tab, setTab] = useLocalStorage<MetricTab>(
+    `metricTabbedPageTab__${fmid}`,
+    "analysis"
+  );
+  useEffect(() => {
+    const handler = () => {
+      const hash = window.location.hash.replace(/^#/, "") as MetricTab;
+      if (metricTabs.includes(hash)) {
+        setTab(hash);
+      }
+    };
+    handler();
+    window.addEventListener("hashchange", handler, false);
+    return () => window.removeEventListener("hashchange", handler, false);
+  }, [setTab]);
 
   const { apiCall } = useAuth();
 
@@ -737,10 +765,43 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-
-      {!!datasource && (
+      <div className="row align-items-center ml-1">
+        <div className="col-auto pt-2 tab-wrapper" id="metric-page-tabs">
+          <TabButtons className="mb-0 pb-0">
+            <TabButton
+              active={tab === "analysis"}
+              display={
+                <>
+                  <FaChartLine className="mr-1" />
+                  Metric Analysis
+                </>
+              }
+              anchor="analysis"
+              onClick={() => setTab("analysis")}
+              newStyle={false}
+              activeClassName="active-tab"
+            />
+            <TabButton
+              active={tab === "experiments"}
+              display={
+                <>
+                  <FaFlask className="mr-1" />
+                  Experiments
+                </>
+              }
+              anchor="experiments"
+              onClick={() => setTab("experiments")}
+              newStyle={false}
+              activeClassName="active-tab"
+              last={false}
+            />
+          </TabButtons>
+        </div>
+      </div>
+      {!!datasource && tab === "analysis" ? (
         <MetricAnalysis factMetric={factMetric} datasource={datasource} />
-      )}
+      ) : null}
+      {tab === "experiments" ? <MetricExperiments metric={factMetric} /> : null}
     </div>
   );
 }
