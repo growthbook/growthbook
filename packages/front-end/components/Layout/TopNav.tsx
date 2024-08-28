@@ -37,6 +37,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import useGlobalMenu from "@/services/useGlobalMenu";
+import { useHelloweenThemeContext } from "@/services/helloweenProvider";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -51,6 +52,10 @@ const TopNav: FC<{
     enableCelebrations,
     setEnableCelebrations,
   ] = useCelebrationLocalStorage();
+  const {
+    setShowHelloweenTheme,
+    showHelloweenTheme,
+  } = useHelloweenThemeContext();
 
   const { breadcrumb } = usePageHead();
 
@@ -169,6 +174,22 @@ const TopNav: FC<{
       </>
     );
   };
+  const renderhelloweenToggleButton = () => {
+    return (
+      <DropdownMenu.Item className="dropdown-text-color">
+        <div className="align-middle">
+          <Toggle
+            id="helloweenMode"
+            label="Helloween Mode"
+            value={showHelloweenTheme}
+            setValue={(v) => setShowHelloweenTheme(v)}
+          />
+          Helloween Mode
+        </div>
+      </DropdownMenu.Item>
+    );
+  };
+
   const renderPersonalAccessTokensDropDown = () => {
     return (
       <DropdownMenu.Item
@@ -483,6 +504,7 @@ const TopNav: FC<{
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="start">
               {renderNameAndEmailDropdownLabel()}
+              {renderhelloweenToggleButton()}
               {renderEditProfileDropDown()}
               {renderThemeSubDropDown()}
               {renderMyActivityFeedsDropDown()}

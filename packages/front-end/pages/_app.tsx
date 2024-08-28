@@ -6,6 +6,7 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
@@ -23,6 +24,9 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
+import { useHelloweenLocalStorage } from "@/hooks/useHelloween";
+import { HelloweenThemeProvider } from "@/services/helloweenProvider";
+import HelloweenCobweb from "@/components/HelloweenCobweb";
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
@@ -68,7 +72,8 @@ function App({
   const preAuth = Component.preAuth || false;
   const preAuthTopNav = Component.preAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
-
+  const [showCobweb] = useHelloweenLocalStorage();
+  console.log("showCobweb", showCobweb);
   useEffect(() => {
     initEnv()
       .then(() => {
@@ -123,41 +128,47 @@ function App({
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
+      <Script src="/libraries/bug-min.js" />
       {ready ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
-            {preAuth ? (
-              renderPreAuth()
-            ) : (
-              <PageHeadProvider>
-                <AuthProvider>
-                  <GrowthBookProvider growthbook={growthbook}>
-                    <ProtectedPage organizationRequired={organizationRequired}>
-                      {organizationRequired ? (
-                        <GetStartedProvider>
-                          <DefinitionsProvider>
-                            {!liteLayout && <Layout />}
-                            <main className={`main ${parts[0]}`}>
-                              <GuidedGetStartedBar />
-                              <OrganizationMessagesContainer />
-                              <DemoDataSourceGlobalBannerContainer />
+            <HelloweenThemeProvider>
+              {preAuth ? (
+                renderPreAuth()
+              ) : (
+                <PageHeadProvider>
+                  <HelloweenCobweb />
+                  <AuthProvider>
+                    <GrowthBookProvider growthbook={growthbook}>
+                      <ProtectedPage
+                        organizationRequired={organizationRequired}
+                      >
+                        {organizationRequired ? (
+                          <GetStartedProvider>
+                            <DefinitionsProvider>
+                              {!liteLayout && <Layout />}
+                              <main className={`main ${parts[0]}`}>
+                                <GuidedGetStartedBar />
+                                <OrganizationMessagesContainer />
+                                <DemoDataSourceGlobalBannerContainer />
+                                <Component {...pageProps} />
+                              </main>
+                            </DefinitionsProvider>
+                          </GetStartedProvider>
+                        ) : (
+                          <div>
+                            <TopNavLite />
+                            <main className="container mt-5">
                               <Component {...pageProps} />
                             </main>
-                          </DefinitionsProvider>
-                        </GetStartedProvider>
-                      ) : (
-                        <div>
-                          <TopNavLite />
-                          <main className="container mt-5">
-                            <Component {...pageProps} />
-                          </main>
-                        </div>
-                      )}
-                    </ProtectedPage>
-                  </GrowthBookProvider>
-                </AuthProvider>
-              </PageHeadProvider>
-            )}
+                          </div>
+                        )}
+                      </ProtectedPage>
+                    </GrowthBookProvider>
+                  </AuthProvider>
+                </PageHeadProvider>
+              )}
+            </HelloweenThemeProvider>
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (
