@@ -1,4 +1,4 @@
-import { createClient, ResponseJSON } from "@clickhouse/client";
+import { ResponseJSON } from "@clickhouse/client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
 import {
@@ -8,7 +8,7 @@ import {
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
 } from "../types/Integration";
-import { getHost } from "../util/sql";
+import { getClickHouseClient } from "../services/clickhouse";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
@@ -34,20 +34,8 @@ export default class ClickHouse extends SqlIntegration {
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
-    const client = createClient({
-      host: getHost(this.params.url, this.params.port),
-      username: this.params.username,
-      password: this.params.password,
-      database: this.params.database,
-      application: "GrowthBook",
-      request_timeout: 3620_000,
-      clickhouse_settings: {
-        max_execution_time: Math.min(
-          this.params.maxExecutionTime ?? 1800,
-          3600
-        ),
-      },
-    });
+    const client = getClickHouseClient(this.params);
+
     const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
@@ -110,12 +98,12 @@ export default class ClickHouse extends SqlIntegration {
   }
 
   async createAutoTrackTables(): Promise<void> {
-    const dbName = this.datasource.id;
-    await this.runQuery(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
+    const client = getClickHouseClient(this.params);
 
     // Create table for event tracking
-    await this.runQuery(`
-CREATE TABLE IF NOT EXISTS ${dbName}.events (
+    await client.command({
+      query: `
+CREATE TABLE IF NOT EXISTS events (
   uuid UUID,
   timestamp DateTime,
   anonymous_id String,
@@ -134,11 +122,13 @@ CREATE TABLE IF NOT EXISTS ${dbName}.events (
   utmCampaign String,
   utmTerm String,
   utmContent String
-) ENGINE = MergeTree() PARTITION BY toYYYYMM(timestamp) ORDER BY (timestamp)`);
+) ENGINE = MergeTree() PARTITION BY toYYYYMM(timestamp) ORDER BY (timestamp)`,
+    });
 
     // Create table for feature flag usage tracking
-    await this.runQuery(`
-CREATE TABLE IF NOT EXISTS ${dbName}.ff_usage (
+    await client.command({
+      query: `
+CREATE TABLE IF NOT EXISTS ff_usage (
   timestamp DateTime,
   feature String,
   env String,
@@ -148,7 +138,8 @@ CREATE TABLE IF NOT EXISTS ${dbName}.ff_usage (
 ) 
   ENGINE = MergeTree() 
   PARTITION BY toYYYYMMDD(timestamp) 
-  ORDER BY (timestamp)`);
+  ORDER BY (timestamp)`,
+    });
   }
 
   escape(value: unknown): string {
@@ -162,9 +153,8 @@ CREATE TABLE IF NOT EXISTS ${dbName}.ff_usage (
     properties,
     value,
   }: InsertTrackEventProps): Promise<void> {
-    const dbName = this.datasource.id;
-    await this.runQuery(`
-INSERT INTO ${dbName}.events (
+    const sql = `
+INSERT INTO events (
   uuid,
   timestamp,
   anonymous_id,
@@ -202,13 +192,15 @@ INSERT INTO ${dbName}.events (
   ${this.escape(attributes?.utmCampaign)},
   ${this.escape(attributes?.utmTerm)},
   ${this.escape(attributes?.utmContent)}
-)`);
+)`;
+
+    const client = getClickHouseClient(this.params);
+    await client.command({ query: sql });
   }
 
   async insertFeatureUsage(data: InsertFeatureUsageProps): Promise<void> {
-    const dbName = this.datasource.id;
-    await this.runQuery(`
-INSERT INTO ${dbName}.ff_usage (
+    const sql = `
+INSERT INTO ff_usage (
   timestamp,
   feature,
   env,
@@ -222,7 +214,10 @@ INSERT INTO ${dbName}.ff_usage (
   ${this.escape(data.revision)},
   ${this.escape(data.ruleId)},
   ${this.escape(data.variationId)}
-)`);
+)`;
+
+    const client = getClickHouseClient(this.params);
+    await client.command({ query: sql });
   }
 
   async getFeatureUsage(
@@ -247,7 +242,6 @@ INSERT INTO ${dbName}.ff_usage (
       throw new Error(`Invalid lookback: ${lookback}`);
     }
 
-    const dbName = this.datasource.id;
     const res = await this.runQuery(`
 WITH _data as (
 	SELECT
@@ -255,7 +249,7 @@ WITH _data as (
     env,
     ruleId,
     variationId
-  FROM ${dbName}.ff_usage
+  FROM ff_usage
 	WHERE
 	  timestamp > ${this.toTimestamp(start)}
 	  AND feature = ${this.escape(feature)}
@@ -271,7 +265,7 @@ GROUP BY
   timestamp,
   env,
   ruleId,
-  variationId,
+  variationId
       `);
 
     return res.rows.map((row) => ({

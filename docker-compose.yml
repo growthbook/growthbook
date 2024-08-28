@@ -16,14 +16,19 @@ services:
       - mongo
     environment:
       - MONGODB_URI=mongodb://root:password@mongo:27017/growthbook?authSource=admin
-      - CLICKHOUSE_URI=https://root:password@clickhouse:9999
+      - CLICKHOUSE_URI=https://root:password@clickhouse:8123
     volumes:
       - uploads:/usr/local/src/app/packages/back-end/uploads
   clickhouse:
-    image: "clickhouse:latest"
+    image: "clickhouse/clickhouse-server:latest"
+    ports:
+      - "8123:8123"
+      - "9000:9000"
     environment:
+      - CLICKHOUSE_DB=growthbook
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_USER=root
-      - CLICKHOUSE_PASS=password
+      - CLICKHOUSE_PASSWORD=password
 volumes:
   uploads:
   mongodata:

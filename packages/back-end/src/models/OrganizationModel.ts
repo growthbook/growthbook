@@ -24,6 +24,7 @@ import {
 import { getContextForAgendaJobByOrgObject } from "../services/organizations";
 import { logger } from "../util/logger";
 import { getSourceIntegrationObject } from "../services/datasource";
+import { createClickHouseDatabaseForParams } from "../services/clickhouse";
 import { createDataSource } from "./DataSourceModel";
 import { createFactTable } from "./FactTableModel";
 
@@ -217,228 +218,255 @@ export async function createOrganization({
   });
   const org = toInterface(doc);
 
-  // Create default data source if configured via env vars
   if (CLICKHOUSE_URI) {
     try {
-      // Create a data source
-      const parsed = new URL(CLICKHOUSE_URI);
-      const context = getContextForAgendaJobByOrgObject(org);
-      const params: ClickHouseConnectionParams = {
-        username: parsed.username,
-        password: parsed.password,
-        database: parsed.pathname,
-        port: parseInt(parsed.port),
-        url: parsed.host,
-      };
-      const ds = await createDataSource(
-        context,
-        "ClickHouse (Included)",
-        "clickhouse",
-        params,
-        {
-          userIdTypes: [
-            {
-              userIdType: "anonymous_id",
-            },
-          ],
-          queries: {
-            exposure: [
-              {
-                id: "anonymous_id",
-                dimensions: [],
-                name: "Anonymous Id Experiments",
-                query: `       
-SELECT 
-  anonymous_id,
-  timestamp,
-  simpleJSONExtractString(properties, 'experiment_id') as experiment_id,
-  simpleJSONExtractString(properties, 'variation_id') as variation_id
-FROM events 
-WHERE
-  event_name = 'Experiment Viewed'
-  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
-                `,
-                userIdType: "anonymous_id",
-              },
-            ],
-          },
-        }
-      );
-
-      // Create empty tables in the data source
-      const integration = getSourceIntegrationObject(context, ds, true);
-      if (integration.createAutoTrackTables) {
-        await integration.createAutoTrackTables();
-      }
-
-      // Create a fact table for events
-      await createFactTable(context, {
-        name: "Events",
-        description: "",
-        datasource: ds.id,
-        owner: userId,
-        eventName: "",
-        projects: [],
-        userIdTypes: ["anonymous_id"],
-        sql: `
-SELECT
-  uuid,
-  timestamp,
-  anonymous_id,
-  event_name,
-  value,
-  properties,
-  browser,
-  deviceType,
-  url,
-  path,
-  host,
-  query,
-  pageTitle,
-  utmSource,
-  utmMedium,
-  utmCampaign,
-  utmTerm,
-  utmContent
-FROM events 
-WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
-        `,
-        tags: [],
-        columns: [
-          {
-            column: "uuid",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "timestamp",
-            datatype: "date",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "anonymous_id",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "event_name",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "value",
-            datatype: "number",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "properties",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "browser",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "deviceType",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "url",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "path",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "host",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "query",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "pageTitle",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "utmSource",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "utmMedium",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "utmCampaign",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "utmTerm",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-          {
-            column: "utmContent",
-            datatype: "string",
-            name: "",
-            description: "",
-            numberFormat: "",
-          },
-        ],
-      });
+      addBuiltInDataSourceToOrg(org, userId);
     } catch (e) {
-      logger.error(e, "Failed to auto-create data source and fact table");
+      logger.error(e, "Failed to create built-in data source for org");
     }
   }
 
   return org;
+}
+
+export async function addBuiltInDataSourceToOrg(
+  org: OrganizationInterface,
+  userId: string
+) {
+  // Create default data source if configured via env vars
+  if (!CLICKHOUSE_URI) {
+    throw new Error("CLICKHOUSE_URI not set");
+  }
+  // Create a data source
+  const parsed = new URL(CLICKHOUSE_URI);
+  const context = getContextForAgendaJobByOrgObject(org);
+  const dsId = uniqid("ds_");
+  const params: ClickHouseConnectionParams = {
+    username: parsed.username,
+    password: parsed.password,
+    database: dsId,
+    port: parseInt(parsed.port),
+    url: parsed.origin,
+  };
+
+  // Create a dedicated ClickHouse database for this data source
+  // TODO: Also create dedicated user that only has access to this one database
+  await createClickHouseDatabaseForParams(params, "growthbook");
+
+  const ds = await createDataSource(
+    context,
+    "ClickHouse (Included)",
+    "clickhouse",
+    params,
+    {
+      userIdTypes: [
+        {
+          userIdType: "anonymous_id",
+        },
+      ],
+      queries: {
+        exposure: [
+          {
+            id: "anonymous_id",
+            dimensions: [],
+            name: "Anonymous Id Experiments",
+            query: `       
+SELECT 
+anonymous_id,
+timestamp,
+simpleJSONExtractString(properties, 'experiment_id') as experiment_id,
+simpleJSONExtractString(properties, 'variation_id') as variation_id
+FROM events 
+WHERE
+event_name = 'Experiment Viewed'
+AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+              `,
+            userIdType: "anonymous_id",
+          },
+        ],
+      },
+    },
+    dsId
+  );
+
+  // Create empty tables in the data source
+  const integration = getSourceIntegrationObject(context, ds, true);
+  if (integration.createAutoTrackTables) {
+    await integration.createAutoTrackTables();
+  }
+
+  // Insert dummy event
+  if (integration.insertTrackEvent) {
+    await integration.insertTrackEvent({
+      event_name: "Test Event",
+      attributes: {},
+      properties: {},
+      value: 0,
+    });
+  }
+
+  // Create a fact table for events
+  await createFactTable(context, {
+    name: "Events",
+    description: "",
+    datasource: ds.id,
+    owner: userId,
+    eventName: "",
+    projects: [],
+    userIdTypes: ["anonymous_id"],
+    sql: `
+SELECT
+uuid,
+timestamp,
+anonymous_id,
+event_name,
+value,
+properties,
+browser,
+deviceType,
+url,
+path,
+host,
+query,
+pageTitle,
+utmSource,
+utmMedium,
+utmCampaign,
+utmTerm,
+utmContent
+FROM events 
+WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+      `,
+    tags: [],
+    columns: [
+      {
+        column: "uuid",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "timestamp",
+        datatype: "date",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "anonymous_id",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "event_name",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "value",
+        datatype: "number",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "properties",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "browser",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "deviceType",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "url",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "path",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "host",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "query",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "pageTitle",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "utmSource",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "utmMedium",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "utmCampaign",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "utmTerm",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+      {
+        column: "utmContent",
+        datatype: "string",
+        name: "",
+        description: "",
+        numberFormat: "",
+      },
+    ],
+  });
 }
 
 export async function findAllOrganizations(

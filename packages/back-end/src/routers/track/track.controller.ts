@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
-import { findSDKConnectionByKey } from "@back-end/src/models/SdkConnectionModel";
-import { getContextForAgendaJobByOrgId } from "@back-end/src/services/organizations";
-import { getSourceIntegrationObject } from "@back-end/src/services/datasource";
-import { getDataSourceById } from "@back-end/src/models/DataSourceModel";
+import { getContextForAgendaJobByOrgId } from "../../services/organizations";
+import { getSourceIntegrationObject } from "../../services/datasource";
+import { getDataSourceById } from "../../models/DataSourceModel";
+import { findSDKConnectionByKey } from "../../models/SdkConnectionModel";
 
 export const postEvent = async (
   req: Request<
