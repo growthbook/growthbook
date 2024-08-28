@@ -136,6 +136,14 @@ export class GrowthBook<
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
 
+    let isCloud = false;
+    const { apiHost } = this.getApiHosts();
+    try {
+      isCloud = !!new URL(apiHost).hostname.match(/growthbook\.io$/i);
+    } catch (e) {
+      // ignore invalid URLs
+    }
+
     if (context.remoteEval) {
       if (context.decryptionKey) {
         throw new Error("Encryption is not available for remoteEval");
@@ -143,21 +151,86 @@ export class GrowthBook<
       if (!context.clientKey) {
         throw new Error("Missing clientKey");
       }
-      let isGbHost = false;
-      try {
-        isGbHost = !!new URL(context.apiHost || "").hostname.match(
-          /growthbook\.io$/i
-        );
-      } catch (e) {
-        // ignore invalid URLs
-      }
-      if (isGbHost) {
+      if (isCloud) {
         throw new Error("Cannot use remoteEval on GrowthBook Cloud");
       }
     } else {
       if (context.cacheKeyAttributes) {
         throw new Error("cacheKeyAttributes are only used for remoteEval");
       }
+    }
+
+    if (context.enableEventTracking) {
+      if (!isBrowser) {
+        throw new Error(
+          "Event tracking is only available in a browser environment"
+        );
+      }
+      if (!context.clientKey) {
+        throw new Error("Missing clientKey");
+      }
+      if (isCloud) {
+        throw new Error("Cannot use event tracking on GrowthBook Cloud");
+      }
+
+      // Default tracking callback if not specified
+      if (!context.trackingCallback) {
+        context.trackingCallback = async (
+          exp: Experiment<unknown>,
+          res: Result<unknown>
+        ) => {
+          await this.trackEvent("Viewed Experiment", {
+            experiment_id: exp.key,
+            variation_id: res.key,
+          });
+        };
+      }
+    }
+
+    if (context.enableFeatureUsageTracking) {
+      if (!isBrowser) {
+        throw new Error(
+          "Feature usage tracking is only available in a browser environment"
+        );
+      }
+      if (!context.clientKey) {
+        throw new Error("Missing clientKey");
+      }
+      if (isCloud) {
+        throw new Error(
+          "Cannot use feature usage tracking on GrowthBook Cloud"
+        );
+      }
+
+      const existingCB = context.onFeatureUsage;
+      context.onFeatureUsage = (
+        key: string,
+        result: FeatureResult<unknown>
+      ) => {
+        const params = new URLSearchParams({
+          feature: key,
+          revision: "",
+          ruleId:
+            result.source === "defaultValue" ? "$default" : result.ruleId || "",
+          variationId: result.experimentResult?.key || "",
+        });
+
+        fetch(
+          `${apiHost}/api/track/ff-usage/${
+            this._ctx.clientKey
+          }?${params.toString()}`,
+          {
+            method: "POST",
+            mode: "no-cors",
+          }
+        ).catch(() => {
+          // Ignore errors
+        });
+
+        if (existingCB) {
+          existingCB(key, result);
+        }
+      };
     }
 
     if (context.features) {
@@ -590,6 +663,50 @@ export class GrowthBook<
 
   private _canSubscribe() {
     return (this._ctx.backgroundSync ?? true) && this._ctx.subscribeToChanges;
+  }
+
+  public trackEvent(
+    name: string,
+    value?: number,
+    properties?: Record<string, unknown>
+  ): Promise<void>;
+  public trackEvent(
+    name: string,
+    properties?: Record<string, unknown>
+  ): Promise<void>;
+  public async trackEvent(
+    name: string,
+    valueOrProps?: number | Record<string, unknown>,
+    properties?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this._ctx.enableEventTracking) return;
+
+    const { apiHost } = this.getApiHosts();
+    if (!apiHost) {
+      throw new Error("Missing apiHost");
+    }
+
+    const params = new URLSearchParams({
+      event_name: name,
+      attributes: JSON.stringify(this.getAttributes()),
+    });
+
+    if (typeof valueOrProps === "number") {
+      params.set("value", valueOrProps.toString());
+      if (properties) {
+        params.set("properties", JSON.stringify(properties));
+      }
+    } else if (valueOrProps && typeof valueOrProps === "object") {
+      params.set("properties", JSON.stringify(valueOrProps));
+    }
+
+    await fetch(
+      `${apiHost}/api/track/event/${this._ctx.clientKey}?${params.toString()}`,
+      {
+        method: "POST",
+        mode: "no-cors",
+      }
+    );
   }
 
   private async _refreshForRemoteEval() {
