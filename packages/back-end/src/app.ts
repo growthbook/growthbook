@@ -112,6 +112,7 @@ import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router"
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
+import {AskAnythingRouter} from "./routers/ask-anything/ask-anything.router";
 
 const app = express();
 
@@ -382,6 +383,7 @@ app.use("/tag", tagRouter);
 app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
+app.use("/ask-anything", AskAnythingRouter);
 
 app.use("/attribute", AttributeRouter);
 
