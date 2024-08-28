@@ -126,6 +126,7 @@ export const factMetricValidator = z
     projects: z.array(z.string()),
     inverse: z.boolean(),
     status: z.enum(["active", "archived"]).optional(),
+    archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
     numerator: columnRefValidator,
