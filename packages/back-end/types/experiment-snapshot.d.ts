@@ -179,6 +179,13 @@ export interface ExperimentSnapshotInterface {
   health?: ExperimentSnapshotHealth;
 }
 
+export interface SnapshotSelectorSummary {
+  id: string;
+  dimension: string | null;
+  status: string;
+  dateCreated: string;
+}
+
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
 }

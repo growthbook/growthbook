@@ -4,7 +4,7 @@ import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
-import { FaQuestionCircle } from "react-icons/fa";
+import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
@@ -46,6 +46,7 @@ const AnalysisForm: FC<{
   editVariationIds?: boolean;
   editDates?: boolean;
   editMetrics?: boolean;
+  locked?: boolean;
 }> = ({
   experiment,
   cancel,
@@ -54,6 +55,7 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
+  locked = false,
 }) => {
   const {
     segments,
@@ -212,7 +214,7 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
+      ctaEnabled={(!editMetrics || !hasMetricOverrideRiskError) && !locked}
       submit={form.handleSubmit(async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
@@ -248,6 +250,14 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
+      {locked ? <div
+        className="d-flex align-items-center p-3 alert alert-danger"
+      >
+        <div>
+            <h3><FaExclamationTriangle /> {`You are viewing a historical snapshot.`}</h3>
+            {"No settings can be updated."}
+        </div>
+    </div> : null}
       <SelectField
         label="Data Source"
         labelClassName="font-weight-bold"

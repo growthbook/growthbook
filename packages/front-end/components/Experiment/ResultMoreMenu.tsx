@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
+import { FaFileDownload, FaHistory, FaPencilAlt } from "react-icons/fa";
 import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
@@ -21,6 +21,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
   editMetrics,
+  openSnapshotHistory,
   queries,
   queryError,
   hasData,
@@ -37,8 +38,10 @@ export default function ResultMoreMenu({
   dimension,
   datasource,
   project,
+  locked,
 }: {
   editMetrics?: () => void;
+  openSnapshotHistory?: () => void;
   queries?: Queries;
   queryError?: string;
   hasData?: boolean;
@@ -55,6 +58,7 @@ export default function ResultMoreMenu({
   dimension?: string;
   datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
+  locked?: boolean;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -77,7 +81,8 @@ export default function ResultMoreMenu({
       )}
       {forceRefresh &&
         datasource &&
-        permissionsUtil.canRunExperimentQueries(datasource) && (
+        permissionsUtil.canRunExperimentQueries(datasource) && 
+        !locked && (
           <button
             className="btn dropdown-item py-2"
             onClick={(e) => {
@@ -88,7 +93,8 @@ export default function ResultMoreMenu({
             <BsArrowRepeat className="mr-2" /> Re-run All Queries
           </button>
         )}
-      {hasData && queries && generateReport && canEdit && (
+      {hasData && queries && generateReport && canEdit &&
+        !locked && (
         <Button
           className="dropdown-item py-2"
           color="outline-info"
@@ -117,6 +123,7 @@ export default function ResultMoreMenu({
           Report
         </Button>
       )}
+      {!locked ? (
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
@@ -152,8 +159,9 @@ export default function ResultMoreMenu({
           <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
           Download Notebook
         </Button>
-      </Tooltip>
-      {canEdit && editMetrics && (
+      </Tooltip>): null}
+      {canEdit && editMetrics &&
+        !locked && (
         <button
           type="button"
           className="dropdown-item py-2"
@@ -164,7 +172,8 @@ export default function ResultMoreMenu({
           <FaPencilAlt className="mr-2" /> Add/Remove Metrics
         </button>
       )}
-      {results && (
+      {results &&
+        !locked && (
         <ResultsDownloadButton
           results={results}
           metrics={metrics}
@@ -173,6 +182,15 @@ export default function ResultMoreMenu({
           dimension={dimension || ""}
         />
       )}
+      {openSnapshotHistory ? <button
+          type="button"
+          className="dropdown-item py-2"
+          onClick={() => {
+            openSnapshotHistory();
+          }}
+        >
+          <FaHistory className="mr-2" /> Snapshot History
+        </button> : null}
     </MoreMenu>
   );
 }

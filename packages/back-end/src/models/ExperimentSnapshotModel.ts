@@ -4,11 +4,14 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
+  SnapshotSelectorSummary,
 } from "../../types/experiment-snapshot";
 import { migrateSnapshot } from "../util/migrations";
 import { notifyExperimentChange } from "../services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
+import { ApiReqContext } from "@back-end/types/api";
+import { ReqContext } from "@back-end/types/organization";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
@@ -389,6 +392,45 @@ export async function getLatestSnapshotMultipleExperiments(
   }
 
   return snapshots;
+}
+
+export async function getAllSnapshots(
+  context: ReqContext | ApiReqContext,
+  experiment: string,
+  phase: number,
+  withResults: boolean = true
+): Promise< SnapshotSelectorSummary[] > {
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    organization: context.org.id,
+    experiment,
+    phase,
+  };
+
+  // First try getting new snapshots that have a `status` field
+  let all = await ExperimentSnapshotModel.find(
+    {
+      ...query,
+      status: {
+        $in: withResults ? ["success"] : ["success", "running", "error"],
+      },
+    },
+    null,
+    {
+      sort: { dateCreated: -1 },
+    }
+  ).exec();
+  if (all[0]) {
+    return all.map((doc) => {
+      const snap = toInterface(doc);
+      return {
+        id: snap.id,
+        dimension: snap.dimension,
+        status: snap.status,
+        dateCreated: snap.dateCreated.toISOString(),
+      };
+    });
+  }
+  return [];
 }
 
 export async function createExperimentSnapshotModel({

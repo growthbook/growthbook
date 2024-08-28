@@ -34,7 +34,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { eid } = router.query;
+  const { eid, snapshot: urlSnapshot } = router.query;
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
@@ -49,6 +49,9 @@ const ExperimentPage = (): ReactElement => {
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
+  
+  const urlSnapshotDesired = Array.isArray(urlSnapshot) ? urlSnapshot?.[0] : urlSnapshot;
+  const [desiredSnapshot, setDesiredSnapshot] = useState<string | null>(urlSnapshotDesired ?? null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -88,7 +91,7 @@ const ExperimentPage = (): ReactElement => {
     }
   }
 
-  const editMetrics = canEditExperiment
+  const editMetrics = canEditExperiment && desiredSnapshot === null
     ? () => setMetricsModalOpen(true)
     : null;
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
@@ -239,7 +242,7 @@ const ExperimentPage = (): ReactElement => {
       />
 
       <div className="container-fluid">
-        <SnapshotProvider experiment={experiment}>
+        <SnapshotProvider experiment={experiment} snapshotId={desiredSnapshot ? desiredSnapshot : undefined}>
           <TabbedPage
             experiment={experiment}
             linkedFeatures={linkedFeatures}
@@ -258,6 +261,7 @@ const ExperimentPage = (): ReactElement => {
             editTargeting={editTargeting}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            setDesiredSnapshot={setDesiredSnapshot}
           />
         </SnapshotProvider>
       </div>

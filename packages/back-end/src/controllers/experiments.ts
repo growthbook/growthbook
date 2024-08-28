@@ -51,6 +51,7 @@ import {
 import {
   deleteSnapshotById,
   findSnapshotById,
+  getAllSnapshots,
   getLatestSnapshot,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
@@ -89,6 +90,7 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  SnapshotSelectorSummary,
 } from "../../types/experiment-snapshot";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
@@ -393,6 +395,20 @@ export async function getSnapshot(
   });
 }
 
+
+export async function getSnapshotById(
+  req: AuthRequest<null, { id: string; }>,
+  res: Response< { status: 200; snapshot: ExperimentSnapshotInterface | null }>
+  )  {
+    const context = getContextFromReq(req);
+    const { id } = req.params;
+    const snapshot = await findSnapshotById(context.org.id, id);
+  
+    res.status(200).json({
+      status: 200,
+      snapshot,
+    });
+  }
 export async function postSnapshotNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -429,6 +445,31 @@ export async function getSnapshots(
   res.status(200).json({
     status: 200,
     snapshots: snapshots,
+  });
+  return;
+}
+
+export async function getSnapshotsOnExperimentPhase(
+  req: AuthRequest<unknown, { id: string; phase: string }>,
+  res: Response< { status: 200; snapshots: SnapshotSelectorSummary[] }>
+) {
+
+  const context = getContextFromReq(req);
+  const { id, phase: phaseStr } = req.params;
+  const phase = parseInt(phaseStr);
+
+  if (isNaN(phase)) {
+    res.status(200).json({
+      status: 200,
+      snapshots: [],
+    });
+    return;
+  }
+  const snapshots = await getAllSnapshots(context, id, phase, false);
+
+  res.status(200).json({
+    status: 200,
+    snapshots,
   });
   return;
 }

@@ -40,6 +40,7 @@ export default function HealthTab({
     phase,
     mutateSnapshot,
     setAnalysisSettings,
+    locked,
   } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
   const { refreshOrganization } = useUser();
@@ -198,11 +199,19 @@ export default function HealthTab({
         </div>
       );
     }
-    return (
-      <div className="alert alert-info mt-3">
-        Please return to the results page and run a query to see health data.
-      </div>
-    );
+    if (!locked) {
+      return (
+        <div className="alert alert-info mt-3">
+          Please return to the results page and run a query to see health data.
+        </div>
+      );
+    } else {
+      return (
+        <div className="alert alert-info mt-3">
+          No health data in this snapshot.
+        </div>
+      );
+    }
   }
 
   const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(

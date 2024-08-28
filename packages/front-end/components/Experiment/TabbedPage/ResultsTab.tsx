@@ -29,6 +29,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
+import SnapshotSelectorModal from "@/components/Experiment/SnapshotSelectorModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -52,6 +53,7 @@ export interface Props {
   setVariationFilter: (v: number[]) => void;
   metricFilter: ResultsMetricFilters;
   setMetricFilter: (m: ResultsMetricFilters) => void;
+  setDesiredSnapshot: (snapshotId: string | null) => void;
 }
 
 export default function ResultsTab({
@@ -71,6 +73,7 @@ export default function ResultsTab({
   setVariationFilter,
   metricFilter,
   setMetricFilter,
+  setDesiredSnapshot,
 }: Props) {
   const {
     getDatasourceById,
@@ -84,10 +87,11 @@ export default function ResultsTab({
   const { apiCall } = useAuth();
 
   const [allowManualDatasource, setAllowManualDatasource] = useState(false);
+  const [snapshotHistoryOpen, setSnapshotHistoryOpen] = useState(false);
 
   const router = useRouter();
 
-  const { snapshot } = useSnapshot();
+  const { snapshot, phase, locked } = useSnapshot();
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -174,13 +178,22 @@ export default function ResultsTab({
             editDates={false}
             editMetrics={true}
             editVariationIds={false}
+            locked={locked}
           />
         )}
+        {snapshotHistoryOpen ? <SnapshotSelectorModal 
+        experimentId={experiment.id} 
+        phase={phase} 
+        currentSnapshotId={snapshot?.id ?? null}
+        setDesiredSnapshot={setDesiredSnapshot} 
+        close={() => setSnapshotHistoryOpen(false)} 
+        /> : null}
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
             mutate={mutate}
             statsEngine={statsEngine}
+            openSnapshotHistory={() => setSnapshotHistoryOpen(true)}
             editMetrics={editMetrics ?? undefined}
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
@@ -283,7 +296,7 @@ export default function ResultsTab({
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col h3 ml-2 mb-0">Custom Reports</div>
             <div className="col-auto mr-2">
-              {permissionsUtil.canCreateReport(experiment) ? (
+              {permissionsUtil.canCreateReport(experiment) && !locked ? (
                 <Button
                   className="btn btn-outline-primary float-right"
                   color="outline-info"

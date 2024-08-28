@@ -98,6 +98,7 @@ const Results: FC<{
     setAnalysisSettings,
     mutateSnapshot: mutate,
     loading: snapshotLoading,
+    locked,
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
@@ -235,7 +236,8 @@ const Results: FC<{
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
         hasMetrics &&
-        !snapshotLoading && (
+        !snapshotLoading &&
+        !locked && (
           <div className="alert alert-info m-3">
             No data yet.{" "}
             {snapshot &&
@@ -438,6 +440,7 @@ const Results: FC<{
           </div>
         </div>
       ) : null}
+
     </>
   );
 };

@@ -40,6 +40,7 @@ export interface Props {
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
+  openSnapshotHistory?: () => void;
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
@@ -51,6 +52,7 @@ export default function AnalysisSettingsSummary({
   mutate,
   statsEngine,
   editMetrics,
+  openSnapshotHistory,
   setVariationFilter,
   baselineRow,
   setBaselineRow,
@@ -78,6 +80,7 @@ export default function AnalysisSettingsSummary({
     mutateSnapshot,
     setAnalysisSettings,
     phase,
+    locked,
   } = useSnapshot();
 
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
@@ -231,6 +234,7 @@ export default function AnalysisSettingsSummary({
         </>
       ) : undefined,
   });
+  console.log(latest);
 
   return (
     <div className="px-3 py-2 bg-light border-bottom">
@@ -243,6 +247,7 @@ export default function AnalysisSettingsSummary({
           editDates={true}
           editVariationIds={false}
           editMetrics={true}
+          locked={locked}
         />
       )}
       <div className="row align-items-center text-muted">
@@ -308,7 +313,7 @@ export default function AnalysisSettingsSummary({
         </div>
 
         {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-          numMetrics > 0 && (
+          numMetrics > 0 && !locked && (
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
                 <form
@@ -452,6 +457,7 @@ export default function AnalysisSettingsSummary({
                   }
                 : undefined
             }
+            openSnapshotHistory={openSnapshotHistory}
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
@@ -470,6 +476,7 @@ export default function AnalysisSettingsSummary({
             trackingKey={experiment.trackingKey}
             dimension={dimension}
             project={experiment.project}
+            locked={locked}
           />
         </div>
       </div>

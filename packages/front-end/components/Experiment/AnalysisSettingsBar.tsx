@@ -82,6 +82,7 @@ export default function AnalysisSettingsBar({
     phase,
     setDimension,
     loading,
+    locked,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = experiment
@@ -113,6 +114,7 @@ export default function AnalysisSettingsBar({
           experiment={experiment}
           mutate={mutateExperiment}
           phase={phase}
+          locked={locked}
         />
       )}
 
@@ -162,6 +164,7 @@ export default function AnalysisSettingsBar({
               setBaselineRow={setBaselineRow}
               setDifferenceType={setDifferenceType}
               setAnalysisSettings={setAnalysisSettings}
+              disabled={locked}
             />
           </div>
           {!manualSnapshot && setDifferenceType ? (
@@ -183,7 +186,7 @@ export default function AnalysisSettingsBar({
               <div className="col-auto form-inline">
                 <PhaseSelector
                   mutateExperiment={mutateExperiment}
-                  editPhases={editPhases}
+                  editPhases={!locked ? editPhases : undefined}
                 />
               </div>
             )}
@@ -223,7 +226,7 @@ export default function AnalysisSettingsBar({
                     style={{ transform: "scale(0.8)" }}
                     disabled={
                       !hasRegressionAdjustmentFeature ||
-                      !canEditAnalysisSettings
+                      !canEditAnalysisSettings || locked
                     }
                   />
                   {!regressionAdjustmentHasValidMetrics && (
@@ -297,6 +300,7 @@ export default function AnalysisSettingsBar({
                 trackingKey={experiment.trackingKey}
                 dimension={dimension}
                 project={experiment.project}
+                locked={locked}
               />
             </div>
           )}

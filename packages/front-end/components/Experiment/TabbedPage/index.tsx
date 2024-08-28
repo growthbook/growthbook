@@ -38,6 +38,8 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
+import StaleSnapshotBanner from "@/components/Experiment/TabbedPage/StaleSnapshotBanner";
+import BadSnapshotBanner from "@/components/Experiment/TabbedPage/BadSnapshotBanner";
 
 const experimentTabs = ["overview", "results", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
@@ -52,6 +54,7 @@ export interface Props {
   idea?: IdeaInterface;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  setDesiredSnapshot: (snapshotId: string | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -81,6 +84,7 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  setDesiredSnapshot,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -126,7 +130,7 @@ export default function TabbedPage({
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab]);
 
-  const { phase, setPhase } = useSnapshot();
+  const { phase, setPhase, locked, missing } = useSnapshot();
 
   const variables = {
     experiment: experiment.name,
@@ -302,6 +306,12 @@ export default function TabbedPage({
           <CustomMarkdown page={"experiment"} variables={variables} />
         </div>
 
+
+        {locked && tab !== "overview" ? (
+          <div className="pt-3">
+            <StaleSnapshotBanner setDesiredSnapshot={setDesiredSnapshot} experimentId={experiment.id} missing={missing} />
+          </div>
+        ) : null}
         {experiment.status === "stopped" && (
           <div className="pt-3">
             <StoppedExperimentBanner
@@ -406,6 +416,7 @@ export default function TabbedPage({
             setVariationFilter={setVariationFilter}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
+            setDesiredSnapshot={setDesiredSnapshot}
           />
         </div>
         <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>

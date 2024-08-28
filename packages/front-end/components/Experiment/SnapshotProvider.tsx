@@ -14,6 +14,8 @@ const snapshotContext = React.createContext<{
   analysis?: ExperimentSnapshotAnalysis | undefined;
   latestAnalysis?: ExperimentSnapshotAnalysis | undefined;
   latest?: ExperimentSnapshotInterface;
+  locked: boolean;
+  missing: boolean;
   mutateSnapshot: () => void;
   phase: number;
   dimension: string;
@@ -28,6 +30,8 @@ const snapshotContext = React.createContext<{
 }>({
   phase: 0,
   dimension: "",
+  locked: false,
+  missing: false,
   setPhase: () => {
     // do nothing
   },
@@ -45,20 +49,23 @@ const snapshotContext = React.createContext<{
 export default function SnapshotProvider({
   experiment,
   children,
+  snapshotId,
 }: {
   experiment: ExperimentInterfaceStringDates;
   children: ReactNode;
+  snapshotId?: string;
 }) {
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
 
   const { data, error, isValidating, mutate } = useApi<{
-    snapshot: ExperimentSnapshotInterface;
-    latest?: ExperimentSnapshotInterface;
-  }>(
-    `/experiment/${experiment.id}/snapshot/${phase}` +
-      (dimension ? "/" + dimension : "")
-  );
+      snapshot: ExperimentSnapshotInterface;
+      latest?: ExperimentSnapshotInterface;
+    }>(
+      snapshotId ? `/snapshot/${snapshotId}` : 
+      `/experiment/${experiment.id}/snapshot/${phase}` +
+        (dimension ? "/" + dimension : "")
+    );
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
@@ -71,13 +78,15 @@ export default function SnapshotProvider({
       value={{
         experiment,
         snapshot: data?.snapshot,
-        latest: data?.latest,
+        latest: snapshotId ? data?.snapshot : data?.latest,
         analysis: data?.snapshot
           ? getSnapshotAnalysis(data?.snapshot, analysisSettings) ?? undefined
           : undefined,
         latestAnalysis: data?.latest
           ? getSnapshotAnalysis(data?.latest, analysisSettings) ?? undefined
           : undefined,
+        locked: snapshotId !== undefined,
+        missing: snapshotId !== undefined && !data?.snapshot,
         mutateSnapshot: mutate,
         phase,
         dimension,
