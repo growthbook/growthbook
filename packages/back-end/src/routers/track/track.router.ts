@@ -11,12 +11,12 @@ const trackController = wrapController(rawTrackController);
 router.post(
   "/event/:clientKey",
   validateRequestMiddleware({
-    body: z
+    query: z
       .object({
         event_name: z.string(),
-        value: z.number().optional(),
-        properties: z.record(z.unknown()).optional(),
-        attributes: z.record(z.unknown()).optional(),
+        value: z.string().optional(),
+        properties: z.string().optional(),
+        attributes: z.string().optional(),
       })
       .strict(),
   }),
@@ -26,7 +26,7 @@ router.post(
 router.post(
   "/ff-usage/:clientKey",
   validateRequestMiddleware({
-    body: z
+    query: z
       .object({
         feature: z.string(),
         revision: z.string(),

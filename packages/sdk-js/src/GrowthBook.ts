@@ -207,22 +207,23 @@ export class GrowthBook<
         key: string,
         result: FeatureResult<unknown>
       ) => {
-        fetch(`${apiHost}/api/track/ff-usage/${this._ctx.clientKey}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          mode: "no-cors",
-          body: JSON.stringify({
-            feature: key,
-            revision: "",
-            ruleId:
-              result.source === "defaultValue"
-                ? "$default"
-                : result.ruleId || "",
-            variationId: result.experimentResult?.key || "",
-          }),
-        }).catch(() => {
+        const params = new URLSearchParams({
+          feature: key,
+          revision: "",
+          ruleId:
+            result.source === "defaultValue" ? "$default" : result.ruleId || "",
+          variationId: result.experimentResult?.key || "",
+        });
+
+        fetch(
+          `${apiHost}/api/track/ff-usage/${
+            this._ctx.clientKey
+          }?${params.toString()}`,
+          {
+            method: "POST",
+            mode: "no-cors",
+          }
+        ).catch(() => {
           // Ignore errors
         });
 
@@ -685,22 +686,27 @@ export class GrowthBook<
       throw new Error("Missing apiHost");
     }
 
-    await fetch(`${apiHost}/api/track/event/${this._ctx.clientKey}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      mode: "no-cors",
-      body: JSON.stringify({
-        event_name: name,
-        attributes: this.getAttributes(),
-        value: typeof valueOrProps === "number" ? valueOrProps : undefined,
-        properties:
-          valueOrProps && typeof valueOrProps === "object"
-            ? valueOrProps
-            : properties,
-      }),
+    const params = new URLSearchParams({
+      event_name: name,
+      attributes: JSON.stringify(this.getAttributes()),
     });
+
+    if (typeof valueOrProps === "number") {
+      params.set("value", valueOrProps.toString());
+      if (properties) {
+        params.set("properties", JSON.stringify(properties));
+      }
+    } else if (valueOrProps && typeof valueOrProps === "object") {
+      params.set("properties", JSON.stringify(valueOrProps));
+    }
+
+    await fetch(
+      `${apiHost}/api/track/event/${this._ctx.clientKey}?${params.toString()}`,
+      {
+        method: "POST",
+        mode: "no-cors",
+      }
+    );
   }
 
   private async _refreshForRemoteEval() {

@@ -258,7 +258,6 @@ if (!IS_CLOUD) {
   app.use(
     "/api/track/",
     cors({
-      credentials: false,
       origin: "*",
     }),
     trackRouter

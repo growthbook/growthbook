@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { InsertTrackEventProps } from "@back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "../../services/organizations";
 import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
@@ -10,15 +11,37 @@ export const postEvent = async (
       clientKey: string;
     },
     { status: 200 },
+    unknown,
     {
       event_name: string;
-      value?: number;
-      properties?: Record<string, unknown>;
-      attributes?: Record<string, unknown>;
+      value?: string;
+      properties?: string;
+      attributes?: string;
     }
   >,
   res: Response<{ status: 200 }>
 ) => {
+  // Validate arguments
+  const query = req.query;
+
+  const data: InsertTrackEventProps = {
+    event_name: query.event_name,
+  };
+
+  try {
+    if (query.value) {
+      data.value = parseFloat(query.value);
+    }
+    if (query.properties) {
+      data.properties = JSON.parse(query.properties);
+    }
+    if (query.attributes) {
+      data.attributes = JSON.parse(query.attributes);
+    }
+  } catch (e) {
+    throw new Error("Invalid arguments");
+  }
+
   // Lookup org from clientKey
   const { clientKey } = req.params;
 
@@ -49,12 +72,7 @@ export const postEvent = async (
     throw new Error("Tracking Datasource does not support track events");
   }
 
-  await integration.insertTrackEvent({
-    event_name: req.body.event_name,
-    attributes: req.body.attributes,
-    properties: req.body.properties,
-    value: req.body.value,
-  });
+  await integration.insertTrackEvent(data);
 
   res.status(200).json({
     status: 200,
@@ -67,6 +85,7 @@ export const postFeatureUsage = async (
       clientKey: string;
     },
     { status: 200 },
+    unknown,
     {
       feature: string;
       revision: string;
@@ -107,10 +126,10 @@ export const postFeatureUsage = async (
   }
 
   await integration.insertFeatureUsage({
-    feature: req.body.feature,
-    revision: req.body.revision,
-    ruleId: req.body.ruleId || "",
-    variationId: req.body.variationId || "",
+    feature: req.query.feature,
+    revision: req.query.revision,
+    ruleId: req.query.ruleId || "",
+    variationId: req.query.variationId || "",
     env: connection.environment,
   });
 
