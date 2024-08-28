@@ -13,6 +13,12 @@ router.post(
   validateRequestMiddleware({
     body: z.object({
       query: z.string(),
+      history: z.array(
+        z.object({
+          user: z.string(),
+          value: z.string(),
+        })
+      ).optional(),
       queryContext: z.object({}).passthrough().optional(),
       path: z.string(),
     }),

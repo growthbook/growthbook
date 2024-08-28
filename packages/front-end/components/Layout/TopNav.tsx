@@ -16,6 +16,8 @@ import Head from "next/head";
 import { DropdownMenu, Text } from "@radix-ui/themes";
 import router from "next/router";
 import clsx from "clsx";
+import { MdOutlineKeyboardReturn } from "react-icons/md";
+import {RiRobot3Line, RiUserLine} from "react-icons/ri";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -37,8 +39,10 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import useGlobalMenu from "@/services/useGlobalMenu";
+import { useAskAnything } from "@/hooks/useAskAnything";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -73,8 +77,21 @@ const TopNav: FC<{
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
+  const {
+    submitQuery: askAnythingQuery,
+    loading: askAnythingLoading,
+    error: askAnythingError,
+    setError: setAskAnythingError,
+    history: askAnythingHistory,
+    setHistory: setAskAnythingHistory,
+  } = useAskAnything();
+
   const form = useForm({
-    defaultValues: { name: name || "", enableCelebrations },
+    defaultValues: {
+      name: name || "",
+      enableCelebrations,
+      askAnything: "",
+    },
   });
 
   const onSubmitEditProfile = form.handleSubmit(async (value) => {
@@ -494,6 +511,74 @@ const TopNav: FC<{
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>
+
+        <div className={styles.siteagent}>
+          <label className="mb-0 text-purple nowrap" htmlFor="ask-anything">
+            <RiRobot3Line
+              className="mr-1 position-relative"
+              style={{ top: -2 }}
+            />
+            Ask anything
+          </label>
+          <Field
+            id="ask-anything"
+            className={`${styles.siteagent_input} ml-3`}
+            style={{ height: 26 }}
+            onKeyDown={async (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (askAnythingLoading) return;
+                await askAnythingQuery(form.watch("askAnything"));
+              }
+            }}
+            {...form.register("askAnything")}
+          />
+          <button
+            className="btn btn-outline-primary btn-sm ml-2 py-0"
+            style={{ height: 26 }}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (askAnythingLoading) return;
+              await askAnythingQuery(form.watch("askAnything"));
+            }}
+          >
+            <MdOutlineKeyboardReturn size={18} />
+          </button>
+        </div>
+        {(askAnythingLoading || askAnythingError || askAnythingHistory?.length > 0 ) && (
+          <div className={styles.siteagent_results}>
+            {askAnythingLoading && (
+              <LoadingSpinner />
+            )}
+            {!!askAnythingError && (
+              <div className="text-danger">{askAnythingError}</div>
+            )}
+            {askAnythingHistory?.length > 0 ?
+              askAnythingHistory.map((h, i) => (
+                <div className="my-2 d-flex" key={"askAnythingHistory_"+i}>
+                  <div className="mr-2">
+                    {h.user === "user" ? <RiUserLine /> : <RiRobot3Line /> }
+                  </div>
+                  <div className={h.user === "user" ? "font-weight-bold" : "text-purple" }>{h.value}</div>
+                </div>
+              )
+            ) : null}
+            {askAnythingHistory?.length > 0 && (
+              <div className="mx-2 my-3 d-flex justify-content-end">
+                <button
+                  className="btn btn-primary"
+                  onClick={(e) => {
+                  e.preventDefault();
+                  setAskAnythingHistory([]);
+                  setAskAnythingError("");
+                  form.setValue("askAnything", "");
+                }}>
+                  Start over
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

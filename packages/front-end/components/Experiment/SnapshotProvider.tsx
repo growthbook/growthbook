@@ -1,4 +1,4 @@
-import React, { useState, ReactNode, useContext } from "react";
+import React, {useState, ReactNode, useContext, useEffect} from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -7,6 +7,8 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
+import {useAskAnything} from "@/hooks/useAskAnything";
+import pick from "lodash/pick";
 
 const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
@@ -49,6 +51,7 @@ export default function SnapshotProvider({
   experiment: ExperimentInterfaceStringDates;
   children: ReactNode;
 }) {
+  const { queryContext, setQueryContext } = useAskAnything();
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
 
@@ -66,6 +69,21 @@ export default function SnapshotProvider({
   const [analysisSettings, setAnalysisSettings] = useState(
     defaultAnalysisSettings
   );
+
+  useEffect(() => {
+    if (!data) return;
+    setQueryContext({
+      ...queryContext,
+      experiment: pick(experiment, [
+        "id", "name", "trackingKey", "datasource", "hashAttribute", "fallbackAttribute", "dateCreated", "dateUpdated",
+        "tags", "description", "hypothesis", "goalMetrics", "secondaryMetrics", "guardrailMetrics", "activationMetric", "metricOverrides",
+        "variations", "status", "phases", "linkedFeatures", "hasVisualChangesets", "regressionAdjustmentEnabled", "sequentialTestingEnabled",
+        "statsEngine"
+      ]),
+      currentExperimentPhase: experiment.phases[experiment.phases.length -1],
+      latestAnalysis: data?.snapshot,
+    });
+  }, [data]);
   return (
     <snapshotContext.Provider
       value={{

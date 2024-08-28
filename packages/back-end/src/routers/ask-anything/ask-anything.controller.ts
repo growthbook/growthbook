@@ -15,6 +15,7 @@ const queryResponseSchema = z.object({
 export const postQuery = async (
   req: AuthRequest<{
     query: string;
+    history?: { user: string; value: string; }[];
     queryContext?: any;
     path: string;
   }>,
@@ -23,8 +24,8 @@ export const postQuery = async (
   const { org, userId } = getContextFromReq(req);
   // todo: permissions
 
-  const { query, queryContext, path } = req.body;
-  console.log({query, queryContext, path});
+  const { query, history, queryContext, path } = req.body;
+  console.log({query, history, queryContext, path});
 
   const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -34,7 +35,7 @@ export const postQuery = async (
 
   const { object } = await generateObject({
     model,
-    prompt: getPrompt(query, queryContext, path),
+    prompt: getPrompt(query, history, queryContext, path),
     schema: queryResponseSchema,
   });
 
@@ -53,7 +54,7 @@ export const postQuery = async (
 }
 
 
-function getPrompt(query: string, queryContext?: any, path: string): string {
+function getPrompt(query: string, history: { user: string; value: string; }[], queryContext?: any, path: string): string {
   let prompt = `
 You are an expert experimentation (AB testing) and feature flagging chat agent for the SaaS company GrowthBook.
 
@@ -61,10 +62,17 @@ Below is the user's query, along with context about what the user was looking at
 Answer to the best of your ability. Make reasonable assumptions (for instance, choosing a key metric when none is provided).
 NEVER ask clarifying questions; just make an informed assumption and state which assumption you've made.
 
+If a metric has \`inverse: true\`, then the goal of the metric is to minimize instead of maximize. For instance, "bounce-rate" might be inverse. Always respect inverse flags on metrics when analyzing how well they are performing.
+
+Plaintext responses only, no markup, markdown, or formatting tokens.
+
 CUSTOMER:
 \`
 ${query}
 \`
+
+PREVIOUS MESSAGES:
+${history ? JSON.stringify(history, null, 2) : "(none)"}
 
 CONTEXT:
 \`\`\`
