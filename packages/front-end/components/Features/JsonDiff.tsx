@@ -1,13 +1,13 @@
-import CSSProperties from "react";
+import { CSSProperties } from "react";
 import ReactJsonViewCompare from "react-json-view-compare";
 
 export default function JsonDiff({
   value,
-  defaultVal,
+  defaultVal = "{}",
   fullStyle = { maxHeight: 250, overflowY: "auto", maxWidth: "100%" },
 }: {
   value: string;
-  defaultVal: string;
+  defaultVal?: string;
   fullStyle?: CSSProperties;
 }) {
   return (
