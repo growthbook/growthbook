@@ -31,6 +31,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import StaleSnapshotBanner from "@/components/Experiment/TabbedPage/StaleSnapshotBanner";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -38,8 +39,6 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
-import StaleSnapshotBanner from "@/components/Experiment/TabbedPage/StaleSnapshotBanner";
-import BadSnapshotBanner from "@/components/Experiment/TabbedPage/BadSnapshotBanner";
 
 const experimentTabs = ["overview", "results", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
@@ -306,10 +305,13 @@ export default function TabbedPage({
           <CustomMarkdown page={"experiment"} variables={variables} />
         </div>
 
-
         {locked && tab !== "overview" ? (
           <div className="pt-3">
-            <StaleSnapshotBanner setDesiredSnapshot={setDesiredSnapshot} experimentId={experiment.id} missing={missing} />
+            <StaleSnapshotBanner
+              setDesiredSnapshot={setDesiredSnapshot}
+              experimentId={experiment.id}
+              missing={missing}
+            />
           </div>
         ) : null}
         {experiment.status === "stopped" && (
