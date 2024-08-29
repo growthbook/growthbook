@@ -32,7 +32,7 @@ router.put(
       property: z.string(),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
-      projects: z.array(z.string()),
+      projects: z.array(z.string()).optional(),
       format: z.string(),
       enum: z.string(),
       hashAttribute: z.boolean().optional(),
