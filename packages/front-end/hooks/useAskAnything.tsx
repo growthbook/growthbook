@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/services/auth";
 import {useDefinitions} from "@/services/DefinitionsContext";
+import cloneDeep from "lodash/cloneDeep";
 
 interface AskAnythingContextType {
   queryContext: any | null;
@@ -35,9 +36,14 @@ export const AskAnythingProvider: React.FC<{ children: ReactNode }> = ({ childre
     setQueryResult(null);
     setLoading(true);
     setError("");
-    let context = queryContext;
-    if (!queryContext) {
-      context = { pageHtml: document.querySelector("main")?.innerHTML };
+    let context = cloneDeep(queryContext);
+    if (!queryContext?.noHtml) {
+      context = {
+        ...context,
+        pageHtml: document.querySelector("main")?.innerHTML
+      };
+      delete context.noHtml;
+
       setQueryContext(context);
     }
     await apiCall<{ result: any }>(`/ask-anything/`, {

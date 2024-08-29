@@ -82,6 +82,7 @@ export default function SnapshotProvider({
       ]),
       currentExperimentPhase: experiment.phases[experiment.phases.length -1],
       latestAnalysis: data?.snapshot,
+      noHtml: true,
     });
   }, [data]);
   return (
