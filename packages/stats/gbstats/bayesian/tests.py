@@ -53,7 +53,7 @@ class BanditConfig(BayesianConfig):
 @dataclass
 class BanditWeights:
     update_message: str
-    weights: List[float] | None
+    weights: Optional[List[float]]
 
 
 # Results

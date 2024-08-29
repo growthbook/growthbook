@@ -242,7 +242,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future
+    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
+    if (experiment.type === "multi-armed-bandit") return;
     try {
       await updateExperiment({
         context,

@@ -155,6 +155,7 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   // todo: banditSettings
+  banditSettings?: any;
 }
 
 export interface ExperimentSnapshotInterface {

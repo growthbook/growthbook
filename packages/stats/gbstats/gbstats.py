@@ -109,9 +109,13 @@ def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
 def get_metric_df(
-    rows: pd.DataFrame, var_id_map: VarIdMap, var_names: List[str], bandit: bool = False
+    rows: pd.DataFrame,
+    var_id_map: VarIdMap,
+    var_names: List[str],
+    bandit: bool = False,
 ):
     dfc = rows.copy()
+
     dimensions = {}  # dict of dimensions for fixed_weight, dict of periods for bandits
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -148,6 +152,7 @@ def get_metric_df(
         key = str(row.variation)
         if key in var_id_map:
             i = var_id_map[key]
+
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in ROW_COLS:
@@ -502,6 +507,7 @@ def process_analysis(
         var_names=var_names,
         bandit=False,
     )
+
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
@@ -510,12 +516,14 @@ def process_analysis(
         max=max_dimensions,
         keep_other=metric.statistic_type not in ["quantile_event", "quantile_unit"],
     )
+
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         metric=metric,
         analysis=analysis,
     )
+
     return result
 
 

@@ -186,6 +186,14 @@ const experimentSchema = new mongoose.Schema({
       seed: String,
       variationWeights: [Number],
       groups: [String],
+      banditEvents: [
+        {
+          _id: false,
+          date: Date,
+          banditResult: {},
+          snapshotId: String,
+        }
+      ],
     },
   ],
   data: String,

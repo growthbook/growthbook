@@ -126,6 +126,7 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
+import {v4 as uuidv4} from "uuid";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -420,6 +421,15 @@ export function getSnapshotSettings({
     )
     .filter(isDefined);
 
+  // todo: implement bandit settings here first!
+  const banditSettings = experiment.type === "multi-armed-bandit" ?
+    {
+      // todo: needed?
+      decisionMetric: experiment.goalMetrics?.[0],
+      seed: uuidv4(),
+      // todo: history of variation weights?
+    } : undefined;
+
   return {
     manual: !experiment.datasource,
     activationMetric: experiment.activationMetric || null,
@@ -438,12 +448,13 @@ export function getSnapshotSettings({
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
-    metricSettings: metricSettings,
+    metricSettings,
     variations: experiment.variations.map((v, i) => ({
       id: v.key || i + "",
       weight: phase.variationWeights[i] || 0,
     })),
     coverage: phase.coverage ?? 1,
+    banditSettings,
   };
 }
 
