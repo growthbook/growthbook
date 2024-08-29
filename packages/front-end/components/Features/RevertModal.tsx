@@ -88,6 +88,7 @@ export default function RevertModal({
           : undefined
       }
       cta="Revert and Publish"
+      ctaEnabled={!!comment?.trim()}
       close={close}
       closeCta="Cancel"
       size="max"
@@ -107,7 +108,7 @@ export default function RevertModal({
       </div>
       {hasPermission && (
         <Field
-          label="Add a Comment (optional)"
+          label="Add a Comment (required)"
           textarea
           value={comment}
           onChange={(e) => {

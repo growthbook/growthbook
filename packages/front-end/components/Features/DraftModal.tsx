@@ -168,7 +168,7 @@ export default function DraftModal({
           : undefined
       }
       cta="Publish"
-      ctaEnabled={!!mergeResult.success && hasChanges}
+      ctaEnabled={!!mergeResult.success && hasChanges && !!comment?.trim()}
       close={close}
       closeCta="Cancel"
       size="max"
@@ -226,7 +226,7 @@ export default function DraftModal({
           </div>
           {hasPermission ? (
             <Field
-              label="Add a Comment (optional)"
+              label="Add a Comment (required)"
               textarea
               placeholder="Summary of changes..."
               value={comment}
