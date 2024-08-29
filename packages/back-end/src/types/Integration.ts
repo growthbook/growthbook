@@ -486,6 +486,8 @@ export interface InsertFeatureUsageProps {
   feature: string;
   env: string;
   revision: string;
+  value: string;
+  source: string;
   ruleId: string;
   variationId: string;
 }
@@ -493,6 +495,8 @@ export interface InsertFeatureUsageProps {
 export interface FeatureUsageAggregateRow {
   timestamp: Date;
   env: string;
+  value: string;
+  source: string;
   revision: string;
   ruleId: string;
   variationId: string;
@@ -623,5 +627,5 @@ export interface SourceIntegrationInterface {
   getFeatureUsage?(
     feature: string,
     lookback: FeatureUsageLookback
-  ): Promise<FeatureUsageAggregateRow[]>;
+  ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }>;
 }

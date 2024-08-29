@@ -89,6 +89,8 @@ export const postFeatureUsage = async (
     {
       feature: string;
       revision: string;
+      value: string;
+      source: string;
       ruleId?: string;
       variationId?: string;
     }
@@ -131,6 +133,8 @@ export const postFeatureUsage = async (
     ruleId: req.query.ruleId || "",
     variationId: req.query.variationId || "",
     env: connection.environment,
+    source: req.query.source || "",
+    value: req.query.value || "",
   });
 
   res.status(200).json({

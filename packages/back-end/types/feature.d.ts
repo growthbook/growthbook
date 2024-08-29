@@ -71,20 +71,27 @@ export interface FeatureTestResult {
   featureDefinition?: FeatureDefinition;
 }
 
-export interface FeatureUsageData {
+export interface FeatureUsageTimeSeriesDataPoint {
+  t: number;
+  v: number;
+}
+export interface FeatureUsageTimeSeries {
   total: number;
-  defaultValue: number;
-  environments: Record<
-    string,
-    {
-      total: number;
-      rules: Record<
-        string,
-        {
-          total: number;
-          variations: Record<string, number>;
-        }
-      >;
-    }
-  >;
+  ts: FeatureUsageTimeSeriesDataPoint[];
+}
+
+export type FeatureUsageRuleVariation = FeatureUsageTimeSeries;
+export type FeatureUsageRule = FeatureUsageTimeSeries & {
+  variations: Record<string, FeatureUsageRuleVariation>;
+};
+export type FeatureUsageEnvironment = FeatureUsageTimeSeries & {
+  rules: Record<string, FeatureUsageRule>;
+};
+
+export interface FeatureUsageData {
+  overall: FeatureUsageTimeSeries;
+  defaultValue: FeatureUsageTimeSeries;
+  sources: Record<string, number>;
+  values: Record<string, number>;
+  environments: Record<string, FeatureUsageEnvironment>;
 }

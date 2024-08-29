@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { filterEnvironmentsByFeature } from "shared/dist/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
@@ -25,6 +25,7 @@ import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
 import ExperimentRefSummary from "./ExperimentRefSummary";
+import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 
 interface SortableProps {
   i: number;
@@ -105,6 +106,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       (rule.condition && rule.condition !== "{}") ||
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
+
+    const { featureUsage } = useFeatureUsage();
 
     if (hideDisabled && ruleDisabled) {
       return null;
@@ -311,6 +314,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 rule={rule}
               />
             )}
+          </div>
+
+          <div className="ml-auto">
+            <FeatureUsageGraph
+              data={featureUsage?.environments?.[environment]?.rules?.[rule.id]}
+            />
           </div>
         </div>
       </div>

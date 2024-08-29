@@ -30,6 +30,8 @@ router.post(
       .object({
         feature: z.string(),
         revision: z.string(),
+        value: z.string(),
+        source: z.string(),
         ruleId: z.string().optional(),
         variationId: z.string().optional(),
       })

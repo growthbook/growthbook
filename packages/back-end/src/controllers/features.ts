@@ -21,6 +21,7 @@ import {
   FeatureRule,
   FeatureTestResult,
   FeatureUsageData,
+  FeatureUsageTimeSeries,
   JSONSchemaDef,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
@@ -2152,6 +2153,23 @@ export async function getFeatureById(
   });
 }
 
+function getLookbackNumBuckets(
+  lookback: FeatureUsageLookback
+): { width: number; buckets: number } {
+  switch (lookback) {
+    case "15minute":
+      return { width: 60 * 1000, buckets: 15 };
+    case "hour":
+      return { width: 5 * 60 * 1000, buckets: 12 };
+    case "day":
+      return { width: 60 * 60 * 1000, buckets: 24 };
+    case "week":
+      return { width: 6 * 60 * 60 * 1000, buckets: 28 };
+    default:
+      throw new Error(`Invalid lookback: ${lookback}`);
+  }
+}
+
 export async function getFeatureUsage(
   req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
   res: Response<{ status: 200; usage: FeatureUsageData }>
@@ -2199,40 +2217,94 @@ export async function getFeatureUsage(
 
   const lookback = req.query.lookback || "15minute";
 
-  const data = await integration.getFeatureUsage(feature.id, lookback);
+  const { buckets, width } = getLookbackNumBuckets(lookback);
+  const createEmptyRecord = () => {
+    return {
+      total: 0,
+      ts: new Array(buckets).fill(0).map((_, i) => ({
+        t: i,
+        v: 0,
+      })),
+    };
+  };
+
+  const { start, rows } = await integration.getFeatureUsage(
+    feature.id,
+    lookback
+  );
+
+  const getTSIndex = (timestamp: Date) => {
+    const ts = timestamp.getTime();
+    const diff = ts - start;
+    const bucket = Math.floor(diff / width);
+
+    return Math.min(buckets - 1, Math.max(bucket, 0));
+  };
 
   const usage: FeatureUsageData = {
-    total: 0,
-    defaultValue: 0,
+    overall: createEmptyRecord(),
+    sources: {},
+    values: {},
+    defaultValue: createEmptyRecord(),
     environments: {},
   };
 
   const validEnvs = new Set(environments.map((e) => e.id));
 
-  data.forEach((d) => {
+  const updateRecord = (
+    record: FeatureUsageTimeSeries,
+    data: { timestamp: Date; evaluations: number }
+  ) => {
+    const i = getTSIndex(data.timestamp);
+    const v = data.evaluations;
+
+    record.total += v;
+    record.ts[i].v += v;
+  };
+
+  rows.forEach((d) => {
+    // Skip invalid environments (sanity check)
     if (!d.env || !validEnvs.has(d.env)) return;
 
-    usage.total += d.evaluations;
+    // Overall evaluation counts
+    updateRecord(usage.overall, d);
 
-    usage.environments[d.env] = usage.environments[d.env] || {
-      total: 0,
-      rules: {},
-    };
-    usage.environments[d.env].total += d.evaluations;
+    // Sources
+    usage.sources[d.source] = usage.sources[d.source] || 0;
+    usage.sources[d.source] += d.evaluations;
 
-    if (d.ruleId === "$default") {
-      usage.defaultValue += d.evaluations;
+    // Values
+    usage.values[d.value] = usage.values[d.value] || 0;
+    usage.values[d.value] += d.evaluations;
+
+    if (!usage.environments[d.env]) {
+      usage.environments[d.env] = { ...createEmptyRecord(), rules: {} };
+    }
+    updateRecord(usage.environments[d.env], d);
+
+    if (d.source === "defaultValue") {
+      updateRecord(usage.defaultValue, d);
     } else if (d.ruleId) {
-      usage.environments[d.env].rules[d.ruleId] = usage.environments[d.env]
-        .rules[d.ruleId] || { total: 0, variations: {} };
-      usage.environments[d.env].rules[d.ruleId].total += d.evaluations;
+      if (!usage.environments[d.env].rules[d.ruleId]) {
+        usage.environments[d.env].rules[d.ruleId] = {
+          ...createEmptyRecord(),
+          variations: {},
+        };
+      }
+      updateRecord(usage.environments[d.env].rules[d.ruleId], d);
 
       if (d.variationId) {
-        usage.environments[d.env].rules[d.ruleId].variations[d.variationId] =
-          usage.environments[d.env].rules[d.ruleId].variations[d.variationId] ||
-          0;
-        usage.environments[d.env].rules[d.ruleId].variations[d.variationId] +=
-          d.evaluations;
+        if (
+          !usage.environments[d.env].rules[d.ruleId].variations[d.variationId]
+        ) {
+          usage.environments[d.env].rules[d.ruleId].variations[
+            d.variationId
+          ] = createEmptyRecord();
+        }
+        updateRecord(
+          usage.environments[d.env].rules[d.ruleId].variations[d.variationId],
+          d
+        );
       }
     }
   });

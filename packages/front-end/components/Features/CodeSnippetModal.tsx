@@ -375,6 +375,7 @@ export default function CodeSnippetModal({
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
+                    autoTracking={!!sdkConnection?.trackingDatasource}
                   />
                 </div>
               )}
@@ -523,6 +524,27 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                         featureId={feature?.id || "my-feature"}
                       />
                     </>
+                  )}
+                  {sdkConnection?.trackingDatasource && (
+                    <div>
+                      Metric tracking:
+                      <Code
+                        language="javascript"
+                        code={`
+// Simple conversion metric
+growthbook.trackEvent("Signup");
+
+// Metric with value
+growthbook.trackEvent("Purchase", 96.99);
+
+// Metric with properties
+growthbook.trackEvent("Start Checkout", { plan: "pro" });
+
+// Metric with value and properties
+growthbook.trackEvent("Buy Tokens", 24, { coupon: "SAVE50" });
+`.trim()}
+                      />
+                    </div>
                   )}
                 </div>
               )}

@@ -5,6 +5,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
+import { indentLines } from "./TargetingAttributeCodeSnippet";
 
 export default function GrowthBookSetupCodeSnippet({
   language,
@@ -13,6 +14,7 @@ export default function GrowthBookSetupCodeSnippet({
   apiHost,
   encryptionKey,
   remoteEvalEnabled,
+  autoTracking,
 }: {
   language: SDKLanguage;
   version?: string;
@@ -20,11 +22,25 @@ export default function GrowthBookSetupCodeSnippet({
   apiHost: string;
   encryptionKey?: string;
   remoteEvalEnabled: boolean;
+  autoTracking: boolean;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
 
-  const [eventTracker, setEventTracker] = useState("GA4");
+  const [eventTracker, setEventTracker] = useState(
+    autoTracking ? "GrowthBook" : "GA4"
+  );
+
+  const jsTrackingProps = autoTracking
+    ? `enableEventTracking: true,
+enableFeatureUsageTracking: true`
+    : `trackingCallback: (experiment, result) => {
+  // ${trackingComment}
+  console.log("Viewed Experiment", {
+    experimentId: experiment.key,
+    variationId: result.key
+  });
+}`;
 
   if (language.match(/^nocode/)) {
     return (
@@ -34,6 +50,9 @@ export default function GrowthBookSetupCodeSnippet({
             label="Event Tracking System"
             labelClassName="mr-2"
             options={[
+              ...(autoTracking
+                ? [{ label: "GrowthBook", value: "GrowthBook" }]
+                : []),
               { label: "Google Analytics 4", value: "GA4" },
               { label: "Segment.io", value: "segment" },
               { label: "Other", value: "other" },
@@ -92,13 +111,7 @@ const growthbook = new GrowthBook({
               : ""
           }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
-  trackingCallback: (experiment, result) => {
-    // ${trackingComment}
-    console.log("Viewed Experiment", {
-      experimentId: experiment.key,
-      variationId: result.key
-    });
-  }
+  ${indentLines(jsTrackingProps, 2)}
 });
 
 // Wait for features to be available${
@@ -130,13 +143,7 @@ const growthbook = new GrowthBook({
               : ""
           }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
-  trackingCallback: (experiment, result) => {
-    // ${trackingComment}
-    console.log("Viewed Experiment", {
-      experimentId: experiment.key,
-      variationId: result.key
-    });
-  }
+  ${indentLines(jsTrackingProps, 2)}
 });
 `.trim()}
         />
@@ -215,13 +222,7 @@ app.use(function(req, res, next) {
               ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }
-    trackingCallback: (experiment, result) => {
-      // ${trackingComment}
-      console.log("Viewed Experiment", {
-        experimentId: experiment.key,
-        variationId: result.key
-      });
-    }
+    ${indentLines(jsTrackingProps, 4)}
   });
 
   // Clean up at the end of the request

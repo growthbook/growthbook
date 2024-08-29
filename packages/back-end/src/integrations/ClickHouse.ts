@@ -132,6 +132,8 @@ CREATE TABLE IF NOT EXISTS ff_usage (
   timestamp DateTime,
   feature String,
   env String,
+  value String,
+  source String,
   revision String,
   ruleId String,
   variationId String
@@ -175,7 +177,7 @@ INSERT INTO events (
   utmContent
 ) VALUES (
   generateUUIDv4(),
-  now(),
+  ${this.toTimestamp(new Date())},
   ${this.escape(attributes?.anonymous_id)},
   ${this.escape(event_name)},
   ${value ?? "NULL"},
@@ -205,13 +207,17 @@ INSERT INTO ff_usage (
   feature,
   env,
   revision,
+  value,
+  source,
   ruleId,
   variationId
 ) VALUES (
-  now(),
+  ${this.toTimestamp(new Date())},
   ${this.escape(data.feature)},
   ${this.escape(data.env)},
   ${this.escape(data.revision)},
+  ${this.escape(data.value)},
+  ${this.escape(data.source)},
   ${this.escape(data.ruleId)},
   ${this.escape(data.variationId)}
 )`;
@@ -223,7 +229,7 @@ INSERT INTO ff_usage (
   async getFeatureUsage(
     feature: string,
     lookback: FeatureUsageLookback
-  ): Promise<FeatureUsageAggregateRow[]> {
+  ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }> {
     const start = new Date();
     let roundedTimestamp = "";
     if (lookback === "15minute") {
@@ -245,8 +251,10 @@ INSERT INTO ff_usage (
     const res = await this.runQuery(`
 WITH _data as (
 	SELECT
-	  ${roundedTimestamp} as timestamp,
+	  ${this.formatDateTimeString(roundedTimestamp)} as ts,
     env,
+    value,
+    source,
     ruleId,
     variationId
   FROM ff_usage
@@ -255,26 +263,36 @@ WITH _data as (
 	  AND feature = ${this.escape(feature)}
 )
 SELECT
-  timestamp,
+  ts,
   env,
+  value,
+  source,
   ruleId,
   variationId,
   COUNT(*) as evaluations
 FROM _data
 GROUP BY
-  timestamp,
+  ts,
   env,
+  value,
+  source,
   ruleId,
   variationId
+LIMIT 1000
       `);
 
-    return res.rows.map((row) => ({
-      timestamp: new Date(row.timestamp),
-      env: "" + row.env,
-      revision: "" + row.revision,
-      ruleId: "" + row.ruleId,
-      variationId: "" + row.variationId,
-      evaluations: 0 + row.evaluations,
-    }));
+    return {
+      start: start.getTime(),
+      rows: res.rows.map((row) => ({
+        timestamp: new Date(row.ts + "Z"),
+        env: "" + row.env,
+        value: "" + row.value,
+        source: "" + row.source,
+        revision: "" + row.revision,
+        ruleId: "" + row.ruleId,
+        variationId: "" + row.variationId,
+        evaluations: parseFloat(row.evaluations),
+      })),
+    };
   }
 }

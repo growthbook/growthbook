@@ -19,6 +19,7 @@ import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments, useFeaturesList } from "@/services/features";
+import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 
 const featureTabs = ["overview", "stats"] as const;
 export type FeatureTab = typeof featureTabs[number];
@@ -182,7 +183,7 @@ export default function FeaturePage() {
   }
 
   return (
-    <>
+    <FeatureUsageProvider featureId={feature.id}>
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
@@ -228,6 +229,6 @@ export default function FeaturePage() {
       {tab === "stats" && (
         <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
       )}
-    </>
+    </FeatureUsageProvider>
   );
 }

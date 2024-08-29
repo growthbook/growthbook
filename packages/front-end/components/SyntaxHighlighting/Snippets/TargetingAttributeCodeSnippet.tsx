@@ -16,7 +16,7 @@ function swiftArrayFormat(json: unknown) {
   return stringify(json).replace(/\{/, "[").replace(/\}/g, "]");
 }
 
-function indentLines(code: string, indent: number | string = 2) {
+export function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
   return code.split("\n").join("\n" + spaces);
 }
