@@ -4,7 +4,6 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
-import { banditResultObject } from "@back-end/src/models/ExperimentSnapshotModel";
 import {
   Changeset,
   ExperimentInterface,
@@ -56,6 +55,23 @@ type FilterKeys = ExperimentInterface & { _id: string };
 
 type SortFilter = {
   [key in keyof Partial<FilterKeys>]: 1 | -1;
+};
+
+const banditResultObject = {
+  _id: false,
+  singleVariationResults: [
+    {
+      _id: false,
+      users: Number,
+      cr: Number,
+      ci: [Number],
+    },
+  ],
+  weights: [Number],
+  bestArmProbabilities: [Number],
+  additionalReward: Number,
+  seed: Number,
+  banditUpdateMessage: String,
 };
 
 const experimentSchema = new mongoose.Schema({

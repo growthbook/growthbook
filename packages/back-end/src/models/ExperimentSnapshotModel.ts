@@ -18,7 +18,7 @@ const experimentSnapshotTrafficObject = {
   variationUnits: [Number],
 };
 
-export const banditResultObject = {
+const banditResultObject = {
   _id: false,
   singleVariationResults: [
     {
