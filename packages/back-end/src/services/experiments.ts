@@ -429,7 +429,7 @@ export function getSnapshotSettings({
       ? {
           reweight: type === "standard" && experiment.banditPhase === "exploit",
           decisionMetric: experiment.goalMetrics?.[0], // todo: needed?
-          seed: uuidv4(),
+          seed: Math.floor(Math.random() * 100000),
           weights:
             phase?.banditEvents?.map((event) => ({
               date: event.date,

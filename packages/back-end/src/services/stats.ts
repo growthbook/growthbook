@@ -43,7 +43,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
-  ExperimentSnapshotTrafficDimension,
+  ExperimentSnapshotTrafficDimension, SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
@@ -68,10 +68,15 @@ export interface AnalysisSettingsForStatsEngine {
 }
 
 export interface BanditSettingsForStatsEngine {
+  reweight: boolean; // todo: implement in python
   var_names: string[];
   var_ids: string[];
   decision_metric: string;
   bandit_weights_seed: number;
+  weights: { // todo: implement in python
+    date: Date;
+    weights?: number[];
+  }[];
 }
 
 export interface MetricSettingsForStatsEngine {
@@ -171,6 +176,26 @@ export function getAnalysisSettingsForStatsEngine(
   return analysisData;
 }
 
+export function getBanditSettingsForStatsEngine(
+  banditSettings: SnapshotBanditSettings,
+  settings: ExperimentSnapshotAnalysisSettings,
+  variations: ExperimentReportVariation[],
+): BanditSettingsForStatsEngine {
+  const sortedVariations = putBaselineVariationFirst(
+    variations,
+    settings.baselineVariationIndex ?? 0
+  );
+  const analysisData: BanditSettingsForStatsEngine = {
+    reweight: banditSettings.reweight,
+    var_names: sortedVariations.map((v) => v.name),
+    var_ids: sortedVariations.map((v) => v.id),
+    decision_metric: banditSettings.decisionMetric,
+    bandit_weights_seed: banditSettings.seed,
+    weights: banditSettings.weights,
+  };
+  return (analysisData as unknown) as BanditSettingsForStatsEngine;
+}
+
 async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
@@ -253,9 +278,13 @@ function createStatsEngineData(
     // ideally, just some minor formatting changes (camelCase -> snake_case)
     // todo: BanditSettingsForStatsEngine is missing things like `weights[]` history, `reweight` (bool).
     // todo: SnapshotBanditSettings is "missing" variation ids. Needed?
-    bandit_settings: (banditSettings as unknown) as
-      | BanditSettingsForStatsEngine
-      | undefined,
+    bandit_settings: banditSettings ?
+      getBanditSettingsForStatsEngine(
+        banditSettings,
+        analyses[0],
+        variations,
+      ) :
+      undefined,
   };
 }
 
