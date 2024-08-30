@@ -412,7 +412,10 @@ app.post(
   "/metric/:id/analysis/cancel",
   metricsController.cancelLegacyMetricAnalysis
 );
-app.get("/metrics/:id/experiments", metricsController.getMetricExperiments);
+app.get(
+  "/metrics/:id/experiments",
+  metricsController.getMetricExperimentResults
+);
 
 // Metric Analyses
 app.use(metricAnalysisRouter);

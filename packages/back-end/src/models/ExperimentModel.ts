@@ -595,8 +595,7 @@ export async function getPastExperimentsByDatasource(
 export async function getExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
   metricId: string,
-  // limit to fewer than 1000 for speed
-  limit: number | undefined = 10
+  limit?: number
 ): Promise<ExperimentInterface[]> {
   const experiments = await findExperiments(
     context,
@@ -624,9 +623,7 @@ export async function getExperimentsUsingMetric(
 
 export async function getRecentExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
-  metricId: string,
-  limit: number | undefined = 10,
-  fullExperiment: boolean = false
+  metricId: string
 ): Promise<
   Pick<
     ExperimentInterface,
@@ -649,14 +646,10 @@ export async function getRecentExperimentsUsingMetric(
         $ne: true,
       },
     },
-    // hard cap at 1000 to prevent too many results
-    limit !== undefined ? limit : 1000,
+    10,
     { _id: -1 }
   );
 
-  if (fullExperiment) {
-    return experiments;
-  }
   return experiments.map((exp) => ({
     id: exp.id,
     name: exp.name,

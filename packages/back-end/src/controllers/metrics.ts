@@ -544,7 +544,7 @@ export async function putMetric(
   });
 }
 
-export const getMetricExperiments = async (
+export const getMetricExperimentResults = async (
   req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200; data: ExperimentWithSnapshot[] }>
 ) => {
@@ -553,7 +553,7 @@ export const getMetricExperiments = async (
   const experiments = await getExperimentsUsingMetric(
     context,
     req.params.id,
-    1000
+    500
   );
 
   const snapshots = await _getSnapshots(context, experiments);
