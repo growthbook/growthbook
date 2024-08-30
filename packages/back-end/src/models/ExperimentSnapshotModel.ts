@@ -1,7 +1,7 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import {
-  CreateSnapshotSource,
+  SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
@@ -119,7 +119,6 @@ const experimentSnapshotSchema = new mongoose.Schema({
   ],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
-  source: String,
 });
 experimentSnapshotSchema.index({
   experiment: 1,
@@ -298,21 +297,21 @@ export async function getLatestSnapshot({
   phase,
   dimension,
   withResults = true,
-  source,
+  type,
 }: {
   experiment: string;
   phase: number;
   dimension?: string;
   withResults?: boolean;
-  source?: CreateSnapshotSource;
+  type?: SnapshotType;
 }): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     experiment,
     phase,
     dimension: dimension || null,
   };
-  if (source) {
-    query.source = source;
+  if (type) {
+    query.type = type;
   }
 
   // First try getting new snapshots that have a `status` field

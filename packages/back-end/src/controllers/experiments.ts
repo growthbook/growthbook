@@ -75,6 +75,7 @@ import {
   ExperimentPhase,
   ExperimentStatus,
   ExperimentTargetingData,
+  ExperimentType,
   Variation,
 } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
@@ -89,7 +90,7 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import {
-  CreateSnapshotSource,
+  SnapshotType,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
@@ -115,6 +116,7 @@ export async function getExperiments(
     {
       project?: string;
       includeArchived?: boolean;
+      type?: ExperimentType;
     }
   >,
   res: Response
@@ -126,10 +128,12 @@ export async function getExperiments(
   }
 
   const includeArchived = !!req.query?.includeArchived;
+  const type: ExperimentType | undefined = req.query?.type || undefined;
 
   const experiments = await getAllExperiments(context, {
     project,
     includeArchived,
+    type,
   });
 
   const hasArchived = includeArchived
@@ -312,13 +316,21 @@ export async function getExperiment(
   });
 }
 
-async function _getSnapshot(
-  context: ReqContext | ApiReqContext,
-  experiment: string,
-  phase?: string,
-  dimension?: string,
-  withResults: boolean = true
-) {
+async function _getSnapshot({
+  context,
+  experiment,
+  phase,
+  dimension,
+  withResults = true,
+  type,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: string;
+  phase?: string;
+  dimension?: string;
+  withResults?: boolean;
+  type?: SnapshotType;
+}) {
   const experimentObj = await getExperimentById(context, experiment);
 
   if (!experimentObj) {
@@ -339,6 +351,7 @@ async function _getSnapshot(
     phase: parseInt(phase),
     dimension,
     withResults,
+    type,
   });
 }
 
@@ -364,14 +377,32 @@ async function _getSnapshots(
 }
 
 export async function getSnapshotWithDimension(
-  req: AuthRequest<null, { id: string; phase: string; dimension: string }>,
+  req: AuthRequest<
+    null,
+    { id: string; phase: string; dimension: string },
+    { type?: SnapshotType }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
-  const snapshot = await _getSnapshot(context, id, phase, dimension);
+  const type = req.query?.type || undefined;
 
-  const latest = await _getSnapshot(context, id, phase, dimension, false);
+  const snapshot = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    dimension,
+    type,
+  });
+  const latest = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    dimension,
+    withResults: false,
+    type,
+  });
 
   res.status(200).json({
     status: 200,
@@ -380,14 +411,25 @@ export async function getSnapshotWithDimension(
   });
 }
 export async function getSnapshot(
-  req: AuthRequest<null, { id: string; phase: string }>,
+  req: AuthRequest<
+    null,
+    { id: string; phase: string },
+    { type?: SnapshotType }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const snapshot = await _getSnapshot(context, id, phase);
+  const type = req.query?.type || undefined;
 
-  const latest = await _getSnapshot(context, id, phase, undefined, false);
+  const snapshot = await _getSnapshot({ context, experiment: id, phase, type });
+  const latest = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    withResults: false,
+    type,
+  });
 
   res.status(200).json({
     status: 200,
@@ -653,7 +695,7 @@ export async function postExperiments(
           dimension: "",
           phase: 0,
           useCache: true,
-          source: "ad-hoc",
+          type: "ad-hoc",
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -1900,7 +1942,7 @@ async function createExperimentSnapshot({
   dimension,
   phase,
   useCache = true,
-  source,
+  type,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1908,7 +1950,7 @@ async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
-  source: CreateSnapshotSource;
+  type: SnapshotType;
 }) {
   let project = null;
   if (experiment.project) {
@@ -1973,7 +2015,7 @@ async function createExperimentSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
-    source,
+    type,
   });
   const snapshot = queryRunner.model;
 
@@ -2103,7 +2145,7 @@ export async function postSnapshot(
       dimension,
       phase,
       useCache,
-      source: "ad-hoc",
+      type: "ad-hoc",
     });
 
     await req.audit({

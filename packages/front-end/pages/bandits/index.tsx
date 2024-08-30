@@ -55,7 +55,7 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tabs.includes("archived"), "standard");
+  } = useExperiments(project, tabs.includes("archived"), "multi-armed-bandit");
 
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
@@ -250,7 +250,7 @@ const ExperimentsPage = (): React.ReactElement => {
         <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">
-              <h1>Experiments</h1>
+              <h1>Bandit Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
             {settings.powerCalculatorEnabled && (
@@ -420,7 +420,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         </td>
                         <td data-title="Experiment name:" className="p-0">
                           <Link
-                            href={`/experiment/${e.id}`}
+                            href={`/bandit/${e.id}`}
                             className="d-block p-2"
                           >
                             <div className="d-flex flex-column">

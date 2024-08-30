@@ -34,13 +34,14 @@ import {
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
+import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
 import { BanditResult } from "@back-end/src/validators/experiments";
 import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {
-  CreateSnapshotSource,
+  SnapshotType,
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -126,7 +127,6 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
-import {v4 as uuidv4} from "uuid";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -422,13 +422,15 @@ export function getSnapshotSettings({
     .filter(isDefined);
 
   // todo: implement bandit settings here first!
-  const banditSettings = experiment.type === "multi-armed-bandit" ?
-    {
-      // todo: needed?
-      decisionMetric: experiment.goalMetrics?.[0],
-      seed: uuidv4(),
-      // todo: history of variation weights?
-    } : undefined;
+  const banditSettings =
+    experiment.type === "multi-armed-bandit"
+      ? {
+          // todo: needed?
+          decisionMetric: experiment.goalMetrics?.[0],
+          seed: uuidv4(),
+          // todo: history of variation weights?
+        }
+      : undefined;
 
   return {
     manual: !experiment.datasource,
@@ -525,7 +527,7 @@ export async function createManualSnapshot({
         ],
       },
     ],
-    source: "manual",
+    type: "manual",
   };
 
   return await createExperimentSnapshotModel({ data, context });
@@ -726,7 +728,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
-  source,
+  type,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -737,7 +739,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  source: CreateSnapshotSource;
+  type: SnapshotType;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -784,11 +786,11 @@ export async function createSnapshot({
         }),
     ],
     status: "running",
-    source,
+    type,
   };
 
   let scheduleNextSnapshot = true;
-  if (experiment.type === "multi-armed-bandit" && source !== "schedule") {
+  if (experiment.type === "multi-armed-bandit" && type !== "standard") {
     scheduleNextSnapshot = false;
   }
 

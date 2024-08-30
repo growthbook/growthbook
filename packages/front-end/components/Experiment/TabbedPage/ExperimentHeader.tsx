@@ -13,7 +13,6 @@ import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
-import { GiOctopus } from "react-icons/gi";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -287,14 +286,7 @@ export default function ExperimentHeader({
                 }
                 editClassName="ml-1"
               >
-                <>
-                  {experiment.type === "multi-armed-bandit" && (
-                    <Tooltip body="This is a Multi-Armed Bandit experiment">
-                      <GiOctopus className="mr-1" />
-                    </Tooltip>
-                  )}
-                  {experiment.name}
-                </>
+                {experiment.name}
               </HeaderWithEdit>
             </div>
 

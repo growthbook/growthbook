@@ -16,6 +16,8 @@ import {
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { FaMagnifyingGlassChart } from "react-icons/fa6";
+import { RiCalendarScheduleLine } from "react-icons/ri";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -81,6 +83,7 @@ export default function AnalysisSettingsBar({
     mutateSnapshot: mutate,
     phase,
     setDimension,
+    setSnapshotType,
     loading,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
@@ -104,6 +107,8 @@ export default function AnalysisSettingsBar({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   const manualSnapshot = !datasource;
+
+  const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
     <div>
@@ -188,7 +193,7 @@ export default function AnalysisSettingsBar({
               </div>
             )}
           <div style={{ flex: 1 }} />
-          {experiment.type !== "multi-armed-bandit" && (
+          {!isBandit && (
             <div className="col-auto">
               {regressionAdjustmentAvailable && (
                 <PremiumTooltip
@@ -256,6 +261,43 @@ export default function AnalysisSettingsBar({
               )}
             </div>
           )}
+          {isBandit && snapshot ? (
+            <div className="col-auto text-right mb-0">
+              <div className="uppercase-title text-muted">Analysis type</div>
+              <div>
+                {snapshot?.type === "ad-hoc" ? (
+                  <Tooltip body={<div className="text-left">
+                    <p>This is an exploratory ad-hoc analysis.</p>
+                    <p>Ad-hoc analyses do not cause bandit variation weights to change.</p>
+                  </div>}>
+                    <FaMagnifyingGlassChart /> Ad-hoc
+                  </Tooltip>
+                ) : snapshot?.type === "standard" ? (
+                  <Tooltip body={<div className="text-left">
+                    <p>This is a standard (scheduled) analysis.</p>
+                    <p>Bandit variation weights may have changed in response to this analysis.</p>
+                  </div>}>
+                    <RiCalendarScheduleLine /> Standard
+                  </Tooltip>
+                ) : snapshot?.type === "manual" ? (
+                  <>Manual</>
+                ) : (
+                  <>{snapshot?.type || `unknown`}</>
+                )}
+              </div>
+              {snapshot?.type !== "standard" && (
+                <a
+                  role="button"
+                  className="position-relative link-purple small"
+                  onClick={() => {
+                    setSnapshotType("standard");
+                  }}
+                >
+                  View standard analysis
+                </a>
+              )}
+            </div>
+          ) : null}
           {showMoreMenu && (
             <div className="col-auto">
               <ResultMoreMenu

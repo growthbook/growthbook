@@ -2,11 +2,11 @@ import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+} from "@back-end/types/experiment";
+import { VisualChangesetInterface } from "@back-end/types/visual-changeset";
+import { URLRedirectInterface } from "@back-end/types/url-redirect";
 import React, { ReactElement, useState } from "react";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "@back-end/types/idea";
 import {
   getAffectedEnvsForExperiment,
   includeExperimentInPayload,
@@ -31,10 +31,10 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-const ExperimentPage = (): ReactElement => {
+const BanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { eid } = router.query;
+  const { bid } = router.query;
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
@@ -56,7 +56,7 @@ const ExperimentPage = (): ReactElement => {
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
     urlRedirects: URLRedirectInterface[];
-  }>(`/experiment/${eid}`);
+  }>(`/experiment/${bid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
@@ -76,8 +76,8 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects = [],
   } = data;
 
-  if (experiment.type === "multi-armed-bandit") {
-    router.replace(window.location.href.replace("experiment/", "bandit/"));
+  if (!experiment.type || experiment.type === "standard") {
+    router.replace(window.location.href.replace("bandit/", "experiment/"));
   }
 
   const canEditExperiment =
@@ -235,8 +235,8 @@ const ExperimentPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Standard Experiments",
-            href: `/experiments`,
+            display: "Bandit Experiments",
+            href: `/bandits`,
           },
           { display: experiment.name },
         ]}
@@ -269,4 +269,4 @@ const ExperimentPage = (): ReactElement => {
   );
 };
 
-export default ExperimentPage;
+export default BanditExperimentPage;

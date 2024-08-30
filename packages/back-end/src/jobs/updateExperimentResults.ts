@@ -184,7 +184,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricMap,
       factTableMap,
       useCache: true,
-      source: "schedule",
+      type: "standard",
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;

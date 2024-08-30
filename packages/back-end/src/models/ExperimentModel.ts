@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   Changeset,
   ExperimentInterface,
+  ExperimentType,
   LegacyExperimentInterface,
   Variation,
 } from "../../types/experiment";
@@ -192,7 +193,7 @@ const experimentSchema = new mongoose.Schema({
           date: Date,
           banditResult: {},
           snapshotId: String,
-        }
+        },
       ],
     },
   ],
@@ -288,7 +289,12 @@ export async function getAllExperiments(
   {
     project,
     includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {}
+    type,
+  }: {
+    project?: string;
+    includeArchived?: boolean;
+    type?: ExperimentType;
+  } = {}
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -300,6 +306,12 @@ export async function getAllExperiments(
 
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (type === "multi-armed-bandit") {
+    query.type = "multi-armed-bandit";
+  } else if (type === "standard") {
+    query.type = { $in: ["standard", null] };
   }
 
   return await findExperiments(context, query);

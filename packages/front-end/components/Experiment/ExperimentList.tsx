@@ -5,9 +5,7 @@ import {
   ExperimentStatus,
 } from "back-end/types/experiment";
 import { ago, datetime, getValidDate } from "shared/dates";
-import { GiOctopus } from "react-icons/gi";
 import { phaseSummary } from "@/services/utils";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ExperimentList({
   num,
@@ -55,13 +53,8 @@ export default function ExperimentList({
                 className="w-100 no-link-color"
               >
                 <div className="d-flex w-100">
-                  <div className="mb-1">
-                    {test.type === "multi-armed-bandit" && (
-                      <Tooltip body="This is a Multi-Armed Bandit experiment">
-                        <GiOctopus className="mr-1" />
-                      </Tooltip>
-                    )}
-                    <strong>{test.name}</strong>{" "}
+                  <div className="mb-1 mr-1">
+                    <strong>{test.name}</strong>
                   </div>
                   <div style={{ flex: 1 }} />
                   <div className="">

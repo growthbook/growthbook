@@ -44,8 +44,20 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Experiments",
     href: "/experiments",
-    path: /^experiment/,
+    path: /^(experiment|bandit)/,
     Icon: GBExperiment,
+    subLinks: [
+      {
+        name: "Standard Experiments",
+        href: "/experiments",
+        path: /^(experiment)/,
+      },
+      {
+        name: "Bandit Experiments",
+        href: "/bandits",
+        path: /^(bandit)/,
+      },
+    ],
   },
   {
     name: "Metrics and Data",

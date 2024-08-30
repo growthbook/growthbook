@@ -1,6 +1,7 @@
 import React, { useState, ReactNode, useContext } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
+  SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -23,6 +24,7 @@ const snapshotContext = React.createContext<{
   setAnalysisSettings: (
     analysisSettings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
+  setSnapshotType: (snapshotType: SnapshotType | undefined) => void;
   loading?: boolean;
   error?: Error;
 }>({
@@ -35,6 +37,9 @@ const snapshotContext = React.createContext<{
     // do nothing
   },
   setAnalysisSettings: () => {
+    // do nothing
+  },
+  setSnapshotType: () => {
     // do nothing
   },
   mutateSnapshot: () => {
@@ -51,13 +56,17 @@ export default function SnapshotProvider({
 }) {
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
+  const [snapshotType, setSnapshotType] = useState<SnapshotType | undefined>(
+    undefined
+  );
 
   const { data, error, isValidating, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
     latest?: ExperimentSnapshotInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
-      (dimension ? "/" + dimension : "")
+      (dimension ? "/" + dimension : "") +
+      (snapshotType ? `?type=${snapshotType}` : "")
   );
 
   const defaultAnalysisSettings = data?.snapshot
@@ -85,6 +94,7 @@ export default function SnapshotProvider({
         setPhase,
         setDimension,
         setAnalysisSettings,
+        setSnapshotType,
         error,
         loading: isValidating,
       }}

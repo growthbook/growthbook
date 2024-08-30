@@ -77,6 +77,7 @@ export default function AnalysisSettingsSummary({
     dimension,
     mutateSnapshot,
     setAnalysisSettings,
+    setSnapshotType,
     phase,
   } = useSnapshot();
 
@@ -358,6 +359,7 @@ export default function AnalysisSettingsSummary({
                         setVariationFilter?.([]);
                       }
                       setDifferenceType("relative");
+                      setSnapshotType("ad-hoc");
                     }}
                   />
                 </form>
@@ -375,6 +377,7 @@ export default function AnalysisSettingsSummary({
                       setVariationFilter?.([]);
                     }
                     setDifferenceType("relative");
+                    setSnapshotType("ad-hoc");
                   }}
                 />
               )}
