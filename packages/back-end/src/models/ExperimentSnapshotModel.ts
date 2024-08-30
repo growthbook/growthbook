@@ -18,6 +18,23 @@ const experimentSnapshotTrafficObject = {
   variationUnits: [Number],
 };
 
+export const banditResultObject = {
+  _id: false,
+  singleVariationResults: [
+    {
+      _id: false,
+      users: Number,
+      cr: Number,
+      ci: [Number],
+    },
+  ],
+  weights: [Number],
+  bestArmProbabilities: [Number],
+  additionalReward: Number,
+  seed: Number,
+  banditUpdateMessage: String,
+};
+
 const experimentSnapshotSchema = new mongoose.Schema({
   id: {
     type: String,
@@ -87,8 +104,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
-  // todo: implement banditResult?
-  banditResult: {},
+  banditResult: banditResultObject,
   health: {
     _id: false,
     traffic: {

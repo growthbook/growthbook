@@ -130,6 +130,16 @@ export interface SnapshotSettingsVariation {
   weight: number;
 }
 
+export interface SnapshotBanditSettings {
+  reweight: boolean;
+  decisionMetric: string; // todo: needed?
+  seed: string;
+  weights: {
+    date: Date;
+    weights?: number[];
+  }[];
+}
+
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
@@ -154,8 +164,7 @@ export interface ExperimentSnapshotSettings {
   endDate: Date;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
-  // todo: banditSettings
-  banditSettings?: any;
+  banditSettings?: SnapshotBanditSettings;
 }
 
 export interface ExperimentSnapshotInterface {

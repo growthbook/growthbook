@@ -31,6 +31,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -39,7 +40,7 @@ import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
 
-const experimentTabs = ["overview", "results", "health"] as const;
+const experimentTabs = ["overview", "results", "explore", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
 
 export interface Props {
@@ -190,6 +191,8 @@ export default function TabbedPage({
     .map((u) => u.name || u.email);
 
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <div>
@@ -382,8 +385,23 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
-          {/* TODO: Update ResultsTab props to include redirest and pipe through to StartExperimentBanner */}
+        <div
+          className={
+            // todo: standardize explore & results tabs across experiment types
+            isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
+          }
+        >
+          <BanditSummaryResultsTab experiment={experiment} />
+        </div>
+        <div
+          className={
+            // todo: standardize explore & results tabs across experiment types
+            (!isBandit && tab === "results") || (isBandit && tab === "explore")
+              ? "d-block"
+              : "d-none d-print-block"
+          }
+        >
+          {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
           <ResultsTab
             experiment={experiment}
             mutate={mutate}

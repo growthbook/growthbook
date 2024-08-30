@@ -48,6 +48,7 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotVariation,
+  SnapshotBanditSettings,
 } from "../../types/experiment-snapshot";
 import {
   getMetricById,
@@ -391,6 +392,7 @@ export function getSnapshotSettings({
   orgPriorSettings,
   settingsForSnapshotMetrics,
   metricMap,
+  type,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -398,6 +400,7 @@ export function getSnapshotSettings({
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  type?: SnapshotType;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -422,13 +425,16 @@ export function getSnapshotSettings({
     .filter(isDefined);
 
   // todo: implement bandit settings here first!
-  const banditSettings =
+  const banditSettings: SnapshotBanditSettings =
     experiment.type === "multi-armed-bandit"
       ? {
-          // todo: needed?
-          decisionMetric: experiment.goalMetrics?.[0],
+          reweight: type === "standard" && experiment.banditPhase === "exploit",
+          decisionMetric: experiment.goalMetrics?.[0], // todo: needed?
           seed: uuidv4(),
-          // todo: history of variation weights?
+          weights: phase?.banditEvents?.map((event) => ({
+            date: event.date,
+            weights: event?.banditResult?.weights, // todo: could be undefined, handle in stats eng?
+          })),
         }
       : undefined;
 
@@ -488,6 +494,7 @@ export async function createManualSnapshot({
     settings: analysisSettings,
     settingsForSnapshotMetrics: [],
     metricMap,
+    type: "manual",
   });
 
   const { srm, variations } = await getManualSnapshotData(
@@ -751,6 +758,7 @@ export async function createSnapshot({
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
     metricMap,
+    type,
   });
 
   const data: ExperimentSnapshotInterface = {

@@ -150,6 +150,8 @@ export default function ExperimentHeader({
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
   const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   async function startExperiment() {
     startCelebration();
     if (!experiment.phases?.length) {
@@ -497,15 +499,9 @@ export default function ExperimentHeader({
                 <TabButton
                   active={tab === "results"}
                   display={
-                    experiment.type !== "multi-armed-bandit" ? (
-                      <>
-                        <PiChartBarHorizontalFill /> Results
-                      </>
-                    ) : (
-                      <>
-                        <FaMagnifyingGlassChart /> Explore
-                      </>
-                    )
+                    <>
+                      <PiChartBarHorizontalFill /> Results
+                    </>
                   }
                   anchor="results"
                   onClick={() => setTab("results")}
@@ -513,6 +509,21 @@ export default function ExperimentHeader({
                   activeClassName="active-tab"
                   last={false}
                 />
+                {isBandit && (
+                  <TabButton
+                    active={tab === "explore"}
+                    display={
+                      <>
+                        <FaMagnifyingGlassChart /> Explore
+                      </>
+                    }
+                    anchor="explore"
+                    onClick={() => setTab("explore")}
+                    newStyle={false}
+                    activeClassName="active-tab"
+                    last={false}
+                  />
+                )}
                 {disableHealthTab ? (
                   <DisabledHealthTabTooltip
                     reason={

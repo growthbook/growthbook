@@ -4,6 +4,7 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
+import { banditResultObject } from "@back-end/src/models/ExperimentSnapshotModel";
 import {
   Changeset,
   ExperimentInterface,
@@ -191,7 +192,7 @@ const experimentSchema = new mongoose.Schema({
         {
           _id: false,
           date: Date,
-          banditResult: {},
+          banditResult: banditResultObject,
           snapshotId: String,
         },
       ],

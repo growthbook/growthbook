@@ -541,7 +541,8 @@ pre {
   }
 }
 
-.main.experiment {
+.main.experiment,
+.main.bandit {
   .experiment-header {
     margin: -4px -8px 0;
   }
