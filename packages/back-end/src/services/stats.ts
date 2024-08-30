@@ -175,6 +175,7 @@ async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
+  console.log("bandits stats data", JSON.stringify(statsData.map(d=>d.data.bandit_settings), null, 2));
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
@@ -231,6 +232,7 @@ function createStatsEngineData(
     coverage,
     analyses,
     queryResults,
+    banditSettings,
   } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
@@ -246,7 +248,14 @@ function createStatsEngineData(
         phaseLengthDays
       )
     ),
-    bandit_settings: undefined, // TODO add integration to pass down bandit settings
+    // todo: convert SnapshotBanditSettings to BanditSettingsForStatsEngine
+    // ======
+    // ideally, just some minor formatting changes (camelCase -> snake_case)
+    // todo: BanditSettingsForStatsEngine is missing things like `weights[]` history, `reweight` (bool).
+    // todo: SnapshotBanditSettings is "missing" variation ids. Needed?
+    bandit_settings: (banditSettings as unknown) as
+      | BanditSettingsForStatsEngine
+      | undefined,
   };
 }
 
@@ -617,6 +626,7 @@ export async function analyzeExperimentResults({
     analyses: analysisSettings,
     queryResults: queryResults,
     metrics: metricSettings,
+    banditSettings: snapshotSettings.banditSettings,
   };
   const results = await runSnapshotAnalysis(params);
 

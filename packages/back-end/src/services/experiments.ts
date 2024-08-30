@@ -424,17 +424,17 @@ export function getSnapshotSettings({
     )
     .filter(isDefined);
 
-  // todo: implement bandit settings here first!
-  const banditSettings: SnapshotBanditSettings =
+  const banditSettings: SnapshotBanditSettings | undefined =
     experiment.type === "multi-armed-bandit"
       ? {
           reweight: type === "standard" && experiment.banditPhase === "exploit",
           decisionMetric: experiment.goalMetrics?.[0], // todo: needed?
           seed: uuidv4(),
-          weights: phase?.banditEvents?.map((event) => ({
-            date: event.date,
-            weights: event?.banditResult?.weights, // todo: could be undefined, handle in stats eng?
-          })),
+          weights:
+            phase?.banditEvents?.map((event) => ({
+              date: event.date,
+              weights: event?.banditResult?.weights, // todo: could be undefined, handle in stats eng?
+            })) ?? [],
         }
       : undefined;
 

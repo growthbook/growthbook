@@ -166,7 +166,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment,
       organization,
       regressionAdjustmentEnabled
-      // todo: bandit settings here
     );
 
     const metricMap = await getMetricMap(context);

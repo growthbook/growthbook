@@ -132,7 +132,7 @@ export interface SnapshotSettingsVariation {
 
 export interface SnapshotBanditSettings {
   reweight: boolean;
-  decisionMetric: string; // todo: needed?
+  decisionMetric: string;
   seed: string;
   weights: {
     date: Date;
@@ -224,6 +224,7 @@ export interface ExperimentMetricAnalysisParams {
 
   queryResults: QueryResultsForStatsEngine[];
   metrics: Record<string, MetricSettingsForStatsEngine>;
+  banditSettings?: SnapshotBanditSettings;
 }
 
 export type ExperimentMetricAnalysisContext = {
