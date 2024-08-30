@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
 import Link from "next/link";
@@ -6,6 +6,7 @@ import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
   getMetricResultStatus,
+  isFactMetric,
 } from "shared/experiments";
 import { StatsEngine } from "@back-end/types/stats";
 import {
@@ -24,6 +25,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { experimentDate } from "@/pages/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
+import track from "@/services/track";
 
 interface MetricAnalysisProps {
   metric: ExperimentMetricInterface;
@@ -253,6 +255,13 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
       metric={metric}
     />
   );
+
+  useEffect(() => {
+    track("Load Metric Experiments", {
+      type: isFactMetric(metric) ? "fact" : "classic",
+    });
+  }, [metric]);
+
   return (
     <div
       className={
