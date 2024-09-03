@@ -5,7 +5,7 @@ import TopNav from "./TopNav";
 const LayoutLite = (): React.ReactElement => {
   return (
     <>
-      <div
+      {/* <div
         className={clsx(styles.sidebar, "sidebar mb-5")}
         style={{ height: "auto" }}
       >
@@ -33,7 +33,7 @@ const LayoutLite = (): React.ReactElement => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       <TopNav showNotices={false} pageTitle="" />
     </>

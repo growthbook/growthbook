@@ -184,7 +184,7 @@ export const eventSchemas: eventSchema[] = [
     popular: true,
     intro: (
       <>
-        Google Analytics v4 is a new version of Google Analytics that makes it
+        {/* Google Analytics v4 is a new version of Google Analytics that makes it
         easy to export events to a BigQuery data warehouse on Google Cloud
         Platform (GCP). Using BigQuery with your GA4 data makes it easy to use
         with GrowthBook. You can{" "}
@@ -195,7 +195,10 @@ export const eventSchemas: eventSchema[] = [
         >
           read more about it here
         </a>
-        .
+        . */}
+        Google Analytics is an event tracker that sits on top of BigQuery, where
+        your data is stored. You will need to configure BigQuery in order to
+        connect GrowthBook to Google Analytics
       </>
     ),
   },

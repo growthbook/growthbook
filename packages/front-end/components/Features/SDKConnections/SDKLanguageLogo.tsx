@@ -30,7 +30,8 @@ export type LanguageFilter =
   | "browser"
   | "server"
   | "mobile"
-  | "edge";
+  | "edge"
+  | "essential";
 export type LanguageType =
   | "frontend"
   | "backend"
@@ -57,7 +58,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docLabel: "HTML Script Tag",
     docs: "nocode",
     type: "nocode",
-    filters: ["browser", "popular"],
+    filters: ["browser", "popular", "essential"],
     hideVersion: true,
   },
   javascript: {
@@ -66,7 +67,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     label: "JavaScript",
     docs: "javascript",
     type: "frontend",
-    filters: ["browser", "popular"],
+    filters: ["browser", "popular", "essential"],
   },
   react: {
     Icon: DiReact,
@@ -74,7 +75,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     label: "React",
     docs: "tsx",
     type: "frontend",
-    filters: ["browser", "mobile", "popular"],
+    filters: ["browser", "mobile", "popular", "essential"],
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -82,7 +83,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     label: "Node.js",
     docs: "javascript",
     type: "backend",
-    filters: ["server", "popular"],
+    filters: ["server", "popular", "essential"],
   },
   php: {
     Icon: SiPhp,

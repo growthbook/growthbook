@@ -98,11 +98,11 @@ export default function SingleRoleSelector({
         formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.label);
-          if (!r) return <strong>{value.label}</strong>;
+          if (!r) return <span>{value.label}</span>;
           return (
-            <div>
-              <strong className="pr-2">{r.id}.</strong>
-              {r.description}
+            <div className="d-flex">
+              <span className="pr-2">{r.id}</span>
+              <span className="ml-auto text-muted">{r.description}</span>
             </div>
           );
         }}

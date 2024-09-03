@@ -326,16 +326,14 @@ const TopNav: FC<{
                 <div className={styles["add-organization"]}>
                   <hr />
                   <div>
-                    <div>
-                      <PiPlusBold />
-                    </div>
                     <Link
                       href="/settings/organizations"
-                      className="dropdown-item"
+                      className="dropdown-item px-1"
                       onClick={() => {
                         setOrgDropdownOpen(false);
                       }}
                     >
+                      <PiPlusBold />
                       Add Organization
                     </Link>
                   </div>

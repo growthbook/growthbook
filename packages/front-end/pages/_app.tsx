@@ -23,6 +23,7 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
+import LayoutLite from "@/components/Layout/LayoutLite";
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
@@ -32,6 +33,7 @@ type ModAppProps = AppProps & {
     noOrganization?: boolean;
     preAuth?: boolean;
     liteLayout?: boolean;
+    setupFlow?: boolean;
     preAuthTopNav?: boolean;
   };
 };
@@ -68,6 +70,7 @@ function App({
   const preAuth = Component.preAuth || false;
   const preAuthTopNav = Component.preAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
+  const setupFlow = Component.setupFlow || false;
 
   useEffect(() => {
     initEnv()
@@ -140,6 +143,7 @@ function App({
                         <GetStartedProvider>
                           <DefinitionsProvider>
                             {!liteLayout && <Layout />}
+                            {liteLayout && <LayoutLite />}
                             <main className={`main ${parts[0]}`}>
                               <GuidedGetStartedBar />
                               <OrganizationMessagesContainer />
