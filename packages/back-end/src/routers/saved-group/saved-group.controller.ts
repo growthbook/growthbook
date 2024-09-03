@@ -105,7 +105,7 @@ export const postSavedGroup = async (
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
   }
-  const uniqValues: string[] | undefined = undefined;
+  let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const conditionRes = validateCondition(condition);
@@ -115,9 +115,8 @@ export const postSavedGroup = async (
     if (conditionRes.empty) {
       throw new Error("Condition cannot be empty");
     }
-  }
-  // If this is a list group, make sure the attributeKey is specified
-  else if (type === "list") {
+  } else if (type === "list") {
+    // If this is a list group, make sure the attributeKey is specified
     if (!attributeKey) {
       throw new Error("Must specify an attributeKey");
     }
@@ -133,7 +132,7 @@ export const postSavedGroup = async (
         "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
       );
     }
-    const uniqValues = [...new Set(values)];
+    uniqValues = [...new Set(values)];
     if (
       new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
     ) {

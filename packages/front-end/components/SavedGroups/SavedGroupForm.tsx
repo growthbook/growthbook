@@ -212,6 +212,13 @@ const SavedGroupForm: FC<{
               value: a.property,
               label: a.property,
             }))}
+            isOptionDisabled={({ label }) => {
+              const attr = attributeSchema.find(
+                (attr) => attr.property === label
+              );
+              if (!attr) return false;
+              return !isIdListSupportedDatatype(attr.datatype);
+            }}
             formatOptionLabel={({ label }) => {
               const attr = attributeSchema.find(
                 (attr) => attr.property === label
