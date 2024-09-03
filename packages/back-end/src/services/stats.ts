@@ -80,22 +80,9 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean; // todo: implement in python
   decision_metric: string;
   bandit_weights_seed: number;
-  weight_by_period: boolean;
-  top_two: boolean;
   alpha: number; 
 }
 
-export interface BanditSettingsForStatsEngine {
-  reweight: boolean; // todo: implement in python
-  var_names: string[];
-  var_ids: string[];
-  decision_metric: string;
-  bandit_weights_seed: number;
-  weights: { // todo: implement in python
-    date: Date;
-    weights?: number[];
-  }[];
-}
 
 export interface MetricSettingsForStatsEngine {
   id: string;

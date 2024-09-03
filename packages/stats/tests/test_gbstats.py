@@ -315,7 +315,7 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     weights=[BanditWeightsByDate(date="", weights=None)],
     reweight=False,
     decision_metric="count_metric",
-    bandit_weights_seed=int(10),
+    bandit_weights_seed=int(0),
     alpha=0.05,
     weight_by_period=True,
     top_two=True,
