@@ -73,6 +73,11 @@ export interface AnalysisSettingsForStatsEngine {
 export interface BanditSettingsForStatsEngine {
   var_names: string[];
   var_ids: string[];
+  weights: { // todo: implement in python
+    date: Date;
+    weights?: number[];
+  }[];
+  reweight: boolean; // todo: implement in python
   decision_metric: string;
   bandit_weights_seed: number;
   weight_by_period: boolean;

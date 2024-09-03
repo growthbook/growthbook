@@ -212,12 +212,10 @@ class EffectBayesianABTest(BayesianABTest):
             if scaled_prior_effect.proper
             else data_mean
         )
-
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
         ci = gaussian_credible_interval(self.mean_diff, self.std_diff, self.alpha)
-
         risk = self.get_risk(self.mean_diff, self.std_diff)
         # flip risk for inverse metrics
         risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
@@ -260,6 +258,7 @@ class Bandits:
     ):
         self.stats = stats
         self.config = config
+        self.inverse = self.config.inverse
 
     @staticmethod
     def construct_mean(sums: np.ndarray, counts: np.ndarray) -> np.ndarray:
@@ -476,10 +475,13 @@ class Bandits:
             cov=np.diag(self.posterior_variance),
             size=self.n_samples,
         )
-        row_maxes = np.max(y, axis=1)
-        best_arm_probabilities = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
+        if self.inverse:
+            best_rows = np.min(y, axis=1)
+        else:
+            best_rows = np.max(y, axis=1)
+        best_arm_probabilities = np.mean((y == best_rows[:, np.newaxis]), axis=0)
         if self.config.top_two:
-            p = self.top_two_weights(y)
+            p = self.top_two_weights(y, self.inverse)
         else:
             p = best_arm_probabilities
         update_message = "successfully updated"
@@ -502,7 +504,7 @@ class Bandits:
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod
-    def top_two_weights(y: np.ndarray) -> np.ndarray:
+    def top_two_weights(y: np.ndarray, inverse=False) -> np.ndarray:
         """Calculates the proportion of times each column contains the largest or second largest element in a row.
         Args:
         arr: A 2D NumPy array.
@@ -511,14 +513,24 @@ class Bandits:
         """
         # Get indices of sorted elements in each row
         sorted_indices = np.argsort(y, axis=1)
-        # counts for number of times each variation was the largest
-        unique_0, counts_0 = np.unique(
-            sorted_indices[:, -1][:, np.newaxis], return_counts=True
-        )
-        # counts for number of times each variation was the second largest
-        unique_1, counts_1 = np.unique(
-            sorted_indices[:, -2][:, np.newaxis], return_counts=True
-        )
+        if inverse:
+            # counts for number of times each variation was the smallest
+            unique_0, counts_0 = np.unique(
+                sorted_indices[:, 1][:, np.newaxis], return_counts=True
+            )
+            # counts for number of times each variation was the second smallest
+            unique_1, counts_1 = np.unique(
+                sorted_indices[:, 2][:, np.newaxis], return_counts=True
+            )
+        else:
+            # counts for number of times each variation was the largest
+            unique_0, counts_0 = np.unique(
+                sorted_indices[:, -1][:, np.newaxis], return_counts=True
+            )
+            # counts for number of times each variation was the second largest
+            unique_1, counts_1 = np.unique(
+                sorted_indices[:, -2][:, np.newaxis], return_counts=True
+            )
         # put inside dicts and loop over count to ensure arms that are never the biggest are included
         dict_0 = dict(zip(unique_0, counts_0))
         dict_1 = dict(zip(unique_1, counts_1))
@@ -721,11 +733,11 @@ class BanditsCuped(Bandits):
         return (
             self.post_variance
             + pow(self.theta_array, 2) * self.pre_variance
-            - 2 * self.theta_array * self.covariance
+            - 2 * self.theta_array * self.covariance_array
         )
 
     @property
-    def covariance(self):
+    def covariance_array(self):
         cov_array = np.zeros(self.array_shape)
         bigger_than_one = self.counts_array > 1
         cov_array[bigger_than_one] = (

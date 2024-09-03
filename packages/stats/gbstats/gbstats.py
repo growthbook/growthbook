@@ -650,6 +650,7 @@ def preprocess_bandits(
         weight_by_period=settings.weight_by_period,
         top_two=settings.top_two,
         alpha=settings.alpha,
+        inverse=metric.inverse,
     )
     if metric.statistic_type == "ratio":
         return BanditsRatio(bandit_stats, bandit_config)
@@ -695,7 +696,7 @@ def get_bandit_response(
         bandit_result = b.compute_result()
         single_variation_results = None
         if (
-            bandit_result.bandit_update_message == "successfully_updated"
+            bandit_result.bandit_update_message == "successfully updated"
             and bandit_result.ci
         ):
             single_variation_results = [
@@ -765,7 +766,10 @@ def process_experiment_results(
                 rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
                     if d.bandit_settings:
-                        if metric == d.bandit_settings.decision_metric:
+                        if (
+                            metric == d.bandit_settings.decision_metric
+                            and d.bandit_settings.update_weights
+                        ):
                             if bandit_result is not None:
                                 raise ValueError("Bandit weights already computed")
                             bandit_result = get_bandit_response(

@@ -26,14 +26,23 @@ class AnalysisSettingsForStatsEngine:
 
 
 @dataclass
+class BanditWeightsByDate:
+    date: str
+    weights: Optional[List[float]] = None
+
+
+@dataclass
 class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
+    weights: List[BanditWeightsByDate]
+    reweight: bool = True
     decision_metric: str = ""
-    bandit_weights_seed: int = 0
+    bandit_weights_seed: int = 100
+    alpha: float = 0.05
     weight_by_period: bool = True
     top_two: bool = True
-    alpha: float = 0.05
+    update_weights: bool = True
 
 
 @dataclass
