@@ -3,6 +3,7 @@ import React from "react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import TabButton from "@/components/Tabs/TabButton";
 import TabButtons from "@/components/Tabs/TabButtons";
+import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -37,8 +38,12 @@ export default function BanditSummaryResultsTab({ experiment }: Props) {
   return (
     <div className="bg-white border mt-3">
       <div className="mb-2" style={{ overflowX: "initial" }}>
-        <div className="m-3 mb-5">
-          <h3>Graph of variations with uplift stats</h3>
+        <div className="mt-3 mb-5">
+          <h3 className="mx-2">Graph of variations with uplift stats</h3>
+          <BanditSummaryTable
+            experiment={experiment}
+            isTabActive={true} // todo: huh?
+          />
         </div>
 
         <div className="m-3">

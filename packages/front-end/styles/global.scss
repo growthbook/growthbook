@@ -608,13 +608,14 @@ pre {
   padding: 0 10px;
 }
 
-.experiment-results-wrapper {
+.experiment-results-wrapper,
+.bandit-summary-results-wrapper {
   @media (max-width: 900px) {
     overflow-x: auto;
   }
 }
 
-.experiment-results {
+.experiment-results, .bandit-summary-results {
   tbody {
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
@@ -668,6 +669,7 @@ pre {
   }
 }
 .experiment-results,
+.bandit-summary-results,
 .impact-results {
   .value,
   .chance,
