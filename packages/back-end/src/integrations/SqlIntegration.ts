@@ -808,6 +808,19 @@ export default abstract class SqlIntegration
                   ignoreZeros:
                     metricData.metric.cappingSettings.ignoreZeros ?? false,
                 },
+                ...(metricData.ratioMetric
+                  ? [
+                      {
+                        valueCol: "denominator",
+                        outputCol: "denominator_capped",
+                        percentile:
+                          metricData.metric.cappingSettings.value ?? 1,
+                        ignoreZeros:
+                          metricData.metric.cappingSettings.ignoreZeros ??
+                          false,
+                      },
+                    ]
+                  : []),
               ],
               "__userMetricOverall"
             )}
@@ -819,6 +832,7 @@ export default abstract class SqlIntegration
           SELECT
             date
             , MAX(${this.castToString("'date'")}) AS data_type
+            , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalValueColumn,
               finalDenominatorColumn,
@@ -843,6 +857,7 @@ export default abstract class SqlIntegration
           SELECT
             ${this.castToDate("NULL")} AS date
             , MAX(${this.castToString("'overall'")}) AS data_type
+            , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalValueColumn,
               finalDenominatorColumn,

@@ -233,18 +233,18 @@ Define advanced targeting rules based on user attributes. For example, target us
 
 Manually define targeted users via text input or by uploading a CSV. For example, create a beta testers saved group by uploading a CSV of user IDs.
 
-ID Lists are limited to 1 MB. Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.
-
-:::note
-ID Lists above 100 items require an Enterprise plan and compatible SDK. Enable this feature by editing your SDK connection and toggling on **ID Lists > 100 items**. If the the toggle isn't visible, your SDK is not compatible with this feature.
-:::
-
 ![Saved Group UI, focusing on adding an ID list](/images/saved-groups-id-list.png)
 
+ID Lists are limited to 1 MB. Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.'
+
+ID Lists accept the following types of attributes: `string`, `secureString`, or `number`. For targeting other types of attributes, use [Condition Groups](#condition-groups).
+
+:::note
+Enterprise users can use optimized ID lists to reduce payload size. Enable this feature by editing your SDK connection and toggling on **Pass ID Lists by reference**. If the the toggle isn't visible, your SDK is not compatible with this feature.
+:::
+
+
 ## Prerequisite Targeting
 
 You can add prerequisite targeting to any feature or experiment. For more information, see the [Prerequisite Features](/features/prerequisites#inline-prerequisite-targeting) page.
 
-## Prerequisite Targeting
-
-You can add prerequisite targeting to any feature or experiment. For more information, see the [Prerequisite Features](/features/prerequisites#inline-prerequisite-targeting) page.

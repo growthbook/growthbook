@@ -60,6 +60,8 @@ export const apiFactTableFilterValidator = z.object({ "id": z.string(), "name": 
 
 export const apiFactMetricValidator = z.object({ "id": z.string(), "name": z.string(), "description": z.string(), "owner": z.string(), "projects": z.array(z.string()), "tags": z.array(z.string()), "datasource": z.string(), "metricType": z.enum(["proportion","mean","quantile","ratio"]), "numerator": z.object({ "factTableId": z.string(), "column": z.string(), "filters": z.array(z.string()).describe("Array of Fact Table Filter Ids") }), "denominator": z.object({ "factTableId": z.string(), "column": z.string(), "filters": z.array(z.string()).describe("Array of Fact Table Filter Ids") }).optional(), "inverse": z.boolean().describe("Set to true for things like Bounce Rate, where you want the metric to decrease"), "quantileSettings": z.object({ "type": z.enum(["event","unit"]).describe("Whether the quantile is over unit aggregations or raw event values"), "ignoreZeros": z.boolean().describe("If true, zero values will be ignored when calculating the quantile"), "quantile": z.coerce.number().multipleOf(0.001).gte(0.001).lte(0.999).describe("The quantile value (from 0.001 to 0.999)") }).describe("Controls the settings for quantile metrics (mandatory if metricType is \"quantile\")").optional(), "cappingSettings": z.object({ "type": z.enum(["none","absolute","percentile"]), "value": z.coerce.number().describe("When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).").optional(), "ignoreZeros": z.boolean().describe("If true and capping is `percentile`, zeros will be ignored when calculating the percentile.").optional() }).describe("Controls how outliers are handled"), "windowSettings": z.object({ "type": z.enum(["none","conversion","lookback"]), "delayHours": z.coerce.number().describe("Wait this many hours after experiment exposure before counting conversions").optional(), "windowValue": z.coerce.number().optional(), "windowUnit": z.enum(["hours","days","weeks"]).optional() }).describe("Controls the conversion window for the metric"), "regressionAdjustmentSettings": z.object({ "override": z.boolean().describe("If false, the organization default settings will be used"), "enabled": z.boolean().describe("Controls whether or not regresion adjustment is applied to the metric").optional(), "days": z.coerce.number().describe("Number of pre-exposure days to use for the regression adjustment").optional() }).describe("Controls the regression adjustment (CUPED) settings for the metric"), "riskThresholdSuccess": z.coerce.number(), "riskThresholdDanger": z.coerce.number(), "minPercentChange": z.coerce.number(), "maxPercentChange": z.coerce.number(), "minSampleSize": z.coerce.number(), "managedBy": z.enum(["","api"]).describe("Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere."), "dateCreated": z.string(), "dateUpdated": z.string() }).strict()
 
+export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string().optional(), "email": z.string(), "globalRole": z.string(), "environments": z.array(z.string()).optional(), "limitAccessByEnvironment": z.boolean().optional(), "managedbyIdp": z.boolean().optional(), "teams": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional(), "lastLoginDate": z.string().optional(), "dateCreated": z.string().optional(), "dateUpdated": z.string().optional() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional() }).strict(),
@@ -326,6 +328,24 @@ export const postOrganizationValidator = {
 
 export const putOrganizationValidator = {
   bodySchema: z.object({ "name": z.string().describe("The name of the organization").optional(), "externalId": z.string().describe("An optional identifier that you use within your company for the organization").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const listMembersValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "userName": z.string().optional(), "userEmail": z.string().optional(), "globalRole": z.string().optional() }).strict(),
+  paramsSchema: z.never(),
+};
+
+export const deleteMemberValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const updateMemberRoleValidator = {
+  bodySchema: z.object({ "member": z.object({ "role": z.string().optional(), "environments": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "environments": z.array(z.string()) })).optional() }) }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

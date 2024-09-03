@@ -690,18 +690,20 @@ export abstract class QueryRunner<
 
   // Limit number of currently running queries
   private async concurrencyLimitReached(): Promise<boolean> {
-    if (this.integration.datasource.settings.maxConcurrentQueries) {
-      const numRunningQueries = await countRunningQueries(
-        this.integration.context.org.id,
-        this.integration.datasource.id
-      );
-      return (
-        numRunningQueries >=
-        this.integration.datasource.settings.maxConcurrentQueries
-      );
-    } else {
+    if (!this.integration.datasource.settings.maxConcurrentQueries)
+      return new Promise<boolean>((resolve) => resolve(false));
+    const numericConcurrencyLimit = parseInt(
+      this.integration.datasource.settings.maxConcurrentQueries
+    );
+    if (isNaN(numericConcurrencyLimit) || numericConcurrencyLimit === 0) {
       return new Promise<boolean>((resolve) => resolve(false));
     }
+
+    const numRunningQueries = await countRunningQueries(
+      this.integration.context.org.id,
+      this.integration.datasource.id
+    );
+    return numRunningQueries >= numericConcurrencyLimit;
   }
 
   private getOverallQueryStatus(): QueryStatus {

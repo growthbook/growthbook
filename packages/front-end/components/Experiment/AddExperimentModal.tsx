@@ -53,10 +53,9 @@ const AddExperimentModal: FC<{
   const { project } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
-  const hasRunExperimentsPermission = permissionsUtil.canRunExperiment(
-    { project },
-    []
-  );
+  const hasCreateExperimentsPermission = permissionsUtil.canCreateExperiment({
+    project,
+  });
 
   const [mode, setMode] = useState<"new" | "import" | null>(null);
 
@@ -86,7 +85,7 @@ const AddExperimentModal: FC<{
         setMode("new");
         track("Design a New Experiment", { source });
       },
-      enabled: hasRunExperimentsPermission,
+      enabled: hasCreateExperimentsPermission,
     },
   ];
 
