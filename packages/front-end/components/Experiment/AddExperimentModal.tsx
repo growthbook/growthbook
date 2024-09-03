@@ -14,11 +14,21 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import NewExperimentForm from "./NewExperimentForm";
 import ImportExperimentModal from "./ImportExperimentModal";
+type ModalType = "new" | "import";
 
 const AddExperimentModal: FC<{
   onClose: () => void;
   source: string;
-}> = ({ onClose, source }) => {
+  type?: ModalType;
+  initialValue?: Partial<ExperimentInterfaceStringDates>;
+}> = ({
+  onClose,
+  source,
+  type = null,
+  initialValue: _initialValue = {
+    type: "standard",
+  }
+}) => {
   const { project } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
@@ -35,12 +45,10 @@ const AddExperimentModal: FC<{
 
   const usingStickyBucketing = !!settings.useStickyBucketing;
 
-  const [modalType, setModalType] = useState<"new" | "import" | null>(null);
+  const [modalType, setModalType] = useState<ModalType | null>(type);
   const [initialValue, setInitialValue] = useState<
     Partial<ExperimentInterfaceStringDates>
-  >({
-    type: "standard",
-  });
+  >(_initialValue);
 
   const form = useForm<{
     mode: "new" | "import" | "";

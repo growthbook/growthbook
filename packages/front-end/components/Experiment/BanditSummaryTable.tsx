@@ -116,7 +116,7 @@ export default function BanditSummaryTable({
                       showAxis={true}
                       axisOnly={true}
                       graphWidth={graphCellWidth}
-                      percent={true}
+                      percent={false}
                       height={45}
                     />
                   </div>
@@ -160,7 +160,7 @@ export default function BanditSummaryTable({
                         significant={true}
                         showAxis={false}
                         graphWidth={graphCellWidth}
-                        percent={true}
+                        percent={false}
                         height={ROW_HEIGHT}
                       />
                     </td>

@@ -253,15 +253,6 @@ const ExperimentsPage = (): React.ReactElement => {
               <h1>Bandit Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
-            {settings.powerCalculatorEnabled && (
-              <Link
-                className="btn btn-outline-primary float-right"
-                type="button"
-                href="/power-calculator"
-              >
-                Power Calculator
-              </Link>
-            )}
             {canAdd && (
               <div className="col-auto">
                 <button
@@ -540,18 +531,17 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal &&
-        (growthbook?.isOn("new-experiment-modal") ? (
-          <AddExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ) : (
-          <ImportExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ))}
+      {openNewExperimentModal && (
+        <AddExperimentModal
+          type="new"
+          initialValue={{
+            type: "multi-armed-bandit",
+            statsEngine: "bayesian",
+          }}
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="bandits-list"
+        />
+      )}
     </>
   );
 };

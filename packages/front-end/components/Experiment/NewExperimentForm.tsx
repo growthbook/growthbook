@@ -374,7 +374,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
-  let header = isNewExperiment ? "New Experiment" : "New Experiment Analysis";
+  let header = isNewExperiment ? `Create ${form.watch("type") === "multi-armed-bandit" ? "Bandit " : ""}Experiment` : "New Experiment Analysis";
   if (source === "duplicate") {
     header = "Duplicate Experiment";
   }
