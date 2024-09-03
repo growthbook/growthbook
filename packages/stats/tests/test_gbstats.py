@@ -21,6 +21,7 @@ from gbstats.gbstats import (
     create_bandit_statistics,
     get_weighted_rows,
 )
+from gbstats.models.settings import BanditWeightsByDate
 from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
 
 DECIMALS = 9
@@ -307,23 +308,18 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     max_dimensions=20,
 )
 
-# confirm with sonnet that var_ids are right;
-# before was failing at "get_metric_df" due to wrong var_id_mapping
-BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
-    var_names=["zero", "one", "two", "three"],
-    var_ids=["zero", "one", "two", "three"],
-    decision_metric="count_metric",
-    bandit=True,
-    bandit_weights_seed=100,
-)
 
-# confirm with sonnet that var_ids are right;
-# before was failing at "get_metric_df" due to wrong var_id_mapping
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
+    weights=[BanditWeightsByDate(date="", weights=None)],
+    reweight=False,
     decision_metric="count_metric",
-    bandit_weights_seed=10,
+    bandit_weights_seed=int(10),
+    alpha=0.05,
+    weight_by_period=True,
+    top_two=True,
+    update_weights=True,
 )
 
 
