@@ -76,7 +76,6 @@ export default function ChangeColumn({
             <span className="expected">
               {formatter(expected, formatterOptions)}{" "}
             </span>
-            <span></span>
             {statsEngine === "frequentist" && showPlusMinus ? (
               <span className="plusminus font-weight-normal text-gray ml-1">
                 ±
