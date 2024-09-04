@@ -10,15 +10,31 @@ type ProxyOptions = {
   proxyPort?: number;
   proxyProtocol?: string;
 };
-function getProxySettings(): ProxyOptions {
-  const uri = process.env.SNOWFLAKE_PROXY;
+
+function proxyPort(url: URL): number | undefined {
+  if (url.port) {
+    return parseInt(url.port);
+  }
+
+  if (url.protocol === "http:") {
+    return 80;
+  }
+
+  if (url.protocol === "https:") {
+    return 443;
+  }
+
+  return undefined;
+}
+
+export function getProxySettings(uri: string | undefined): ProxyOptions {
   if (!uri) return {};
 
   const parsed = new URL(uri);
   return {
     proxyProtocol: parsed.protocol,
     proxyHost: parsed.hostname,
-    proxyPort: (parsed.port ? parseInt(parsed.port) : 0) || undefined,
+    proxyPort: proxyPort(parsed),
     proxyUser: parsed.username || undefined,
     proxyPassword: parsed.password || undefined,
   };
@@ -31,6 +47,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 ): Promise<QueryResponse<T[]>> {
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
+  const proxy = getProxySettings(process.env.SNOWFLAKE_PROXY);
   const connection = createConnection({
     account,
     username: conn.username,
@@ -39,7 +56,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     schema: conn.schema,
     warehouse: conn.warehouse,
     role: conn.role,
-    ...getProxySettings(),
+    ...proxy,
     application: "GrowthBook_GrowthBook",
   });
   // promise with timeout to prevent hanging
