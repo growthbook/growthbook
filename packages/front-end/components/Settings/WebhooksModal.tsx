@@ -168,8 +168,12 @@ export function CreateSDKWebhookModal({
       open={true}
       size="lg"
       submit={form.handleSubmit(async (inputs) => {
+        if (!webhookType) {
+          throw new Error("Please select a Webhook type");
+        }
+
         const data: CreateSdkWebhookProps = {
-          ...getWebhookFromType(webhookType!, inputs),
+          ...getWebhookFromType(webhookType, inputs),
           name: "My Webhook",
         };
 
