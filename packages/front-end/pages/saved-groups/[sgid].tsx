@@ -1,10 +1,14 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { getMatchingRules, SMALL_GROUP_SIZE_LIMIT } from "shared/util";
+import {
+  getMatchingRules,
+  isIdListSupportedDatatype,
+  SMALL_GROUP_SIZE_LIMIT,
+} from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiInfoFill } from "react-icons/pi";
+import { PiArrowsDownUp, PiInfoFill, PiWarningFill } from "react-icons/pi";
 import Link from "next/link";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import Field from "@/components/Forms/Field";
@@ -23,6 +27,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { DocLink } from "@/components/DocLink";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const NUM_PER_PAGE = 10;
 
@@ -58,6 +63,7 @@ export default function EditSavedGroupPage() {
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
     "replace"
   );
+  const { attributeSchema } = useOrgSettings();
 
   const [
     savedGroupForm,
@@ -138,6 +144,11 @@ export default function EditSavedGroupPage() {
   const legacyLargeSavedGroup =
     (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
     !savedGroup?.passByReferenceOnly;
+
+  const attr = (attributeSchema || []).find(
+    (attr) => attr.property === savedGroup?.attributeKey
+  );
+  const dataType = attr?.datatype;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -333,6 +344,18 @@ export default function EditSavedGroupPage() {
             {SMALL_GROUP_SIZE_LIMIT} items) can be used. This ID list has been
             grandfathered in, and is not subject to these restrictions.{" "}
             <DocLink docSection="savedGroups">Learn more</DocLink>
+          </div>
+        )}
+        {!isIdListSupportedDatatype(dataType) && (
+          <div className="alert alert-danger">
+            <PiWarningFill style={{ marginTop: "-2px" }} />
+            The attribute for this saved group has an unsupported datatype. It
+            cannot be edited and it may produce unexpected behavior when used in
+            SDKs. Try using a{" "}
+            <Link href="/saved-groups#conditionGroups">
+              Condition Group
+            </Link>{" "}
+            instead
           </div>
         )}
         <hr />
