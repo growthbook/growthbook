@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { getMatchingRules } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp } from "react-icons/pi";
+import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
+import { getMatchingRules, isIdListSupportedDatatype } from "shared/util";
 import Link from "next/link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -23,6 +23,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const NUM_PER_PAGE = 10;
 
@@ -56,6 +57,7 @@ export default function EditSavedGroupPage() {
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
     "replace"
   );
+  const { attributeSchema } = useOrgSettings();
 
   const {
     hasLargeSavedGroupFeature,
@@ -106,6 +108,11 @@ export default function EditSavedGroupPage() {
   const getConfirmationContent = useMemo(() => {
     return getSavedGroupMessage(featuresReferencingSavedGroup);
   }, [featuresReferencingSavedGroup]);
+
+  const attr = (attributeSchema || []).find(
+    (attr) => attr.property === savedGroup?.attributeKey
+  );
+  const dataType = attr?.datatype;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -272,6 +279,18 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div>{savedGroup.description}</div>
+        {!isIdListSupportedDatatype(dataType) && (
+          <div className="alert alert-danger">
+            <PiWarningFill style={{ marginTop: "-2px" }} />
+            The attribute for this saved group has an unsupported datatype. It
+            cannot be edited and it may produce unexpected behavior when used in
+            SDKs. Try using a{" "}
+            <Link href="/saved-groups#conditionGroups">
+              Condition Group
+            </Link>{" "}
+            instead
+          </div>
+        )}
         <hr />
         <LargeSavedGroupPerformanceWarning
           style="banner"
