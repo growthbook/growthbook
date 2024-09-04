@@ -28,7 +28,6 @@ export default function PowerCalculationStatsEngineSettingsModal({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open
       size="lg"
       header="Analysis Settings"

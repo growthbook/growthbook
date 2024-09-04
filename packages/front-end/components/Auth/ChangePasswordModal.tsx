@@ -18,7 +18,6 @@ const ChangePasswordModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       header="Change Password"
       open={true}
       autoCloseOnSubmit={false}

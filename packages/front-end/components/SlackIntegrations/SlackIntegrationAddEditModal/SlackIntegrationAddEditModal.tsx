@@ -101,7 +101,6 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       header={modalTitle}
       cta={buttonText}
       close={onClose}

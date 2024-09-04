@@ -396,7 +396,6 @@ function SimpleSchemaEditor({
         {open ? (
           <Modal
             trackingEventModalType=""
-            trackingEventModalSource=""
             open={true}
             header="Edit Value"
             size="lg"

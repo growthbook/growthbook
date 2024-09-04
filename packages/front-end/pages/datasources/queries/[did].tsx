@@ -91,7 +91,6 @@ const DataSourceQueries = (): React.ReactElement => {
       {modalData && (
         <Modal
           trackingEventModalType=""
-          trackingEventModalSource=""
           open
           close={() => setModalData(null)}
           size="lg"

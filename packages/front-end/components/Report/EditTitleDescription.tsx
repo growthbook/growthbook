@@ -25,7 +25,6 @@ export default function EditTitleDescription({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open={true}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/report/${report.id}`, {

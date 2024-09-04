@@ -164,7 +164,6 @@ const DataSourceForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       inline={inline}
       open={true}
       submit={handleSubmit}

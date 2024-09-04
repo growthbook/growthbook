@@ -111,7 +111,6 @@ export default function FactTableModal({ existing, close }: Props) {
       )}
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         open={true}
         close={close}
         cta={"Save"}

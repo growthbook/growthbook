@@ -15,7 +15,6 @@ export default function StaleDetectionModal({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open
       close={close}
       header={`${

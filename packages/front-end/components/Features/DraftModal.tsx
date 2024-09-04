@@ -143,7 +143,6 @@ export default function DraftModal({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open={true}
       header={"Review Draft Changes"}
       submit={

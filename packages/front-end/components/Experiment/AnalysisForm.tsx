@@ -209,7 +209,6 @@ const AnalysisForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       header={"Experiment Settings"}
       open={true}
       close={cancel}

@@ -40,7 +40,6 @@ const EditProjectForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       header={"Edit Project"}
       open={true}
       close={cancel}

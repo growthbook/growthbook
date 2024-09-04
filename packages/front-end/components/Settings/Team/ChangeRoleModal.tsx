@@ -27,7 +27,6 @@ const ChangeRoleModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       close={close}
       header="Change Role"
       open={true}

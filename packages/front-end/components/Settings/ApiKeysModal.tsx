@@ -40,7 +40,6 @@ const ApiKeysModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       close={close}
       header={"Create API Key"}
       open={true}

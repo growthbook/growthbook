@@ -170,7 +170,6 @@ const EditMetricsForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       autoFocusSelector=""
       header="Edit Metrics"
       size="lg"

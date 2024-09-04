@@ -48,7 +48,6 @@ const Carousel: FC<{
       {modalOpen && currentChild && (
         <Modal
           trackingEventModalType=""
-          trackingEventModalSource=""
           open={true}
           header={"Screenshot"}
           close={() => setModalOpen(false)}

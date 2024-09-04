@@ -205,7 +205,6 @@ export default function RequestReviewModal({
     return (
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         open={true}
         header={"Review Draft Changes"}
         cta={ctaCopy}
@@ -342,7 +341,6 @@ export default function RequestReviewModal({
     return (
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         open={true}
         close={close}
         header={"Review Draft Changes"}

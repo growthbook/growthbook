@@ -83,7 +83,6 @@ export default function CopyRuleModal({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       header={`Copy ${ruleTxt} to environment(s)`}
       open={true}
       close={cancel}

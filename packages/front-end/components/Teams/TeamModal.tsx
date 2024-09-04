@@ -38,7 +38,6 @@ export default function TeamModal({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open={true}
       close={close}
       header={existing.id ? "Edit Team Metadata" : "Create Team"}

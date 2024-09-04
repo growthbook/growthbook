@@ -104,7 +104,6 @@ const AddExperimentModal: FC<{
       return (
         <Modal
           trackingEventModalType=""
-          trackingEventModalSource=""
           open
           close={() => onClose()}
           size="lg"

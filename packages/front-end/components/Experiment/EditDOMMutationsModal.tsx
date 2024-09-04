@@ -162,7 +162,6 @@ const EditDOMMutatonsModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open
       close={close}
       size="lg"

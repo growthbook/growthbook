@@ -20,7 +20,6 @@ const EditOwnerModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       header={"Edit Owner"}
       open={true}
       close={cancel}

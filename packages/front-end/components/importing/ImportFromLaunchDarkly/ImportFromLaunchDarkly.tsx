@@ -552,7 +552,6 @@ function FeatureImportRow({
       {open && data.feature && (
         <Modal
           trackingEventModalType=""
-          trackingEventModalSource=""
           open
           close={() => setOpen(false)}
           header={`Feature Details`}

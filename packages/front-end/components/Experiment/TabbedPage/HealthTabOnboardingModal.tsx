@@ -165,7 +165,6 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     return (
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         open={open}
         submit={close}
         cta={"Confirm"}
@@ -342,7 +341,6 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open={open}
       close={() => {
         setLastStep(step);

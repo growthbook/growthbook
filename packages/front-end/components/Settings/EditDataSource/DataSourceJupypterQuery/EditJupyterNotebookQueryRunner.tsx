@@ -33,7 +33,6 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open={true}
       submit={handleSubmit}
       close={onCancel}

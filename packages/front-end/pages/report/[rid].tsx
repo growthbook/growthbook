@@ -169,7 +169,6 @@ export default function ReportPage() {
         {editModalOpen && (
           <Modal
             trackingEventModalType=""
-            trackingEventModalSource=""
             open={true}
             submit={form.handleSubmit(async (value) => {
               await apiCall(`/report/${report.id}`, {

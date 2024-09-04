@@ -287,7 +287,6 @@ export default function RuleModal({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open={true}
       close={close}
       size="lg"

@@ -21,7 +21,6 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       close={close}
       header="Change Password"
       open={true}

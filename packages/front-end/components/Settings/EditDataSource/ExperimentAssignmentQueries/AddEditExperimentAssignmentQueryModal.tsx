@@ -230,7 +230,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         open={true}
         submit={handleSubmit}
         close={onCancel}

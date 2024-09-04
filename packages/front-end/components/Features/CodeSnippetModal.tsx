@@ -164,7 +164,6 @@ export default function CodeSnippetModal({
       )}
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         close={close}
         secondaryCTA={secondaryCTA}
         className="mb-4"

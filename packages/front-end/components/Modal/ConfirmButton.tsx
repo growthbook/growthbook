@@ -24,7 +24,6 @@ const ConfirmButton: FC<{
       {confirming ? (
         <Modal
           trackingEventModalType=""
-          trackingEventModalSource=""
           header={modalHeader}
           close={() => setConfirming(false)}
           open={true}

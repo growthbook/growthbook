@@ -320,7 +320,6 @@ export default function UpgradeModal({ close, source }: Props) {
       ) : (
         <Modal
           trackingEventModalType=""
-          trackingEventModalSource=""
           open={true}
           includeCloseCta={false}
           close={close}

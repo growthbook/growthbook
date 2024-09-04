@@ -132,7 +132,6 @@ const NorthStar: FC<{
       {openNorthStarModal && (
         <Modal
           trackingEventModalType=""
-          trackingEventModalSource=""
           close={() => setOpenNorthStarModal(false)}
           overflowAuto={false}
           autoFocusSelector={""}

@@ -75,7 +75,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     return (
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         open={true}
         close={close}
         size="md"
@@ -156,7 +155,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       close={close}
       header="Invite Member"
       open={true}

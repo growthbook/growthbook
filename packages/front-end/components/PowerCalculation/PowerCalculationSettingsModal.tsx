@@ -117,7 +117,6 @@ const SelectStep = ({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open
       size="lg"
       header="New Calculation"
@@ -460,7 +459,6 @@ const SetParamsStep = ({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open
       size="lg"
       header="New Calculation"

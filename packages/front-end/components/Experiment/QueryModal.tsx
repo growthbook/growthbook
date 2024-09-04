@@ -11,7 +11,6 @@ const QueryModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       close={close}
       header="View Query"
       open={true}

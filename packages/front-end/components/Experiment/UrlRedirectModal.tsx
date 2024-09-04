@@ -175,7 +175,6 @@ const UrlRedirectModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       autoCloseOnSubmit={false}
       open
       disabledMessage={

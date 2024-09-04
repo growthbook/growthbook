@@ -181,7 +181,6 @@ export default function EditTargetingModal({
     return (
       <Modal
         trackingEventModalType=""
-        trackingEventModalSource=""
         open={true}
         close={close}
         header={`Edit Targeting`}

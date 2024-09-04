@@ -18,6 +18,7 @@ type ModalProps = {
   open: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
+  // The source (likely page or component) causing the modal to be shown
   trackingEventModalSource?: string;
   className?: string;
   submitColor?: string;

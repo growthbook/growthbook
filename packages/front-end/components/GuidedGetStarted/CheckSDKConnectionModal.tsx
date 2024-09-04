@@ -22,7 +22,6 @@ export default function CheckSDKConnectionModal({
   return (
     <Modal
       trackingEventModalType=""
-      trackingEventModalSource=""
       open={true}
       close={showModalClose ? close : undefined}
       closeCta="Close"
