@@ -147,10 +147,11 @@ export function removeMongooseFields<T>(
     doc = doc.toJSON({ flattenMaps: true });
   }
 
-  // Delete mongoose fields rather than using lodash.omit for perf reasons since this is called a lot
-  delete doc._id;
-  delete doc.__v;
-  return doc as T;
+  // Copy the object and delete mongoose fields rather than using lodash.omit for perf reasons since this is called a lot
+  const result = { ...doc } as MongooseDocument & T;
+  delete result._id;
+  delete result.__v;
+  return result;
 }
 
 export function getCollection(name: string) {
