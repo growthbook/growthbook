@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChange } from "back-end/types/visual-changeset";
-import { FC, useCallback, useState } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 
@@ -20,6 +20,12 @@ const EditDOMMutatonsModal: FC<{
   const [newDOMMutationErrors, setNewDOMMutationErrors] = useState<string[]>(
     []
   );
+  //update Dom mutations when visualChange changes
+  useEffect(() => {
+    setNewDOMMutationStr(
+      newVisualChange.domMutations.map((m) => JSON.stringify(m))
+    );
+  }, [newVisualChange]);
 
   const deleteCustomJS = useCallback(() => {
     setNewVisualChange({
