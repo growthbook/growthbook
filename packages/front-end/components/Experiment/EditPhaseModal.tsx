@@ -44,6 +44,7 @@ export default function EditPhaseModal({
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       close={close}
       header={`Edit Analysis Phase #${i + 1}`}

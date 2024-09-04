@@ -400,6 +400,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
       )}
       {viewSchema && (
         <Modal
+          trackingEventName=""
           open={true}
           close={() => setViewSchema(false)}
           closeCta="Close"

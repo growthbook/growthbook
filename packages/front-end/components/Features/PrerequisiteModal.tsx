@@ -181,6 +181,7 @@ export default function PrerequisiteModal({
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       close={close}
       size="lg"

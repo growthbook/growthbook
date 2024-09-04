@@ -45,6 +45,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       submit={handleSubmit}
       close={onCancel}

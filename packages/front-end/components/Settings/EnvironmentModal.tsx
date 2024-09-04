@@ -64,6 +64,7 @@ export default function EnvironmentModal({
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       close={close}
       header={

@@ -191,6 +191,7 @@ export default function ExperimentHeader({
         )}
         {showStartExperiment && experiment.status === "draft" && (
           <Modal
+            trackingEventName=""
             open={true}
             size="md"
             closeCta={

@@ -63,6 +63,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       submit={handleSubmit}
       close={onCancel}

@@ -48,6 +48,7 @@ const FilterSummary: FC<{
         </a>
       </span>
       <Modal
+        trackingEventName=""
         header={"Experiment Details and Filters"}
         open={showExpandedFilter}
         closeCta="Close"

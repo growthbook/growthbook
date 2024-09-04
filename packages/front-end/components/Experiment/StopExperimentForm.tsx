@@ -85,6 +85,7 @@ const StopExperimentForm: FC<{
 
   return (
     <Modal
+      trackingEventName=""
       header={isStopped ? "Edit Experiment Results" : "Stop Experiment"}
       close={close}
       open={true}

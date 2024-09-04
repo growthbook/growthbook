@@ -23,6 +23,7 @@ export default function EditRevisionCommentModal({
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       close={close}
       header="Edit Revision Comment"

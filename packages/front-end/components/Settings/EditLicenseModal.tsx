@@ -25,6 +25,7 @@ const EditLicenseModal: FC<{
 
   return (
     <Modal
+      trackingEventName=""
       header="Enter License Key"
       open={true}
       close={close}

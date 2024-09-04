@@ -47,6 +47,7 @@ const Carousel: FC<{
     <div className="carousel slide my-2">
       {modalOpen && currentChild && (
         <Modal
+          trackingEventName=""
           open={true}
           header={"Screenshot"}
           close={() => setModalOpen(false)}

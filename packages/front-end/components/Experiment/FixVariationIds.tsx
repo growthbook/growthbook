@@ -26,6 +26,7 @@ export default function FixVariationIds({
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       submit={form.handleSubmit(async (value) => {
         const ids = value.ids.map((id, i) => (id ? id : expected[i]));

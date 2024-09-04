@@ -100,6 +100,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
 
   return (
     <Modal
+      trackingEventName=""
       header={modalTitle}
       cta={buttonText}
       close={onClose}

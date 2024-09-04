@@ -145,6 +145,7 @@ export const DimensionIssues = ({
   return (
     <>
       <Modal
+        trackingEventName=""
         close={() => setModalOpen(false)}
         open={modalOpen}
         closeCta={"Close"}

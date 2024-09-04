@@ -39,6 +39,7 @@ export const AddMembersModal = ({
 
   return (
     <Modal
+      trackingEventName=""
       open={open}
       close={() => handleClose()}
       header={"Add Team Members"}

@@ -49,6 +49,7 @@ export default function ResetPasswordPage(): ReactElement {
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       autoCloseOnSubmit={false}
       submit={

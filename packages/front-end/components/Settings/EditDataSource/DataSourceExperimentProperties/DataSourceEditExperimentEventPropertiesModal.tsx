@@ -49,6 +49,7 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
 
   return (
     <Modal
+      trackingEventName=""
       open={true}
       submit={handleSubmit}
       close={onCancel}

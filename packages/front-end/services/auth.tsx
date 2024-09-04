@@ -225,6 +225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            trackingEventName=""
             open={true}
             submit={async () => {
               await redirectWithTimeout(resp.redirectURI);
@@ -421,6 +422,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   if (initError) {
     return (
       <Modal
+        trackingEventName=""
         header="logo"
         open={true}
         cta="Try Again"
@@ -446,6 +448,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   if (sessionError) {
     return (
       <Modal
+        trackingEventName=""
         open={true}
         cta="OK"
         submit={async () => {

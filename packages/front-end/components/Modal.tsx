@@ -7,6 +7,7 @@ import {
   CSSProperties,
 } from "react";
 import clsx from "clsx";
+import track, { TrackEventProps } from "@/services/track";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -15,6 +16,8 @@ import { DocLink, DocSection } from "./DocLink";
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   open: boolean;
+  // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
+  trackingEventName: string;
   className?: string;
   submitColor?: string;
   cta?: string | ReactNode;
@@ -43,6 +46,7 @@ type ModalProps = {
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
+  trackingEventProps?: TrackEventProps;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -75,6 +79,8 @@ const Modal: FC<ModalProps> = ({
   formRef,
   customValidation,
   increasedElevation,
+  trackingEventName,
+  trackingEventProps,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -241,6 +247,13 @@ const Modal: FC<ModalProps> = ({
     overlayStyle.zIndex = 1500;
   }
 
+  const sendTrackingEvent = () => {
+    if (trackingEventName === "") {
+      return;
+    }
+    track(trackingEventName, trackingEventProps);
+  };
+
   const modalHtml = (
     <div
       className={clsx("modal", { show: open })}
@@ -278,6 +291,7 @@ const Modal: FC<ModalProps> = ({
               }
               try {
                 await submit();
+                sendTrackingEvent();
 
                 setLoading(false);
                 if (successMessage) {

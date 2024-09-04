@@ -35,6 +35,7 @@ const EditDataSourceForm: FC<{
 
   return (
     <Modal
+      trackingEventName=""
       header={"Edit Data Source Settings"}
       open={true}
       close={cancel}

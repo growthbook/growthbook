@@ -74,6 +74,7 @@ const SavedGroupForm: FC<{
     />
   ) : (
     <Modal
+      trackingEventName=""
       close={close}
       open={true}
       size="lg"
