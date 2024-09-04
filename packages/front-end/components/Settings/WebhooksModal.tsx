@@ -174,7 +174,7 @@ export function CreateSDKWebhookModal({
 
         const data: CreateSdkWebhookProps = {
           ...getWebhookFromType(webhookType, inputs),
-          name: "My Webhook",
+          name: inputs.name,
         };
 
         if (data.endpoint.match(/localhost/g)) {
