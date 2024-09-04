@@ -82,7 +82,7 @@ export default function LargeSavedGroupPerformanceWarning({
 
   const copy = `${
     supportedConnections.length > 0 ? "Some of your" : "Your"
-  } SDK connections don't have Saved Group performance improvements enabled.`;
+  } SDK connections don't have "Pass Saved Groups by reference" enabled, which may affect SDK performance.`;
 
   return (
     <ContainerTag className={containerClassName}>
