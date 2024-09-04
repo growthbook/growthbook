@@ -190,10 +190,11 @@ const { setPolyfills } = require("@growthbook/growthbook");
 setPolyfills({
   // Required for Node 17 or earlier
   fetch: require("cross-fetch"),${
-    encryptionKey &&
-    `
+    encryptionKey
+      ? `
   // Required for Node 18 or earlier
   SubtleCrypto: require("node:crypto").webcrypto.subtle,`
+      : ""
   }
   // Optional, can make feature rollouts faster
   EventSource: require("eventsource")
