@@ -193,27 +193,9 @@ export default function RuleModal({
     prerequisiteTargetingSdkIssues,
     setPrerequisiteTargetingSdkIssues,
   ] = useState(false);
-  const [
-    savedGroupTargetingSdkIssues,
-    setSavedGroupTargetingSdkIssues,
-  ] = useState(false);
-  const [
-    attributeTargetingSdkIssues,
-    setAttributeTargetingSdkIssues,
-  ] = useState(false);
   const canSubmit = useMemo(() => {
-    return (
-      !isCyclic &&
-      !prerequisiteTargetingSdkIssues &&
-      !savedGroupTargetingSdkIssues &&
-      !attributeTargetingSdkIssues
-    );
-  }, [
-    isCyclic,
-    prerequisiteTargetingSdkIssues,
-    savedGroupTargetingSdkIssues,
-    attributeTargetingSdkIssues,
-  ]);
+    return !isCyclic && !prerequisiteTargetingSdkIssues;
+  }, [isCyclic, prerequisiteTargetingSdkIssues]);
 
   if (showUpgradeModal) {
     return (
@@ -838,7 +820,6 @@ export default function RuleModal({
               form.setValue("savedGroups", savedGroups)
             }
             project={feature.project || ""}
-            setSavedGroupTargetingSdkIssues={setSavedGroupTargetingSdkIssues}
           />
           <hr />
           <ConditionInput
@@ -846,7 +827,6 @@ export default function RuleModal({
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
             project={feature.project || ""}
-            setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
           />
           <hr />
           <PrerequisiteTargetingField

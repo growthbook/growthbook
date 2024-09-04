@@ -311,9 +311,7 @@ export async function getSavedGroupMap(
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups =
     typeof savedGroups === "undefined"
-      ? await getAllSavedGroups(organization.id, {
-          includeLargeSavedGroupValues: true,
-        })
+      ? await getAllSavedGroups(organization.id)
       : savedGroups;
 
   function getGroupValues(
@@ -761,9 +759,7 @@ export async function getFeatureDefinitions({
       attributes = context.org.settings?.attributeSchema;
     }
   }
-  const savedGroups = await getAllSavedGroups(context.org.id, {
-    includeLargeSavedGroupValues: true,
-  });
+  const savedGroups = await getAllSavedGroups(context.org.id);
 
   if (
     hashSecureAttributes &&
