@@ -256,6 +256,7 @@ export default function SdkWebhooks({
           close={() => setCreateWebhookModalOpen(false)}
           onSave={mutate}
           sdkConnectionId={connection.id}
+          language={connection.languages?.[0]}
         />
       )}
       {!isEmpty && renderTable()}

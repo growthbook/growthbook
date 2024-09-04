@@ -8,6 +8,7 @@ import {
   WebhookPayloadFormat,
 } from "back-end/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { SDKLanguage } from "@back-end/types/sdk-connection";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -27,10 +28,10 @@ const methodTypes: WebhookMethod[] = [
 ];
 
 const webhookTypes = {
+  http: "Custom HTTP Endpoint",
   cloudflare: "Cloudflare KV",
   fastly: "Fastly KV",
   vercel: "Vercel Edge Config",
-  http: "HTTP Endpoint",
 };
 
 type WebhookType = keyof typeof webhookTypes;
@@ -114,16 +115,24 @@ const isValidHttp = (urlString: string) => {
 
 export function CreateSDKWebhookModal({
   sdkConnectionId,
+  language,
   close,
   onSave,
 }: {
   sdkConnectionId: string;
+  language?: SDKLanguage;
   close: () => void;
   onSave: () => void;
 }) {
   const { apiCall } = useAuth();
 
-  const [webhookType, setWebhookType] = useState<WebhookType | null>(null);
+  const [webhookType, setWebhookType] = useState<WebhookType | null>(
+    language === "edge-cloudflare"
+      ? "cloudflare"
+      : language === "edge-fastly"
+      ? "fastly"
+      : "http"
+  );
 
   const [validHeaders, setValidHeaders] = useState(true);
   const validateHeaders = (headers: string) => {
@@ -200,7 +209,6 @@ export function CreateSDKWebhookModal({
           value,
           label,
         }))}
-        initialOption="Select..."
         sort={false}
       />
 

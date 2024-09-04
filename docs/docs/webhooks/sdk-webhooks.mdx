@@ -11,11 +11,13 @@ GrowthBook has SDK-based webhooks that trigger a script on your server whenever 
 
 ## Adding a Webhook
 
-When logged into GrowthBook as an admin, navigate to **SDK Connections** .
+When logged into GrowthBook as an admin, navigate to **SDK Connections** and select an existing SDK Connection.
 
-Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST, PUT, GET, DELETE, PURGE, PATCH`.
+Under the SDK Webhooks section you can add a webhook.
 
-Once a SDK webhook is created you will be able to view the secret and when the last time it was fired as well as if there was an error.
+There are built-in webhook types for syncing to **Cloudflare KV**, **Fastly KV**, and **Vercel Edge Config**. For everything else, you can configure a generic **HTTP Endpoint** to be hit.
+
+Once a SDK webhook is created you will be able to view the status and fire a test event.
 
 ### VPCs and Firewalls
 
