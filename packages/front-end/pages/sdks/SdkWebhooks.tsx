@@ -31,6 +31,7 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
     </>
   ),
   sdkPayload: "SDK Payload only",
+  edgeConfig: "Vercel Edge Config",
   none: "none",
 };
 

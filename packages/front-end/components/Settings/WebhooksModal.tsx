@@ -33,6 +33,7 @@ const WebhooksModal: FC<{
     "PUT",
     "DELETE",
     "PURGE",
+    "PATCH",
   ];
   const form = useForm({
     defaultValues: {
@@ -40,6 +41,7 @@ const WebhooksModal: FC<{
       endpoint: current.endpoint || "",
       useSdkMode: true,
       payloadFormat: current?.payloadFormat || "standard",
+      payloadKey: current?.payloadKey || "",
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
       sdkid: sdkConnectionId,
@@ -71,6 +73,7 @@ const WebhooksModal: FC<{
         httpMethod: value.httpMethod,
         headers: value.headers,
         payloadFormat: value.payloadFormat,
+        payloadKey: value.payloadKey,
       };
 
       await apiCall(`/sdk-webhooks/${current.id}`, {
@@ -84,6 +87,7 @@ const WebhooksModal: FC<{
         httpMethod: value.httpMethod,
         headers: value.headers,
         payloadFormat: value.payloadFormat,
+        payloadKey: value.payloadKey,
       };
       await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
         method: "POST",
@@ -202,6 +206,7 @@ const WebhooksModal: FC<{
                 value: "standard-no-payload",
               },
               { label: "SDK Payload only", value: "sdkPayload" },
+              { label: "Vercel Edge Config", value: "edgeConfig" },
               { label: "None", value: "none" },
             ]}
             formatOptionLabel={({ value, label }) => {
@@ -227,6 +232,20 @@ const WebhooksModal: FC<{
               Learn More <FaExternalLinkAlt />
             </DocLink>
           </div>
+
+          {form.watch("payloadFormat") === "edgeConfig" && (
+            <Field
+              label="Edge Config Key"
+              placeholder="gb_payload"
+              {...form.register("payloadKey")}
+              helpText={
+                <>
+                  The name of the key you want to update within your Edge
+                  Config. Defaults to <code>gb_payload</code>.
+                </>
+              }
+            />
+          )}
         </>
       )}
     </Modal>
