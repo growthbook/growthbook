@@ -6,7 +6,10 @@ import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  getAffectedEnvsForExperiment,
+} from "shared/util";
 import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
@@ -319,15 +322,25 @@ export default function ExperimentHeader({
                     </div>
                   </div>
                 ) : experiment.status === "draft" ? (
-                  <button
-                    className="btn btn-teal"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowStartExperiment(true);
-                    }}
+                  <Tooltip
+                    shouldDisplay={
+                      isBandit && !experimentHasLinkedChanges(experiment)
+                    }
+                    body="You must add an implementation before starting this experiment"
                   >
-                    Start Experiment <MdRocketLaunch />
-                  </button>
+                    <button
+                      className="btn btn-teal"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowStartExperiment(true);
+                      }}
+                      disabled={
+                        isBandit && !experimentHasLinkedChanges(experiment)
+                      }
+                    >
+                      Start Experiment <MdRocketLaunch />
+                    </button>
+                  </Tooltip>
                 ) : null}
               </div>
             ) : null}

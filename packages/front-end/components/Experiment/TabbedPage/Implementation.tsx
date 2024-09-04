@@ -53,64 +53,67 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  if (!hasLinkedChanges) {
-    if (experiment.status === "draft") {
-      return (
-        <AddLinkedChanges
-          experiment={experiment}
-          numLinkedChanges={0}
-          setFeatureModal={setFeatureModal}
-          setVisualEditorModal={setVisualEditorModal}
-          setUrlRedirectModal={setUrlRedirectModal}
-        />
-      );
-    }
-    return (
-      <div className="alert alert-info mb-0">
-        This experiment has no directly linked feature flag, visual editor
-        changes, or redirects. Randomization, targeting, and implementation is
-        either being managed by an external system or via legacy Feature Flags
-        in GrowthBook.
-      </div>
-    );
-  }
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <div className="mb-4">
-      <div className="pl-1 mb-3">
-        <h2>Implementation</h2>
-      </div>
-      <VisualLinkedChanges
-        setVisualEditorModal={setVisualEditorModal}
-        visualChangesets={visualChangesets}
-        canAddChanges={canAddLinkedChanges}
-        canEditVisualChangesets={hasVisualEditorPermission}
-        mutate={mutate}
-        experiment={experiment}
-      />
-      <FeatureLinkedChanges
-        setFeatureModal={setFeatureModal}
-        linkedFeatures={linkedFeatures}
-        experiment={experiment}
-        canAddChanges={canAddLinkedChanges}
-      />
-      <RedirectLinkedChanges
-        setUrlRedirectModal={setUrlRedirectModal}
-        urlRedirects={urlRedirects}
-        experiment={experiment}
-        canAddChanges={canAddLinkedChanges}
-        mutate={mutate}
-      />
-      <AddLinkedChanges
-        experiment={experiment}
-        numLinkedChanges={0}
-        hasLinkedFeatures={linkedFeatures.length > 0}
-        setFeatureModal={setFeatureModal}
-        setVisualEditorModal={setVisualEditorModal}
-        setUrlRedirectModal={setUrlRedirectModal}
-      />
-      {hasLinkedChanges && (
-        <div className="appbox p-3 h-100 mb-4">
+      {hasLinkedChanges ? (
+        <>
+          <div className="pl-1 mb-3">
+            <h2>Implementation</h2>
+          </div>
+          <VisualLinkedChanges
+            setVisualEditorModal={setVisualEditorModal}
+            visualChangesets={visualChangesets}
+            canAddChanges={canAddLinkedChanges}
+            canEditVisualChangesets={hasVisualEditorPermission}
+            mutate={mutate}
+            experiment={experiment}
+          />
+          <FeatureLinkedChanges
+            setFeatureModal={setFeatureModal}
+            linkedFeatures={linkedFeatures}
+            experiment={experiment}
+            canAddChanges={canAddLinkedChanges}
+          />
+          <RedirectLinkedChanges
+            setUrlRedirectModal={setUrlRedirectModal}
+            urlRedirects={urlRedirects}
+            experiment={experiment}
+            canAddChanges={canAddLinkedChanges}
+            mutate={mutate}
+          />
+          <AddLinkedChanges
+            experiment={experiment}
+            numLinkedChanges={0}
+            hasLinkedFeatures={linkedFeatures.length > 0}
+            setFeatureModal={setFeatureModal}
+            setVisualEditorModal={setVisualEditorModal}
+            setUrlRedirectModal={setUrlRedirectModal}
+          />
+        </>
+      ) : (
+        <>
+          {experiment.status === "draft" ? (
+            <AddLinkedChanges
+              experiment={experiment}
+              numLinkedChanges={0}
+              setFeatureModal={setFeatureModal}
+              setVisualEditorModal={setVisualEditorModal}
+              setUrlRedirectModal={setUrlRedirectModal}
+            />
+          ) : (
+            <div className="alert alert-info mb-0">
+              This experiment has no directly linked feature flag, visual editor
+              changes, or redirects. Randomization, targeting, and
+              implementation is either being managed by an external system or
+              via legacy Feature Flags in GrowthBook.
+            </div>
+          )}
+        </>
+      )}
+      {(hasLinkedChanges || isBandit) && (
+        <div className="appbox p-3">
           <TargetingInfo
             experiment={experiment}
             editTargeting={editTargeting}
