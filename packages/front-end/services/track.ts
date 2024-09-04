@@ -26,7 +26,7 @@ import {
   isTelemetryEnabled,
 } from "./env";
 
-export type TrackEventProps = Record<string, unknown>;
+type TrackEventProps = Record<string, unknown>;
 
 export interface TrackSnapshotProps {
   id: string;

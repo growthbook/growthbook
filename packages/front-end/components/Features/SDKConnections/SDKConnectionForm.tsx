@@ -323,7 +323,8 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       autoCloseOnSubmit={autoCloseOnSubmit}

@@ -115,7 +115,8 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
         />
       )}
       <Modal
-        trackingEventName=""
+        trackingEventModalType=""
+        trackingEventModalSource=""
         open={true}
         submit={handleSubmit}
         close={onCancel}

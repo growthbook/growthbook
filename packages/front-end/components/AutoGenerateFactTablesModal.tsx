@@ -272,7 +272,8 @@ export default function AutoGenerateFactTableModal({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       size="lg"
       open={true}
       header="Discover Fact Tables"

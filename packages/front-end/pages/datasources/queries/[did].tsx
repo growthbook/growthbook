@@ -90,7 +90,8 @@ const DataSourceQueries = (): React.ReactElement => {
     <div className="container pagecontents">
       {modalData && (
         <Modal
-          trackingEventName=""
+          trackingEventModalType=""
+          trackingEventModalSource=""
           open
           close={() => setModalData(null)}
           size="lg"

@@ -168,7 +168,8 @@ export default function ReportPage() {
       <div className="container-fluid pagecontents experiment-details">
         {editModalOpen && (
           <Modal
-            trackingEventName=""
+            trackingEventModalType=""
+            trackingEventModalSource=""
             open={true}
             submit={form.handleSubmit(async (value) => {
               await apiCall(`/report/${report.id}`, {

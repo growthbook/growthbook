@@ -10,7 +10,8 @@ const QueryModal: FC<{
 }> = ({ queries, language, close }) => {
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       close={close}
       header="View Query"
       open={true}

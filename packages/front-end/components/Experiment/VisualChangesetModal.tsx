@@ -101,7 +101,8 @@ const VisualChangesetModal: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open
       close={close}
       size="lg"

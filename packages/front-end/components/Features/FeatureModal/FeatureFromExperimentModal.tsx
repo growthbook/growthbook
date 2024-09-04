@@ -225,7 +225,8 @@ export default function FeatureFromExperimentModal({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open
       size="lg"
       inline={inline}

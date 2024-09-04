@@ -28,7 +28,8 @@ const EditOrganizationModal: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       header="Edit Organization"
       open={true}
       close={close}

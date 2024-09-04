@@ -23,7 +23,8 @@ export default function ProjectModal({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       close={close}
       header={existing.id ? "Edit Project" : "Create Project"}

@@ -139,7 +139,8 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   return (
     <>
       <Modal
-        trackingEventName=""
+        trackingEventModalType=""
+        trackingEventModalSource=""
         open={true}
         close={close}
         secondaryCTA={secondaryCTA}

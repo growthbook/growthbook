@@ -15,7 +15,8 @@ export default function CloudTrialConfirmationModal({
 }: Props) {
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       close={close}
       size="md"

@@ -382,7 +382,8 @@ export default function AssignmentTester({ feature, version }: Props) {
             />
           ) : (
             <Modal
-              trackingEventName=""
+              trackingEventModalType=""
+              trackingEventModalSource=""
               open={true}
               close={() => setOpenArchetypeModal(null)}
             >

@@ -63,7 +63,8 @@ export default function FactSegmentForm({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       close={close}
       open={true}
       size={"lg"}

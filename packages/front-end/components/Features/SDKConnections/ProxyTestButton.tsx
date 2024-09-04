@@ -32,7 +32,8 @@ export default function ProxyTestButton({
     <>
       {proxyTestResult && (
         <Modal
-          trackingEventName=""
+          trackingEventModalType=""
+          trackingEventModalSource=""
           header="Proxy Status"
           open={true}
           close={() => setProxyTestResult(null)}

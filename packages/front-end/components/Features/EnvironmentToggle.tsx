@@ -68,7 +68,8 @@ export default function EnvironmentToggle({
     <>
       {confirming ? (
         <Modal
-          trackingEventName=""
+          trackingEventModalType=""
+          trackingEventModalSource=""
           header="Toggle environment"
           close={() => {
             setConfirming(false);

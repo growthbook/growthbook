@@ -180,7 +180,8 @@ export default function EditTargetingModal({
   if (safeToEdit) {
     return (
       <Modal
-        trackingEventName=""
+        trackingEventModalType=""
+        trackingEventModalSource=""
         open={true}
         close={close}
         header={`Edit Targeting`}

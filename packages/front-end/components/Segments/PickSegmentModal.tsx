@@ -36,7 +36,8 @@ export default function PickSegmentModal({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       close={close}
       header="Apply a Segment"

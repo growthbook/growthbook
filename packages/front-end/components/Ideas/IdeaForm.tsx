@@ -43,7 +43,8 @@ const IdeaForm: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       header={edit ? "Edit Idea" : "New Idea"}
       close={close}
       open={true}

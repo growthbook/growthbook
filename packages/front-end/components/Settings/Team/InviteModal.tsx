@@ -74,7 +74,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   if (showContactSupport) {
     return (
       <Modal
-        trackingEventName=""
+        trackingEventModalType=""
+        trackingEventModalSource=""
         open={true}
         close={close}
         size="md"
@@ -154,7 +155,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       close={close}
       header="Invite Member"
       open={true}

@@ -283,7 +283,8 @@ const PresentationPage = (): React.ReactElement => {
       />
       {sharableLinkModal && (
         <Modal
-          trackingEventName=""
+          trackingEventModalType=""
+          trackingEventModalSource=""
           open={true}
           header={"Sharable link"}
           close={() => setSharableLinkModal(false)}

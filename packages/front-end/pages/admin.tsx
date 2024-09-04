@@ -839,7 +839,8 @@ const EditMember: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       submit={handleSubmit}
       open={true}
       header={"Edit Member"}

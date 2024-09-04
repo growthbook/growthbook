@@ -74,12 +74,7 @@ const SavedGroupForm: FC<{
     />
   ) : (
     <Modal
-      trackingEventName="savedGroupFormSubmit"
-      trackingEventProps={{
-        action: current.id ? "update" : "create",
-        groupType: type,
-        numItems: (form.watch("values") || []).length,
-      }}
+      trackingEventModalType="saved-group-form"
       close={close}
       open={true}
       size="lg"

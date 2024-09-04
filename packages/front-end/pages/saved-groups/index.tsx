@@ -204,7 +204,8 @@ export default function SavedGroupsPage() {
 
       {auditModal && (
         <Modal
-          trackingEventName=""
+          trackingEventModalType=""
+          trackingEventModalSource=""
           open={true}
           header="Audit Log"
           close={() => setAuditModal(false)}

@@ -107,7 +107,8 @@ const PagedModal: FC<Props> = (props) => {
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       inline={inline}
       size={size}
       disabledMessage={disabledMessage}

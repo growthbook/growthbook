@@ -524,7 +524,8 @@ const EditSDKWebhooksModal: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       close={close}
       header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}

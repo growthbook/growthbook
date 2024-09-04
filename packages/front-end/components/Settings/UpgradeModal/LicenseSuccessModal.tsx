@@ -16,7 +16,8 @@ export default function LicenseSuccessModal({
 }: Props) {
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       cta="Invite Members"
       closeCta={"Skip"}

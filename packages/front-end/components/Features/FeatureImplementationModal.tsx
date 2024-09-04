@@ -38,7 +38,8 @@ export default function FeatureImplementationModal({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       close={close}
       size="lg"

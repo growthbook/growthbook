@@ -275,7 +275,8 @@ export default function AutoGenerateMetricsModal({
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       size="lg"
       open={true}
       header="Discover Metrics"

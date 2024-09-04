@@ -44,7 +44,8 @@ const AddOrphanedUserModal: FC<{
   ) {
     return (
       <Modal
-        trackingEventName=""
+        trackingEventModalType=""
+        trackingEventModalSource=""
         open={true}
         close={close}
         size="md"
@@ -64,7 +65,8 @@ const AddOrphanedUserModal: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       close={close}
       header="Add User"
       open={true}

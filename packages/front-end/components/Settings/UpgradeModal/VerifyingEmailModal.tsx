@@ -69,7 +69,8 @@ export default function VerifyingEmailModal() {
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       cta="Invite Members"
       error={verifyEmailError}

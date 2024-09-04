@@ -163,7 +163,8 @@ const ManualSnapshotForm: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       size="lg"
       close={close}

@@ -648,7 +648,8 @@ const NewDataSourceForm: FC<{
 
   return (
     <Modal
-      trackingEventName=""
+      trackingEventModalType=""
+      trackingEventModalSource=""
       open={true}
       header={existing ? "Edit Data Source" : "Add Data Source"}
       close={onCancel}
