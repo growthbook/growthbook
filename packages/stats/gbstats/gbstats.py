@@ -11,6 +11,8 @@ from gbstats.bayesian.tests import (
     GaussianPrior,
     BanditConfig,
     Bandits,
+    BanditsRatio,
+    BanditsCuped,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -28,7 +30,8 @@ from gbstats.models.results import (
     FrequentistVariationResponse,
     MetricStats,
     MultipleExperimentMetricAnalysis,
-    BanditResponse,
+    BanditResult,
+    SingleVariationResult,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -115,13 +118,12 @@ def get_metric_df(
     bandit: bool = False,
 ):
     dfc = rows.copy()
-
     dimensions = {}  # dict of dimensions for fixed_weight, dict of periods for bandits
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
         if bandit:
-            dim = row.period
+            dim = row.bandit_period
         else:
             dim = row.dimension
         # If this is the first time we're seeing this dimension, create an empty dict
@@ -129,7 +131,7 @@ def get_metric_df(
             # Overall columns
             if bandit:
                 dimensions[dim] = {
-                    "period": dim,
+                    "bandit_period": dim,
                     "variations": len(var_names),
                     "total_users": 0,
                 }
@@ -147,7 +149,6 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 for col in ROW_COLS:
                     dimensions[dim][f"{prefix}_{col}"] = 0
-
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
         if key in var_id_map:
@@ -160,7 +161,6 @@ def get_metric_df(
             # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
                 dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
-
     return pd.DataFrame(dimensions.values())
 
 
@@ -259,21 +259,27 @@ def analyze_metric_df(
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
-    for i in range(num_variations):
-        if i == 0:
-            df["baseline_cr"] = 0
-            df["baseline_mean"] = None
-            df["baseline_stddev"] = None
-        else:
-            df[f"v{i}_cr"] = 0
-            df[f"v{i}_mean"] = None
-            df[f"v{i}_stddev"] = None
-            df[f"v{i}_expected"] = 0
-            df[f"v{i}_p_value"] = None
-            df[f"v{i}_risk"] = None
-            df[f"v{i}_prob_beat_baseline"] = None
-            df[f"v{i}_uplift"] = None
-            df[f"v{i}_error_message"] = None
+    df["baseline_cr"] = 0
+    df["baseline_mean"] = None
+    df["baseline_stddev"] = None
+
+    def dummy_df(i):
+        return pd.DataFrame(
+            {
+                f"v{i}_cr": [i],
+                f"v{i}_mean": [None],
+                f"v{i}_stddev": [None],
+                f"v{i}_expected": [i],
+                f"v{i}_p_value": [None],
+                f"v{i}_risk": [None],
+                f"v{i}_prob_beat_baseline": [None],
+                f"v{i}_uplift": [None],
+                f"v{i}_error_message": [None],
+            }
+        )
+
+    for i in range(1, num_variations):
+        df = pd.concat([df, dummy_df(i)], axis=1)
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
@@ -286,7 +292,6 @@ def analyze_metric_df(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
-
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev
@@ -581,9 +586,9 @@ def process_single_metric(
     )
 
 
-def create_bandit_sample_mean_statistics(
+def create_bandit_statistics(
     reduced: pd.DataFrame, metric: MetricSettingsForStatsEngine
-) -> Dict:
+) -> Dict[int, List[BanditStatistic]]:
     num_variations = reduced.at[0, "variations"]
 
     def create_test_statistics_single_period(
@@ -616,43 +621,113 @@ def create_bandit_sample_mean_statistics(
     return period_sample_mean_stats
 
 
-def get_bandit_response(
+def preprocess_bandits(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
-    settings: BanditSettingsForStatsEngine,
-) -> BanditResponse:
+    bandit_settings: BanditSettingsForStatsEngine,
+    alpha: float,
+    dimension: str,
+) -> Union[Bandits, BanditsCuped, BanditsRatio]:
     if len(rows) == 0:
-        return BanditResponse(
-            banditWeights=None, banditUpdateMessage="no rows", additionalReward=None
+        bandit_stats = {}
+    else:
+        pdrows = pd.DataFrame(rows)
+        # raise ValueError(pdrows["dimension"])
+        pdrows = pdrows.loc[pdrows["dimension"] == dimension]
+        # convert raw sql into df of periods, and output df where n_rows = periods
+        df = get_metric_df(
+            rows=pdrows,
+            var_id_map=get_var_id_map(bandit_settings.var_ids),
+            var_names=bandit_settings.var_names,
+            bandit=True,
         )
-    pdrows = pd.DataFrame(rows)
-    pdrows = pdrows.loc[pdrows["dimension"] == ""]
-    # convert raw sql into df of periods, and output df where n_rows = periods
-    df = get_metric_df(
-        rows=pdrows,
-        var_id_map=get_var_id_map(settings.var_ids),
-        var_names=settings.var_names,
-        bandit=True,
-    )
-    bandit_sample_mean_stats = create_bandit_sample_mean_statistics(df, metric)
-    if any(value is None for value in bandit_sample_mean_stats.values()):
-        error_str = "not all statistics are instance of type BanditStatistic"
-        return BanditResponse(
-            banditWeights=None, banditUpdateMessage=error_str, additionalReward=None
-        )
+        bandit_stats = create_bandit_statistics(df, metric)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
-        bandit_weights_seed=settings.bandit_weights_seed,
+        bandit_weights_seed=bandit_settings.bandit_weights_seed,
+        weight_by_period=bandit_settings.weight_by_period,
+        top_two=bandit_settings.top_two,
+        alpha=alpha,
+        inverse=metric.inverse,
     )
-    b = Bandits(bandit_sample_mean_stats, bandit_config)
-    weights = b.compute_variation_weights()
-    additional_reward = b.compute_additional_reward()
-    return BanditResponse(
-        banditWeights=weights.weights,
-        banditUpdateMessage=weights.update_message,
-        additionalReward=additional_reward,
-    )
+    if metric.statistic_type == "ratio":
+        return BanditsRatio(bandit_stats, bandit_config)
+    elif metric.statistic_type == "mean_ra":
+        return BanditsCuped(bandit_stats, bandit_config)
+    else:
+        return Bandits(bandit_stats, bandit_config)
+
+
+def get_weighted_rows(
+    rows: ExperimentMetricQueryResponseRows,
+    metric: MetricSettingsForStatsEngine,
+    settings: List[AnalysisSettingsForStatsEngine],
+    bandit_settings: BanditSettingsForStatsEngine,
+) -> ExperimentMetricQueryResponseRows:
+    weighted_rows = []
+    unique_dimensions = list(set(setting.dimension for setting in settings))
+    for dimension in unique_dimensions:
+        b = preprocess_bandits(
+            rows, metric, bandit_settings, settings[0].alpha, dimension
+        )
+        if b.stats:
+            for index, variation in enumerate(settings[0].var_ids):
+                weighted_rows.append(b.make_row(dimension, index, variation))
+    return weighted_rows
+
+
+def get_bandit_response(
+    rows: ExperimentMetricQueryResponseRows,
+    metric: MetricSettingsForStatsEngine,
+    bandit_settings: BanditSettingsForStatsEngine,
+    alpha: float,
+) -> BanditResult:
+    b = preprocess_bandits(rows, metric, bandit_settings, alpha, "All")
+    if b:
+        if any(value is None for value in b.stats.values()):
+            update_str = "not updated"
+            error_str = "not all statistics are instance of type BanditStatistic"
+            return BanditResult(
+                singleVariationResults=None,
+                banditWeights=None,
+                bestArmProbabilities=None,
+                additionalReward=None,
+                seed=0,
+                banditUpdateMessage=update_str,
+                banditError=error_str,
+            )
+        bandit_result = b.compute_result()
+        single_variation_results = None
+        if (
+            bandit_result.bandit_update_message == "successfully updated"
+            and bandit_result.ci
+        ):
+            single_variation_results = [
+                SingleVariationResult(n, mn, ci)
+                for n, mn, ci in zip(
+                    b.variation_counts, b.variation_means, bandit_result.ci
+                )
+            ]
+        return BanditResult(
+            singleVariationResults=single_variation_results,
+            banditWeights=bandit_result.bandit_weights,
+            bestArmProbabilities=bandit_result.best_arm_probabilities,
+            additionalReward=bandit_result.additional_reward,
+            seed=bandit_result.seed,
+            banditUpdateMessage=bandit_result.bandit_update_message,
+            banditError="",
+        )
+    else:  # empty dict
+        return BanditResult(
+            singleVariationResults=None,
+            banditWeights=None,
+            bestArmProbabilities=None,
+            additionalReward=None,
+            seed=0,
+            banditUpdateMessage="not updated",
+            banditError="no data froms sql query matches dimension",
+        )
 
 
 # Get just the columns for a single metric
@@ -687,32 +762,45 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
 
 def process_experiment_results(
     data: Dict[str, Any]
-) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResponse]]:
+) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResult]]:
     d = process_data_dict(data)
     results: List[ExperimentMetricAnalysis] = []
-    bandit_result: Optional[BanditResponse] = None
+    bandit_result: Optional[BanditResult] = None
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
             if metric in d.metrics:
                 rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
-                    results.append(
-                        process_single_metric(
-                            rows=rows,
-                            metric=d.metrics[metric],
-                            analyses=d.analyses,
+                    if d.bandit_settings:
+                        if (
+                            metric == d.bandit_settings.decision_metric
+                            and d.bandit_settings.update_weights
+                        ):
+                            if bandit_result is not None:
+                                raise ValueError("Bandit weights already computed")
+                            bandit_result = get_bandit_response(
+                                rows=rows,
+                                metric=d.metrics[metric],
+                                bandit_settings=d.bandit_settings,
+                                alpha=d.analyses[0].alpha,
+                            )
+                        weighted_rows = get_weighted_rows(
+                            rows, d.metrics[metric], d.analyses, d.bandit_settings
                         )
-                    )
-                    if (
-                        d.bandit_settings
-                        and d.bandit_settings.decision_metric == metric
-                    ):
-                        if bandit_result is not None:
-                            raise ValueError("Bandit weights already computed")
-                        bandit_result = get_bandit_response(
-                            rows=rows,
-                            metric=d.metrics[metric],
-                            settings=d.bandit_settings,
+                        results.append(
+                            process_single_metric(
+                                rows=weighted_rows,
+                                metric=d.metrics[metric],
+                                analyses=d.analyses,
+                            )
+                        )
+                    else:
+                        results.append(
+                            process_single_metric(
+                                rows=rows,
+                                metric=d.metrics[metric],
+                                analyses=d.analyses,
+                            )
                         )
     return results, bandit_result
 
@@ -724,14 +812,14 @@ def process_multiple_experiment_results(
     for exp_data in data:
         try:
             exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
-            fixed_results, bandit_response = process_experiment_results(
+            fixed_results, bandit_result = process_experiment_results(
                 exp_data_proc.data
             )
             results.append(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data_proc.id,
                     results=fixed_results,
-                    banditResponse=bandit_response,
+                    banditResult=bandit_result,
                     error=None,
                 )
             )
@@ -740,7 +828,7 @@ def process_multiple_experiment_results(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data["id"],
                     results=[],
-                    banditResponse=None,
+                    banditResult=None,
                     error=str(e)[:64],
                 )
             )

@@ -4,6 +4,7 @@ from typing import List
 import packaging.version
 from scipy.stats import truncnorm
 from scipy.stats.distributions import chi2  # type: ignore
+from scipy.stats import norm  # type: ignore
 
 
 def check_gbstats_compatibility(nb_version: str) -> None:
@@ -23,6 +24,17 @@ def truncated_normal_mean(mu, sigma, a, b) -> float:
     return float(mn)
 
 
+# given numerator random variable M (mean = mean_m, var = var_m),
+# denominator random variable D (mean = mean_d, var = var_d),
+# and covariance cov_m_d, what is the variance of M / D?
+def variance_of_ratios(mean_m, var_m, mean_d, var_d, cov_m_d) -> float:
+    return (
+        var_m / mean_d**2
+        + var_d * mean_m**2 / mean_d**4
+        - 2 * cov_m_d * mean_m / mean_d**3
+    )
+
+
 # Run a chi-squared test to make sure the observed traffic split matches the expected one
 def check_srm(users: List[int], weights: List[float]) -> float:
     # Convert count of users into ratios
@@ -39,3 +51,10 @@ def check_srm(users: List[int], weights: List[float]) -> float:
         x = x + ((o - e) ** 2) / e
 
     return chi2.sf(x, len(users) - 1)  # type: ignore
+
+
+def gaussian_credible_interval(
+    mean_diff: float, std_diff: float, alpha: float
+) -> List[float]:
+    ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
+    return ci.tolist()

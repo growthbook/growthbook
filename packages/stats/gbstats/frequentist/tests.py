@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import List, Optional
+from typing import Optional, List
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -13,6 +13,7 @@ from gbstats.messages import (
 )
 from gbstats.models.statistics import TestStatistic
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
+from gbstats.utils import variance_of_ratios
 
 
 # Configs
@@ -45,9 +46,7 @@ def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
 
 def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> float:
     if relative:
-        return var_b / (pow(mean_a, 2) * n_b) + var_a * pow(mean_b, 2) / (
-            pow(mean_a, 4) * n_a
-        )
+        return variance_of_ratios(mean_b, var_b / n_b, mean_a, var_a / n_a, 0)
     else:
         return var_b / n_b + var_a / n_a
 

@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic.dataclasses import dataclass
-from datetime import datetime
 
 # Types
 DifferenceType = Literal["relative", "absolute", "scaled"]
@@ -27,7 +26,7 @@ class AnalysisSettingsForStatsEngine:
 
 @dataclass
 class BanditWeightsByDate:
-    date: datetime
+    date: str
     weights: Optional[List[float]] = None
 
 
@@ -39,6 +38,10 @@ class BanditSettingsForStatsEngine:
     reweight: bool = True
     decision_metric: str = ""
     bandit_weights_seed: int = 100
+    update_weights: bool = True
+    # we can delete the bottom two attributes, which are currently used in sim study testing
+    weight_by_period: bool = True
+    top_two: bool = False
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]

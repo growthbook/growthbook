@@ -8,6 +8,24 @@ from gbstats.models.tests import Uplift
 
 # Data classes for return to the back end
 @dataclass
+class SingleVariationResult:
+    users: Optional[float]
+    cr: Optional[float]
+    ci: Optional[List[float]]
+
+
+@dataclass
+class BanditResult:
+    singleVariationResults: Optional[List[SingleVariationResult]]
+    banditWeights: Optional[List[float]]
+    bestArmProbabilities: Optional[List[float]]
+    additionalReward: Optional[float]
+    seed: int
+    banditUpdateMessage: Optional[str]
+    banditError: Optional[str]
+
+
+@dataclass
 class MetricStats:
     users: int
     count: int
@@ -50,13 +68,6 @@ VariationResponse = Union[
 
 
 @dataclass
-class BanditResponse:
-    banditWeights: Optional[List[float]]
-    banditUpdateMessage: Optional[str]
-    additionalReward: Optional[float]
-
-
-@dataclass
 class DimensionResponse:
     dimension: str
     srm: float
@@ -80,5 +91,5 @@ class ExperimentMetricAnalysis:
 class MultipleExperimentMetricAnalysis:
     id: str
     results: List[ExperimentMetricAnalysis]
-    banditResponse: Optional[BanditResponse]
+    banditResult: Optional[BanditResult]
     error: Optional[str]
