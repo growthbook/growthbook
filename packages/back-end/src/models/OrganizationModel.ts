@@ -220,7 +220,7 @@ export async function createOrganization({
 
   if (CLICKHOUSE_URI) {
     try {
-      addBuiltInDataSourceToOrg(org, userId);
+      addBuiltInDataSourceToOrg(org);
     } catch (e) {
       logger.error(e, "Failed to create built-in data source for org");
     }
@@ -229,10 +229,7 @@ export async function createOrganization({
   return org;
 }
 
-export async function addBuiltInDataSourceToOrg(
-  org: OrganizationInterface,
-  userId: string
-) {
+export async function addBuiltInDataSourceToOrg(org: OrganizationInterface) {
   // Create default data source if configured via env vars
   if (!CLICKHOUSE_URI) {
     throw new Error("CLICKHOUSE_URI not set");
@@ -310,7 +307,7 @@ AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
     name: "Events",
     description: "",
     datasource: ds.id,
-    owner: userId,
+    owner: "",
     eventName: "",
     projects: [],
     userIdTypes: ["anonymous_id"],
