@@ -9,7 +9,7 @@ const SnowflakeForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   onManualParamChange: (name: string, value: string) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange }) => {
-  const [useAccessUrl, setUseAccessUrl] = useState(false);
+  const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   return (
     <div className="row">
       <div className="form-group col-md-12">
