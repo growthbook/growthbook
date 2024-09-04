@@ -379,7 +379,7 @@ export function PreLaunchChecklist({
         />
       )}
       <div>
-        <div className="appbox bg-white my-2 p-3">
+        <div className="appbox bg-white mt-2 mb-4 p-3">
           <div className="d-flex flex-row align-items-center justify-content-between">
             <h4
               role="button"

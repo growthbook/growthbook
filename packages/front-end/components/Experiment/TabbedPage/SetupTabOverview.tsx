@@ -64,12 +64,20 @@ export default function SetupTabOverview({
       ) : null}
       <div className="appbox bg-white my-2 mb-4 p-3">
         <div>
+          <div className="mb-3">
+            <div className="h4">Experiment Type</div>
+            <span>
+              Multi-Armed Bandit
+              <a role="button" className="ml-2 small">Configure</a>
+            </span>
+          </div>
+
           <MarkdownInlineEdit
             value={experiment.description ?? ""}
             save={async (description) => {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
-                body: JSON.stringify({ description }),
+                body: JSON.stringify({description}),
               });
               mutate();
             }}
@@ -79,6 +87,7 @@ export default function SetupTabOverview({
             label="description"
             header="Description"
             headerClassName="h4"
+            containerClassName="mb-1"
           />
 
           <MarkdownInlineEdit
@@ -86,16 +95,16 @@ export default function SetupTabOverview({
             save={async (hypothesis) => {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
-                body: JSON.stringify({ hypothesis }),
+                body: JSON.stringify({hypothesis}),
               });
               mutate();
             }}
             canCreate={canEditExperiment}
             canEdit={canEditExperiment}
             label="hypothesis"
-            header={<>Hypothesis</>}
+            header="Hypothesis"
             headerClassName="h4"
-            className="mb-3"
+            className="mb-4"
             containerClassName="mb-1"
           />
 

@@ -39,6 +39,7 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
+import {PiChartBarHorizontalFill} from "react-icons/pi";
 
 const experimentTabs = ["overview", "results", "explore", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
@@ -315,12 +316,12 @@ export default function TabbedPage({
             />
           </div>
         )}
-        {viewingOldPhase && tab === "results" && (
+        {viewingOldPhase && (!isBandit && tab === "results") || (isBandit && tab === "explore") && (
           <div className="alert alert-warning mt-3">
             <div>
               You are viewing the results of a previous experiment phase.{" "}
               <a
-                href="#"
+                role="button"
                 onClick={(e) => {
                   e.preventDefault();
                   setPhase(experiment.phases.length - 1);
@@ -380,7 +381,7 @@ export default function TabbedPage({
                   setTabAndScroll("results");
                 }}
               >
-                <FaChartBar /> View Results
+                <PiChartBarHorizontalFill /> View Results
               </button>
             </div>
           )}

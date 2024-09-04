@@ -326,7 +326,7 @@ export default function ExperimentHeader({
                     shouldDisplay={
                       isBandit && !experimentHasLinkedChanges(experiment)
                     }
-                    body="You must add an implementation before starting this experiment"
+                    body="Add at least one Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
                     <button
                       className="btn btn-teal"
