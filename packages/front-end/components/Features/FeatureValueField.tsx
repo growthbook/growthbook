@@ -11,6 +11,7 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
+import { JsonEditor as Editor } from "json-edit-react";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
@@ -19,6 +20,8 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import Button from "@/components/Button";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -470,67 +473,114 @@ function JSONTextEditor({
   helpText?: ReactNode;
   placeholder?: string;
 }) {
+  const { theme } = useAppearanceUITheme();
+  const [useJson, setUseJson] = useState(false);
+  if (useJson) {
+    try {
+      const parsed = JSON.parse(value);
+      const setJson = (json) => {
+        setValue(JSON.stringify(json));
+      };
+
+      const editorTheme = theme === "light" ? "githubLight" : "githubDark";
+      return (
+        <div>
+          <Button
+            onClick={() => {
+              setUseJson(false);
+            }}
+          >
+            Plain Text
+          </Button>
+          <div>
+            <label>{label}</label>
+          </div>
+          <Editor
+            data={parsed}
+            setData={setJson}
+            theme={editorTheme}
+            maxWidth={10000}
+          />
+        </div>
+      );
+    } catch (e) {
+      // Render normally if we can't parse json
+    }
+  }
+
   let formatted;
+  let buttonDisabled = true;
   try {
     const parsed = dJSON.parse(value);
     formatted = stringify(parsed);
+    buttonDisabled = false;
   } catch (e) {
     // Ignore
   }
 
   return (
-    <Field
-      labelClassName={editAsForm ? "d-flex w-100" : ""}
-      placeholder={placeholder}
-      label={
-        editAsForm ? (
-          <>
-            <div>{label}</div>
-            {editAsForm && (
-              <div className="ml-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    editAsForm();
-                  }}
-                >
-                  Edit as Form
-                </a>
-              </div>
-            )}
-          </>
-        ) : (
-          label
-        )
-      }
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      textarea
-      minRows={1}
-      helpText={
-        <div className="d-flex align-items-top">
-          {helpText && <div>{helpText}</div>}
-          <a
-            href="#"
-            className={clsx("text-purple ml-auto", {
-              "text-muted cursor-default no-underline":
-                !formatted || formatted === value,
-            })}
-            onClick={(e) => {
-              e.preventDefault();
-              if (formatted && formatted !== value) {
-                setValue(formatted);
-              }
-            }}
-          >
-            <FaMagic /> Format JSON
-          </a>
-        </div>
-      }
-    />
+    <div>
+      <Button
+        onClick={() => {
+          setUseJson(true);
+        }}
+        disabled={buttonDisabled}
+      >
+        Json Editor
+      </Button>
+      <Field
+        labelClassName={editAsForm ? "d-flex w-100" : ""}
+        placeholder={placeholder}
+        label={
+          editAsForm ? (
+            <>
+              <div>{label}</div>
+              {editAsForm && (
+                <div className="ml-auto">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editAsForm();
+                    }}
+                  >
+                    Edit as Form
+                  </a>
+                </div>
+              )}
+            </>
+          ) : (
+            label
+          )
+        }
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        textarea
+        minRows={1}
+        helpText={
+          <div className="d-flex align-items-top">
+            {helpText && <div>{helpText}</div>}
+            <a
+              href="#"
+              className={clsx("text-purple ml-auto", {
+                "text-muted cursor-default no-underline":
+                  !formatted || formatted === value,
+              })}
+              onClick={(e) => {
+                e.preventDefault();
+                if (formatted && formatted !== value) {
+                  setValue(formatted);
+                }
+              }}
+            >
+              <FaMagic /> Format JSON
+            </a>
+          </div>
+        }
+      />
+    </div>
   );
 }
 

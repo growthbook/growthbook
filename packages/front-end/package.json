@@ -50,6 +50,7 @@
     "handlebars": "^4.7.8",
     "js-confetti": "^0.11.0",
     "js-yaml": "^4.1.0",
+    "json-edit-react": "^1.15.9",
     "json-stringify-pretty-compact": "^3.0.0",
     "json2csv": "^5.0.7",
     "lodash": "^4.17.21",

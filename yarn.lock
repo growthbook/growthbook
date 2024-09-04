@@ -14711,6 +14711,14 @@ json-bignum@^0.0.3:
   resolved "https://registry.npmjs.org/json-bignum/-/json-bignum-0.0.3.tgz"
   integrity sha512-2WHyXj3OfHSgNyuzDbSxI1w2jgw5gkWSWhS7Qg4bWXx1nLk3jnbwfUeS0PSba3IzpTUWdHxBieELUzXRjQB2zg==
 
+json-edit-react@^1.15.9:
+  version "1.15.9"
+  resolved "https://registry.yarnpkg.com/json-edit-react/-/json-edit-react-1.15.9.tgz#7f124aea25b6ebcdd6f39ae70f1339b4db9dba00"
+  integrity sha512-0ujasLgq/sfPnHeE3Qm/4RNjI/NR0HvxhipO+zmemhjgs1CvGYKB5isqxy2nnsMTH6xRaqfrDbM8KbGI8LF3Kg==
+  dependencies:
+    object-property-assigner "^1.3.0"
+    object-property-extractor "^1.0.11"
+
 json-parse-better-errors@^1.0.1:
   version "1.0.2"
   resolved "https://registry.npmjs.org/json-parse-better-errors/-/json-parse-better-errors-1.0.2.tgz"
@@ -16581,6 +16589,16 @@ object-keys@^1.1.1:
   version "1.1.1"
   resolved "https://registry.npmjs.org/object-keys/-/object-keys-1.1.1.tgz"
   integrity sha512-NuAESUOUMrlIXOfHKzD6bpPu3tYt3xvjNdRIQ+FeT0lNb4K8WR70CaDxhuNguS2XG+GjkyMwOzsN5ZktImfhLA==
+
+object-property-assigner@^1.3.0:
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/object-property-assigner/-/object-property-assigner-1.3.1.tgz#3f6be71be5fcfdaf2053bd11c08e745a57d38809"
+  integrity sha512-3R6x1l1sQA4jQBOqxkxH3DHw0PMh7K5UY4x1Yc5QYbbkzZpAJ8l9w+Trq/64ZRe2thiOsa8JpB4M7D61hnkjRA==
+
+object-property-extractor@^1.0.11:
+  version "1.0.12"
+  resolved "https://registry.yarnpkg.com/object-property-extractor/-/object-property-extractor-1.0.12.tgz#d3824be4a01e8d4489d3cdcbd1dfc45828d1ad97"
+  integrity sha512-X6rMK1O6O3EU4O06BtATezWKr+5idX6Yo0PndVqr8NlED3Eoa2YE+VKQgQL4EK0+vh+YA83Sjj9Nsi/PuXXeDQ==
 
 object-treeify@^1.1.33:
   version "1.1.33"
