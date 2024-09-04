@@ -105,7 +105,6 @@ describe("payload scrubbing", () => {
       type: "list",
       values: ["1", "2", "3"],
       attributeKey: "id",
-      passByReferenceOnly: false,
     },
     {
       id: "large_group_id",
@@ -116,7 +115,6 @@ describe("payload scrubbing", () => {
       dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
       type: "list",
       values: ["4", "5", "6"],
-      passByReferenceOnly: true,
     },
     {
       id: "legacy_numeric_group_id",
@@ -128,7 +126,6 @@ describe("payload scrubbing", () => {
       type: "list",
       values: ["1", "2", "3"],
       attributeKey: "num",
-      passByReferenceOnly: false,
     },
   ];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -257,7 +254,7 @@ describe("payload scrubbing", () => {
           {
             condition: {
               id: {
-                $in: [],
+                $in: ["4", "5", "6"],
               },
             },
             force: "variant",
@@ -348,7 +345,7 @@ describe("payload scrubbing", () => {
           {
             condition: {
               id: {
-                $in: [],
+                $in: ["4", "5", "6"],
               },
             },
             force: "variant",
@@ -439,7 +436,7 @@ describe("payload scrubbing", () => {
           {
             condition: {
               id: {
-                $in: [],
+                $in: ["4", "5", "6"],
               },
             },
             force: "variant",
@@ -516,7 +513,7 @@ describe("payload scrubbing", () => {
       false
     );
 
-    // no change to payload for default connection (javascript, 0.27.0)
+    // only payload change for default connection (javascript, 0.27.0) is saved groups being inline
     expect(scrubbed).toStrictEqual(savedGroupScrubbedPayload);
   });
 
@@ -569,7 +566,7 @@ describe("payload scrubbing", () => {
       true
     );
 
-    // no change to payload for default connection (javascript, 0.27.0)
+    // fully scrubs payload for risky connection (python, 0.0.0)
     expect(scrubbed).toStrictEqual(fullyScrubbedPayload);
   });
 

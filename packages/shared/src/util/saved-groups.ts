@@ -5,8 +5,8 @@ import {
 import { AttributeMap } from "back-end/src/services/features";
 import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
 
+export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const SMALL_GROUP_SIZE_LIMIT = 100;
-export const LARGE_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const ID_LIST_DATATYPES: SDKAttributeType[] = [
   "number",
   "string",
