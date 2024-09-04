@@ -138,7 +138,6 @@ export interface SnapshotBanditSettings {
     date: Date;
     weights?: number[];
   }[];
-  alpha: number; 
 }
 
 // Settings that control which queries are run

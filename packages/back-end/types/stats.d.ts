@@ -8,13 +8,6 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
-interface BaseResponse {
-  cr: number;
-  value: number;
-  users: number;
-  ci?: [number, number];
-}
-
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -81,6 +74,7 @@ export type BanditResult = {
   additionalReward: number;
   seed: number;
   banditUpdateMessage?: string;
+  banditError?: string;
 };
 
 export type MultipleExperimentMetricAnalysis = {

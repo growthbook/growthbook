@@ -75,7 +75,7 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT)
 # used for testing bandits
 QUERY_OUTPUT_BANDITS = [
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 0,
         "variation": "zero",
         "main_sum": 270,
@@ -84,7 +84,7 @@ QUERY_OUTPUT_BANDITS = [
         "count": 100,
     },
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 0,
         "variation": "one",
         "main_sum": 300,
@@ -93,7 +93,7 @@ QUERY_OUTPUT_BANDITS = [
         "count": 120,
     },
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 0,
         "variation": "two",
         "main_sum": 740,
@@ -102,7 +102,7 @@ QUERY_OUTPUT_BANDITS = [
         "count": 200,
     },
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 0,
         "variation": "three",
         "main_sum": 770,
@@ -111,7 +111,7 @@ QUERY_OUTPUT_BANDITS = [
         "count": 220,
     },
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 1,
         "variation": "zero",
         "main_sum": 270,
@@ -120,7 +120,7 @@ QUERY_OUTPUT_BANDITS = [
         "count": 100,
     },
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 1,
         "variation": "one",
         "main_sum": 300,
@@ -129,7 +129,7 @@ QUERY_OUTPUT_BANDITS = [
         "count": 120,
     },
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 1,
         "variation": "two",
         "main_sum": 740,
@@ -138,7 +138,7 @@ QUERY_OUTPUT_BANDITS = [
         "count": 200,
     },
     {
-        "dimension": "",
+        "dimension": "All",
         "bandit_period": 1,
         "variation": "three",
         "main_sum": 770,
@@ -315,8 +315,7 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     weights=[BanditWeightsByDate(date="", weights=None)],
     reweight=False,
     decision_metric="count_metric",
-    bandit_weights_seed=int(0),
-    alpha=0.05,
+    bandit_weights_seed=int(100),
     weight_by_period=True,
     top_two=True,
     update_weights=True,
@@ -824,20 +823,19 @@ class TestBandit(TestCase):
         # preprocessing steps
         self.rows = QUERY_OUTPUT_BANDITS
         self.metric = COUNT_METRIC
-        self.dummy_analysis = copy.deepcopy(DEFAULT_ANALYSIS)
-        self.dummy_analysis.dimension = ""
-        self.analysis = BANDIT_ANALYSIS
+        self.analysis = DEFAULT_ANALYSIS
+        self.bandit_analysis = BANDIT_ANALYSIS
         self.update_messages = [
             "successfully updated",
         ]
-        self.true_weights = [0.37530, 0.13345, 0.24645, 0.2448]
+        self.true_weights = [0.3716, 0.13325, 0.2488, 0.24635]
         self.true_additional_reward = 192.0
 
     def test_create_bandit_statistics(self):
         df = get_metric_df(
             rows=pd.DataFrame(self.rows),
-            var_id_map={v: i for i, v in enumerate(self.analysis.var_ids)},
-            var_names=self.analysis.var_names,
+            var_id_map={v: i for i, v in enumerate(self.bandit_analysis.var_ids)},
+            var_names=self.bandit_analysis.var_names,
             bandit=True,
         )
         result = create_bandit_statistics(df, self.metric)
@@ -866,11 +864,11 @@ class TestBandit(TestCase):
     def test_get_weighted_rows(self):
         pass
         weighted_rows = get_weighted_rows(
-            self.rows, self.metric, [self.dummy_analysis], BANDIT_ANALYSIS
+            self.rows, self.metric, [self.analysis], BANDIT_ANALYSIS
         )
         weighted_rows_true = [
             {
-                "dimension": "",
+                "dimension": "All",
                 "variation": "0",
                 "users": 200,
                 "count": 200,
@@ -878,7 +876,7 @@ class TestBandit(TestCase):
                 "main_sum_squares": 1698.7900000000002,
             },
             {
-                "dimension": "",
+                "dimension": "All",
                 "variation": "1",
                 "users": 240,
                 "count": 240,
@@ -889,7 +887,9 @@ class TestBandit(TestCase):
         self.assertEqual(weighted_rows, weighted_rows_true)
 
     def test_get_bandit_response(self):
-        result = get_bandit_response(self.rows, self.metric, self.analysis)
+        result = get_bandit_response(
+            self.rows, self.metric, self.bandit_analysis, self.analysis.alpha
+        )
         self.assertEqual(result.banditUpdateMessage, self.update_messages[0])
         self.assertEqual(result.banditWeights, self.true_weights)
         self.assertEqual(result.additionalReward, self.true_additional_reward)

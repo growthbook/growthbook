@@ -118,7 +118,6 @@ def get_metric_df(
     bandit: bool = False,
 ):
     dfc = rows.copy()
-
     dimensions = {}  # dict of dimensions for fixed_weight, dict of periods for bandits
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -150,7 +149,6 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 for col in ROW_COLS:
                     dimensions[dim][f"{prefix}_{col}"] = 0
-
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
         if key in var_id_map:
@@ -163,7 +161,6 @@ def get_metric_df(
             # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
                 dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
-
     return pd.DataFrame(dimensions.values())
 
 
@@ -627,29 +624,31 @@ def create_bandit_statistics(
 def preprocess_bandits(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
-    settings: BanditSettingsForStatsEngine,
+    bandit_settings: BanditSettingsForStatsEngine,
+    alpha: float,
     dimension: str,
 ) -> Union[Bandits, BanditsCuped, BanditsRatio]:
     if len(rows) == 0:
         bandit_stats = {}
     else:
         pdrows = pd.DataFrame(rows)
+        # raise ValueError(pdrows["dimension"])
         pdrows = pdrows.loc[pdrows["dimension"] == dimension]
         # convert raw sql into df of periods, and output df where n_rows = periods
         df = get_metric_df(
             rows=pdrows,
-            var_id_map=get_var_id_map(settings.var_ids),
-            var_names=settings.var_names,
+            var_id_map=get_var_id_map(bandit_settings.var_ids),
+            var_names=bandit_settings.var_names,
             bandit=True,
         )
         bandit_stats = create_bandit_statistics(df, metric)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
-        bandit_weights_seed=settings.bandit_weights_seed,
-        weight_by_period=settings.weight_by_period,
-        top_two=settings.top_two,
-        alpha=settings.alpha,
+        bandit_weights_seed=bandit_settings.bandit_weights_seed,
+        weight_by_period=bandit_settings.weight_by_period,
+        top_two=bandit_settings.top_two,
+        alpha=alpha,
         inverse=metric.inverse,
     )
     if metric.statistic_type == "ratio":
@@ -669,7 +668,9 @@ def get_weighted_rows(
     weighted_rows = []
     unique_dimensions = list(set(setting.dimension for setting in settings))
     for dimension in unique_dimensions:
-        b = preprocess_bandits(rows, metric, bandit_settings, dimension)
+        b = preprocess_bandits(
+            rows, metric, bandit_settings, settings[0].alpha, dimension
+        )
         if b.stats:
             for index, variation in enumerate(settings[0].var_ids):
                 weighted_rows.append(b.make_row(dimension, index, variation))
@@ -679,11 +680,13 @@ def get_weighted_rows(
 def get_bandit_response(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
-    settings: BanditSettingsForStatsEngine,
+    bandit_settings: BanditSettingsForStatsEngine,
+    alpha: float,
 ) -> BanditResult:
-    b = preprocess_bandits(rows, metric, settings, "")
+    b = preprocess_bandits(rows, metric, bandit_settings, alpha, "All")
     if b:
         if any(value is None for value in b.stats.values()):
+            update_str = "not updated"
             error_str = "not all statistics are instance of type BanditStatistic"
             return BanditResult(
                 singleVariationResults=None,
@@ -691,7 +694,8 @@ def get_bandit_response(
                 bestArmProbabilities=None,
                 additionalReward=None,
                 seed=0,
-                banditUpdateMessage=error_str,
+                banditUpdateMessage=update_str,
+                banditError=error_str,
             )
         bandit_result = b.compute_result()
         single_variation_results = None
@@ -712,6 +716,7 @@ def get_bandit_response(
             additionalReward=bandit_result.additional_reward,
             seed=bandit_result.seed,
             banditUpdateMessage=bandit_result.bandit_update_message,
+            banditError="",
         )
     else:  # empty dict
         return BanditResult(
@@ -720,7 +725,8 @@ def get_bandit_response(
             bestArmProbabilities=None,
             additionalReward=None,
             seed=0,
-            banditUpdateMessage="no rows",
+            banditUpdateMessage="not updated",
+            banditError="no data froms sql query matches dimension",
         )
 
 
@@ -775,7 +781,8 @@ def process_experiment_results(
                             bandit_result = get_bandit_response(
                                 rows=rows,
                                 metric=d.metrics[metric],
-                                settings=d.bandit_settings,
+                                bandit_settings=d.bandit_settings,
+                                alpha=d.analyses[0].alpha,
                             )
                         weighted_rows = get_weighted_rows(
                             rows, d.metrics[metric], d.analyses, d.bandit_settings

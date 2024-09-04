@@ -22,6 +22,7 @@ class BanditResult:
     additionalReward: Optional[float]
     seed: int
     banditUpdateMessage: Optional[str]
+    banditError: Optional[str]
 
 
 @dataclass

@@ -65,9 +65,6 @@ export interface AnalysisSettingsForStatsEngine {
   phase_length_days: number;
   alpha: number;
   max_dimensions: number;
-  decision_metric: string;
-  bandit: boolean;
-  bandit_weights_seed: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -80,7 +77,6 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean; // todo: implement in python
   decision_metric: string;
   bandit_weights_seed: number;
-  alpha: number; 
 }
 
 
