@@ -236,7 +236,7 @@ const MetricsSelector: FC<{
       {selector}
       <div className="d-flex align-items-center justify-content-end">
         <div>
-          {!forceSingleMetric && Object.keys(tagCounts).length > 0 && (
+          {!forceSingleMetric && filteredOptions.length > 0 && (
             <div className="metric-from-tag text-muted form-inline mt-2">
               <span style={{ fontSize: "0.82rem" }}>
                 Select metric by tag:{" "}

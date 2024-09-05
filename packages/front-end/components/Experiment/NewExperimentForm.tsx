@@ -625,7 +625,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
       )}
 
-      <Page display="Variation Assignment">
+      <Page display="Targeting">
         <div className="px-2">
           {isNewExperiment && (
             <div className="alert alert-info mb-4">
@@ -716,7 +716,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
           )}
           <FeatureVariationsInput
-            valueType={"string"}
+            simple={type === "multi-armed-bandit"}
+            valueType="string"
             coverage={form.watch("phases.0.coverage")}
             setCoverage={(coverage) =>
               form.setValue("phases.0.coverage", coverage)
