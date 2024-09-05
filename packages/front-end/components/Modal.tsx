@@ -5,9 +5,10 @@ import {
   useState,
   ReactNode,
   CSSProperties,
+  useCallback,
 } from "react";
 import clsx from "clsx";
-import track from "@/services/track";
+import track, { TrackEventProps } from "@/services/track";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -20,6 +21,9 @@ type ModalProps = {
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
   trackingEventModalSource?: string;
+  // Currently the allowlist for what event props are valid is controlled outside of the codebase.
+  // Make sure you've checked that any props you pass here are in the list!
+  allowlistedTrackingEventProps?: TrackEventProps;
   className?: string;
   submitColor?: string;
   cta?: string | ReactNode;
@@ -82,6 +86,7 @@ const Modal: FC<ModalProps> = ({
   increasedElevation,
   trackingEventModalType,
   trackingEventModalSource,
+  allowlistedTrackingEventProps = {},
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -248,15 +253,29 @@ const Modal: FC<ModalProps> = ({
     overlayStyle.zIndex = 1500;
   }
 
-  const sendTrackingEvent = () => {
-    if (trackingEventModalType === "") {
-      return;
+  const sendTrackingEvent = useCallback(
+    (eventName: string) => {
+      if (trackingEventModalType === "") {
+        return;
+      }
+      track(eventName, {
+        type: trackingEventModalType,
+        source: trackingEventModalSource,
+        ...allowlistedTrackingEventProps,
+      });
+    },
+    [
+      trackingEventModalType,
+      trackingEventModalSource,
+      allowlistedTrackingEventProps,
+    ]
+  );
+
+  useEffect(() => {
+    if (open) {
+      sendTrackingEvent("modal-open");
     }
-    track("modal-submit", {
-      type: trackingEventModalType,
-      source: trackingEventModalSource,
-    });
-  };
+  }, [open, sendTrackingEvent]);
 
   const modalHtml = (
     <div
@@ -295,7 +314,6 @@ const Modal: FC<ModalProps> = ({
               }
               try {
                 await submit();
-                sendTrackingEvent();
 
                 setLoading(false);
                 if (successMessage) {
@@ -303,7 +321,9 @@ const Modal: FC<ModalProps> = ({
                 } else if (close && autoCloseOnSubmit) {
                   close();
                 }
+                sendTrackingEvent("modal-submit-success");
               } catch (e) {
+                sendTrackingEvent("modal-submit-error");
                 setError(e.message);
                 setLoading(false);
               }
