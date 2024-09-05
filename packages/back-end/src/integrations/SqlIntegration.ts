@@ -1075,6 +1075,7 @@ export default abstract class SqlIntegration
         return {
           variation: row.variation ?? "",
           dimension: row.dimension || "",
+          bandit_period: row.bandit_period ?? undefined,
           users: parseInt(row.users) || 0,
           count: parseInt(row.users) || 0,
           ...metricData,
@@ -1094,6 +1095,7 @@ export default abstract class SqlIntegration
         return {
           variation: row.variation ?? "",
           dimension: row.dimension || "",
+          bandit_period: row.bandit_period ?? undefined,
           users: parseInt(row.users) || 0,
           count: parseInt(row.users) || 0,
           main_sum: parseFloat(row.main_sum) || 0,
@@ -2132,10 +2134,23 @@ export default abstract class SqlIntegration
     return quantileData;
   }
 
+  getBanditCaseWhen(periods: Date[]) {
+    return `
+        , CASE
+          ${periods
+            .map((p) => {
+              return `WHEN first_exposure_timestamp <= ${this.toTimestamp(
+                p
+              )} THEN '${this.toTimestamp(p)}'`;
+            })
+            .join("\n")}
+        END AS bandit_period`;
+  }
+
   getExperimentFactMetricsQuery(
     params: ExperimentFactMetricsQueryParams
   ): string {
-    const { settings, segment } = params;
+    const { settings, segment, banditPeriods } = params;
 
     // clone the metrics before we mutate them
     const metrics = cloneDeep(params.metrics);
@@ -2251,6 +2266,7 @@ export default abstract class SqlIntegration
     }
 
     const cumulativeDate = false; // TODO enable flag for time series
+    const bandit = !!banditPeriods?.length;
 
     const percentileData: {
       valueCol: string;
@@ -2305,6 +2321,7 @@ export default abstract class SqlIntegration
           variation,
           ${timestampColumn} AS timestamp,
           ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
+          ${bandit ? this.getBanditCaseWhen(banditPeriods) : ""}
           ${
             raMetricSettings.length > 0
               ? `
@@ -2365,6 +2382,7 @@ export default abstract class SqlIntegration
         SELECT
           d.variation AS variation,
           d.dimension AS dimension,
+          ${bandit ? `d.bandit_period AS bandit_period,` : ""}
           ${cumulativeDate ? `dr.day AS day,` : ""}
           d.${baseIdType} AS ${baseIdType},
           ${metricData
@@ -2435,6 +2453,7 @@ export default abstract class SqlIntegration
         SELECT
           umj.variation,
           umj.dimension,
+          ${bandit ? `umj.bandit_period AS bandit_period,` : ""}
           ${cumulativeDate ? "umj.day," : ""}
           umj.${baseIdType},
           ${metricData
@@ -2477,6 +2496,7 @@ export default abstract class SqlIntegration
           umj.variation,
           umj.dimension,
           ${cumulativeDate ? "umj.day," : ""}
+          ${bandit ? `umj.bandit_period,` : ""}
           umj.${baseIdType}
       )
       ${
@@ -2532,6 +2552,7 @@ export default abstract class SqlIntegration
         ${
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
+        ${bandit ? "m.bandit_period AS bandit_period," : ""}
         COUNT(*) AS users,
         ${metricData.map((data) => {
           return `
@@ -2628,8 +2649,9 @@ export default abstract class SqlIntegration
       }
       ${percentileData.length > 0 ? `CROSS JOIN __capValue cap` : ""}
       GROUP BY
-        m.variation,
-        ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+        m.variation
+        , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+        ${bandit ? ", m.bandit_period" : ""}
     `,
       this.getFormatDialect()
     );
@@ -2643,6 +2665,7 @@ export default abstract class SqlIntegration
       activationMetric: activationMetricDoc,
       settings,
       segment,
+      banditPeriods,
     } = params;
 
     const factTableMap = params.factTableMap;
@@ -2700,6 +2723,7 @@ export default abstract class SqlIntegration
     };
 
     const cumulativeDate = false; // TODO enable flag for time series
+    const bandit = !!banditPeriods?.length;
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
@@ -2848,6 +2872,7 @@ export default abstract class SqlIntegration
           variation,
           ${timestampColumn} AS timestamp,
           ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
+          ${bandit ? this.getBanditCaseWhen(banditPeriods) : ""}
           ${
             regressionAdjusted
               ? `, ${this.addHours(
@@ -2921,6 +2946,7 @@ export default abstract class SqlIntegration
         SELECT
           d.variation AS variation,
           d.dimension AS dimension,
+          ${bandit ? `d.bandit_period AS bandit_period,` : ""}
           ${cumulativeDate ? `dr.day AS day,` : ""}
           d.${baseIdType} AS ${baseIdType},
           ${this.addCaseWhenTimeFilter(
@@ -2966,6 +2992,7 @@ export default abstract class SqlIntegration
         SELECT
           umj.variation AS variation,
           umj.dimension AS dimension,
+          ${bandit ? `umj.bandit_period AS bandit_period,` : ""}
           ${cumulativeDate ? "umj.day AS day," : ""}
           umj.${baseIdType},
           ${this.getAggregateMetricColumn(
@@ -2987,6 +3014,7 @@ export default abstract class SqlIntegration
           umj.variation,
           umj.dimension,
           ${cumulativeDate ? "umj.day," : ""}
+          ${bandit ? `umj.bandit_period,` : ""}
           umj.${baseIdType}
       )
       ${
@@ -3017,6 +3045,7 @@ export default abstract class SqlIntegration
               SELECT
                 d.variation AS variation,
                 d.dimension AS dimension,
+                ${bandit ? `d.bandit_period AS bandit_period,` : ""}
                 ${cumulativeDate ? `dr.day AS day,` : ""}
                 d.${baseIdType} AS ${baseIdType},
                 ${this.getAggregateMetricColumn(denominator, true)} as value
@@ -3045,6 +3074,7 @@ export default abstract class SqlIntegration
               GROUP BY
                 d.variation,
                 d.dimension,
+                ${bandit ? `d.bandit_period,` : ""}
                 ${cumulativeDate ? `dr.day,` : ""}
                 d.${baseIdType}
             )
@@ -3106,6 +3136,7 @@ export default abstract class SqlIntegration
         ${
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
+        ${bandit ? "m.bandit_period AS bandit_period," : ""}
         COUNT(*) AS users,
         ${
           isPercentileCapped
@@ -3193,8 +3224,9 @@ export default abstract class SqlIntegration
           : ""
       }
       GROUP BY
-        m.variation,
-        ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+        m.variation
+        , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+        ${bandit ? ", m.bandit_period" : ""}
     `,
       this.getFormatDialect()
     );
