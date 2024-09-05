@@ -597,20 +597,13 @@ def create_bandit_statistics(
         s0 = variation_statistic_from_metric_row(
             row=s, prefix="baseline", metric=metric
         )
-        if isinstance(s0, BanditStatistic):
-            stats = [s0]
-            for i in range(1, num_variations):
-                s1 = variation_statistic_from_metric_row(
-                    row=s, prefix=f"v{i}", metric=metric
-                )
-                # overwrites weights only if test statistics are of correct type
-                if isinstance(s1, BanditStatistic):
-                    stats.append(s1)
-                else:
-                    return None
-            return stats
-        else:
-            return None
+        stats = [s0]
+        for i in range(1, num_variations):
+            s1 = variation_statistic_from_metric_row(
+                row=s, prefix=f"v{i}", metric=metric
+            )
+            stats.append(s1)
+        return stats  # type: ignore
 
     num_periods = reduced.shape[0]
     period_sample_mean_stats = {}
@@ -668,9 +661,7 @@ def get_weighted_rows(
     weighted_rows = []
     unique_dimensions = list(set(setting.dimension for setting in settings))
     for dimension in unique_dimensions:
-        b = preprocess_bandits(
-            rows, metric, bandit_settings, settings[0].alpha, "All"
-        )
+        b = preprocess_bandits(rows, metric, bandit_settings, settings[0].alpha, "All")
         if b.stats:
             for index, variation in enumerate(settings[0].var_ids):
                 weighted_rows.append(b.make_row(dimension, index, variation))

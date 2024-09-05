@@ -2141,7 +2141,7 @@ export default abstract class SqlIntegration
             .map((p) => {
               return `WHEN first_exposure_timestamp <= ${this.toTimestamp(
                 p
-              )} THEN '${this.toTimestamp(p)}'`;
+              )} THEN ${this.toTimestamp(p)}`;
             })
             .join("\n")}
         END AS bandit_period`;
