@@ -1,6 +1,10 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { _getSnapshots, createMetric, refreshMetric } from "../services/experiments";
+import {
+  _getSnapshots,
+  createMetric,
+  refreshMetric,
+} from "../services/experiments";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentWithSnapshot } from "../../types/experiment-snapshot";
 import {
