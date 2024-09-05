@@ -668,7 +668,9 @@ def get_weighted_rows(
     weighted_rows = []
     unique_dimensions = list(set(setting.dimension for setting in settings))
     for dimension in unique_dimensions:
-        b = preprocess_bandits(rows, metric, bandit_settings, settings[0].alpha, "All")
+        b = preprocess_bandits(
+            rows, metric, bandit_settings, settings[0].alpha, "All"
+        )
         if b.stats:
             for index, variation in enumerate(settings[0].var_ids):
                 weighted_rows.append(b.make_row(dimension, index, variation))
