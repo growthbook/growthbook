@@ -172,6 +172,7 @@ export const notificationEventPayloadData = <
   event: Event
 ) => {
   const data = notificationEvents[resource][event] as WebhookEntry;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const schema = data.schema as z.ZodObject<any, any, any>;
 
   const ret = z.object({
@@ -185,7 +186,7 @@ export const notificationEventPayloadData = <
 
   if (!data.extra) return ret;
 
-  return z.union([ret, data.extra])
+  return z.union([ret, data.extra]);
 };
 
 export type NotificationEventPayloadDataType<

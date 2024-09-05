@@ -19,8 +19,15 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   href,
   eventWebHook,
 }) => {
-  const { name, payloadType, url, events, enabled, lastState, lastRunAt } =
-    eventWebHook;
+  const {
+    name,
+    payloadType,
+    url,
+    events,
+    enabled,
+    lastState,
+    lastRunAt,
+  } = eventWebHook;
 
   const iconForState = useIconForState(lastState);
 
