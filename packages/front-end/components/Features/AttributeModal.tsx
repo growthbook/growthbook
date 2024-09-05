@@ -185,6 +185,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           { value: "string", label: "String" },
           { value: "enum", label: "Enum" },
           { value: "secureString", label: "Secure String" },
+          { value: "isoCountryCode", label: "ISO Country Code" },
           { value: "number[]", label: "Array of Numbers" },
           { value: "string[]", label: "Array of Strings" },
           {

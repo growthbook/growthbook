@@ -33,6 +33,7 @@ import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTar
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
+import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -859,7 +860,8 @@ export function condToJson(
 function getAttributeDataType(type: SDKAttributeType) {
   if (type === "boolean" || type === "number" || type === "string") return type;
 
-  if (type === "enum" || type === "string[]") return "string";
+  if (type === "enum" || type === "string[]" || type === "isoCountryCode")
+    return "string";
 
   if (type === "secureString" || type === "secureString[]")
     return "secureString";
@@ -886,6 +888,8 @@ export function useAttributeMap(
         enum:
           schema.datatype === "enum" && schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
+            : schema.datatype === "isoCountryCode"
+            ? ALL_COUNTRY_CODES
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
