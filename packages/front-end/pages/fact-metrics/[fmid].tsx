@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   FaChartLine,
   FaExternalLinkAlt,
@@ -14,6 +14,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -29,6 +30,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getPercentileLabel } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -40,9 +42,8 @@ import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPri
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import TabButton from "@/components/Tabs/TabButton";
-import TabButtons from "@/components/Tabs/TabButtons";
+import Tab from "@/components/Tabs/Tab";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
 
 export const metricTabs = ["analysis", "experiments"] as const;
 export type MetricTab = typeof metricTabs[number];
@@ -197,22 +198,10 @@ export default function FactMetricPage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
 
-  const [tab, setTab] = useLocalStorage<MetricTab>(
+  const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
     "analysis"
   );
-  useEffect(() => {
-    const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as MetricTab;
-      if (metricTabs.includes(hash)) {
-        setTab(hash);
-      }
-    };
-    handler();
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab]);
-
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
@@ -766,42 +755,49 @@ export default function FactMetricPage() {
         </div>
       </div>
       <div className="row align-items-center ml-1">
-        <div className="col-auto pt-2 tab-wrapper" id="metric-page-tabs">
-          <TabButtons className="mb-0 pb-0">
-            <TabButton
-              active={tab === "analysis"}
-              display={
-                <>
-                  <FaChartLine className="mr-1" />
-                  Metric Analysis
-                </>
-              }
-              anchor="analysis"
-              onClick={() => setTab("analysis")}
-              newStyle={false}
-              activeClassName="active-tab"
-            />
-            <TabButton
-              active={tab === "experiments"}
-              display={
-                <>
-                  <FaFlask className="mr-1" />
-                  Experiments
-                </>
-              }
-              anchor="experiments"
-              onClick={() => setTab("experiments")}
-              newStyle={false}
-              activeClassName="active-tab"
-              last={false}
-            />
-          </TabButtons>
-        </div>
+        <ControlledTabs
+          orientation="horizontal"
+          className="col"
+          buttonsClassName="mb-0"
+          buttonsWrapperClassName="ml-2 border-bottom-0 mb-n2 p-1 large"
+          defaultTab="analysis"
+          newStyle={false}
+          showActiveCount={false}
+          active={tab}
+          setActive={setTab}
+        >
+          <Tab
+            display={
+              <>
+                <FaChartLine className="mr-1" />
+                Metric Analysis
+              </>
+            }
+            id="analysis"
+            anchor="analysis"
+            padding={false}
+            lazy={true}
+          >
+            {datasource ? (
+              <MetricAnalysis factMetric={factMetric} datasource={datasource} />
+            ) : null}
+          </Tab>
+          <Tab
+            display={
+              <>
+                <FaFlask className="mr-1" />
+                Experiments
+              </>
+            }
+            id="experiments"
+            anchor="experiments"
+            padding={false}
+            lazy={true}
+          >
+            <MetricExperiments metric={factMetric} />
+          </Tab>
+        </ControlledTabs>
       </div>
-      {!!datasource && tab === "analysis" ? (
-        <MetricAnalysis factMetric={factMetric} datasource={datasource} />
-      ) : null}
-      {tab === "experiments" ? <MetricExperiments metric={factMetric} /> : null}
     </div>
   );
 }
