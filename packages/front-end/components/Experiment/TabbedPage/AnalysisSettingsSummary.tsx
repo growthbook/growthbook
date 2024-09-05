@@ -250,7 +250,8 @@ export default function AnalysisSettingsSummary({
       )}
       <div className="row align-items-center text-muted">
         <div className="col-auto">
-          {!(isBandit && experiment.status === "running") &&
+          {
+          // {!(isBandit && experiment.status === "running") &&
           canEditAnalysisSettings ? (
             <a
               href="#"
