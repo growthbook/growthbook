@@ -71,57 +71,125 @@ export default function BanditSettings({
           </>
         )}
 
-        <div className="mb-4">
-          <div className="row align-items-center">
+        <div className="d-flex">
+          <div className="col-6 pl-0">
             <label
-              className={clsx("col-auto mb-0", {
+              className={clsx("mb-0", {
                 "font-weight-bold": page === "experiment-settings",
               })}
             >
-              Set burn-in period equal to
+              Update Cadence
             </label>
-            <div className="col-auto">
-              <Field
-                {...form.register("banditBurnInValue", {
-                  valueAsNumber: true,
-                  validate: (v) => {
-                    return !(v < 0);
-                  },
-                })}
-                type="number"
-                min={0}
-                max={999}
-                step={1}
-                style={{ width: 70 }}
-                disabled={!hasBandits}
-              />
+            <div className="small text-muted mb-2">
+              Update variation weights every:
             </div>
-            <div className="col-auto">
-              <SelectField
-                value={form.watch("banditBurnInUnit")}
-                onChange={(value) => {
-                  form.setValue("banditBurnInUnit", value as "hours" | "days");
-                }}
-                sort={false}
-                options={[
-                  {
-                    label: "Hours",
-                    value: "hours",
-                  },
-                  {
-                    label: "Days",
-                    value: "days",
-                  },
-                ]}
-                disabled={!hasBandits}
-              />
+            <div className="row align-items-center">
+              <div className="col-auto">
+                <Field
+                  {...form.register("banditScheduleValue", {
+                    valueAsNumber: true,
+                    validate: (_) => {
+                      return !(scheduleHours < 0.25);
+                    },
+                  })}
+                  type="number"
+                  min={0}
+                  max={999}
+                  step={1}
+                  style={{ width: 70 }}
+                  disabled={!hasBandits}
+                />
+              </div>
+              <div className="col-auto">
+                <SelectField
+                  value={form.watch("banditScheduleUnit")}
+                  onChange={(value) => {
+                    form.setValue(
+                      "banditScheduleUnit",
+                      value as "hours" | "days"
+                    );
+                  }}
+                  sort={false}
+                  options={[
+                    {
+                      label: "Hours",
+                      value: "hours",
+                    },
+                    {
+                      label: "Days",
+                      value: "days",
+                    },
+                  ]}
+                  disabled={!hasBandits}
+                />
+              </div>
             </div>
+            {page === "experiment-settings" && (
+              <div className="text-muted small mt-1">
+                Default:{" "}
+                <strong>
+                  {settings?.banditScheduleValue?.value ?? 1}{" "}
+                  {settings?.banditScheduleUnit?.value ?? "days"}
+                </strong>
+              </div>
+            )}
+            {scheduleWarning ? (
+              <div className="text-warning-orange mt-2">{scheduleWarning}</div>
+            ) : null}
           </div>
-          <div className="form-text text-muted">
-            <span className="font-italic">
-              How long to wait (explore) before changing variation weights.{" "}
-              {page === "org-settings" && <>If empty, uses default of 1 day.</>}
-            </span>
+
+          <div className="col-6 pr-0">
+            <label
+              className={clsx("mb-0", {
+                "font-weight-bold": page === "experiment-settings",
+              })}
+            >
+              Burn-in Period
+            </label>
+            <div className="small text-muted mb-2">
+              How long to wait (explore) before updating variation weights:
+            </div>
+            <div className="row align-items-center">
+              <div className="col-auto">
+                <Field
+                  {...form.register("banditBurnInValue", {
+                    valueAsNumber: true,
+                    validate: (v) => {
+                      return !(v < 0);
+                    },
+                  })}
+                  type="number"
+                  min={0}
+                  max={999}
+                  step={1}
+                  style={{ width: 70 }}
+                  disabled={!hasBandits}
+                />
+              </div>
+              <div className="col-auto">
+                <SelectField
+                  value={form.watch("banditBurnInUnit")}
+                  onChange={(value) => {
+                    form.setValue(
+                      "banditBurnInUnit",
+                      value as "hours" | "days"
+                    );
+                  }}
+                  sort={false}
+                  options={[
+                    {
+                      label: "Hours",
+                      value: "hours",
+                    },
+                    {
+                      label: "Days",
+                      value: "days",
+                    },
+                  ]}
+                  disabled={!hasBandits}
+                />
+              </div>
+            </div>
             {page === "experiment-settings" && (
               <div className="text-muted small mt-1">
                 Default:{" "}
@@ -132,76 +200,6 @@ export default function BanditSettings({
               </div>
             )}
           </div>
-        </div>
-
-        <div>
-          <div className="row align-items-center">
-            <label
-              className={clsx("col-auto mb-0", {
-                "font-weight-bold": page === "experiment-settings",
-              })}
-            >
-              Update variation weights every
-            </label>
-            <div className="col-auto">
-              <Field
-                {...form.register("banditScheduleValue", {
-                  valueAsNumber: true,
-                  validate: (_) => {
-                    return !(scheduleHours < 0.25);
-                  },
-                })}
-                type="number"
-                min={0}
-                max={999}
-                step={1}
-                style={{ width: 70 }}
-                disabled={!hasBandits}
-              />
-            </div>
-            <div className="col-auto">
-              <SelectField
-                value={form.watch("banditScheduleUnit")}
-                onChange={(value) => {
-                  form.setValue(
-                    "banditScheduleUnit",
-                    value as "hours" | "days"
-                  );
-                }}
-                sort={false}
-                options={[
-                  {
-                    label: "Hours",
-                    value: "hours",
-                  },
-                  {
-                    label: "Days",
-                    value: "days",
-                  },
-                ]}
-                disabled={!hasBandits}
-              />
-            </div>
-          </div>
-          <div className="form-text text-muted">
-            <span className="font-italic">
-              How often to analyze experiment results and compute new variation
-              weights.{" "}
-              {page === "org-settings" && <>If empty, uses default of 1 day.</>}
-            </span>
-            {page === "experiment-settings" && (
-              <div className="text-muted small mt-1">
-                Default:{" "}
-                <strong>
-                  {settings?.banditScheduleValue?.value ?? 1}{" "}
-                  {settings?.banditScheduleUnit?.value ?? "days"}
-                </strong>
-              </div>
-            )}
-          </div>
-          {scheduleWarning ? (
-            <div className="text-warning-orange mt-2">{scheduleWarning}</div>
-          ) : null}
         </div>
       </div>
     </div>

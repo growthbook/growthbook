@@ -599,8 +599,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             )}
 
-            <hr className="my-4" />
-
             <ExperimentMetricsSelector
               datasource={datasource?.id}
               exposureQueryId={exposureQueryId}
@@ -616,8 +614,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 form.setValue("secondaryMetrics", secondaryMetrics)
               }
             />
-
-            <hr className="my-4" />
 
             <FormProvider {...form}>
               <BanditSettings

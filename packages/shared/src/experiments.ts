@@ -10,7 +10,11 @@ import {
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
-import { ExperimentInterface, MetricOverride } from "back-end/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  MetricOverride,
+} from "back-end/types/experiment";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
@@ -607,7 +611,9 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
 
 export async function generateTrackingKey(
   exp: Partial<ExperimentInterface>,
-  getExperimentByKey?: (key: string) => Promise<ExperimentInterface | null>
+  getExperimentByKey?: (
+    key: string
+  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>
 ): Promise<string> {
   // Try to generate a unique tracking key based on the experiment name
   let n = 1;
