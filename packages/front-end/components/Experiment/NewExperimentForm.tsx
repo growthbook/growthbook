@@ -14,7 +14,7 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { getEqualWeights } from "shared/experiments";
+import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -34,7 +34,6 @@ import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -49,6 +48,7 @@ import SavedGroupTargetingField, {
 import Toggle from "@/components/Forms/Toggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { useUser } from "@/services/UserContext";
+import { useExperiments } from "@/hooks/useExperiments";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -126,7 +126,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   onCreate = null,
   isImport,
   fromFeature,
-  includeDescription,
+  includeDescription = true,
   source,
   idea,
   msg,
@@ -152,6 +152,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   } = useDefinitions();
 
   const environments = useEnvironments();
+  const { experiments } = useExperiments();
   const envs = environments.map((e) => e.id);
 
   const [
@@ -179,12 +180,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const usingStickyBucketing =
     orgStickyBucketing && !initialValue?.disableStickyBucketing;
-
-  useEffect(() => {
-    track("New Experiment Form", {
-      source,
-    });
-  }, []);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -258,6 +253,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
     },
   });
+
+  useEffect(() => {}, [form]);
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -343,7 +340,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "Warning: An experiment with that id already exists. To continue anyway, click 'Save' again."
+        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
       );
     }
 
@@ -374,7 +371,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
-  let header = isNewExperiment ? `Create ${form.watch("type") === "multi-armed-bandit" ? "Bandit " : ""}Experiment` : "New Experiment Analysis";
+  let header = isNewExperiment
+    ? `Create ${
+        form.watch("type") === "multi-armed-bandit" ? "Bandit " : ""
+      }Experiment`
+    : "Create Experiment Analysis";
   if (source === "duplicate") {
     header = "Duplicate Experiment";
   }
@@ -416,40 +417,47 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
 
           <Field
-            label="Name"
+            label="Experiment Name"
             required
             minLength={2}
             {...form.register("name")}
-          />
-          {!isImport && !fromFeature && datasource && !isNewExperiment && (
-            <Field
-              label="Experiment Id"
-              {...form.register("trackingKey")}
-              helpText={
-                supportsSQL ? (
-                  <>
-                    Unique identifier for this experiment, used to track
-                    impressions and analyze results. Will match against the{" "}
-                    <code>experiment_id</code> column in your data source.
-                  </>
-                ) : (
-                  <>
-                    Unique identifier for this experiment, used to track
-                    impressions and analyze results. Must match the experiment
-                    id in your tracking callback.
-                  </>
-                )
+            onChange={async (e) => {
+              const val = e?.target?.value ?? form.watch("name");
+              if (!val) {
+                form.setValue("trackingKey", "");
+                return;
               }
-            />
-          )}
+              const trackingKey = await generateTrackingKey(
+                { name: val },
+                async (key: string) =>
+                  (experiments.find((exp) => exp.trackingKey === key) as
+                    | ExperimentInterfaceStringDates
+                    | undefined) ?? null
+              );
+              form.setValue("trackingKey", trackingKey);
+            }}
+          />
 
-          <div className="form-group">
-            <label>Tags</label>
-            <TagsInput
-              value={form.watch("tags") ?? []}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          </div>
+          <Field
+            label="Tracking Key"
+            {...form.register("trackingKey")}
+            helpText={
+              supportsSQL ? (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Will match against the{" "}
+                  <code>experiment_id</code> column in your data source.
+                </>
+              ) : (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Must match the experiment id
+                  in your tracking callback.
+                </>
+              )
+            }
+          />
+
           <Field
             label="Hypothesis"
             textarea
@@ -459,14 +467,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {...form.register("hypothesis")}
           />
           {includeDescription && (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description") ?? ""}
-                setValue={(val) => form.setValue("description", val)}
-              />
-            </div>
+            <Field
+              label="Description"
+              textarea
+              minRows={2}
+              maxRows={6}
+              placeholder="Purpose of the experiment"
+              {...form.register("description")}
+            />
           )}
+          <div className="form-group">
+            <label>Tags</label>
+            <TagsInput
+              value={form.watch("tags") ?? []}
+              onChange={(tags) => form.setValue("tags", tags)}
+            />
+          </div>
           {isNewExperiment && (
             <Field
               type="hidden"
@@ -509,6 +525,109 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
         </div>
       </Page>
+
+      {!!isNewExperiment && type === "multi-armed-bandit" && (
+        <Page display="Bandit Settings">
+          <div className="mx-2">
+            <SelectField
+              label="Data Source"
+              labelClassName="font-weight-bold"
+              value={form.watch("datasource") ?? ""}
+              onChange={(newDatasource) => {
+                form.setValue("datasource", newDatasource);
+
+                // If unsetting the datasource, leave all the other settings alone
+                // That way, it will be restored if the user switches back to the previous value
+                if (!newDatasource) {
+                  return;
+                }
+
+                const isValidMetric = (id: string) =>
+                  getExperimentMetricById(id)?.datasource === newDatasource;
+
+                // Filter the selected metrics to only valid ones
+                const goals = form.watch("goalMetrics") ?? [];
+                form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
+                form.setValue(
+                  "secondaryMetrics",
+                  secondaryMetrics.filter(isValidMetric)
+                );
+
+                // const guardrails = form.watch("guardrailMetrics") ?? [];
+                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
+              }}
+              options={datasources.map((d) => {
+                const isDefaultDataSource = d.id === settings.defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  }${isDefaultDataSource ? " (default)" : ""}`,
+                };
+              })}
+              className="portal-overflow-ellipsis"
+            />
+
+            {datasource?.properties?.exposureQueries && (
+              <SelectField
+                label="Experiment Assignment Table"
+                labelClassName="font-weight-bold"
+                value={form.watch("exposureQueryId") ?? ""}
+                onChange={(v) => form.setValue("exposureQueryId", v)}
+                required
+                options={exposureQueries.map((q) => {
+                  return {
+                    label: q.name,
+                    value: q.id,
+                  };
+                })}
+                helpText={
+                  <>
+                    <div>
+                      Should correspond to the Identifier Type used to randomize
+                      units for this experiment
+                    </div>
+                    {userIdType ? (
+                      <>
+                        Identifier Type: <code>{userIdType}</code>
+                      </>
+                    ) : null}
+                  </>
+                }
+              />
+            )}
+
+            <hr className="my-4" />
+
+            <ExperimentMetricsSelector
+              datasource={datasource?.id}
+              exposureQueryId={exposureQueryId}
+              project={project}
+              forceSingleGoalMetric={true}
+              goalMetrics={form.watch("goalMetrics") ?? []}
+              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+              setGoalMetrics={(goalMetrics) =>
+                form.setValue("goalMetrics", goalMetrics)
+              }
+              setSecondaryMetrics={(secondaryMetrics) =>
+                form.setValue("secondaryMetrics", secondaryMetrics)
+              }
+            />
+
+            <hr className="my-4" />
+
+            <FormProvider {...form}>
+              <BanditSettings
+                page="experiment-settings"
+                settings={scopedSettings}
+              />
+            </FormProvider>
+          </div>
+        </Page>
+      )}
 
       <Page display="Variation Assignment">
         <div className="px-2">
@@ -736,111 +855,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
         </Page>
       )}
-
-      {!!isNewExperiment && type === "multi-armed-bandit" ? (
-        <Page display="Bandit Settings">
-          <div className="mx-2">
-            <SelectField
-              label="Data Source"
-              labelClassName="font-weight-bold"
-              value={form.watch("datasource") ?? ""}
-              onChange={(newDatasource) => {
-                form.setValue("datasource", newDatasource);
-
-                // If unsetting the datasource, leave all the other settings alone
-                // That way, it will be restored if the user switches back to the previous value
-                if (!newDatasource) {
-                  return;
-                }
-
-                const isValidMetric = (id: string) =>
-                  getExperimentMetricById(id)?.datasource === newDatasource;
-
-                // Filter the selected metrics to only valid ones
-                const goals = form.watch("goalMetrics") ?? [];
-                form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
-                form.setValue(
-                  "secondaryMetrics",
-                  secondaryMetrics.filter(isValidMetric)
-                );
-
-                // const guardrails = form.watch("guardrailMetrics") ?? [];
-                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
-              }}
-              initialOption="Manual"
-              options={datasources.map((d) => {
-                const isDefaultDataSource = d.id === settings.defaultDataSource;
-                return {
-                  value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
-                };
-              })}
-              className="portal-overflow-ellipsis"
-            />
-
-            {datasource?.properties?.exposureQueries && (
-              <SelectField
-                label="Experiment Assignment Table"
-                labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                initialOption="Choose..."
-                required
-                options={exposureQueries.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                helpText={
-                  <>
-                    <div>
-                      Should correspond to the Identifier Type used to randomize
-                      units for this experiment
-                    </div>
-                    {userIdType ? (
-                      <>
-                        Identifier Type: <code>{userIdType}</code>
-                      </>
-                    ) : null}
-                  </>
-                }
-              />
-            )}
-
-            <hr className="my-4" />
-
-            <ExperimentMetricsSelector
-              datasource={datasource?.id}
-              exposureQueryId={exposureQueryId}
-              project={project}
-              forceSingleGoalMetric={true}
-              goalMetrics={form.watch("goalMetrics") ?? []}
-              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
-              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
-              setGoalMetrics={(goalMetrics) =>
-                form.setValue("goalMetrics", goalMetrics)
-              }
-              setSecondaryMetrics={(secondaryMetrics) =>
-                form.setValue("secondaryMetrics", secondaryMetrics)
-              }
-            />
-
-            <hr className="my-4" />
-
-            <FormProvider {...form}>
-              <BanditSettings
-                page="experiment-settings"
-                settings={scopedSettings}
-              />
-            </FormProvider>
-          </div>
-        </Page>
-      ) : null}
     </PagedModal>
   );
 };

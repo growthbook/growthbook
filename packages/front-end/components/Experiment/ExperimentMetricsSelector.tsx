@@ -32,7 +32,7 @@ export default function ExperimentMetricsSelector({
       {setGoalMetrics !== undefined && (
         <div className="form-group">
           <label className="font-weight-bold mb-1">
-            {!forceSingleGoalMetric ? "Goal Metrics" : "Goal Metric"}
+            {!forceSingleGoalMetric ? "Goal Metrics" : "Decision Metric"}
           </label>
           <div className="mb-1">
             <span className="font-italic">

@@ -68,7 +68,9 @@ export default function SetupTabOverview({
             <div className="h4">Experiment Type</div>
             <span>
               Multi-Armed Bandit
-              <a role="button" className="ml-2 small">Configure</a>
+              <a role="button" className="ml-2 small">
+                Configure
+              </a>
             </span>
           </div>
 
@@ -77,7 +79,7 @@ export default function SetupTabOverview({
             save={async (description) => {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
-                body: JSON.stringify({description}),
+                body: JSON.stringify({ description }),
               });
               mutate();
             }}
@@ -95,7 +97,7 @@ export default function SetupTabOverview({
             save={async (hypothesis) => {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
-                body: JSON.stringify({hypothesis}),
+                body: JSON.stringify({ hypothesis }),
               });
               mutate();
             }}

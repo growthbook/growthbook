@@ -27,6 +27,7 @@ type MetricsSelectorTooltipProps = {
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
 }: MetricsSelectorTooltipProps) => {
+  // todo: check if we need more filters or language change for bandits
   return (
     <Tooltip
       body={

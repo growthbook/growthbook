@@ -170,7 +170,7 @@ export default function AnalysisSettingsSummary({
     items.push({
       value: experiment.trackingKey,
       icon: <FaFlask className="mr-1" />,
-      tooltip: "Experiment Key",
+      tooltip: "Tracking Key",
     });
   }
   if (segment) {

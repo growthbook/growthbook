@@ -467,7 +467,7 @@ const AnalysisForm: FC<{
         )}
         {datasource && (
           <Field
-            label="Experiment Key"
+            label="Tracking Key"
             labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
             helpText={

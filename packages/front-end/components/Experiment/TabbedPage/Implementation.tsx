@@ -103,7 +103,7 @@ export default function Implementation({
               setUrlRedirectModal={setUrlRedirectModal}
             />
           ) : (
-            <div className="alert alert-info mb-0">
+            <div className="alert alert-info mb-3">
               This experiment has no directly linked feature flag, visual editor
               changes, or redirects. Randomization, targeting, and
               implementation is either being managed by an external system or

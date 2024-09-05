@@ -119,7 +119,7 @@ export default function TargetingInfo({
               <>
                 <div className={clsx("mb-3", horizontalView && "mr-4")}>
                   <div className="mb-1">
-                    <strong>Experiment Key</strong>{" "}
+                    <strong>Tracking Key</strong>{" "}
                     <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
                   </div>
                   <div>{experiment.trackingKey}</div>

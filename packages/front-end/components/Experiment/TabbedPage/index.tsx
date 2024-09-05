@@ -6,12 +6,12 @@ import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { useCallback, useEffect, useState } from "react";
-import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -39,7 +39,6 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
-import {PiChartBarHorizontalFill} from "react-icons/pi";
 
 const experimentTabs = ["overview", "results", "explore", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
@@ -316,26 +315,28 @@ export default function TabbedPage({
             />
           </div>
         )}
-        {viewingOldPhase && (!isBandit && tab === "results") || (isBandit && tab === "explore") && (
-          <div className="alert alert-warning mt-3">
-            <div>
-              You are viewing the results of a previous experiment phase.{" "}
-              <a
-                role="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setPhase(experiment.phases.length - 1);
-                }}
-              >
-                Switch to the latest phase
-              </a>
+        {viewingOldPhase &&
+          ((!isBandit && tab === "results") ||
+            (isBandit && tab === "explore")) && (
+            <div className="alert alert-warning mt-3">
+              <div>
+                You are viewing the results of a previous experiment phase.{" "}
+                <a
+                  role="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPhase(experiment.phases.length - 1);
+                  }}
+                >
+                  Switch to the latest phase
+                </a>
+              </div>
+              <div className="mt-1">
+                <strong>Phase settings:</strong>{" "}
+                {phaseSummary(experiment?.phases?.[phase])}
+              </div>
             </div>
-            <div className="mt-1">
-              <strong>Phase settings:</strong>{" "}
-              {phaseSummary(experiment?.phases?.[phase])}
-            </div>
-          </div>
-        )}
+          )}
         <div
           className={clsx(
             "pt-3",

@@ -15,7 +15,7 @@ export default function BanditSummaryResultsTab({ experiment }: Props) {
     "probabilities"
   );
 
-  const phase = experiment.phases?.[experiment.phases.length -1];
+  const phase = experiment.phases?.[experiment.phases.length - 1];
 
   // const { metrics, getExperimentMetricById, getMetricById } = useDefinitions();
   //
@@ -37,24 +37,26 @@ export default function BanditSummaryResultsTab({ experiment }: Props) {
 
   console.log(experiment.phases[experiment.phases.length - 1].banditEvents);
 
-  const showVisualizations = phase?.banditEvents?.length > 0;
+  const showVisualizations = (phase?.banditEvents?.length ?? 0) > 0;
 
   return (
     <div className="bg-white border mt-3">
-        <div className="mt-3 mb-4">
-          <h3 className="mx-2">Graph of variations with uplift stats</h3>
+      <div className="mt-3 mb-4">
+        <h3 className="mx-2">Graph of variations with uplift stats</h3>
 
-          {experiment.status === "draft" && (
-            <div className="alert bg-light border mx-3">
-              Your experiment is still in a <strong>draft</strong> state. You
-              must start the experiment first before seeing results.
-            </div>
-          )}
+        {experiment.status === "draft" && (
+          <div className="alert bg-light border mx-3">
+            Your experiment is still in a <strong>draft</strong> state. You must
+            start the experiment first before seeing results.
+          </div>
+        )}
 
-          {experiment.status === "running" && (<>
+        {experiment.status === "running" && (
+          <>
             {experiment.banditPhase === "explore" ? (
               <div className="alert bg-light border mx-3">
-                This bandit experiment is still in its burn-in (explore) phase. Please wait a little while longer.
+                This bandit experiment is still in its burn-in (explore) phase.
+                Please wait a little while longer.
               </div>
             ) : !phase?.banditEvents?.length ? (
               <div className="alert alert-info mx-3">
@@ -62,38 +64,39 @@ export default function BanditSummaryResultsTab({ experiment }: Props) {
                 {/*todo: differentiate new (no runs) versus problem*/}
               </div>
             ) : null}
-          </>)}
-
-          {showVisualizations && (
-            <BanditSummaryTable
-              experiment={experiment}
-              isTabActive={true} // todo: huh?
-            />
-          )}
-        </div>
+          </>
+        )}
 
         {showVisualizations && (
-          <div className="mx-3 my-4">
-            <h3>Time series</h3>
-            <TabButtons>
-            <TabButton
-                active={tab === "probabilities"}
-                display="Probabilities"
-                onClick={() => setTab("probabilities")}
-                newStyle={true}
-                activeClassName="active-tab"
-              />
-              <TabButton
-                active={tab === "weights"}
-                display="Variation Weights"
-                onClick={() => setTab("weights")}
-                newStyle={true}
-                activeClassName="active-tab"
-                last={true}
-              />
-            </TabButtons>
-          </div>
+          <BanditSummaryTable
+            experiment={experiment}
+            isTabActive={true} // todo: huh?
+          />
         )}
+      </div>
+
+      {showVisualizations && (
+        <div className="mx-3 my-4">
+          <h3>Time series</h3>
+          <TabButtons>
+            <TabButton
+              active={tab === "probabilities"}
+              display="Probabilities"
+              onClick={() => setTab("probabilities")}
+              newStyle={true}
+              activeClassName="active-tab"
+            />
+            <TabButton
+              active={tab === "weights"}
+              display="Variation Weights"
+              onClick={() => setTab("weights")}
+              newStyle={true}
+              activeClassName="active-tab"
+              last={true}
+            />
+          </TabButtons>
+        </div>
+      )}
     </div>
   );
 }

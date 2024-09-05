@@ -10,12 +10,13 @@ import {
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
-import { MetricOverride } from "back-end/types/experiment";
+import { ExperimentInterface, MetricOverride } from "back-end/types/experiment";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
+import uniqid from "uniqid";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -602,4 +603,48 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
       // Put the larger weights first
       .sort((a, b) => b - a)
   );
+}
+
+export async function generateTrackingKey(
+  exp: Partial<ExperimentInterface>,
+  getExperimentByKey?: (key: string) => Promise<ExperimentInterface | null>
+): Promise<string> {
+  // Try to generate a unique tracking key based on the experiment name
+  let n = 1;
+  let found: null | string = null;
+  while (n < 10 && !found) {
+    const key = generate(exp.name || exp.id || "", n);
+    if (!getExperimentByKey || !(await getExperimentByKey(key))) {
+      found = key;
+    }
+    n++;
+  }
+
+  // Fall back to uniqid if couldn't generate
+  return found || uniqid();
+
+  function generate(name: string, n: number): string {
+    let key = ("-" + name)
+      .toLowerCase()
+      // Replace whitespace with hyphen
+      .replace(/\s+/g, "-")
+      // Get rid of all non alpha-numeric characters
+      .replace(/[^a-z0-9\-_]*/g, "")
+      // Remove stopwords
+      .replace(
+        /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
+        "-"
+      )
+      // Collapse duplicate hyphens
+      .replace(/-{2,}/g, "-")
+      // Remove leading and trailing hyphens
+      .replace(/(^-|-$)/g, "");
+
+    // Add number if this is not the first attempt
+    if (n > 1) {
+      key += "-" + n;
+    }
+
+    return key;
+  }
 }

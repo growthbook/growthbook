@@ -43,7 +43,8 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
-  ExperimentSnapshotTrafficDimension, SnapshotBanditSettings,
+  ExperimentSnapshotTrafficDimension,
+  SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
@@ -70,7 +71,8 @@ export interface AnalysisSettingsForStatsEngine {
 export interface BanditSettingsForStatsEngine {
   var_names: string[];
   var_ids: string[];
-  weights: { // todo: implement in python
+  weights: {
+    // todo: implement in python
     date: Date;
     weights?: number[];
   }[];
@@ -78,7 +80,6 @@ export interface BanditSettingsForStatsEngine {
   decision_metric: string;
   bandit_weights_seed: number;
 }
-
 
 export interface MetricSettingsForStatsEngine {
   id: string;
@@ -180,7 +181,7 @@ export function getAnalysisSettingsForStatsEngine(
 export function getBanditSettingsForStatsEngine(
   banditSettings: SnapshotBanditSettings,
   settings: ExperimentSnapshotAnalysisSettings,
-  variations: ExperimentReportVariation[],
+  variations: ExperimentReportVariation[]
 ): BanditSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
@@ -201,7 +202,16 @@ async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-  console.log("bandits stats data", JSON.stringify(statsData.map(d=>d.data.bandit_settings), null, 2));
+  // todo: remove console
+  // eslint-disable-next-line no-console
+  console.log(
+    "bandits stats data",
+    JSON.stringify(
+      statsData.map((d) => d.data.bandit_settings),
+      null,
+      2
+    )
+  );
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
@@ -279,13 +289,9 @@ function createStatsEngineData(
     // ideally, just some minor formatting changes (camelCase -> snake_case)
     // todo: BanditSettingsForStatsEngine is missing things like `weights[]` history, `reweight` (bool).
     // todo: SnapshotBanditSettings is "missing" variation ids. Needed?
-    bandit_settings: banditSettings ?
-      getBanditSettingsForStatsEngine(
-        banditSettings,
-        analyses[0],
-        variations,
-      ) :
-      undefined,
+    bandit_settings: banditSettings
+      ? getBanditSettingsForStatsEngine(banditSettings, analyses[0], variations)
+      : undefined,
   };
 }
 

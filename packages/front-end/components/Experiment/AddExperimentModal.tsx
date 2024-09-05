@@ -27,7 +27,7 @@ const AddExperimentModal: FC<{
   type = null,
   initialValue: _initialValue = {
     type: "standard",
-  }
+  },
 }) => {
   const { project } = useDefinitions();
   const { hasCommercialFeature } = useUser();

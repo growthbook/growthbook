@@ -3,6 +3,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import {
   Changeset,
@@ -15,7 +16,6 @@ import { ReqContext } from "../../types/organization";
 import { VisualChange } from "../../types/visual-changeset";
 import {
   determineNextDate,
-  generateTrackingKey,
   toExperimentApiInterface,
 } from "../services/experiments";
 import { logger } from "../util/logger";
@@ -411,19 +411,10 @@ export async function createExperiment({
   data.organization = context.org.id;
 
   if (!data.trackingKey) {
-    // Try to generate a unique tracking key based on the experiment name
-    let n = 1;
-    let found: null | string = null;
-    while (n < 10 && !found) {
-      const key = generateTrackingKey(data.name || data.id || "", n);
-      if (!(await getExperimentByTrackingKey(context, key))) {
-        found = key;
-      }
-      n++;
-    }
-
-    // Fall back to uniqid if couldn't generate
-    data.trackingKey = found || uniqid();
+    data.trackingKey = await generateTrackingKey(
+      data,
+      async (key: string) => await getExperimentByTrackingKey(context, key)
+    );
   }
 
   const nextUpdate = determineNextDate(

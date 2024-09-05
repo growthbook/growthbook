@@ -1,13 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -21,8 +19,6 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
-import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
-import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
@@ -38,8 +34,6 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const {
     ready,
     project,
@@ -66,7 +60,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
