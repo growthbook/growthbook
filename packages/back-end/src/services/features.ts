@@ -647,10 +647,9 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
-  const encryptedSavedGroups = await encrypt(
-    JSON.stringify(scrubbedSavedGroups),
-    encryptionKey
-  );
+  const encryptedSavedGroups = scrubbedSavedGroups
+    ? await encrypt(JSON.stringify(scrubbedSavedGroups), encryptionKey)
+    : undefined;
 
   return {
     features: {},
@@ -658,7 +657,6 @@ export async function getFeatureDefinitionsResponse({
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
-    savedGroups: {},
     encryptedSavedGroups: encryptedSavedGroups,
   };
 }
