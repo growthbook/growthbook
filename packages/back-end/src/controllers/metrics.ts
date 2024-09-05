@@ -1,6 +1,6 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { createMetric, refreshMetric } from "../services/experiments";
+import { _getSnapshots, createMetric, refreshMetric } from "../services/experiments";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentWithSnapshot } from "../../types/experiment-snapshot";
 import {
@@ -36,7 +36,6 @@ import {
 import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { getUserById } from "../models/UserModel";
 import { AuditUserLoggedIn } from "../../types/audit";
-import { _getSnapshots } from "../controllers/experiments";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
