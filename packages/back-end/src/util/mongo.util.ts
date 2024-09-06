@@ -148,7 +148,7 @@ export function removeMongooseFields<T>(
   }
 
   // Copy the object and delete mongoose fields rather than using lodash.omit for perf reasons since this is called a lot
-  const result = { ...doc } as MongooseDocument & T;
+  const result = { ...doc } as T & { _id?: string; __v?: unknown };
   delete result._id;
   delete result.__v;
   return result;
