@@ -1,3 +1,5 @@
+import path from "path";
+import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
@@ -148,6 +150,26 @@ app.get("/healthcheck", (req, res) => {
 
 app.get("/favicon.ico", (req, res) => {
   res.status(404).send("");
+});
+
+let robotsTxt = "";
+app.get("/robots.txt", (_req, res) => {
+  if (!robotsTxt) {
+    const file =
+      process.env.ROBOTS_TXT_PATH || path.join(__dirname, "..", "robots.txt");
+    if (existsSync(file)) {
+      robotsTxt = readFileSync(file).toString();
+    } else {
+      res.status(404).json({
+        message: "Not found",
+      });
+      return;
+    }
+  }
+
+  res.setHeader("Cache-Control", "max-age=3600");
+  res.setHeader("Content-Type", "text/yaml");
+  res.send(robotsTxt);
 });
 
 app.use(compression());
