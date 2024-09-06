@@ -71,7 +71,8 @@ const banditResultObject = {
   bestArmProbabilities: [Number],
   additionalReward: Number,
   seed: Number,
-  banditUpdateMessage: String,
+  updateMessage: String,
+  error: String,
 };
 
 const experimentSchema = new mongoose.Schema({

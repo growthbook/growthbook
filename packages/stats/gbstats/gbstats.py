@@ -681,12 +681,12 @@ def get_bandit_response(
             error_str = "not all statistics are instance of type BanditStatistic"
             return BanditResult(
                 singleVariationResults=None,
-                banditWeights=None,
+                weights=None,
                 bestArmProbabilities=None,
                 additionalReward=None,
                 seed=0,
-                banditUpdateMessage=update_str,
-                banditError=error_str,
+                updateMessage=update_str,
+                error=error_str,
             )
         bandit_result = b.compute_result()
         single_variation_results = None
@@ -702,22 +702,22 @@ def get_bandit_response(
             ]
         return BanditResult(
             singleVariationResults=single_variation_results,
-            banditWeights=bandit_result.bandit_weights,
+            weights=bandit_result.bandit_weights,
             bestArmProbabilities=bandit_result.best_arm_probabilities,
             additionalReward=bandit_result.additional_reward,
             seed=bandit_result.seed,
-            banditUpdateMessage=bandit_result.bandit_update_message,
-            banditError="",
+            updateMessage=bandit_result.bandit_update_message,
+            error="",
         )
     else:  # empty dict
         return BanditResult(
             singleVariationResults=None,
-            banditWeights=None,
+            weights=None,
             bestArmProbabilities=None,
             additionalReward=None,
             seed=0,
-            banditUpdateMessage="not updated",
-            banditError="no data froms sql query matches dimension",
+            updateMessage="not updated",
+            error="no data froms sql query matches dimension",
         )
 
 

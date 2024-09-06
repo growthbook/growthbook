@@ -17,12 +17,12 @@ class SingleVariationResult:
 @dataclass
 class BanditResult:
     singleVariationResults: Optional[List[SingleVariationResult]]
-    banditWeights: Optional[List[float]]
+    weights: Optional[List[float]]
     bestArmProbabilities: Optional[List[float]]
     additionalReward: Optional[float]
     seed: int
-    banditUpdateMessage: Optional[str]
-    banditError: Optional[str]
+    updateMessage: Optional[str]
+    error: Optional[str]
 
 
 @dataclass

@@ -274,7 +274,7 @@ export async function getManualSnapshotData(
     });
   });
 
-  const result = await runSnapshotAnalysis({
+  const { results } = await runSnapshotAnalysis({
     id: experiment.id,
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
@@ -287,7 +287,7 @@ export async function getManualSnapshotData(
     queryResults: queryResults,
   });
 
-  result.forEach(({ metric, analyses }) => {
+  results.forEach(({ metric, analyses }) => {
     const res = analyses[0];
     const data = res.dimensions[0];
     if (!data) return;

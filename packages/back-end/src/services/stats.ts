@@ -19,6 +19,7 @@ import {
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
+  BanditResult,
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
 } from "../../types/stats";
@@ -202,16 +203,6 @@ async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-  // todo: remove console
-  // eslint-disable-next-line no-console
-  console.log(
-    "bandits stats data",
-    JSON.stringify(
-      statsData.map((d) => d.data.bandit_settings),
-      null,
-      2
-    )
-  );
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
@@ -297,21 +288,27 @@ function createStatsEngineData(
 
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams
-): Promise<ExperimentMetricAnalysis> {
-  const result = (
+): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
+  const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine([
       { id: params.id, data: createStatsEngineData(params) },
     ])
   )?.[0];
 
-  if (!result) {
+  if (!analysis) {
     throw new Error("Error in stats engine: no rows returned");
   }
-  if (result.error) {
-    logger.error(result.error, "Failed to run stats model: " + result.error);
-    throw new Error("Error in stats engine: " + result.error);
+  if (analysis.error) {
+    logger.error(
+      analysis.error,
+      "Failed to run stats model: " + analysis.error
+    );
+    throw new Error("Error in stats engine: " + analysis.error);
   }
-  return result.results;
+  return {
+    results: analysis.results,
+    banditResult: analysis.banditResult,
+  };
 }
 
 export async function runSnapshotAnalyses(
@@ -498,13 +495,19 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
-function parseStatsEngineResult(
-  analysisSettings: ExperimentSnapshotAnalysisSettings[],
-  snapshotSettings: ExperimentSnapshotSettings,
-  queryResults: QueryResultsForStatsEngine[],
-  unknownVariations: string[],
-  result: ExperimentMetricAnalysis
-): ExperimentReportResults[] {
+function parseStatsEngineResult({
+  analysisSettings,
+  snapshotSettings,
+  queryResults,
+  unknownVariations,
+  result,
+}: {
+  analysisSettings: ExperimentSnapshotAnalysisSettings[];
+  snapshotSettings: ExperimentSnapshotSettings;
+  queryResults: QueryResultsForStatsEngine[];
+  unknownVariations: string[];
+  result: ExperimentMetricAnalysis;
+}): ExperimentReportResults[] {
   let unknownVariationsCopy = [...unknownVariations];
 
   const experimentReportResults: ExperimentReportResults[] = [];
@@ -601,11 +604,13 @@ export async function writeSnapshotAnalyses(
       analysisObj.error = result.error;
     } else {
       const experimentReportResults: ExperimentReportResults[] = parseStatsEngineResult(
-        analyses,
-        snapshotSettings,
-        queryResults,
-        unknownVariations,
-        result.results
+        {
+          analysisSettings: analyses,
+          snapshotSettings,
+          queryResults,
+          unknownVariations,
+          result: result.results,
+        }
       );
 
       analysisObj.results = experimentReportResults[0]?.dimensions || [];
@@ -618,6 +623,7 @@ export async function writeSnapshotAnalyses(
         organization,
         id: snapshot,
         analysis: analysisObj,
+        banditResult: result.banditResult,
         context,
       })
     );
@@ -639,7 +645,10 @@ export async function analyzeExperimentResults({
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
-}): Promise<ExperimentReportResults[]> {
+}): Promise<{
+  results: ExperimentReportResults[];
+  banditResult?: BanditResult;
+}> {
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
@@ -664,16 +673,18 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
-  const results = await runSnapshotAnalysis(params);
+  const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
 
-  return parseStatsEngineResult(
+  const results = parseStatsEngineResult({
     analysisSettings,
     snapshotSettings,
     queryResults,
     unknownVariations,
-    results
-  );
+    result: analysis,
+  });
+  return { results, banditResult };
 }
+
 export function analyzeExperimentTraffic({
   rows,
   error,

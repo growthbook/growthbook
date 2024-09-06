@@ -42,6 +42,7 @@ import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
 import { FactMetricInterface } from "../../types/fact-table";
 import SqlIntegration from "../integrations/SqlIntegration";
+import { BanditResult } from "../../types/stats";
 import {
   QueryRunner,
   QueryMap,
@@ -54,6 +55,7 @@ export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  banditResult?: BanditResult;
   health?: ExperimentSnapshotHealth;
 };
 
@@ -418,7 +420,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const analysesResults = await analyzeExperimentResults({
+    const {
+      results: analysesResults,
+      banditResult,
+    } = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: this.model.settings,
       analysisSettings: this.model.analyses.map((a) => a.settings),
@@ -430,6 +435,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       analyses: this.model.analyses,
       multipleExposures: 0,
       unknownVariations: [],
+      banditResult,
     };
 
     analysesResults.forEach((results, i) => {
@@ -458,12 +464,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
     return result;
   }
+
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
     const obj = await findSnapshotById(this.model.organization, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
   }
+
   async updateModel({
     status,
     queries,

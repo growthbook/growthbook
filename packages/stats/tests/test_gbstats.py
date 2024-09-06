@@ -890,8 +890,8 @@ class TestBandit(TestCase):
         result = get_bandit_response(
             self.rows, self.metric, self.bandit_analysis, self.analysis.alpha
         )
-        self.assertEqual(result.banditUpdateMessage, self.update_messages[0])
-        self.assertEqual(result.banditWeights, self.true_weights)
+        self.assertEqual(result.updateMessage, self.update_messages[0])
+        self.assertEqual(result.weights, self.true_weights)
         self.assertEqual(result.additionalReward, self.true_additional_reward)
 
 

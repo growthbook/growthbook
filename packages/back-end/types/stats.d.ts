@@ -73,8 +73,8 @@ export type BanditResult = {
   bestArmProbabilities?: number[];
   additionalReward: number;
   seed: number;
-  banditUpdateMessage?: string;
-  banditError?: string;
+  updateMessage?: string;
+  error?: string;
 };
 
 export type MultipleExperimentMetricAnalysis = {

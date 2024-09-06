@@ -27,7 +27,8 @@ export const banditResult = z.object({
   bestArmProbabilities: z.array(z.number()).optional(),
   additionalReward: z.number().optional(),
   seed: z.number().optional(),
-  banditUpdateMessage: z.string().optional(),
+  updateMessage: z.string().optional(),
+  error: z.string().optional(),
 });
 
 export type BanditResult = z.infer<typeof banditResult>;
