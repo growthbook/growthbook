@@ -996,7 +996,7 @@ export async function createSnapshotAnalysis(
   );
 
   // Run the analysis
-  const results = await analyzeExperimentResults({
+  const { results, banditResult } = await analyzeExperimentResults({
     queryData: queryMap,
     snapshotSettings: snapshot.settings,
     analysisSettings: [analysisSettings],
@@ -1011,6 +1011,7 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
+    banditResult,
     context,
   });
 }
