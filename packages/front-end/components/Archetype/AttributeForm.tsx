@@ -40,7 +40,7 @@ export default function AttributeForm({
     ],
     [attributeSchema]
   );
-
+console.log("initial values", initialValues);
   const attributesMap = new Map();
   const defaultValues = orderedAttributes
     .filter((o) => !o.archived)
@@ -53,7 +53,7 @@ export default function AttributeForm({
         : undefined;
       return { ...list, [attr.property]: defaultValue };
     }, {});
-
+console.log(defaultValues);
   // eslint-disable-next-line
   const attributeForm = useForm<any>({
     defaultValues: defaultValues,
@@ -186,11 +186,9 @@ export default function AttributeForm({
           />
         </TabButtons>
 
-        <div
-          className={`border border-secondary rounded ${styles.attributeBox} pb-2 bg-light`}
-        >
+        <div className={`${styles.attributeBox} pb-2 bg-light round`}>
           {tab === "simple" ? (
-            <div className=" form-group rounded">
+            <div className=" form-group ">
               <div
                 className={`${styles.attrHeader} d-flex flex-row align-items-center justify-content-between small border-bottom p-1 mb-2 sticky-top`}
               >

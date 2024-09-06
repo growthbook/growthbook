@@ -21,18 +21,23 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  featureHasEnvironment,
   generateVariationId,
+  getMatchingRules,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
+import { ComputedFeatureInterface } from "@back-end/src/validators/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -93,6 +98,139 @@ export function useEnvironments() {
 
   return environments;
 }
+
+export function useFeatureSearch({
+  allFeatures,
+  defaultSortField = "id",
+  filterResults,
+  environments,
+  localStorageKey = "features",
+}: {
+  allFeatures: FeatureInterface[];
+  defaultSortField?:
+    | "id"
+    | "description"
+    | "tags"
+    | "defaultValue"
+    | "dateCreated"
+    | "dateUpdated";
+  filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
+  environments: Environment[];
+  localStorageKey?: string;
+}) {
+  const { getUserDisplay } = useUser();
+  const { getProjectById } = useDefinitions();
+  const features = useAddComputedFields(
+    allFeatures,
+    (f) => {
+      const projectId = f.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+
+      return {
+        ...f,
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        ownerName: getUserDisplay(f.owner, false) || "",
+      };
+    },
+    [getProjectById]
+  );
+  return useSearch({
+    items: features,
+    defaultSortField: defaultSortField,
+    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
+    filterResults,
+    localStorageKey: localStorageKey,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.valueType];
+        if (item.archived) is.push("archived");
+        if (item.hasDrafts) is.push("draft");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasDrafts) has.push("draft", "drafts");
+        if (item.prerequisites?.length) has.push("prerequisites", "prereqs");
+
+        if (item.valueType === "json" && item.jsonSchema?.enabled) {
+          has.push("validation", "schema", "jsonSchema");
+        }
+
+        const rules = getMatchingRules(
+          item,
+          () => true,
+          environments.map((e) => e.id)
+        );
+
+        if (rules.length) has.push("rule", "rules");
+        if (
+          rules.some((r) =>
+            ["experiment", "experiment-ref"].includes(r.rule.type)
+          )
+        ) {
+          has.push("experiment", "experiments");
+        }
+        if (rules.some((r) => r.rule.type === "rollout")) {
+          has.push("rollout", "percent");
+        }
+        if (rules.some((r) => r.rule.type === "force")) {
+          has.push("force", "targeting");
+        }
+
+        return has;
+      },
+      key: (item) => item.id,
+      project: (item: ComputedFeatureInterface) => [
+        item.project,
+        item.projectName,
+      ],
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      experiment: (item) => item.linkedExperiments || [],
+      version: (item) => item.version,
+      revision: (item) => item.version,
+      owner: (item) => item.owner,
+      tag: (item) => item.tags,
+      rules: (item) => {
+        const rules = getMatchingRules(
+          item,
+          () => true,
+          environments.map((e) => e.id)
+        );
+        return rules.length;
+      },
+      on: (item) => {
+        const on: string[] = [];
+        environments.forEach((e) => {
+          if (
+            featureHasEnvironment(item, e) &&
+            item.environmentSettings?.[e.id]?.enabled
+          ) {
+            on.push(e.id);
+          }
+        });
+        return on;
+      },
+      off: (item) => {
+        const off: string[] = [];
+        environments.forEach((e) => {
+          if (
+            featureHasEnvironment(item, e) &&
+            !item.environmentSettings?.[e.id]?.enabled
+          ) {
+            off.push(e.id);
+          }
+        });
+        return off;
+      },
+    },
+  });
+}
+
 export function getRules(feature: FeatureInterface, environment: string) {
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
