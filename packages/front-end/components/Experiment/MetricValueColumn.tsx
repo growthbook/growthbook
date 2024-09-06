@@ -18,6 +18,7 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import clsx from "clsx";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -37,6 +38,7 @@ interface Props
   rowSpan?: number;
   showRatio?: boolean;
   noDataMessage?: ReactElement | string;
+  shrink?: boolean;
 }
 
 export default function MetricValueColumn({
@@ -48,6 +50,7 @@ export default function MetricValueColumn({
   rowSpan,
   showRatio = true,
   noDataMessage = "no data",
+  shrink = false,
   ...otherProps
 }: Props) {
   const displayCurrency = useCurrency();
@@ -100,7 +103,9 @@ export default function MetricValueColumn({
         <>
           <div className="result-number">{overall}</div>
           {showRatio && numerator ? (
-            <div className="result-number-sub text-muted">
+            <div className={clsx("result-number-sub text-muted", {
+              small: shrink
+            })}>
               <em>
                 <span
                   style={{

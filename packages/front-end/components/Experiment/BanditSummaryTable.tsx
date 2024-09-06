@@ -9,17 +9,14 @@ import { getVariationColor } from "@/services/features";
 import AlignedGraph from "./AlignedGraph";
 
 const WIN_THRESHOLD_PROBABILITY = 0.95;
+const ROW_HEIGHT = 56;
+const ROW_HEIGHT_CONDENSED = 34;
 
 export type BanditSummaryTableProps = {
   experiment: ExperimentInterfaceStringDates;
   metric: MetricInterface | null;
-  // variations: ExperimentReportVariation[];
-  // rows: ExperimentTableRow[];
-  // statsEngine: StatsEngine;
   isTabActive: boolean;
 };
-
-const ROW_HEIGHT = 56;
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -29,9 +26,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export default function BanditSummaryTable({
   experiment,
   metric,
-  // variations,
-  // rows,
-  // statsEngine,
   isTabActive,
 }: BanditSummaryTableProps) {
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -73,16 +67,42 @@ export default function BanditSummaryTable({
       (event) =>
         event.banditResult?.singleVariationResults && !event.banditResult?.error
     ) || [];
-  const results =
-    validEvents[validEvents.length - 1]?.banditResult?.singleVariationResults;
-  const probabilities =
-    validEvents[validEvents.length - 1]?.banditResult?.bestArmProbabilities;
+  const currentEvent = validEvents[validEvents.length - 1];
+  const results = currentEvent?.banditResult?.singleVariationResults;
+
+  const probabilities = useMemo(() => {
+    let probs: number[] = [];
+    let totalUsers = 0;
+    for (let i = 0; i < variations.length; i++) {
+      let prob =
+        currentEvent?.banditResult?.bestArmProbabilities?.[i] ??
+        1 / (variations.length || 2);
+      if (!results?.[i]) {
+        prob = NaN;
+      } else {
+        const users = results?.[i]?.users ?? 0;
+        totalUsers += users;
+        if (users < 100) {
+          prob = NaN;
+        }
+      }
+      probs.push(prob);
+    }
+    if (totalUsers < 100 * variations.length) {
+      probs = probs.map(() => 1 / (variations.length || 2));
+    }
+    return probs;
+  }, [variations, results, currentEvent]);
 
   const domain: [number, number] = useMemo(() => {
     if (!results) return [-0.1, 0.1];
     const cis = results.map((v) => v.ci).filter(Boolean) as [number, number][];
-    let min = Math.min(...cis.map((ci) => ci[0]));
-    let max = Math.max(...cis.map((ci) => ci[1]));
+    let min = Math.min(
+      ...cis.filter((_, i) => isFinite(probabilities?.[i])).map((ci) => ci[0])
+    );
+    let max = Math.max(
+      ...cis.filter((_, i) => isFinite(probabilities?.[i])).map((ci) => ci[1])
+    );
     if (!isFinite(min) || !isFinite(max)) {
       min = -0.1;
       max = 0.1;
@@ -96,7 +116,10 @@ export default function BanditSummaryTable({
       }
     }
     return [min, max];
-  }, [results]);
+  }, [results, probabilities]);
+
+  const shrinkRows = variations.length > 8;
+  const rowHeight = !shrinkRows ? ROW_HEIGHT : ROW_HEIGHT_CONDENSED;
 
   if (!results) {
     return null;
@@ -155,7 +178,7 @@ export default function BanditSummaryTable({
 
             <tbody>
               {variations.map((v, j) => {
-                const result = results[j];
+                const result = results?.[j];
                 let stats: SnapshotMetric = {
                   value: NaN,
                   ci: [0, 0],
@@ -204,6 +227,7 @@ export default function BanditSummaryTable({
                         users={stats.users}
                         className="value"
                         noDataMessage={<small>not enough data</small>}
+                        shrink={shrinkRows}
                       />
                     ) : (
                       <td />
@@ -213,7 +237,13 @@ export default function BanditSummaryTable({
                         won: (probability ?? 0) >= WIN_THRESHOLD_PROBABILITY,
                       })}
                     >
-                      {percentFormatter.format(probability ?? 0)}
+                      {isFinite(probability) ? (
+                        percentFormatter.format(probability)
+                      ) : (
+                        <em className="text-muted">
+                          <small>not enough data</small>
+                        </em>
+                      )}
                     </td>
                     <td className="graph-cell overflow-hidden">
                       <AlignedGraph
@@ -228,7 +258,7 @@ export default function BanditSummaryTable({
                         showAxis={false}
                         graphWidth={graphCellWidth}
                         percent={false}
-                        height={ROW_HEIGHT}
+                        height={rowHeight}
                       />
                     </td>
                   </tr>

@@ -234,7 +234,7 @@ export function getVariationColor(i: number, experimentTheme = false) {
         "#fdc714",
         "#bd41d9",
         "#57d9a3",
-        "#e36e44",
+        "#f87a7a",
       ];
   return colors[i % colors.length];
 }
