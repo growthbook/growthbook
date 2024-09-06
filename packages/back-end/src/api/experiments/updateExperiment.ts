@@ -1,3 +1,4 @@
+import { auditDetailsUpdate } from "../../services/audit";
 import { UpdateExperimentResponse } from "../../../types/openapi";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import {
@@ -70,6 +71,44 @@ export const updateExperiment = createApiRequestHandler(
     if (updatedExperiment === null) {
       throw new Error("Error happened during updating experiment.");
     }
+
+    let archivedEvent:
+      | "experiment.archive"
+      | "experiment.unarchive"
+      | undefined = undefined;
+    if (!experiment.archived && updatedExperiment.archived) {
+      archivedEvent = "experiment.archive";
+    } else if (experiment.archived && !updatedExperiment.archived) {
+      archivedEvent = "experiment.unarchive";
+    }
+
+    const auditDetails: string = auditDetailsUpdate(
+      experiment,
+      updatedExperiment,
+      {}
+    );
+
+    if (archivedEvent !== undefined) {
+      await req.audit({
+        event: archivedEvent,
+        entity: {
+          object: "experiment",
+          id: experiment.id,
+        },
+        details: auditDetails,
+      });
+    }
+
+    // would be great to only emit this when something other then archived status changes
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetails,
+    });
+
     const apiExperiment = await toExperimentApiInterface(
       req.context,
       updatedExperiment
