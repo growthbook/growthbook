@@ -209,92 +209,98 @@ const ArchetypeResults: FC<{
           </tr>
         </thead>
         <tbody>
-          {archetype.map((archetype: ArchetypeInterface) => (
-            <Fragment key={archetype.id}>
-              <tr
-                key={archetype.id}
-                className={`${
-                  showExpandedResultsId === archetype.id
-                    ? styles.rowExpanded
-                    : ""
-                }`}
-              >
-                <td>
-                  <Tooltip
-                    body={
-                      <>
-                        <Code
-                          code={JSON.stringify(
-                            JSON.parse(archetype.attributes),
-                            null,
-                            2
-                          )}
-                          language="json"
-                        />
-                      </>
-                    }
-                  >
-                    {archetype.name}
-                    {archetype.description && (
-                      <>
-                        <br />
-                        <span className="small text-muted">
-                          {archetype.description}
-                        </span>
-                      </>
-                    )}
-                  </Tooltip>
-                </td>
-                {featureResults[archetype.id].map(
-                  (result: FeatureTestResult) => (
-                    <td
-                      key={result.env}
-                      className={`${styles.valueCell} cursor-pointer ${
-                        showExpandedResultsId === archetype.id &&
-                        showExpandedResultsEnv === result.env
-                          ? styles.cellExpanded
-                          : ""
-                      }`}
-                      onClick={() => {
-                        if (enableAdvDebug) {
-                          if (
-                            showExpandedResults &&
+          {archetype.map((archetype: ArchetypeInterface) => {
+            if (!archetype.attributes) {
+              archetype.attributes = "{}";
+            }
+            let attrDisplay = "";
+            try {
+              const attrsObj = JSON.parse(archetype.attributes);
+              attrDisplay = JSON.stringify(attrsObj, null, 2);
+            } catch (e) {
+              console.error("Error parsing archetype attributes", e);
+            }
+            return (
+              <Fragment key={archetype.id}>
+                <tr
+                  key={archetype.id}
+                  className={`${
+                    showExpandedResultsId === archetype.id
+                      ? styles.rowExpanded
+                      : ""
+                  }`}
+                >
+                  <td>
+                    <Tooltip
+                      body={
+                        <>
+                          <Code code={attrDisplay} language="json" />
+                        </>
+                      }
+                    >
+                      {archetype.name}
+                      {archetype.description && (
+                        <>
+                          <br />
+                          <span className="small text-muted">
+                            {archetype.description}
+                          </span>
+                        </>
+                      )}
+                    </Tooltip>
+                  </td>
+                  {featureResults[archetype.id] &&
+                    featureResults[archetype.id].map(
+                      (result: FeatureTestResult) => (
+                        <td
+                          key={result.env}
+                          className={`${styles.valueCell} cursor-pointer ${
                             showExpandedResultsId === archetype.id &&
                             showExpandedResultsEnv === result.env
-                          ) {
-                            // the current details are already open, so close them:
-                            setShowExpandedResults(false);
-                            setShowExpandedResultsId(null);
-                            setShowExpandedResultsEnv(null);
-                          } else {
-                            setShowExpandedResults(true);
-                            setShowExpandedResultsId(archetype.id);
-                            setShowExpandedResultsEnv(result.env);
-                          }
-                        }
-                      }}
-                    >
-                      {result.enabled ? (
-                        <>{ArchetypeValueDisplay({ result, feature })}</>
-                      ) : (
-                        <span className="text-muted">disabled</span>
-                      )}
-                    </td>
-                  )
-                )}
-              </tr>
-              {showExpandedResults &&
-                showExpandedResultsId === archetype.id && (
-                  <>
-                    {expandedResults(
-                      detailsMap.get(
-                        showExpandedResultsId + showExpandedResultsEnv
+                              ? styles.cellExpanded
+                              : ""
+                          }`}
+                          onClick={() => {
+                            if (enableAdvDebug) {
+                              if (
+                                showExpandedResults &&
+                                showExpandedResultsId === archetype.id &&
+                                showExpandedResultsEnv === result.env
+                              ) {
+                                // the current details are already open, so close them:
+                                setShowExpandedResults(false);
+                                setShowExpandedResultsId(null);
+                                setShowExpandedResultsEnv(null);
+                              } else {
+                                setShowExpandedResults(true);
+                                setShowExpandedResultsId(archetype.id);
+                                setShowExpandedResultsEnv(result.env);
+                              }
+                            }
+                          }}
+                        >
+                          {result.enabled ? (
+                            <>{ArchetypeValueDisplay({ result, feature })}</>
+                          ) : (
+                            <span className="text-muted">disabled</span>
+                          )}
+                        </td>
                       )
                     )}
-                  </>
-                )}
-            </Fragment>
-          ))}
+                </tr>
+                {showExpandedResults &&
+                  showExpandedResultsId === archetype.id && (
+                    <>
+                      {expandedResults(
+                        detailsMap.get(
+                          showExpandedResultsId + showExpandedResultsEnv
+                        )
+                      )}
+                    </>
+                  )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
       {editArchetype && (
