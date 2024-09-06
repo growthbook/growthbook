@@ -451,19 +451,6 @@ class Bandits:
 
     # function that computes thompson sampling variation weights
     def compute_result(self) -> BanditResponse:
-        min_n = 100
-        if any(self.variation_counts < min_n):
-            update_message = "some variation counts fewer than " + str(min_n)
-            return BanditResponse(
-                users=None,
-                cr=None,
-                ci=None,
-                bandit_weights=None,
-                best_arm_probabilities=None,
-                additional_reward=None,
-                seed=0,
-                bandit_update_message=update_message,
-            )
         seed = (
             self.bandit_weights_seed
             if self.bandit_weights_seed
@@ -491,15 +478,19 @@ class Bandits:
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.posterior_mean, np.sqrt(self.posterior_variance))
         ]
+        min_n = 100 * self.num_variations
+        enough_data = sum(self.variation_counts) >= min_n
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=self.variation_means.tolist(),
             ci=credible_intervals,
-            bandit_weights=p.tolist(),
+            bandit_weights=p.tolist() if enough_data else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             additional_reward=self.compute_additional_reward(),
             seed=seed,
-            bandit_update_message=update_message,
+            bandit_update_message=update_message
+            if enough_data
+            else "some variation counts fewer than " + str(min_n),
         )
 
     # function that takes weights for largest realization and turns into top two weights
