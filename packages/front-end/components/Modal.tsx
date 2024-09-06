@@ -8,6 +8,7 @@ import {
   useCallback,
 } from "react";
 import clsx from "clsx";
+import { truncateString } from "shared/util";
 import track, { TrackEventProps } from "@/services/track";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
@@ -254,7 +255,7 @@ const Modal: FC<ModalProps> = ({
   }
 
   const sendTrackingEvent = useCallback(
-    (eventName: string) => {
+    (eventName: string, additionalProps?: Record<string, unknown>) => {
       if (trackingEventModalType === "") {
         return;
       }
@@ -262,6 +263,7 @@ const Modal: FC<ModalProps> = ({
         type: trackingEventModalType,
         source: trackingEventModalSource,
         ...allowlistedTrackingEventProps,
+        ...(additionalProps || {}),
       });
     },
     [
@@ -323,9 +325,11 @@ const Modal: FC<ModalProps> = ({
                 }
                 sendTrackingEvent("modal-submit-success");
               } catch (e) {
-                sendTrackingEvent("modal-submit-error");
                 setError(e.message);
                 setLoading(false);
+                sendTrackingEvent("modal-submit-error", {
+                  error: truncateString(e.message, 32),
+                });
               }
             }}
           >
