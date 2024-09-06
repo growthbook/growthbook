@@ -27,9 +27,6 @@ export default function FeaturePage() {
   const router = useRouter();
   const orgSettings = useOrgSettings();
   const { fid } = router.query;
-  const [editProjectModal, setEditProjectModal] = useState(false);
-  const [editTagsModal, setEditTagsModal] = useState(false);
-  const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [version, setVersion] = useState<number | null>(null);
 
   const { features } = useFeaturesList(false);
@@ -197,9 +194,6 @@ export default function FeaturePage() {
         mutate={mutate}
         tab={tab}
         setTab={setTabAndScroll}
-        setEditProjectModal={setEditProjectModal}
-        setEditTagsModal={setEditTagsModal}
-        setEditOwnerModal={setEditOwnerModal}
         dependents={dependents}
       />
 
@@ -211,12 +205,6 @@ export default function FeaturePage() {
           revisions={data.revisions}
           experiments={experiments}
           mutate={mutate}
-          editProjectModal={editProjectModal}
-          setEditProjectModal={setEditProjectModal}
-          editTagsModal={editTagsModal}
-          setEditTagsModal={setEditTagsModal}
-          editOwnerModal={editOwnerModal}
-          setEditOwnerModal={setEditOwnerModal}
           version={version}
           setVersion={setVersion}
           dependents={dependents}
