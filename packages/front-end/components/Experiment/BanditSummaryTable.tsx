@@ -161,7 +161,7 @@ export default function BanditSummaryTable({
                   ci: [0, 0],
                   cr: NaN,
                   users: NaN,
-                }
+                };
                 if (result) {
                   stats = {
                     value: (result?.cr ?? 0) * (result?.users ?? 0),
@@ -170,7 +170,8 @@ export default function BanditSummaryTable({
                     users: result?.users ?? 0,
                   };
                 }
-                const probability = probabilities?.[j] ?? (1 / (variations.length || 2));
+                const probability =
+                  probabilities?.[j] ?? 1 / (variations.length || 2);
                 return (
                   <tr
                     className="results-variation-row align-items-center"
@@ -202,6 +203,7 @@ export default function BanditSummaryTable({
                         stats={stats}
                         users={stats.users}
                         className="value"
+                        noDataMessage={<small>not enough data</small>}
                       />
                     ) : (
                       <td />
