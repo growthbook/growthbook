@@ -107,7 +107,7 @@ export default function FeatureVariationsInput({
                 id: generateVariationId(),
               });
             }
-            setVariations(newValues);
+            setVariations?.(newValues);
           }}
         />
       ) : (

@@ -615,7 +615,8 @@ pre {
   }
 }
 
-.experiment-results, .bandit-summary-results {
+.experiment-results,
+.bandit-summary-results {
   tbody {
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
@@ -1876,6 +1877,10 @@ main.main.report {
 }
 
 .variation {
+  $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
+    colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
+    colors.$variant-7;
+
   &.with-variation-label {
     .label {
       display: inline-flex;
@@ -1889,113 +1894,49 @@ main.main.report {
       border-radius: 20px;
       margin-right: 4px;
     }
+
     .name {
       color: colors.$variant-null;
       margin-right: 4px;
     }
 
-    &.variation0,
-    &.variation4 {
-      .label {
-        border-color: transparentize(colors.$variant-0, 0.35);
-        color: colors.$variant-0;
-      }
-      .name {
-        color: colors.$variant-0;
-      }
-    }
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        .label {
+          border-color: transparentize($color, 0.35);
+          color: $color;
+        }
 
-    &.variation1,
-    &.variation5 {
-      .label {
-        border-color: transparentize(colors.$variant-1, 0.35);
-        color: colors.$variant-1;
+        .name {
+          color: $color;
+        }
       }
-      .name {
-        color: colors.$variant-1;
-      }
-    }
-
-    &.variation2,
-    &.variation6 {
-      .label {
-        border-color: transparentize(colors.$variant-2, 0.35);
-        color: colors.$variant-2;
-      }
-      .name {
-        color: colors.$variant-2;
-      }
-    }
-
-    &.variation3,
-    &.variation7 {
-      .label {
-        border-color: transparentize(colors.$variant-3, 0.35);
-        color: colors.$variant-3;
-      }
-      .name {
-        color: colors.$variant-3;
-      }
-    }
-  }
-
-  &.with-variation-fill {
-    background: colors.$variant-null;
-    &.variation0,
-    &.variation4 {
-      background: colors.$variant-0;
-    }
-    &.variation1,
-    &.variation5 {
-      background: colors.$variant-1;
-    }
-    &.variation2,
-    &.variation6 {
-      background: colors.$variant-2;
-    }
-    &.variation3,
-    &.variation7 {
-      background: colors.$variant-3;
     }
   }
 
   &.with-variation-border-bottom {
     border-bottom: 7px solid colors.$variant-null;
-    &.variation0,
-    &.variation4 {
-      border-bottom: 7px solid colors.$variant-0;
-    }
-    &.variation1,
-    &.variation5 {
-      border-bottom: 7px solid colors.$variant-1;
-    }
-    &.variation2,
-    &.variation6 {
-      border-bottom: 7px solid colors.$variant-2;
-    }
-    &.variation3,
-    &.variation7 {
-      border-bottom: 7px solid colors.$variant-3;
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        border-bottom: 7px solid $color;
+      }
     }
   }
 
   &.with-variation-right-shadow {
     box-shadow: -3px 0 0 colors.$variant-null inset;
-    &.variation0,
-    &.variation4 {
-      box-shadow: -3px 0 0 colors.$variant-0 inset;
-    }
-    &.variation1,
-    &.variation5 {
-      box-shadow: -3px 0 0 colors.$variant-1 inset;
-    }
-    &.variation2,
-    &.variation6 {
-      box-shadow: -3px 0 0 colors.$variant-2 inset;
-    }
-    &.variation3,
-    &.variation7 {
-      box-shadow: -3px 0 0 colors.$variant-3 inset;
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        box-shadow: -3px 0 0 $color inset;
+      }
     }
   }
 }
