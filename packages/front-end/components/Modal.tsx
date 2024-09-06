@@ -5,8 +5,11 @@ import {
   useState,
   ReactNode,
   CSSProperties,
+  useCallback,
 } from "react";
 import clsx from "clsx";
+import { truncateString } from "shared/util";
+import track, { TrackEventProps } from "@/services/track";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -15,6 +18,13 @@ import { DocLink, DocSection } from "./DocLink";
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   open: boolean;
+  // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
+  trackingEventModalType: string;
+  // The source (likely page or component) causing the modal to be shown
+  trackingEventModalSource?: string;
+  // Currently the allowlist for what event props are valid is controlled outside of the codebase.
+  // Make sure you've checked that any props you pass here are in the list!
+  allowlistedTrackingEventProps?: TrackEventProps;
   className?: string;
   submitColor?: string;
   cta?: string | ReactNode;
@@ -75,6 +85,9 @@ const Modal: FC<ModalProps> = ({
   formRef,
   customValidation,
   increasedElevation,
+  trackingEventModalType,
+  trackingEventModalSource,
+  allowlistedTrackingEventProps = {},
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -241,6 +254,31 @@ const Modal: FC<ModalProps> = ({
     overlayStyle.zIndex = 1500;
   }
 
+  const sendTrackingEvent = useCallback(
+    (eventName: string, additionalProps?: Record<string, unknown>) => {
+      if (trackingEventModalType === "") {
+        return;
+      }
+      track(eventName, {
+        type: trackingEventModalType,
+        source: trackingEventModalSource,
+        ...allowlistedTrackingEventProps,
+        ...(additionalProps || {}),
+      });
+    },
+    [
+      trackingEventModalType,
+      trackingEventModalSource,
+      allowlistedTrackingEventProps,
+    ]
+  );
+
+  useEffect(() => {
+    if (open) {
+      sendTrackingEvent("modal-open");
+    }
+  }, [open, sendTrackingEvent]);
+
   const modalHtml = (
     <div
       className={clsx("modal", { show: open })}
@@ -285,9 +323,13 @@ const Modal: FC<ModalProps> = ({
                 } else if (close && autoCloseOnSubmit) {
                   close();
                 }
+                sendTrackingEvent("modal-submit-success");
               } catch (e) {
                 setError(e.message);
                 setLoading(false);
+                sendTrackingEvent("modal-submit-error", {
+                  error: truncateString(e.message, 32),
+                });
               }
             }}
           >

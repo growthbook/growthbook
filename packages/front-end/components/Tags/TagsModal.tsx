@@ -40,6 +40,7 @@ export default function TagsModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       cta={existing?.id ? "Save Changes" : "Create Tag"}

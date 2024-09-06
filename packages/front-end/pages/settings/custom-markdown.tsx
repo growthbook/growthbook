@@ -98,6 +98,7 @@ const CustomMarkdown: React.FC = () => {
         <DocLink docSection={"customMarkdown"}>View Documentation &gt;</DocLink>
       </p>
       <Modal
+        trackingEventModalType=""
         cta={"Save"}
         header={false}
         open
