@@ -1,6 +1,5 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import { BanditResult } from "@back-end/types/stats";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -253,22 +252,13 @@ export async function updateSnapshotAnalysis({
   organization,
   id,
   analysis,
-  banditResult,
   context,
 }: {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
-  banditResult?: BanditResult;
   context: Context;
 }) {
-  const set: Record<string, unknown> = {
-    "analyses.$": analysis,
-  };
-  if (banditResult) {
-    set["banditResult"] = banditResult;
-  }
-
   await ExperimentSnapshotModel.updateOne(
     {
       organization,
@@ -276,7 +266,7 @@ export async function updateSnapshotAnalysis({
       "analyses.settings": analysis.settings,
     },
     {
-      $set: set,
+      $set: { "analyses.$": analysis },
     }
   );
 

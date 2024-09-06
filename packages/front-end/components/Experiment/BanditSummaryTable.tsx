@@ -8,6 +8,8 @@ import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { getVariationColor } from "@/services/features";
 import AlignedGraph from "./AlignedGraph";
 
+const WIN_THRESHOLD_PROBABILITY = 0.95;
+
 export type BanditSummaryTableProps = {
   experiment: ExperimentInterfaceStringDates;
   metric: MetricInterface | null;
@@ -77,17 +79,24 @@ export default function BanditSummaryTable({
     validEvents[validEvents.length - 1]?.banditResult?.bestArmProbabilities;
 
   const domain: [number, number] = useMemo(() => {
-    if (!results) return [0, 0];
+    if (!results) return [-0.1, 0.1];
     const cis = results.map((v) => v.ci).filter(Boolean) as [number, number][];
-    const min = Math.min(...cis.map((ci) => ci[0]));
-    const max = Math.max(...cis.map((ci) => ci[1]));
+    let min = Math.min(...cis.map((ci) => ci[0]));
+    let max = Math.max(...cis.map((ci) => ci[1]));
+    if (!isFinite(min) || !isFinite(max)) {
+      min = -0.1;
+      max = 0.1;
+    } else if (min === max) {
+      if (min === 0) {
+        min = -0.1;
+        max = 0.1;
+      } else {
+        min *= 0.1;
+        max *= 0.1;
+      }
+    }
     return [min, max];
   }, [results]);
-
-  // const domain = useDomain(variationsWithIndex, rows);
-  // const lowerBound = -0.2;
-  // const upperBound = 0.4;
-  // const domain: [number, number] = [lowerBound, upperBound];
 
   if (!results) {
     return null;
@@ -147,14 +156,21 @@ export default function BanditSummaryTable({
             <tbody>
               {variations.map((v, j) => {
                 const result = results[j];
-                const stats: SnapshotMetric | undefined = result
-                  ? {
-                      value: (result?.cr ?? 0) * (result?.users ?? 0),
-                      cr: result?.cr ?? 0,
-                      users: result?.users ?? 0,
-                    }
-                  : undefined;
-                const probability = probabilities?.[j];
+                let stats: SnapshotMetric = {
+                  value: NaN,
+                  ci: [0, 0],
+                  cr: NaN,
+                  users: NaN,
+                }
+                if (result) {
+                  stats = {
+                    value: (result?.cr ?? 0) * (result?.users ?? 0),
+                    ci: result?.ci ?? [0, 0],
+                    cr: result?.cr ?? NaN,
+                    users: result?.users ?? 0,
+                  };
+                }
+                const probability = probabilities?.[j] ?? (1 / (variations.length || 2));
                 return (
                   <tr
                     className="results-variation-row align-items-center"
@@ -192,15 +208,15 @@ export default function BanditSummaryTable({
                     )}
                     <td
                       className={clsx("results-ctw chance", {
-                        won: probability === Math.max(...(probabilities ?? [])),
+                        won: (probability ?? 0) >= WIN_THRESHOLD_PROBABILITY,
                       })}
                     >
                       {percentFormatter.format(probability ?? 0)}
                     </td>
-                    <td className="graph-cell">
+                    <td className="graph-cell overflow-hidden">
                       <AlignedGraph
-                        ci={result?.ci}
-                        expected={result?.cr}
+                        ci={stats.ci}
+                        expected={isFinite(stats.cr) ? stats.cr : 0}
                         barType="violin"
                         barFillType="color"
                         barFillColor={getVariationColor(j, true)}

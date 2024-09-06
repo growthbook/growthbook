@@ -85,7 +85,7 @@ export default function BanditSummaryResultsTab({
             <BanditSummaryTable
               experiment={experiment}
               metric={metric}
-              isTabActive={isTabActive} // todo: huh?
+              isTabActive={!!isTabActive}
             />
           </>
         )}

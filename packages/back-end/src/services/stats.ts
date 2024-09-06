@@ -623,7 +623,6 @@ export async function writeSnapshotAnalyses(
         organization,
         id: snapshot,
         analysis: analysisObj,
-        banditResult: result.banditResult,
         context,
       })
     );
