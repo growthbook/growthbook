@@ -5631,6 +5631,10 @@ components:
             type: string
         description:
           type: string
+        projects:
+          type: array
+          items:
+            type: string
     Organization:
       type: object
       properties:

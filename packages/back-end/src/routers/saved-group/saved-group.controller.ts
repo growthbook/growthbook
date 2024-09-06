@@ -53,7 +53,7 @@ export const getSavedGroups = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  if (!context.permissions.canCreateSavedGroup()) {
+  if (!context.permissions.canCreateSavedGroup({ projects: [] })) {
     context.permissions.throwPermissionError();
   }
 
@@ -96,9 +96,10 @@ export const postSavedGroup = async (
     type,
     condition,
     description,
+    projects,
   } = req.body;
 
-  if (!context.permissions.canCreateSavedGroup()) {
+  if (!context.permissions.canCreateSavedGroup({ projects })) {
     context.permissions.throwPermissionError();
   }
   const uniqValues: string[] | undefined = undefined;
@@ -151,6 +152,7 @@ export const postSavedGroup = async (
     owner: owner || userName,
     attributeKey,
     description,
+    projects,
   });
 
   await req.audit({
@@ -242,11 +244,13 @@ export const postSavedGroupAddItems = async (
     throw new Error("Must specify saved group id");
   }
 
-  if (!context.permissions.canUpdateSavedGroup()) {
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (
+    !context.permissions.canUpdateSavedGroup({ projects: savedGroup?.projects })
+  ) {
     context.permissions.throwPermissionError();
   }
-
-  const savedGroup = await getSavedGroupById(id, org.id);
 
   if (!savedGroup) {
     throw new Error("Could not find saved group");
@@ -342,11 +346,13 @@ export const postSavedGroupRemoveItems = async (
     throw new Error("Must specify saved group id");
   }
 
-  if (!context.permissions.canUpdateSavedGroup()) {
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (
+    !context.permissions.canUpdateSavedGroup({ projects: savedGroup?.projects })
+  ) {
     context.permissions.throwPermissionError();
   }
-
-  const savedGroup = await getSavedGroupById(id, org.id);
 
   if (!savedGroup) {
     throw new Error("Could not find saved group");
@@ -425,18 +431,27 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { groupName, owner, values, condition, description } = req.body;
+  const {
+    groupName,
+    owner,
+    values,
+    condition,
+    description,
+    projects,
+  } = req.body;
   const { id } = req.params;
 
   if (!id) {
     throw new Error("Must specify saved group id");
   }
 
-  if (!context.permissions.canUpdateSavedGroup()) {
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (
+    !context.permissions.canUpdateSavedGroup({ projects: savedGroup?.projects })
+  ) {
     context.permissions.throwPermissionError();
   }
-
-  const savedGroup = await getSavedGroupById(id, org.id);
 
   if (!savedGroup) {
     throw new Error("Could not find saved group");
@@ -479,6 +494,8 @@ export const putSavedGroup = async (
     }
     fieldsToUpdate.description = description;
   }
+
+  fieldsToUpdate.projects = projects;
 
   // If there are no changes, return early
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -545,13 +562,15 @@ export const deleteSavedGroup = async (
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateSavedGroup()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { org } = context;
 
   const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (
+    !context.permissions.canDeleteSavedGroup({ projects: savedGroup?.projects })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!savedGroup) {
     res.status(403).json({

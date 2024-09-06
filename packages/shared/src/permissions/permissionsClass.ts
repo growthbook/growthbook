@@ -19,6 +19,7 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -156,17 +157,17 @@ export class Permissions {
     return this.checkGlobalPermission("manageArchetype");
   };
 
-  public canCreateSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
-  };
+  // public canCreateSavedGroup = (): boolean => {
+  //   return this.checkGlobalPermission("manageSavedGroups");
+  // };
 
-  public canUpdateSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
-  };
+  // public canUpdateSavedGroup = (): boolean => {
+  //   return this.checkGlobalPermission("manageSavedGroups");
+  // };
 
-  public canDeleteSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
-  };
+  // public canDeleteSavedGroup = (): boolean => {
+  //   return this.checkGlobalPermission("manageSavedGroups");
+  // };
 
   public canCreateNamespace = (): boolean => {
     return this.checkGlobalPermission("manageNamespaces");
@@ -710,6 +711,29 @@ export class Permissions {
       [environment.id],
       "manageEnvironments"
     );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewSavedGroupModal = (project?: string): boolean => {
+    return this.canCreateSavedGroup({ projects: project ? [project] : [] });
+  };
+
+  public canCreateSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canUpdateSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canDeleteSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
   };
 
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions
