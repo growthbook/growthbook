@@ -393,7 +393,10 @@ export default function TabbedPage({
             isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
           }
         >
-          <BanditSummaryResultsTab experiment={experiment} />
+          <BanditSummaryResultsTab
+            experiment={experiment}
+            isTabActive={tab === "results"}
+          />
         </div>
         <div
           className={

@@ -31,8 +31,6 @@ export const banditResult = z.object({
   error: z.string().optional(),
 });
 
-export type BanditResult = z.infer<typeof banditResult>;
-
 export const banditEvent = z
   .object({
     date: z.date(),
@@ -40,6 +38,9 @@ export const banditEvent = z
     snapshotId: z.string().optional(), // 0th may not have snapshot
   })
   .strict();
+
+export type BanditResult = z.infer<typeof banditResult>;
+export type BanditEvent = z.infer<typeof banditEvent>;
 
 export const experimentPhase = z
   .object({

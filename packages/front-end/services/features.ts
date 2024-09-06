@@ -213,8 +213,8 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
   };
 }
 
-export function getVariationColor(i: number) {
-  const colors = [
+export function getVariationColor(i: number, experimentTheme = false) {
+  const colors = ! experimentTheme ? [
     "#8f66dc",
     "#e5a6f3",
     "#38aecc",
@@ -224,6 +224,11 @@ export function getVariationColor(i: number) {
     "#79c4e0",
     "#f87a7a",
     "#6cc160",
+  ] : [
+    "#4f69ff",
+    "#03d1ca",
+    "#fd7e14",
+    "#e83e8c",
   ];
   return colors[i % colors.length];
 }

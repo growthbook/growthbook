@@ -13,7 +13,8 @@ interface Props
   id: string;
   ci?: [number, number] | [];
   barType?: "pill" | "violin";
-  barFillType?: "gradient" | "significant";
+  barFillType?: "gradient" | "significant" | "color";
+  barFillColor?: string;
   uplift?: { dist: string; mean?: number; stddev?: number };
   domain: [number, number];
   graphWidth?: number;
@@ -47,6 +48,7 @@ const AlignedGraph: FC<Props> = ({
   ci,
   barType = "pill",
   barFillType = "gradient",
+  barFillColor,
   uplift,
   domain,
   expected,
@@ -148,7 +150,9 @@ const AlignedGraph: FC<Props> = ({
   }
 
   let barFill =
-    barFillType === "gradient"
+    barFillType === "color"
+      ? barFillColor
+      : barFillType === "gradient"
       ? `url(#${gradientId})`
       : significant
       ? (expected ?? 0) > 0

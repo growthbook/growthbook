@@ -1,9 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import AlignedGraph from "./AlignedGraph";
+import { BanditEvent } from "back-end/src/validators/experiments";
+import clsx from "clsx";
+import {MetricInterface} from "back-end/types/metric";
+import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
+import {SnapshotMetric} from "back-end/types/experiment-snapshot";
+import {getVariationColor} from "@/services/features";
 
 export type BanditSummaryTableProps = {
   experiment: ExperimentInterfaceStringDates;
+  metric: MetricInterface | null;
   // variations: ExperimentReportVariation[];
   // rows: ExperimentTableRow[];
   // statsEngine: StatsEngine;
@@ -12,13 +19,14 @@ export type BanditSummaryTableProps = {
 
 const ROW_HEIGHT = 56;
 
-// const percentFormatter = new Intl.NumberFormat(undefined, {
-//   style: "percent",
-//   maximumFractionDigits: 2,
-// });
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
 
 export default function BanditSummaryTable({
   experiment,
+  metric,
   // variations,
   // rows,
   // statsEngine,
@@ -48,6 +56,8 @@ export default function BanditSummaryTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
+  const phase = experiment.phases[experiment.phases.length -1];
+
   const variations = experiment.variations.map((v, i) => {
     return {
       id: v.key || i + "",
@@ -55,11 +65,25 @@ export default function BanditSummaryTable({
       name: v.name,
     };
   });
-  //
+
+  const validEvents: BanditEvent[] = phase?.banditEvents?.filter((event) => event.banditResult?.singleVariationResults && !event.banditResult?.error) || [];
+  const results = validEvents[validEvents.length - 1]?.banditResult?.singleVariationResults;
+  const probabilities = validEvents[validEvents.length - 1]?.banditResult?.bestArmProbabilities;
+  if (!results) {
+    return null;
+  }
+
+  const domain: [number, number] = useMemo(() => {
+    const cis = results.map(v => v.ci).filter(Boolean) as [number, number][];
+    const min = Math.min(...cis.map(ci => ci[0]));
+    const max = Math.max(...cis.map(ci => ci[1]));
+    return [min, max];
+  }, [results]);
+
   // const domain = useDomain(variationsWithIndex, rows);
-  const lowerBound = -0.2;
-  const upperBound = 0.4;
-  const domain: [number, number] = [lowerBound, upperBound];
+  // const lowerBound = -0.2;
+  // const upperBound = 0.4;
+  // const domain: [number, number] = [lowerBound, upperBound];
 
   return (
     <div className="position-relative">
@@ -114,6 +138,10 @@ export default function BanditSummaryTable({
 
             <tbody>
               {variations.map((v, j) => {
+                const result = results[j];
+                // @ts-ignore
+                const stats: SnapshotMetric = { ...result, value: result.cr * result.users };
+                const probability = probabilities?.[j];
                 return (
                   <tr
                     className="results-variation-row align-items-center"
@@ -139,11 +167,27 @@ export default function BanditSummaryTable({
                         </span>
                       </div>
                     </td>
-                    <td />
-                    <td />
+                    {metric ? (
+                      <MetricValueColumn
+                        metric={metric}
+                        stats={stats}
+                        users={stats.users}
+                        className="value"
+                      />
+                    ): <td />}
+                    <td className={clsx("results-ctw chance", {
+                      won: probability === Math.max(...(probabilities ?? []))
+                    })}>
+                      {percentFormatter.format(probability ?? 0)}
+                    </td>
                     <td className="graph-cell">
                       <AlignedGraph
-                        id={`bandit-summery-table-axis`}
+                        ci={result.ci}
+                        expected={result.cr}
+                        barType="violin"
+                        barFillType="color"
+                        barFillColor={getVariationColor(j, true)}
+                        id={`bandit-summery-table_violin_${j}`}
                         domain={domain}
                         significant={true}
                         showAxis={false}

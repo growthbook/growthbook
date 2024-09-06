@@ -4,12 +4,18 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import TabButton from "@/components/Tabs/TabButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
+import {useDefinitions} from "@/services/DefinitionsContext";
+import {getRenderLabelColumn} from "@/components/Experiment/CompactResults";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  isTabActive?: boolean;
 }
 
-export default function BanditSummaryResultsTab({ experiment }: Props) {
+export default function BanditSummaryResultsTab({
+  experiment,
+  isTabActive,
+}: Props) {
   const [tab, setTab] = useLocalStorage<"probabilities" | "weights">(
     `banditSummaryResultsTab__${experiment.id}`,
     "probabilities"
@@ -17,7 +23,9 @@ export default function BanditSummaryResultsTab({ experiment }: Props) {
 
   const phase = experiment.phases?.[experiment.phases.length - 1];
 
-  // const { metrics, getExperimentMetricById, getMetricById } = useDefinitions();
+  const mid = experiment.goalMetrics[0];
+  const { getMetricById } = useDefinitions();
+  const metric = getMetricById(mid);
   //
   // const allExperimentMetricIds = getAllMetricIdsFromExperiment(
   //   experiment,
@@ -35,14 +43,13 @@ export default function BanditSummaryResultsTab({ experiment }: Props) {
   //   .map((m) => getMetricById(m as string))
   //   .filter(isDefined);
 
-  console.log(experiment.phases[experiment.phases.length - 1].banditEvents);
 
   const showVisualizations = (phase?.banditEvents?.length ?? 0) > 0;
 
   return (
     <div className="bg-white border mt-3">
       <div className="mt-3 mb-4">
-        <h3 className="mx-2">Graph of variations with uplift stats</h3>
+        <h3 className="mx-2 mb-3">Bandit Overview</h3>
 
         {experiment.status === "draft" && (
           <div className="alert bg-light border mx-3">
@@ -68,10 +75,19 @@ export default function BanditSummaryResultsTab({ experiment }: Props) {
         )}
 
         {showVisualizations && (
-          <BanditSummaryTable
-            experiment={experiment}
-            isTabActive={true} // todo: huh?
-          />
+          <>
+            <div className="mx-2 h4 mb-0">
+              {metric ? getRenderLabelColumn(
+                false,
+                "bayesian"
+              )("", metric): null}
+            </div>
+            <BanditSummaryTable
+              experiment={experiment}
+              metric={metric}
+              isTabActive={isTabActive} // todo: huh?
+            />
+          </>
         )}
       </div>
 

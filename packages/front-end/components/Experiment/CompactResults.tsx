@@ -407,7 +407,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
-    row: ExperimentTableRow,
+    row?: ExperimentTableRow,
     maxRows?: number
   ) {
     const metricLink = (
