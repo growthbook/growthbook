@@ -40,7 +40,6 @@ export default function AttributeForm({
     ],
     [attributeSchema]
   );
-console.log("initial values", initialValues);
   const attributesMap = new Map();
   const defaultValues = orderedAttributes
     .filter((o) => !o.archived)
@@ -53,7 +52,6 @@ console.log("initial values", initialValues);
         : undefined;
       return { ...list, [attr.property]: defaultValue };
     }, {});
-console.log(defaultValues);
   // eslint-disable-next-line
   const attributeForm = useForm<any>({
     defaultValues: defaultValues,
