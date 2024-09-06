@@ -291,7 +291,7 @@ export const listSavedGroupsValidator = {
 };
 
 export const postSavedGroupValidator = {
-  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group"), "type": z.enum(["condition","list"]).describe("The type of Saved Group (inferred from other arguments if missing)").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "attributeKey": z.string().describe("When type = 'list', this is the attribute key the group is based on").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional() }).strict(),
+  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group"), "type": z.enum(["condition","list"]).describe("The type of Saved Group (inferred from other arguments if missing)").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "attributeKey": z.string().describe("When type = 'list', this is the attribute key the group is based on").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
@@ -303,7 +303,7 @@ export const getSavedGroupValidator = {
 };
 
 export const updateSavedGroupValidator = {
-  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional() }).strict(),
+  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

@@ -9,11 +9,12 @@ import { postSavedGroupValidator } from "../../validators/openapi";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    if (!req.context.permissions.canCreateSavedGroup()) {
+    const { name, attributeKey, values, condition, owner, projects } = req.body;
+
+    if (!req.context.permissions.canCreateSavedGroup({ projects })) {
       req.context.permissions.throwPermissionError();
     }
 
-    const { name, attributeKey, values, condition, owner } = req.body;
     let { type } = req.body;
 
     // Infer type from arguments if not specified

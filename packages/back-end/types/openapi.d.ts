@@ -5196,6 +5196,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };
@@ -5282,6 +5283,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };

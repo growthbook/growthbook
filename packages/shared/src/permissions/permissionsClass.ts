@@ -157,18 +157,6 @@ export class Permissions {
     return this.checkGlobalPermission("manageArchetype");
   };
 
-  // public canCreateSavedGroup = (): boolean => {
-  //   return this.checkGlobalPermission("manageSavedGroups");
-  // };
-
-  // public canUpdateSavedGroup = (): boolean => {
-  //   return this.checkGlobalPermission("manageSavedGroups");
-  // };
-
-  // public canDeleteSavedGroup = (): boolean => {
-  //   return this.checkGlobalPermission("manageSavedGroups");
-  // };
-
   public canCreateNamespace = (): boolean => {
     return this.checkGlobalPermission("manageNamespaces");
   };
