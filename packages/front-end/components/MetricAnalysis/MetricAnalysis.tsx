@@ -304,7 +304,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const outdated = isOutdated(factMetric, metricAnalysis);
   return (
     <div className="mb-4">
-      <h3>Metric Analysis</h3>
       <div className="appbox p-3 mb-3">
         {factMetric.metricType === "quantile" ? (
           <div className={`mt-2 mb-2 alert alert-warning`}>
