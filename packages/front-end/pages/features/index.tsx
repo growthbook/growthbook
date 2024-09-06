@@ -540,7 +540,7 @@ export default function FeaturesPage() {
             {renderFeaturesTable()}
             <div className="alert-info mt-5 p-3">
               Test what values these features will return for your users from
-              the <Link href="/simulation">Simulate</Link> page.
+              the <Link href="/archetypes#simulate">Simulate</Link> page.
             </div>
           </Tab>
           <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
