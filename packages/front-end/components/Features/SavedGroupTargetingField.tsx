@@ -1,78 +1,31 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
-import React, { useEffect, useMemo, useState } from "react";
-import clsx from "clsx";
-import { SMALL_GROUP_SIZE_LIMIT } from "shared/util";
+import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import LargeSavedGroupSupportWarning, {
+import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
-  setSavedGroupTargetingSdkIssues: (
-    savedGroupTargetingSdkIssues: boolean
-  ) => void;
 }
 
 export default function SavedGroupTargetingField({
   value,
   setValue,
   project,
-  setSavedGroupTargetingSdkIssues,
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const {
     supportedConnections,
     unsupportedConnections,
-    unversionedConnections,
     hasLargeSavedGroupFeature,
   } = useLargeSavedGroupSupport(project);
-
-  const largeSavedGroups = useMemo(
-    () =>
-      new Set(
-        savedGroups
-          .filter((savedGroup) => savedGroup?.passByReferenceOnly)
-          .map((group) => group.id)
-      ),
-    [savedGroups]
-  );
-
-  const selectedLargeSavedGroups = useMemo(
-    () =>
-      value
-        .flatMap((savedGroupTargeting) => savedGroupTargeting.ids)
-        .filter((sgid) => largeSavedGroups.has(sgid)),
-    [value, largeSavedGroups]
-  );
-
-  const [localTargetingIssues, setLocalTargetingIssues] = useState(false);
-
-  useEffect(() => {
-    if (
-      selectedLargeSavedGroups.length > 0 &&
-      supportedConnections.length === 0 &&
-      unversionedConnections.length === 0
-    ) {
-      setSavedGroupTargetingSdkIssues(true);
-      setLocalTargetingIssues(true);
-    } else {
-      setSavedGroupTargetingSdkIssues(false);
-      setLocalTargetingIssues(false);
-    }
-  }, [
-    selectedLargeSavedGroups,
-    supportedConnections,
-    unversionedConnections,
-    setSavedGroupTargetingSdkIssues,
-  ]);
 
   if (!savedGroups.length) return null;
 
@@ -112,18 +65,14 @@ export default function SavedGroupTargetingField({
   return (
     <div className="form-group my-4">
       <label>Target by Saved Groups</label>
-      {largeSavedGroups.size > 0 && (
-        <div className="mb-1">
-          <LargeSavedGroupSupportWarning
-            type="targeting_rule"
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-            supportedConnections={supportedConnections}
-            unsupportedConnections={unsupportedConnections}
-            unversionedConnections={unversionedConnections}
-            upgradeWarningToError={localTargetingIssues}
-          />
-        </div>
-      )}
+      <div className="mb-1">
+        <LargeSavedGroupPerformanceWarning
+          style="text"
+          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+          supportedConnections={supportedConnections}
+          unsupportedConnections={unsupportedConnections}
+        />
+      </div>
       <div>
         <div className="appbox bg-light px-3 py-3">
           {conflicts.length > 0 && (
@@ -182,46 +131,6 @@ export default function SavedGroupTargetingField({
                     required
                     placeholder="Select groups..."
                     closeMenuOnSelect={true}
-                    formatOptionLabel={({ value, label }, { context }) => {
-                      const group = getSavedGroupById(value);
-                      if (!group) return label;
-                      const unsupported =
-                        supportedConnections.length === 0 &&
-                        unversionedConnections.length === 0 &&
-                        !!group.passByReferenceOnly;
-                      if (context === "value") {
-                        if (unsupported) {
-                          return `${label}*`;
-                        }
-                        return label;
-                      }
-                      return (
-                        <div className={clsx(unsupported ? "disabled" : "")}>
-                          {group.groupName}
-                          {group.passByReferenceOnly && (
-                            <span className="float-right">
-                              <Tooltip
-                                body={
-                                  unsupportedConnections.length > 0
-                                    ? `Lists with >${SMALL_GROUP_SIZE_LIMIT} items are not supported by one or more SDKs`
-                                    : ""
-                                }
-                                tipPosition="top"
-                              >
-                                &gt;{SMALL_GROUP_SIZE_LIMIT} ITEMS
-                              </Tooltip>
-                            </span>
-                          )}
-                        </div>
-                      );
-                    }}
-                    isOptionDisabled={(option) =>
-                      supportedConnections.length === 0 &&
-                      unversionedConnections.length === 0 &&
-                      isSingleValue(option) &&
-                      !!getSavedGroupById(option.value)?.passByReferenceOnly
-                    }
-                    customClassName={localTargetingIssues ? "error" : ""}
                   />
                 </div>
                 <div className="col-auto ml-auto">

@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -87,17 +87,6 @@ const NewPhaseForm: FC<{
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
-  const [
-    savedGroupTargetingSdkIssues,
-    setSavedGroupTargetingSdkIssues,
-  ] = useState(false);
-  const [
-    attributeTargetingSdkIssues,
-    setAttributeTargetingSdkIssues,
-  ] = useState(false);
-  const canSubmit =
-    !attributeTargetingSdkIssues && !savedGroupTargetingSdkIssues;
-
   return (
     <Modal
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -105,7 +94,6 @@ const NewPhaseForm: FC<{
       open={true}
       submit={submit}
       cta={"Start"}
-      ctaEnabled={canSubmit}
       closeCta="Cancel"
       size="lg"
     >
@@ -144,7 +132,6 @@ const NewPhaseForm: FC<{
           value={form.watch("savedGroups") || []}
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
           project={experiment.project || ""}
-          setSavedGroupTargetingSdkIssues={setSavedGroupTargetingSdkIssues}
         />
       )}
 
@@ -154,7 +141,6 @@ const NewPhaseForm: FC<{
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
-          setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
         />
       )}
 

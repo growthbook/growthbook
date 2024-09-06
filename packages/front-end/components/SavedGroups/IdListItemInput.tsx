@@ -1,8 +1,5 @@
 import { FC, useEffect, useState } from "react";
-import {
-  LARGE_GROUP_SIZE_LIMIT_BYTES,
-  SMALL_GROUP_SIZE_LIMIT,
-} from "shared/util";
+import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -11,34 +8,15 @@ import {
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import LargeSavedGroupSupportWarning, {
+import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";
 
 export const IdListItemInput: FC<{
   values: string[];
-  passByReferenceOnly: boolean;
-  // Allow for grandfathering in existing large lists
-  bypassSmallListSizeLimit: boolean;
-  groupReferencedByUnsupportedSdks: boolean;
-  limit?: number;
   setValues: (newValues: string[]) => void;
-  setPassByReferenceOnly: (passByReferenceOnly: boolean) => void;
-  disableSubmit: boolean;
-  setDisableSubmit: (disabled: boolean) => void;
   openUpgradeModal?: () => void;
-}> = ({
-  values,
-  passByReferenceOnly,
-  bypassSmallListSizeLimit,
-  groupReferencedByUnsupportedSdks,
-  limit = SMALL_GROUP_SIZE_LIMIT,
-  setValues,
-  setPassByReferenceOnly,
-  disableSubmit,
-  setDisableSubmit,
-  openUpgradeModal,
-}) => {
+}> = ({ values, setValues, openUpgradeModal }) => {
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(values.join(", ") || "");
   useEffect(() => {
@@ -55,7 +33,6 @@ export const IdListItemInput: FC<{
   const {
     supportedConnections,
     unsupportedConnections,
-    unversionedConnections,
     hasLargeSavedGroupFeature,
   } = useLargeSavedGroupSupport();
 
@@ -64,40 +41,7 @@ export const IdListItemInput: FC<{
     setNumValuesToImport(null);
     setFileName("");
     setFileErrorMessage("");
-    setNonLegacyImport(false);
   };
-
-  const [nonLegacyImport, setNonLegacyImport] = useState(false);
-
-  useEffect(() => {
-    if (values.length > limit && !bypassSmallListSizeLimit) {
-      setNonLegacyImport(true);
-      setPassByReferenceOnly(true);
-    } else {
-      setNonLegacyImport(false);
-      setPassByReferenceOnly(false);
-    }
-  }, [values, limit, bypassSmallListSizeLimit, setPassByReferenceOnly]);
-
-  useEffect(() => {
-    if (supportedConnections.length > 0) {
-      setDisableSubmit(false);
-    } else if (
-      nonLegacyImport &&
-      !passByReferenceOnly &&
-      !bypassSmallListSizeLimit
-    ) {
-      setDisableSubmit(true);
-    } else {
-      setDisableSubmit(false);
-    }
-  }, [
-    setDisableSubmit,
-    supportedConnections,
-    nonLegacyImport,
-    passByReferenceOnly,
-    bypassSmallListSizeLimit,
-  ]);
 
   return (
     <>
@@ -136,21 +80,13 @@ export const IdListItemInput: FC<{
           </label>
         </div>
       </div>
-      {!passByReferenceOnly && !bypassSmallListSizeLimit && (
-        <LargeSavedGroupSupportWarning
-          type={
-            groupReferencedByUnsupportedSdks
-              ? "in_use_saved_group"
-              : "saved_group_creation"
-          }
-          openUpgradeModal={openUpgradeModal}
-          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          supportedConnections={supportedConnections}
-          unsupportedConnections={unsupportedConnections}
-          unversionedConnections={unversionedConnections}
-          upgradeWarningToError={disableSubmit}
-        />
-      )}
+      <LargeSavedGroupPerformanceWarning
+        style="banner"
+        openUpgradeModal={openUpgradeModal}
+        hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+        supportedConnections={supportedConnections}
+        unsupportedConnections={unsupportedConnections}
+      />
       {importMethod === "file" && (
         <>
           <div
@@ -181,7 +117,7 @@ export const IdListItemInput: FC<{
                   setFileErrorMessage("Only .csv file types are supported");
                   return;
                 }
-                if (file.size > LARGE_GROUP_SIZE_LIMIT_BYTES) {
+                if (file.size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
                   setFileErrorMessage("File size must be less than 1 MB");
                   return;
                 }
@@ -200,7 +136,6 @@ export const IdListItemInput: FC<{
                     setFileName(file.name);
                     setValues(newValues);
                     setNumValuesToImport(newValues.length);
-                    setNonLegacyImport(true);
                   } catch (e) {
                     console.error(e);
                     return;

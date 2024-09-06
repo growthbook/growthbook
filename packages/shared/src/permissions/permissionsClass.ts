@@ -29,6 +29,11 @@ class PermissionError extends Error {
   }
 }
 
+type NotificationEvent = {
+  containsSecrets: boolean;
+  projects: string[];
+};
+
 export class Permissions {
   private userPermissions: UserPermissions;
   constructor(permissions: UserPermissions) {
@@ -128,9 +133,7 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
-  public canViewEvent = (
-    event: Pick<NotificationEvent, "containsSecrets" | "projects">
-  ): boolean => {
+  public canViewEvent = (event: NotificationEvent): boolean => {
     // Contains secrets (or is an old event where we weren't tracking this field yet)
     if (event.containsSecrets !== false) {
       return this.canViewAuditLogs();

@@ -20,8 +20,12 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
 
   const eventWebHooks = await (async () => {
     if (event.data.event === "webhook.test") {
+      const webhookId = event.version
+        ? event.data.data.object.webhookId
+        : event.data.data.webhookId;
+
       const webhook = await getEventWebHookById(
-        event.data.data.webhookId,
+        webhookId,
         event.organizationId
       );
 

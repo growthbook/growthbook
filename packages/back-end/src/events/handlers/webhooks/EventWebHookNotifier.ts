@@ -13,7 +13,12 @@ import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
-import { getSlackMessageForNotificationEvent } from "../slack/slack-event-handler-utils";
+import {
+  getSlackMessageForNotificationEvent,
+  getSlackMessageForLegacyNotificationEvent,
+} from "../slack/slack-event-handler-utils";
+import { getLegacyMessageForNotificationEvent } from "../legacy";
+import { LegacyNotificationEvent } from "../../notification-events";
 import { NotificationEventName } from "../../../../types/event";
 import {
   EventWebHookErrorResult,
@@ -104,27 +109,35 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const eventPayload = event.data;
-
     const payload = await (async () => {
       let invalidPayloadType: never;
       const { payloadType } = eventWebHook;
 
-      if (!payloadType) return eventPayload;
+      if (!payloadType) return event.data;
 
       switch (payloadType) {
-        case "raw":
-          return eventPayload;
+        case "raw": {
+          const legacyPayload:
+            | LegacyNotificationEvent
+            | undefined = event.version
+            ? getLegacyMessageForNotificationEvent(event.data)
+            : event.data;
+          return legacyPayload;
+        }
 
         case "slack": {
-          return getSlackMessageForNotificationEvent(eventPayload, eventId);
+          if (!event.version)
+            return getSlackMessageForLegacyNotificationEvent(
+              event.data,
+              eventId
+            );
+          return getSlackMessageForNotificationEvent(event.data, eventId);
         }
 
         case "discord": {
-          const data = await getSlackMessageForNotificationEvent(
-            eventPayload,
-            eventId
-          );
+          const data = await (!event.version
+            ? getSlackMessageForLegacyNotificationEvent(event.data, eventId)
+            : getSlackMessageForNotificationEvent(event.data, eventId));
 
           if (!data) return null;
 

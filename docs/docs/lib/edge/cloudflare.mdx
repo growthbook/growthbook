@@ -335,21 +335,20 @@ kv_namespaces = [
 For KV stored payloads (1), we eliminate network requests from edge to GrowthBook by using a GrowthBook SDK Webhook to push the SDK payload to the KV store on change.
 
 1. Create an [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for edge integration. You do not need to worry about the receiving end of the webhook (verifying GrowthBook signatures, etc).
-2. Set the **Endpoint URL** to the Cloudflare's REST API endpoint for KV. At the time of writing, it follows this format:
-
-```
-https://api.cloudflare.com/client/v4/accounts/{accountId}/storage/kv/namespaces/{namespaceId}/values/gb_payload
-```
-
-3. Change the **Method** to `PUT`.
-4. Add appropriate authorization header:
-
-```json
-{
-  "Authorization": "Bearer YOUR_CF_REST_API_TOKEN"
-}
-```
-
-5. Set the **Payload format** to "SDK Payload only".
+2. Select **Cloudflare KV** as the Webhook Type and fill out the following fields:
+   - Account ID
+   - Namespace ID
+   - Key
+   - API Token
 
 Now whenever feature and experiment values change, your Cloudflare worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.
+
+Under the hood, the webhook is being configured with the following properties. If you need to change any of these settings for any reason, you can always edit the webhook.
+
+- **Endpoint URL** is being set to
+  ```
+  https://api.cloudflare.com/client/v4/accounts/{accountId}/storage/kv/namespaces/{namespaceId}/values/{key}
+  ```
+- **Method** is being set to `PUT`
+- An **Authorization Header** is being added with your API Token
+- The **Payload format** is being set to `SDK Payload only`

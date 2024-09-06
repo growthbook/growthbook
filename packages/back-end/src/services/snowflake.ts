@@ -31,6 +31,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 ): Promise<QueryResponse<T[]>> {
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
+
   const connection = createConnection({
     account,
     username: conn.username,
@@ -41,6 +42,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     role: conn.role,
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
+    accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
   });
   // promise with timeout to prevent hanging
   await new Promise((resolve, reject) => {

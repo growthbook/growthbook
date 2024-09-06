@@ -7,6 +7,7 @@ slug: /app/webhooks/event-webhooks
 
 import ExternalLink from '@site/src/components/ExternalLink'
 import Pill from '@site/src/components/Pill';
+import EventWebhookList from '@site/src/partials/event-webhook/_event-webhook-list.md'
 
 # Event Webhooks <Pill>beta</Pill>
 
@@ -22,13 +23,7 @@ There you can add a webhook endpoint and select which events you want to be noti
 
 We currently support the following event types:
 
-- **feature.created**
-- **feature.updated**
-- **feature.deleted**
-- **experiment.created**
-- **experiment.updated**
-- **experiment.deleted**
-- **experiment.warning**
+<EventWebhookList />
 
 The new webhooks are still in beta and we are always updating the list of supported events.
 

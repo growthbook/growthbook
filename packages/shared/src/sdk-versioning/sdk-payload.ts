@@ -228,17 +228,13 @@ const replaceSavedGroups: (
     if (key === "$inGroup" || key === "$notInGroup") {
       const group = savedGroups[value];
 
-      if (group?.passByReferenceOnly) {
-        object[savedGroupOperatorReplacements[key]] = [];
-      } else {
-        const values = group
-          ? getTypedSavedGroupValues(
-              group.values || [],
-              getSavedGroupValueType(group, organization)
-            )
-          : [];
-        object[savedGroupOperatorReplacements[key]] = values;
-      }
+      const values = group
+        ? getTypedSavedGroupValues(
+            group.values || [],
+            getSavedGroupValueType(group, organization)
+          )
+        : [];
+      object[savedGroupOperatorReplacements[key]] = values;
 
       delete object[key];
     }

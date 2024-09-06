@@ -35,6 +35,7 @@ import {
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/src/types";
+import { clone } from "lodash";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -43,6 +44,7 @@ import {
 } from "../../types/api";
 import {
   ExperimentRefRule,
+  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -310,9 +312,7 @@ export async function getSavedGroupMap(
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups =
     typeof savedGroups === "undefined"
-      ? await getAllSavedGroups(organization.id, {
-          includeLargeSavedGroupValues: true,
-        })
+      ? await getAllSavedGroups(organization.id)
       : savedGroups;
 
   function getGroupValues(
@@ -498,11 +498,10 @@ export type FeatureDefinitionsResponseArgs = {
   projects: string[];
   capabilities: SDKCapability[];
   savedGroups: SavedGroupInterface[];
-  savedGroupAttributeKeys?: Record<string, string>;
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
 };
-async function getFeatureDefinitionsResponse({
+export async function getFeatureDefinitionsResponse({
   features,
   experiments,
   dateUpdated,
@@ -516,7 +515,6 @@ async function getFeatureDefinitionsResponse({
   projects,
   capabilities,
   savedGroups,
-  savedGroupAttributeKeys,
   savedGroupReferencesEnabled = false,
   organization,
 }: FeatureDefinitionsResponseArgs) {
@@ -573,10 +571,6 @@ async function getFeatureDefinitionsResponse({
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
   );
-  let savedGroupsValues = getSavedGroupsValuesFromInterfaces(
-    savedGroups,
-    organization
-  );
   if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
 
@@ -588,15 +582,17 @@ async function getFeatureDefinitionsResponse({
       );
     }
 
-    if (savedGroupAttributeKeys) {
-      savedGroupsValues = applySavedGroupHashing(
-        savedGroupsValues,
-        attributes,
-        savedGroupAttributeKeys,
-        secureAttributeSalt
-      );
-    }
+    savedGroups = applySavedGroupHashing(
+      savedGroups,
+      attributes,
+      secureAttributeSalt
+    );
   }
+
+  const savedGroupsValues = getSavedGroupsValuesFromInterfaces(
+    savedGroups,
+    organization
+  );
 
   features = scrubFeatures(
     features,
@@ -651,10 +647,9 @@ async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
-  const encryptedSavedGroups = await encrypt(
-    JSON.stringify(scrubbedSavedGroups),
-    encryptionKey
-  );
+  const encryptedSavedGroups = scrubbedSavedGroups
+    ? await encrypt(JSON.stringify(scrubbedSavedGroups), encryptionKey)
+    : undefined;
 
   return {
     features: {},
@@ -662,7 +657,6 @@ async function getFeatureDefinitionsResponse({
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
-    savedGroups: {},
     encryptedSavedGroups: encryptedSavedGroups,
   };
 }
@@ -722,9 +716,6 @@ export async function getFeatureDefinitions({
       }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
-      let savedGroupAttributeKeys:
-        | Record<string, string>
-        | undefined = undefined;
       const { features, experiments, savedGroupsInUse } = cached.contents;
       const usedSavedGroups = await getSavedGroupsById(
         savedGroupsInUse,
@@ -734,12 +725,6 @@ export async function getFeatureDefinitions({
         if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
           secureAttributeSalt = context.org.settings?.secureAttributeSalt;
           attributes = context.org.settings?.attributeSchema;
-          savedGroupAttributeKeys = Object.fromEntries(
-            usedSavedGroups.map((savedGroup) => [
-              savedGroup.id,
-              savedGroup.attributeKey || "",
-            ])
-          );
         }
       }
 
@@ -757,7 +742,6 @@ export async function getFeatureDefinitions({
         projects: projects || [],
         capabilities,
         savedGroups: usedSavedGroups || [],
-        savedGroupAttributeKeys,
         savedGroupReferencesEnabled,
         organization: context.org,
       });
@@ -774,10 +758,7 @@ export async function getFeatureDefinitions({
       attributes = context.org.settings?.attributeSchema;
     }
   }
-  let savedGroupAttributeKeys: Record<string, string> | undefined = undefined;
-  const savedGroups = await getAllSavedGroups(context.org.id, {
-    includeLargeSavedGroupValues: true,
-  });
+  const savedGroups = await getAllSavedGroups(context.org.id);
 
   if (
     hashSecureAttributes &&
@@ -785,12 +766,6 @@ export async function getFeatureDefinitions({
   ) {
     secureAttributeSalt = context.org?.settings?.secureAttributeSalt;
     attributes = context.org.settings?.attributeSchema;
-    savedGroupAttributeKeys = Object.fromEntries(
-      savedGroups.map((savedGroup) => [
-        savedGroup.id,
-        savedGroup.attributeKey || "",
-      ])
-    );
   }
 
   // Generate the feature definitions
@@ -869,7 +844,6 @@ export async function getFeatureDefinitions({
     projects: projects || [],
     capabilities,
     savedGroups,
-    savedGroupAttributeKeys,
     savedGroupReferencesEnabled,
     organization: context.org,
   });
@@ -1238,32 +1212,28 @@ export function applyExperimentHashing(
   });
 }
 
-// Specific hashing entrypoint for idList values
+// Specific hashing entrypoint for SavedGroup objects
 export function applySavedGroupHashing(
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupInterface[],
   attributes: SDKAttributeSchema,
-  savedGroupAttributeKeys: Record<string, string>,
   salt: string
-): SavedGroupsValues {
-  return Object.fromEntries(
-    Object.entries(savedGroups).map(([savedGroupId, savedGroupItems]) => {
-      const attribute = attributes.find(
-        (attr) => attr.property === savedGroupAttributeKeys[savedGroupId]
-      );
-      return attribute
-        ? [
-            savedGroupId,
-            hashStrings({
-              obj: savedGroupItems,
-              salt,
-              attributes,
-              attribute,
-              doHash: attribute.hashAttribute,
-            }),
-          ]
-        : [savedGroupId, savedGroupItems];
-    })
-  );
+): SavedGroupInterface[] {
+  const clonedGroups = clone(savedGroups);
+  clonedGroups.forEach((group) => {
+    const attribute = attributes.find(
+      (attr) => attr.property === group.attributeKey
+    );
+    if (attribute) {
+      group.values = hashStrings({
+        obj: group.values,
+        salt,
+        attributes,
+        attribute,
+        doHash: attribute.hashAttribute,
+      });
+    }
+  });
+  return clonedGroups;
 }
 
 interface hashStringsArgs {
@@ -1375,7 +1345,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     }
 
     if (r.type === "experiment-ref") {
-      const experimentRule: ExperimentRefRule = {
+      const experimentRefRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
@@ -1386,6 +1356,24 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+      };
+      return experimentRefRule;
+    } else if (r.type === "experiment") {
+      const values = r.values || r.value;
+      if (!values) {
+        throw new Error("Missing values");
+      }
+      const experimentRule: ExperimentRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        hashAttribute: r.hashAttribute ?? "",
+        coverage: r.coverage,
+        // missing tracking key will be filled in by addIdsToRules
+        trackingKey: r.trackingKey ?? "",
+        enabled: r.enabled != null ? r.enabled : true,
+        description: r.description ?? "",
+        values: values,
       };
       return experimentRule;
     } else if (r.type === "force") {

@@ -88,12 +88,17 @@ export default function UpgradeModal({ close, source }: Props) {
 
   useEffect(() => {
     if (
-      ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
+      ["enterprise"].includes(effectiveAccountPlan || "") &&
       !license?.isTrial
     ) {
       close();
     }
   }, [effectiveAccountPlan, license, close]);
+
+  const isAtLeastPro = ["pro", "pro_sso", "enterprise"].includes(
+    effectiveAccountPlan || ""
+  );
+  const proTrialCopy = "free 14-day Pro trial";
 
   const startPro = async () => {
     setError("");
@@ -416,7 +421,12 @@ export default function UpgradeModal({ close, source }: Props) {
                 </div>
               )}
               <div className="row">
-                <div className="col-lg-6 mb-4">
+                <div
+                  className={clsx(
+                    "col-lg-6 mb-4",
+                    isAtLeastPro ? "disabled-opacity" : ""
+                  )}
+                >
                   <div className="pr-lg-2 border rounded p-0 d-flex flex-column">
                     <div className="d-flex justify-content-between align-items-center p-2 px-3">
                       <h4 className="mb-0">Pro</h4>
@@ -453,6 +463,7 @@ export default function UpgradeModal({ close, source }: Props) {
                         <button
                           className="btn btn-primary m-3 w-100"
                           onClick={startPro}
+                          disabled={isAtLeastPro}
                         >
                           Upgrade Now
                         </button>
@@ -460,16 +471,23 @@ export default function UpgradeModal({ close, source }: Props) {
                       {freeTrialAvailable && (
                         <div className="mb-4 text-center">
                           or, start a{" "}
-                          <a
-                            href="#"
-                            onClick={() =>
-                              isCloud()
-                                ? setShowCloudProTrial(true)
-                                : setShowSHProTrial(true)
-                            }
-                          >
-                            free 14-day Pro trial
-                          </a>
+                          {isAtLeastPro ? (
+                            <span>{proTrialCopy}</span>
+                          ) : (
+                            <a
+                              role="button"
+                              className={clsx(
+                                isAtLeastPro ? "cursor-default" : ""
+                              )}
+                              onClick={() =>
+                                isCloud()
+                                  ? setShowCloudProTrial(true)
+                                  : setShowSHProTrial(true)
+                              }
+                            >
+                              {proTrialCopy}
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
