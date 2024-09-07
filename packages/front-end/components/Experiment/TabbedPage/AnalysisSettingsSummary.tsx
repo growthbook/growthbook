@@ -86,6 +86,8 @@ export default function AnalysisSettingsSummary({
     {}
   );
 
+  // todo: reinstate?
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
@@ -251,21 +253,22 @@ export default function AnalysisSettingsSummary({
       <div className="row align-items-center text-muted">
         <div className="col-auto">
           {
-          // {!(isBandit && experiment.status === "running") &&
-          canEditAnalysisSettings ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setAnalysisModal(true);
-              }}
-            >
-              <span className="text-dark">Analysis Settings</span>
-              <GBEdit className="ml-2" />
-            </a>
-          ) : (
-            <span>Analysis Settings</span>
-          )}
+            // {!(isBandit && experiment.status === "running") &&
+            canEditAnalysisSettings ? (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAnalysisModal(true);
+                }}
+              >
+                <span className="text-dark">Analysis Settings</span>
+                <GBEdit className="ml-2" />
+              </a>
+            ) : (
+              <span>Analysis Settings</span>
+            )
+          }
         </div>
         {items.map((item, i) => (
           <Tooltip

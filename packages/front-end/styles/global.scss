@@ -1203,12 +1203,15 @@ main.main.report {
   }
 }
 
+.box,
 .appbox {
   background-color: var(--surface-background-color);
   border: 1px solid var(--border-color-100);
   margin-bottom: 1em;
   border-radius: 5px;
-  overflow-x: auto;
+  &.appbox {
+    overflow-x: auto;
+  }
 
   td {
     vertical-align: middle;

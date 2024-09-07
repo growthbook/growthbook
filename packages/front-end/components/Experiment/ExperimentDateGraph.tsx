@@ -12,10 +12,11 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ScaleLinear } from "d3-scale";
-import { date } from "shared/dates";
-import { variant_0, variant_1, variant_2, variant_3 } from "shared/constants";
+import { date, getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
+import cloneDeep from "lodash/cloneDeep";
 import { pValueFormatter } from "@/services/experiments";
+import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -30,7 +31,7 @@ export interface DataPointVariation {
 }
 export interface ExperimentDateGraphDataPoint {
   d: Date;
-  variations: DataPointVariation[];
+  variations?: DataPointVariation[]; // undefined === missing date
 }
 export interface ExperimentDateGraphProps {
   yaxis: "users" | "effect";
@@ -41,14 +42,13 @@ export interface ExperimentDateGraphProps {
   formatterOptions?: Intl.NumberFormatOptions;
   statsEngine?: StatsEngine;
   hasStats?: boolean;
+  cumulative?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 1,
 });
-
-const COLORS = [variant_0, variant_1, variant_2, variant_3];
 
 type TooltipData = {
   x: number;
@@ -102,12 +102,13 @@ const getTooltipContents = (
         </thead>
         <tbody>
           {variationNames.map((v, i) => {
+            if (!d.variations) return null;
             const variation = d.variations[i];
             return (
               <tr key={i}>
                 <td
                   className="text-ellipsis"
-                  style={{ color: COLORS[i % COLORS.length] }}
+                  style={{ color: getVariationColor(i, true) }}
                 >
                   {v}
                 </td>
@@ -177,22 +178,36 @@ const getTooltipData = (
   xScale,
   yaxis: "users" | "effect"
 ): TooltipData => {
-  const innerWidth =
-    width - margin[1] - margin[3] + width / datapoints.length - 1;
-  const px = mx / innerWidth;
-  const index = Math.max(
-    Math.min(Math.round(px * datapoints.length), datapoints.length - 1),
-    0
-  );
-  const d = datapoints[index];
-  const x = xScale(d.d);
-  const y = d.variations.map(
-    (variation) => yScale(getYVal(variation, yaxis)) ?? 0
-  );
-  return { x, y, d, yaxis };
+  // Calculate x-coordinates for all data points
+  const xCoords = datapoints.map((d) => xScale(d.d));
+
+  // Find the closest data point based on mouse x-coordinate
+  let closestIndex = 0;
+  let minDistance = Infinity;
+
+  for (let i = 0; i < xCoords.length; i++) {
+    const distance = Math.abs(mx - xCoords[i]);
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestIndex = i;
+    }
+  }
+
+  const d = datapoints[closestIndex];
+  const x = xCoords[closestIndex];
+  const y = d.variations
+    ? d.variations.map(
+        (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0
+      )
+    : undefined;
+  return { x, y: y ?? 0, d, yaxis };
 };
 
-const getYVal = (variation: DataPointVariation, yaxis: "users" | "effect") => {
+const getYVal = (
+  variation?: DataPointVariation,
+  yaxis?: "users" | "effect"
+) => {
+  if (!variation) return undefined;
   switch (yaxis) {
     case "users":
       return variation.v;
@@ -205,13 +220,14 @@ const getYVal = (variation: DataPointVariation, yaxis: "users" | "effect") => {
 
 const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   yaxis,
-  datapoints,
+  datapoints: _datapoints,
   variationNames,
   label,
   formatter,
   formatterOptions,
   statsEngine = "bayesian",
   hasStats = true,
+  cumulative = false,
 }) => {
   // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -228,34 +244,84 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
+  const datapoints = useMemo(() => {
+    const MAX_GAP_HOURS = 24;
+
+    const sortedDates = cloneDeep(_datapoints).sort(
+      (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+    );
+
+    const filledDates: ExperimentDateGraphDataPoint[] = [];
+    for (let i = 0; i < sortedDates.length; i++) {
+      filledDates.push(sortedDates[i]);
+      if (i < sortedDates.length - 1) {
+        const currentDate = getValidDate(sortedDates[i].d);
+        const nextDate = getValidDate(sortedDates[i + 1].d);
+        let expectedDate = new Date(
+          currentDate.getTime() + MAX_GAP_HOURS * 60 * 60 * 1000
+        );
+
+        while (expectedDate < nextDate) {
+          if (cumulative) {
+            filledDates.push({
+              ...sortedDates[i],
+              d: expectedDate,
+            });
+          } else {
+            filledDates.push({
+              d: expectedDate,
+            });
+          }
+          expectedDate = new Date(
+            expectedDate.getTime() + MAX_GAP_HOURS * 60 * 60 * 1000
+          );
+        }
+      }
+    }
+
+    return filledDates;
+  }, [_datapoints, cumulative]);
+
   // Get y-axis domain
   const yDomain = useMemo<[number, number]>(() => {
     const minValue = Math.min(
       ...datapoints.map((d) =>
-        Math.min(...d.variations.map((variation) => getYVal(variation, yaxis)))
+        d?.variations
+          ? Math.min(
+              ...d.variations.map((variation) => getYVal(variation, yaxis))
+            )
+          : 0
       )
     );
     const maxValue = Math.max(
       ...datapoints.map((d) =>
-        Math.max(...d.variations.map((variation) => getYVal(variation, yaxis)))
+        d?.variations
+          ? Math.max(
+              ...d.variations.map((variation) => getYVal(variation, yaxis))
+            )
+          : 0
       )
     );
     const minError = Math.min(
       ...datapoints.map((d) =>
-        Math.min(
-          ...d.variations.map((variation) =>
-            variation.ci?.[0] ? variation.ci[0] : getYVal(variation, yaxis)
-          )
-        )
+        d?.variations
+          ? Math.min(
+              ...d.variations.map((variation) =>
+                variation.ci?.[0] ? variation.ci[0] : getYVal(variation, yaxis)
+              )
+            )
+          : 0
       )
     );
     const maxError = Math.max(
       ...datapoints.map((d) =>
-        Math.max(
-          ...d.variations.map((variation) =>
-            variation.ci?.[1] ? variation.ci[1] : getYVal(variation, yaxis)
-          )
-        )
+        d?.variations
+          ? Math.max(
+              ...d.variations.map((variation) =>
+                variation.ci?.[1] ? variation.ci[1] : getYVal(variation, yaxis)
+              )
+            )
+          : 0
       )
     );
 
@@ -278,19 +344,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         const numXTicks =
           datapoints.length < 7 ? datapoints.length : width > 768 ? 7 : 4;
         const numYTicks = 5;
-        // we want specific dates where possible.
         const allXTicks = datapoints.map((p) => p.d.getTime());
-        let specificXTicks = allXTicks;
-        if (allXTicks.length > numXTicks + 2) {
-          // the 2 above is to add some padding - as if we are dealing with low numbers,
-          // the logic below will half the number of ticks. (ie, if its 7, we would show 3 ticks, so show all 7 instead)
-          // we have too many ticks, only display some of them
-          let div = Math.round(specificXTicks.length / numXTicks);
-          if (div === 1) div = 2;
-          specificXTicks = specificXTicks.filter((x, i) => {
-            return i % div === 0;
-          });
-        }
 
         const xScale = scaleTime({
           domain: [min, max],
@@ -315,6 +369,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             xScale,
             yaxis
           );
+          if (!data?.y) return;
           showTooltip({
             tooltipLeft: data.x,
             tooltipTop: Math.max(Math.min(...data.y), 150),
@@ -341,15 +396,15 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 )}
               </TooltipWithBounds>
             )}
-            <div className="d-flex">
+            <div className="d-flex flex-wrap" style={{ gap: "0.25rem 1rem" }}>
               {variationNames.map((v, i) => {
                 return (
                   <div
                     key={i}
-                    className="mx-2"
-                    style={{ color: COLORS[i % COLORS.length] }}
+                    className="nowrap"
+                    style={{ color: getVariationColor(i, true) }}
                   >
-                    <strong>&mdash;</strong>&nbsp;{v}
+                    <strong>&mdash;</strong> {v}
                   </div>
                 );
               })}
@@ -378,8 +433,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                         key={i}
                         className={styles.positionIndicator}
                         style={{
-                          transform: `translate(${tooltipLeft}px, ${tooltipData?.y[i]}px)`,
-                          background: COLORS[i % COLORS.length],
+                          transform: `translate(${tooltipLeft}px, ${
+                            tooltipData?.y?.[i] ?? 0
+                          }px)`,
+                          background: getVariationColor(i, true),
                         }}
                       />
                     );
@@ -404,7 +461,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   stroke="var(--border-color-200)"
                   height={yMax}
                   numTicks={numXTicks}
-                  tickValues={allXTicks}
+                  tickValues={numXTicks < 7 ? allXTicks : undefined}
                 />
 
                 {variationNames.map((v, i) => {
@@ -416,13 +473,17 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     typeof datapoints[0]?.variations?.[i]?.ci !==
                       "undefined" && (
                       <AreaClosed
-                        key={i}
+                        key={`ci_${i}`}
                         yScale={yScale}
                         data={datapoints}
                         x={(d) => xScale(d.d) ?? 0}
-                        y0={(d) => yScale(d.variations[i]?.ci?.[0] ?? 0) ?? 0}
-                        y1={(d) => yScale(d.variations[i]?.ci?.[1] ?? 0) ?? 0}
-                        fill={COLORS[i % COLORS.length]}
+                        y0={(d) =>
+                          yScale(d?.variations?.[i]?.ci?.[0] ?? 0) ?? 0
+                        }
+                        y1={(d) =>
+                          yScale(d?.variations?.[i]?.ci?.[1] ?? 0) ?? 0
+                        }
+                        fill={getVariationColor(i, true)}
                         opacity={0.12}
                         curve={curveMonotoneX}
                       />
@@ -430,21 +491,28 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   );
                 })}
 
-                {variationNames.map((v, i) => {
+                {variationNames.map((_, i) => {
                   if (yaxis === "effect" && i === 0) {
                     return <></>;
                   }
                   // Render the actual line chart for each variation
                   return (
-                    <LinePath
-                      key={i}
-                      data={datapoints}
-                      x={(d) => xScale(d.d) ?? 0}
-                      y={(d) => yScale(getYVal(d.variations[i], yaxis)) ?? 0}
-                      stroke={COLORS[i % COLORS.length]}
-                      strokeWidth={2}
-                      curve={curveMonotoneX}
-                    />
+                    <>
+                      <LinePath
+                        key={`linepath_${i}`}
+                        data={datapoints}
+                        x={(d) => xScale(d.d)}
+                        y={(d) =>
+                          yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
+                        }
+                        stroke={getVariationColor(i, true)}
+                        strokeWidth={2}
+                        curve={curveMonotoneX}
+                        defined={(d) =>
+                          getYVal(d?.variations?.[i], yaxis) !== undefined
+                        }
+                      />
+                    </>
                   );
                 })}
 
@@ -460,7 +528,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   tickFormat={(d) => {
                     return date(d as Date);
                   }}
-                  tickValues={specificXTicks}
+                  tickValues={numXTicks < 7 ? allXTicks : undefined}
                 />
                 <AxisLeft
                   scale={yScale}

@@ -4,8 +4,8 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import TabButton from "@/components/Tabs/TabButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
-import {useDefinitions} from "@/services/DefinitionsContext";
-import {getRenderLabelColumn} from "@/components/Experiment/CompactResults";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -43,7 +43,6 @@ export default function BanditSummaryResultsTab({
   //   .map((m) => getMetricById(m as string))
   //   .filter(isDefined);
 
-
   const showVisualizations = (phase?.banditEvents?.length ?? 0) > 0;
 
   return (
@@ -77,10 +76,9 @@ export default function BanditSummaryResultsTab({
         {showVisualizations && (
           <>
             <div className="mx-2 h4 mb-0">
-              {metric ? getRenderLabelColumn(
-                false,
-                "bayesian"
-              )("", metric): null}
+              {metric
+                ? getRenderLabelColumn(false, "bayesian")("", metric)
+                : null}
             </div>
             <BanditSummaryTable
               experiment={experiment}

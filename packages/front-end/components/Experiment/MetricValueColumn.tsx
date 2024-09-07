@@ -11,6 +11,7 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import clsx from "clsx";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
@@ -18,7 +19,6 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import clsx from "clsx";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -103,9 +103,11 @@ export default function MetricValueColumn({
         <>
           <div className="result-number">{overall}</div>
           {showRatio && numerator ? (
-            <div className={clsx("result-number-sub text-muted", {
-              small: shrink
-            })}>
+            <div
+              className={clsx("result-number-sub text-muted", {
+                small: shrink,
+              })}
+            >
               <em>
                 <span
                   style={{

@@ -98,7 +98,7 @@ export default function TrafficCard({
   }, [selectedDimension, traffic.dimension]);
 
   return (
-    <div className="appbox my-4 p-3">
+    <div className="box my-4 p-3">
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
           <h2 className="d-inline">{"Traffic"}</h2>
@@ -236,6 +236,7 @@ export default function TrafficCard({
             label="Users"
             datapoints={usersPerDate}
             formatter={formatNumber}
+            cumulative={cumulative}
           />
         </div>
       )}

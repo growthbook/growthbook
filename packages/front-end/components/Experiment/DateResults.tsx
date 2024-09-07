@@ -285,6 +285,7 @@ const DateResults: FC<{
           label="Users"
           datapoints={users}
           formatter={formatNumber}
+          cumulative={cumulative}
         />
       </div>
       {metricSections && (
