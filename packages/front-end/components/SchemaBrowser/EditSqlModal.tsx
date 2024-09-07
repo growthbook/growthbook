@@ -155,6 +155,7 @@ export default function EditSqlModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {

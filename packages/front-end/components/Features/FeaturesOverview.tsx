@@ -1307,6 +1307,7 @@ export default function FeaturesOverview({
         )}
         {logModal && revision && (
           <Modal
+            trackingEventModalType=""
             open={true}
             close={() => setLogModal(false)}
             header="Revision Log"
@@ -1367,6 +1368,7 @@ export default function FeaturesOverview({
         )}
         {confirmDiscard && (
           <Modal
+            trackingEventModalType=""
             open={true}
             close={() => setConfirmDiscard(false)}
             header="Discard Draft"

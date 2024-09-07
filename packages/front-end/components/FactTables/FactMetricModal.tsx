@@ -482,6 +482,7 @@ export default function FactMetricModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       header={existing ? "Edit Metric" : "Create Fact Table Metric"}
       close={close}

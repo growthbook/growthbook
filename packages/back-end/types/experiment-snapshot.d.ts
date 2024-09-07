@@ -13,7 +13,7 @@ import {
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
-import { AttributionModel } from "./experiment";
+import { AttributionModel, ExperimentInterfaceStringDates } from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
@@ -193,6 +193,10 @@ export interface ExperimentSnapshotInterface {
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;
+}
+
+export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
+  snapshot?: ExperimentSnapshotInterface;
 }
 
 export interface ExperimentSnapshotHealth {

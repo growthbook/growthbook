@@ -93,6 +93,7 @@ const SegmentForm: FC<{
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         open={true}
         size={"lg"}

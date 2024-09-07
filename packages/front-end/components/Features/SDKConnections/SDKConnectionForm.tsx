@@ -323,6 +323,7 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
+      trackingEventModalType=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       autoCloseOnSubmit={autoCloseOnSubmit}
@@ -1158,7 +1159,7 @@ export default function SDKConnectionForm({
                       </>
                     }
                   >
-                    Pass ID Lists by reference <FaInfoCircle />
+                    Pass Saved Groups by reference <FaInfoCircle />
                   </PremiumTooltip>
                 </label>
               </div>

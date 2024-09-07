@@ -73,7 +73,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   // Hit a hard cap and needs to contact sales to increase the number of seats on their license
   if (showContactSupport) {
     return (
-      <Modal open={true} close={close} size="md" header={"Reached seat limit"}>
+      <Modal
+        trackingEventModalType=""
+        open={true}
+        close={close}
+        size="md"
+        header={"Reached seat limit"}
+      >
         <div className="my-3">
           Whoops! You reached the seat limit on your license. To increase your
           number of seats, please contact{" "}
@@ -148,6 +154,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header="Invite Member"
       open={true}

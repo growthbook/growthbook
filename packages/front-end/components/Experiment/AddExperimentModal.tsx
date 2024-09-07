@@ -75,6 +75,7 @@ const AddExperimentModal: FC<{
     default:
       return (
         <Modal
+          trackingEventModalType=""
           open
           close={onClose}
           autoCloseOnSubmit={false}

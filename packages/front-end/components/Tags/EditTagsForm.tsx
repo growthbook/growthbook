@@ -21,6 +21,7 @@ const EditTagsForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header={"Edit Tags"}
       open={true}
       close={cancel}

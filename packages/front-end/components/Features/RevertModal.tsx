@@ -68,6 +68,7 @@ export default function RevertModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       header={`Revert`}
       submit={
