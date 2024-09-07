@@ -52,7 +52,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 type TooltipData = {
   x: number;
-  y: number[];
+  y?: number[];
   d: ExperimentDateGraphDataPoint;
   yaxis: "users" | "effect";
 };
@@ -200,7 +200,7 @@ const getTooltipData = (
         (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0
       )
     : undefined;
-  return { x, y: y ?? 0, d, yaxis };
+  return { x, y, d, yaxis };
 };
 
 const getYVal = (
@@ -288,7 +288,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.min(
-              ...d.variations.map((variation) => getYVal(variation, yaxis))
+              ...d.variations.map((variation) => getYVal(variation, yaxis) ?? 0)
             )
           : 0
       )
@@ -297,7 +297,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.max(
-              ...d.variations.map((variation) => getYVal(variation, yaxis))
+              ...d.variations.map((variation) => getYVal(variation, yaxis) ?? 0)
             )
           : 0
       )
@@ -307,7 +307,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         d?.variations
           ? Math.min(
               ...d.variations.map((variation) =>
-                variation.ci?.[0] ? variation.ci[0] : getYVal(variation, yaxis)
+                variation.ci?.[0]
+                  ? variation.ci[0]
+                  : getYVal(variation, yaxis) ?? 0
               )
             )
           : 0
@@ -318,7 +320,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         d?.variations
           ? Math.max(
               ...d.variations.map((variation) =>
-                variation.ci?.[1] ? variation.ci[1] : getYVal(variation, yaxis)
+                variation.ci?.[1]
+                  ? variation.ci[1]
+                  : getYVal(variation, yaxis) ?? 0
               )
             )
           : 0
@@ -497,22 +501,18 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   }
                   // Render the actual line chart for each variation
                   return (
-                    <>
-                      <LinePath
-                        key={`linepath_${i}`}
-                        data={datapoints}
-                        x={(d) => xScale(d.d)}
-                        y={(d) =>
-                          yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
-                        }
-                        stroke={getVariationColor(i, true)}
-                        strokeWidth={2}
-                        curve={curveMonotoneX}
-                        defined={(d) =>
-                          getYVal(d?.variations?.[i], yaxis) !== undefined
-                        }
-                      />
-                    </>
+                    <LinePath
+                      key={`linepath_${i}`}
+                      data={datapoints}
+                      x={(d) => xScale(d.d)}
+                      y={(d) => yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)}
+                      stroke={getVariationColor(i, true)}
+                      strokeWidth={2}
+                      curve={curveMonotoneX}
+                      defined={(d) =>
+                        getYVal(d?.variations?.[i], yaxis) !== undefined
+                      }
+                    />
                   );
                 })}
 
