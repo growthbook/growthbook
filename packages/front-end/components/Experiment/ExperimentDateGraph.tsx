@@ -11,13 +11,13 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { ScaleLinear } from "d3-scale";
 import { date, getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
+import {ScaleLinear} from "d3-scale";
 
 export interface DataPointVariation {
   v: number;
@@ -42,6 +42,7 @@ export interface ExperimentDateGraphProps {
   formatterOptions?: Intl.NumberFormatOptions;
   statsEngine?: StatsEngine;
   hasStats?: boolean;
+  maxGapHours?: number;
   cumulative?: boolean;
 }
 
@@ -227,6 +228,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   formatterOptions,
   statsEngine = "bayesian",
   hasStats = true,
+  maxGapHours = 24,
   cumulative = false,
 }) => {
   // yaxis = "users";
@@ -245,8 +247,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   } = useTooltip<TooltipData>();
 
   const datapoints = useMemo(() => {
-    const MAX_GAP_HOURS = 24;
-
     const sortedDates = cloneDeep(_datapoints).sort(
       (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
     );
@@ -258,7 +258,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         const currentDate = getValidDate(sortedDates[i].d);
         const nextDate = getValidDate(sortedDates[i + 1].d);
         let expectedDate = new Date(
-          currentDate.getTime() + MAX_GAP_HOURS * 60 * 60 * 1000
+          currentDate.getTime() + maxGapHours * 60 * 60 * 1000
         );
 
         while (expectedDate < nextDate) {
@@ -273,14 +273,14 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             });
           }
           expectedDate = new Date(
-            expectedDate.getTime() + MAX_GAP_HOURS * 60 * 60 * 1000
+            expectedDate.getTime() + maxGapHours * 60 * 60 * 1000
           );
         }
       }
     }
 
     return filledDates;
-  }, [_datapoints, cumulative]);
+  }, [_datapoints, cumulative, maxGapHours]);
 
   // Get y-axis domain
   const yDomain = useMemo<[number, number]>(() => {
@@ -373,7 +373,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             xScale,
             yaxis
           );
-          if (!data?.y) return;
+          if (!data?.y || data.y.every((v) => v === undefined)) {
+            hideTooltip();
+            return;
+          }
           showTooltip({
             tooltipLeft: data.x,
             tooltipTop: Math.max(Math.min(...data.y), 150),

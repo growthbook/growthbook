@@ -15,7 +15,6 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ScaleLinear } from "d3-scale";
 import { date, getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
@@ -23,6 +22,7 @@ import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { PartialOn } from "@/types/utils";
 import styles from "./DateGraph.module.scss";
+import {ScaleLinear} from "d3-scale";
 
 interface Datapoint {
   d: Date | number;

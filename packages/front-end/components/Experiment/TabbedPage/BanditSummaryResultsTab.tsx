@@ -6,6 +6,7 @@ import TabButtons from "@/components/Tabs/TabButtons";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -92,23 +93,44 @@ export default function BanditSummaryResultsTab({
       {showVisualizations && (
         <div className="mx-3 my-4">
           <h3>Time series</h3>
-          <TabButtons>
-            <TabButton
-              active={tab === "probabilities"}
-              display="Probabilities"
-              onClick={() => setTab("probabilities")}
-              newStyle={true}
-              activeClassName="active-tab"
-            />
-            <TabButton
-              active={tab === "weights"}
-              display="Variation Weights"
-              onClick={() => setTab("weights")}
-              newStyle={true}
-              activeClassName="active-tab"
-              last={true}
-            />
-          </TabButtons>
+          <div className="d-flex">
+            <TabButtons>
+              <TabButton
+                active={tab === "probabilities"}
+                display="Probabilities"
+                onClick={() => setTab("probabilities")}
+                newStyle={true}
+                activeClassName="active-tab"
+              />
+              <TabButton
+                active={tab === "weights"}
+                display="Variation Weights"
+                onClick={() => setTab("weights")}
+                newStyle={true}
+                activeClassName="active-tab"
+                last={true}
+              />
+            </TabButtons>
+            <div className="flex-1" />
+            <div>
+              <table className="table-tiny">
+                <tbody>
+                  <tr>
+                    <td className="text-muted">Bandit phase:</td>
+                    <td>{experiment.banditPhase}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">Update cadence:</td>
+                    <td>every {experiment.banditScheduleValue} {experiment.banditScheduleUnit}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+            </div>
+          </div>
+          <div>
+            <BanditDateGraph experiment={experiment} metric={metric} label={tab} mode={tab}/>
+          </div>
         </div>
       )}
     </div>
