@@ -5,13 +5,13 @@ import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import {AreaStack, LinePath} from "@visx/shape";
-import { curveMonotoneX } from "@visx/curve";
+import {curveMonotoneX, curveStepAfter} from "@visx/curve";
 import {
   TooltipWithBounds,
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { date, getValidDate } from "shared/dates";
+import {date, datetime, getValidDate} from "shared/dates";
 import cloneDeep from "lodash/cloneDeep";
 import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
@@ -95,7 +95,7 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
-      <div className="text-sm-right mt-1 mr-1">{date(d.d as Date)}</div>
+      <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
     </>
   );
 };
@@ -237,14 +237,23 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   const min = stackedData.length > 0 ? Math.min(...stackedData.map((d) => d.date.getTime())) : 0;
   const max = stackedData.length > 0 ? Math.max(...stackedData.map((d) => d.date.getTime())) : 0;
 
+  const gradients = variationNames.map((_, i) => (
+    <defs key={`gradient-${i}`}>
+      <linearGradient id={`gradient-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor={getVariationColor(i, true)} stopOpacity={0.75} />
+        <stop offset="100%" stopColor={getVariationColor(i, true)} stopOpacity={0.65} />
+      </linearGradient>
+    </defs>
+  ));
+
   return (
     <ParentSizeModern>
       {({ width }) => {
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
-        const numXTicks =
-          stackedData.length < 7 ? stackedData.length : width > 768 ? 7 : 4;
-        const numYTicks = 5;
+        // const numXTicks =
+        //   stackedData.length < 7 ? stackedData.length : width > 768 ? 7 : 4;
+        // const numYTicks = 5;
         const allXTicks = stackedData.map((p) => p.date.getTime());
 
         const xScale = scaleTime({
@@ -280,6 +289,15 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             tooltipData: data,
           });
         };
+
+        const startDate = stackedData[0].date;
+        const exploitDate = new Date(experiment.banditPhaseDateStarted ?? stackedData[stackedData.length - 1].date);
+        const exploreMask = (
+          <mask id="stripe-mask">
+            <rect x={xScale(startDate)} y={0} width={xScale(exploitDate) - xScale(startDate)} height={yMax} fill="url(#stripe-pattern)"/>
+            <rect x={xScale(exploitDate)} y="0" width={width - xScale(exploitDate)} height={yMax} fill="white"/>
+          </mask>
+        );
 
         return (
           <div className="position-relative">
@@ -349,19 +367,34 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               )}
             </div>
             <svg width={width} height={height}>
+              <defs>
+                <pattern
+                  id="stripe-pattern"
+                  patternUnits="userSpaceOnUse"
+                  width="6"
+                  height="6"
+                  patternTransform="rotate(45)"
+                >
+                  <rect fill="#cccccc" width="3.5" height="6"/>
+                  <rect fill="#aaaaaa" x="3.5" width="2.5" height="6"/>
+                </pattern>
+                {exploreMask}
+              </defs>
+              {gradients}
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
                   scale={yScale}
                   width={xMax}
-                  numTicks={numYTicks}
+                  tickValues={[0.25, 0.5, 0.75]}
                   stroke="var(--border-color-200)"
                 />
                 <GridColumns
                   scale={xScale}
                   stroke="var(--border-color-200)"
                   height={yMax}
-                  numTicks={numXTicks}
-                  tickValues={numXTicks < 7 ? allXTicks : undefined}
+                  // numTicks={numXTicks}
+                  // tickValues={numXTicks < 7 ? allXTicks : undefined}
+                  tickValues={allXTicks}
                 />
 
                 <AreaStack
@@ -370,14 +403,17 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   x={d => xScale(d.data.date)}
                   y0={d => yScale(d[0])}
                   y1={d => yScale(d[1])}
+                  order="reverse"
+                  curve={curveStepAfter}
                 >
-                  {({ stacks, path }) =>
+                  {({stacks, path}) =>
                     stacks.map((stack, i) => (
                       <path
                         key={`stack-${stack.key}`}
                         d={path(stack) || ''}
-                        stroke="transparent"
-                        fill={getVariationColor(i, true)}
+                        stroke={getVariationColor(i, true)}
+                        fill={`url(#gradient-${i})`}
+                        mask="url(#stripe-mask)"
                       />
                     ))
                   }
@@ -386,7 +422,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 <AxisBottom
                   top={yMax}
                   scale={xScale}
-                  numTicks={numXTicks}
+                  // numTicks={numXTicks}
+                  tickValues={allXTicks}
                   // tickLabelProps={() => ({
                   //   fill: "var(--text-color-table)",
                   //   fontSize: 11,
@@ -407,23 +444,27 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       fill: "var(--text-color-table)",
                       fontSize: 11,
                       textAnchor: "middle",
-                      dx: i < allXTicks.length - 1 ? -5 : -20
+                      dx: i < allXTicks.length - 1 ? 0 : -20,
+                      dy: 5
                     };
                   }}
                   tickFormat={(d) => {
                     return date(d as Date);
                   }}
-                  tickValues={numXTicks < 7 ? allXTicks : undefined}
+                  // tickValues={numXTicks < 7 ? allXTicks : undefined}
                 />
                 <AxisLeft
                   scale={yScale}
-                  numTicks={numYTicks}
+                  // numTicks={numYTicks}
+                  tickValues={[0, 0.25, 0.5, 0.75, 1]}
                   labelOffset={50}
                   tickFormat={(v) => formatter(v as number)}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 11,
                     textAnchor: "end",
+                    dx: -5,
+                    dy: 3
                   })}
                   label={label}
                   labelClassName="h5"
