@@ -49,7 +49,7 @@ type TooltipData = {
 };
 
 const height = 300;
-const margin = [15, 25, 50, 65];
+const margin = [15, 25, 50, 70];
 
 const getTooltipContents = (
   data: TooltipData,
@@ -361,7 +361,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 {getTooltipContents(tooltipData, variationNames, mode)}
               </TooltipWithBounds>
             )}
-            <div className="d-flex flex-wrap" style={{ gap: "0.25rem 1rem" }}>
+            <div
+              className="d-flex flex-wrap px-3 mb-2"
+              style={{ gap: "0.25rem 1rem" }}
+            >
               {variationNames.map((v, i) => {
                 return (
                   <div

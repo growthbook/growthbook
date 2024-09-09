@@ -198,6 +198,11 @@ export default function BanditSummaryTable({
                 return (
                   <tr
                     className="results-variation-row align-items-center"
+                    style={
+                      j === variations.length - 1
+                        ? { boxShadow: "none" }
+                        : undefined
+                    }
                     key={j}
                   >
                     <td
