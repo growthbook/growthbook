@@ -26,8 +26,10 @@ import styles from "./ExperimentDateGraph.module.scss";
 export interface DataPointVariation {
   probability?: number;
   weight?: number;
+  users?: number;
   cr?: number;
   ci?: number;
+  rawCi?: number;
   snapshotId?: string;
 }
 export interface BanditDateGraphDataPoint {
@@ -113,17 +115,17 @@ const getTooltipContents = (
                     [
                     {metric
                       ? getExperimentMetricFormatter(metric, getFactTableById)(
-                          meta?.[i].ci?.[0] ?? 0,
+                          meta?.[i].rawCi?.[0] ?? 0,
                           metricFormatterOptions
                         )
-                      : meta?.[i].ci?.[0] ?? 0}
+                      : meta?.[i].rawCi?.[0] ?? 0}
                     ,{" "}
                     {metric
                       ? getExperimentMetricFormatter(metric, getFactTableById)(
-                          meta?.[i].ci?.[1] ?? 0,
+                          meta?.[i].rawCi?.[1] ?? 0,
                           metricFormatterOptions
                         )
-                      : meta?.[i].ci?.[1] ?? 0}
+                      : meta?.[i].rawCi?.[1] ?? 0}
                     ]
                   </td>
                 )}
@@ -222,19 +224,37 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     const stackedData: any[] = [];
 
     let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
+    let lastUsers = variationNames.map(() => 0);
     let lastCrs = variationNames.map(() => 0);
     events.forEach((event) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
+
       const weights = event.banditResult?.weights ?? [];
+
+      const users = variationNames.map(
+        (_, i) =>
+          (event.banditResult?.singleVariationResults?.[i]?.users ?? 0) +
+          lastUsers[i]
+      );
+      lastUsers = users;
+
       const crs = variationNames.map(
         (_, i) =>
           (event.banditResult?.singleVariationResults?.[i]?.cr ?? 0) +
           lastCrs[i]
       );
       lastCrs = crs;
+
+      const rawCis = event.banditResult?.singleVariationResults?.map((svr, i) =>
+        svr?.ci ? svr.ci.map((cii) => cii + (lastVal?.[i] ?? 0)) : undefined
+      );
       const cis = event.banditResult?.singleVariationResults?.map((svr, i) =>
-        svr?.ci ? svr.ci.map((cii) => cii + (crs?.[i] ?? 0)) : undefined
+        svr?.ci
+          ? svr.ci.map((cii) =>
+              (users?.[i] ?? 0) > 0 ? cii + (lastVal?.[i] ?? 0) : undefined
+            )
+          : undefined
       );
 
       const dataPoint: any = {
@@ -259,8 +279,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         dataPoint.meta[i] = {
           probabilities: bestArmProbabilities[i],
           weights: weights[i],
+          users: users?.[i],
           cr: crs[i],
           ci: cis?.[i],
+          rawCi: rawCis?.[i],
         };
       });
       if (allEmpty) {
@@ -305,18 +327,20 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       mode === "values"
         ? scaleLinear<number>({
             domain: [
-              0,
+              Math.min(
+                ...stackedData.map((d) =>
+                  Math.min(
+                    ...variationNames.map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
+                  )
+                )
+              ) * 1.03,
               Math.max(
                 ...stackedData.map((d) =>
                   Math.max(
-                    ...variationNames.map((_, i) => {
-                      const val = d?.[i] ?? 0;
-                      const s = (d?.meta?.[i]?.ci?.[1] ?? val) - val;
-                      return Math.min(val * 2, val + s * 2);
-                    })
+                    ...variationNames.map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
                   )
                 )
-              ),
+              ) * 1.03,
             ],
             range: [yMax, 0],
             round: true,
@@ -423,13 +447,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               x1={xScale(exploitDate)}
               y1={0}
               x2={xScale(exploitDate)}
-              y2={yMax + 20} // Adjust length of tick mark
-              stroke="green"
+              y2={yMax}
+              stroke="#66a9"
             />
             <text
-              x={xScale(exploitDate) - 10}
-              y={yMax + 34}
-              fill="green"
+              x={xScale(exploitDate) - 5}
+              y={yMax + 36}
+              fill="#66a"
               textAnchor="middle"
               fontSize={12}
               fontStyle={"italic"}
@@ -583,7 +607,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         data={stackedData}
                         x={(d) => xScale(d.date)}
                         y0={(d) => yScale(d?.meta?.[i]?.ci?.[0] ?? 0) ?? 0}
-                        y1={(d, i) => yScale(d?.meta?.[i]?.ci?.[1] ?? 0) ?? 0}
+                        y1={(d) => yScale(d?.meta?.[i]?.ci?.[1] ?? 0) ?? 0}
                         fill={getVariationColor(i, true)}
                         opacity={0.12}
                         curve={curveMonotoneX}
