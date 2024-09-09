@@ -21,7 +21,7 @@ export default function BanditSummaryResultsTab({
 }: Props) {
   const [chartMode, setChartMode] = useLocalStorage<
     "values" | "probabilities" | "weights"
-  >(`banditSummaryResultsChartMode__${experiment.id}`, "probabilities");
+  >(`banditSummaryResultsChartMode__${experiment.id}`, "values");
   const [chartType, setChartType] = useLocalStorage<"area" | "line">(
     `banditSummaryResultsChartType__${experiment.id}`,
     "line"
@@ -163,8 +163,9 @@ export default function BanditSummaryResultsTab({
                 experiment={experiment}
                 metric={metric}
                 label={
-                  chartMode === "values" ? undefined :
-                  chartMode === "probabilities"
+                  chartMode === "values"
+                    ? undefined
+                    : chartMode === "probabilities"
                     ? "Probability of Winning"
                     : "Variation Weight"
                 }
