@@ -61,6 +61,7 @@ import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
+import FallbackAttributeSelector from "./FallbackAttributeSelector";
 
 export interface Props {
   close: () => void;
@@ -382,6 +383,7 @@ export default function RuleModal({
                 feature.project || ""
               ),
               hashAttribute: values.hashAttribute,
+              fallbackAttribute: values.fallbackAttribute || "",
               goalMetrics: [],
               secondaryMetrics: [],
               guardrailMetrics: [],
@@ -832,6 +834,10 @@ export default function RuleModal({
 
       {type !== "experiment-ref" && (
         <div className="mt-4">
+          <FallbackAttributeSelector
+            form={form}
+            attributeSchema={attributeSchema}
+          />
           <SavedGroupTargetingField
             value={form.watch("savedGroups") || []}
             setValue={(savedGroups) =>
