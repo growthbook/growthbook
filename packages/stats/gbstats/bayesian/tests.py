@@ -540,7 +540,7 @@ class Bandits:
         return (n - 1) * v + n * mn**2
 
     @staticmethod
-    def dot_product_from_moments(n, mn_x, mn_y, cov_x_y):
+    def cross_product_from_moments(n, mn_x, mn_y, cov_x_y):
         return (n - 1) * cov_x_y + n * mn_x * mn_y
 
     def make_row(self, dimension, variation_index, variation_value):
@@ -634,12 +634,10 @@ class BanditsRatio(Bandits):
             [
                 variance_of_ratios(
                     self.numerator_means[variation],
-                    self.numerator_variances[variation]
-                    / self.variation_counts[variation],
+                    self.numerator_variances[variation],
                     self.denominator_means[variation],
-                    self.denominator_variances[variation]
-                    / self.variation_counts[variation],
-                    self.covariances[variation] / self.variation_counts[variation],
+                    self.denominator_variances[variation],
+                    self.covariances[variation],
                 )
                 if self.variation_counts[variation] > 0
                 else 0
@@ -656,7 +654,7 @@ class BanditsRatio(Bandits):
         v_num = self.numerator_variances[variation_index]
         mn_den = self.denominator_means[variation_index]
         v_den = self.denominator_variances[variation_index]
-        cov_num_den = self.covariances[variation_index]
+        cross_product = self.covariances[variation_index] + mn_num * mn_den
         return {
             "dimension": dimension,
             "variation": variation_value,
@@ -666,9 +664,7 @@ class BanditsRatio(Bandits):
             "main_sum_squares": self.sum_squares_from_moments(n, mn_num, v_num),
             "denominator_sum": self.sum_from_moments(n, mn_den),
             "denominator_sum_squares": self.sum_squares_from_moments(n, mn_den, v_den),
-            "main_denominator_sum_product": self.dot_product_from_moments(
-                n, mn_num, mn_den, cov_num_den
-            ),
+            "main_denominator_sum_product": cross_product,
         }
 
 
