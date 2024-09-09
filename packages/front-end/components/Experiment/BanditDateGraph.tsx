@@ -57,8 +57,8 @@ type TooltipData = {
   d: BanditDateGraphDataPoint;
 };
 
-const height = 220;
-const margin = [15, 15, 30, 80];
+const height = 300;
+const margin = [15, 25, 50, 65];
 
 // Render the contents of a tooltip
 const getTooltipContents = (
@@ -291,13 +291,36 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         };
 
         const startDate = stackedData[0].date;
-        const exploitDate = new Date(experiment.banditPhaseDateStarted ?? stackedData[stackedData.length - 1].date);
+        // todo: handle no exploitDate (still exploring)
+        const exploitDate = experiment.banditPhaseDateStarted ? new Date(experiment.banditPhaseDateStarted) : undefined;
+        const lastDate = stackedData[stackedData.length - 1].date;
         const exploreMask = (
           <mask id="stripe-mask">
-            <rect x={xScale(startDate)} y={0} width={xScale(exploitDate) - xScale(startDate)} height={yMax} fill="url(#stripe-pattern)"/>
-            <rect x={xScale(exploitDate)} y="0" width={width - xScale(exploitDate)} height={yMax} fill="white"/>
+            <rect x={xScale(startDate)} y={0} width={xScale(exploitDate ?? lastDate) - xScale(startDate)} height={yMax} fill="url(#stripe-pattern)"/>
+            <rect x={xScale(exploitDate ?? lastDate)} y="0" width={width - xScale(exploitDate ?? lastDate)} height={yMax} fill="white"/>
           </mask>
         );
+        const exploreTick = exploitDate ? (
+          <g>
+            <line
+              x1={xScale(exploitDate)}
+              y1={0}
+              x2={xScale(exploitDate)}
+              y2={yMax + 20}  // Adjust length of tick mark
+              stroke="green"
+            />
+            <text
+              x={xScale(exploitDate)-10}
+              y={yMax + 34}
+              fill="green"
+              textAnchor="middle"
+              fontSize={12}
+              fontStyle={"italic"}
+            >
+              Burn-in end
+            </text>
+          </g>
+        ) : null;
 
         return (
           <div className="position-relative">
@@ -430,12 +453,17 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   //   textAnchor: "middle",
                   // })}
                   tickLabelProps={(value, i) => {
-                    // Get the position of the current tick and the previous tick
                     const currentX = xScale(value);
-                    const prevX = i > 0 ? xScale(allXTicks[i - 1]) : undefined;
+                    let hide = false;
 
-                    // Define an offset if ticks are too close
-                    const hide = prevX && Math.abs(currentX - prevX) < (width * 0.05);
+                    // Loop through previous ticks to see if any are too close
+                    for (let j = 0; j < i; j++) {
+                      const prevX = xScale(allXTicks[j]);
+                      if (Math.abs(currentX - prevX) < width * 0.05) {
+                        hide = true;
+                        break;  // Stop checking if a close tick is found
+                      }
+                    }
                     if (hide) return {
                       display: "none"
                     };
@@ -453,11 +481,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   }}
                   // tickValues={numXTicks < 7 ? allXTicks : undefined}
                 />
+                {exploreTick}
                 <AxisLeft
                   scale={yScale}
                   // numTicks={numYTicks}
                   tickValues={[0, 0.25, 0.5, 0.75, 1]}
-                  labelOffset={50}
+                  labelOffset={40}
                   tickFormat={(v) => formatter(v as number)}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
