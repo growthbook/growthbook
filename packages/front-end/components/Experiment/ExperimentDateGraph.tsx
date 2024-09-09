@@ -14,10 +14,10 @@ import {
 import { date, getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import cloneDeep from "lodash/cloneDeep";
+import { ScaleLinear } from "d3-scale";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
-import {ScaleLinear} from "d3-scale";
 
 export interface DataPointVariation {
   v: number;
@@ -408,8 +408,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 return (
                   <div
                     key={i}
-                    className="nowrap"
-                    style={{ color: getVariationColor(i, true) }}
+                    className="nowrap text-ellipsis"
+                    style={{ maxWidth: 200, color: getVariationColor(i, true) }}
                   >
                     <strong>&mdash;</strong> {v}
                   </div>

@@ -102,7 +102,8 @@ export default function TrafficCard({
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
           <h2 className="d-inline">{"Traffic"}</h2>
-          <div className="col-2 ml-auto">
+          <div className="flex-1" />
+          <div className="col-auto">
             <div className="uppercase-title text-muted">Dimension</div>
             <SelectField
               containerClassName={"select-dropdown-underline"}

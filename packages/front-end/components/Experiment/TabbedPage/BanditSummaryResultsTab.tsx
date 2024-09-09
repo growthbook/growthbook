@@ -1,12 +1,14 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
+import { LiaChartLineSolid } from "react-icons/lia";
+import { TbChartAreaLineFilled } from "react-icons/tb";
+import { ago } from "shared/dates";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import TabButton from "@/components/Tabs/TabButton";
-import TabButtons from "@/components/Tabs/TabButtons";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
+import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -20,6 +22,10 @@ export default function BanditSummaryResultsTab({
   const [tab, setTab] = useLocalStorage<"probabilities" | "weights">(
     `banditSummaryResultsTab__${experiment.id}`,
     "probabilities"
+  );
+  const [chartType, setChartType] = useLocalStorage<"area" | "line">(
+    `banditSummaryResultsChartType__${experiment.id}`,
+    "line"
   );
 
   const phase = experiment.phases?.[experiment.phases.length - 1];
@@ -91,28 +97,46 @@ export default function BanditSummaryResultsTab({
       </div>
 
       {showVisualizations && (
-        <div className="mx-3 my-4">
+        <div className="mx-3 mt-5 mb-3">
           <h3>Time series</h3>
-          <div className="d-flex">
-            <TabButtons>
-              <TabButton
-                active={tab === "probabilities"}
-                display="Probabilities"
-                onClick={() => setTab("probabilities")}
-                newStyle={true}
-                activeClassName="active-tab"
+          <div className="d-flex mb-3">
+            <div>
+              <label className="uppercase-title">Y-axis</label>
+              <ButtonSelectField
+                value={tab}
+                setValue={(v) => setTab(v)}
+                options={[
+                  {
+                    label: "Probabilities",
+                    value: "probabilities",
+                  },
+                  {
+                    label: "Variation Weights",
+                    value: "weights",
+                  },
+                ]}
               />
-              <TabButton
-                active={tab === "weights"}
-                display="Variation Weights"
-                onClick={() => setTab("weights")}
-                newStyle={true}
-                activeClassName="active-tab"
-                last={true}
+            </div>
+            <div className="ml-4">
+              <label className="uppercase-title">Chart type</label>
+              <ButtonSelectField
+                value={chartType}
+                setValue={(v) => setChartType(v)}
+                options={[
+                  {
+                    label: <LiaChartLineSolid size={20} />,
+                    value: "line",
+                  },
+                  {
+                    label: <TbChartAreaLineFilled size={20} />,
+                    value: "area",
+                  },
+                ]}
               />
-            </TabButtons>
+            </div>
             <div className="flex-1" />
             <div>
+              <label className="uppercase-title">Bandit Status</label>
               <table className="table-tiny">
                 <tbody>
                   <tr>
@@ -121,15 +145,39 @@ export default function BanditSummaryResultsTab({
                   </tr>
                   <tr>
                     <td className="text-muted">Update cadence:</td>
-                    <td>every {experiment.banditScheduleValue} {experiment.banditScheduleUnit}</td>
+                    <td>
+                      every {experiment.banditScheduleValue}{" "}
+                      {experiment.banditScheduleUnit}
+                    </td>
                   </tr>
+                  {["explore", "exploit"].includes(experiment.banditPhase) && (
+                    <tr>
+                      <td className="text-muted">Next run:</td>
+                      <td>
+                        {experiment.nextSnapshotAttempt &&
+                        experiment.autoSnapshots ? (
+                          ago(experiment.nextSnapshotAttempt)
+                        ) : (
+                          <em>Not scheduled</em>
+                        )}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-
             </div>
           </div>
           <div>
-            <BanditDateGraph experiment={experiment} metric={metric} label={tab} mode={tab}/>
+            <BanditDateGraph
+              experiment={experiment}
+              label={
+                tab === "probabilities"
+                  ? "Chance to be Best"
+                  : "Variation Weight"
+              }
+              mode={tab}
+              type={chartType}
+            />
           </div>
         </div>
       )}
