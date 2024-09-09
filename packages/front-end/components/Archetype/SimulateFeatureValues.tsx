@@ -13,6 +13,7 @@ import {
 } from "@back-end/types/archetype";
 import { FeatureTestResult } from "@back-end/types/feature";
 import Link from "next/link";
+import { FaInfoCircle } from "react-icons/fa";
 import {
   useEnvironments,
   useFeatureSearch,
@@ -30,6 +31,8 @@ import { ArchetypeValueDisplay } from "@/components/Features/ValueDisplay";
 import Pagination from "@/components/Pagination";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SimulateFeatureModal from "@/components/Archetype/SimulateFeatureModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -68,6 +71,8 @@ export const SimulateFeatureValues: FC<{
     },
     [tagsFilter.tags]
   );
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canCreateArchetype();
 
   const { searchInputProps, items, SortableTH } = useFeatureSearch({
     allFeatures,
@@ -173,6 +178,214 @@ export const SimulateFeatureValues: FC<{
     environmentOptions.unshift({ label: "All", value: "all" });
   }
 
+  const featureTableResults = (
+    <>
+      <div className="mb-3">
+        <div className="row mb-3">
+          <div className="col">
+            <div
+              className="border border-primary bg-white p-3 rounded cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setEditAttributesModalOpen(true);
+              }}
+            >
+              {attributeText} {attributeNodes}
+              <br />
+              <a
+                href="#"
+                className="mt-2 d-inline-block"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditAttributesModalOpen(true);
+                }}
+              >
+                {attributes && Object.keys(attributes).length ? "Edit" : "Set"}{" "}
+                User Attributes
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            opacity: featureResults.length > 0 ? 1 : 0.75,
+          }}
+        >
+          <div className="mb-2 d-flex">
+            <div className="mr-2">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </div>
+            <div className="align-self-center">
+              <TagsFilter filter={tagsFilter} items={items} />
+            </div>
+            <div className="ml-auto">
+              {showEnvDropdown && (
+                <div className="d-flex flex-nowrap">
+                  <div className="mr-1 align-self-center small">
+                    Environment:
+                  </div>
+                  <SelectField
+                    value={!selectedEnvironment ? "all" : selectedEnvironment}
+                    options={environmentOptions}
+                    onChange={(e) => {
+                      setSelectedEnvironment(e);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <table className="table gbtable table-hover appbox">
+            <thead
+              className="sticky-top bg-white shadow-sm"
+              style={{ top: "56px", zIndex: 900 }}
+            >
+              <tr>
+                <th>Name</th>
+                <SortableTH field="tags">Tags</SortableTH>
+                <th>Prerequisites</th>
+                {selectedEnvironment !== "all" ? (
+                  <th>{selectedEnvironment}</th>
+                ) : (
+                  <>
+                    {environments.slice(0, maxEnvironments).map((en) => (
+                      <th key={en.id + "head"} className="">
+                        {en.id}
+                      </th>
+                    ))}
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {featureItems.map((feature) => {
+                // get a list of all the prerequisites for this feature - both top level and rule prerequisites.
+                const prerequisites =
+                  feature.prerequisites?.map((p) => {
+                    return p.id;
+                  }) ?? [];
+                if (feature.environmentSettings) {
+                  Object.values(feature.environmentSettings).forEach(
+                    (envSetting) => {
+                      if (envSetting.rules) {
+                        envSetting.rules.forEach((rule) => {
+                          if (rule.prerequisites) {
+                            rule.prerequisites.forEach((p) => {
+                              if (!prerequisites.includes(p.id)) {
+                                prerequisites.push(p.id);
+                              }
+                            });
+                          }
+                        });
+                      }
+                    }
+                  );
+                }
+                return (
+                  <Fragment key={feature.id + "results"}>
+                    <tr className={feature.archived ? "text-muted" : ""}>
+                      <td>
+                        <Link
+                          href={`/features/${feature.id}`}
+                          className={feature.archived ? "text-muted" : ""}
+                        >
+                          {feature.id}
+                        </Link>
+                      </td>
+                      <td>
+                        <SortedTags tags={feature?.tags || []} />
+                      </td>
+                      <td className="small">
+                        {prerequisites &&
+                          prerequisites.map((p, i) => {
+                            return (
+                              <Fragment key={`loop-${i}`}>
+                                <Link href={`/features/${p}`}>{p}</Link>
+                                {i === (prerequisites?.length || 1) - 1
+                                  ? ""
+                                  : ", "}
+                              </Fragment>
+                            );
+                          })}
+                      </td>
+                      {selectedEnvironment !== "all" ? (
+                        (() => {
+                          const res = featureResultsMap.get(
+                            feature.id + selectedEnvironment
+                          );
+                          if (!res) {
+                            return <td>-</td>;
+                          }
+                          return (
+                            <td>
+                              <div>
+                                {ArchetypeValueDisplay({
+                                  result: res,
+                                  feature,
+                                })}
+                              </div>
+                            </td>
+                          ); // Replace this with what you want to render
+                        })()
+                      ) : (
+                        <>
+                          {environments.slice(0, maxEnvironments).map((en) => {
+                            const res = featureResultsMap.get(
+                              feature.id + en.id
+                            );
+                            if (!res) {
+                              return (
+                                <td key={"unknown-" + en.id + feature.id}>-</td>
+                              );
+                            }
+                            return (
+                              <td
+                                key={feature.id + en.id + "row"}
+                                className="position-relative  cursor-pointer"
+                              >
+                                <div>
+                                  {ArchetypeValueDisplay({
+                                    result: res,
+                                    feature,
+                                  })}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </>
+                      )}
+                    </tr>
+                  </Fragment>
+                );
+              })}
+              {!items.length && (
+                <tr>
+                  <td colSpan={numColumns}>No matching features</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
+            <Pagination
+              numItemsTotal={items.length}
+              currentPage={currentPage}
+              perPage={NUM_PER_PAGE}
+              onPageChange={(d) => {
+                setCurrentPage(d);
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <>
       {editAttributesModalOpen && (
@@ -197,215 +410,43 @@ export const SimulateFeatureValues: FC<{
             <h1>Simulate Features</h1>
           </div>
         </div>
-        <div className="mb-3">
-          <div className="row mb-3">
-            <div className="col">
-              <div
-                className="border border-primary bg-white p-3 rounded cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditAttributesModalOpen(true);
-                }}
-              >
-                {attributeText} {attributeNodes}
-                <br />
-                <a
-                  href="#"
-                  className="mt-2 d-inline-block"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditAttributesModalOpen(true);
-                  }}
-                >
-                  {attributes && Object.keys(attributes).length
-                    ? "Edit"
-                    : "Set"}{" "}
-                  User Attributes
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              opacity: featureResults.length > 0 ? 1 : 0.75,
-            }}
+        {!canCreate ? (
+          <PremiumTooltip
+            commercialFeature="simulate-features"
+            body={
+              <>
+                <p className="mb-2 premium">
+                  <FaInfoCircle className="mr-1" />
+                  This is a premium feature
+                </p>
+                <p>
+                  Simulate features using different user attributes to see which
+                  values they would be assigned.
+                </p>
+              </>
+            }
           >
-            <div className="mb-2 d-flex">
-              <div className="mr-2">
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
-              </div>
-              <div className="align-self-center">
-                <TagsFilter filter={tagsFilter} items={items} />
-              </div>
-              <div className="ml-auto">
-                {showEnvDropdown && (
-                  <div className="d-flex flex-nowrap">
-                    <div className="mr-1 align-self-center small">
-                      Environment:
-                    </div>
-                    <SelectField
-                      value={!selectedEnvironment ? "all" : selectedEnvironment}
-                      options={environmentOptions}
-                      onChange={(e) => {
-                        setSelectedEnvironment(e);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <table className="table gbtable table-hover appbox">
-              <thead
-                className="sticky-top bg-white shadow-sm"
-                style={{ top: "56px", zIndex: 900 }}
-              >
-                <tr>
-                  <th>Name</th>
-                  <SortableTH field="tags">Tags</SortableTH>
-                  <th>Prerequisites</th>
-                  {selectedEnvironment !== "all" ? (
-                    <th>{selectedEnvironment}</th>
-                  ) : (
-                    <>
-                      {environments.slice(0, maxEnvironments).map((en) => (
-                        <th key={en.id + "head"} className="">
-                          {en.id}
-                        </th>
-                      ))}
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {featureItems.map((feature) => {
-                  // get a list of all the prerequisites for this feature - both top level and rule prerequisites.
-                  const prerequisites =
-                    feature.prerequisites?.map((p) => {
-                      return p.id;
-                    }) ?? [];
-                  if (feature.environmentSettings) {
-                    Object.values(feature.environmentSettings).forEach(
-                      (envSetting) => {
-                        if (envSetting.rules) {
-                          envSetting.rules.forEach((rule) => {
-                            if (rule.prerequisites) {
-                              rule.prerequisites.forEach((p) => {
-                                if (!prerequisites.includes(p.id)) {
-                                  prerequisites.push(p.id);
-                                }
-                              });
-                            }
-                          });
-                        }
-                      }
-                    );
-                  }
-                  return (
-                    <Fragment key={feature.id + "results"}>
-                      <tr className={feature.archived ? "text-muted" : ""}>
-                        <td>
-                          <Link
-                            href={`/features/${feature.id}`}
-                            className={feature.archived ? "text-muted" : ""}
-                          >
-                            {feature.id}
-                          </Link>
-                        </td>
-                        <td>
-                          <SortedTags tags={feature?.tags || []} />
-                        </td>
-                        <td className="small">
-                          {prerequisites &&
-                            prerequisites.map((p, i) => {
-                              return (
-                                <Fragment key={`loop-${i}`}>
-                                  <Link href={`/features/${p}`}>{p}</Link>
-                                  {i === (prerequisites?.length || 1) - 1
-                                    ? ""
-                                    : ", "}
-                                </Fragment>
-                              );
-                            })}
-                        </td>
-                        {selectedEnvironment !== "all" ? (
-                          (() => {
-                            const res = featureResultsMap.get(
-                              feature.id + selectedEnvironment
-                            );
-                            if (!res) {
-                              return <td>-</td>;
-                            }
-                            return (
-                              <td>
-                                <div>
-                                  {ArchetypeValueDisplay({
-                                    result: res,
-                                    feature,
-                                  })}
-                                </div>
-                              </td>
-                            ); // Replace this with what you want to render
-                          })()
-                        ) : (
-                          <>
-                            {environments
-                              .slice(0, maxEnvironments)
-                              .map((en) => {
-                                const res = featureResultsMap.get(
-                                  feature.id + en.id
-                                );
-                                if (!res) {
-                                  return (
-                                    <td key={"unknown-" + en.id + feature.id}>
-                                      -
-                                    </td>
-                                  );
-                                }
-                                return (
-                                  <td
-                                    key={feature.id + en.id + "row"}
-                                    className="position-relative  cursor-pointer"
-                                  >
-                                    <div>
-                                      {ArchetypeValueDisplay({
-                                        result: res,
-                                        feature,
-                                      })}
-                                    </div>
-                                  </td>
-                                );
-                              })}
-                          </>
-                        )}
-                      </tr>
-                    </Fragment>
-                  );
-                })}
-                {!items.length && (
-                  <tr>
-                    <td colSpan={numColumns}>No matching features</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
-              <Pagination
-                numItemsTotal={items.length}
-                currentPage={currentPage}
-                perPage={NUM_PER_PAGE}
-                onPageChange={(d) => {
-                  setCurrentPage(d);
+            <div
+              className="position-relative"
+              style={{ filter: "blur(1.2px)" }}
+            >
+              {featureTableResults}
+              <div
+                className=""
+                style={{
+                  position: "absolute",
+                  background: "rgba(255,255,255,0.1)",
+                  top: "0",
+                  bottom: "0",
+                  left: "0",
+                  right: "0",
                 }}
-              />
-            )}
-          </div>
-        </div>
+              ></div>
+            </div>
+          </PremiumTooltip>
+        ) : (
+          <>{featureTableResults}</>
+        )}
       </div>
     </>
   );

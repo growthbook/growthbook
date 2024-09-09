@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";
 import AttributeForm from "@/components/Archetype/AttributeForm";
 import Modal from "@/components/Modal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const SimulateFeatureModal: FC<{
   archetype: string;
@@ -30,6 +31,9 @@ const SimulateFeatureModal: FC<{
       attributes: attributes || "",
     },
   });
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canCreateArchetype();
+
   // get all the archetypes for use in the select field options
   const archetypeOptions: { value: string; label: string }[] = [];
   for (const [key, value] of archetypeMap) {
@@ -53,38 +57,44 @@ const SimulateFeatureModal: FC<{
         onSubmit(simulateForm.getValues());
       }}
     >
-      <div>
-        <div className="row">
-          <div className="col mb-3">
-            <h4>Select Archetype</h4>
-            <SelectField
-              value={archetype}
-              options={archetypeOptions}
-              onChange={(a) => {
-                try {
-                  const attrsText = archetypeMap.get(a)?.attributes || "{}";
-                  const attrs = JSON.parse(attrsText);
-                  simulateForm.setValue("archetype", a);
+      {!canCreate ? (
+        <div className="p-3 text-center">
+          This feature is part of our enterprise plan.
+        </div>
+      ) : (
+        <div>
+          <div className="row">
+            <div className="col mb-3">
+              <h4>Select Archetype</h4>
+              <SelectField
+                value={archetype}
+                options={archetypeOptions}
+                onChange={(a) => {
+                  try {
+                    const attrsText = archetypeMap.get(a)?.attributes || "{}";
+                    const attrs = JSON.parse(attrsText);
+                    simulateForm.setValue("archetype", a);
+                    simulateForm.setValue("attributes", attrs);
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <div className="row">
+            <div className="col-12">
+              <AttributeForm
+                initialValues={simulateForm.watch("attributes")}
+                onChange={(attrs) => {
                   simulateForm.setValue("attributes", attrs);
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-            />
+                  simulateForm.setValue("archetype", "");
+                }}
+              />
+            </div>
           </div>
         </div>
-        <div className="row">
-          <div className="col-12">
-            <AttributeForm
-              initialValues={simulateForm.watch("attributes")}
-              onChange={(attrs) => {
-                simulateForm.setValue("attributes", attrs);
-                simulateForm.setValue("archetype", "");
-              }}
-            />
-          </div>
-        </div>
-      </div>
+      )}
     </Modal>
   );
 };
