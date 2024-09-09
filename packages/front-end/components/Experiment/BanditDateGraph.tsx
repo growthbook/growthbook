@@ -6,7 +6,7 @@ import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
-import { AreaStack, LinePath } from "@visx/shape";
+import { AreaClosed, AreaStack, LinePath } from "@visx/shape";
 import { curveMonotoneX, curveStepAfter } from "@visx/curve";
 import {
   TooltipWithBounds,
@@ -16,13 +16,18 @@ import {
 import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { formatNumber } from "@/services/metrics";
+import { MetricInterface } from "@back-end/types/metric";
+import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
+import { useCurrency } from "@/hooks/useCurrency";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
   probability?: number;
   weight?: number;
+  cr?: number;
+  ci?: number;
   snapshotId?: string;
 }
 export interface BanditDateGraphDataPoint {
@@ -31,8 +36,9 @@ export interface BanditDateGraphDataPoint {
 }
 export interface BanditDateGraphProps {
   experiment: ExperimentInterfaceStringDates;
-  label: string;
-  mode: "probabilities" | "weights";
+  metric: MetricInterface | null;
+  label?: string;
+  mode: "values" | "probabilities" | "weights";
   type: "line" | "area";
 }
 
@@ -54,7 +60,10 @@ const margin = [15, 25, 50, 70];
 const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
-  mode: "probabilities" | "weights"
+  mode: "values" | "probabilities" | "weights",
+  metric,
+  getFactTableById,
+  metricFormatterOptions
 ) => {
   const { d } = data;
   return (
@@ -64,15 +73,25 @@ const getTooltipContents = (
           <tr>
             <td></td>
             <td>
-              {mode === "probabilities"
-                ? "Chance to be Best"
+              {mode === "values"
+                ? "Variation Mean"
+                : mode === "probabilities"
+                ? "Probability of Winning"
                 : "Variation Weight"}
             </td>
+            {mode === "values" && <td>CI</td>}
           </tr>
         </thead>
         <tbody>
           {variationNames.map((v, i) => {
             const val = d[i];
+            const meta = d.meta;
+            const crFormatted = metric
+              ? getExperimentMetricFormatter(metric, getFactTableById)(
+                  val,
+                  metricFormatterOptions
+                )
+              : val;
             return (
               <tr key={i}>
                 <td
@@ -81,7 +100,33 @@ const getTooltipContents = (
                 >
                   {v}
                 </td>
-                <td>{val !== undefined ? percentFormatter.format(val) : ""}</td>
+                <td>
+                  {mode === "values" && crFormatted !== undefined
+                    ? crFormatted
+                    : null}
+                  {mode !== "values" && val !== undefined
+                    ? percentFormatter.format(val)
+                    : null}
+                </td>
+                {mode === "values" && (
+                  <td className="small">
+                    [
+                    {metric
+                      ? getExperimentMetricFormatter(metric, getFactTableById)(
+                          meta?.[i].ci?.[0] ?? 0,
+                          metricFormatterOptions
+                        )
+                      : meta?.[i].ci?.[0] ?? 0}
+                    ,{" "}
+                    {metric
+                      ? getExperimentMetricFormatter(metric, getFactTableById)(
+                          meta?.[i].ci?.[1] ?? 0,
+                          metricFormatterOptions
+                        )
+                      : meta?.[i].ci?.[1] ?? 0}
+                    ]
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -99,7 +144,7 @@ const getTooltipData = (
   stackedData: any[],
   yScale: ScaleLinear<number, number, never>,
   xScale,
-  mode: "probabilities" | "weights"
+  mode: "values" | "probabilities" | "weights"
 ): TooltipData => {
   const xCoords = stackedData.map((d) => xScale(d.date));
 
@@ -127,10 +172,12 @@ const getTooltipData = (
 
 const getYVal = (
   variation?: DataPointVariation,
-  mode?: "probabilities" | "weights"
+  mode?: "values" | "probabilities" | "weights"
 ) => {
   if (!variation) return undefined;
   switch (mode) {
+    case "values":
+      return variation.cr ?? 0;
     case "probabilities":
       return variation.probability ?? 0;
     case "weights":
@@ -142,11 +189,17 @@ const getYVal = (
 
 const BanditDateGraph: FC<BanditDateGraphProps> = ({
   experiment,
+  metric,
   label,
   mode,
   type,
 }) => {
   const formatter = formatNumber;
+
+  const metricDisplayCurrency = useCurrency();
+  const metricFormatterOptions = { currency: metricDisplayCurrency };
+  const { getFactTableById } = useDefinitions();
+
   const variationNames = experiment.variations.map((v) => v.name);
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
@@ -169,10 +222,20 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     const stackedData: any[] = [];
 
     let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
+    let lastCrs = variationNames.map(() => 0);
     events.forEach((event) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
       const weights = event.banditResult?.weights ?? [];
+      const crs = variationNames.map(
+        (_, i) =>
+          (event.banditResult?.singleVariationResults?.[i]?.cr ?? 0) +
+          lastCrs[i]
+      );
+      lastCrs = crs;
+      const cis = event.banditResult?.singleVariationResults?.map((svr, i) =>
+        svr?.ci ? svr.ci.map((cii) => cii + (crs?.[i] ?? 0)) : undefined
+      );
 
       const dataPoint: any = {
         date: new Date(event.date),
@@ -182,7 +245,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       let allEmpty = true;
       variationNames.forEach((_, i) => {
         let val = 0;
-        if (mode === "probabilities") {
+        if (mode === "values") {
+          val = crs[i];
+        } else if (mode === "probabilities") {
           val = bestArmProbabilities[i];
         } else if (mode === "weights") {
           val = weights[i];
@@ -194,6 +259,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         dataPoint.meta[i] = {
           probabilities: bestArmProbabilities[i],
           weights: weights[i],
+          cr: crs[i],
+          ci: cis?.[i],
         };
       });
       if (allEmpty) {
@@ -224,14 +291,42 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       variationNames.forEach((_, i) => {
         dataPoint[i] = stackedData[stackedData.length - 1][i];
       });
+      dataPoint.meta = stackedData[stackedData.length - 1].meta;
       stackedData.push(dataPoint);
     }
 
     return stackedData;
   }, [experiment, mode, variationNames]);
 
-  // Get y-axis domain
-  const yDomain = [0, 1];
+  const yMax = height - margin[0] - margin[2];
+
+  const yScale = useMemo(
+    () =>
+      mode === "values"
+        ? scaleLinear<number>({
+            domain: [
+              0,
+              Math.max(
+                ...stackedData.map((d) =>
+                  Math.max(
+                    ...variationNames.map((_, i) => {
+                      const val = d?.[i] ?? 0;
+                      const s = (d?.meta?.[i]?.ci?.[1] ?? val) - val;
+                      return Math.min(val * 2, val + s * 2);
+                    })
+                  )
+                )
+              ),
+            ],
+            range: [yMax, 0],
+            round: true,
+          })
+        : scaleLinear<number>({
+            domain: [0, 1],
+            range: [yMax, 0],
+          }),
+    [variationNames, mode, stackedData, yMax]
+  );
 
   // Get x-axis domain
   const min =
@@ -263,7 +358,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   return (
     <ParentSizeModern>
       {({ width }) => {
-        const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
 
         const allXTicks = stackedData
@@ -274,10 +368,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           domain: [min, max],
           range: [0, xMax],
           round: true,
-        });
-        const yScale = scaleLinear<number>({
-          domain: yDomain,
-          range: [yMax, 0],
         });
 
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -358,7 +448,14 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 className={`tooltip-banditDateGraph ${styles.tooltip}`}
                 unstyled={true}
               >
-                {getTooltipContents(tooltipData, variationNames, mode)}
+                {getTooltipContents(
+                  tooltipData,
+                  variationNames,
+                  mode,
+                  metric,
+                  getFactTableById,
+                  metricFormatterOptions
+                )}
               </TooltipWithBounds>
             )}
             <div
@@ -435,7 +532,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 <GridRows
                   scale={yScale}
                   width={xMax}
-                  tickValues={[0.25, 0.5, 0.75]}
+                  tickValues={mode !== "values" ? [0.25, 0.5, 0.75] : undefined}
+                  numTicks={5}
                   stroke="var(--border-color-200)"
                 />
                 <GridColumns
@@ -454,7 +552,11 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     y1={(d) => yScale(d[1])}
                     order="reverse"
                     curve={
-                      mode === "probabilities" ? curveMonotoneX : curveStepAfter
+                      mode === "values"
+                        ? curveMonotoneX
+                        : mode === "probabilities"
+                        ? curveMonotoneX
+                        : curveStepAfter
                     }
                   >
                     {({ stacks, path }) =>
@@ -471,6 +573,24 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   </AreaStack>
                 )}
 
+                {mode === "values" &&
+                  variationNames.map((_, i) => {
+                    // Render a shaded area for error bars for each variation if defined
+                    return (
+                      <AreaClosed
+                        key={`ci_${i}`}
+                        yScale={yScale}
+                        data={stackedData}
+                        x={(d) => xScale(d.date)}
+                        y0={(d) => yScale(d?.meta?.[i]?.ci?.[0] ?? 0) ?? 0}
+                        y1={(d, i) => yScale(d?.meta?.[i]?.ci?.[1] ?? 0) ?? 0}
+                        fill={getVariationColor(i, true)}
+                        opacity={0.12}
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  })}
+
                 {type === "line" &&
                   variationNames.map((_, i) => (
                     <LinePath
@@ -481,7 +601,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       stroke={getVariationColor(i, true)}
                       strokeWidth={2}
                       curve={
-                        mode === "probabilities"
+                        mode === "values"
+                          ? curveMonotoneX
+                          : mode === "probabilities"
                           ? curveMonotoneX
                           : curveStepAfter
                       }
@@ -524,9 +646,21 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 {exploreTick}
                 <AxisLeft
                   scale={yScale}
-                  tickValues={[0, 0.25, 0.5, 0.75, 1]}
+                  tickValues={
+                    mode !== "values" ? [0, 0.25, 0.5, 0.75, 1] : undefined
+                  }
+                  numTicks={5}
                   labelOffset={40}
-                  tickFormat={(v) => formatter(v as number)}
+                  tickFormat={(v) =>
+                    mode === "values"
+                      ? metric
+                        ? getExperimentMetricFormatter(
+                            metric,
+                            getFactTableById
+                          )(v as number, metricFormatterOptions)
+                        : formatter(v as number)
+                      : formatter(v as number)
+                  }
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 11,

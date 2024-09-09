@@ -19,10 +19,9 @@ export default function BanditSummaryResultsTab({
   experiment,
   isTabActive,
 }: Props) {
-  const [tab, setTab] = useLocalStorage<"probabilities" | "weights">(
-    `banditSummaryResultsTab__${experiment.id}`,
-    "probabilities"
-  );
+  const [chartMode, setChartMode] = useLocalStorage<
+    "values" | "probabilities" | "weights"
+  >(`banditSummaryResultsChartMode__${experiment.id}`, "probabilities");
   const [chartType, setChartType] = useLocalStorage<"area" | "line">(
     `banditSummaryResultsChartType__${experiment.id}`,
     "line"
@@ -85,13 +84,17 @@ export default function BanditSummaryResultsTab({
           <div className="box px-3 py-3">
             <div className="d-flex mb-3">
               <div>
-                <label className="uppercase-title">Y-axis</label>
+                <label className="uppercase-title">Chart</label>
                 <ButtonSelectField
-                  value={tab}
-                  setValue={(v) => setTab(v)}
+                  value={chartMode}
+                  setValue={(v) => setChartMode(v)}
                   options={[
                     {
-                      label: "Probabilities",
+                      label: "Cumulative Variation Means",
+                      value: "values",
+                    },
+                    {
+                      label: "Probability of Winning",
                       value: "probabilities",
                     },
                     {
@@ -101,23 +104,25 @@ export default function BanditSummaryResultsTab({
                   ]}
                 />
               </div>
-              <div className="ml-4">
-                <label className="uppercase-title">Chart type</label>
-                <ButtonSelectField
-                  value={chartType}
-                  setValue={(v) => setChartType(v)}
-                  options={[
-                    {
-                      label: <LiaChartLineSolid size={20} />,
-                      value: "line",
-                    },
-                    {
-                      label: <TbChartAreaLineFilled size={20} />,
-                      value: "area",
-                    },
-                  ]}
-                />
-              </div>
+              {chartMode !== "values" && (
+                <div className="ml-4">
+                  <label className="uppercase-title">Chart type</label>
+                  <ButtonSelectField
+                    value={chartType}
+                    setValue={(v) => setChartType(v)}
+                    options={[
+                      {
+                        label: <LiaChartLineSolid size={20} />,
+                        value: "line",
+                      },
+                      {
+                        label: <TbChartAreaLineFilled size={20} />,
+                        value: "area",
+                      },
+                    ]}
+                  />
+                </div>
+              )}
               <div className="flex-1" />
               <div>
                 <label className="uppercase-title">Bandit Status</label>
@@ -156,13 +161,15 @@ export default function BanditSummaryResultsTab({
             <div>
               <BanditDateGraph
                 experiment={experiment}
+                metric={metric}
                 label={
-                  tab === "probabilities"
-                    ? "Chance to be Best"
+                  chartMode === "values" ? undefined :
+                  chartMode === "probabilities"
+                    ? "Probability of Winning"
                     : "Variation Weight"
                 }
-                mode={tab}
-                type={chartType}
+                mode={chartMode}
+                type={chartMode === "values" ? "line" : chartType}
               />
             </div>
           </div>
