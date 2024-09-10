@@ -229,7 +229,7 @@ const sendSignificanceEmail = async (
     ({ metricName, variationName, winning, statsEngine, criticalValue }) => {
       if (statsEngine === "frequentist") {
         return `The metric ${metricName} for variation ${variationName} is
-         ${winning ? "beating" : "losing"} to the baseline and has
+         ${winning ? "beating" : "losing to"} the baseline and has
          reached statistical significance (p-value = ${criticalValue.toFixed(
            3
          )}).`;

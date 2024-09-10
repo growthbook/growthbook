@@ -398,16 +398,14 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
   }) => {
     if (statsEngine === "frequentist") {
       return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is
-       ${winning ? "beating" : "losing"} to the baseline and has
+       ${winning ? "beating" : "losingto "} the baseline and has
        reached statistical significance (p-value = ${criticalValue.toFixed(
          3
        )}).`;
     }
-    return `The metric ${metricName} for variation ${variationName} has ${
+    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
       winning ? "reached a" : "dropped to a"
-    } ${percentFormatter(
-      criticalValue
-    )} chance to beat the baseline in experiment ${experimentName}.`;
+    } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
   };
 
   return {
