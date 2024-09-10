@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { FC, useMemo } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -17,10 +17,14 @@ import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { MetricInterface } from "@back-end/types/metric";
+import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
+import { useForm } from "react-hook-form";
+import cloneDeep from "lodash/cloneDeep";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import SelectField from "@/components/Forms/SelectField";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -63,9 +67,10 @@ const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
   mode: "values" | "probabilities" | "weights",
-  metric,
-  getFactTableById,
-  metricFormatterOptions
+  metric: MetricInterface | null,
+  getFactTableById: any,
+  metricFormatterOptions: any,
+  showVariations: number[]
 ) => {
   const { d } = data;
   return (
@@ -86,6 +91,7 @@ const getTooltipContents = (
         </thead>
         <tbody>
           {variationNames.map((v, i) => {
+            if (!showVariations[i]) return null;
             const val = d[i];
             const meta = d.meta;
             const crFormatted = metric
@@ -208,6 +214,16 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     detectBounds: true,
   });
 
+  const form = useForm({
+    defaultValues: {
+      filterVariations: "",
+    },
+  });
+  const filterVariations = form.watch("filterVariations");
+  const [showVariations, setShowVariations] = useState<boolean[]>(
+    variationNames.map(() => true)
+  );
+
   const {
     showTooltip,
     hideTooltip,
@@ -277,8 +293,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         }
         dataPoint[i] = val ?? 0;
         dataPoint.meta[i] = {
-          probabilities: bestArmProbabilities[i],
-          weights: weights[i],
+          probability: bestArmProbabilities[i],
+          weight: weights[i],
           users: users?.[i],
           cr: crs[i],
           ci: cis?.[i],
@@ -320,6 +336,42 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     return stackedData;
   }, [experiment, mode, variationNames]);
 
+  const filteredStackedData = useMemo(() => {
+    const filtered = cloneDeep(stackedData);
+    for (let i = 0; i < filtered.length; i++) {
+      showVariations.forEach((sv, j) => {
+        if (!sv) delete filtered[i][j];
+      });
+    }
+    return filtered;
+  }, [stackedData, showVariations]);
+
+  // handle variation filter selector
+  useEffect(
+    () => {
+      let sv = [...showVariations];
+      if (filterVariations === "all") {
+        sv = variationNames.map(() => true);
+        setShowVariations(sv);
+        return;
+      }
+      const latestMeta = stackedData[stackedData.length - 1].meta;
+      const sorted = Object.entries(latestMeta)
+        .sort(([, a], [, b]) => b.probability - a.probability)
+        .map(([key]) => key);
+      if (filterVariations === "5") {
+        sv = variationNames.map((_, i) => sorted.indexOf(i + "") < 5);
+      } else if (filterVariations === "3") {
+        sv = variationNames.map((_, i) => sorted.indexOf(i + "") < 3);
+      } else if (filterVariations === "1") {
+        sv = variationNames.map((_, i) => sorted.indexOf(i + "") < 1);
+      }
+      setShowVariations(sv);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filterVariations]
+  );
+
   const yMax = height - margin[0] - margin[2];
 
   const yScale = useMemo(
@@ -330,14 +382,18 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               Math.min(
                 ...stackedData.map((d) =>
                   Math.min(
-                    ...variationNames.map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
+                    ...variationNames
+                      .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
+                      .filter((_, i) => showVariations[i])
                   )
                 )
               ) * 1.03,
               Math.max(
                 ...stackedData.map((d) =>
                   Math.max(
-                    ...variationNames.map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
+                    ...variationNames
+                      .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
+                      .filter((_, i) => showVariations[i])
                   )
                 )
               ) * 1.03,
@@ -349,7 +405,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             domain: [0, 1],
             range: [yMax, 0],
           }),
-    [variationNames, mode, stackedData, yMax]
+    [variationNames, mode, stackedData, yMax, showVariations]
   );
 
   // Get x-axis domain
@@ -478,25 +534,100 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   mode,
                   metric,
                   getFactTableById,
-                  metricFormatterOptions
+                  metricFormatterOptions,
+                  showVariations
                 )}
               </TooltipWithBounds>
             )}
-            <div
-              className="d-flex flex-wrap px-3 mb-2"
-              style={{ gap: "0.25rem 1rem" }}
-            >
-              {variationNames.map((v, i) => {
-                return (
-                  <div
-                    key={i}
-                    className="nowrap text-ellipsis"
-                    style={{ maxWidth: 200, color: getVariationColor(i, true) }}
-                  >
-                    <strong>&mdash;</strong> {v}
-                  </div>
-                );
-              })}
+            <div className="d-flex align-items-start">
+              <div className="position-relative" style={{ top: -17 }}>
+                <label className="uppercase-title text-muted mb-0">
+                  Filter variations
+                </label>
+                <SelectField
+                  style={{ width: 135 }}
+                  containerClassName="select-dropdown-underline"
+                  isSearchable={false}
+                  sort={false}
+                  options={[
+                    {
+                      label: "All variations",
+                      value: "all",
+                    },
+                    ...(variationNames.length > 5
+                      ? [
+                          {
+                            label: "Top 5",
+                            value: "5",
+                          },
+                        ]
+                      : []),
+                    ...(variationNames.length > 3
+                      ? [
+                          {
+                            label: "Top 3",
+                            value: "3",
+                          },
+                        ]
+                      : []),
+                    {
+                      label: "Winning variation",
+                      value: "1",
+                    },
+                    ...(form.watch("filterVariations") === ""
+                      ? [
+                          {
+                            label: `custom (${
+                              showVariations.filter((sv) => sv).length
+                            })`,
+                            value: "",
+                          },
+                        ]
+                      : []),
+                  ]}
+                  value={form.watch("filterVariations")}
+                  onChange={(v) => {
+                    form.setValue("filterVariations", v);
+                  }}
+                />
+              </div>
+              <div
+                className="d-flex flex-wrap px-3 mb-2"
+                style={{ gap: "0.25rem 1rem" }}
+              >
+                {variationNames.map((v, i) => {
+                  return (
+                    <div
+                      key={i}
+                      className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                      style={{
+                        maxWidth: 200,
+                        color: getVariationColor(i, true),
+                      }}
+                      onClick={() => {
+                        let sv = [...showVariations];
+                        sv[i] = !sv[i];
+                        if (sv.every((v) => !v)) {
+                          sv = variationNames.map((_, j) => i !== j);
+                        }
+                        setShowVariations(sv);
+                        if (sv.every((v) => v)) {
+                          form.setValue("filterVariations", "all");
+                        } else {
+                          form.setValue("filterVariations", "");
+                        }
+                      }}
+                    >
+                      {showVariations[i] ? (
+                        <BiCheckboxSquare size={24} />
+                      ) : (
+                        <BiCheckbox size={24} />
+                      )}
+                      {v}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             <div
               ref={containerRef}
@@ -513,8 +644,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               {tooltipOpen && (
                 <>
                   {type === "line" &&
-                    variationNames.map((v, i) => {
+                    variationNames.map((_, i) => {
                       // Render a dot at the current x location for each variation
+                      if (!showVariations[i]) return null;
                       const y = tooltipData?.d?.[i];
                       if (y === undefined) return;
                       return (
@@ -570,7 +702,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 {type === "area" && (
                   <AreaStack
                     keys={variationNames.map((_, i) => i)}
-                    data={stackedData}
+                    data={filteredStackedData}
                     x={(d) => xScale(d.data.date)}
                     y0={(d) => yScale(d[0])}
                     y1={(d) => yScale(d[1])}
@@ -584,22 +716,25 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     }
                   >
                     {({ stacks, path }) =>
-                      stacks.map((stack, i) => (
-                        <path
-                          key={`stack-${stack.key}`}
-                          d={path(stack) || ""}
-                          stroke={getVariationColor(i, true)}
-                          fill={`url(#gradient-${i})`}
-                          mask="url(#stripe-mask)"
-                        />
-                      ))
+                      stacks.map((stack, i) => {
+                        if (!showVariations[i]) return null;
+                        return (
+                          <path
+                            key={`stack-${stack.key}`}
+                            d={path(stack) || ""}
+                            stroke={getVariationColor(i, true)}
+                            fill={`url(#gradient-${i})`}
+                            mask="url(#stripe-mask)"
+                          />
+                        );
+                      })
                     }
                   </AreaStack>
                 )}
 
                 {mode === "values" &&
                   variationNames.map((_, i) => {
-                    // Render a shaded area for error bars for each variation if defined
+                    if (!showVariations[i]) return null;
                     return (
                       <AreaClosed
                         key={`ci_${i}`}
@@ -616,23 +751,26 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   })}
 
                 {type === "line" &&
-                  variationNames.map((_, i) => (
-                    <LinePath
-                      key={`linepath-${i}`}
-                      data={stackedData}
-                      x={(d) => xScale(d.date)}
-                      y={(d) => yScale(d[i])}
-                      stroke={getVariationColor(i, true)}
-                      strokeWidth={2}
-                      curve={
-                        mode === "values"
-                          ? curveMonotoneX
-                          : mode === "probabilities"
-                          ? curveMonotoneX
-                          : curveStepAfter
-                      }
-                    />
-                  ))}
+                  variationNames.map((_, i) => {
+                    if (!showVariations[i]) return null;
+                    return (
+                      <LinePath
+                        key={`linepath-${i}`}
+                        data={stackedData}
+                        x={(d) => xScale(d.date)}
+                        y={(d) => yScale(d[i])}
+                        stroke={getVariationColor(i, true)}
+                        strokeWidth={2}
+                        curve={
+                          mode === "values"
+                            ? curveMonotoneX
+                            : mode === "probabilities"
+                            ? curveMonotoneX
+                            : curveStepAfter
+                        }
+                      />
+                    );
+                  })}
 
                 <AxisBottom
                   top={yMax}
@@ -645,7 +783,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     // Loop through previous ticks to see if any are too close
                     for (let j = 0; j < i; j++) {
                       const prevX = xScale(allXTicks[j]);
-                      if (Math.abs(currentX - prevX) < width * 0.05) {
+                      if (Math.abs(currentX - prevX) < width * 0.06) {
                         hide = true;
                         break; // Stop checking if a close tick is found
                       }

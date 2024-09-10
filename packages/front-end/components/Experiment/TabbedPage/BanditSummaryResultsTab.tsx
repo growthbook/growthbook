@@ -80,7 +80,7 @@ export default function BanditSummaryResultsTab({
 
       {showVisualizations && (
         <>
-          <h3 className="mt-4 mb-3">Variant Performance over Time</h3>
+          <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
           <div className="box px-3 py-3">
             <div className="d-flex mb-3">
               <div>
