@@ -82,7 +82,7 @@ export default function BanditSummaryResultsTab({
         <>
           <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
           <div className="box px-3 py-3">
-            <div className="d-flex mb-3">
+            <div className="d-flex" style={{ height: 90 }}>
               <div>
                 <label className="uppercase-title">Chart</label>
                 <ButtonSelectField
@@ -130,17 +130,17 @@ export default function BanditSummaryResultsTab({
                   <tbody>
                     <tr>
                       <td className="text-muted">Bandit phase:</td>
-                      <td>{experiment.banditPhase}</td>
+                      <td>{experiment.banditPhase ?? ""}</td>
                     </tr>
                     <tr>
                       <td className="text-muted">Update cadence:</td>
                       <td>
-                        every {experiment.banditScheduleValue}{" "}
-                        {experiment.banditScheduleUnit}
+                        every {experiment.banditScheduleValue ?? ""}{" "}
+                        {experiment.banditScheduleUnit ?? ""}
                       </td>
                     </tr>
                     {["explore", "exploit"].includes(
-                      experiment.banditPhase
+                      experiment.banditPhase ?? ""
                     ) && (
                       <tr>
                         <td className="text-muted">Next run:</td>

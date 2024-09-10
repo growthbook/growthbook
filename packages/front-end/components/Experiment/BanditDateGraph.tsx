@@ -34,11 +34,13 @@ export interface DataPointVariation {
   cr?: number;
   ci?: number;
   rawCi?: number;
+  type?: string;
   snapshotId?: string;
 }
 export interface BanditDateGraphDataPoint {
+  [key: `${number}`]: number;
   date: Date;
-  variations?: DataPointVariation[]; // undefined === missing date
+  meta: DataPointVariation;
 }
 export interface BanditDateGraphProps {
   experiment: ExperimentInterfaceStringDates;
@@ -70,7 +72,7 @@ const getTooltipContents = (
   metric: MetricInterface | null,
   getFactTableById: any,
   metricFormatterOptions: any,
-  showVariations: number[]
+  showVariations: boolean[]
 ) => {
   const { d } = data;
   return (
@@ -233,7 +235,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const stackedData = useMemo(() => {
+  const stackedData: BanditDateGraphDataPoint[] = useMemo(() => {
     const phase = experiment.phases[experiment.phases.length - 1];
     const events = phase?.banditEvents ?? [];
 
@@ -320,7 +322,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       // todo: analyzing current phase?
       now > stackedData[stackedData.length - 1].date
     ) {
-      const dataPoint = {
+      const dataPoint: BanditDateGraphDataPoint = {
         date: now,
         meta: {
           type: "today",
@@ -336,7 +338,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     return stackedData;
   }, [experiment, mode, variationNames]);
 
-  const filteredStackedData = useMemo(() => {
+  const filteredStackedData: BanditDateGraphDataPoint[] = useMemo(() => {
     const filtered = cloneDeep(stackedData);
     for (let i = 0; i < filtered.length; i++) {
       showVariations.forEach((sv, j) => {
@@ -474,7 +476,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         };
 
         const startDate = stackedData[0].date;
-        // todo: handle no exploitDate (still exploring)
         const exploitDate = experiment.banditPhaseDateStarted
           ? new Date(experiment.banditPhaseDateStarted)
           : undefined;
@@ -655,7 +656,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           className={styles.positionIndicator}
                           style={{
                             transform: `translate(${tooltipLeft}px, ${yScale(
-                              tooltipData.d[i]
+                              y
                             )}px)`,
                             background: getVariationColor(i, true),
                           }}
