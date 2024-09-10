@@ -480,24 +480,25 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           ? new Date(experiment.banditPhaseDateStarted)
           : undefined;
         const lastDate = stackedData[stackedData.length - 1].date;
-        const exploreMask = (
-          <mask id="stripe-mask">
-            <rect
-              x={xScale(startDate)}
-              y={0}
-              width={xScale(exploitDate ?? lastDate) - xScale(startDate)}
-              height={yMax}
-              fill="url(#stripe-pattern)"
-            />
-            <rect
-              x={xScale(exploitDate ?? lastDate)}
-              y="0"
-              width={width - xScale(exploitDate ?? lastDate)}
-              height={yMax}
-              fill="white"
-            />
-          </mask>
-        );
+        const exploreMask =
+          xScale(exploitDate ?? lastDate) - xScale(startDate) > 0 ? (
+            <mask id="stripe-mask">
+              <rect
+                x={xScale(startDate)}
+                y={0}
+                width={xScale(exploitDate ?? lastDate) - xScale(startDate)}
+                height={yMax}
+                fill="url(#stripe-pattern)"
+              />
+              <rect
+                x={xScale(exploitDate ?? lastDate)}
+                y="0"
+                width={width - xScale(exploitDate ?? lastDate)}
+                height={yMax}
+                fill="white"
+              />
+            </mask>
+          ) : null;
         const exploreTick = exploitDate ? (
           <g>
             <line
@@ -578,7 +579,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     ...(form.watch("filterVariations") === ""
                       ? [
                           {
-                            label: `custom (${
+                            label: `selected (${
                               showVariations.filter((sv) => sv).length
                             })`,
                             value: "",

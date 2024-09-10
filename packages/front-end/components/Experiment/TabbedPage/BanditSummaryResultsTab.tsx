@@ -82,7 +82,7 @@ export default function BanditSummaryResultsTab({
         <>
           <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
           <div className="box px-3 py-3">
-            <div className="d-flex" style={{ height: 90 }}>
+            <div className="d-flex mb-2" style={{ height: 90 }}>
               <div>
                 <label className="uppercase-title">Chart</label>
                 <ButtonSelectField
@@ -158,21 +158,19 @@ export default function BanditSummaryResultsTab({
                 </table>
               </div>
             </div>
-            <div>
-              <BanditDateGraph
-                experiment={experiment}
-                metric={metric}
-                label={
-                  chartMode === "values"
-                    ? undefined
-                    : chartMode === "probabilities"
-                    ? "Probability of Winning"
-                    : "Variation Weight"
-                }
-                mode={chartMode}
-                type={chartMode === "values" ? "line" : chartType}
-              />
-            </div>
+            <BanditDateGraph
+              experiment={experiment}
+              metric={metric}
+              label={
+                chartMode === "values"
+                  ? undefined
+                  : chartMode === "probabilities"
+                  ? "Probability of Winning"
+                  : "Variation Weight"
+              }
+              mode={chartMode}
+              type={chartMode === "values" ? "line" : chartType}
+            />
           </div>
         </>
       )}
