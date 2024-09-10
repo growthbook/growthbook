@@ -1,4 +1,6 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import { getMetricResultStatus } from "shared/experiments";
+import { StatsEngine } from "@back-end/types/stats";
 import { Context } from "../models/BaseModel";
 import { createEvent, CreateEventData } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
@@ -19,6 +21,8 @@ import { ResourceEvents } from "../events/base-types";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
+  getMetricDefaultsForOrg,
+  getPValueThresholdForOrg,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 import { getExperimentMetricById } from "./experiments";
@@ -212,8 +216,9 @@ type ExperimentSignificanceChange = {
   variationName: string;
   metricId: string;
   metricName: string;
-  chanceToWin: number;
-  threshold: number;
+  statsEngine: StatsEngine;
+  criticalValue: number;
+  winning: boolean;
 };
 
 const sendSignificanceEmail = async (
@@ -221,10 +226,18 @@ const sendSignificanceEmail = async (
   experimentChanges: ExperimentSignificanceChange[]
 ) => {
   const messages = experimentChanges.map(
-    ({ metricName, variationName, threshold, chanceToWin }) =>
-      `The metric ${metricName} for variation ${variationName} has ${
-        chanceToWin < threshold ? "dropped to a" : "reached a"
-      } ${(chanceToWin * 100).toFixed(1)} chance to beat the baseline.`
+    ({ metricName, variationName, winning, statsEngine, criticalValue }) => {
+      if (statsEngine === "frequentist") {
+        return `The metric ${metricName} for variation ${variationName} is
+         ${winning ? "beating" : "losing to"} the baseline and has
+         reached statistical significance (p-value = ${criticalValue.toFixed(
+           3
+         )}).`;
+      }
+      return `The metric ${metricName} for variation ${variationName} has ${
+        winning ? "reached a" : "dropped to a"
+      } ${(criticalValue * 100).toFixed(1)} chance to beat the baseline.`;
+    }
   );
 
   try {
@@ -261,50 +274,87 @@ export const notifySignificance = async ({
 
   if (!lastSnapshot) return;
 
-  const currentVariations = getSnapshotAnalysis(currentSnapshot)?.results?.[0]
-    ?.variations;
-  const lastVariations = getSnapshotAnalysis(lastSnapshot)?.results?.[0]
-    ?.variations;
+  const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
+  const currentVariations = currentAnalysis?.results?.[0]?.variations;
+  const lastAnalysis = getSnapshotAnalysis(lastSnapshot);
+  const lastVariations = lastAnalysis?.results?.[0]?.variations;
 
-  if (!currentVariations || !lastVariations) {
+  if (
+    !currentAnalysis ||
+    !currentVariations ||
+    !lastVariations ||
+    !lastAnalysis
+  ) {
     return;
   }
 
-  // get the org confidence level settings:
+  // get the org level settings for significance:
+  const statsEngine = currentAnalysis.settings.statsEngine;
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const metricDefaults = getMetricDefaultsForOrg(context);
+  const pValueThreshold = getPValueThresholdForOrg(context);
 
   const experimentChanges: ExperimentSignificanceChange[] = [];
 
+  const currentBaselineVariation = currentVariations[0];
+  const lastBaselineVariation = lastVariations[0];
   for (let i = 1; i < currentVariations.length; i++) {
     const curVar = currentVariations[i];
     const lastVar = lastVariations[i];
 
     for (const m in curVar.metrics) {
+      const lastBaselineMetric = lastBaselineVariation?.metrics?.[m];
+      const curBaselineMetric = currentBaselineVariation?.metrics?.[m];
       const curMetric = curVar?.metrics?.[m];
       const lastMetric = lastVar?.metrics?.[m];
 
-      // sanity checks:
-      if (
-        !lastMetric?.chanceToWin ||
-        !curMetric?.chanceToWin ||
-        curMetric?.value <= 150
-      )
-        continue;
+      if (!curBaselineMetric || !curMetric) continue;
 
-      const threshold = (() => {
+      const criticalValue =
+        statsEngine === "frequentist"
+          ? curMetric.pValue
+          : curMetric.chanceToWin;
+      if (criticalValue === undefined) continue;
+
+      const metric = ensureAndReturn(await getExperimentMetricById(context, m));
+
+      const { resultsStatus: curResultsStatus } = getMetricResultStatus({
+        metric,
+        metricDefaults,
+        baseline: curBaselineMetric,
+        stats: curMetric,
+        ciLower,
+        ciUpper,
+        pValueThreshold,
+        statsEngine: statsEngine,
+      });
+
+      const { resultsStatus: lastResultsStatus } =
+        lastBaselineMetric && lastMetric
+          ? getMetricResultStatus({
+              metric,
+              metricDefaults,
+              baseline: lastBaselineMetric,
+              stats: lastMetric,
+              ciLower,
+              ciUpper,
+              pValueThreshold,
+              statsEngine: lastAnalysis.settings.statsEngine,
+            })
+          : { resultsStatus: "" };
+
+      const winning = (() => {
         // checks to see if anything changed:
-        if (curMetric.chanceToWin > ciUpper && lastMetric.chanceToWin < ciUpper)
-          return ciUpper;
+        if (curResultsStatus === "won" && lastResultsStatus !== "won")
+          return true;
 
-        if (curMetric.chanceToWin < ciLower && lastMetric.chanceToWin > ciLower)
-          return ciLower;
+        if (curResultsStatus === "lost" && lastResultsStatus !== "lost")
+          return false;
+
+        return null;
       })();
 
-      if (!threshold) continue;
-
-      const { name: metricName } = ensureAndReturn(
-        await getExperimentMetricById(context, m)
-      );
+      if (winning === null) continue;
 
       const { id: variationId, name: variationName } = experiment.variations[i];
 
@@ -314,9 +364,10 @@ export const notifySignificance = async ({
         variationId,
         variationName,
         metricId: m,
-        metricName,
-        chanceToWin: curMetric.chanceToWin,
-        threshold,
+        metricName: metric.name,
+        statsEngine,
+        criticalValue,
+        winning,
       });
     }
   }
