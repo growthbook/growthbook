@@ -182,7 +182,10 @@ const Modal: FC<ModalProps> = ({
         )}
       </div>
       {submit || secondaryCTA || (close && includeCloseCta) ? (
-        <div className="modal-footer">
+        <div
+          className="modal-footer"
+          // style={{ position: "fixed", left: "0", bottom: "0", width: "100%" }}
+        >
           {error && (
             <div className="alert alert-danger mr-auto">
               {error

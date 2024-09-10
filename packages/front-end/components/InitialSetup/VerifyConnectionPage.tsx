@@ -1,0 +1,247 @@
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
+import { useState } from "react";
+import {
+  FaAngleDown,
+  FaAngleRight,
+  FaExclamationCircle,
+  FaExclamationTriangle,
+} from "react-icons/fa";
+import { Callout, Link } from "@radix-ui/themes";
+import { PiInfo, PiPaperPlaneTiltFill } from "react-icons/pi";
+import clsx from "clsx";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
+import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
+import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useAttributeSchema } from "@/services/features";
+import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
+import { GBHashLock } from "@/components/Icons";
+import Code from "@/components/SyntaxHighlighting/Code";
+import styles from "./InitialSetup.module.scss";
+
+interface Props {
+  connection: SDKConnectionInterface | null;
+}
+
+const VerifyConnectionPage = ({ connection }: Props) => {
+  const [installationOpen, setInstallationOpen] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(true);
+  const [attributesOpen, setAttributesOpen] = useState(true);
+
+  const settings = useOrgSettings();
+  const attributeSchema = useAttributeSchema();
+
+  const apiHost = connection ? getApiBaseUrl(connection) : "";
+  const language = connection?.languages[0] || "javascript";
+  const hashSecureAttributes = !!connection?.hashSecureAttributes;
+  const secureAttributes =
+    attributeSchema?.filter((a) =>
+      ["secureString", "secureString[]"].includes(a.datatype)
+    ) || [];
+  const secureAttributeSalt = settings.secureAttributeSalt ?? "";
+
+  return (
+    <div
+      className={clsx(styles.verifyConnection, "mt-5")}
+      style={{ padding: "0px 57px" }}
+    >
+      {!connection && <LoadingOverlay />}
+      {connection && (
+        <div>
+          <div className="d-flex mb-3">
+            <h3>
+              SDK Installation Instructions for {connection.environment}{" "}
+              Environment
+            </h3>
+
+            <div className="ml-auto">
+              <a href="#">
+                <PiPaperPlaneTiltFill className="mr-1" />
+                Send to your developer
+              </a>
+            </div>
+          </div>
+          <Callout.Root>
+            <Callout.Icon>
+              <PiInfo />
+            </Callout.Icon>
+            <Callout.Text>
+              <>
+                Each environment requires its own SDK connection. Add more
+                environments via <b>SDK Configuration {">"} Environments</b>.
+                Then, create the SDK connection for each environment.
+              </>
+            </Callout.Text>
+          </Callout.Root>
+
+          <div className="mt-4 mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setInstallationOpen(!installationOpen);
+              }}
+            >
+              Installation{" "}
+              {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {installationOpen && (
+              <div className="appbox bg-light p-3">
+                <InstallationCodeSnippet
+                  language={connection.languages[0]}
+                  apiHost={apiHost}
+                  apiKey={connection.key}
+                  encryptionKey={
+                    connection.encryptPayload
+                      ? connection.encryptionKey
+                      : undefined
+                  }
+                  remoteEvalEnabled={connection.remoteEvalEnabled || false}
+                />
+              </div>
+            )}
+          </div>
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setSetupOpen(!setupOpen);
+              }}
+            >
+              Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {setupOpen && (
+              <div className="appbox bg-light p-3">
+                <GrowthBookSetupCodeSnippet
+                  language={connection.languages[0]}
+                  version={connection.sdkVersion}
+                  apiHost={apiHost}
+                  apiKey={connection.key}
+                  encryptionKey={
+                    connection.encryptPayload
+                      ? connection.encryptionKey
+                      : undefined
+                  }
+                  remoteEvalEnabled={connection.remoteEvalEnabled || false}
+                />
+              </div>
+            )}
+          </div>
+          {!(language.match(/^edge-/) || language === "other") && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAttributesOpen(!attributesOpen);
+                }}
+              >
+                Targeting Attributes (Optional){" "}
+                {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {attributesOpen && (
+                <div className="appbox bg-light p-3">
+                  <TargetingAttributeCodeSnippet
+                    language={language}
+                    hashSecureAttributes={hashSecureAttributes}
+                    secureAttributeSalt={secureAttributeSalt}
+                  />
+
+                  {hashSecureAttributes && secureAttributes.length > 0 && (
+                    <div
+                      className="appbox mt-4"
+                      style={{ background: "rgb(209 236 241 / 25%)" }}
+                    >
+                      <div className="alert alert-info mb-0">
+                        <GBHashLock className="text-blue" /> This connection has{" "}
+                        <strong>secure attribute hashing</strong> enabled. You
+                        must manually hash all attributes with datatype{" "}
+                        <code>secureString</code> or <code>secureString[]</code>{" "}
+                        in your SDK implementation code.
+                      </div>
+                      <div className="px-3 pb-3">
+                        <div className="mt-3">
+                          Your organization currently has{" "}
+                          {secureAttributes.length} secure attribute
+                          {secureAttributes.length === 1 ? "" : "s"}
+                          {secureAttributes.length > 0 && (
+                            <>
+                              {" "}
+                              which need to be hashed before using them in the
+                              SDK:
+                              <table className="table table-borderless w-auto mt-1 ml-2">
+                                <tbody>
+                                  {secureAttributes.map((a, i) => (
+                                    <tr key={i}>
+                                      <td className="pt-1 pb-0">
+                                        <code className="font-weight-bold">
+                                          {a.property}
+                                        </code>
+                                      </td>
+                                      <td className="pt-1 pb-0">
+                                        <span className="text-gray">
+                                          {a.datatype}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          To hash an attribute, use a cryptographic library with{" "}
+                          <strong>SHA-256</strong> support, and compute the
+                          SHA-256 hashed value of your attribute <em>plus</em>{" "}
+                          your organization&apos;s secure attribute salt.
+                        </div>
+                        <div className="mt-2">
+                          Example, using your organization&apos;s secure
+                          attribute salt:
+                          {secureAttributeSalt === "" && (
+                            <div className="alert alert-warning mt-2 px-2 py-1">
+                              <FaExclamationTriangle /> Your organization has an
+                              empty salt string. Add a salt string in your{" "}
+                              <Link href="/settings">
+                                organization settings
+                              </Link>{" "}
+                              to improve the security of hashed targeting
+                              conditions.
+                            </div>
+                          )}
+                          <Code
+                            filename="pseudocode"
+                            language="javascript"
+                            code={`const salt = "${secureAttributeSalt}";
+
+// hashing a secureString attribute
+myAttribute = sha256(salt + myAttribute);
+
+// hashing a secureString[] attribute
+myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
+                          />
+                        </div>
+                        <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
+                          <FaExclamationCircle /> When using an insecure
+                          environment (such as a browser), do not rely
+                          exclusively on hashing as a means of securing highly
+                          sensitive data. Hashing is an obfuscation technique
+                          that makes it very difficult, but not impossible, to
+                          extract sensitive data.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+export default VerifyConnectionPage;
