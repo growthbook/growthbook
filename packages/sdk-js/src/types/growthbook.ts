@@ -71,8 +71,21 @@ export interface FeatureResult<T = any> {
 /** @deprecated */
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
+/**
+ * Represents the type of URL targeting used in the GrowthBook SDK.
+ *
+ * - "regex": Uses regular expressions for URL matching.
+ * - "simple": Uses simple string matching for URLs.
+ */
 export type UrlTargetType = "regex" | "simple";
 
+/**
+ * Represents a URL target configuration.
+ *
+ * @property {boolean} include - Indicates whether the URL pattern should be included.
+ * @property {UrlTargetType} type - The type of URL target.
+ * @property {string} pattern - The URL pattern to match.
+ */
 export type UrlTarget = {
   include: boolean;
   type: UrlTargetType;
@@ -114,14 +127,27 @@ export type Experiment<T> = {
   groups?: string[];
 };
 
+/**
+ * Represents the type of change in an auto experiment.
+ *
+ * - "redirect": Indicates a change that involves redirecting the user via URL.
+ * - "visual": Indicates a change made with the Visual Editor.
+ * - "unknown": Indicates an unknown type of change.
+ */
 export type AutoExperimentChangeType = "redirect" | "visual" | "unknown";
 
+/**
+ * Represents an automatic experiment with optional manual triggering.
+ */
 export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
 };
 
+/**
+ * Represents an override for an experiment configuration.
+ */
 export type ExperimentOverride = {
   condition?: ConditionInterface;
   weights?: number[];
@@ -170,12 +196,21 @@ export type TrackingCallback = (
   result: Result<any>
 ) => Promise<void> | void;
 
+/**
+ * A callback for handling navigation events.
+ */
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
+/**
+ * A callback that applies DOM changes based on the provided experiment variation.
+ */
 export type ApplyDomChangesCallback = (
   changes: AutoExperimentVariation
 ) => () => void;
 
+/**
+ * A custom rendering function to run when features change
+ */
 export type RenderFunction = () => void;
 
 /** GrowthBook data */
@@ -246,6 +281,9 @@ export interface Context {
   savedGroups?: SavedGroupsValues;
 }
 
+/**
+ * Options for prefetching data
+ */
 export type PrefetchOptions = Pick<
   Context,
   | "decryptionKey"
@@ -264,6 +302,9 @@ export type SubscriptionFunction = (
   result: Result<any>
 ) => void;
 
+/*
+ * A tuple representing ranges for variations
+ */
 export type VariationRange = [number, number];
 
 /** Info about whether a payload was set and where it came from */
@@ -276,6 +317,9 @@ export interface InitResponse {
   error?: Error;
 }
 
+/**
+ * Represents the response from a fetch operation.
+ */
 export interface FetchResponse {
   data: FeatureApiResponse | null;
   success: boolean;
@@ -292,6 +336,9 @@ export type JSONValue =
   | Record<string, unknown>
   | { [key: string]: JSONValue };
 
+/**
+ * A utility type that widens primitive types to their respective general types.
+ */
 export type WidenPrimitives<T> = T extends string
   ? string
   : T extends number
@@ -305,6 +352,9 @@ export type FeatureEvalContext = {
   evaluatedFeatures: Set<string>;
 };
 
+/**
+ * Represents a mutation to be applied to the DOM.
+ */
 export type DOMMutation = {
   selector: string;
   action: string;
@@ -314,6 +364,9 @@ export type DOMMutation = {
   insertBeforeSelector?: string;
 };
 
+/**
+ * Represents a variation for an auto experiment.
+ */
 export type AutoExperimentVariation = {
   domMutations?: DOMMutation[];
   css?: string;
@@ -321,8 +374,18 @@ export type AutoExperimentVariation = {
   urlRedirect?: string;
 };
 
+/**
+ * A type representing a collection of feature definitions.
+ *
+ * Each key in the record is a string representing the feature name,
+ * and the corresponding value is a `FeatureDefinition` object that
+ * describes the feature's properties and behavior.
+ */
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
+/**
+ * Represents the response from the Feature API.
+ */
 export type FeatureApiResponse = {
   features?: FeatureDefinitions;
   dateUpdated?: string;
@@ -333,7 +396,7 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
 };
 
-// Alias
+/**  Alias for {@link FeatureApiResponse} */
 export type GrowthBookPayload = FeatureApiResponse;
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
@@ -383,11 +446,17 @@ export type Helpers = {
   stopIdleListener: () => void;
 };
 
+/**
+ * Interface representing a compatibility layer for local storage operations.
+ */
 export interface LocalStorageCompat {
   getItem(key: string): string | null | Promise<string | null>;
   setItem(key: string, value: string): void | Promise<void>;
 }
 
+/**
+ * Configuration settings for caching mechanisms.
+ */
 export type CacheSettings = {
   backgroundSync: boolean;
   cacheKey: string;
@@ -399,7 +468,9 @@ export type CacheSettings = {
   disableCache: boolean;
 };
 
+/** API Host URL */
 export type ApiHost = string;
+/** SDK Client Key */
 export type ClientKey = string;
 
 /** Options to set when initializing GrowthBook */
@@ -430,6 +501,7 @@ export type RefreshFeaturesOptions = {
   skipCache?: boolean;
 };
 
+/** Attributes to run mutually exclusive experiments */
 export interface Filter {
   // Override the hashAttribute used for this filter
   attribute?: string;

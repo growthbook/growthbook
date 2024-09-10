@@ -122,6 +122,7 @@ export class GrowthBook<
     this._trackedExperiments = new Set();
     this._completedChangeIds = new Set();
     this._trackedFeatures = {};
+    /** Enable the debug log */
     this.debug = !!context.debug;
     this._subscriptions = new Set();
     this._rtQueue = [];
@@ -212,6 +213,12 @@ export class GrowthBook<
     this._render();
   }
 
+  /** Synchronous initialization of GrowthBook
+   *
+   * Alternative to {@link init}
+   * NOTE: This method has several requirements. See the documentation for more details.
+   * @see https://docs.growthbook.io/lib/js#synchronous-init
+   */
   public initSync(options: InitSyncOptions): GrowthBook {
     this._initialized = true;
 
@@ -253,6 +260,20 @@ export class GrowthBook<
     return this;
   }
 
+  /** Async initialization of GrowthBook:
+   * - Downloads features and experiments
+   * - Starts running visual and URL redirect experiments
+   *
+   * @example Init with streaming
+   * ```typescript
+   * gb.init({ streaming: true });
+   * ```
+   *
+   * @example Init with a  timeout
+   * ```typescript
+   * gb.init({ timeout: 5000 });
+   * ```
+   */
   public async init(options?: InitOptions): Promise<InitResponse> {
     this._initialized = true;
     options = options || {};
@@ -320,10 +341,15 @@ export class GrowthBook<
       await this.setPayload(res.data);
     }
   }
-
+  /** Get API and Client Key info
+   * @returns [ApiHost, ClientKey]
+   */
   public getApiInfo(): [ApiHost, ClientKey] {
     return [this.getApiHosts().apiHost, this.getClientKey()];
   }
+  /** Get API Host info
+   * @returns {apiHost, streamingHost, apiRequestHeaders, streamingHostRequestHeaders}
+   */
   public getApiHosts(): {
     apiHost: string;
     streamingHost: string;
@@ -490,7 +516,10 @@ export class GrowthBook<
     }
     return data;
   }
-
+  /** Set or update attributes
+   *
+   * NOTE: This will override any existing attributes. Use {@link updateAttributes} to merge new attributes with existing ones.
+   */
   public async setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
     if (this._ctx.stickyBucketService) {
@@ -504,6 +533,13 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
+  /** Update attributes
+   *
+   * @example Set a new URL
+   * ```typescript
+   * gb.updateAttributes({ url: "https://example.com" });
+   * ```
+   */
   public async updateAttributes(attributes: Attributes): Promise<void> {
     return this.setAttributes({ ...this._ctx.attributes, ...attributes });
   }
