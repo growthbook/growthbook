@@ -1,8 +1,6 @@
 import {
   DataSourceInterfaceWithParams,
   DataSourceParams,
-  DataSourceSettings,
-  ExposureQuery,
   SchemaFormat,
   SchemaInterface,
 } from "back-end/types/datasource";
@@ -613,19 +611,6 @@ export function getInitialSettings(
       identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
     },
   };
-}
-
-export function getExposureQuery(
-  settings?: DataSourceSettings,
-  exposureQueryId?: string,
-  userIdType?: string
-): ExposureQuery | null {
-  const queries = settings?.queries?.exposure || [];
-
-  if (!exposureQueryId) {
-    exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
-  }
-  return queries.find((q) => q.id === exposureQueryId) ?? null;
 }
 
 export function getInitialMetricQuery(

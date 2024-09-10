@@ -5,7 +5,10 @@ import {
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  getNewExperimentDatasourceDefaults,
+} from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,7 +19,6 @@ import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";

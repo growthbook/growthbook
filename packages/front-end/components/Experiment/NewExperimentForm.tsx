@@ -7,17 +7,14 @@ import {
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
 import {
-  isProjectListValidForProject,
   validateAndFixCondition,
+  getNewExperimentDatasourceDefaults,
 } from "shared/util";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
 import {
   generateVariationId,
@@ -82,37 +79,6 @@ function getDefaultVariations(num: number) {
     });
   }
   return variations;
-}
-
-export function getNewExperimentDatasourceDefaults(
-  datasources: DataSourceInterfaceWithParams[],
-  settings: OrganizationSettings,
-  project?: string,
-  initialValue?: Partial<ExperimentInterfaceStringDates>
-): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
-  const validDatasources = datasources.filter(
-    (d) =>
-      d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project)
-  );
-
-  if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
-
-  const initialId = initialValue?.datasource || settings.defaultDataSource;
-
-  const initialDatasource =
-    (initialId && validDatasources.find((d) => d.id === initialId)) ||
-    validDatasources[0];
-
-  return {
-    datasource: initialDatasource.id,
-    exposureQueryId:
-      getExposureQuery(
-        initialDatasource.settings,
-        initialValue?.exposureQueryId,
-        initialValue?.userIdType
-      )?.id || "",
-  };
 }
 
 const NewExperimentForm: FC<NewExperimentFormProps> = ({

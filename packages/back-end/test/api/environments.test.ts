@@ -6,7 +6,7 @@ jest.mock("../../src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
 }));
 
-describe("environements API", () => {
+describe("environments API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {

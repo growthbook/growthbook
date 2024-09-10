@@ -13,6 +13,7 @@ import {
   getMatchingRules,
   includeExperimentInPayload,
   isFeatureCyclic,
+  getNewExperimentDatasourceDefaults,
 } from "shared/util";
 import {
   FaBell,
@@ -51,7 +52,6 @@ import SelectField from "@/components/Forms/SelectField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import Toggle from "@/components/Forms/Toggle";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import RolloutPercentInput from "./RolloutPercentInput";

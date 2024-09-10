@@ -3654,11 +3654,12 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description ID for the [DataSource](#tag/DataSource_model) */
-          datasourceId: string;
-          /** @description The ID property of one of the assignment query objects associated with the datasource */
-          assignmentQueryId: string;
-          trackingKey: string;
+          /** @description ID for the [DataSource](#tag/DataSource_model). If not set, either your organization's default datasource will be used (if it is set and is valid for the project), otherwise the first valid datasource will be used. */
+          datasourceId?: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource. If one is not provided, anonymous_id will be used */
+          assignmentQueryId?: string;
+          /** @description A unique key for the experiment. If not provided, one based on the name or a random UUID will be generated */
+          trackingKey?: string;
           /** @description Name of the experiment */
           name: string;
           /** @description Project ID which the experiment belongs to */
