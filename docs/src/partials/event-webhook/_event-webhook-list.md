@@ -1282,8 +1282,9 @@ Triggered when a primary metric reaches significance in an experiment (e.g. eith
             variationName: string;
             metricName: string;
             metricId: string;
-            chanceToWin: number;
-            threshold: number;
+            statsEngine: string;
+            criticalValue: number;
+            winning: boolean;
         };
     };
     user: {

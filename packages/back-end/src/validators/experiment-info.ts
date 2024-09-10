@@ -8,8 +8,9 @@ export const experimentInfoSignificance = z
     variationName: z.string(),
     metricName: z.string(),
     metricId: z.string(),
-    chanceToWin: z.number(),
-    threshold: z.number(),
+    statsEngine: z.string(),
+    criticalValue: z.number(),
+    winning: z.boolean(),
   })
   .strict();
 

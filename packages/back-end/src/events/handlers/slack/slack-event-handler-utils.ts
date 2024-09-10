@@ -381,8 +381,9 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
   metricName,
   experimentName,
   variationName,
-  chanceToWin,
-  threshold,
+  statsEngine,
+  criticalValue,
+  winning,
 }: ExperimentInfoSignificancePayload): SlackMessage => {
   const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
 
@@ -394,12 +395,20 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
     metricName: string;
     variationName: string;
     experimentName: string;
-  }) =>
-    `The metric ${metricName} for variation ${variationName} has ${
-      chanceToWin < threshold ? "dropped to a" : "reached a"
+  }) => {
+    if (statsEngine === "frequentist") {
+      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is
+       ${winning ? "beating" : "losing"} to the baseline and has
+       reached statistical significance (p-value = ${criticalValue.toFixed(
+         3
+       )}).`;
+    }
+    return `The metric ${metricName} for variation ${variationName} has ${
+      winning ? "reached a" : "dropped to a"
     } ${percentFormatter(
-      chanceToWin
+      criticalValue
     )} chance to beat the baseline in experiment ${experimentName}.`;
+  };
 
   return {
     text: text({ metricName, experimentName, variationName }),
