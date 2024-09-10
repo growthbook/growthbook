@@ -63,6 +63,11 @@ export type GrowthBookVuePluginConfig = {
    * Learn more: https://docs.growthbook.io/tools/chrome-extension
    */
   enableDevMode: boolean;
+
+  /**
+   * Optional key for decrypting encrypted features
+   */
+  decryptionKey?: string
 };
 
 /**
@@ -84,7 +89,11 @@ const getFeaturesJson = async (
 export const growthBookPlugin = {
   install(
     app: App,
-    { featuresEndpoint, enableDevMode = false }: GrowthBookVuePluginConfig
+    {
+      featuresEndpoint,
+      enableDevMode = false,
+      decryptionKey = undefined
+    }: GrowthBookVuePluginConfig
   ) {
     let growthBook: GrowthBook | null = null;
 
@@ -101,6 +110,9 @@ export const growthBookPlugin = {
         });
 
         growthBook.setFeatures(json.features);
+        if (decryptionKey) {
+          growthBook.setEncryptedFeatures(json.encryptedFeatures, decryptionKey)
+        }
 
         return growthBook;
       } catch (e) {
