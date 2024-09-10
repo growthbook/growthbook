@@ -358,15 +358,47 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         return;
       }
       const latestMeta = stackedData[stackedData.length - 1].meta;
-      const sorted = Object.entries(latestMeta)
-        .sort(([, a], [, b]) => b.probability - a.probability)
-        .map(([key]) => key);
+      const probabilities = (() => {
+        let probs: number[] = [];
+        let totalUsers = 0;
+        for (let i = 0; i < variationNames.length; i++) {
+          let prob =
+            latestMeta?.[i]?.probability ??
+            1 / (variationNames.length || 2);
+          const users = latestMeta?.[i]?.users ?? 0;
+          totalUsers += users;
+          if (users < 100) {
+            prob = NaN;
+          }
+
+          probs.push(prob);
+        }
+        if (totalUsers < 100 * variationNames.length) {
+          probs = probs.map(() => 1 / (variationNames.length || 2));
+        }
+        return probs;
+      })();
+
+      function rankArray(values: (number | undefined)[]): number[] {
+        const indices = values
+          .map((value, index) => (value !== undefined ? index : -1))
+          .filter(index => index !== -1);
+        indices.sort((a, b) => (values[b] as number) - (values[a] as number));
+        const ranks = new Array(values.length).fill(0);
+        indices.forEach((index, rank) => {
+          ranks[index] = rank + 1;
+        });
+        return ranks;
+      }
+
+      const variationRanks = rankArray(probabilities);
+
       if (filterVariations === "5") {
-        sv = variationNames.map((_, i) => sorted.indexOf(i + "") < 5);
+        sv = variationNames.map((_, i) => variationRanks[i] <= 5);
       } else if (filterVariations === "3") {
-        sv = variationNames.map((_, i) => sorted.indexOf(i + "") < 3);
+        sv = variationNames.map((_, i) => variationRanks[i] <= 3);
       } else if (filterVariations === "1") {
-        sv = variationNames.map((_, i) => sorted.indexOf(i + "") < 1);
+        sv = variationNames.map((_, i) => variationRanks[i] <= 1);
       }
       setShowVariations(sv);
     },

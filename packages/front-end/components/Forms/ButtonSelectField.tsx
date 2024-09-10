@@ -11,6 +11,7 @@ export interface Props<T extends string> {
   }[];
   label?: string | ReactElement;
   buttonType?: "inline" | "card";
+  className?: string;
 }
 
 export default function ButtonSelectField<T extends string>({
@@ -19,6 +20,7 @@ export default function ButtonSelectField<T extends string>({
   options,
   label,
   buttonType = "inline",
+  className = "",
 }: Props<T>) {
   return (
     <div
@@ -29,7 +31,7 @@ export default function ButtonSelectField<T extends string>({
     >
       {label && <label>{label}</label>}
       <div
-        className={clsx({
+        className={clsx(className, {
           "btn-group": buttonType === "inline",
           "btn-group-card d-flex justify-content-center align-items-stretch w-100":
             buttonType === "card",

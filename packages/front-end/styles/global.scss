@@ -2645,6 +2645,15 @@ html {
     }
   }
 }
+.select-unfixed {
+  position: relative;
+  .gb-select__menu-portal {
+    position: absolute !important;
+    top: auto;
+    bottom: 0;
+    left: 0;
+  }
+}
 .multiselect-unfixed {
   position: relative;
   .gb-multi-select__menu-portal {

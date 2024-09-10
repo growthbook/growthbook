@@ -7,6 +7,7 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { getVariationColor } from "@/services/features";
 import AlignedGraph from "./AlignedGraph";
+import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
 
 const WIN_THRESHOLD_PROBABILITY = 0.95;
 const ROW_HEIGHT = 56;
@@ -45,13 +46,6 @@ export default function BanditSummaryTable({
     setGraphCellWidth(Math.max(graphWidth, 200));
   }
 
-  useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
-  }, []);
-  useLayoutEffect(onResize, []);
-  useEffect(onResize, [isTabActive]);
-
   const phase = experiment.phases[experiment.phases.length - 1];
 
   const variations = experiment.variations.map((v, i) => {
@@ -61,6 +55,16 @@ export default function BanditSummaryTable({
       name: v.name,
     };
   });
+
+  const [showVariations, setShowVariations] = useState<boolean[]>(variations.map((_, i) => true));
+  const [variationsSort, setVariationsSort] = useState<"default" | "ranked">("default");
+  const [showVariationsFilter, setShowVariationsFilter] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isTabActive) {
+      setShowVariationsFilter(false);
+    }
+  }, [isTabActive, setShowVariationsFilter]);
 
   const validEvents: BanditEvent[] =
     phase?.banditEvents?.filter(
@@ -94,6 +98,24 @@ export default function BanditSummaryTable({
     return probs;
   }, [variations, results, currentEvent]);
 
+  function rankArray(values: (number | undefined)[]): number[] {
+    const indices = values
+      .map((value, index) => (value !== undefined ? index : -1))
+      .filter(index => index !== -1);
+    indices.sort((a, b) => (values[b] as number) - (values[a] as number));
+    const ranks = new Array(values.length).fill(0);
+    indices.forEach((index, rank) => {
+      ranks[index] = rank + 1;
+    });
+    return ranks;
+  }
+
+  const variationRanks = rankArray(probabilities);
+
+  const sortedVariations = variationsSort === "default" ?
+    variations :
+    variations.slice().sort((a, b) => variationRanks[a.index] - variationRanks[b.index]);
+
   const domain: [number, number] = useMemo(() => {
     if (!results) return [-0.1, 0.1];
     const cis = results.map((v) => v.ci).filter(Boolean) as [number, number][];
@@ -121,6 +143,13 @@ export default function BanditSummaryTable({
   const shrinkRows = variations.length > 8;
   const rowHeight = !shrinkRows ? ROW_HEIGHT : ROW_HEIGHT_CONDENSED;
 
+  useEffect(() => {
+    window.addEventListener("resize", onResize, false);
+    return () => window.removeEventListener("resize", onResize, false);
+  }, []);
+  useLayoutEffect(onResize, []);
+  useEffect(onResize, [isTabActive]);
+
   if (!results) {
     return null;
   }
@@ -136,7 +165,19 @@ export default function BanditSummaryTable({
             <thead>
               <tr className="results-top-row">
                 <th className="axis-col header-label" style={{ width: 280 }}>
-                  Variation
+                  <div className="row px-0">
+                    <ResultsVariationsFilter
+                      variationNames={variations.map((v) => v.name)}
+                      variationRanks={variationRanks}
+                      showVariations={showVariations}
+                      setShowVariations={setShowVariations}
+                      variationsSort={variationsSort}
+                      setVariationsSort={setVariationsSort}
+                      showVariationsFilter={showVariationsFilter}
+                      setShowVariationsFilter={setShowVariationsFilter}
+                    />
+                    <div className="col-auto">Variation</div>
+                  </div>
                 </th>
                 <th className="axis-col label" style={{ width: 120 }}>
                   Mean
@@ -148,8 +189,8 @@ export default function BanditSummaryTable({
                       marginBottom: 2,
                     }}
                   >
-                    <span className="nowrap">Chance to</span>{" "}
-                    <span className="nowrap">be Best</span>
+                    <span className="nowrap">Probability</span>{" "}
+                    <span className="nowrap">of Winning</span>
                   </div>
                 </th>
                 <th
@@ -177,8 +218,9 @@ export default function BanditSummaryTable({
             </thead>
 
             <tbody>
-              {variations.map((v, j) => {
-                const result = results?.[j];
+              {sortedVariations.map((v, j) => {
+                if (!showVariations?.[v.index]) return null;
+                const result = results?.[v.index];
                 let stats: SnapshotMetric = {
                   value: NaN,
                   ci: [0, 0],
@@ -194,7 +236,7 @@ export default function BanditSummaryTable({
                   };
                 }
                 const probability =
-                  probabilities?.[j] ?? 1 / (variations.length || 2);
+                  probabilities?.[v.index] ?? 1 / (variations.length || 2);
                 return (
                   <tr
                     className="results-variation-row align-items-center"
@@ -256,7 +298,7 @@ export default function BanditSummaryTable({
                         expected={isFinite(stats.cr) ? stats.cr : 0}
                         barType="violin"
                         barFillType="color"
-                        barFillColor={getVariationColor(j, true)}
+                        barFillColor={getVariationColor(v.index, true)}
                         id={`bandit-summery-table_violin_${j}`}
                         domain={domain}
                         significant={true}
