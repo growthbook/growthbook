@@ -378,26 +378,41 @@ const buildSlackMessageForExperimentDeletedEvent = (
 };
 
 const buildSlackMessageForExperimentInfoSignificanceEvent = ({
-  experimentName,
   metricName,
+  experimentName,
+  variationName,
+  chanceToWin,
   threshold,
 }: ExperimentInfoSignificancePayload): SlackMessage => {
   const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
 
-  const text = `Metric ${metricName} has crossed significance threshold of ${percentFormatter(
-    threshold
-  )} chance to win in experiment ${experimentName}.`;
+  const text = ({
+    metricName,
+    variationName,
+    experimentName,
+  }: {
+    metricName: string;
+    variationName: string;
+    experimentName: string;
+  }) =>
+    `The metric ${metricName} for variation ${variationName} has ${
+      chanceToWin < threshold ? "dropped to a" : "reached a"
+    } ${percentFormatter(
+      chanceToWin
+    )} chance to beat the baseline in experiment ${experimentName}.`;
 
   return {
-    text,
+    text: text({ metricName, experimentName, variationName }),
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `Metric *${metricName}* has crossed significance threshold of *${percentFormatter(
-            threshold
-          )}* chance to win in experiment *${experimentName}*.`,
+          text: text({
+            metricName: `*${metricName}*`,
+            experimentName: `*${experimentName}*`,
+            variationName: `*${variationName}*`,
+          }),
         },
       },
     ],
