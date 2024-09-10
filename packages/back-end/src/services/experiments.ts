@@ -56,6 +56,7 @@ import { addTags } from "../models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
+  getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "../models/ExperimentSnapshotModel";
 import { Dimension } from "../types/Integration";
@@ -687,6 +688,27 @@ export type SnapshotAnalysisParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
 };
+
+export async function _getSnapshots(
+  context: ReqContext | ApiReqContext,
+  experimentObjs: ExperimentInterface[],
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface[]> {
+  const experimentPhaseMap: Map<string, number> = new Map();
+  experimentObjs.forEach((e) => {
+    if (e.organization !== context.org.id) {
+      throw new Error("You do not have access to view this experiment");
+    }
+    // get the latest phase
+    experimentPhaseMap.set(e.id, e.phases.length - 1);
+  });
+  return await getLatestSnapshotMultipleExperiments(
+    experimentPhaseMap,
+    dimension,
+    withResults
+  );
+}
 
 async function getSnapshotAnalyses(
   params: SnapshotAnalysisParams[],

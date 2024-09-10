@@ -31,7 +31,6 @@ const savedGroupSchema = new mongoose.Schema({
   },
   attributeKey: String,
   description: String,
-  passByReferenceOnly: Boolean,
 });
 
 type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
@@ -40,10 +39,6 @@ const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
   "savedGroup",
   savedGroupSchema
 );
-
-interface GetAllSavedGroupsOptions {
-  includeLargeSavedGroupValues?: boolean;
-}
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
   const legacy = omit(
@@ -78,27 +73,11 @@ export async function createSavedGroup(
 }
 
 export async function getAllSavedGroups(
-  organization: string,
-  options: GetAllSavedGroupsOptions = {}
+  organization: string
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] =
-    // Query legacy saved groups separately from large (pass-by-reference-only) groups
-    // and conditionally include the values for the latter
-    (
-      await Promise.all([
-        SavedGroupModel.find({
-          organization,
-          passByReferenceOnly: { $in: [null, false] },
-        }),
-        SavedGroupModel.find(
-          {
-            organization,
-            passByReferenceOnly: true,
-          },
-          options.includeLargeSavedGroupValues ? {} : { values: 0 }
-        ),
-      ])
-    ).flat();
+  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
+    organization,
+  });
   return savedGroups.map(toInterface);
 }
 
@@ -168,6 +147,5 @@ export function toSavedGroupApiInterface(
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
     description: savedGroup.description,
-    passByReferenceOnly: savedGroup.passByReferenceOnly,
   };
 }

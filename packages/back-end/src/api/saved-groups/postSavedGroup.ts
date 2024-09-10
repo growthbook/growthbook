@@ -1,4 +1,4 @@
-import { validateCondition } from "shared/util";
+import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
 import { PostSavedGroupResponse } from "../../../types/openapi";
 import {
   createSavedGroup,
@@ -46,6 +46,18 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       if (!attributeKey || !values) {
         throw new Error(
           "Must specify an attributeKey and values for list groups"
+        );
+      }
+      const attributeSchema = req.organization.settings?.attributeSchema || [];
+      const datatype = attributeSchema.find(
+        (sdkAttr) => sdkAttr.property === attributeKey
+      )?.datatype;
+      if (!datatype) {
+        throw new Error("Unknown attributeKey");
+      }
+      if (!ID_LIST_DATATYPES.includes(datatype)) {
+        throw new Error(
+          "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
         );
       }
       if (condition) {

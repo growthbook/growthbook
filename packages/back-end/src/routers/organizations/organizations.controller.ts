@@ -697,6 +697,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     context.permissions.canReadMultiProjectResource(environment.projects)
   );
 
+  // Use a stripped down list of invites if the user doesn't have permission to manage the team
+  // The full invite object contains a key which can be used to accept the invite
+  // Without this filtering, a user could accept an invite of a higher-priveleged user and assume their role
+  const filteredInvites = context.permissions.canManageTeam()
+    ? invites
+    : invites.map((i) => ({ email: i.email }));
+
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
@@ -744,7 +751,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       features: watch?.features || [],
     },
     organization: {
-      invites,
+      invites: filteredInvites,
       ownerEmail,
       externalId,
       name,

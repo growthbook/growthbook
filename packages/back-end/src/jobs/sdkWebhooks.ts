@@ -18,7 +18,7 @@ import {
   findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
 } from "../models/WebhookModel";
-import { WebhookInterface } from "../../types/webhook";
+import { WebhookInterface, WebhookPayloadFormat } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 import { cancellableFetch, CancellableFetchReturn } from "../util/http.util";
 import {
@@ -34,7 +34,11 @@ type SDKWebhookJob = Job<{
   webhookId: string;
   retryCount: number;
 }>;
-const sendPayloadFormats = ["standard", "sdkPayload"];
+const sendPayloadFormats: WebhookPayloadFormat[] = [
+  "standard",
+  "sdkPayload",
+  "edgeConfig",
+];
 
 const fireWebhooks = trackJob(
   SDK_WEBHOOKS_JOB_NAME,
@@ -163,6 +167,7 @@ async function runWebhookFetch({
   const headers = webhook.headers || "";
   const method = webhook.httpMethod || "POST";
   const payloadFormat = webhook.payloadFormat || "standard";
+  const payloadKey = webhook.payloadKey;
   const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
@@ -203,6 +208,17 @@ async function runWebhookFetch({
         break;
       case "standard":
         body = standardBody;
+        break;
+      case "edgeConfig":
+        body = JSON.stringify({
+          items: [
+            {
+              operation: "upsert",
+              key: payloadKey || "gb_payload",
+              value: payload,
+            },
+          ],
+        });
         break;
       default:
         body = standardBody;
@@ -429,6 +445,7 @@ export async function fireGlobalSdkWebhooks(
         headers,
         sendPayload,
         payloadFormat,
+        payloadKey,
       } = webhook;
       let format = payloadFormat;
       if (!format) {
@@ -450,6 +467,7 @@ export async function fireGlobalSdkWebhooks(
         headers:
           typeof headers !== "string" ? JSON.stringify(headers) : headers,
         payloadFormat: format,
+        payloadKey,
         organization: context.org?.id,
         created: new Date(),
         error: "",

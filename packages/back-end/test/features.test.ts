@@ -66,43 +66,36 @@ describe("getParsedCondition", () => {
     groupMap.clear();
     groupMap.set("a", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["0", "1"],
       attributeKey: "id_a",
     });
     groupMap.set("b", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["2"],
       attributeKey: "id_b",
     });
     groupMap.set("c", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["3"],
       attributeKey: "id_c",
     });
     groupMap.set("d", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["4"],
       attributeKey: "id_d",
     });
     groupMap.set("e", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["5"],
       attributeKey: "id_e",
     });
     groupMap.set("f", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["6"],
       attributeKey: "id_f",
     });
     groupMap.set("empty", {
       type: "list",
-      passByReferenceOnly: true,
       values: [],
       attributeKey: "empty",
     });
@@ -246,16 +239,13 @@ describe("getParsedCondition", () => {
     });
     groupMap.set("e", {
       type: "list",
-      passByReferenceOnly: true,
     });
     groupMap.set("f", {
       type: "list",
-      passByReferenceOnly: true,
       attributeKey: "a",
     });
     groupMap.set("g", {
       type: "list",
-      passByReferenceOnly: true,
       attributeKey: "",
       values: ["a"],
     });
