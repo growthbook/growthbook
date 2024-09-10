@@ -548,6 +548,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       header={modalTitle}
       cta={buttonText({ step, payloadType: form.watch("payloadType") })}
       includeCloseCta={false}

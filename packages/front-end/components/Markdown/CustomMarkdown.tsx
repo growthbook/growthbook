@@ -58,6 +58,7 @@ const CustomMarkdown: React.FC<Props> = ({ page, variables }) => {
     <>
       {showModal && (
         <Modal
+          trackingEventModalType=""
           open={true}
           header={<h4>{PAGE_TO_CTA[page] + organization.name}</h4>}
           close={() => setShowModal(false)}

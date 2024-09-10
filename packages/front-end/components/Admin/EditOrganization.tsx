@@ -52,6 +52,7 @@ const EditOrganization: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       submit={handleSubmit}
       open={true}
       header={"Edit Organization"}

@@ -32,6 +32,7 @@ export const PermissionsModal = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={open}
       close={() => onClose()}
       header={"Edit Team Permissions"}

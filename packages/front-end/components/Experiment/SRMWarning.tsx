@@ -91,6 +91,7 @@ const SRMWarning: FC<{
     <>
       {type === "with_modal" && (
         <Modal
+          trackingEventModalType=""
           close={() => setOpen(false)}
           open={open}
           header={
