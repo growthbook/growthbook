@@ -313,7 +313,6 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
     weights=[BanditWeightsByDate(date="", weights=None)],
-    reweight=False,
     decision_metric="count_metric",
     bandit_weights_seed=int(100),
     weight_by_period=True,
