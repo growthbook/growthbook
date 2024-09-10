@@ -1,9 +1,8 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import Link from "next/link";
-import { SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import React from "react";
-import { PiInfoFill, PiWarningFill } from "react-icons/pi";
+import { PiInfoFill } from "react-icons/pi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 
@@ -11,7 +10,6 @@ interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
   supportedConnections: SDKConnectionInterface[];
   unsupportedConnections: SDKConnectionInterface[];
-  unversionedConnections: SDKConnectionInterface[];
 }
 
 export function useLargeSavedGroupSupport(
@@ -26,18 +24,14 @@ export function useLargeSavedGroupSupport(
   );
   const supportedConnections: SDKConnectionInterface[] = [];
   const unsupportedConnections: SDKConnectionInterface[] = [];
-  const unversionedConnections: SDKConnectionInterface[] = [];
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
   (connections || []).forEach((conn) => {
-    if (getConnectionSDKCapabilities(conn).includes("savedGroupReferences")) {
-      if (conn.savedGroupReferencesEnabled) {
-        supportedConnections.push(conn);
-      } else {
-        unsupportedConnections.push(conn);
-      }
-    } else if (!conn.sdkVersion || conn.sdkVersion === "0.0.0") {
-      unversionedConnections.push(conn);
+    if (
+      getConnectionSDKCapabilities(conn).includes("savedGroupReferences") &&
+      conn.savedGroupReferencesEnabled
+    ) {
+      supportedConnections.push(conn);
     } else {
       unsupportedConnections.push(conn);
     }
@@ -46,75 +40,56 @@ export function useLargeSavedGroupSupport(
     hasLargeSavedGroupFeature,
     supportedConnections,
     unsupportedConnections,
-    unversionedConnections,
   };
 }
 
 type LargeSavedGroupSupportWarningProps = LargeSavedGroupSupport & {
-  type: "saved_group_creation" | "targeting_rule" | "in_use_saved_group";
+  style: "banner" | "text";
   openUpgradeModal?: () => void;
-  upgradeWarningToError?: boolean;
 };
 
-export default function LargeSavedGroupSupportWarning({
-  type,
+export default function LargeSavedGroupPerformanceWarning({
+  style,
   openUpgradeModal,
   hasLargeSavedGroupFeature,
   supportedConnections,
   unsupportedConnections,
-  unversionedConnections,
-  upgradeWarningToError,
 }: LargeSavedGroupSupportWarningProps) {
-  if (!hasLargeSavedGroupFeature && openUpgradeModal) {
+  if (!hasLargeSavedGroupFeature) {
     return (
       <div className="alert alert-info-gb-purple mt-2 p-3">
-        <PiInfoFill /> You must have an Enterprise plan to create lists with
-        more than {SMALL_GROUP_SIZE_LIMIT} items.{" "}
-        <span className="underline cursor-pointer" onClick={openUpgradeModal}>
-          Upgrade &gt;
-        </span>
+        <PiInfoFill /> Performance improvements for Saved Groups are available
+        with an Enterprise plan.
+        {openUpgradeModal && (
+          <>
+            {" "}
+            <span
+              className="underline cursor-pointer"
+              onClick={openUpgradeModal}
+            >
+              Upgrade &gt;
+            </span>
+          </>
+        )}
       </div>
     );
   }
-  if (
-    unsupportedConnections.length === 0 &&
-    unversionedConnections.length === 0
-  )
-    return <></>;
+  if (unsupportedConnections.length === 0) return <></>;
 
-  const supportCertainty =
-    unsupportedConnections.length > 0 ? "don't" : "might not";
-
-  const warningLevel = upgradeWarningToError ? "danger" : "warning";
-  const Icon = upgradeWarningToError ? <PiWarningFill /> : <PiInfoFill />;
-
+  const ContainerTag = style === "text" ? "p" : "div";
   const containerClassName =
-    type === "targeting_rule"
-      ? `text-${warningLevel}-muted`
-      : `alert alert-${warningLevel} mt-2 p-3`;
+    style === "text" ? `text-warning-muted` : `alert alert-warning mt-2 p-3`;
 
-  let copy = "";
-  if (type === "in_use_saved_group") {
-    copy =
-      "This saved group is being used in SDK connections that don't support lists with more than 100 items.";
-    if (upgradeWarningToError) {
-      copy +=
-        " Update impacted SDKs or reduce the number of list items to resolve.";
-    }
-  } else {
-    copy = `${
-      supportedConnections.length > 0 || unversionedConnections.length > 0
-        ? "Some of your"
-        : "Your"
-    } SDK connections ${supportCertainty} support lists with more than ${SMALL_GROUP_SIZE_LIMIT} items.`;
-  }
+  const copy = `${
+    supportedConnections.length > 0 ? "Some of your" : "Your"
+  } SDK connections don't have "Pass Saved Groups by reference" enabled, which may affect SDK performance.`;
 
   return (
-    <div className={containerClassName}>
-      {Icon} {copy}{" "}
-      <Link className={`text-${warningLevel}-muted underline`} href="/sdks">
+    <ContainerTag className={containerClassName}>
+      <PiInfoFill /> {copy}{" "}
+      <Link className="text-warning-muted underline" href="/sdks">
         View SDKs &gt;
       </Link>
-    </div>
+    </ContainerTag>
   );
 }

@@ -1298,8 +1298,6 @@ export interface components {
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
       description?: string;
-      /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-      passByReferenceOnly?: boolean;
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -1764,6 +1762,40 @@ export interface operations {
                       variationId: string;
                     })[];
                   experimentId: string;
+                } | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: any;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -1816,6 +1848,40 @@ export interface operations {
                         variationId: string;
                       })[];
                     experimentId: string;
+                  } | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: any;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
@@ -2262,6 +2328,40 @@ export interface operations {
                       variationId: string;
                     })[];
                   experimentId: string;
+                } | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: any;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -2314,6 +2414,40 @@ export interface operations {
                         variationId: string;
                       })[];
                     experimentId: string;
+                  } | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: any;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
@@ -5163,8 +5297,6 @@ export interface operations {
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
                 description?: string;
-                /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-                passByReferenceOnly?: boolean;
               })[];
           }) & {
             limit: number;
@@ -5222,8 +5354,6 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
-              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5259,8 +5389,6 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
-              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5310,8 +5438,6 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
-              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-              passByReferenceOnly?: boolean;
             };
           };
         };

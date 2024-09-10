@@ -592,6 +592,35 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
+export async function getExperimentsUsingMetric(
+  context: ReqContext | ApiReqContext,
+  metricId: string,
+  limit?: number
+): Promise<ExperimentInterface[]> {
+  const experiments = await findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      $or: [
+        { metrics: metricId },
+        { goalMetrics: metricId },
+        { guardrails: metricId },
+        { guardrailMetrics: metricId },
+        { secondaryMetrics: metricId },
+        { activationMetric: metricId },
+      ],
+      archived: {
+        $ne: true,
+      },
+    },
+    // hard cap at 1000 to prevent too many results
+    limit !== undefined ? limit : 1000,
+    { _id: -1 }
+  );
+
+  return experiments;
+}
+
 export async function getRecentExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
   metricId: string

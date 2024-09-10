@@ -1,7 +1,12 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import {
+  FaChartLine,
+  FaExternalLinkAlt,
+  FaFlask,
+  FaTimes,
+} from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { quantileMetricType } from "shared/experiments";
@@ -9,6 +14,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -24,6 +30,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getPercentileLabel } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -34,6 +41,12 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
+import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
+import Tab from "@/components/Tabs/Tab";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+
+export const metricTabs = ["analysis", "experiments"] as const;
+export type MetricTab = typeof metricTabs[number];
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -185,6 +198,10 @@ export default function FactMetricPage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
 
+  const [tab, setTab] = useLocalStorage<string | null>(
+    `metricTabbedPageTab__${fmid}`,
+    "analysis"
+  );
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
@@ -737,10 +754,50 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-
-      {!!datasource && (
-        <MetricAnalysis factMetric={factMetric} datasource={datasource} />
-      )}
+      <div className="row align-items-center ml-1">
+        <ControlledTabs
+          orientation="horizontal"
+          className="col"
+          buttonsClassName="mb-0"
+          buttonsWrapperClassName="ml-2 border-bottom-0 mb-n2 p-1 large"
+          defaultTab="analysis"
+          newStyle={false}
+          showActiveCount={false}
+          active={tab}
+          setActive={setTab}
+        >
+          <Tab
+            display={
+              <>
+                <FaChartLine className="mr-1" />
+                Metric Analysis
+              </>
+            }
+            id="analysis"
+            anchor="analysis"
+            padding={false}
+            lazy={true}
+          >
+            {datasource ? (
+              <MetricAnalysis factMetric={factMetric} datasource={datasource} />
+            ) : null}
+          </Tab>
+          <Tab
+            display={
+              <>
+                <FaFlask className="mr-1" />
+                Experiments
+              </>
+            }
+            id="experiments"
+            anchor="experiments"
+            padding={false}
+            lazy={true}
+          >
+            <MetricExperiments metric={factMetric} />
+          </Tab>
+        </ControlledTabs>
+      </div>
     </div>
   );
 }
