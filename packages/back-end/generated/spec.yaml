@@ -2869,6 +2869,7 @@ paths:
                     - 'string[]'
                     - 'number[]'
                     - 'secureString[]'
+                    - isoCountryCode
                   description: The attribute datatype
                 description:
                   type: string
@@ -2917,6 +2918,7 @@ paths:
                           - 'string[]'
                           - 'number[]'
                           - 'secureString[]'
+                          - isoCountryCode
                       description:
                         type: string
                       hashAttribute:
@@ -2970,6 +2972,7 @@ paths:
                     - 'string[]'
                     - 'number[]'
                     - 'secureString[]'
+                    - isoCountryCode
                   description: The attribute datatype
                 description:
                   type: string

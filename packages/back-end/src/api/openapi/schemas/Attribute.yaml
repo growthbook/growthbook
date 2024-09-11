@@ -7,7 +7,7 @@ properties:
     type: string
   datatype:
     type: string
-    enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]"]
+    enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]", "isoCountryCode"]
   description:
     type: string
   hashAttribute:

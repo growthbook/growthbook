@@ -24,7 +24,7 @@ requestBody:
         properties:
           datatype:
             type: string
-            enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]"]
+            enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]", "isoCountryCode"]
             description: The attribute datatype
           description:
             type: string
