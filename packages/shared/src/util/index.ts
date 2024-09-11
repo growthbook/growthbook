@@ -19,8 +19,8 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
   ExposureQuery,
-} from "@back-end/types/datasource";
-import { OrganizationSettings } from "@back-end/types/organization";
+} from "back-end/types/datasource";
+import { OrganizationSettings } from "back-end/types/organization";
 
 export * from "./features";
 export * from "./saved-groups";
