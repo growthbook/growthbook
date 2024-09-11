@@ -2,13 +2,13 @@ import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+} from "@back-end/types/report";
+import { SnapshotMetric } from "@back-end/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "@back-end/types/stats";
 import {
   BsXCircle,
   BsHourglassSplit,

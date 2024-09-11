@@ -363,8 +363,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         let totalUsers = 0;
         for (let i = 0; i < variationNames.length; i++) {
           let prob =
-            latestMeta?.[i]?.probability ??
-            1 / (variationNames.length || 2);
+            latestMeta?.[i]?.probability ?? 1 / (variationNames.length || 2);
           const users = latestMeta?.[i]?.users ?? 0;
           totalUsers += users;
           if (users < 100) {
@@ -382,7 +381,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       function rankArray(values: (number | undefined)[]): number[] {
         const indices = values
           .map((value, index) => (value !== undefined ? index : -1))
-          .filter(index => index !== -1);
+          .filter((index) => index !== -1);
         indices.sort((a, b) => (values[b] as number) - (values[a] as number));
         const ranks = new Array(values.length).fill(0);
         indices.forEach((index, rank) => {

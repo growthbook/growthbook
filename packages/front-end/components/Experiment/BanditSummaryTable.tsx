@@ -6,8 +6,8 @@ import { MetricInterface } from "back-end/types/metric";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { getVariationColor } from "@/services/features";
-import AlignedGraph from "./AlignedGraph";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
+import AlignedGraph from "./AlignedGraph";
 
 const WIN_THRESHOLD_PROBABILITY = 0.95;
 const ROW_HEIGHT = 56;
@@ -56,9 +56,15 @@ export default function BanditSummaryTable({
     };
   });
 
-  const [showVariations, setShowVariations] = useState<boolean[]>(variations.map((_, i) => true));
-  const [variationsSort, setVariationsSort] = useState<"default" | "ranked">("default");
-  const [showVariationsFilter, setShowVariationsFilter] = useState<boolean>(false);
+  const [showVariations, setShowVariations] = useState<boolean[]>(
+    variations.map(() => true)
+  );
+  const [variationsSort, setVariationsSort] = useState<"default" | "ranked">(
+    "default"
+  );
+  const [showVariationsFilter, setShowVariationsFilter] = useState<boolean>(
+    false
+  );
 
   useEffect(() => {
     if (!isTabActive) {
@@ -101,7 +107,7 @@ export default function BanditSummaryTable({
   function rankArray(values: (number | undefined)[]): number[] {
     const indices = values
       .map((value, index) => (value !== undefined ? index : -1))
-      .filter(index => index !== -1);
+      .filter((index) => index !== -1);
     indices.sort((a, b) => (values[b] as number) - (values[a] as number));
     const ranks = new Array(values.length).fill(0);
     indices.forEach((index, rank) => {
@@ -112,9 +118,12 @@ export default function BanditSummaryTable({
 
   const variationRanks = rankArray(probabilities);
 
-  const sortedVariations = variationsSort === "default" ?
-    variations :
-    variations.slice().sort((a, b) => variationRanks[a.index] - variationRanks[b.index]);
+  const sortedVariations =
+    variationsSort === "default"
+      ? variations
+      : variations
+          .slice()
+          .sort((a, b) => variationRanks[a.index] - variationRanks[b.index]);
 
   const domain: [number, number] = useMemo(() => {
     if (!results) return [-0.1, 0.1];
