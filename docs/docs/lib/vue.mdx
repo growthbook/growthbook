@@ -47,53 +47,54 @@ yarn add @growthbook/growthbook
 
 ## Create a Provider
 
-Use Vue's `provide` function to make GrowthBook available to your components.
+Use Vue's `app.provide` method to make GrowthBook available to your components.
 
 In your app's entry file, usually `./src/main.ts`, add the following code:
 
-<Tabs>
-<TabItem value="ts" label="TypeScript">
-
 ```ts
-import './assets/main.css'
 // Import the GrowthBook SDK
 import { GrowthBook } from '@growthbook/growthbook'
 
 // Add imports needed to create the provider
-import { createApp, reactive } from 'vue'
 import type { InjectionKey } from 'vue'
+import { createApp, reactive } from 'vue'
+
 import App from './App.vue'
+import './assets/main.css'
 
-// Define the GrowthBook instance
-let gbInstance
-
-try {
-  // Wrap the GrowthBook instance in a reactive object and use streaming for real-time reactivity
-  gbInstance = reactive(
-    new GrowthBook({
-      clientKey: 'YOUR_CLIENT_KEY',
-      attributes: {
-        // Add user attributes here
-      },
-      enableDevMode: "true" // Optional: Enable the Visual Editor and dev tools
-    })
-  )
-  await gbInstance.init({ streaming: true })
-} catch (e) {
-  console.log('Error initializing GrowthBook:', e)
-}
+// Create a reactive instance of GrowthBook
+const gbInstance = reactive(
+  new GrowthBook({
+    clientKey: 'YOUR_CLIENT_KEY',
+    attributes: {
+      // Add user attributes here
+    },
+    enableDevMode: true // Optional: Enable the Visual Editor and dev tools
+  })
+)
 
 // Share the provider type with other components
-export const gbKey = Symbol('gbKey') as InjectionKey<typeof gbInstance>
-const app = createApp(App)
+export const gbKey = Symbol('gb') as InjectionKey<typeof gbInstance | null>
 
-// Define the provider and pass in the GrowthBook instance
-app.provide(gbKey, gbInstance)
-app.mount('#app')
+// Initialize GrowthBook with streaming enabled for real-time updates
+const initializeGrowthBook = async () => {
+  try {
+    await gbInstance.init({ streaming: true })
+    return gbInstance
+  } catch (e) {
+    console.error('Error initializing GrowthBook:', e)
+    return null
+  }
+}
+
+initializeGrowthBook().then((gbInstance) => {
+  const app = createApp(App)
+
+  // Provide the GrowthBook instance
+  app.provide(gbKey, gbInstance)
+  app.mount('#app')
+})
 ```
-
-</TabItem>
-</Tabs>
 
 ## Inject GrowthBook into a Component
 
@@ -145,6 +146,7 @@ export default {
     // Set the showBanner variable to the feature flag value
     if (gb) {
       this.showBanner = gb.isOn('show-banner')
+
       // Optional: Watch the feature flag for changes (requires streaming to be enabled)
       watch(gb, () => {
         this.showBanner = gb.isOn('show-banner')
