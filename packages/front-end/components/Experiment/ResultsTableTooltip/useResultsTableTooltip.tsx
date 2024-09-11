@@ -8,11 +8,12 @@ import {
   TOOLTIP_HEIGHT,
   TOOLTIP_TIMEOUT,
   TOOLTIP_WIDTH,
+  TooltipData,
   TooltipHoverSettings,
   YAlign,
 } from "./ResultsTableTooltip";
 
-export function useResultsTableTooltip<TooltipData>({
+export function useResultsTableTooltip({
   orderedVariations,
   rows,
   rowsResults,
@@ -22,7 +23,7 @@ export function useResultsTableTooltip<TooltipData>({
   noTooltip,
 }: {
   orderedVariations: ExperimentReportVariationWithIndex[];
-  rows: ExperimentTableRow;
+  rows: ExperimentTableRow[];
   rowsResults: (RowResults | "query error" | null)[][];
   dimension?: string;
   statsEngine: StatsEngine;
@@ -172,7 +173,7 @@ export function useResultsTableTooltip<TooltipData>({
         isGuardrail: row.resultGroup === "guardrail",
         layoutX,
         yAlign,
-      },
+      } as TooltipData,
     });
     setHoveredMetricRow(metricRow);
     setHoveredVariationRow(variationRow);
@@ -197,7 +198,7 @@ export function useResultsTableTooltip<TooltipData>({
   return {
     containerRef,
     tooltipOpen,
-    tooltipData,
+    tooltipData: tooltipData as TooltipData,
     hoveredX,
     hoveredY,
     hoverRow,
