@@ -307,5 +307,4 @@ export const attributeDataTypes = [
   "string[]",
   "number[]",
   "secureString[]",
-  "isoCountryCode",
 ] as const;
