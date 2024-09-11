@@ -70,9 +70,9 @@ export default function SetupFlow() {
         <Page
           display="Initiate Connection"
           validate={sdkConnectionForm.handleSubmit(async (value) => {
-            if (connection) {
-              return Promise.resolve();
-            }
+            // if (connection) {
+            return Promise.resolve();
+            // }
 
             const body: Omit<CreateSDKConnectionParams, "organization"> = {
               name: `${value.languages[0]} SDK Connection`,
@@ -191,9 +191,7 @@ export default function SetupFlow() {
               </div>
             </div>
             <div className="appbox p-4 mb-3">
-              <h3 className="mb-0 align-self-center">
-                How A/B Testing Works at GrowthBook
-              </h3>
+              <h3 className="mb-2">How A/B Testing Works at GrowthBook</h3>
 
               <p>
                 For example, Google Analytics is an event tracker that sits on
@@ -203,7 +201,7 @@ export default function SetupFlow() {
               </p>
               <img
                 className="mt-2"
-                src="images/essential-setup/data-source-diagram.png"
+                src="images/essential-setup/data-source-diagram.svg"
               />
             </div>
           </div>

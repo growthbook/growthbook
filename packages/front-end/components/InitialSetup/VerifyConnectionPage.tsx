@@ -18,6 +18,8 @@ import { useAttributeSchema } from "@/services/features";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { GBHashLock } from "@/components/Icons";
 import Code from "@/components/SyntaxHighlighting/Code";
+import InviteModal from "@/components/Settings/Team/InviteModal";
+import { useUser } from "@/services/UserContext";
 import styles from "./InitialSetup.module.scss";
 
 interface Props {
@@ -28,7 +30,9 @@ const VerifyConnectionPage = ({ connection }: Props) => {
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
+  const [inviting, setInviting] = useState(false);
 
+  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
 
@@ -47,6 +51,12 @@ const VerifyConnectionPage = ({ connection }: Props) => {
       style={{ padding: "0px 57px" }}
     >
       {!connection && <LoadingOverlay />}
+      {inviting && (
+        <InviteModal
+          close={() => setInviting(false)}
+          mutate={refreshOrganization}
+        />
+      )}
       {connection && (
         <div>
           <div className="d-flex mb-3">
@@ -56,7 +66,7 @@ const VerifyConnectionPage = ({ connection }: Props) => {
             </h3>
 
             <div className="ml-auto">
-              <a href="#">
+              <a href="#" onClick={() => setInviting(true)}>
                 <PiPaperPlaneTiltFill className="mr-1" />
                 Send to your developer
               </a>
