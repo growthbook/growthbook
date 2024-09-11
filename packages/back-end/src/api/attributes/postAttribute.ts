@@ -17,7 +17,7 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
 
     if (
       org.settings?.attributeSchema?.some(
-        (attr) => attr.property === attribute.property
+        (attr) => !attr.archived && attr.property === attribute.property
       )
     ) {
       throw Error(
