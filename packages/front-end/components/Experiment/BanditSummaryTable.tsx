@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { CSSTransition } from "react-transition-group";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import clsx from "clsx";
@@ -7,6 +8,9 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
+import { useBanditSummaryTooltip } from "@/components/Experiment/BanditSummaryTableTooltip/useBanditSummaryTooltip";
+import BanditSummaryTooltip from "@/components/Experiment/BanditSummaryTableTooltip/BanditSummaryTooltip";
+import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
 import AlignedGraph from "./AlignedGraph";
 
 const WIN_THRESHOLD_PROBABILITY = 0.95;
@@ -80,7 +84,7 @@ export default function BanditSummaryTable({
   const currentEvent = validEvents[validEvents.length - 1];
   const results = currentEvent?.banditResult?.singleVariationResults;
 
-  const probabilities = useMemo(() => {
+  const probabilities: number[] = useMemo(() => {
     let probs: number[] = [];
     let totalUsers = 0;
     for (let i = 0; i < variations.length; i++) {
@@ -159,12 +163,55 @@ export default function BanditSummaryTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
+  const {
+    containerRef,
+    tooltipOpen,
+    tooltipData,
+    hoveredX,
+    hoveredY,
+    hoverRow,
+    leaveRow,
+    closeTooltip,
+    hoveredVariationRow,
+    resetTimeout,
+  } = useBanditSummaryTooltip({
+    metric,
+    variations,
+    currentEvent,
+    probabilities,
+  });
+
   if (!results) {
     return null;
   }
 
   return (
-    <div className="position-relative">
+    <div className="position-relative" ref={containerRef}>
+      <CSSTransition
+        key={hoveredVariationRow}
+        in={
+          tooltipOpen &&
+          tooltipData &&
+          hoveredX !== null &&
+          hoveredY !== null &&
+          hoveredVariationRow !== null
+        }
+        timeout={200}
+        classNames="tooltip-animate"
+        appear={true}
+      >
+        <BanditSummaryTooltip
+          left={hoveredX ?? 0}
+          top={hoveredY ?? 0}
+          data={tooltipData}
+          tooltipOpen={tooltipOpen}
+          close={closeTooltip}
+          onPointerMove={resetTimeout}
+          onClick={resetTimeout}
+          onPointerLeave={leaveRow}
+        />
+      </CSSTransition>
+
       <div ref={tableContainerRef} className="bandit-summary-results-wrapper">
         <div className="w-100" style={{ minWidth: 500 }}>
           <table
@@ -191,7 +238,10 @@ export default function BanditSummaryTable({
                 <th className="axis-col label" style={{ width: 120 }}>
                   Mean
                 </th>
-                <th className="axis-col label" style={{ width: 120 }}>
+                <th
+                  className="axis-col label text-right pr-3"
+                  style={{ width: 110 }}
+                >
                   <div
                     style={{
                       lineHeight: "15px",
@@ -246,6 +296,20 @@ export default function BanditSummaryTable({
                 }
                 const probability =
                   probabilities?.[v.index] ?? 1 / (variations.length || 2);
+
+                const isHovered = hoveredVariationRow === v.index;
+
+                const onPointerMove = (e, settings?: TooltipHoverSettings) => {
+                  // No hover tooltip if the screen is too narrow. Clicks still work.
+                  if (e?.type === "mousemove" && window.innerWidth < 900) {
+                    return;
+                  }
+                  hoverRow(v.index, e, settings);
+                };
+                const onPointerLeave = () => {
+                  leaveRow();
+                };
+
                 return (
                   <tr
                     className="results-variation-row align-items-center"
@@ -289,9 +353,13 @@ export default function BanditSummaryTable({
                       <td />
                     )}
                     <td
-                      className={clsx("results-ctw chance", {
+                      className={clsx("results-ctw chance text-right pr-3", {
                         won: (probability ?? 0) >= WIN_THRESHOLD_PROBABILITY,
+                        hover: isHovered,
                       })}
+                      onMouseMove={onPointerMove}
+                      onMouseLeave={onPointerLeave}
+                      onClick={onPointerMove}
                     >
                       {isFinite(probability) ? (
                         percentFormatter.format(probability)
@@ -315,6 +383,23 @@ export default function BanditSummaryTable({
                         graphWidth={graphCellWidth}
                         percent={false}
                         height={rowHeight}
+                        className={clsx({
+                          hover: isHovered,
+                        })}
+                        onMouseMove={(e) =>
+                          onPointerMove(e, {
+                            x: "element-center",
+                            targetClassName: "hover-target",
+                            offsetY: -8,
+                          })
+                        }
+                        onMouseLeave={onPointerLeave}
+                        onClick={(e) =>
+                          onPointerMove(e, {
+                            x: "element-center",
+                            offsetY: -8,
+                          })
+                        }
                       />
                     </td>
                   </tr>
