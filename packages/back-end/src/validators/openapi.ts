@@ -332,6 +332,30 @@ export const putOrganizationValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const listAttributesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const postAttributeValidator = {
+  bodySchema: z.object({ "property": z.string().describe("The attribute property"), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype"), "description": z.string().describe("The description of the new attribute").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const putAttributeValidator = {
+  bodySchema: z.object({ "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "property": z.string() }).strict(),
+};
+
+export const deleteAttributeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "property": z.string() }).strict(),
+};
+
 export const listMembersValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "userName": z.string().optional(), "userEmail": z.string().optional(), "globalRole": z.string().optional() }).strict(),

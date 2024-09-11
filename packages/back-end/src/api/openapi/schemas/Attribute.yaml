@@ -1,0 +1,23 @@
+type: object
+required:
+  - property
+  - datatype
+properties:
+  property:
+    type: string
+  datatype:
+    type: string
+    enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]"]
+  description:
+    type: string
+  hashAttribute:
+    type: boolean
+  enum:
+    type: string
+  format:
+    type: string
+    enum: ["", "version", "date"]
+  projects:
+    type: array
+    items:
+      type: string
