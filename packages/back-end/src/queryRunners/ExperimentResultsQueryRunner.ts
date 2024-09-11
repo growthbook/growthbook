@@ -481,9 +481,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }: {
     status: QueryStatus;
     queries: Queries;
-    runStarted?: Date | undefined;
-    result?: SnapshotResult | undefined;
-    error?: string | undefined;
+    runStarted?: Date;
+    result?: SnapshotResult;
+    error?: string;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,

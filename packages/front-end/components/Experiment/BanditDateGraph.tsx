@@ -248,7 +248,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
 
-      const weights = event.banditResult?.weights ?? [];
+      const weights = event.banditResult.weights;
 
       const users = variationNames.map(
         (_, i) =>
@@ -288,7 +288,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         } else if (mode === "probabilities") {
           val = bestArmProbabilities[i];
         } else if (mode === "weights") {
-          val = weights[i];
+          val = weights?.[i];
         }
         if (val !== undefined) {
           allEmpty = false;
@@ -296,7 +296,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         dataPoint[i] = val ?? 0;
         dataPoint.meta[i] = {
           probability: bestArmProbabilities[i],
-          weight: weights[i],
+          weight: weights?.[i],
           users: users?.[i],
           cr: crs[i],
           ci: cis?.[i],

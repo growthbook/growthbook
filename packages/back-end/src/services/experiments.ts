@@ -408,7 +408,7 @@ export function getSnapshotSettings({
           weights:
             phase?.banditEvents?.map((event) => ({
               date: event.date,
-              weights: event?.banditResult?.weights, // todo: could be undefined, handle in stats eng?
+              weights: event.banditResult.weights,
             })) ?? [],
         }
       : undefined;
@@ -673,23 +673,27 @@ export function updateExperimentBanditSettings({
   }
   const lastIndex = changes.phases.length - 1;
 
-  const banditResult: BanditResult = snapshot?.banditResult ?? {};
+  const banditResult: BanditResult | undefined = snapshot?.banditResult;
   const dateCreated = snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
-  // apply weights
-  const weights =
-    banditResult.weights ?? changes.phases[lastIndex].variationWeights;
-  changes.phases[lastIndex].variationWeights = weights;
+  if (banditResult) {
+    changes.phases[lastIndex].variationWeights = banditResult.weights;
 
-  // log weight change event
-  if (!changes.phases[lastIndex].banditEvents) {
-    changes.phases[lastIndex].banditEvents = [];
+    // log weight change event
+    if (!changes.phases[lastIndex].banditEvents) {
+      changes.phases[lastIndex].banditEvents = [];
+    }
+    changes.phases[lastIndex].banditEvents?.push({
+      date: dateCreated,
+      banditResult,
+      snapshotId: snapshot?.id,
+    });
+  } else {
+    logger.error("No bandit results present, skipping bandit event log", {
+      eid: experiment.id,
+      snapshot,
+    });
   }
-  changes.phases[lastIndex].banditEvents?.push({
-    date: dateCreated,
-    banditResult,
-    snapshotId: snapshot?.id,
-  });
 
   // scheduling
   changes.nextSnapshotAttempt = determineNextBanditSchedule({

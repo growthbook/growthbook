@@ -23,7 +23,7 @@ export const singleVariationResult = z.object({
 
 export const banditResult = z.object({
   singleVariationResults: z.array(singleVariationResult).optional(),
-  weights: z.array(z.number()).optional(),
+  weights: z.array(z.number()),
   bestArmProbabilities: z.array(z.number()).optional(),
   additionalReward: z.number().optional(),
   seed: z.number().optional(),

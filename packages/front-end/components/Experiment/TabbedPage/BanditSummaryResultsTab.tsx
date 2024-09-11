@@ -130,7 +130,13 @@ export default function BanditSummaryResultsTab({
                   <tbody>
                     <tr>
                       <td className="text-muted">Bandit phase:</td>
-                      <td>{experiment.banditPhase ?? ""}</td>
+                      <td>
+                        {experiment.banditPhase === "explore"
+                          ? "burn-in (explore)"
+                          : experiment.banditPhase === "exploit"
+                          ? "exploit"
+                          : ""}
+                      </td>
                     </tr>
                     <tr>
                       <td className="text-muted">Update cadence:</td>

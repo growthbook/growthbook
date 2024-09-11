@@ -136,7 +136,7 @@ export interface SnapshotBanditSettings {
   seed: number;
   weights: {
     date: Date;
-    weights?: number[];
+    weights: number[];
   }[];
 }
 

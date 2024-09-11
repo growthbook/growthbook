@@ -73,11 +73,10 @@ export interface BanditSettingsForStatsEngine {
   var_names: string[];
   var_ids: string[];
   weights: {
-    // todo: implement in python
     date: Date;
-    weights?: number[];
+    weights: number[];
   }[];
-  reweight: boolean; // todo: implement in python
+  reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
 }
