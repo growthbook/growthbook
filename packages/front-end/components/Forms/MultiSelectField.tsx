@@ -74,30 +74,30 @@ const Input = (props: InputProps) => {
   return <components.Input onPaste={onPaste} {...props} />;
 };
 
-const MultiSelectField: FC<
-  Omit<
-    FieldProps,
-    "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
-  > & {
-    value: string[];
-    placeholder?: string;
-    options: Option[];
-    initialOption?: string;
-    onChange: (value: string[]) => void;
-    sort?: boolean;
-    customStyles?: StylesConfig;
-    customClassName?: string;
-    closeMenuOnSelect?: boolean;
-    creatable?: boolean;
-    formatOptionLabel?: (
-      value: SingleValue,
-      meta: FormatOptionLabelMeta<SingleValue>
-    ) => ReactNode;
-    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
-    isOptionDisabled?: (_: Option) => boolean;
-    noMenu?: boolean;
-  }
-> = ({
+export type MultiSelectFieldProps = Omit<
+  FieldProps,
+  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+> & {
+  value: string[];
+  placeholder?: string;
+  options: Option[];
+  initialOption?: string;
+  onChange: (value: string[]) => void;
+  sort?: boolean;
+  customStyles?: StylesConfig;
+  customClassName?: string;
+  closeMenuOnSelect?: boolean;
+  creatable?: boolean;
+  formatOptionLabel?: (
+    value: SingleValue,
+    meta: FormatOptionLabelMeta<SingleValue>
+  ) => ReactNode;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  isOptionDisabled?: (_: Option) => boolean;
+  noMenu?: boolean;
+};
+
+const MultiSelectField: FC<MultiSelectFieldProps> = ({
   value,
   options,
   onChange,
