@@ -1,5 +1,5 @@
 import { getNewExperimentDatasourceDefaults } from "shared/util";
-import { auditDetailsCreate } from "@back-end/src/services/audit";
+import { auditDetailsCreate } from "../../services/audit";
 import { PostExperimentResponse } from "../../../types/openapi";
 import {
   createExperiment,
