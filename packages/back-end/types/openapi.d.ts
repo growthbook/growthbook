@@ -5604,7 +5604,7 @@ export interface operations {
             attributes: ({
                 property: string;
                 /** @enum {string} */
-                datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]" | "isoCountryCode";
+                datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
                 description?: string;
                 hashAttribute?: boolean;
                 enum?: string;
@@ -5628,7 +5628,7 @@ export interface operations {
            * @description The attribute datatype 
            * @enum {string}
            */
-          datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]" | "isoCountryCode";
+          datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
           /** @description The description of the new attribute */
           description?: string;
           /** @description Shall the attribute be hashed */
@@ -5650,7 +5650,7 @@ export interface operations {
             attribute: {
               property: string;
               /** @enum {string} */
-              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]" | "isoCountryCode";
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
               description?: string;
               hashAttribute?: boolean;
               enum?: string;
@@ -5678,7 +5678,7 @@ export interface operations {
            * @description The attribute datatype 
            * @enum {string}
            */
-          datatype?: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]" | "isoCountryCode";
+          datatype?: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
           /** @description The description of the new attribute */
           description?: string;
           /** @description Shall the attribute be hashed */
@@ -5700,7 +5700,7 @@ export interface operations {
             attribute: {
               property: string;
               /** @enum {string} */
-              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]" | "isoCountryCode";
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
               description?: string;
               hashAttribute?: boolean;
               enum?: string;
