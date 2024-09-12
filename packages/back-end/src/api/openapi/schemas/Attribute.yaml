@@ -16,7 +16,7 @@ properties:
     type: string
   format:
     type: string
-    enum: ["", "version", "date"]
+    enum: ["", "version", "date", "isoCountryCode"]
   projects:
     type: array
     items:

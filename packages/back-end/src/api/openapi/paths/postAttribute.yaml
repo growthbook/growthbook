@@ -35,7 +35,7 @@ requestBody:
             type: string
           format:
             type: string
-            enum: ["", "version", "date"]
+            enum: ["", "version", "date", "isoCountryCode"]
             description: The attribute's format
           projects:
             type: array

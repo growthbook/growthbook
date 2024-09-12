@@ -5609,7 +5609,7 @@ export interface operations {
                 hashAttribute?: boolean;
                 enum?: string;
                 /** @enum {string} */
-                format?: "" | "version" | "date";
+                format?: "" | "version" | "date" | "isoCountryCode";
                 projects?: (string)[];
               })[];
           };
@@ -5638,7 +5638,7 @@ export interface operations {
            * @description The attribute's format 
            * @enum {string}
            */
-          format?: "" | "version" | "date";
+          format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
         };
       };
@@ -5655,7 +5655,7 @@ export interface operations {
               hashAttribute?: boolean;
               enum?: string;
               /** @enum {string} */
-              format?: "" | "version" | "date";
+              format?: "" | "version" | "date" | "isoCountryCode";
               projects?: (string)[];
             };
           };
@@ -5688,7 +5688,7 @@ export interface operations {
            * @description The attribute's format 
            * @enum {string}
            */
-          format?: "" | "version" | "date";
+          format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
         };
       };
@@ -5705,7 +5705,7 @@ export interface operations {
               hashAttribute?: boolean;
               enum?: string;
               /** @enum {string} */
-              format?: "" | "version" | "date";
+              format?: "" | "version" | "date" | "isoCountryCode";
               projects?: (string)[];
             };
           };

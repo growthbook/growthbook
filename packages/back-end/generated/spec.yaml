@@ -2884,6 +2884,7 @@ paths:
                     - ''
                     - version
                     - date
+                    - isoCountryCode
                   description: The attribute's format
                 projects:
                   type: array
@@ -2929,6 +2930,7 @@ paths:
                           - ''
                           - version
                           - date
+                          - isoCountryCode
                       projects:
                         type: array
                         items:
@@ -2985,6 +2987,7 @@ paths:
                     - ''
                     - version
                     - date
+                    - isoCountryCode
                   description: The attribute's format
                 projects:
                   type: array
