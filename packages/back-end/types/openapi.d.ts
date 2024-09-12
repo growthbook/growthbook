@@ -429,6 +429,18 @@ export interface components {
       defaultState: boolean;
       projects: (string)[];
     };
+    Attribute: {
+      id: string;
+      property: string;
+      /** @enum {string} */
+      datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+      description?: string;
+      hashAttribute?: boolean;
+      enum?: string;
+      /** @enum {string} */
+      format?: "" | "version" | "date" | "isoCountryCode";
+      projects?: (string)[];
+    };
     Segment: {
       id: string;
       owner: string;
@@ -7185,6 +7197,7 @@ export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidato
 export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
 export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
 export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
+export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;

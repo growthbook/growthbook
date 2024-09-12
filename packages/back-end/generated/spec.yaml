@@ -2833,7 +2833,7 @@ paths:
                       attributes:
                         type: array
                         items:
-                          $ref: '#/paths/~1attributes/post/responses/200/content/application~1json/schema/properties/attribute'
+                          $ref: '#/components/schemas/Attribute'
     post:
       tags:
         - attributes
@@ -2900,44 +2900,7 @@ paths:
                   - attribute
                 properties:
                   attribute:
-                    type: object
-                    required:
-                      - id
-                      - property
-                      - datatype
-                    properties:
-                      id:
-                        type: string
-                      property:
-                        type: string
-                      datatype:
-                        type: string
-                        enum:
-                          - boolean
-                          - string
-                          - number
-                          - secureString
-                          - enum
-                          - 'string[]'
-                          - 'number[]'
-                          - 'secureString[]'
-                      description:
-                        type: string
-                      hashAttribute:
-                        type: boolean
-                      enum:
-                        type: string
-                      format:
-                        type: string
-                        enum:
-                          - ''
-                          - version
-                          - date
-                          - isoCountryCode
-                      projects:
-                        type: array
-                        items:
-                          type: string
+                    $ref: '#/components/schemas/Attribute'
   '/attributes/${id}':
     put:
       parameters:
@@ -3004,7 +2967,7 @@ paths:
                   - attribute
                 properties:
                   attribute:
-                    $ref: '#/paths/~1attributes/post/responses/200/content/application~1json/schema/properties/attribute'
+                    $ref: '#/components/schemas/Attribute'
     delete:
       summary: Deletes a single attribute
       parameters:
@@ -4813,6 +4776,45 @@ components:
           type: boolean
         defaultState:
           type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+    Attribute:
+      type: object
+      required:
+        - id
+        - property
+        - datatype
+      properties:
+        id:
+          type: string
+        property:
+          type: string
+        datatype:
+          type: string
+          enum:
+            - boolean
+            - string
+            - number
+            - secureString
+            - enum
+            - 'string[]'
+            - 'number[]'
+            - 'secureString[]'
+        description:
+          type: string
+        hashAttribute:
+          type: boolean
+        enum:
+          type: string
+        format:
+          type: string
+          enum:
+            - ''
+            - version
+            - date
+            - isoCountryCode
         projects:
           type: array
           items:
