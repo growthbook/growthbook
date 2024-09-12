@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { MetricInterface } from "@back-end/types/metric";
+import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
 import {
   LayoutX,
   TOOLTIP_HEIGHT,
@@ -124,6 +125,8 @@ export function useBanditSummaryTooltip({
 
     const probability = probabilities?.[variationRow];
 
+    const status = (probability ?? 0) >= WIN_THRESHOLD_PROBABILITY ? "won" : "";
+
     const results = currentEvent?.banditResult?.singleVariationResults;
     const result:
       | { users?: number; cr?: number; ci?: [number, number] }
@@ -142,6 +145,7 @@ export function useBanditSummaryTooltip({
         variation,
         probability,
         stats,
+        status,
         currentEvent,
         metric,
         layoutX,

@@ -6,12 +6,17 @@ import { MdSwapCalls } from "react-icons/md";
 import { isFactMetric } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
 import { BanditEvent } from "back-end/src/validators/experiments";
+import { RxInfoCircled } from "react-icons/rx";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
+import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
+import { getExperimentMetricFormatter } from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
-export const TOOLTIP_WIDTH = 400;
-export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
+export const TOOLTIP_WIDTH = 350;
+export const TOOLTIP_HEIGHT = 300; // Used for over/under layout calculation. Actual height may vary.
 export const TOOLTIP_TIMEOUT = 250; // Mouse-out delay before closing
 export type TooltipHoverSettings = {
   x: LayoutX;
@@ -23,11 +28,16 @@ export type LayoutX = "element-center" | "element-left" | "element-right";
 export type YAlign = "top" | "bottom";
 
 const numberFormatter = Intl.NumberFormat();
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
 
 export interface TooltipData {
   variation: { id: string; index: number; name: string };
   probability?: number;
   stats: SnapshotMetric;
+  status: "won" | "";
   currentEvent: BanditEvent;
   metric: MetricInterface;
   layoutX: LayoutX;
@@ -69,6 +79,10 @@ export default function BanditSummaryTooltip({
     };
   }, [data, tooltipOpen, close]);
 
+  const metricDisplayCurrency = useCurrency();
+  const metricFormatterOptions = { currency: metricDisplayCurrency };
+  const { getFactTableById } = useDefinitions();
+
   if (!data) {
     return null;
   }
@@ -83,6 +97,25 @@ export default function BanditSummaryTooltip({
     </Tooltip>
   ) : null;
 
+  const ciRangeText = (
+    <>
+      [
+      {data.metric
+        ? getExperimentMetricFormatter(data.metric, getFactTableById)(
+            data.stats.ci?.[0] ?? 0,
+            metricFormatterOptions
+          )
+        : data.stats.ci?.[0] ?? 0}
+      ,{" "}
+      {data.metric
+        ? getExperimentMetricFormatter(data.metric, getFactTableById)(
+            data.stats.ci?.[1] ?? 0,
+            metricFormatterOptions
+          )
+        : data.stats.ci?.[1] ?? 0}
+      ]
+    </>
+  );
   const arrowLeft =
     data.layoutX === "element-right"
       ? "3%"
@@ -179,18 +212,88 @@ export default function BanditSummaryTooltip({
             </div>
           </div>
 
+          <div
+            className={clsx(
+              "results-overview mt-1 px-3 pb-2 rounded position-relative",
+              data.status
+            )}
+            style={{ paddingTop: 12 }}
+          >
+            {data.status === "won" ? (
+              <div
+                className={clsx(
+                  "results-status position-absolute d-flex align-items-center",
+                  data.status
+                )}
+              >
+                <Tooltip
+                  body={
+                    <p className="mb-0">
+                      The probability of winning is above the{" "}
+                      {WIN_THRESHOLD_PROBABILITY} threshold.
+                    </p>
+                  }
+                  tipMinWidth={"250px"}
+                  className="cursor-pointer"
+                >
+                  <span style={{ marginRight: 12 }}>Won</span>
+                  <RxInfoCircled
+                    className="position-absolute"
+                    style={{ top: 3, right: 4, fontSize: "14px" }}
+                  />
+                </Tooltip>
+              </div>
+            ) : null}
+
+            <div className={clsx("results-chance d-flex mt-0", data.status)}>
+              <div className="label mr-2">Probability of winning:</div>
+              <div
+                className={clsx("value", {
+                  "font-weight-bold": isFinite(data.probability ?? NaN),
+                })}
+              >
+                {isFinite(data.probability ?? NaN) ? (
+                  percentFormatter.format(data?.probability ?? 0)
+                ) : (
+                  <em className="text-muted">
+                    <small>not enough data</small>
+                  </em>
+                )}
+              </div>
+            </div>
+
+            <div className={clsx("results-ci d-flex mt-1", data.status)}>
+              <div className="label mr-2">95% Credible Interval:</div>
+              <div
+                className={clsx("value", {
+                  "font-weight-bold": isFinite(data.probability ?? NaN),
+                })}
+              >
+                {ciRangeText}
+              </div>
+            </div>
+          </div>
+
           <div className="mt-3 mb-2 results">
-            <table className="table-condensed results-table">
+            <table className="table-condensed results-table text-center">
               <thead>
                 <tr>
-                  <th>Users</th>
-                  {/*todo: numerator*/}
-                  {/*todo: (denominator)*/}
+                  <th>Numerator</th>
+                  <th>Users (Denom.)</th>
                   <th>Mean</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
+                  <td>
+                    {getExperimentMetricFormatter(
+                      data.metric,
+                      getFactTableById,
+                      true
+                    )(data.stats.cr * data.stats.users, {
+                      currency: metricDisplayCurrency,
+                    })}
+                  </td>
                   <td>{numberFormatter.format(data.stats.users)}</td>
                   <MetricValueColumn
                     metric={data.metric}

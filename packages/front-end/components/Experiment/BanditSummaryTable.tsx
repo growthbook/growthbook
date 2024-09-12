@@ -13,7 +13,7 @@ import BanditSummaryTooltip from "@/components/Experiment/BanditSummaryTableTool
 import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
 import AlignedGraph from "./AlignedGraph";
 
-const WIN_THRESHOLD_PROBABILITY = 0.95;
+export const WIN_THRESHOLD_PROBABILITY = 0.95;
 const ROW_HEIGHT = 56;
 const ROW_HEIGHT_CONDENSED = 34;
 
@@ -240,7 +240,7 @@ export default function BanditSummaryTable({
                 </th>
                 <th
                   className="axis-col label text-right pr-3"
-                  style={{ width: 110 }}
+                  style={{ width: 120 }}
                 >
                   <div
                     style={{
