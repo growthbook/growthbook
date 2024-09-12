@@ -120,10 +120,10 @@ export interface paths {
     post: operations["updateExperiment"];
   };
   "/experiments/{id}/snapshot": {
-    /** Update single experiment results */
+    /** Create Experiment Snapshot */
     post: operations["postExperimentSnapshot"];
     parameters: {
-        /** @description The id of the experiment to update */
+        /** @description The experiment id of the experiment to update */
       path: {
         id: string;
       };
@@ -143,11 +143,11 @@ export interface paths {
     /** Get all visual changesets */
     get: operations["listVisualChangesets"];
   };
-  "/snapshot/{id}": {
+  "/snapshots/{id}": {
     /** Get an experiment snapshot status */
     get: operations["getExperimentSnapshot"];
     parameters: {
-        /** @description The id of the requested resource (the snapshot ID, not the experiment ID) */
+        /** @description The id of the requested resource (a snapshot ID, not experiment ID) */
       path: {
         id: string;
       };
@@ -1056,6 +1056,11 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+    };
+    ExperimentSnapshot: {
+      id: string;
+      experiment: string;
+      status: string;
     };
     ExperimentMetric: {
       metricId: string;
@@ -4235,7 +4240,7 @@ export interface operations {
     };
   };
   postExperimentSnapshot: {
-    /** Update single experiment results */
+    /** Create Experiment Snapshot */
     responses: {
       200: {
         content: {
@@ -7095,6 +7100,7 @@ export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatu
 export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
 export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
+export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;

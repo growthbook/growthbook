@@ -2,14 +2,14 @@ parameters:
   - name: id
     in: path
     required: true
-    description: The id of the experiment to update
+    description: The experiment id of the experiment to update
     schema:
       type: string
 post:
   tags:
     - experiments
     - snapshots
-  summary: Update single experiment results
+  summary: Create Experiment Snapshot
   operationId: postExperimentSnapshot
   x-codeSamples:
     - lang: "cURL"

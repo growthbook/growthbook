@@ -1735,14 +1735,14 @@ paths:
       - name: id
         in: path
         required: true
-        description: The id of the experiment to update
+        description: The experiment id of the experiment to update
         schema:
           type: string
     post:
       tags:
         - experiments
         - snapshots
-      summary: Update single experiment results
+      summary: Create Experiment Snapshot
       operationId: postExperimentSnapshot
       x-codeSamples:
         - lang: cURL
@@ -1759,7 +1759,7 @@ paths:
                   - snapshot
                 properties:
                   snapshot:
-                    $ref: '#/paths/~1snapshot~1%7Bid%7D/get/responses/200/content/application~1json/schema/properties/snapshot'
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   '/experiments/{id}/results':
     parameters:
       - $ref: '#/components/parameters/id'
@@ -1826,12 +1826,12 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/VisualChangeset'
-  '/snapshot/{id}':
+  '/snapshots/{id}':
     parameters:
       - name: id
         in: path
         required: true
-        description: 'The id of the requested resource (the snapshot ID, not the experiment ID)'
+        description: 'The id of the requested resource (a snapshot ID, not experiment ID)'
         schema:
           type: string
     get:
@@ -1842,7 +1842,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X GET https://api.growthbook.io/api/v1/snapshot/snp_1234/ \
+            curl -X GET https://api.growthbook.io/api/v1/snapshots/snp_1234/ \
               -u secret_abc123DEF456:
       responses:
         '200':
@@ -1854,18 +1854,7 @@ paths:
                   - snapshot
                 properties:
                   snapshot:
-                    type: object
-                    required:
-                      - id
-                      - experiment
-                      - status
-                    properties:
-                      id:
-                        type: string
-                      experiment:
-                        type: string
-                      status:
-                        type: string
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   /metrics:
     get:
       summary: Get all metrics
@@ -5332,6 +5321,19 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
+    ExperimentSnapshot:
+      type: object
+      required:
+        - id
+        - experiment
+        - status
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        status:
+          type: string
     ExperimentMetric:
       type: object
       required:

@@ -1,4 +1,4 @@
-import { findSnapshotById } from "@back-end/src/models/ExperimentSnapshotModel";
+import { findSnapshotById } from "../../models/ExperimentSnapshotModel";
 import { GetExperimentSnapshotResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
 import { createApiRequestHandler } from "../../util/handler";

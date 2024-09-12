@@ -1,4 +1,4 @@
-import { auditDetailsCreate } from "@back-end/src/services/audit";
+import { auditDetailsCreate } from "../../services/audit";
 import { PostExperimentSnapshotResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
