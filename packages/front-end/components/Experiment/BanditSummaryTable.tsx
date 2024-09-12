@@ -235,7 +235,7 @@ export default function BanditSummaryTable({
                     <div className="col-auto">Variation</div>
                   </div>
                 </th>
-                <th className="axis-col label" style={{ width: 120 }}>
+                <th className="axis-col label text-right pr-3" style={{ width: 120 }}>
                   Mean
                 </th>
                 <th
@@ -345,9 +345,9 @@ export default function BanditSummaryTable({
                         metric={metric}
                         stats={stats}
                         users={stats.users}
-                        className="value"
+                        className="value text-right pr-3"
                         noDataMessage={<small>not enough data</small>}
-                        shrink={shrinkRows}
+                        showRatio={false}
                       />
                     ) : (
                       <td />
