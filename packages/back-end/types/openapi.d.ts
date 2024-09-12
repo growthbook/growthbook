@@ -119,11 +119,35 @@ export interface paths {
     /** Update a single experiment */
     post: operations["updateExperiment"];
   };
+  "/experiments/{id}/snapshot": {
+    /** Update single experiment results */
+    post: operations["postExperimentSnapshot"];
+    parameters: {
+        /** @description The id of the experiment to update */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
     get: operations["getExperimentResults"];
     parameters: {
         /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/experiments/{id}/visual-changesets": {
+    /** Get all visual changesets */
+    get: operations["listVisualChangesets"];
+  };
+  "/snapshot/{id}": {
+    /** Get an experiment snapshot status */
+    get: operations["getExperimentSnapshot"];
+    parameters: {
+        /** @description The id of the requested resource (the snapshot ID, not the experiment ID) */
       path: {
         id: string;
       };
@@ -142,10 +166,6 @@ export interface paths {
     put: operations["putMetric"];
     /** Deletes a metric */
     delete: operations["deleteMetric"];
-  };
-  "/experiments/{id}/visual-changesets": {
-    /** Get all visual changesets */
-    get: operations["listVisualChangesets"];
   };
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
@@ -4214,6 +4234,22 @@ export interface operations {
       };
     };
   };
+  postExperimentSnapshot: {
+    /** Update single experiment results */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
+            };
+          };
+        };
+      };
+    };
+  };
   getExperimentResults: {
     /** Get results for an experiment */
     parameters: {
@@ -4324,6 +4360,65 @@ export interface operations {
                         })[];
                     })[];
                 })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  listVisualChangesets: {
+    /** Get all visual changesets */
+    parameters: {
+        /** @description The experiment id the visual changesets belong to */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            visualChangesets: ({
+                id?: string;
+                urlPatterns: ({
+                    include?: boolean;
+                    /** @enum {string} */
+                    type: "simple" | "regex";
+                    pattern: string;
+                  })[];
+                editorUrl: string;
+                experiment: string;
+                visualChanges: ({
+                    description?: string;
+                    css?: string;
+                    js?: string;
+                    variation: string;
+                    domMutations: ({
+                        selector: string;
+                        /** @enum {string} */
+                        action: "append" | "set" | "remove";
+                        attribute: string;
+                        value?: string;
+                        parentSelector?: string;
+                        insertBeforeSelector?: string;
+                      })[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  getExperimentSnapshot: {
+    /** Get an experiment snapshot status */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
             };
           };
         };
@@ -4986,49 +5081,6 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
-          };
-        };
-      };
-    };
-  };
-  listVisualChangesets: {
-    /** Get all visual changesets */
-    parameters: {
-        /** @description The experiment id the visual changesets belong to */
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            visualChangesets: ({
-                id?: string;
-                urlPatterns: ({
-                    include?: boolean;
-                    /** @enum {string} */
-                    type: "simple" | "regex";
-                    pattern: string;
-                  })[];
-                editorUrl: string;
-                experiment: string;
-                visualChanges: ({
-                    description?: string;
-                    css?: string;
-                    js?: string;
-                    variation: string;
-                    domMutations: ({
-                        selector: string;
-                        /** @enum {string} */
-                        action: "append" | "set" | "remove";
-                        attribute: string;
-                        value?: string;
-                        parentSelector?: string;
-                        insertBeforeSelector?: string;
-                      })[];
-                  })[];
-              })[];
           };
         };
       };
@@ -7083,13 +7135,15 @@ export type ListExperimentsResponse = operations["listExperiments"]["responses"]
 export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
+export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
+export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
-export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];

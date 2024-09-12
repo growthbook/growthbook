@@ -1781,7 +1781,7 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
-async function createExperimentSnapshot({
+export async function createExperimentSnapshot({
   context,
   experiment,
   datasource,

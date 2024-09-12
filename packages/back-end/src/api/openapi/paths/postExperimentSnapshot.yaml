@@ -1,0 +1,29 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The id of the experiment to update
+    schema:
+      type: string
+post:
+  tags:
+    - experiments
+    - snapshots
+  summary: Update single experiment results
+  operationId: postExperimentSnapshot
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234/snapshot \
+          -u secret_abc123DEF456:
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - snapshot
+            properties:
+              snapshot:
+                $ref: "../schemas/ExperimentSnapshot.yaml"

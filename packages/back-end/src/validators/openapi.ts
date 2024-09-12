@@ -218,9 +218,27 @@ export const updateExperimentValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const postExperimentSnapshotValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const getExperimentResultsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "phase": z.string().optional(), "dimension": z.string().optional() }).strict(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const listVisualChangesetsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const getExperimentSnapshotValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
@@ -249,12 +267,6 @@ export const putMetricValidator = {
 };
 
 export const deleteMetricValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
-};
-
-export const listVisualChangesetsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
