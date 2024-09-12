@@ -60,7 +60,6 @@ GrowthBook supports the following attribute data types:
 - Array of Strings: Useful for data like tags
 - Array of Numbers: Useful anytime you have multiple numeric values
 - Array of Secure Strings: Useful for passing multiple values that you want to keep secure
-- Country Codes: [2-character ISO country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
 
 #### Semantic Version Targeting
 
@@ -87,6 +86,21 @@ To leverage this feature, you first need to create a date string attribute. Navi
 ![Date string attribute](/images/targeting-dates.png)
 
 After saving, certain targeting operators (e.g. `is after or on` or `is equal to`) will display a date picker input. Dates entered with the date picker will be saved as an ISO-formatted Date string (e.g. `2024-07-23T20:06`).
+
+#### Country Code Targeting
+
+Use [2-character ISO country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) to simplify targeting by country.
+
+How to implement country code targeting:
+
+- Create an attribute and set the **Data Type** to `String`
+- Change the **String Format** to `ISO Country Code (2 digit)`
+- Save the attribute
+
+Now, when setting targeting rules, you'll get a dropdown to directly select a country to target.  
+
+![Country code targeting dropdown](/images/features/feature-country-code.gif)
+
 
 ## Targeting Conditions
 
