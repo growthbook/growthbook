@@ -682,9 +682,7 @@ def get_bandit_result(
     previous_period_weights = bandit_settings.weights[-1].weights
     dates = [w.date for w in bandit_settings.weights]
     bandit_srm_data = BanditSRMData(weights=bandit_settings.weights, user_counts=None)
-    b = preprocess_bandits(
-        rows, metric, bandit_settings, settings.alpha, settings.dimension
-    )
+    b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "All")
     if b:
         if any(value is None for value in b.stats.values()):
             update_str = "not updated"
