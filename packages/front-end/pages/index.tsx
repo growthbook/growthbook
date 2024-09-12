@@ -40,7 +40,10 @@ export default function Home(): React.ReactElement {
     } else if (hasExperiments) {
       router.replace("/experiments");
     } else {
-      router.replace("/getstarted");
+      // TODO: Feature flag here to split users between new setup flow and get started
+      // Gate to the org admin only
+      router.replace("/setup");
+      // router.replace("/getstarted");
     }
   }, [
     organization,

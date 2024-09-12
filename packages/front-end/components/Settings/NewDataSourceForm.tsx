@@ -4,6 +4,7 @@ import {
   useEffect,
   ChangeEventHandler,
   ReactElement,
+  useCallback,
 } from "react";
 import {
   DataSourceInterfaceWithParams,
@@ -117,6 +118,60 @@ const NewDataSourceForm: FC<{
   });
   const schemasMap = new Map();
   const dataSourcesMap = new Map();
+
+  const setSchemaSettings = useCallback(
+    (s: eventSchema) => {
+      setSchema(s.value);
+      form.setValue("settings.schemaFormat", s.value);
+      track("Selected Event Schema", {
+        schema: s.value,
+        source,
+        newDatasourceForm: true,
+      });
+      if (s.types?.length === 1) {
+        const data = dataSourcesMap.get(s.types[0]);
+        setDatasource({
+          ...datasource,
+          type: s.types[0],
+          name: `${s.label}`,
+          params: data.default,
+        } as Partial<DataSourceInterfaceWithParams>);
+      } else {
+        setDatasource({
+          name: `${s.label}`,
+          settings: {},
+          projects: project ? [project] : [],
+        });
+      }
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceType[] | undefined' is... Remove this comment to see the full error message
+      setPossibleTypes(s.types);
+      if (s.options) {
+        s.options.map((o) => {
+          form.setValue(
+            `settings.schemaOptions.${o.name}`,
+            o.defaultValue || ""
+          );
+        });
+      } else {
+        form.setValue(`settings.schemaOptions`, {});
+      }
+    },
+    [dataSourcesMap, datasource, form, project, source]
+  );
+
+  useEffect(() => {
+    if (data?.settings?.schemaFormat) {
+      const schema = eventSchemas.find(
+        (s) => s.value === data.settings?.schemaFormat
+      );
+      if (schema) {
+        setSchemaSettings(schema);
+        // jump straight to the form
+        setStep(2);
+      }
+    }
+  }, [data?.settings?.schemaFormat, setSchemaSettings]);
+
   eventSchemas.forEach((o) => {
     schemasMap.set(o.value, o);
   });
@@ -300,40 +355,6 @@ const NewDataSourceForm: FC<{
     setPossibleTypes(dataSourceConnections.map((o) => o.type));
     // jump to next step
     setStep(2);
-  };
-
-  const setSchemaSettings = (s: eventSchema) => {
-    setSchema(s.value);
-    form.setValue("settings.schemaFormat", s.value);
-    track("Selected Event Schema", {
-      schema: s.value,
-      source,
-      newDatasourceForm: true,
-    });
-    if (s.types?.length === 1) {
-      const data = dataSourcesMap.get(s.types[0]);
-      setDatasource({
-        ...datasource,
-        type: s.types[0],
-        name: `${s.label}`,
-        params: data.default,
-      } as Partial<DataSourceInterfaceWithParams>);
-    } else {
-      setDatasource({
-        name: `${s.label}`,
-        settings: {},
-        projects: project ? [project] : [],
-      });
-    }
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceType[] | undefined' is... Remove this comment to see the full error message
-    setPossibleTypes(s.types);
-    if (s.options) {
-      s.options.map((o) => {
-        form.setValue(`settings.schemaOptions.${o.name}`, o.defaultValue || "");
-      });
-    } else {
-      form.setValue(`settings.schemaOptions`, {});
-    }
   };
 
   const hasStep2 = !!selectedSchema?.options;

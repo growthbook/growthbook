@@ -20,13 +20,23 @@ import { GBHashLock } from "@/components/Icons";
 import Code from "@/components/SyntaxHighlighting/Code";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
+import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import styles from "./InitialSetup.module.scss";
 
 interface Props {
-  connection: SDKConnectionInterface | null;
+  connection: string | null;
+  showCheckConnectionModal: boolean;
+  closeCheckConnectionModal: () => void;
+  goToNextStep: () => void;
 }
 
-const VerifyConnectionPage = ({ connection }: Props) => {
+const VerifyConnectionPage = ({
+  connection,
+  showCheckConnectionModal,
+  closeCheckConnectionModal,
+  goToNextStep,
+}: Props) => {
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
@@ -35,41 +45,62 @@ const VerifyConnectionPage = ({ connection }: Props) => {
   const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
+  const { data, error, mutate } = useSDKConnections();
 
-  const apiHost = connection ? getApiBaseUrl(connection) : "";
-  const language = connection?.languages[0] || "javascript";
-  const hashSecureAttributes = !!connection?.hashSecureAttributes;
+  const currentConnection: SDKConnectionInterface | null =
+    data?.connections.find((c) => c.id === connection) || null;
+
+  const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
+  const language = currentConnection?.languages[0] || "javascript";
+  const hashSecureAttributes = !!currentConnection?.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
       ["secureString", "secureString[]"].includes(a.datatype)
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
 
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
+
   return (
     <div
       className={clsx(styles.verifyConnection, "mt-5")}
       style={{ padding: "0px 57px" }}
     >
-      {!connection && <LoadingOverlay />}
+      {!currentConnection && <LoadingOverlay />}
       {inviting && (
         <InviteModal
           close={() => setInviting(false)}
           mutate={refreshOrganization}
         />
       )}
-      {connection && (
+      {currentConnection && showCheckConnectionModal && (
+        <CheckSDKConnectionModal
+          connection={currentConnection}
+          cta={currentConnection.connected ? "Continue" : "Skip"}
+          close={closeCheckConnectionModal}
+          goToNextStep={goToNextStep}
+          mutate={mutate}
+          showModalClose
+        />
+      )}
+      {currentConnection && (
         <div>
           <div className="d-flex mb-3">
             <h3>
-              SDK Installation Instructions for {connection.environment}{" "}
+              SDK Installation Instructions for {currentConnection.environment}{" "}
               Environment
             </h3>
 
             <div className="ml-auto">
-              <a href="#" onClick={() => setInviting(true)}>
+              <button
+                className="btn btn-link"
+                onClick={() => setInviting(true)}
+              >
                 <PiPaperPlaneTiltFill className="mr-1" />
-                Send to your developer
-              </a>
+                Invite your developer
+              </button>
             </div>
           </div>
           <Callout.Root>
@@ -99,15 +130,17 @@ const VerifyConnectionPage = ({ connection }: Props) => {
             {installationOpen && (
               <div className="appbox bg-light p-3">
                 <InstallationCodeSnippet
-                  language={connection.languages[0]}
+                  language={currentConnection.languages[0]}
                   apiHost={apiHost}
-                  apiKey={connection.key}
+                  apiKey={currentConnection.key}
                   encryptionKey={
-                    connection.encryptPayload
-                      ? connection.encryptionKey
+                    currentConnection.encryptPayload
+                      ? currentConnection.encryptionKey
                       : undefined
                   }
-                  remoteEvalEnabled={connection.remoteEvalEnabled || false}
+                  remoteEvalEnabled={
+                    currentConnection.remoteEvalEnabled || false
+                  }
                 />
               </div>
             )}
@@ -125,16 +158,18 @@ const VerifyConnectionPage = ({ connection }: Props) => {
             {setupOpen && (
               <div className="appbox bg-light p-3">
                 <GrowthBookSetupCodeSnippet
-                  language={connection.languages[0]}
-                  version={connection.sdkVersion}
+                  language={currentConnection.languages[0]}
+                  version={currentConnection.sdkVersion}
                   apiHost={apiHost}
-                  apiKey={connection.key}
+                  apiKey={currentConnection.key}
                   encryptionKey={
-                    connection.encryptPayload
-                      ? connection.encryptionKey
+                    currentConnection.encryptPayload
+                      ? currentConnection.encryptionKey
                       : undefined
                   }
-                  remoteEvalEnabled={connection.remoteEvalEnabled || false}
+                  remoteEvalEnabled={
+                    currentConnection.remoteEvalEnabled || false
+                  }
                 />
               </div>
             )}

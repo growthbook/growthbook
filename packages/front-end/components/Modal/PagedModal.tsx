@@ -63,6 +63,7 @@ const PagedModal: FC<Props> = (props) => {
     display: string;
     enabled: boolean;
     validate?: () => Promise<void>;
+    customNext?: () => void;
   }[] = [];
   let content: ReactNode;
   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
@@ -71,14 +72,14 @@ const PagedModal: FC<Props> = (props) => {
   let prevStep: number = null;
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
-    const { display, enabled, validate } = child.props;
+    const { display, enabled, validate, customNext } = child.props;
     if (content && enabled !== false && !nextStep) {
       nextStep = steps.length;
     }
     if (step === steps.length) {
       content = <>{child}</>;
     }
-    steps.push({ display, enabled, validate });
+    steps.push({ display, enabled, validate, customNext });
   });
 
   prevStep = step - 1;
@@ -91,8 +92,7 @@ const PagedModal: FC<Props> = (props) => {
       if (steps[i].enabled === false) continue;
       if (!steps[i].validate) continue;
       try {
-        // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-        await steps[i].validate();
+        await steps[i].validate?.();
       } catch (e) {
         setStep(i);
         throw e;
@@ -121,6 +121,8 @@ const PagedModal: FC<Props> = (props) => {
           if (props.close) {
             props.close();
           }
+        } else if (steps[nextStep - 1] && steps[nextStep - 1].customNext) {
+          steps[nextStep - 1].customNext?.();
         } else {
           setStep(nextStep);
         }

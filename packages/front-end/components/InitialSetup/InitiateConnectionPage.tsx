@@ -1,8 +1,5 @@
 import { RadioGroup } from "@radix-ui/themes";
-import {
-  SDKConnectionInterface,
-  SDKLanguage,
-} from "@back-end/types/sdk-connection";
+import { SDKLanguage } from "@back-end/types/sdk-connection";
 import { UseFormReturn } from "react-hook-form";
 import { useState } from "react";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
@@ -16,7 +13,7 @@ type FormValues = {
 };
 
 interface Props {
-  connection: SDKConnectionInterface | null;
+  connection: string | null;
   form: UseFormReturn<FormValues, unknown>;
 }
 

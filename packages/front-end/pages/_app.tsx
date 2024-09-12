@@ -70,7 +70,6 @@ function App({
   const preAuth = Component.preAuth || false;
   const preAuthTopNav = Component.preAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
-  const setupFlow = Component.setupFlow || false;
 
   useEffect(() => {
     initEnv()

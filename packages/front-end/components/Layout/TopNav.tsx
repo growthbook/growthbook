@@ -44,7 +44,8 @@ const TopNav: FC<{
   toggleLeftMenu?: () => void;
   pageTitle: string;
   showNotices?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices }) => {
+  showLogo?: boolean;
+}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [
@@ -439,7 +440,7 @@ const TopNav: FC<{
               <span className="sr-only">Open main menu</span>
               <FaBars />
             </a>
-          ) : (
+          ) : showLogo ? (
             <div>
               <img
                 alt="GrowthBook"
@@ -447,7 +448,7 @@ const TopNav: FC<{
                 style={{ height: 40 }}
               />
             </div>
-          )}
+          ) : null}
           {renderTitleOrBreadCrumb()}
           {showNotices && (
             <>

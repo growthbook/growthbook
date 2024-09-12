@@ -24,6 +24,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FeaturedCard from "@/components/GetStarted/FeaturedCard";
+import Button from "@/components/Button";
 
 function WorkspaceLink({
   Icon,
@@ -126,8 +127,23 @@ const GetStartedPage = (): React.ReactElement => {
           videoId={showVideoId}
         />
       )}
-      <h1 className="mb-3">Get Started</h1>
       <div className="container-fluid mx-0 mb-3">
+        <div className="row">
+          <div
+            className="col pl-0 mr-auto col-md-12"
+            style={{
+              maxWidth: 862,
+            }}
+          >
+            <h1 className="mb-3">Get Started</h1>
+          </div>
+          <div className="col-auto pl-0">
+            {/* Only allow org admin that is in our experiment to see button */}
+            <Button onClick={() => router.push("/setup")}>
+              Launch Setup Flow
+            </Button>
+          </div>
+        </div>
         <div className="row">
           <div
             className="col pl-0 mr-auto col-md-12"

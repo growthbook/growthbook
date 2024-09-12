@@ -4,18 +4,18 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "@back-end/types/sdk-connection";
-import { PiPaperPlaneTiltFill } from "react-icons/pi";
 import { useForm } from "react-hook-form";
 import { Environment } from "@back-end/types/organization";
 import PagedModal from "@/components/Modal/PagedModal";
 import { useUser } from "@/services/UserContext";
 import Page from "@/components/Modal/Page";
-import { eventSchemas } from "@/services/eventSchema";
-import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
 import InitiateConnectionPage from "@/components/InitialSetup/InitiateConnectionPage";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import VerifyConnectionPage from "@/components/InitialSetup/VerifyConnectionPage";
+import SelectDataSourcePage from "@/components/InitialSetup/SelectDataSourcePage";
+import PageHead from "@/components/Layout/PageHead";
+import SetupCompletedPage from "@/components/InitialSetup/SetupCompletedPage";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
@@ -27,11 +27,9 @@ export type SdkFormValues = {
 export default function SetupFlow() {
   const { organization } = useUser();
   const [step, setStep] = useState(0);
-  const [connection, setConnection] = useState<null | SDKConnectionInterface>(
-    null
-  );
-
-  const [eventTracker, setEventTracker] = useState<null | string>(null);
+  const [connection, setConnection] = useState<null | string>(null);
+  const [SDKConnectionModalOpen, setSDKConnectionModalOpen] = useState(false);
+  const [setupComplete, setSetupComplete] = useState(false);
 
   const sdkConnectionForm = useForm<SdkFormValues>({
     defaultValues: {
@@ -48,10 +46,22 @@ export default function SetupFlow() {
   // const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
   // const canUpdate = true;
 
-  const handleSubmit = async () => undefined;
+  // Mark setup as complete
+  const handleSubmit = async () => {
+    setSetupComplete(true);
+  };
+
+  if (setupComplete) {
+    return <SetupCompletedPage />;
+  }
 
   return (
     <div className="container pagecontents" style={{ padding: "0px 150px" }}>
+      <PageHead
+        breadcrumb={[{ display: "< Exit Setup", href: "/getstarted" }]}
+      />
+
+      {/* Add setup complete page */}
       <h1 className="mt-5" style={{ padding: "0px 57px" }}>
         Setup GrowthBook for {organization.name}
       </h1>
@@ -70,10 +80,12 @@ export default function SetupFlow() {
         <Page
           display="Initiate Connection"
           validate={sdkConnectionForm.handleSubmit(async (value) => {
-            // if (connection) {
-            return Promise.resolve();
-            // }
+            if (connection) {
+              return Promise.resolve();
+            }
 
+            // TODO: Determine values based on language. Logic is in SDKConnectionForm
+            // Grab language label from languageMapping
             const body: Omit<CreateSDKConnectionParams, "organization"> = {
               name: `${value.languages[0]} SDK Connection`,
               languages: value.languages,
@@ -112,7 +124,7 @@ export default function SetupFlow() {
                 body: JSON.stringify(body),
               }
             );
-            setConnection(res.connection);
+            setConnection(res.connection.id);
             track("Create SDK Connection", {
               source: "EssentialSetup",
               languages: value.languages,
@@ -127,84 +139,21 @@ export default function SetupFlow() {
           />
         </Page>
 
-        <Page display="Verify Connection">
-          <VerifyConnectionPage connection={connection} />
+        <Page
+          display="Verify Connection"
+          customNext={() => {
+            setSDKConnectionModalOpen(true);
+          }}
+        >
+          <VerifyConnectionPage
+            connection={connection}
+            showCheckConnectionModal={SDKConnectionModalOpen}
+            closeCheckConnectionModal={() => setSDKConnectionModalOpen(false)}
+            goToNextStep={() => setStep(2)}
+          />
         </Page>
         <Page display="Select Data Source">
-          <div className="mt-5" style={{ padding: "0px 57px" }}>
-            <div className="d-flex mb-3">
-              <h3 className="mb-0 align-self-center">
-                Select your Event Tracker
-              </h3>
-
-              <div className="ml-auto">
-                <a href="#">
-                  <PiPaperPlaneTiltFill className="mr-1" />
-                  Send to your Data Specialist
-                </a>
-              </div>
-            </div>
-            <p>
-              GrowthBook has built-in support for a number of popular event
-              tracking systems, and can work with virtually any type of data
-              with a custom integration. Add a custom data source if you don’t
-              see yours listed below.
-            </p>
-            <div className="row mb-5">
-              <div className="col-auto">
-                <div
-                  className="d-flex flex-wrap pb-3"
-                  style={{ rowGap: "1em", columnGap: "1em" }}
-                >
-                  {eventSchemas
-                    .filter((s) => s.value !== "mixpanel")
-                    .map((eventSchema) => (
-                      <div
-                        className={`hover-highlight cursor-pointer border rounded ${
-                          eventTracker === eventSchema.value ? "bg-light" : ""
-                        }`}
-                        style={{
-                          height: 50,
-                          padding: 10,
-                          boxShadow:
-                            eventTracker === eventSchema.value
-                              ? "0 0 0 1px var(--text-color-primary)"
-                              : "",
-                        }}
-                        key={eventSchema.value}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (eventTracker === eventSchema.value) {
-                            setEventTracker(null);
-                          } else {
-                            setEventTracker(eventSchema.value);
-                          }
-                        }}
-                      >
-                        <DataSourceLogo
-                          language={eventSchema.value}
-                          showLabel={true}
-                        />
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
-            <div className="appbox p-4 mb-3">
-              <h3 className="mb-2">How A/B Testing Works at GrowthBook</h3>
-
-              <p>
-                For example, Google Analytics is an event tracker that sits on
-                top of BigQuery, where your data is stored. You will need to
-                configure BigQuery in order to connect GrowthBook to Google
-                Analytics
-              </p>
-              <img
-                className="mt-2"
-                src="images/essential-setup/data-source-diagram.svg"
-              />
-            </div>
-          </div>
+          <SelectDataSourcePage />
         </Page>
       </PagedModal>
     </div>
