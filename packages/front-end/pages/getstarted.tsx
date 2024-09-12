@@ -136,21 +136,6 @@ const GetStartedPage = (): React.ReactElement => {
             }}
           >
             <h1 className="mb-3">Get Started</h1>
-          </div>
-          <div className="col-auto pl-0">
-            {/* Only allow org admin that is in our experiment to see button */}
-            <Button onClick={() => router.push("/setup")}>
-              Launch Setup Flow
-            </Button>
-          </div>
-        </div>
-        <div className="row">
-          <div
-            className="col pl-0 mr-auto col-md-12"
-            style={{
-              maxWidth: 862,
-            }}
-          >
             <div className="d-flex flex-wrap">
               <Link
                 href={"/getstarted/feature-flag-guide"}
@@ -440,6 +425,9 @@ const GetStartedPage = (): React.ReactElement => {
             </div>
           </div>
           <div className="col-auto pl-0">
+            <Button className="my-3" onClick={() => router.push("/setup")}>
+              Launch Setup Flow
+            </Button>
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"
