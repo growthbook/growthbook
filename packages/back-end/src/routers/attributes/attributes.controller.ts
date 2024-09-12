@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { v4 as uuidv4 } from "uuid";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import { SDKAttribute } from "../../../types/organization";
@@ -37,6 +38,7 @@ export const postAttribute = async (
       attributeSchema: [
         ...attributeSchema,
         {
+          id: uuidv4(),
           property,
           description,
           datatype,

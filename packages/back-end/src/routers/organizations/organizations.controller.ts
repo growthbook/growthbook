@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { v4 as uuidv4 } from "uuid";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
@@ -1443,6 +1444,7 @@ export const autoAddGroupsAttribute = async (
     const newAttributeSchema: SDKAttribute[] = [
       ...attributeSchema,
       {
+        id: uuidv4(),
         property: "$groups",
         datatype: "string[]",
       },
