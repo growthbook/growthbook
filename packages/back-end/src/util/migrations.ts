@@ -1,5 +1,4 @@
 import isEqual from "lodash/isEqual";
-import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -174,7 +173,7 @@ export function getDefaultExperimentQuery(
     settings?.experiments?.experimentIdColumn || "experiment_id"
   } as experiment_id,
   ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
-FROM
+FROM 
   ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
     settings?.experiments?.table || "experiment_viewed"
   }`;
@@ -442,22 +441,18 @@ export function upgradeOrganizationDoc(
   }
 
   // Default attribute schema for backwards compatibility
-  const attributeSchema = org.settings.attributeSchema || [
-    { property: "id", datatype: "string", hashAttribute: true },
-    { property: "deviceId", datatype: "string", hashAttribute: true },
-    { property: "company", datatype: "string", hashAttribute: true },
-    { property: "loggedIn", datatype: "boolean" },
-    { property: "employee", datatype: "boolean" },
-    { property: "country", datatype: "string" },
-    { property: "browser", datatype: "string" },
-    { property: "url", datatype: "string" },
-  ];
-
-  // Add ids to all attributes
-  org.settings.attributeSchema = attributeSchema.map((attr) => ({
-    id: uuidv4(),
-    ...attr,
-  }));
+  if (!org.settings.attributeSchema) {
+    org.settings.attributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "deviceId", datatype: "string", hashAttribute: true },
+      { property: "company", datatype: "string", hashAttribute: true },
+      { property: "loggedIn", datatype: "boolean" },
+      { property: "employee", datatype: "boolean" },
+      { property: "country", datatype: "string" },
+      { property: "browser", datatype: "string" },
+      { property: "url", datatype: "string" },
+    ];
+  }
 
   // Add statsEngine setting if not defined
   if (!org.settings.statsEngine) {

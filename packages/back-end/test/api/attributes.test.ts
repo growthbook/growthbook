@@ -25,7 +25,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -42,21 +41,23 @@ describe("attributes API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      attributes: [
-        {
-          id: "1",
-          property: "attr1",
-          datatype: "string[]",
-          projects: ["bla"],
-        },
-        {
-          id: "2",
-          property: "attr2",
-          datatype: "string",
-        },
-      ],
-    });
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        attributes: [
+          {
+            id: "1",
+            property: "attr1",
+            datatype: "string[]",
+            projects: ["bla"],
+          },
+          expect.objectContaining({
+            id: expect.any(String),
+            property: "attr2",
+            datatype: "string",
+          }),
+        ],
+      })
+    );
   });
 
   it("can filter attributes", async () => {
@@ -71,7 +72,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -114,7 +114,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -135,7 +134,7 @@ describe("attributes API", () => {
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: {
         attributeSchema: [
-          { id: "2", property: "attr2", datatype: "string" },
+          { property: "attr2", datatype: "string" },
           {
             id: "1",
             property: "attr1",
@@ -167,7 +166,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -209,7 +207,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -249,7 +246,7 @@ describe("attributes API", () => {
             description: "new description",
             projects: ["proj1", "proj2"],
           },
-          { id: "2", property: "attr2", datatype: "string" },
+          { property: "attr2", datatype: "string" },
         ],
       },
     });
@@ -282,7 +279,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -322,7 +318,6 @@ describe("attributes API", () => {
               datatype: "string[]",
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -368,7 +363,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -416,7 +410,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -458,7 +451,6 @@ describe("attributes API", () => {
             projects: ["bla"],
           },
           {
-            id: "2",
             property: "attr2",
             datatype: "string",
           },
@@ -498,7 +490,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -539,7 +530,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -583,7 +573,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },
@@ -632,7 +621,6 @@ describe("attributes API", () => {
               projects: ["bla"],
             },
             {
-              id: "2",
               property: "attr2",
               datatype: "string",
             },

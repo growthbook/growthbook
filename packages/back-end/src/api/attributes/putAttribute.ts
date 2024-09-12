@@ -19,7 +19,7 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       throw Error(`Attribute with ID ${id} does not exists!`);
     }
 
-    const rawUpdatedAttribute = { ...attribute, ...req.body };
+    const rawUpdatedAttribute = { id, ...attribute, ...req.body };
 
     const updatedAttribute = {
       ...rawUpdatedAttribute,
