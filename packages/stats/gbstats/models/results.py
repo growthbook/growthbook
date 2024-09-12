@@ -22,9 +22,16 @@ class UserCountsByDate:
 
 
 @dataclass
+class UserPercentagesByDate:
+    date: str
+    user_counts: List[float]
+
+
+@dataclass
 class BanditSRMData:
     weights: List[BanditWeightsByDate]
     user_counts: Optional[List[UserCountsByDate]]
+    user_percentages: Optional[List[UserPercentagesByDate]]
 
 
 @dataclass

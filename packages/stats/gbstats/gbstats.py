@@ -34,6 +34,7 @@ from gbstats.models.results import (
     BanditSRMData,
     SingleVariationResult,
     UserCountsByDate,
+    UserPercentagesByDate,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -681,7 +682,9 @@ def get_bandit_result(
 ) -> BanditResult:
     previous_period_weights = bandit_settings.weights[-1].weights
     dates = [w.date for w in bandit_settings.weights]
-    bandit_srm_data = BanditSRMData(weights=bandit_settings.weights, user_counts=None)
+    bandit_srm_data = BanditSRMData(
+        weights=bandit_settings.weights, user_counts=None, user_percentages=None
+    )
     b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "All")
     if b:
         if any(value is None for value in b.stats.values()):
@@ -691,7 +694,9 @@ def get_bandit_result(
                 singleVariationResults=None,
                 weights=previous_period_weights,
                 banditSRMData=BanditSRMData(
-                    weights=bandit_settings.weights, user_counts=None
+                    weights=bandit_settings.weights,
+                    user_counts=None,
+                    user_percentages=None,
                 ),
                 bestArmProbabilities=None,
                 additionalReward=None,
@@ -717,8 +722,16 @@ def get_bandit_result(
                 UserCountsByDate(d, period_count)
                 for d, period_count in zip(dates, b.user_counts_by_period)
             ]
+
+            user_percentages = [
+                UserPercentagesByDate(d, percentage_count)
+                for d, percentage_count in zip(dates, b.user_percentages_by_period)
+            ]
+
             bandit_srm_data = BanditSRMData(
-                weights=bandit_settings.weights, user_counts=user_counts
+                weights=bandit_settings.weights,
+                user_counts=user_counts,
+                user_percentages=user_percentages,
             )
             bandit_srm_data.weights[-1].weights = bandit_result.bandit_weights
 

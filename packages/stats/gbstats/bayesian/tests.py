@@ -59,6 +59,7 @@ class BanditConfig(BayesianConfig):
 class BanditResponse:
     users: Optional[List[float]]
     users_by_period: Optional[List[List[float]]]
+    user_percentages_by_period: Optional[List[List[float]]]
     cr: Optional[List[float]]
     ci: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
@@ -484,6 +485,7 @@ class Bandits:
         return BanditResponse(
             users=self.variation_counts.tolist(),
             users_by_period=self.user_counts_by_period,
+            user_percentages_by_period=self.user_percentages_by_period,
             cr=self.variation_means.tolist(),
             ci=credible_intervals,
             bandit_weights=p.tolist() if enough_data else None,
@@ -502,6 +504,19 @@ class Bandits:
         for period in range(self.num_periods):
             counts_by_period.append(self.counts_array[period, :].tolist())
         return counts_by_period
+
+    @property
+    def user_percentages_by_period(self) -> List[List[float]]:
+        percentages_by_period = []
+        for period in range(self.num_periods):
+            if self.period_counts[period]:
+                these_percentages = (
+                    self.counts_array[period, :] / self.period_counts[period]
+                )
+            else:
+                these_percentages = np.zeros((self.num_variations,))
+            percentages_by_period.append(these_percentages.tolist())
+        return percentages_by_period
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod

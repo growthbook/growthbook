@@ -67,19 +67,19 @@ export type SingleVariationResult = {
   ci?: [number, number];
 };
 
-type BanditWeightsByDate = {
-  date: Date;
-  weights: number[];
-};
-
-type UserCountsByDate = {
-  date: Date;
-  user_counts: number[];
-};
-
 export type BanditSRMData = {
-  weights: BanditWeightsByDate[];
-  userCounts?: UserCountsByDate[];
+  weights: {
+    date: Date;
+    weights: number[];
+  }[];
+  userCounts?: {
+    date: Date;
+    user_counts: number[];
+  }[];
+  userPercentages?: {
+    date: Date;
+    user_percentages: number[];
+  }[];
 };
 
 export type BanditResult = {
