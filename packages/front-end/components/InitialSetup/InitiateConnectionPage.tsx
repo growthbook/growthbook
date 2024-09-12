@@ -1,20 +1,11 @@
 import { RadioGroup } from "@radix-ui/themes";
-import { SDKLanguage } from "@back-end/types/sdk-connection";
 import { UseFormReturn } from "react-hook-form";
-import { useState } from "react";
-import { getLatestSDKVersion } from "shared/sdk-versioning";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
-
-type FormValues = {
-  languages: SDKLanguage[];
-  sdkVersion: string;
-  cipher: boolean;
-  environment: string;
-};
+import { SdkFormValues } from "@/pages/setup";
 
 interface Props {
   connection: string | null;
-  form: UseFormReturn<FormValues, unknown>;
+  form: UseFormReturn<SdkFormValues, unknown>;
 }
 
 const InitiateConnectionPage = ({ connection, form }: Props) => {

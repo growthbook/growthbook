@@ -18,11 +18,12 @@ import SelectDataSourcePage from "@/components/InitialSetup/SelectDataSourcePage
 import PageHead from "@/components/Layout/PageHead";
 import SetupCompletedPage from "@/components/InitialSetup/SetupCompletedPage";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
   sdkVersion: string;
-  cipher: boolean;
   environment: string;
 };
 
@@ -34,26 +35,39 @@ export default function SetupFlow() {
 
   const { hasCommercialFeature } = useUser();
   const { organization } = useUser();
+  const environments = useEnvironments();
 
   const sdkConnectionForm = useForm<SdkFormValues>({
     defaultValues: {
       languages: ["react"],
       sdkVersion: "",
-      cipher: true,
       environment: "dev",
     },
   });
 
   const { apiCall } = useAuth();
-  // const permissionsUtil = usePermissionsUtil();
+  const permissionsUtil = usePermissionsUtil();
 
-  // const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
-  // const canUpdate = true;
+  const canUseSetupFlow =
+    permissionsUtil.canCreateSDKConnection({
+      projects: [],
+      environment: "production",
+    }) &&
+    permissionsUtil.canCreateEnvironment({ projects: [], id: "production" }) &&
+    permissionsUtil.canCreateDataSource({ projects: [] });
 
   // Mark setup as complete
   const handleSubmit = async () => {
     setSetupComplete(true);
   };
+
+  if (!canUseSetupFlow) {
+    return (
+      <div className="alert alert-warning mt-5">
+        You do not have permission to use this setup flow.
+      </div>
+    );
+  }
 
   if (setupComplete) {
     return <SetupCompletedPage />;
@@ -64,8 +78,6 @@ export default function SetupFlow() {
       <PageHead
         breadcrumb={[{ display: "< Exit Setup", href: "/getstarted" }]}
       />
-
-      {/* Add setup complete page */}
       <h1 className="mt-5" style={{ padding: "0px 57px" }}>
         Setup GrowthBook for {organization.name}
       </h1>
@@ -118,8 +130,9 @@ export default function SetupFlow() {
               projects: [],
             };
 
-            // Create environment first if it doesn't exist (aka not production)
-            if (value.environment !== "production") {
+            if (
+              environments.find((e) => e.id === value.environment) === undefined
+            ) {
               const newEnv: Environment = {
                 id: value.environment,
                 description: "",
@@ -145,7 +158,7 @@ export default function SetupFlow() {
             track("Create SDK Connection", {
               source: "EssentialSetup",
               languages: value.languages,
-              ciphered: value.cipher,
+              ciphered: canUseSecureConnection,
               environment: value.environment,
             });
           })}
