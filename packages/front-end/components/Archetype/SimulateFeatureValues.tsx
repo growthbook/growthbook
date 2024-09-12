@@ -13,7 +13,8 @@ import {
 } from "@back-end/types/archetype";
 import { FeatureTestResult } from "@back-end/types/feature";
 import Link from "next/link";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
+import { FiAlertTriangle } from "react-icons/fi";
 import {
   useEnvironments,
   useFeatureSearch,
@@ -33,6 +34,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import SimulateFeatureModal from "@/components/Archetype/SimulateFeatureModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -43,6 +45,7 @@ export const SimulateFeatureValues: FC<{
   const [editAttributesModalOpen, setEditAttributesModalOpen] = useState(false);
   const [attributes, setAttributes] = useState<ArchetypeAttributeValues>({});
   const [archetype, setArchetype] = useState("");
+  const [openWarning, setOpenWarning] = useState(false);
   const [featureResults, setFeatureResults] = useState<
     {
       [key: string]: FeatureTestResult;
@@ -382,6 +385,38 @@ export const SimulateFeatureValues: FC<{
             />
           )}
         </div>
+      </div>
+      <div className="alert-info mt-5 p-3 cursor-pointer align-items-center">
+        <div
+          className="d-flex"
+          onClick={(e) => {
+            e.preventDefault();
+            setOpenWarning(!openWarning);
+          }}
+        >
+          <div className="p-2 pr-3">
+            <FiAlertTriangle />
+          </div>
+          <div>
+            These results use the JS SDK, which supports the V2 hashing
+            algorithm. If you use one of the older or unsupported SDKs, you may
+            want to change the hashing algorithm of the experiment to v1 to
+            ensure accurate results.
+          </div>
+          <div className="p-2">
+            <FaChevronRight
+              style={{
+                transform: `rotate(${openWarning ? "90deg" : "0deg"})`,
+              }}
+            />
+          </div>
+        </div>
+        {openWarning && (
+          <div className="p-3">
+            The following SDK versions support V2 hashing:
+            <MinSDKVersionsList capability="bucketingV2" />
+          </div>
+        )}
       </div>
     </>
   );
