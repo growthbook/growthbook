@@ -28,10 +28,14 @@ Next, create a new tag in your desired GTM workspace. We will choose "Custom HTM
 Paste in the script tag from your SDK Connection in the previous step. It will look something like the following. Refer to our [Script Tag SDK docs](/lib/script-tag) for more info.
 
 ```html
-<script async
-  data-client-key="YOUR_CLIENT_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
+<script>
+(function(s) {
+  s=document.createElement('script'); s.async=true;
+  s.dataset.clientKey="YOUR_CLIENT_KEY_HERE";
+  s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+  document.head.appendChild(s);
+})();
+</script>
 ```
 
 To publish the SDK tag, submit our workspace changes (the blue "Submit" button on the top of the GTM application), Then ensure "Publish and Create version" is selected and click the blue "Publish" button – or use whichever GTM release strategy you are already using.
