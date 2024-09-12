@@ -911,7 +911,7 @@ export async function postExperiment(
     changes.phases[
       changes.phases.length - 1
     ].variationWeights = getEqualWeights(
-      data.variations.length ?? existing.variations.length ?? 0
+      data?.variations?.length ?? existing?.variations?.length ?? 0
     );
 
     // stats engine

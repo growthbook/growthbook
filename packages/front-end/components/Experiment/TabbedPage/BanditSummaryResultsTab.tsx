@@ -82,7 +82,7 @@ export default function BanditSummaryResultsTab({
         <>
           <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
           <div className="box px-3 py-3">
-            <div className="d-flex mb-2" style={{ height: 90 }}>
+            <div className="d-flex mb-2" style={{ minHeight: 90 }}>
               <div>
                 <label className="uppercase-title">Chart</label>
                 <ButtonSelectField
@@ -125,7 +125,7 @@ export default function BanditSummaryResultsTab({
               )}
               <div className="flex-1" />
               <div>
-                <label className="uppercase-title">Bandit Status</label>
+                <label className="uppercase-title mb-0">Bandit Status</label>
                 <table className="table-tiny">
                   <tbody>
                     <tr>

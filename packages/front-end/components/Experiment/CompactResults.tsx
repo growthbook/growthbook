@@ -240,11 +240,13 @@ const CompactResults: FC<{
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
 
+  const isBandit = experimentType === "multi-armed-bandit";
+
   return (
     <>
       {!mainTableOnly && (
         <>
-          {status !== "draft" && totalUsers > 0 && (
+          {!isBandit && status !== "draft" && totalUsers > 0 && (
             <div className="users">
               <Collapsible
                 trigger={

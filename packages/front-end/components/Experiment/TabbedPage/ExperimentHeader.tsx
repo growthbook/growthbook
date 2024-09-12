@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import { FaHome } from "react-icons/fa";
+import {FaAngleRight, FaExclamationTriangle, FaHome} from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
@@ -38,6 +38,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
+import Collapsible from "react-collapsible";
 
 export interface Props {
   tab: ExperimentTab;
@@ -373,6 +374,66 @@ export default function ExperimentHeader({
                   >
                     Edit phases
                   </button>
+                )}
+                {canRunExperiment && (
+                  <Tooltip
+                    body="Experiments can only be converted while in draft mode"
+                    shouldDisplay={experiment.status !== "draft"}
+                    usePortal={true}
+                  >
+                    <ConfirmButton
+                      modalHeader={`Convert to ${isBandit ? "Standard Experiment" : "Bandit Experiment"}`}
+                      disabled={experiment.status !== "draft"}
+                      size="lg"
+                      confirmationText={
+                        <div>
+                          <p>Are you sure you want to convert this experiment to a <strong>{isBandit ? "Standard Experiment" : "Bandit Experiment"}</strong>?</p>
+                          {!isBandit && experiment.goalMetrics.length > 0 && (
+                            <div className="alert alert-warning">
+                              <Collapsible
+                                trigger={
+                                  <div>
+                                    <FaExclamationTriangle className="mr-2" />
+                                    Some of your experiment settings may be altered.{" "}
+                                    More info <FaAngleRight className="chevron" />
+                                  </div>
+                                }
+                                transitionTime={100}
+                              >
+                                <ul className="ml-0 pl-3 mt-3">
+                                  <li>A <strong>single decision metric</strong> will be automatically assigned. You may change this before running the experiment.</li>
+                                  <li>Experiment variations will begin with <strong>equal weights</strong>.</li>
+                                  <li>The stats engine will be locked to <strong>Bayesian</strong> with <strong>CUPED enabled</strong>.</li>
+                                  <li>Any <strong>Activation Metric</strong>, <strong>Segments</strong>, <strong>Conversion Window overrides</strong>, <strong>Custom SQL Filters</strong>, or <strong>Metric Overrides</strong> will be removed.</li>
+                                </ul>
+                              </Collapsible>
+                            </div>
+                          )}
+                        </div>
+                      }
+                      onClick={async () => {
+                        try {
+                          await apiCall(`/experiment/${experiment.id}`, {
+                            method: "POST",
+                            body: JSON.stringify({
+                              type: !isBandit ? "multi-armed-bandit" : "standard"
+                            })
+                          });
+                          mutate();
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                      cta="Convert"
+                    >
+                      <button
+                        className="dropdown-item" type="button"
+                        disabled={experiment.status !== "draft"}
+                      >
+                        Convert to<br />{isBandit ? "Standard Experiment" : "Bandit Experiment"}
+                      </button>
+                    </ConfirmButton>
+                  </Tooltip>
                 )}
                 <WatchButton
                   itemType="experiment"

@@ -246,7 +246,7 @@ export default function BanditSummaryTooltip({
             ) : null}
 
             <div className={clsx("results-chance d-flex mt-0", data.status)}>
-              <div className="label mr-2">Probability of winning:</div>
+              <div className="label mr-2">Probability of Winning:</div>
               <div
                 className={clsx("value", {
                   "font-weight-bold": isFinite(data.probability ?? NaN),
@@ -275,16 +275,26 @@ export default function BanditSummaryTooltip({
           </div>
 
           <div className="mt-3 mb-2 results">
-            <table className="table-condensed results-table text-center">
+            <table className="table-condensed results-table text-center" style={{ tableLayout: "fixed" }}>
               <thead>
-                <tr>
-                  <th>Numerator</th>
-                  <th>Users (Denom.)</th>
-                  <th>Mean</th>
-                </tr>
+              <tr>
+                <th>Mean</th>
+                <th>Metric Value
+                  <div className="small">(numerator)</div>
+                </th>
+                <th>Users
+                  <div className="small">(denominator)</div>
+                </th>
+              </tr>
               </thead>
               <tbody>
                 <tr>
+                  <MetricValueColumn
+                    metric={data.metric}
+                    stats={data.stats}
+                    users={data.stats.users}
+                    showRatio={false}
+                  />
                   <td>
                     {getExperimentMetricFormatter(
                       data.metric,
@@ -295,12 +305,6 @@ export default function BanditSummaryTooltip({
                     })}
                   </td>
                   <td>{numberFormatter.format(data.stats.users)}</td>
-                  <MetricValueColumn
-                    metric={data.metric}
-                    stats={data.stats}
-                    users={data.stats.users}
-                    showRatio={false}
-                  />
                 </tr>
               </tbody>
             </table>

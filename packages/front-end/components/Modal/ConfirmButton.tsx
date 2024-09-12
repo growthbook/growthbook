@@ -7,6 +7,7 @@ const ConfirmButton: FC<{
   confirmationText?: string | ReactElement;
   ctaColor?: string;
   cta?: string;
+  size?: "md" | "lg" | "max" | "fill";
   children: ReactNode;
   disabled?: boolean;
 }> = ({
@@ -14,6 +15,7 @@ const ConfirmButton: FC<{
   modalHeader,
   confirmationText = "Are you sure?",
   cta = "Yes",
+  size = "md",
   ctaColor = "primary",
   children,
   disabled = false,
@@ -30,6 +32,7 @@ const ConfirmButton: FC<{
           cta={cta}
           submitColor={ctaColor}
           submit={onClick}
+          size={size}
         >
           <div>{confirmationText}</div>
         </Modal>

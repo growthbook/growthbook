@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import {
   getAffectedEnvsForExperiment,
@@ -62,6 +62,12 @@ const ExperimentPage = (): ReactElement => {
 
   const { apiCall } = useAuth();
 
+  useEffect(() => {
+    if (data?.experiment?.type === "multi-armed-bandit") {
+      router.replace(window.location.href.replace("experiment/", "bandit/"));
+    }
+  }, [data, router]);
+
   if (error) {
     return <div>There was a problem loading the experiment</div>;
   }
@@ -75,10 +81,6 @@ const ExperimentPage = (): ReactElement => {
     linkedFeatures = [],
     urlRedirects = [],
   } = data;
-
-  if (experiment.type === "multi-armed-bandit") {
-    router.replace(window.location.href.replace("experiment/", "bandit/"));
-  }
 
   const canEditExperiment =
     permissionsUtil.canViewExperimentModal(experiment.project) &&

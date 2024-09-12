@@ -80,7 +80,7 @@ const AlignedGraph: FC<Props> = ({
   const barHeight = Math.floor(height / 2) - barThickness / 2;
   const violinOpacitySignificant = 0.8;
   const violinOpacityNotSignificant = 0.4;
-  if (isHovered) {
+  if (barFillType !== "color" && isHovered) {
     barColor = "#a0a0a0";
     sigBarColorPos = "#39cb45";
     sigBarColorNeg = "#e34040";
@@ -175,6 +175,11 @@ const AlignedGraph: FC<Props> = ({
     } else if (rowStatus === "danger") {
       barFill = barColorDanger;
     }
+  }
+
+  let barStyle = {};
+  if (isHovered && barFillType === "color") {
+    barStyle = { filter: "brightness(1.05) saturate(1.1)" };
   }
 
   const maskId = "mask_" + id;
@@ -289,7 +294,7 @@ const AlignedGraph: FC<Props> = ({
                       className={clsx("hover-target aligned-graph-violin", {
                         hover: isHovered,
                       })}
-                      style={{ transition: "100ms all" }}
+                      style={{ transition: "100ms all", ...barStyle }}
                       top={barHeight}
                       width={barThickness}
                       left={xScale(ci?.[0] ?? 0)}
@@ -349,7 +354,7 @@ const AlignedGraph: FC<Props> = ({
                       className={clsx("hover-target aligned-graph-pill", {
                         hover: isHovered,
                       })}
-                      style={{ transition: "100ms all" }}
+                      style={{ transition: "100ms all", ...barStyle }}
                       x={xScale(Math.max(ci?.[0] ?? 0, domain[0] - 0.1))}
                       y={barHeight}
                       width={

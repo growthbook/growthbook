@@ -235,7 +235,10 @@ export default function BanditSummaryTable({
                     <div className="col-auto">Variation</div>
                   </div>
                 </th>
-                <th className="axis-col label text-right pr-3" style={{ width: 120 }}>
+                <th
+                  className="axis-col label text-right pr-3"
+                  style={{ width: 120 }}
+                >
                   Mean
                 </th>
                 <th
@@ -386,6 +389,7 @@ export default function BanditSummaryTable({
                         className={clsx({
                           hover: isHovered,
                         })}
+                        isHovered={isHovered}
                         onMouseMove={(e) =>
                           onPointerMove(e, {
                             x: "element-center",
