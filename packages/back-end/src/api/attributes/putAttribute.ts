@@ -8,18 +8,18 @@ import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
   async (req): Promise<PutAttributeResponse> => {
-    const property = req.params.property;
+    const id = req.params.id;
     const org = req.context.org;
     const attributes = org.settings?.attributeSchema || [];
 
     const attribute = attributes.find(
-      (attr) => !attr.archived && attr.property === property
+      (attr) => !attr.archived && attr.id === id
     );
     if (!attribute) {
-      throw Error(`An attribute with property ${property} does not exists!`);
+      throw Error(`Attribute with ID ${id} does not exists!`);
     }
 
-    const rawUpdatedAttribute = { ...attribute, ...req.body };
+    const rawUpdatedAttribute = { id, ...attribute, ...req.body };
 
     const updatedAttribute = {
       ...rawUpdatedAttribute,
@@ -35,7 +35,7 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       settings: {
         ...org.settings,
         attributeSchema: attributes.map((attr) =>
-          attr.property === property ? updatedAttribute : attr
+          attr.id === id ? updatedAttribute : attr
         ),
       },
     };
@@ -46,7 +46,7 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       event: "attribute.update",
       entity: {
         object: "attribute",
-        id: attribute.property,
+        id,
       },
       details: auditDetailsUpdate(attribute, updatedAttribute),
     });

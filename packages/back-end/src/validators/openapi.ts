@@ -345,15 +345,15 @@ export const postAttributeValidator = {
 };
 
 export const putAttributeValidator = {
-  bodySchema: z.object({ "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "property": z.string().describe("The attribute property").optional(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "property": z.string() }).strict(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
 export const deleteAttributeValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "property": z.string() }).strict(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
 export const listMembersValidator = {

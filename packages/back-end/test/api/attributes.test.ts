@@ -19,6 +19,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -40,19 +41,23 @@ describe("attributes API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      attributes: [
-        {
-          property: "attr1",
-          datatype: "string[]",
-          projects: ["bla"],
-        },
-        {
-          property: "attr2",
-          datatype: "string",
-        },
-      ],
-    });
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        attributes: [
+          {
+            id: "1",
+            property: "attr1",
+            datatype: "string[]",
+            projects: ["bla"],
+          },
+          expect.objectContaining({
+            id: expect.any(String),
+            property: "attr2",
+            datatype: "string",
+          }),
+        ],
+      })
+    );
   });
 
   it("can filter attributes", async () => {
@@ -61,6 +66,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -86,6 +92,7 @@ describe("attributes API", () => {
     expect(response.body).toEqual({
       attributes: [
         {
+          id: "1",
           property: "attr1",
           datatype: "string[]",
           projects: ["bla"],
@@ -101,6 +108,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -118,16 +126,17 @@ describe("attributes API", () => {
     });
 
     const response = await request(app)
-      .delete("/api/v1/attributes/attr1")
+      .delete("/api/v1/attributes/1")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ deletedProperty: "attr1" });
+    expect(response.body).toEqual({ deletedId: "1" });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: {
         attributeSchema: [
           { property: "attr2", datatype: "string" },
           {
+            id: "1",
             property: "attr1",
             datatype: "string[]",
             archived: true,
@@ -138,8 +147,8 @@ describe("attributes API", () => {
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"pre":{"property":"attr1","datatype":"string[]","projects":["bla"]},"context":{}}',
-      entity: { id: "attr1", object: "attribute" },
+        '{"pre":{"id":"1","property":"attr1","datatype":"string[]","projects":["bla"]},"context":{}}',
+      entity: { id: "1", object: "attribute" },
       event: "attribute.delete",
     });
   });
@@ -151,6 +160,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -171,7 +181,7 @@ describe("attributes API", () => {
     });
 
     const response = await request(app)
-      .delete("/api/v1/attributes/attr1")
+      .delete("/api/v1/attributes/1")
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
@@ -191,6 +201,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -208,7 +219,7 @@ describe("attributes API", () => {
     });
 
     const response = await request(app)
-      .put("/api/v1/attributes/attr1")
+      .put("/api/v1/attributes/1")
       .send({
         description: "new description",
         projects: ["proj1", "proj2"],
@@ -218,6 +229,7 @@ describe("attributes API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       attribute: {
+        id: "1",
         property: "attr1",
         datatype: "string[]",
         description: "new description",
@@ -228,6 +240,7 @@ describe("attributes API", () => {
       settings: {
         attributeSchema: [
           {
+            id: "1",
             property: "attr1",
             datatype: "string[]",
             description: "new description",
@@ -239,9 +252,9 @@ describe("attributes API", () => {
     });
     expect(auditMock).toHaveBeenCalledWith({
       details:
-        '{"pre":{"property":"attr1","datatype":"string[]","projects":["bla"]},"post":{"property":"attr1","datatype":"string[]","projects":["proj1","proj2"],"description":"new description"},"context":{}}',
+        '{"pre":{"id":"1","property":"attr1","datatype":"string[]","projects":["bla"]},"post":{"id":"1","property":"attr1","datatype":"string[]","projects":["proj1","proj2"],"description":"new description"},"context":{}}',
       entity: {
-        id: "attr1",
+        id: "1",
         object: "attribute",
       },
       event: "attribute.update",
@@ -260,6 +273,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -277,7 +291,7 @@ describe("attributes API", () => {
     });
 
     const response = await request(app)
-      .put("/api/v1/attributes/attr1")
+      .put("/api/v1/attributes/1")
       .send({
         description: "new description",
         projects: ["proj1", "proj2"],
@@ -299,6 +313,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
             },
@@ -315,7 +330,7 @@ describe("attributes API", () => {
     });
 
     const response = await request(app)
-      .put("/api/v1/attributes/attr1")
+      .put("/api/v1/attributes/1")
       .send({
         hashAttribute: "Gni",
       })
@@ -342,6 +357,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -362,7 +378,7 @@ describe("attributes API", () => {
     });
 
     const response = await request(app)
-      .put("/api/v1/attributes/attr1")
+      .put("/api/v1/attributes/1")
       .send({
         description: "bla",
       })
@@ -388,6 +404,7 @@ describe("attributes API", () => {
         settings: {
           attributeSchema: [
             {
+              id: "1",
               property: "attr1",
               datatype: "string[]",
               projects: ["bla"],
@@ -414,17 +431,21 @@ describe("attributes API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      attribute: {
-        property: "attr3",
-        datatype: "boolean",
-        projects: ["proj1", "proj2"],
-      },
-    });
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        attribute: expect.objectContaining({
+          id: expect.any(String),
+          property: "attr3",
+          datatype: "boolean",
+          projects: ["proj1", "proj2"],
+        }),
+      })
+    );
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: {
         attributeSchema: [
           {
+            id: "1",
             property: "attr1",
             datatype: "string[]",
             projects: ["bla"],
@@ -434,6 +455,7 @@ describe("attributes API", () => {
             datatype: "string",
           },
           {
+            id: response.body.attribute.id,
             property: "attr3",
             datatype: "boolean",
             projects: ["proj1", "proj2"],
@@ -442,10 +464,9 @@ describe("attributes API", () => {
       },
     });
     expect(auditMock).toHaveBeenCalledWith({
-      details:
-        '{"post":{"property":"attr3","datatype":"boolean","projects":["proj1","proj2"]},"context":{}}',
+      details: `{"post":{"id":"${response.body.attribute.id}","property":"attr3","datatype":"boolean","projects":["proj1","proj2"]},"context":{}}`,
       entity: {
-        id: "attr3",
+        id: response.body.attribute.id,
         object: "attribute",
       },
       event: "attribute.create",

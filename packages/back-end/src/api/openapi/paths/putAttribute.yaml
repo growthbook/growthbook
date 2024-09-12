@@ -1,10 +1,5 @@
 parameters:
-  - name: property
-    in: path
-    required: true
-    description: The attribute property
-    schema:
-      type: string
+  - $ref: "../parameters.yaml#/id"
 tags:
   - attributes
 summary: Update an attribute
@@ -12,7 +7,7 @@ operationId: putAttribute
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X PUT https://api.growthbook.io/api/v1/attributes/property \
+      curl -X PUT https://api.growthbook.io/api/v1/attributes/id \
          -d '{ "description": "My updated attribute" }' \
         -u secret_abc123DEF456:
 requestBody:
@@ -22,6 +17,9 @@ requestBody:
       schema:
         type: object
         properties:
+          property:
+            type: string
+            description: The attribute property
           datatype:
             type: string
             enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]"]

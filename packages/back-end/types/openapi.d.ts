@@ -205,7 +205,7 @@ export interface paths {
     /** Create a new attribute */
     post: operations["postAttribute"];
   };
-  "/attributes/${property}": {
+  "/attributes/${id}": {
     /** Update an attribute */
     put: operations["putAttribute"];
     /** Deletes a single attribute */
@@ -5602,6 +5602,7 @@ export interface operations {
         content: {
           "application/json": {
             attributes: ({
+                id: string;
                 property: string;
                 /** @enum {string} */
                 datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
@@ -5648,6 +5649,7 @@ export interface operations {
         content: {
           "application/json": {
             attribute: {
+              id: string;
               property: string;
               /** @enum {string} */
               datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
@@ -5666,14 +5668,16 @@ export interface operations {
   putAttribute: {
     /** Update an attribute */
     parameters: {
-        /** @description The attribute property */
+        /** @description The id of the requested resource */
       path: {
-        property: string;
+        id: string;
       };
     };
     requestBody: {
       content: {
         "application/json": {
+          /** @description The attribute property */
+          property?: string;
           /**
            * @description The attribute datatype 
            * @enum {string}
@@ -5698,6 +5702,7 @@ export interface operations {
         content: {
           "application/json": {
             attribute: {
+              id: string;
               property: string;
               /** @enum {string} */
               datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
@@ -5716,16 +5721,16 @@ export interface operations {
   deleteAttribute: {
     /** Deletes a single attribute */
     parameters: {
-        /** @description The attribute property */
+        /** @description The id of the requested resource */
       path: {
-        property: string;
+        id: string;
       };
     };
     responses: {
       200: {
         content: {
           "application/json": {
-            deletedProperty: string;
+            deletedId: string;
           };
         };
       };

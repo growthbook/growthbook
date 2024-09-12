@@ -2902,9 +2902,12 @@ paths:
                   attribute:
                     type: object
                     required:
+                      - id
                       - property
                       - datatype
                     properties:
+                      id:
+                        type: string
                       property:
                         type: string
                       datatype:
@@ -2935,15 +2938,10 @@ paths:
                         type: array
                         items:
                           type: string
-  '/attributes/${property}':
+  '/attributes/${id}':
     put:
       parameters:
-        - name: property
-          in: path
-          required: true
-          description: The attribute property
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       tags:
         - attributes
       summary: Update an attribute
@@ -2951,7 +2949,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X PUT https://api.growthbook.io/api/v1/attributes/property \
+            curl -X PUT https://api.growthbook.io/api/v1/attributes/id \
                -d '{ "description": "My updated attribute" }' \
               -u secret_abc123DEF456:
       requestBody:
@@ -2961,6 +2959,9 @@ paths:
             schema:
               type: object
               properties:
+                property:
+                  type: string
+                  description: The attribute property
                 datatype:
                   type: string
                   enum:
@@ -3007,19 +3008,14 @@ paths:
     delete:
       summary: Deletes a single attribute
       parameters:
-        - name: property
-          in: path
-          required: true
-          description: The attribute property
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       tags:
         - attributes
       operationId: deleteAttribute
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/property \
+            curl -X DELETE https://api.growthbook.io/api/v1/attributes/id \
               -u secret_abc123DEF456:
       responses:
         '200':
@@ -3028,9 +3024,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - deletedProperty
+                  - deletedId
                 properties:
-                  deletedProperty:
+                  deletedId:
                     type: string
   /members:
     get:

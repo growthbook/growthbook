@@ -1,18 +1,13 @@
 summary: Deletes a single attribute
 parameters:
-  - name: property
-    in: path
-    required: true
-    description: The attribute property
-    schema:
-      type: string
+  - $ref: "../parameters.yaml#/id"
 tags:
   - attributes
 operationId: deleteAttribute
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/property \
+      curl -X DELETE https://api.growthbook.io/api/v1/attributes/id \
         -u secret_abc123DEF456:
 responses:
   "200":
@@ -21,7 +16,7 @@ responses:
         schema:
           type: object
           required:
-            - deletedProperty
+            - deletedId
           properties:
-            deletedProperty:
+            deletedId:
               type: string

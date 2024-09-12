@@ -8,7 +8,7 @@ const router = Router();
 
 router.get("/", listAttributes);
 router.post("/", postAttribute);
-router.put("/:property", putAttribute);
-router.delete("/:property", deleteAttribute);
+router.put("/:id", putAttribute);
+router.delete("/:id", deleteAttribute);
 
 export default router;

@@ -137,6 +137,7 @@ export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 export type SDKAttributeType = typeof attributeDataTypes[number];
 
 export type SDKAttribute = {
+  id?: string;
   property: string;
   datatype: SDKAttributeType;
   description?: string;
