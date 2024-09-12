@@ -6,6 +6,7 @@ import {
 } from "@back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import { Environment } from "@back-end/types/organization";
+import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
 import PagedModal from "@/components/Modal/PagedModal";
 import { useUser } from "@/services/UserContext";
 import Page from "@/components/Modal/Page";
@@ -16,6 +17,7 @@ import VerifyConnectionPage from "@/components/InitialSetup/VerifyConnectionPage
 import SelectDataSourcePage from "@/components/InitialSetup/SelectDataSourcePage";
 import PageHead from "@/components/Layout/PageHead";
 import SetupCompletedPage from "@/components/InitialSetup/SetupCompletedPage";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
@@ -25,11 +27,13 @@ export type SdkFormValues = {
 };
 
 export default function SetupFlow() {
-  const { organization } = useUser();
   const [step, setStep] = useState(0);
   const [connection, setConnection] = useState<null | string>(null);
   const [SDKConnectionModalOpen, setSDKConnectionModalOpen] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
+
+  const { hasCommercialFeature } = useUser();
+  const { organization } = useUser();
 
   const sdkConnectionForm = useForm<SdkFormValues>({
     defaultValues: {
@@ -84,20 +88,33 @@ export default function SetupFlow() {
               return Promise.resolve();
             }
 
-            // TODO: Determine values based on language. Logic is in SDKConnectionForm
-            // Grab language label from languageMapping
+            const sdkCapabilities = getSDKCapabilities(value.languages[0]);
+
+            const canUseVisualEditor =
+              hasCommercialFeature("visual-editor") &&
+              sdkCapabilities.includes("visualEditorJS");
+
+            const canUseUrlRedirects =
+              hasCommercialFeature("redirects") &&
+              sdkCapabilities.includes("redirects");
+
+            const canUseSecureConnection =
+              hasCommercialFeature("hash-secure-attributes") &&
+              sdkCapabilities.includes("encryption");
+
+            const languageLabel = languageMapping[value.languages[0]].label;
+
             const body: Omit<CreateSDKConnectionParams, "organization"> = {
-              name: `${value.languages[0]} SDK Connection`,
+              name: `${languageLabel} SDK Connection`,
               languages: value.languages,
-              sdkVersion: value.sdkVersion,
+              sdkVersion: getLatestSDKVersion(value.languages[0]),
               environment: value.environment,
-              encryptPayload: value.cipher,
-              hashSecureAttributes: value.cipher,
-              includeExperimentNames: value.cipher,
+              encryptPayload: canUseSecureConnection,
+              hashSecureAttributes: canUseSecureConnection,
+              includeExperimentNames: !canUseSecureConnection,
               includeDraftExperiments: true,
-              includeVisualExperiments:
-                value.languages[0] === "nodejs" ? false : true,
-              includeRedirectExperiments: true,
+              includeVisualExperiments: canUseVisualEditor,
+              includeRedirectExperiments: canUseUrlRedirects,
               projects: [],
             };
 

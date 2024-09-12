@@ -18,29 +18,17 @@ interface Props {
 }
 
 const InitiateConnectionPage = ({ connection, form }: Props) => {
-  const [languageError] = useState("");
-
   return (
     <div className="mt-5" style={{ padding: "0px 57px" }}>
       <h4>Select your SDK Language</h4>
       <div className="form-group">
-        {languageError ? (
-          <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
-            {languageError}
-          </span>
-        ) : null}
         <SDKLanguageSelector
           value={form.watch("languages")}
           setValue={(languages) => {
             form.setValue("languages", languages);
-            if (languages?.length === 1) {
-              form.setValue("sdkVersion", getLatestSDKVersion(languages[0]));
-            }
           }}
           limitLanguages={["react", "javascript", "nodejs", "nocode-other"]}
-          multiple={form.watch("languages").length > 1}
           includeOther={false}
-          skipLabel={form.watch("languages").length <= 1}
           hideShowAllLanguages={false}
         />
       </div>
