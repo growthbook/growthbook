@@ -1,6 +1,8 @@
-import { PiPaperPlaneTiltFill } from "react-icons/pi";
+import { PiInfo, PiPaperPlaneTiltFill } from "react-icons/pi";
 import { useState } from "react";
 import { SchemaFormat } from "@back-end/types/datasource";
+import { Callout } from "@radix-ui/themes";
+import clsx from "clsx";
 import { eventSchemas } from "@/services/eventSchema";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
@@ -8,6 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
+import styles from "./InitialSetup.module.scss";
 
 const SelectDataSourcePage = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -50,24 +53,37 @@ const SelectDataSourcePage = () => {
           showImportSampleData={!demoDataSourceExists}
         />
       )}
-      <div className="mt-5" style={{ padding: "0px 57px" }}>
+      <div
+        className={clsx(styles.setupPage, "mt-5")}
+        style={{ padding: "0px 57px" }}
+      >
         <div className="d-flex mb-3">
           <h3 className="mb-0 align-self-center">Select your Event Tracker</h3>
 
           <div className="ml-auto">
-            <button className="btn btn-link" onClick={() => setInviting(true)}>
+            <button
+              className="btn btn-link"
+              onClick={(e) => {
+                e.preventDefault();
+                setInviting(true);
+              }}
+            >
               <PiPaperPlaneTiltFill className="mr-1" />
-              Send to your Data Specialist
+              Invite your Data Specialist
             </button>
           </div>
         </div>
-        <p>
-          GrowthBook has built-in support for a number of popular event tracking
-          systems, and can work with virtually any type of data with a custom
-          integration. Add a custom data source if you don’t see yours listed
-          below.
-        </p>
-        <div className="row mb-5">
+        <Callout.Root>
+          <Callout.Icon>
+            <PiInfo />
+          </Callout.Icon>
+          <Callout.Text>
+            To analyze experiment results, connect an event tracker and data
+            source. If using GrowthBook to manage feature flags only, feel free
+            to skip this step.
+          </Callout.Text>
+        </Callout.Root>
+        <div className="row mt-3 mb-5">
           <div className="col-auto">
             <div
               className="d-flex flex-wrap pb-3"

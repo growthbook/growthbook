@@ -65,7 +65,7 @@ const VerifyConnectionPage = ({
 
   return (
     <div
-      className={clsx(styles.verifyConnection, "mt-5")}
+      className={clsx(styles.setupPage, "mt-5")}
       style={{ padding: "0px 57px" }}
     >
       {!currentConnection && <LoadingOverlay />}
@@ -96,7 +96,10 @@ const VerifyConnectionPage = ({
             <div className="ml-auto">
               <button
                 className="btn btn-link"
-                onClick={() => setInviting(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setInviting(true);
+                }}
               >
                 <PiPaperPlaneTiltFill className="mr-1" />
                 Invite your developer

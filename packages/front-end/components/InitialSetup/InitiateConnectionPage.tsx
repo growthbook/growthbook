@@ -20,6 +20,7 @@ const InitiateConnectionPage = ({ connection, form }: Props) => {
           }}
           limitLanguages={["react", "javascript", "nodejs", "nocode-other"]}
           includeOther={false}
+          skipLabel
           hideShowAllLanguages={false}
         />
       </div>
