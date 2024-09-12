@@ -33,6 +33,7 @@ type Props = {
   secondaryCTA?: ReactElement;
   className?: string;
   bodyClassName?: string;
+  stickyFooter?: boolean;
 };
 
 const PagedModal: FC<Props> = (props) => {

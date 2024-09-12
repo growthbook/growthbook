@@ -43,6 +43,7 @@ type ModalProps = {
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
+  stickyFooter?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -75,6 +76,7 @@ const Modal: FC<ModalProps> = ({
   formRef,
   customValidation,
   increasedElevation,
+  stickyFooter = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +174,13 @@ const Modal: FC<ModalProps> = ({
         className={`modal-body ${bodyClassName}`}
         ref={bodyRef}
         style={
-          overflowAuto ? { overflowY: "auto", scrollBehavior: "smooth" } : {}
+          overflowAuto
+            ? {
+                overflowY: "auto",
+                scrollBehavior: "smooth",
+                marginBottom: stickyFooter ? "100px" : undefined,
+              }
+            : {}
         }
       >
         {isSuccess ? (
@@ -184,7 +192,17 @@ const Modal: FC<ModalProps> = ({
       {submit || secondaryCTA || (close && includeCloseCta) ? (
         <div
           className="modal-footer"
-          // style={{ position: "fixed", left: "0", bottom: "0", width: "100%" }}
+          style={
+            stickyFooter
+              ? {
+                  position: "fixed",
+                  left: "0",
+                  bottom: "0",
+                  width: "100%",
+                  backgroundColor: "var(--surface-background-color-alt)",
+                }
+              : undefined
+          }
         >
           {error && (
             <div className="alert alert-danger mr-auto">
@@ -209,6 +227,7 @@ const Modal: FC<ModalProps> = ({
                   fullWidthSubmit ? "w-100" : ""
                 }`}
                 type="submit"
+                style={{ marginRight: "310px" }}
                 disabled={!ctaEnabled}
               >
                 {cta}

@@ -78,7 +78,7 @@ export default function SetupFlow() {
       <PageHead
         breadcrumb={[{ display: "< Exit Setup", href: "/getstarted" }]}
       />
-      <h1 className="mt-5" style={{ padding: "0px 57px" }}>
+      <h1 className="mt-5" style={{ padding: "0px 65px" }}>
         Setup GrowthBook for {organization.name}
       </h1>
       <PagedModal
@@ -86,12 +86,12 @@ export default function SetupFlow() {
         submit={() => handleSubmit()}
         cta={"Finish Setup"}
         closeCta="Cancel"
-        size="fill"
         step={step}
         setStep={setStep}
         inline
-        className="bg-transparent border-0"
+        className="bg-light border-0"
         navStyle={"default"}
+        stickyFooter
       >
         <Page
           display="Initiate Connection"
