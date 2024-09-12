@@ -17,7 +17,7 @@ from gbstats.gbstats import (
     get_metric_df,
     format_results,
     variation_statistic_from_metric_row,
-    get_bandit_response,
+    get_bandit_result,
     create_bandit_statistics,
     get_weighted_rows,
 )
@@ -312,7 +312,7 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
-    weights=[BanditWeightsByDate(date="", weights=None)],
+    weights=[BanditWeightsByDate(date="", weights=[1 / 4] * 4)],
     decision_metric="count_metric",
     bandit_weights_seed=int(100),
     weight_by_period=True,
@@ -886,8 +886,8 @@ class TestBandit(TestCase):
         self.assertEqual(weighted_rows, weighted_rows_true)
 
     def test_get_bandit_response(self):
-        result = get_bandit_response(
-            self.rows, self.metric, self.bandit_analysis, self.analysis.alpha
+        result = get_bandit_result(
+            self.rows, self.metric, self.analysis, self.bandit_analysis
         )
         self.assertEqual(result.updateMessage, self.update_messages[0])
         self.assertEqual(result.weights, self.true_weights)

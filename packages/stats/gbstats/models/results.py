@@ -4,6 +4,7 @@ from pydantic.dataclasses import dataclass
 
 from gbstats.bayesian.tests import RiskType
 from gbstats.models.tests import Uplift
+from gbstats.models.settings import BanditWeightsByDate
 
 
 # Data classes for return to the back end
@@ -15,8 +16,21 @@ class SingleVariationResult:
 
 
 @dataclass
+class UserCountsByDate:
+    date: str
+    user_counts: List[float]
+
+
+@dataclass
+class BanditSRMData:
+    weights: List[BanditWeightsByDate]
+    user_counts: Optional[List[UserCountsByDate]]
+
+
+@dataclass
 class BanditResult:
     singleVariationResults: Optional[List[SingleVariationResult]]
+    banditSRMData: BanditSRMData
     weights: Optional[List[float]]
     bestArmProbabilities: Optional[List[float]]
     additionalReward: Optional[float]

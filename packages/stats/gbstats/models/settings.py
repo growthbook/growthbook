@@ -27,7 +27,13 @@ class AnalysisSettingsForStatsEngine:
 @dataclass
 class BanditWeightsByDate:
     date: str
-    weights: Optional[List[float]] = None
+    weights: List[float]
+
+
+@dataclass
+class UserCountsByDate:
+    date: str
+    user_counts: List[float]
 
 
 @dataclass

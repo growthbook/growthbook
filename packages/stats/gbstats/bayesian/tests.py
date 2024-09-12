@@ -58,6 +58,7 @@ class BanditConfig(BayesianConfig):
 @dataclass
 class BanditResponse:
     users: Optional[List[float]]
+    users_by_period: Optional[List[List[float]]]
     cr: Optional[List[float]]
     ci: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
@@ -482,6 +483,7 @@ class Bandits:
         enough_data = sum(self.variation_counts) >= min_n
         return BanditResponse(
             users=self.variation_counts.tolist(),
+            users_by_period=self.user_counts_by_period,
             cr=self.variation_means.tolist(),
             ci=credible_intervals,
             bandit_weights=p.tolist() if enough_data else None,
@@ -492,6 +494,14 @@ class Bandits:
             if enough_data
             else "some variation counts fewer than " + str(min_n),
         )
+
+    # each element of the list is a list of length num_variations of user counts specific to a period
+    @property
+    def user_counts_by_period(self) -> List[List[float]]:
+        counts_by_period = []
+        for period in range(self.num_periods):
+            counts_by_period.append(self.counts_array[period, :].tolist())
+        return counts_by_period
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod

@@ -31,7 +31,9 @@ from gbstats.models.results import (
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BanditResult,
+    BanditSRMData,
     SingleVariationResult,
+    UserCountsByDate,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -671,20 +673,28 @@ def get_weighted_rows(
     return weighted_rows
 
 
-def get_bandit_response(
+def get_bandit_result(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
+    settings: AnalysisSettingsForStatsEngine,
     bandit_settings: BanditSettingsForStatsEngine,
-    alpha: float,
 ) -> BanditResult:
-    b = preprocess_bandits(rows, metric, bandit_settings, alpha, "All")
+    previous_period_weights = bandit_settings.weights[-1].weights
+    dates = [w.date for w in bandit_settings.weights]
+    bandit_srm_data = BanditSRMData(weights=bandit_settings.weights, user_counts=None)
+    b = preprocess_bandits(
+        rows, metric, bandit_settings, settings.alpha, settings.dimension
+    )
     if b:
         if any(value is None for value in b.stats.values()):
             update_str = "not updated"
             error_str = "not all statistics are instance of type BanditStatistic"
             return BanditResult(
                 singleVariationResults=None,
-                weights=None,
+                weights=previous_period_weights,
+                banditSRMData=BanditSRMData(
+                    weights=bandit_settings.weights, user_counts=None
+                ),
                 bestArmProbabilities=None,
                 additionalReward=None,
                 seed=0,
@@ -696,6 +706,8 @@ def get_bandit_response(
         if (
             bandit_result.bandit_update_message == "successfully updated"
             and bandit_result.ci
+            and bandit_result.users_by_period
+            and bandit_result.bandit_weights
         ):
             single_variation_results = [
                 SingleVariationResult(n, mn, ci)
@@ -703,8 +715,18 @@ def get_bandit_response(
                     b.variation_counts, b.variation_means, bandit_result.ci
                 )
             ]
+            user_counts = [
+                UserCountsByDate(d, period_count)
+                for d, period_count in zip(dates, b.user_counts_by_period)
+            ]
+            bandit_srm_data = BanditSRMData(
+                weights=bandit_settings.weights, user_counts=user_counts
+            )
+            bandit_srm_data.weights[-1].weights = bandit_result.bandit_weights
+
         return BanditResult(
             singleVariationResults=single_variation_results,
+            banditSRMData=bandit_srm_data,
             weights=bandit_result.bandit_weights,
             bestArmProbabilities=bandit_result.best_arm_probabilities,
             additionalReward=bandit_result.additional_reward,
@@ -715,7 +737,8 @@ def get_bandit_response(
     else:  # empty dict
         return BanditResult(
             singleVariationResults=None,
-            weights=None,
+            banditSRMData=bandit_srm_data,
+            weights=previous_period_weights,
             bestArmProbabilities=None,
             additionalReward=None,
             seed=0,
@@ -772,11 +795,11 @@ def process_experiment_results(
                         ):
                             if bandit_result is not None:
                                 raise ValueError("Bandit weights already computed")
-                            bandit_result = get_bandit_response(
+                            bandit_result = get_bandit_result(
                                 rows=rows,
                                 metric=d.metrics[metric],
+                                settings=d.analyses[0],
                                 bandit_settings=d.bandit_settings,
-                                alpha=d.analyses[0].alpha,
                             )
                         weighted_rows = get_weighted_rows(
                             rows, d.metrics[metric], d.analyses, d.bandit_settings
