@@ -1,11 +1,8 @@
 type: object
 required:
-  - id
   - property
   - datatype
 properties:
-  id:
-    type: string
   property:
     type: string
   datatype:

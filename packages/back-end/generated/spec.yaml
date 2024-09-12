@@ -2901,10 +2901,15 @@ paths:
                 properties:
                   attribute:
                     $ref: '#/components/schemas/Attribute'
-  '/attributes/${id}':
+  '/attributes/${property}':
     put:
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
       tags:
         - attributes
       summary: Update an attribute
@@ -2912,7 +2917,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X PUT https://api.growthbook.io/api/v1/attributes/id \
+            curl -X PUT https://api.growthbook.io/api/v1/attributes/property \
                -d '{ "description": "My updated attribute" }' \
               -u secret_abc123DEF456:
       requestBody:
@@ -2922,9 +2927,6 @@ paths:
             schema:
               type: object
               properties:
-                property:
-                  type: string
-                  description: The attribute property
                 datatype:
                   type: string
                   enum:
@@ -2971,14 +2973,19 @@ paths:
     delete:
       summary: Deletes a single attribute
       parameters:
-        - $ref: '#/components/parameters/id'
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
       tags:
         - attributes
       operationId: deleteAttribute
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X DELETE https://api.growthbook.io/api/v1/attributes/id \
+            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/property \
               -u secret_abc123DEF456:
       responses:
         '200':
@@ -2987,9 +2994,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - deletedId
+                  - deletedProperty
                 properties:
-                  deletedId:
+                  deletedProperty:
                     type: string
   /members:
     get:
@@ -4783,12 +4790,9 @@ components:
     Attribute:
       type: object
       required:
-        - id
         - property
         - datatype
       properties:
-        id:
-          type: string
         property:
           type: string
         datatype:

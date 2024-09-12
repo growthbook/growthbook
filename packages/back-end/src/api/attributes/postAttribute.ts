@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import { PostAttributeResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postAttributeValidator } from "../../validators/openapi";
@@ -10,7 +9,6 @@ import { validatePayload } from "./validations";
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(
   async (req): Promise<PostAttributeResponse> => {
     const attribute = {
-      id: uuidv4(),
       ...req.body,
       ...(await validatePayload(req.context, req.body)),
     };
@@ -43,7 +41,7 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       event: "attribute.create",
       entity: {
         object: "attribute",
-        id: attribute.id,
+        id: attribute.property,
       },
       details: auditDetailsCreate(attribute),
     });

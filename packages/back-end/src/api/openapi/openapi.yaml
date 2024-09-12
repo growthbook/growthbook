@@ -220,7 +220,7 @@ paths:
       $ref: "./paths/listAttributes.yaml"
     post:
       $ref: "./paths/postAttribute.yaml"
-  /attributes/${id}:
+  /attributes/${property}:
     put:
       $ref: "./paths/putAttribute.yaml"
     delete:

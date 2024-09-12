@@ -9,15 +9,15 @@ export const deleteAttribute = createApiRequestHandler(
   deleteAttributeValidator
 )(
   async (req): Promise<DeleteAttributeResponse> => {
-    const id = req.params.id;
+    const property = req.params.property;
     const org = req.context.org;
     const attributes = org.settings?.attributeSchema || [];
 
     const attribute = attributes.find(
-      (attr) => !attr.archived && attr.id === id
+      (attr) => !attr.archived && attr.property === property
     );
     if (!attribute) {
-      throw Error(`Attribute with ID ${id} does not exists!`);
+      throw Error(`An attribute with property ${property} does not exists!`);
     }
 
     if (!req.context.permissions.canDeleteAttribute(attribute))
@@ -27,7 +27,7 @@ export const deleteAttribute = createApiRequestHandler(
       settings: {
         ...org.settings,
         attributeSchema: [
-          ...attributes.filter((attr) => attr.id !== id),
+          ...attributes.filter((attr) => attr !== attribute),
           { ...attribute, archived: true },
         ],
       },
@@ -39,13 +39,13 @@ export const deleteAttribute = createApiRequestHandler(
       event: "attribute.delete",
       entity: {
         object: "attribute",
-        id,
+        id: property,
       },
       details: auditDetailsDelete(attribute),
     });
 
     return {
-      deletedId: id,
+      deletedProperty: property,
     };
   }
 );

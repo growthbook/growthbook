@@ -16,7 +16,7 @@ export const apiProjectValidator = z.object({ "id": z.string(), "name": z.string
 
 export const apiEnvironmentValidator = z.object({ "id": z.string(), "description": z.string(), "toggleOnList": z.boolean(), "defaultState": z.boolean(), "projects": z.array(z.string()) }).strict()
 
-export const apiAttributeValidator = z.object({ "id": z.string(), "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional() }).strict()
+export const apiAttributeValidator = z.object({ "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional() }).strict()
 
 export const apiSegmentValidator = z.object({ "id": z.string(), "owner": z.string(), "datasourceId": z.string(), "identifierType": z.string(), "name": z.string(), "query": z.string().optional(), "dateCreated": z.string(), "dateUpdated": z.string(), "type": z.enum(["SQL","FACT"]).optional(), "factTableId": z.string().optional(), "filters": z.array(z.string()).optional() }).strict()
 
@@ -347,15 +347,15 @@ export const postAttributeValidator = {
 };
 
 export const putAttributeValidator = {
-  bodySchema: z.object({ "property": z.string().describe("The attribute property").optional(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
+  paramsSchema: z.object({ "property": z.string() }).strict(),
 };
 
 export const deleteAttributeValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
+  paramsSchema: z.object({ "property": z.string() }).strict(),
 };
 
 export const listMembersValidator = {
