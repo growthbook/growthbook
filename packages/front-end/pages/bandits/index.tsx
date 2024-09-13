@@ -266,13 +266,11 @@ const ExperimentsPage = (): React.ReactElement => {
           {!hasExperiments ? (
             <div
               className="appbox d-flex flex-column align-items-center"
-              style={{ padding: "70px 305px 60px 305px" }}
+              style={{ padding: "70px 250px 60px" }}
             >
-              <h1>Test Variations with Targeted Users</h1>
+              <h1>Find a Winner Quickly with Multi-Armed Bandits</h1>
               <p style={{ fontSize: "17px" }}>
-                Run unlimited tests with linked feature flags, URL redirects or
-                the Visual Editor. You can also easily import existing
-                experiments from other platforms.
+                Turbocharge your experiments by driving more traffic to the variants that perform the best.
               </p>
               <div className="row">
                 <Link href="/getstarted/experiment-guide">
