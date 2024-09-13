@@ -1,18 +1,18 @@
-import { findOrganizationsByMemberId } from "@back-end/src/models/OrganizationModel";
-import { getUserByEmail } from "@back-end/src/models/UserModel";
-import { trackLoginForUser } from "@back-end/src/services/users";
-import { createEventWithPayload } from "@back-end/src/models/EventModel";
-import { getLegacyMessageForNotificationEvent } from "@back-end/src/events/handlers/legacy";
+import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
+import { getUserByEmail } from "back-end/src/models/UserModel";
+import { trackLoginForUser } from "back-end/src/services/users";
+import { createEventWithPayload } from "back-end/src/models/EventModel";
+import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 
-jest.mock("@back-end/src/models/OrganizationModel", () => ({
+jest.mock("back-end/src/models/OrganizationModel", () => ({
   findOrganizationsByMemberId: jest.fn(),
 }));
 
-jest.mock("@back-end/src/models/UserModel", () => ({
+jest.mock("back-end/src/models/UserModel", () => ({
   getUserByEmail: jest.fn(),
 }));
 
-jest.mock("@back-end/src/models/EventModel", () => ({
+jest.mock("back-end/src/models/EventModel", () => ({
   createEventWithPayload: jest.fn(),
 }));
 

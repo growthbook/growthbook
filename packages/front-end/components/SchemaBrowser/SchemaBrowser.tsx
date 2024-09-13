@@ -1,5 +1,5 @@
-import { InformationSchemaInterface } from "@back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import React, { Fragment, useCallback, useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
