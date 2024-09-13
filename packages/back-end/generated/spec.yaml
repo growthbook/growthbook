@@ -3,7 +3,7 @@ info:
   version: 1.0.0
   title: GrowthBook REST API
   description: |
-    GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+    GrowthBook offers a full REST API for interacting with the application.
 
     Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
 
