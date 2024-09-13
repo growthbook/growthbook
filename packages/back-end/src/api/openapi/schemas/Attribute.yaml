@@ -12,6 +12,8 @@ properties:
     type: string
   hashAttribute:
     type: boolean
+  archived:
+    type: boolean
   enum:
     type: string
   format:

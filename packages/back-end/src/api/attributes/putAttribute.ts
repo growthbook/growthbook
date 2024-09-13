@@ -12,9 +12,7 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     const org = req.context.org;
     const attributes = org.settings?.attributeSchema || [];
 
-    const attribute = attributes.find(
-      (attr) => !attr.archived && attr.property === property
-    );
+    const attribute = attributes.find((attr) => attr.property === property);
     if (!attribute) {
       throw Error(`An attribute with property ${property} does not exists!`);
     }

@@ -2873,6 +2873,9 @@ paths:
                 description:
                   type: string
                   description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
                 hashAttribute:
                   type: boolean
                   description: Shall the attribute be hashed
@@ -2942,6 +2945,9 @@ paths:
                 description:
                   type: string
                   description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
                 hashAttribute:
                   type: boolean
                   description: Shall the attribute be hashed
@@ -4809,6 +4815,8 @@ components:
         description:
           type: string
         hashAttribute:
+          type: boolean
+        archived:
           type: boolean
         enum:
           type: string

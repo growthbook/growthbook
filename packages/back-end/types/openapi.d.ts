@@ -435,6 +435,7 @@ export interface components {
       datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
       description?: string;
       hashAttribute?: boolean;
+      archived?: boolean;
       enum?: string;
       /** @enum {string} */
       format?: "" | "version" | "date" | "isoCountryCode";
@@ -5618,6 +5619,7 @@ export interface operations {
                 datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
                 description?: string;
                 hashAttribute?: boolean;
+                archived?: boolean;
                 enum?: string;
                 /** @enum {string} */
                 format?: "" | "version" | "date" | "isoCountryCode";
@@ -5642,6 +5644,8 @@ export interface operations {
           datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
           /** @description The description of the new attribute */
           description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
           /** @description Shall the attribute be hashed */
           hashAttribute?: boolean;
           enum?: string;
@@ -5664,6 +5668,7 @@ export interface operations {
               datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
               description?: string;
               hashAttribute?: boolean;
+              archived?: boolean;
               enum?: string;
               /** @enum {string} */
               format?: "" | "version" | "date" | "isoCountryCode";
@@ -5692,6 +5697,8 @@ export interface operations {
           datatype?: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
           /** @description The description of the new attribute */
           description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
           /** @description Shall the attribute be hashed */
           hashAttribute?: boolean;
           enum?: string;
@@ -5714,6 +5721,7 @@ export interface operations {
               datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
               description?: string;
               hashAttribute?: boolean;
+              archived?: boolean;
               enum?: string;
               /** @enum {string} */
               format?: "" | "version" | "date" | "isoCountryCode";

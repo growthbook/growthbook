@@ -125,15 +125,7 @@ describe("attributes API", () => {
     expect(response.body).toEqual({ deletedProperty: "attr1" });
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: {
-        attributeSchema: [
-          { property: "attr2", datatype: "string" },
-          {
-            property: "attr1",
-            datatype: "string[]",
-            archived: true,
-            projects: ["bla"],
-          },
-        ],
+        attributeSchema: [{ property: "attr2", datatype: "string" }],
       },
     });
     expect(auditMock).toHaveBeenCalledWith({
