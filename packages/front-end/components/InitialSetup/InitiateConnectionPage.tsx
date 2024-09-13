@@ -16,6 +16,7 @@ const InitiateConnectionPage = ({ connection, form }: Props) => {
         <SDKLanguageSelector
           value={form.watch("languages")}
           setValue={(languages) => {
+            if (connection) return;
             form.setValue("languages", languages);
           }}
           limitLanguages={["react", "javascript", "nodejs", "nocode-other"]}

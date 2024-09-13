@@ -29,6 +29,7 @@ interface Props {
   showCheckConnectionModal: boolean;
   closeCheckConnectionModal: () => void;
   goToNextStep: () => void;
+  setSkipped: () => void;
 }
 
 const VerifyConnectionPage = ({
@@ -36,6 +37,7 @@ const VerifyConnectionPage = ({
   showCheckConnectionModal,
   closeCheckConnectionModal,
   goToNextStep,
+  setSkipped,
 }: Props) => {
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
@@ -80,7 +82,12 @@ const VerifyConnectionPage = ({
           connection={currentConnection}
           cta={currentConnection.connected ? "Continue" : "Skip"}
           close={closeCheckConnectionModal}
-          goToNextStep={goToNextStep}
+          goToNextStep={() => {
+            if (!currentConnection.connected) {
+              setSkipped();
+            }
+            goToNextStep();
+          }}
           mutate={mutate}
           showModalClose
         />

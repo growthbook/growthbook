@@ -1,12 +1,72 @@
 import clsx from "clsx";
 import Link from "next/link";
+import { useEffect } from "react";
+import { PiCheckCircleFill } from "react-icons/pi";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
+import { useCelebration } from "@/hooks/useCelebration";
 
-const SetupCompletedPage = (): React.ReactElement => {
+interface Props {
+  skipped: Set<number>;
+}
+
+const SetupCompletedPage = ({ skipped }: Props): React.ReactElement => {
+  const startCelebration = useCelebration();
+
+  useEffect(() => {
+    if (skipped.size) return;
+
+    startCelebration();
+  });
+
   return (
-    <div className="container pagecontents" style={{ padding: "0px 150px" }}>
-      <h1 className="my-4">Setup Complete!</h1>
-      <p>What do you want to do next?</p>
+    <div className="container pagecontents" style={{ maxWidth: "900px" }}>
+      <h1 className="my-4">
+        {skipped.size ? "You’re almost done…" : "Setup Complete!"}
+      </h1>
+      {skipped.size ? (
+        <>
+          <h3 className="mb-3">Steps left to complete to run Experiments</h3>
+          <ul className="list-unstyled mt-2">
+            {skipped.has(1) ? (
+              <li className="mb-2">
+                <PiCheckCircleFill
+                  style={{
+                    height: "15px",
+                    width: "15px",
+                    fill: "var(--gray-9)",
+                  }}
+                />{" "}
+                Connect an SDK
+              </li>
+            ) : null}
+            {skipped.has(2) ? (
+              <li>
+                <PiCheckCircleFill
+                  style={{
+                    height: "15px",
+                    width: "15px",
+                    fill: "var(--gray-9)",
+                  }}
+                />{" "}
+                Connect a Data Source
+              </li>
+            ) : null}
+          </ul>
+        </>
+      ) : null}
+      <div className="d-flex align-items-center mt-5 mb-2">
+        <h3>
+          {skipped.size
+            ? "In the meantime, feel free to explore GrowthBook"
+            : "What do you want to do next?"}
+        </h3>
+        <div className="ml-auto">
+          <Link href={"/getstarted"}>
+            <button className="btn btn-link">Exit Setup {">"}</button>
+          </Link>
+        </div>
+      </div>
+
       <div className="d-flex flex-wrap">
         <Link href={"/getstarted/feature-flag-guide"} className="mb-3 d-block">
           <button className={clsx(styles.animatedCard, "px-0 py-4 text-left")}>
@@ -26,8 +86,6 @@ const SetupCompletedPage = (): React.ReactElement => {
                   src="/images/get-started/icons/active-card-arrow.svg"
                 />
               </div>
-
-              <p>Explore a guided setup & sample feature flag</p>
             </div>
             <img
               className={clsx(styles.imgActive, "float-right")}
@@ -64,7 +122,6 @@ const SetupCompletedPage = (): React.ReactElement => {
                   src="/images/get-started/icons/active-card-arrow.svg"
                 />
               </div>
-              <p>Explore a guided setup & sample results</p>
             </div>
 
             <img

@@ -2116,6 +2116,29 @@ export async function putGetStartedChecklistItem(
   });
 }
 
+export async function putSetupProject(
+  req: AuthRequest<{
+    project: string;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { project } = req.body;
+
+  try {
+    await updateOrganization(org.id, {
+      initialSetupProject: project,
+    });
+  } catch (e) {
+    throw new Error("Failed to save inital setup project");
+  }
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postCustomRole(req: AuthRequest<Role>, res: Response) {
   const context = getContextFromReq(req);
   const roleToAdd = req.body;

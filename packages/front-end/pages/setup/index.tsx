@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
@@ -7,6 +7,7 @@ import {
 import { useForm } from "react-hook-form";
 import { Environment } from "@back-end/types/organization";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+import { ProjectInterface } from "@back-end/types/project";
 import PagedModal from "@/components/Modal/PagedModal";
 import { useUser } from "@/services/UserContext";
 import Page from "@/components/Modal/Page";
@@ -20,6 +21,8 @@ import SetupCompletedPage from "@/components/InitialSetup/SetupCompletedPage";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
@@ -27,15 +30,41 @@ export type SdkFormValues = {
   environment: string;
 };
 
+export type ProjectApiResponse = {
+  project: ProjectInterface;
+};
+
 export default function SetupFlow() {
   const [step, setStep] = useState(0);
   const [connection, setConnection] = useState<null | string>(null);
   const [SDKConnectionModalOpen, setSDKConnectionModalOpen] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
+  const [skipped, setSkipped] = useState<Set<number>>(() => new Set());
 
   const { hasCommercialFeature } = useUser();
-  const { organization } = useUser();
+  const { data: sdkConnectionData } = useSDKConnections();
+  const { organization, refreshOrganization } = useUser();
+  const { datasources, setProject, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
+
+  // Start off user on the correct step depending on how much has already been set up
+  useEffect(() => {
+    if (!sdkConnectionData?.connections.length) {
+      return;
+    }
+    const firstConnection = sdkConnectionData.connections[0];
+    setConnection(firstConnection.id);
+
+    if (!firstConnection.connected) {
+      setStep(1);
+    } else if (firstConnection.connected) {
+      if (datasources.length === 0) {
+        setStep(2);
+      } else {
+        setSetupComplete(true);
+      }
+    }
+  }, [sdkConnectionData?.connections, datasources.length]);
 
   const sdkConnectionForm = useForm<SdkFormValues>({
     defaultValues: {
@@ -59,6 +88,7 @@ export default function SetupFlow() {
   // Mark setup as complete
   const handleSubmit = async () => {
     setSetupComplete(true);
+    // TODO: Tracking here
   };
 
   if (!canUseSetupFlow) {
@@ -70,15 +100,15 @@ export default function SetupFlow() {
   }
 
   if (setupComplete) {
-    return <SetupCompletedPage />;
+    return <SetupCompletedPage skipped={skipped} />;
   }
 
   return (
-    <div className="container pagecontents" style={{ padding: "0px 150px" }}>
+    <div className="container pagecontents pt-5" style={{ maxWidth: "1000px" }}>
       <PageHead
         breadcrumb={[{ display: "< Exit Setup", href: "/getstarted" }]}
       />
-      <h1 className="mt-5" style={{ padding: "0px 65px" }}>
+      <h1 style={{ padding: "0px 65px" }}>
         Setup GrowthBook for {organization.name}
       </h1>
       <PagedModal
@@ -87,18 +117,86 @@ export default function SetupFlow() {
         cta={"Finish Setup"}
         closeCta="Cancel"
         step={step}
-        setStep={setStep}
+        setStep={(step) => {
+          if (skipped.has(step)) {
+            setSkipped((prev) => {
+              const next = new Set(prev);
+              next.delete(step);
+              return next;
+            });
+          }
+          setStep(step);
+        }}
         inline
-        className="bg-light border-0"
+        className="bg-transparent border-0"
         navStyle={"default"}
         stickyFooter
+        onSkip={
+          step === 0
+            ? undefined
+            : async () => {
+                setSkipped((prev) => {
+                  const next = new Set(prev);
+                  next.add(step);
+                  return next;
+                });
+
+                if (step >= 2) {
+                  handleSubmit();
+                } else {
+                  setStep((prev) => prev + 1);
+                }
+              }
+        }
       >
         <Page
+          enabled={!connection}
           display="Initiate Connection"
           validate={sdkConnectionForm.handleSubmit(async (value) => {
             if (connection) {
               return Promise.resolve();
             }
+
+            // Create a new project for the org to get started
+            const setupProject: ProjectApiResponse = await apiCall(
+              `/projects`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  name: "My First Project",
+                  description: "",
+                }),
+              }
+            );
+
+            await apiCall("/organization/setup-project", {
+              method: "PUT",
+              body: JSON.stringify({
+                project: setupProject.project.id,
+              }),
+            });
+
+            // Create the selected environment if it doesn't exist
+            if (
+              environments.find((e) => e.id === value.environment) === undefined
+            ) {
+              const newEnv: Environment = {
+                id: value.environment,
+                description: "",
+                toggleOnList: true,
+                defaultState: true,
+                projects: [setupProject.project.id],
+              };
+              await apiCall(`/environment`, {
+                method: "POST",
+                body: JSON.stringify({
+                  environment: newEnv,
+                }),
+              });
+            }
+
+            // Create a new SDK connection within the new project for the selected environment
+            // Default to enabling encryption, Visual Editor, and URL Redirects if the org has the feature and the SDK supports it
 
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
 
@@ -127,25 +225,8 @@ export default function SetupFlow() {
               includeDraftExperiments: true,
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
-              projects: [],
+              projects: [setupProject.project.id],
             };
-
-            if (
-              environments.find((e) => e.id === value.environment) === undefined
-            ) {
-              const newEnv: Environment = {
-                id: value.environment,
-                description: "",
-                toggleOnList: true,
-                defaultState: true,
-              };
-              await apiCall(`/environment`, {
-                method: "POST",
-                body: JSON.stringify({
-                  environment: newEnv,
-                }),
-              });
-            }
 
             const res = await apiCall<{ connection: SDKConnectionInterface }>(
               `/sdk-connections`,
@@ -161,6 +242,11 @@ export default function SetupFlow() {
               ciphered: canUseSecureConnection,
               environment: value.environment,
             });
+
+            await refreshOrganization();
+            await mutateDefinitions();
+
+            setProject(setupProject.project.id);
           })}
         >
           <InitiateConnectionPage
@@ -180,6 +266,13 @@ export default function SetupFlow() {
             showCheckConnectionModal={SDKConnectionModalOpen}
             closeCheckConnectionModal={() => setSDKConnectionModalOpen(false)}
             goToNextStep={() => setStep(2)}
+            setSkipped={() =>
+              setSkipped((prev) => {
+                const next = new Set(prev);
+                next.add(step);
+                return next;
+              })
+            }
           />
         </Page>
         <Page display="Select Data Source">

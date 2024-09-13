@@ -227,7 +227,7 @@ const Modal: FC<ModalProps> = ({
                   fullWidthSubmit ? "w-100" : ""
                 }`}
                 type="submit"
-                style={{ marginRight: "310px" }}
+                style={stickyFooter ? { marginRight: "310px" } : undefined}
                 disabled={!ctaEnabled}
               >
                 {cta}

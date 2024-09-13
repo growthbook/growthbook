@@ -34,6 +34,7 @@ type Props = {
   className?: string;
   bodyClassName?: string;
   stickyFooter?: boolean;
+  onSkip?: () => Promise<void>;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -55,6 +56,7 @@ const PagedModal: FC<Props> = (props) => {
     // size = "md",
     className,
     bodyClassName,
+    onSkip,
     ...passThrough
   } = props;
 
@@ -122,7 +124,7 @@ const PagedModal: FC<Props> = (props) => {
           if (props.close) {
             props.close();
           }
-        } else if (steps[nextStep - 1] && steps[nextStep - 1].customNext) {
+        } else if (steps[nextStep - 1].customNext) {
           steps[nextStep - 1].customNext?.();
         } else {
           setStep(nextStep);
@@ -140,6 +142,16 @@ const PagedModal: FC<Props> = (props) => {
             }}
           >
             back
+          </button>
+        ) : onSkip ? (
+          <button
+            className={`btn btn-link mr-3`}
+            onClick={(e) => {
+              e.preventDefault();
+              onSkip();
+            }}
+          >
+            Skip
           </button>
         ) : null
       }
