@@ -418,6 +418,7 @@ export default function FeaturesHeader({
         </div>
         {auditModal && (
           <Modal
+            trackingEventModalType=""
             open={true}
             header="Audit Log"
             close={() => setAuditModal(false)}

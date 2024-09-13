@@ -2,7 +2,8 @@ import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
   formatByteSizeString,
-  LARGE_GROUP_SIZE_LIMIT_BYTES,
+  SAVED_GROUP_SIZE_LIMIT_BYTES,
+  ID_LIST_DATATYPES,
   validateCondition,
 } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
@@ -31,7 +32,7 @@ import { savedGroupUpdated } from "../../services/savedGroups";
 // region GET /saved-groups
 type ListSavedGroupsRequest = AuthRequest<
   Record<string, never>,
-  { includeLargeSavedGroupValues: boolean }
+  Record<string, never>
 >;
 
 type ListSavedGroupsResponse = {
@@ -41,7 +42,7 @@ type ListSavedGroupsResponse = {
 
 /**
  * GET /saved-groups
- * Create a saved-group resource
+ * List all saved-group resources
  * @param req
  * @param res
  */
@@ -51,15 +52,12 @@ export const getSavedGroups = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { includeLargeSavedGroupValues } = req.params;
 
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
   }
 
-  const savedGroups = await getAllSavedGroups(org.id, {
-    includeLargeSavedGroupValues,
-  });
+  const savedGroups = await getAllSavedGroups(org.id);
 
   return res.status(200).json({
     status: 200,
@@ -98,13 +96,12 @@ export const postSavedGroup = async (
     type,
     condition,
     description,
-    passByReferenceOnly,
   } = req.body;
 
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
   }
-
+  const uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const conditionRes = validateCondition(condition);
@@ -114,26 +111,36 @@ export const postSavedGroup = async (
     if (conditionRes.empty) {
       throw new Error("Condition cannot be empty");
     }
-  }
-  // If this is a list group, make sure the attributeKey is specified
-  else if (type === "list") {
+  } else if (type === "list") {
+    // If this is a list group, make sure the attributeKey is specified
     if (!attributeKey) {
       throw new Error("Must specify an attributeKey");
+    }
+    const attributeSchema = org.settings?.attributeSchema || [];
+    const datatype = attributeSchema.find(
+      (sdkAttr) => sdkAttr.property === attributeKey
+    )?.datatype;
+    if (!datatype) {
+      throw new Error("Unknown attributeKey");
+    }
+    if (!ID_LIST_DATATYPES.includes(datatype)) {
+      throw new Error(
+        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
+      );
+    }
+    const uniqValues = [...new Set(values)];
+    if (
+      new Blob([JSON.stringify(uniqValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
+    ) {
+      throw new Error(
+        `The maximum size for a list is ${formatByteSizeString(
+          SAVED_GROUP_SIZE_LIMIT_BYTES
+        )}.`
+      );
     }
   }
   if (typeof description === "string" && description.length > 100) {
     throw new Error("Description must be at most 100 characters");
-  }
-
-  const uniqValues = [...new Set(values)];
-  if (
-    new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
-  ) {
-    throw new Error(
-      `The maximum size for a list is ${formatByteSizeString(
-        LARGE_GROUP_SIZE_LIMIT_BYTES
-      )}.`
-    );
   }
 
   const savedGroup = await createSavedGroup(org.id, {
@@ -144,7 +151,6 @@ export const postSavedGroup = async (
     owner: owner || userName,
     attributeKey,
     description,
-    passByReferenceOnly,
   });
 
   await req.audit({
@@ -209,7 +215,7 @@ export const getSavedGroup = async (
 // region POST /saved-groups/:id/add-items
 
 type PostSavedGroupAddItemsRequest = AuthRequest<
-  { items: string[]; passByReferenceOnly?: boolean },
+  { items: string[] },
   { id: string }
 >;
 
@@ -230,7 +236,7 @@ export const postSavedGroupAddItems = async (
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { items, passByReferenceOnly } = req.body;
+  const { items } = req.body;
 
   if (!id) {
     throw new Error("Must specify saved group id");
@@ -258,21 +264,31 @@ export const postSavedGroupAddItems = async (
     throw new Error("Must provide a list of items to add");
   }
 
+  const attributeSchema = org.settings?.attributeSchema || [];
+  const datatype = attributeSchema.find(
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+  )?.datatype;
+  if (!datatype) {
+    throw new Error("Unknown attributeKey");
+  }
+  if (!ID_LIST_DATATYPES.includes(datatype)) {
+    throw new Error(
+      "Cannot add items to this group. The attribute key's datatype is not supported."
+    );
+  }
   const newValues = [...new Set([...(savedGroup.values || []), ...items])];
   if (
-    new Blob([JSON.stringify(newValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+    new Blob([JSON.stringify(newValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
   ) {
     throw new Error(
       `The maximum size for a list is ${formatByteSizeString(
-        LARGE_GROUP_SIZE_LIMIT_BYTES
+        SAVED_GROUP_SIZE_LIMIT_BYTES
       )}. Adding these items to the list would exceed the limit.`
     );
   }
 
   const changes = await updateSavedGroupById(id, org.id, {
     values: newValues,
-    passByReferenceOnly:
-      passByReferenceOnly || savedGroup.passByReferenceOnly || false,
   });
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
@@ -299,7 +315,7 @@ export const postSavedGroupAddItems = async (
 // region POST /saved-groups/:id/remove-items
 
 type PostSavedGroupRemoveItemsRequest = AuthRequest<
-  { items: string[]; passByReferenceOnly?: boolean },
+  { items: string[] },
   { id: string }
 >;
 
@@ -348,6 +364,18 @@ export const postSavedGroupRemoveItems = async (
     throw new Error("Must provide a list of items to remove");
   }
 
+  const attributeSchema = org.settings?.attributeSchema || [];
+  const datatype = attributeSchema.find(
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+  )?.datatype;
+  if (!datatype) {
+    throw new Error("Unknown attributeKey");
+  }
+  if (!ID_LIST_DATATYPES.includes(datatype)) {
+    throw new Error(
+      "Cannot remove items from this group. The attribute key's datatype is not supported."
+    );
+  }
   const toRemove = new Set(items);
   const newValues = (savedGroup.values || []).filter(
     (value) => !toRemove.has(value)
@@ -397,14 +425,7 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const {
-    groupName,
-    owner,
-    values,
-    condition,
-    description,
-    passByReferenceOnly,
-  } = req.body;
+  const { groupName, owner, values, condition, description } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -457,10 +478,6 @@ export const putSavedGroup = async (
       throw new Error("Description must be at most 100 characters");
     }
     fieldsToUpdate.description = description;
-  }
-
-  if (passByReferenceOnly !== savedGroup.passByReferenceOnly) {
-    fieldsToUpdate.passByReferenceOnly = passByReferenceOnly;
   }
 
   // If there are no changes, return early

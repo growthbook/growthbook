@@ -81,6 +81,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       header={title}
@@ -260,6 +261,7 @@ export default function AttributeModal({ close, attribute }: Props) {
             options={[
               { value: "version", label: "Version string" },
               { value: "date", label: "Date string" },
+              { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
             ]}
             sort={false}
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."

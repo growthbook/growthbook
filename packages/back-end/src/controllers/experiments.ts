@@ -19,6 +19,7 @@ import uniq from "lodash/uniq";
 import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
+  _getSnapshots,
   SnapshotAnalysisParams,
   createManualSnapshot,
   createSnapshot,
@@ -52,7 +53,6 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
-  getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
@@ -334,27 +334,6 @@ async function _getSnapshot(
   return await getLatestSnapshot(
     experimentObj.id,
     parseInt(phase),
-    dimension,
-    withResults
-  );
-}
-
-async function _getSnapshots(
-  context: ReqContext | ApiReqContext,
-  experimentObjs: ExperimentInterface[],
-  dimension?: string,
-  withResults: boolean = true
-): Promise<ExperimentSnapshotInterface[]> {
-  const experimentPhaseMap: Map<string, number> = new Map();
-  experimentObjs.forEach((e) => {
-    if (e.organization !== context.org.id) {
-      throw new Error("You do not have access to view this experiment");
-    }
-    // get the latest phase
-    experimentPhaseMap.set(e.id, e.phases.length - 1);
-  });
-  return await getLatestSnapshotMultipleExperiments(
-    experimentPhaseMap,
     dimension,
     withResults
   );

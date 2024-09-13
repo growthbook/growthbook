@@ -8,7 +8,6 @@ export const postSavedGroupBodyValidator = z.object({
   attributeKey: z.string().optional(),
   values: z.string().array().optional(),
   description: z.string().optional(),
-  passByReferenceOnly: z.boolean().optional(),
 });
 
 export const putSavedGroupBodyValidator = z.object({
@@ -17,5 +16,4 @@ export const putSavedGroupBodyValidator = z.object({
   values: z.string().array().optional(),
   condition: z.string().optional(),
   description: z.string().optional(),
-  passByReferenceOnly: z.boolean().optional(),
 });

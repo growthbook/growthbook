@@ -132,7 +132,7 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
-export type SDKAttributeFormat = "" | "version" | "date";
+export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 
 export type SDKAttributeType = typeof attributeDataTypes[number];
 

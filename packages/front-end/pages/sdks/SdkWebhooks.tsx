@@ -9,7 +9,9 @@ import {
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import useApi from "@/hooks/useApi";
-import WebhooksModal from "@/components/Settings/WebhooksModal";
+import EditSDKWebhooksModal, {
+  CreateSDKWebhookModal,
+} from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -31,6 +33,7 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
     </>
   ),
   sdkPayload: "SDK Payload only",
+  edgeConfig: "Vercel Edge Config",
   none: "none",
 };
 
@@ -42,9 +45,12 @@ export default function SdkWebhooks({
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`
   );
+
+  const [createWebhookModalOpen, setCreateWebhookModalOpen] = useState(false);
+
   const [
-    createWebhookModalOpen,
-    setCreateWebhookModalOpen,
+    editWebhookData,
+    setEditWebhookData,
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -137,7 +143,7 @@ export default function SdkWebhooks({
                   className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    setCreateWebhookModalOpen(webhook);
+                    setEditWebhookData(webhook);
                   }}
                 >
                   Edit
@@ -183,7 +189,7 @@ export default function SdkWebhooks({
               disabled={disableWebhookCreate}
               onClick={(e) => {
                 e.preventDefault();
-                if (!disableWebhookCreate) setCreateWebhookModalOpen({});
+                if (!disableWebhookCreate) setCreateWebhookModalOpen(true);
               }}
             >
               <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -237,12 +243,20 @@ export default function SdkWebhooks({
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
       <h2 className="mb-2">SDK Webhooks</h2>
-      {createWebhookModalOpen && (
-        <WebhooksModal
-          close={() => setCreateWebhookModalOpen(null)}
+      {editWebhookData && (
+        <EditSDKWebhooksModal
+          close={() => setEditWebhookData(null)}
           onSave={mutate}
-          current={createWebhookModalOpen}
+          current={editWebhookData}
           sdkConnectionId={connection.id}
+        />
+      )}
+      {createWebhookModalOpen && (
+        <CreateSDKWebhookModal
+          close={() => setCreateWebhookModalOpen(false)}
+          onSave={mutate}
+          sdkConnectionId={connection.id}
+          language={connection.languages?.[0]}
         />
       )}
       {!isEmpty && renderTable()}

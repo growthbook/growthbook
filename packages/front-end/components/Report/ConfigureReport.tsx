@@ -182,6 +182,7 @@ export default function ConfigureReport({
 
   return (
     <Modal
+      trackingEventModalType=""
       inline={true}
       header=""
       size="fill"

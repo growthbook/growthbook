@@ -39,6 +39,7 @@ export interface SearchProps<T> {
   localStorageKey: string;
   defaultSortField: keyof T;
   defaultSortDir?: number;
+  undefinedLast?: boolean;
   searchTermFilters?: {
     [key: string]: (
       item: T
@@ -77,6 +78,7 @@ export function useSearch<T>({
   localStorageKey,
   defaultSortField,
   defaultSortDir,
+  undefinedLast,
   searchTermFilters,
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
@@ -150,6 +152,10 @@ export function useSearch<T>({
     sorted.sort((a, b) => {
       const comp1 = a[sort.field];
       const comp2 = b[sort.field];
+      if (undefinedLast) {
+        if (comp1 === undefined && comp2 !== undefined) return 1;
+        if (comp2 === undefined && comp1 !== undefined) return -1;
+      }
       if (typeof comp1 === "string" && typeof comp2 === "string") {
         return comp1.localeCompare(comp2) * sort.dir;
       }
