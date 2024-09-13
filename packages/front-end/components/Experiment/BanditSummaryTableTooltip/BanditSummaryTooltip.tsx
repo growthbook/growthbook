@@ -275,17 +275,22 @@ export default function BanditSummaryTooltip({
           </div>
 
           <div className="mt-3 mb-2 results">
-            <table className="table-condensed results-table text-center" style={{ tableLayout: "fixed" }}>
+            <table
+              className="table-condensed results-table text-center"
+              style={{ tableLayout: "fixed" }}
+            >
               <thead>
-              <tr>
-                <th>Mean</th>
-                <th>Metric Value
-                  <div className="small">(numerator)</div>
-                </th>
-                <th>Users
-                  <div className="small">(denominator)</div>
-                </th>
-              </tr>
+                <tr>
+                  <th>Mean</th>
+                  <th>
+                    Metric Value
+                    <div className="small">(numerator)</div>
+                  </th>
+                  <th>
+                    Users
+                    <div className="small">(denominator)</div>
+                  </th>
+                </tr>
               </thead>
               <tbody>
                 <tr>

@@ -319,50 +319,50 @@ export default function AnalysisSettingsSummary({
           numMetrics > 0 && (
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
-                  <RunQueriesButton
-                    cta="Update"
-                    cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                    mutate={mutateSnapshot}
-                    model={latest}
-                    icon="refresh"
-                    color="outline-primary"
-                    resetFilters={async () => {
-                      // todo: remove baseline resetter (here and below) once refactored.
-                      if (baselineRow !== 0) {
-                        setBaselineRow?.(0);
-                        setVariationFilter?.([]);
+                <RunQueriesButton
+                  cta="Update"
+                  cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                  mutate={mutateSnapshot}
+                  model={latest}
+                  icon="refresh"
+                  color="outline-primary"
+                  resetFilters={async () => {
+                    // todo: remove baseline resetter (here and below) once refactored.
+                    if (baselineRow !== 0) {
+                      setBaselineRow?.(0);
+                      setVariationFilter?.([]);
+                    }
+                    setDifferenceType("relative");
+                    setSnapshotType("ad-hoc");
+                  }}
+                  onSubmit={async () => {
+                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                      `/experiment/${experiment.id}/snapshot`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          phase,
+                          dimension,
+                        }),
                       }
-                      setDifferenceType("relative");
-                      setSnapshotType("ad-hoc");
-                    }}
-                    onSubmit={async () => {
-                      await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                        `/experiment/${experiment.id}/snapshot`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({
-                            phase,
-                            dimension,
-                          }),
-                        }
-                      )
-                        .then((res) => {
-                          trackSnapshot(
-                            "create",
-                            "RunQueriesButton",
-                            datasource?.type || null,
-                            res.snapshot
-                          );
+                    )
+                      .then((res) => {
+                        trackSnapshot(
+                          "create",
+                          "RunQueriesButton",
+                          datasource?.type || null,
+                          res.snapshot
+                        );
 
-                          setAnalysisSettings(null);
-                          mutateSnapshot();
-                          setRefreshError("");
-                        })
-                        .catch((e) => {
-                          setRefreshError(e.message);
-                        });
-                    }}
-                  />
+                        setAnalysisSettings(null);
+                        mutateSnapshot();
+                        setRefreshError("");
+                      })
+                      .catch((e) => {
+                        setRefreshError(e.message);
+                      });
+                  }}
+                />
               ) : (
                 <RefreshSnapshotButton
                   mutate={mutateSnapshot}
