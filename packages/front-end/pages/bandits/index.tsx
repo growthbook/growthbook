@@ -270,7 +270,8 @@ const ExperimentsPage = (): React.ReactElement => {
             >
               <h1>Find a Winner Quickly with Multi-Armed Bandits</h1>
               <p style={{ fontSize: "17px" }}>
-                Turbocharge your experiments by driving more traffic to the variants that perform the best.
+                Turbocharge your experiments by driving more traffic to the
+                variants that perform the best.
               </p>
               <div className="row">
                 <Link href="/getstarted/experiment-guide">
