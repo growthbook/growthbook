@@ -19,7 +19,7 @@ interface Props
   > {
   metric: ExperimentMetricInterface;
   stats: SnapshotMetric;
-  rowResults: RowResults;
+  rowResults: Pick<RowResults, "directionalStatus" | "enoughData">;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
   differenceType: DifferenceType;
@@ -88,13 +88,13 @@ export default function ChangeColumn({
                 )}
               </span>
             ) : null}
+            {showCI ? (
+              <span className="ml-2 ci font-weight-normal text-gray">
+                [{formatter(ci0, formatterOptions)},{" "}
+                {formatter(ci1, formatterOptions)}]
+              </span>
+            ) : null}
           </div>
-          {showCI ? (
-            <div className="ci text-right nowrap font-weight-normal text-gray">
-              [{formatter(ci0, formatterOptions)},{" "}
-              {formatter(ci1, formatterOptions)}]
-            </div>
-          ) : null}
         </td>
       ) : (
         <td />

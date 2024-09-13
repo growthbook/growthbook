@@ -38,6 +38,7 @@ import useApi from "@/hooks/useApi";
 import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
+import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -1024,6 +1025,8 @@ export function useAttributeMap(
         enum:
           schema.datatype === "enum" && schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
+            : schema.format === "isoCountryCode"
+            ? ALL_COUNTRY_CODES
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,

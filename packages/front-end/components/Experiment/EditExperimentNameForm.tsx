@@ -19,6 +19,7 @@ const EditExperimentNameForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header={"Edit Name"}
       open={true}
       close={cancel}

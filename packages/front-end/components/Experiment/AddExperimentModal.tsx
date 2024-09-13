@@ -102,7 +102,13 @@ const AddExperimentModal: FC<{
       return <ImportExperimentModal onClose={onClose} source={source} />;
     default:
       return (
-        <Modal open close={() => onClose()} size="lg" header="Add Experiment">
+        <Modal
+          trackingEventModalType=""
+          open
+          close={() => onClose()}
+          size="lg"
+          header="Add Experiment"
+        >
           <div
             style={{
               display: "flex",

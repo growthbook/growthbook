@@ -7,6 +7,7 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ExperimentInterfaceStringDates } from "@back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -36,6 +37,18 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const NUM_PER_PAGE = 20;
+
+export function experimentDate(exp: ExperimentInterfaceStringDates): string {
+  return (
+    (exp.archived
+      ? exp.dateUpdated
+      : exp.status === "running"
+      ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+      : exp.status === "stopped"
+      ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+      : exp.dateCreated) ?? ""
+  );
+}
 
 const ExperimentsPage = (): React.ReactElement => {
   const growthbook = useGrowthBook<AppFeatures>();
@@ -91,14 +104,7 @@ const ExperimentsPage = (): React.ReactElement => {
           : exp.status === "draft"
           ? "drafts"
           : exp.status,
-        date:
-          (exp.archived
-            ? exp.dateUpdated
-            : exp.status === "running"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-            : exp.status === "stopped"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-            : exp.dateCreated) ?? "",
+        date: experimentDate(exp),
       };
     },
     [getExperimentMetricById, getProjectById, getUserDisplay]

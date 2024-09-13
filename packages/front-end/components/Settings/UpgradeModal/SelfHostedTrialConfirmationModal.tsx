@@ -25,6 +25,7 @@ export default function SelfHostedTrialConfirmationModal({
   });
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       includeCloseCta={false}
       close={close}

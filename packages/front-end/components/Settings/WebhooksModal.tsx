@@ -163,6 +163,7 @@ export function CreateSDKWebhookModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header="Create New SDK Webhook"
       open={true}
@@ -524,6 +525,7 @@ const EditSDKWebhooksModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}
