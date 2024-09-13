@@ -40,6 +40,7 @@ export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
 }> = ({ archetypes }) => {
   const NUM_PER_PAGE = 20;
+  const maxEnvironments = 3;
 
   const [currentPage, setCurrentPage] = useState(1);
   const [editAttributesModalOpen, setEditAttributesModalOpen] = useState(false);
@@ -60,7 +61,13 @@ export const SimulateFeatureValues: FC<{
   ] = useState<ArchetypeAttributeValues>({});
   const [evaluatedFeatures, setEvaluatedFeatures] = useState<string[]>([]);
   const environments = useEnvironments();
-  const [selectedEnvironment, setSelectedEnvironment] = useState<string>("all");
+  const showAllEnv = environments.length < maxEnvironments;
+  const [selectedEnvironment, setSelectedEnvironment] = useState<string>(
+    showAllEnv ? "all" : environments[0].id
+  );
+  const [evaluatedEnvironment, setEvaluatedEnvironment] = useState(
+    selectedEnvironment
+  );
   const { apiCall } = useAuth();
 
   const { features: allFeatures, loading } = useFeaturesList(true, false);
@@ -91,7 +98,9 @@ export const SimulateFeatureValues: FC<{
 
   // refresh the results of the assignment of features for the attributes set
   const refreshResults = useCallback(() => {
+    // only refresh if the attributes, features, or environment have changed
     if (
+      evaluatedEnvironment !== selectedEnvironment ||
       JSON.stringify(attributes) !== JSON.stringify(evaluatedAttributes) ||
       JSON.stringify(evaluatedFeatures) !==
         JSON.stringify(featureItems.map((f) => f.id))
@@ -122,6 +131,7 @@ export const SimulateFeatureValues: FC<{
             // keep track of what we evaluated so we don't have to do it again.
             setEvaluatedAttributes(attributes);
             setEvaluatedFeatures(featureItems.map((f) => f.id));
+            setEvaluatedEnvironment(selectedEnvironment);
           }
         })
         .catch((e) => console.error(e));
@@ -133,6 +143,7 @@ export const SimulateFeatureValues: FC<{
     evaluatedFeatures,
     apiCall,
     selectedEnvironment,
+    evaluatedEnvironment,
   ]);
 
   useEffect(() => {
@@ -168,9 +179,7 @@ export const SimulateFeatureValues: FC<{
     ));
   }
 
-  const maxEnvironments = 4;
   const showEnvDropdown = true; //environments.length > maxEnvironments;
-  const showAllEnv = environments.length <= maxEnvironments;
   const numColumns = showEnvDropdown ? 4 : environments.length + 3;
   const environmentOptions = [
     ...environments.map((e) => {
@@ -237,6 +246,7 @@ export const SimulateFeatureValues: FC<{
                     options={environmentOptions}
                     onChange={(e) => {
                       setSelectedEnvironment(e);
+                      refreshResults(true);
                     }}
                   />
                 </div>
@@ -252,7 +262,9 @@ export const SimulateFeatureValues: FC<{
               <tr>
                 <th>Name</th>
                 <SortableTH field="tags">Tags</SortableTH>
-                <th>Prerequisites</th>
+                <th style={{ borderRight: "1px solid rgba(155,155,155, 0.2)" }}>
+                  Prerequisites
+                </th>
                 {selectedEnvironment !== "all" ? (
                   <th>{selectedEnvironment}</th>
                 ) : (
@@ -304,7 +316,12 @@ export const SimulateFeatureValues: FC<{
                       <td>
                         <SortedTags tags={feature?.tags || []} />
                       </td>
-                      <td className="small">
+                      <td
+                        className="small"
+                        style={{
+                          borderRight: "1px solid rgba(155,155,155, 0.2)",
+                        }}
+                      >
                         {prerequisites &&
                           prerequisites.map((p, i) => {
                             return (
