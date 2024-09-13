@@ -130,7 +130,6 @@ class RegressionAdjustedStatistic(Statistic):
     def mean(self):
         return self.post_statistic.mean + self.theta * (self.pooled_pre_statistic_mean - self.pre_statistic.mean)
 
-
     @property
     def sum(self):
         raise NotImplementedError(
@@ -181,7 +180,7 @@ def compute_theta(
         post_pre_sum_of_products=a.post_pre_sum_of_products
         + b.post_pre_sum_of_products,
         theta=0,
-        pooled_pre_statistic_mean=0
+        pooled_pre_statistic_mean=0,
     )
     return joint.covariance / joint.pre_statistic.variance
 

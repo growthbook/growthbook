@@ -41,6 +41,10 @@ class SimulationStudy(ABC):
         for j, test in enumerate(self.tests):
             t = test(stat_a, stat_b, self.configs[j])
             test_result = t.compute_result()
+            self.mean_a[i, j] = t.stat_a.mean
+            self.mean_b[i, j] = t.stat_b.mean
+            self.var_a[i, j] = t.stat_a.variance
+            self.var_b[i, j] = t.stat_b.variance
             self.pt[i, j] = test_result.expected
             self.se[i, j] = test_result.uplift.stddev
             self.lower_limit[i, j] = test_result.ci[0]
@@ -51,6 +55,11 @@ class SimulationStudy(ABC):
     def create_storage_arrays(self):
         array_shape = (self.n_sim, self.n_tests)
         self.pt = np.empty(array_shape)
+        self.se = np.empty(array_shape)
+        self.mean_a = np.empty(array_shape)
+        self.mean_b = np.empty(array_shape)
+        self.var_a = np.empty(array_shape)
+        self.var_b = np.empty(array_shape)
         self.se = np.empty(array_shape)
         self.theta = np.empty(array_shape)
         self.lower_limit = np.empty(array_shape)
