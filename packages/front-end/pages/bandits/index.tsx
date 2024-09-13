@@ -264,16 +264,15 @@ const ExperimentsPage = (): React.ReactElement => {
           </div>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <div
-              className="appbox d-flex flex-column align-items-center"
-              style={{ padding: "70px 250px 60px" }}
-            >
-              <h1>Find a Winner Quickly with Multi-Armed Bandits</h1>
-              <p style={{ fontSize: "17px" }}>
-                Turbocharge your experiments by driving more traffic to the
-                variants that perform the best.
-              </p>
-              <div className="row">
+            <div className="box py-4 text-center">
+              <div className="mx-auto" style={{ maxWidth: 650 }}>
+                <h1>Quickly Find the Winner with Multi-Armed Bandits</h1>
+                <p style={{ fontSize: "17px" }}>
+                  Turbocharge your experiments by driving traffic to the best
+                  variants.
+                </p>
+              </div>
+              <div className="d-flex justify-content-center">
                 <Link href="/getstarted/experiment-guide">
                   {" "}
                   <button className="btn btn-outline-primary mr-2">

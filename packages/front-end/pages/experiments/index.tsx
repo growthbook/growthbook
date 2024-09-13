@@ -286,17 +286,16 @@ const ExperimentsPage = (): React.ReactElement => {
           </div>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <div
-              className="appbox d-flex flex-column align-items-center"
-              style={{ padding: "70px 305px 60px 305px" }}
-            >
-              <h1>Test Variations with Targeted Users</h1>
-              <p style={{ fontSize: "17px" }}>
-                Run unlimited tests with linked feature flags, URL redirects or
-                the Visual Editor. You can also easily import existing
-                experiments from other platforms.
-              </p>
-              <div className="row">
+            <div className="box py-4 text-center">
+              <div className="mx-auto" style={{ maxWidth: 650 }}>
+                <h1>Test Variations with Targeted Users</h1>
+                <p style={{ fontSize: "17px" }}>
+                  Run unlimited tests with linked feature flags, URL redirects
+                  or the Visual Editor. You can also easily import existing
+                  experiments from other platforms.
+                </p>
+              </div>
+              <div className="d-flex justify-content-center">
                 <Link href="/getstarted/experiment-guide">
                   {" "}
                   <button className="btn btn-outline-primary mr-2">
