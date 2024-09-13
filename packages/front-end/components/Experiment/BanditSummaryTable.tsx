@@ -5,7 +5,6 @@ import { BanditEvent } from "back-end/src/validators/experiments";
 import clsx from "clsx";
 import { MetricInterface } from "back-end/types/metric";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
 import { useBanditSummaryTooltip } from "@/components/Experiment/BanditSummaryTableTooltip/useBanditSummaryTooltip";
@@ -239,12 +238,6 @@ export default function BanditSummaryTable({
                   className="axis-col label text-right pr-3"
                   style={{ width: 120 }}
                 >
-                  Mean
-                </th>
-                <th
-                  className="axis-col label text-right pr-3"
-                  style={{ width: 120 }}
-                >
                   <div
                     style={{
                       lineHeight: "15px",
@@ -343,18 +336,6 @@ export default function BanditSummaryTable({
                         </span>
                       </div>
                     </td>
-                    {metric && stats ? (
-                      <MetricValueColumn
-                        metric={metric}
-                        stats={stats}
-                        users={stats.users}
-                        className="value text-right pr-3"
-                        noDataMessage={<small>not enough data</small>}
-                        showRatio={false}
-                      />
-                    ) : (
-                      <td />
-                    )}
                     <td
                       className={clsx("results-ctw chance text-right pr-3", {
                         won: (probability ?? 0) >= WIN_THRESHOLD_PROBABILITY,

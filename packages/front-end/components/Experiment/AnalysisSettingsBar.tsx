@@ -180,6 +180,7 @@ export default function AnalysisSettingsBar({
                 loading={!!loading}
                 mutate={mutate}
                 phase={phase}
+                skipScaled={isBandit}
               />
             </div>
           ) : null}
@@ -188,7 +189,7 @@ export default function AnalysisSettingsBar({
               <div className="col-auto form-inline">
                 <PhaseSelector
                   mutateExperiment={mutateExperiment}
-                  editPhases={editPhases}
+                  editPhases={!isBandit ? editPhases : undefined}
                 />
               </div>
             )}

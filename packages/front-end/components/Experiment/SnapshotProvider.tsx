@@ -15,6 +15,7 @@ const snapshotContext = React.createContext<{
   analysis?: ExperimentSnapshotAnalysis | undefined;
   latestAnalysis?: ExperimentSnapshotAnalysis | undefined;
   latest?: ExperimentSnapshotInterface;
+  dimensionless?: ExperimentSnapshotInterface;
   mutateSnapshot: () => void;
   phase: number;
   dimension: string;
@@ -63,6 +64,7 @@ export default function SnapshotProvider({
   const { data, error, isValidating, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
     latest?: ExperimentSnapshotInterface;
+    dimensionless?: ExperimentSnapshotInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "") +
@@ -80,6 +82,7 @@ export default function SnapshotProvider({
       value={{
         experiment,
         snapshot: data?.snapshot,
+        dimensionless: data?.dimensionless ?? data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
           ? getSnapshotAnalysis(data?.snapshot, analysisSettings) ?? undefined

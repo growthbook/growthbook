@@ -97,15 +97,6 @@ const AlignedGraph: FC<Props> = ({
     barType = "pill";
   }
 
-  const tickLabelProps = () =>
-    ({
-      fill: axisColor,
-      fontSize: 12,
-      y: -10,
-      fontFamily: "sans-serif",
-      textAnchor: "middle",
-    } as const);
-
   // add some spacing around the graph
   const domainPadding = (domain[1] - domain[0]) * 0.1;
   const leftDomain = domain[0] - domainPadding;
@@ -201,6 +192,23 @@ const AlignedGraph: FC<Props> = ({
             domain: domain,
             range: [0, graphWidth],
           });
+          const tickLabelProps = (value) => {
+            const currentX = xScale(value);
+            const pos = currentX / graphWidth;
+            if (pos < 0.06 || pos > 0.94) {
+              return {
+                display: "none",
+              };
+            }
+
+            return {
+              fill: axisColor,
+              fontSize: 12,
+              y: -10,
+              fontFamily: "sans-serif",
+              textAnchor: "middle",
+            } as const;
+          };
           return (
             <svg width={graphWidth} height={height} className="d-block">
               <defs>

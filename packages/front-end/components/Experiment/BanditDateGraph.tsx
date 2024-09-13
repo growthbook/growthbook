@@ -218,7 +218,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
   const form = useForm({
     defaultValues: {
-      filterVariations: "",
+      filterVariations: "all",
     },
   });
   const filterVariations = form.watch("filterVariations");
@@ -507,7 +507,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         };
 
         const startDate = stackedData[0].date;
-        const exploitDate = experiment.banditPhaseDateStarted
+        const exploitDate = experiment.banditPhase !== "explore" && experiment.banditPhaseDateStarted
           ? new Date(experiment.banditPhaseDateStarted)
           : undefined;
         const lastDate = stackedData[stackedData.length - 1].date;

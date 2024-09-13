@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import {FaAngleRight, FaExclamationTriangle, FaHome} from "react-icons/fa";
+import { FaAngleRight, FaExclamationTriangle, FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
@@ -16,6 +16,7 @@ import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
+import Collapsible from "react-collapsible";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -31,14 +32,12 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
-import Collapsible from "react-collapsible";
 
 export interface Props {
   tab: ExperimentTab;
@@ -109,7 +108,6 @@ export default function ExperimentHeader({
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const { scrollY } = useScrollPosition();
-  const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
@@ -152,7 +150,7 @@ export default function ExperimentHeader({
 
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
-  const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
+  const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -382,29 +380,59 @@ export default function ExperimentHeader({
                     usePortal={true}
                   >
                     <ConfirmButton
-                      modalHeader={`Convert to ${isBandit ? "Standard Experiment" : "Bandit Experiment"}`}
+                      modalHeader={`Convert to ${
+                        isBandit ? "Standard Experiment" : "Bandit Experiment"
+                      }`}
                       disabled={experiment.status !== "draft"}
                       size="lg"
                       confirmationText={
                         <div>
-                          <p>Are you sure you want to convert this experiment to a <strong>{isBandit ? "Standard Experiment" : "Bandit Experiment"}</strong>?</p>
+                          <p>
+                            Are you sure you want to convert this experiment to
+                            a{" "}
+                            <strong>
+                              {isBandit
+                                ? "Standard Experiment"
+                                : "Bandit Experiment"}
+                            </strong>
+                            ?
+                          </p>
                           {!isBandit && experiment.goalMetrics.length > 0 && (
                             <div className="alert alert-warning">
                               <Collapsible
                                 trigger={
                                   <div>
                                     <FaExclamationTriangle className="mr-2" />
-                                    Some of your experiment settings may be altered.{" "}
-                                    More info <FaAngleRight className="chevron" />
+                                    Some of your experiment settings may be
+                                    altered. More info{" "}
+                                    <FaAngleRight className="chevron" />
                                   </div>
                                 }
                                 transitionTime={100}
                               >
                                 <ul className="ml-0 pl-3 mt-3">
-                                  <li>A <strong>single decision metric</strong> will be automatically assigned. You may change this before running the experiment.</li>
-                                  <li>Experiment variations will begin with <strong>equal weights</strong>.</li>
-                                  <li>The stats engine will be locked to <strong>Bayesian</strong> with <strong>CUPED enabled</strong>.</li>
-                                  <li>Any <strong>Activation Metric</strong>, <strong>Segments</strong>, <strong>Conversion Window overrides</strong>, <strong>Custom SQL Filters</strong>, or <strong>Metric Overrides</strong> will be removed.</li>
+                                  <li>
+                                    A <strong>single decision metric</strong>{" "}
+                                    will be automatically assigned. You may
+                                    change this before running the experiment.
+                                  </li>
+                                  <li>
+                                    Experiment variations will begin with{" "}
+                                    <strong>equal weights</strong>.
+                                  </li>
+                                  <li>
+                                    The stats engine will be locked to{" "}
+                                    <strong>Bayesian</strong> with{" "}
+                                    <strong>CUPED enabled</strong>.
+                                  </li>
+                                  <li>
+                                    Any <strong>Activation Metric</strong>,{" "}
+                                    <strong>Segments</strong>,{" "}
+                                    <strong>Conversion Window overrides</strong>
+                                    , <strong>Custom SQL Filters</strong>, or{" "}
+                                    <strong>Metric Overrides</strong> will be
+                                    removed.
+                                  </li>
                                 </ul>
                               </Collapsible>
                             </div>
@@ -416,8 +444,10 @@ export default function ExperimentHeader({
                           await apiCall(`/experiment/${experiment.id}`, {
                             method: "POST",
                             body: JSON.stringify({
-                              type: !isBandit ? "multi-armed-bandit" : "standard"
-                            })
+                              type: !isBandit
+                                ? "multi-armed-bandit"
+                                : "standard",
+                            }),
                           });
                           mutate();
                         } catch (e) {
@@ -427,10 +457,13 @@ export default function ExperimentHeader({
                       cta="Convert"
                     >
                       <button
-                        className="dropdown-item" type="button"
+                        className="dropdown-item"
+                        type="button"
                         disabled={experiment.status !== "draft"}
                       >
-                        Convert to<br />{isBandit ? "Standard Experiment" : "Bandit Experiment"}
+                        Convert to
+                        <br />
+                        {isBandit ? "Standard Experiment" : "Bandit Experiment"}
                       </button>
                     </ConfirmButton>
                   </Tooltip>
@@ -600,13 +633,7 @@ export default function ExperimentHeader({
                   />
                 )}
                 {disableHealthTab ? (
-                  <DisabledHealthTabTooltip
-                    reason={
-                      isUsingHealthUnsupportDatasource
-                        ? "UNSUPPORTED_DATASOURCE"
-                        : "DIMENSION_SELECTED"
-                    }
-                  >
+                  <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
                     <span className="nav-item nav-link text-muted">
                       <FaHeartPulse /> Health
                     </span>

@@ -138,6 +138,7 @@ export default function ResultsVariationsFilter({
                 containerClassName="select-dropdown-underline"
                 isSearchable={false}
                 sort={false}
+                disabled={variationNames.length <= 3}
                 options={[
                   {
                     label: "All variations",
@@ -167,7 +168,7 @@ export default function ResultsVariationsFilter({
               />
             </div>
 
-            <div className="d-flex mt-3">
+            <div className="d-flex mt-2">
               {filteringApplied ? (
                 <button
                   className="btn btn-sm btn-link px-0"

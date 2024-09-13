@@ -36,7 +36,7 @@ export default function HealthTab({
 }: Props) {
   const {
     error,
-    snapshot,
+    dimensionless: snapshot,
     phase,
     mutateSnapshot,
     setAnalysisSettings,

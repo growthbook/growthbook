@@ -382,11 +382,21 @@ export async function getSnapshotWithDimension(
     withResults: false,
     type,
   });
+  const dimensionless =
+    snapshot?.dimension === ""
+      ? snapshot
+      : await _getSnapshot({
+          context,
+          experiment: id,
+          phase,
+          type,
+        });
 
   res.status(200).json({
     status: 200,
     snapshot,
     latest,
+    dimensionless,
   });
 }
 export async function getSnapshot(
