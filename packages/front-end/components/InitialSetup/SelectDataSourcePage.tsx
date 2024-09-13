@@ -12,7 +12,11 @@ import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
 import styles from "./InitialSetup.module.scss";
 
-const SelectDataSourcePage = () => {
+interface Props {
+  onSuccess: () => void;
+}
+
+const SelectDataSourcePage = ({ onSuccess }: Props) => {
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [eventTracker, setEventTracker] = useState<null | SchemaFormat>(null);
   const [inviting, setInviting] = useState(false);
@@ -44,13 +48,14 @@ const SelectDataSourcePage = () => {
           onSuccess={async () => {
             await mutateDefinitions({});
             setNewModalOpen(false);
-            // TODO: finish setup automatically
+            onSuccess();
           }}
           onCancel={() => {
             setNewModalOpen(false);
             localStorage.setItem(`setup_event_tracker`, eventTracker);
           }}
           showImportSampleData={!demoDataSourceExists}
+          showBackButton={false}
         />
       )}
       <div

@@ -5,6 +5,7 @@ import {
   ChangeEventHandler,
   ReactElement,
   useCallback,
+  useMemo,
 } from "react";
 import {
   DataSourceInterfaceWithParams,
@@ -45,6 +46,7 @@ const NewDataSourceForm: FC<{
   showImportSampleData: boolean;
   inline?: boolean;
   secondaryCTA?: ReactElement;
+  showBackButton?: boolean;
 }> = ({
   data,
   onSuccess,
@@ -54,6 +56,7 @@ const NewDataSourceForm: FC<{
   showImportSampleData,
   inline,
   secondaryCTA,
+  showBackButton = true,
 }) => {
   const {
     projects: allProjects,
@@ -102,6 +105,8 @@ const NewDataSourceForm: FC<{
     mutateDefinitions,
   ]);
 
+  const schemaFormat = data.settings?.schemaFormat;
+
   const form = useForm<{
     settings: DataSourceSettings | undefined;
     metricsToCreate: {
@@ -116,8 +121,22 @@ const NewDataSourceForm: FC<{
       metricsToCreate: [],
     },
   });
-  const schemasMap = new Map();
-  const dataSourcesMap = new Map();
+
+  const schemasMap = useMemo(() => {
+    const map = new Map();
+    eventSchemas.forEach((o) => {
+      map.set(o.value, o);
+    });
+    return map;
+  }, []);
+
+  const dataSourcesMap = useMemo(() => {
+    const map = new Map();
+    dataSourceConnections.forEach((d) => {
+      map.set(d.type, d);
+    });
+    return map;
+  }, []);
 
   const setSchemaSettings = useCallback(
     (s: eventSchema) => {
@@ -160,24 +179,16 @@ const NewDataSourceForm: FC<{
   );
 
   useEffect(() => {
-    if (data?.settings?.schemaFormat) {
-      const schema = eventSchemas.find(
-        (s) => s.value === data.settings?.schemaFormat
-      );
+    if (schemaFormat && step === 0) {
+      const schema = eventSchemas.find((s) => s.value === schemaFormat);
       if (schema) {
         setSchemaSettings(schema);
         // jump straight to the form
         setStep(2);
       }
     }
-  }, [data?.settings?.schemaFormat, setSchemaSettings]);
+  }, [schemaFormat, setSchemaSettings, step]);
 
-  eventSchemas.forEach((o) => {
-    schemasMap.set(o.value, o);
-  });
-  dataSourceConnections.forEach((d) => {
-    dataSourcesMap.set(d.type, d);
-  });
   const selectedSchema = schemasMap.get(schema) || {
     value: "custom",
     label: "Custom",
@@ -497,19 +508,21 @@ const NewDataSourceForm: FC<{
     stepContents = (
       <div>
         <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setLastError("");
-              selectedSchema.value === "custom" ? setStep(0) : setStep(1);
-            }}
-          >
-            <span style={{ position: "relative", top: "-1px" }}>
-              <GBCircleArrowLeft />
-            </span>{" "}
-            Back
-          </a>
+          {showBackButton && (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setLastError("");
+                selectedSchema.value === "custom" ? setStep(0) : setStep(1);
+              }}
+            >
+              <span style={{ position: "relative", top: "-1px" }}>
+                <GBCircleArrowLeft />
+              </span>{" "}
+              Back
+            </a>
+          )}
         </div>
         <h3>{selectedSchema.label}</h3>
         {selectedSchema && selectedSchema.intro && (
