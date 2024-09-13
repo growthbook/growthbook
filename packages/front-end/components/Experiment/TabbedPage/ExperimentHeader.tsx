@@ -35,6 +35,8 @@ import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
@@ -102,6 +104,7 @@ export default function ExperimentHeader({
   healthNotificationCount,
   verifiedConnections,
 }: Props) {
+  const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -151,6 +154,10 @@ export default function ExperimentHeader({
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
   const disableHealthTab = isUsingHealthUnsupportDatasource;
+
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -422,8 +429,7 @@ export default function ExperimentHeader({
                                   </li>
                                   <li>
                                     The stats engine will be locked to{" "}
-                                    <strong>Bayesian</strong> with{" "}
-                                    <strong>CUPED enabled</strong>.
+                                    <strong>Bayesian</strong>.
                                   </li>
                                   <li>
                                     Any <strong>Activation Metric</strong>,{" "}
@@ -440,6 +446,7 @@ export default function ExperimentHeader({
                         </div>
                       }
                       onClick={async () => {
+                        if (!isBandit && !hasMultiArmedBanditFeature) return;
                         try {
                           await apiCall(`/experiment/${experiment.id}`, {
                             method: "POST",
@@ -454,7 +461,20 @@ export default function ExperimentHeader({
                           console.error(e);
                         }
                       }}
-                      cta="Convert"
+                      cta={
+                        isBandit ? (
+                          "Convert"
+                        ) : (
+                          <PremiumTooltip
+                            body={null}
+                            commercialFeature="multi-armed-bandits"
+                            usePortal={true}
+                          >
+                            Convert
+                          </PremiumTooltip>
+                        )
+                      }
+                      ctaEnabled={isBandit || hasMultiArmedBanditFeature}
                     >
                       <button
                         className="dropdown-item"

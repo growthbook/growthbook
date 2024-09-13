@@ -2,7 +2,8 @@ import React, { FC, useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentStatus, ExperimentType,
+  ExperimentStatus,
+  ExperimentType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -15,6 +16,7 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import { FaRegCircleCheck } from "react-icons/fa6";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -49,10 +51,9 @@ import Toggle from "@/components/Forms/Toggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { useUser } from "@/services/UserContext";
 import { useExperiments } from "@/hooks/useExperiments";
-import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import {FaRegCircleCheck} from "react-icons/fa6";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -203,7 +204,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue
       ),
       name: initialValue?.name || "",
-      type: ((hasStickyBucketFeature && usingStickyBucketing && hasMultiArmedBanditFeature) ? initialValue?.type : "standard") || "standard",
+      type:
+        (hasStickyBucketFeature &&
+        usingStickyBucketing &&
+        hasMultiArmedBanditFeature
+          ? initialValue?.type
+          : "standard") || "standard",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       hashVersion:
@@ -420,7 +426,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   label: (
                     <div
                       className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                      style={{minHeight: 120}}
+                      style={{ minHeight: 120 }}
                     >
                       <div className="h4">
                         {form.watch("type") === "standard" && (
@@ -432,8 +438,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         Standard Experiment
                       </div>
                       <div className="small">
-                        Variation weights are constant throughout the
-                        experiment
+                        Variation weights are constant throughout the experiment
                       </div>
                     </div>
                   ),
@@ -443,23 +448,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   label: (
                     <div
                       className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                      style={{minHeight: 120}}
+                      style={{ minHeight: 120 }}
                     >
-                      <PremiumTooltip
-                        commercialFeature="multi-armed-bandits"
-                        body={
-                          !usingStickyBucketing &&
-                          hasStickyBucketFeature ? (
-                            <div>
-                              Enable Sticky Bucketing in your organization
-                              settings to run a Multi-Armed Bandit
-                              experiment.
-                            </div>
-                          ) : null
-                        }
-                        usePortal={true}
-                      >
-                        <div className="h4">
+                      <div className="h4">
+                        <PremiumTooltip
+                          commercialFeature="multi-armed-bandits"
+                          body={
+                            !usingStickyBucketing && hasStickyBucketFeature ? (
+                              <div>
+                                Enable Sticky Bucketing in your organization
+                                settings to run a Multi-Armed Bandit experiment.
+                              </div>
+                            ) : null
+                          }
+                          usePortal={true}
+                        >
                           {form.watch("type") === "multi-armed-bandit" && (
                             <FaRegCircleCheck
                               size={18}
@@ -467,21 +470,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                             />
                           )}
                           Bandit Experiment
-                        </div>
-                        <div className="small">
-                          Variations with better results receive more traffic
-                          during the experiment
-                        </div>
-                      </PremiumTooltip>
+                        </PremiumTooltip>
+                      </div>
+
+                      <div className="small">
+                        Variations with better results receive more traffic
+                        during the experiment
+                      </div>
                     </div>
                   ),
                   value: "multi-armed-bandit",
-                  disabled: !hasMultiArmedBanditFeature || !usingStickyBucketing,
+                  disabled:
+                    !hasMultiArmedBanditFeature || !usingStickyBucketing,
                 },
               ]}
             />
           </div>
-
 
           <Field
             label="Experiment Name"
@@ -495,7 +499,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 return;
               }
               const trackingKey = await generateTrackingKey(
-                {name: val},
+                { name: val },
                 async (key: string) =>
                   (experiments.find((exp) => exp.trackingKey === key) as
                     | ExperimentInterfaceStringDates
@@ -564,9 +568,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <SelectField
               label="Status"
               options={[
-                {label: "draft", value: "draft"},
-                {label: "running", value: "running"},
-                {label: "stopped", value: "stopped"},
+                { label: "draft", value: "draft" },
+                { label: "running", value: "running" },
+                { label: "stopped", value: "stopped" },
               ]}
               onChange={(v) => {
                 const status = v as ExperimentStatus;
