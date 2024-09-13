@@ -105,6 +105,9 @@ tags:
   - name: code-references
     x-displayName: Code References
     description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
+  - name: Attribute_model
+    x-displayName: Attribute
+    description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -2806,6 +2809,201 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  /attributes:
+    get:
+      summary: Get the organization's attributes
+      tags:
+        - attributes
+      operationId: listAttributes
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/attributes \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - attributes
+                    properties:
+                      attributes:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Attribute'
+    post:
+      tags:
+        - attributes
+      summary: Create a new attribute
+      operationId: postAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/attributes \
+              -d '{"property": "foo", "datatype": "boolean", "description": "My new attribute" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - property
+                - datatype
+              properties:
+                property:
+                  type: string
+                  description: The attribute property
+                datatype:
+                  type: string
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - secureString
+                    - enum
+                    - 'string[]'
+                    - 'number[]'
+                    - 'secureString[]'
+                  description: The attribute datatype
+                description:
+                  type: string
+                  description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
+                hashAttribute:
+                  type: boolean
+                  description: Shall the attribute be hashed
+                enum:
+                  type: string
+                format:
+                  type: string
+                  enum:
+                    - ''
+                    - version
+                    - date
+                    - isoCountryCode
+                  description: The attribute's format
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - attribute
+                properties:
+                  attribute:
+                    $ref: '#/components/schemas/Attribute'
+  '/attributes/${property}':
+    put:
+      parameters:
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
+      tags:
+        - attributes
+      summary: Update an attribute
+      operationId: putAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/attributes/property \
+               -d '{ "description": "My updated attribute" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datatype:
+                  type: string
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - secureString
+                    - enum
+                    - 'string[]'
+                    - 'number[]'
+                    - 'secureString[]'
+                  description: The attribute datatype
+                description:
+                  type: string
+                  description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
+                hashAttribute:
+                  type: boolean
+                  description: Shall the attribute be hashed
+                enum:
+                  type: string
+                format:
+                  type: string
+                  enum:
+                    - ''
+                    - version
+                    - date
+                    - isoCountryCode
+                  description: The attribute's format
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - attribute
+                properties:
+                  attribute:
+                    $ref: '#/components/schemas/Attribute'
+    delete:
+      summary: Deletes a single attribute
+      parameters:
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
+      tags:
+        - attributes
+      operationId: deleteAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/property \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedProperty
+                properties:
+                  deletedProperty:
+                    type: string
   /members:
     get:
       summary: Get all organization members
@@ -4595,6 +4793,44 @@ components:
           type: array
           items:
             type: string
+    Attribute:
+      type: object
+      required:
+        - property
+        - datatype
+      properties:
+        property:
+          type: string
+        datatype:
+          type: string
+          enum:
+            - boolean
+            - string
+            - number
+            - secureString
+            - enum
+            - 'string[]'
+            - 'number[]'
+            - 'secureString[]'
+        description:
+          type: string
+        hashAttribute:
+          type: boolean
+        archived:
+          type: boolean
+        enum:
+          type: string
+        format:
+          type: string
+          enum:
+            - ''
+            - version
+            - date
+            - isoCountryCode
+        projects:
+          type: array
+          items:
+            type: string
     Segment:
       type: object
       required:
@@ -6131,6 +6367,7 @@ x-tagGroups:
       - code-references
   - name: Models
     tags:
+      - Attribute_model
       - DataSource_model
       - Dimension_model
       - Environment_model

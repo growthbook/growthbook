@@ -8,6 +8,8 @@ Project:
   $ref: "./Project.yaml"
 Environment:
   $ref: "./Environment.yaml"
+Attribute:
+  $ref: "./Attribute.yaml"
 Segment:
   $ref: "./Segment.yaml"
 Feature:

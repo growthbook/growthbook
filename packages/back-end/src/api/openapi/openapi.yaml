@@ -215,6 +215,16 @@ paths:
   /organizations/{id}:
     put:
       $ref: "./paths/putOrganization.yaml"
+  /attributes:
+    get:
+      $ref: "./paths/listAttributes.yaml"
+    post:
+      $ref: "./paths/postAttribute.yaml"
+  /attributes/${property}:
+    put:
+      $ref: "./paths/putAttribute.yaml"
+    delete:
+      $ref: "./paths/deleteAttribute.yaml"
   /members:
     get:
       $ref: "./paths/listMembers.yaml"
