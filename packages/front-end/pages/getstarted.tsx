@@ -14,7 +14,6 @@ import {
 import { IconType } from "react-icons";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
@@ -24,6 +23,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FeaturedCard from "@/components/GetStarted/FeaturedCard";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 function WorkspaceLink({
   Icon,
@@ -90,13 +90,12 @@ const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
-  const showNewReleasePost = useFeatureIsOn("show-3.0-release");
-
+  const { theme } = useAppearanceUITheme();
   const router = useRouter();
-
   const permissionsUtils = usePermissionsUtil();
-
   const { project } = useDefinitions();
+
+  const isUsingDarkTheme = theme === "dark";
 
   const canImportLaunchDarkly =
     permissionsUtils.canViewFeatureModal() &&
@@ -150,7 +149,9 @@ const GetStartedPage = (): React.ReactElement => {
                         className={clsx(styles.imgInactive, "ml-auto")}
                         width="30px"
                         height="30px"
-                        src="/images/get-started/icons/inactive-card-arrow.svg"
+                        src={`/images/get-started/icons/${
+                          isUsingDarkTheme ? "dark-" : ""
+                        }inactive-arrow.svg`}
                       />
                       <img
                         className={clsx(styles.imgActive, "ml-auto")}
@@ -164,13 +165,17 @@ const GetStartedPage = (): React.ReactElement => {
                   </div>
                   <img
                     className={clsx(styles.imgActive, "float-right")}
-                    src="/images/get-started/feature-flag-active.svg"
+                    src={`/images/get-started/${
+                      isUsingDarkTheme ? "dark-" : ""
+                    }feature-flag-active.svg`}
                     width={"384px"}
                     height={"80px"}
                   />
                   <img
                     className={clsx(styles.imgInactive, "float-right")}
-                    src="/images/get-started/feature-flag-inactive.svg"
+                    src={`/images/get-started/${
+                      isUsingDarkTheme ? "dark-" : ""
+                    }feature-flag-inactive.svg`}
                     width={"384px"}
                     height={"80px"}
                   />
@@ -191,7 +196,9 @@ const GetStartedPage = (): React.ReactElement => {
                         className={clsx(styles.imgInactive, "ml-auto")}
                         width="30px"
                         height="30px"
-                        src="/images/get-started/icons/inactive-card-arrow.svg"
+                        src={`/images/get-started/icons/${
+                          isUsingDarkTheme ? "dark-" : ""
+                        }inactive-arrow.svg`}
                       />
                       <img
                         className={clsx(styles.imgActive, "ml-auto")}
@@ -205,13 +212,17 @@ const GetStartedPage = (): React.ReactElement => {
 
                   <img
                     className={clsx(styles.imgActive, "float-right")}
-                    src="/images/get-started/traffic-split-active.svg"
+                    src={`/images/get-started/${
+                      isUsingDarkTheme ? "dark-" : ""
+                    }traffic-split-active.svg`}
                     width={"384px"}
                     height={"80px"}
                   />
                   <img
                     className={clsx(styles.imgInactive, "float-right")}
-                    src="/images/get-started/traffic-split-inactive.svg"
+                    src={`/images/get-started/${
+                      isUsingDarkTheme ? "dark-" : ""
+                    }traffic-split-inactive.svg`}
                     width={"384px"}
                     height={"80px"}
                   />
@@ -263,13 +274,17 @@ const GetStartedPage = (): React.ReactElement => {
                     className={clsx(styles.imgInactive, "float-right")}
                     width="30px"
                     height="30px"
-                    src="/images/get-started/icons/inactive-button-arrow.svg"
+                    src={`/images/get-started/icons/${
+                      isUsingDarkTheme ? "dark-" : ""
+                    }inactive-arrow.svg`}
                   />
                   <img
                     className={clsx(styles.imgActive, "float-right")}
                     width="30px"
                     height="30px"
-                    src="/images/get-started/icons/active-button-arrow.svg"
+                    src={`/images/get-started/icons/active-${
+                      isUsingDarkTheme ? "card" : "button"
+                    }-arrow.svg`}
                   />
                 </button>
               </Tooltip>
@@ -301,13 +316,17 @@ const GetStartedPage = (): React.ReactElement => {
                     )}
                     width="30px"
                     height="30px"
-                    src="/images/get-started/icons/inactive-button-arrow.svg"
+                    src={`/images/get-started/icons/${
+                      isUsingDarkTheme ? "dark-" : ""
+                    }inactive-arrow.svg`}
                   />
                   <img
                     className={clsx(styles.imgActive, "float-right")}
                     width="30px"
                     height="30px"
-                    src="/images/get-started/icons/active-button-arrow.svg"
+                    src={`/images/get-started/icons/active-${
+                      isUsingDarkTheme ? "card" : "button"
+                    }-arrow.svg`}
                   />
                 </button>
               </Link>
@@ -337,35 +356,17 @@ const GetStartedPage = (): React.ReactElement => {
                       }
                     />
                   </a>
-                  {showNewReleasePost ? (
-                    <a
-                      href="https://blog.growthbook.io/growthbook-version-3-0/"
-                      target="_blank"
-                      rel="noreferrer"
-                      key="3-0-release"
-                    >
-                      <FeaturedCard
-                        imgUrl={
-                          "/images/get-started/thumbnails/3.0-release.svg"
-                        }
-                        lastCard
-                      />
-                    </a>
-                  ) : (
-                    <a
-                      href="https://blog.growthbook.io/growthbook-version-2-9/"
-                      target="_blank"
-                      rel="noreferrer"
-                      key="2-9-release"
-                    >
-                      <FeaturedCard
-                        imgUrl={
-                          "/images/get-started/thumbnails/2.9-release.png"
-                        }
-                        lastCard
-                      />
-                    </a>
-                  )}
+                  <a
+                    href="https://blog.growthbook.io/growthbook-version-3-0/"
+                    target="_blank"
+                    rel="noreferrer"
+                    key="3-0-release"
+                  >
+                    <FeaturedCard
+                      imgUrl={"/images/get-started/thumbnails/3.0-release.svg"}
+                      lastCard
+                    />
+                  </a>
                 </div>
               </div>
             </div>

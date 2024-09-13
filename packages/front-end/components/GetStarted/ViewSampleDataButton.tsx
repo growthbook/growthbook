@@ -1,5 +1,6 @@
 import { ProjectInterface } from "@back-end/types/project";
 import { useRouter } from "next/router";
+import { getDemoDataSourceFeatureId } from "shared/demo-datasource";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import Button from "@/components/Button";
 import track from "@/services/track";
@@ -12,17 +13,15 @@ const ViewSampleDataButton = ({
 }: {
   resource?: "experiment" | "feature";
 }) => {
-  const {
-    demoExperimentId,
-    demoFeatureId,
-    exists,
-  } = useDemoDataSourceProject();
+  const { demoExperimentId, exists } = useDemoDataSourceProject();
   const router = useRouter();
   const { apiCall } = useAuth();
 
   const permissionsUtils = usePermissionsUtil();
 
   const { mutateDefinitions } = useDefinitions();
+
+  const demoFeatureId = getDemoDataSourceFeatureId();
 
   const openSample = async () => {
     if (exists && demoExperimentId) {
