@@ -246,14 +246,14 @@ export const postSavedGroupAddItems = async (
 
   const savedGroup = await getSavedGroupById(id, org.id);
 
-  if (
-    !context.permissions.canUpdateSavedGroup({ projects: savedGroup?.projects })
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   if (!savedGroup) {
     throw new Error("Could not find saved group");
+  }
+
+  if (
+    !context.permissions.canUpdateSavedGroup({ projects: savedGroup.projects })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   if (savedGroup.type !== "list") {
@@ -348,14 +348,14 @@ export const postSavedGroupRemoveItems = async (
 
   const savedGroup = await getSavedGroupById(id, org.id);
 
-  if (
-    !context.permissions.canUpdateSavedGroup({ projects: savedGroup?.projects })
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   if (!savedGroup) {
     throw new Error("Could not find saved group");
+  }
+
+  if (
+    !context.permissions.canUpdateSavedGroup({ projects: savedGroup.projects })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   if (savedGroup.type !== "list") {
@@ -447,14 +447,14 @@ export const putSavedGroup = async (
 
   const savedGroup = await getSavedGroupById(id, org.id);
 
-  if (
-    !context.permissions.canUpdateSavedGroup({ projects: savedGroup?.projects })
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   if (!savedGroup) {
     throw new Error("Could not find saved group");
+  }
+
+  if (
+    !context.permissions.canUpdateSavedGroup({ projects: savedGroup.projects })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const fieldsToUpdate: UpdateSavedGroupProps = {};
@@ -566,12 +566,6 @@ export const deleteSavedGroup = async (
 
   const savedGroup = await getSavedGroupById(id, org.id);
 
-  if (
-    !context.permissions.canDeleteSavedGroup({ projects: savedGroup?.projects })
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   if (!savedGroup) {
     res.status(403).json({
       status: 404,
@@ -586,6 +580,12 @@ export const deleteSavedGroup = async (
       message: "You do not have access to this saved group",
     });
     return;
+  }
+
+  if (
+    !context.permissions.canDeleteSavedGroup({ projects: savedGroup.projects })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   await deleteSavedGroupById(id, org.id);
