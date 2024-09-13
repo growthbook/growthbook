@@ -37,14 +37,11 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
         <NewDataSourceForm
           existing={false}
           data={{
-            name: "My Datasource",
-
             settings: {
               schemaFormat: eventTracker,
             },
-            projects: [],
           }}
-          source="datasource-list"
+          source="setup flow"
           onSuccess={async () => {
             await mutateDefinitions({});
             setNewModalOpen(false);
