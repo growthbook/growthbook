@@ -19,7 +19,10 @@ import {
   MetricQuantileSettings,
   FactMetricType,
 } from "back-end/types/fact-table";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  getNewExperimentDatasourceDefaults,
+} from "shared/util";
 import omit from "lodash/omit";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber } from "@/services/metrics";
@@ -39,7 +42,6 @@ import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBArrowLeft, GBCuped } from "@/components/Icons";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";

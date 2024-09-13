@@ -6,8 +6,8 @@ import {
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { getExposureQuery } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
 import Modal from "@/components/Modal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";

@@ -14,6 +14,13 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  DataSourceInterface,
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+  ExposureQuery,
+} from "back-end/types/datasource";
+import { OrganizationSettings } from "back-end/types/organization";
 
 export * from "./features";
 export * from "./saved-groups";
@@ -209,6 +216,50 @@ export function isProjectListValidForProject(
 
   // Otherwise, it's valid only if the project list contains the selected project
   return projects.includes(project);
+}
+
+export function getExposureQuery(
+  settings?: DataSourceSettings,
+  exposureQueryId?: string,
+  userIdType?: string
+): ExposureQuery | null {
+  const queries = settings?.queries?.exposure || [];
+
+  if (!exposureQueryId) {
+    exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+  }
+  return queries.find((q) => q.id === exposureQueryId) ?? null;
+}
+
+export function getNewExperimentDatasourceDefaults(
+  datasources: DataSourceInterfaceWithParams[] | DataSourceInterface[],
+  settings: OrganizationSettings,
+  project?: string,
+  initialValue?: Partial<ExperimentInterfaceStringDates>
+): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === initialValue?.datasource ||
+      isProjectListValidForProject(d.projects, project)
+  );
+
+  if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
+
+  const initialId = initialValue?.datasource || settings.defaultDataSource;
+
+  const initialDatasource =
+    (initialId && validDatasources.find((d) => d.id === initialId)) ||
+    validDatasources[0];
+
+  return {
+    datasource: initialDatasource.id,
+    exposureQueryId:
+      getExposureQuery(
+        initialDatasource.settings,
+        initialValue?.exposureQueryId,
+        initialValue?.userIdType
+      )?.id || "",
+  };
 }
 
 export function stringToBoolean(

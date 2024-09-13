@@ -19,10 +19,9 @@ import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
+import { isDefined, getExposureQuery } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";

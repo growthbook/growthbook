@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { DifferenceType } from "back-end/types/stats";
-import { getExposureQuery } from "@/services/datasources";
+import { getExposureQuery } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 

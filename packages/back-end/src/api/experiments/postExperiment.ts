@@ -1,9 +1,14 @@
+import { getNewExperimentDatasourceDefaults } from "shared/util";
+import { auditDetailsCreate } from "../../services/audit";
 import { PostExperimentResponse } from "../../../types/openapi";
 import {
   createExperiment,
   getExperimentByTrackingKey,
 } from "../../models/ExperimentModel";
-import { getDataSourceById } from "../../models/DataSourceModel";
+import {
+  getDataSourceById,
+  getDataSourcesByOrganization,
+} from "../../models/DataSourceModel";
 import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
@@ -19,34 +24,77 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    const { datasourceId, owner: ownerEmail } = req.body;
+    const { datasourceId, owner: ownerEmail, trackingKey, project } = req.body;
 
-    const datasource = await getDataSourceById(req.context, datasourceId);
+    let { assignmentQueryId } = req.body;
 
-    if (!datasource) {
-      throw new Error(`Invalid data source: ${datasourceId}`);
+    let datasource, defaultDatasource, defaultAssignmentQueryId;
+
+    if (!req.organization.settings) {
+      throw new Error("Organization settings not found");
     }
 
-    // check for associated assignment query id
-    if (
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId
-      )
-    ) {
-      throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+    if (!datasourceId || !assignmentQueryId) {
+      const orgDatasources = await getDataSourcesByOrganization(req.context);
+      const {
+        datasource: defaultDatasourceId,
+        exposureQueryId,
+      } = getNewExperimentDatasourceDefaults(
+        orgDatasources,
+        req.organization.settings,
+        project
       );
+      defaultDatasource = orgDatasources.find(
+        (d) => d.id === defaultDatasourceId
+      );
+      defaultAssignmentQueryId = exposureQueryId;
     }
 
+    if (datasourceId) {
+      datasource = await getDataSourceById(req.context, datasourceId);
+
+      if (!datasource) {
+        throw new Error(`Invalid data source: ${datasourceId}`);
+      }
+    } else {
+      if (!defaultDatasource) {
+        throw new Error(
+          "Data source ID is not set and default data source not found"
+        );
+      }
+
+      datasource = defaultDatasource;
+    }
+
+    if (assignmentQueryId) {
+      if (
+        !datasource.settings.queries?.exposure?.some(
+          (q) => q.id === assignmentQueryId
+        )
+      ) {
+        throw new Error(
+          `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+        );
+      }
+    } else {
+      if (!defaultAssignmentQueryId) {
+        throw new Error(
+          "Assignment query ID is not set and default assignment query ID not found"
+        );
+      }
+      assignmentQueryId = defaultAssignmentQueryId;
+    } // check for associated assignment query id
     // check if tracking key is unique
-    const existingByTrackingKey = await getExperimentByTrackingKey(
-      req.context,
-      req.body.trackingKey
-    );
-    if (existingByTrackingKey) {
-      throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`
+    if (trackingKey) {
+      const existingByTrackingKey = await getExperimentByTrackingKey(
+        req.context,
+        trackingKey
       );
+      if (existingByTrackingKey) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${trackingKey}`
+        );
+      }
     }
 
     const ownerId = await (async () => {
@@ -70,6 +118,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const newExperiment = postExperimentApiPayloadToInterface(
       {
         ...req.body,
+        assignmentQueryId,
         ...(ownerId ? { owner: ownerId } : {}),
       },
       req.organization,
@@ -79,6 +128,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const experiment = await createExperiment({
       data: newExperiment,
       context: req.context,
+    });
+
+    await req.audit({
+      event: "experiment.create",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate(experiment),
     });
 
     if (ownerId) {

@@ -18,6 +18,7 @@ import {
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
 } from "shared/constants";
+import { getExposureQuery } from "shared/util";
 import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "../../types/organization";
@@ -306,32 +307,29 @@ export default abstract class SqlIntegration
     return true;
   }
 
-  private getExposureQuery(
+  private getExposureQueryOrError(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user"
   ): ExposureQuery {
-    if (!exposureQueryId) {
-      exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
-    }
-
-    const queries = this.datasource.settings?.queries?.exposure || [];
-
-    const match = queries.find((q) => q.id === exposureQueryId);
-
-    if (!match) {
+    const query = getExposureQuery(
+      this.datasource.settings,
+      exposureQueryId,
+      userIdType
+    );
+    if (!query) {
       throw new Error(
         "Unknown experiment assignment table - " + exposureQueryId
       );
     }
 
-    return match;
+    return query;
   }
 
   getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.datasource.settings.queries?.exposure || []
-    ).map(({ id }) => this.getExposureQuery(id));
+    ).map(({ id }) => this.getExposureQueryOrError(id));
 
     const end = new Date();
 
@@ -599,7 +597,9 @@ export default abstract class SqlIntegration
   }): string {
     // get population query
     if (settings.populationType === "exposureQuery") {
-      const exposureQuery = this.getExposureQuery(settings.populationId || "");
+      const exposureQuery = this.getExposureQueryOrError(
+        settings.populationId || ""
+      );
 
       return `
       __rawExperiment AS (
@@ -1604,7 +1604,9 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+    const exposureQuery = this.getExposureQueryOrError(
+      settings.exposureQueryId || ""
+    );
 
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
@@ -1801,7 +1803,9 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+    const exposureQuery = this.getExposureQueryOrError(
+      settings.exposureQueryId || ""
+    );
 
     // Get any required identity join queries
     const { baseIdType, idJoinSQL } = this.getIdentitiesCTE(
@@ -1897,7 +1901,9 @@ export default abstract class SqlIntegration
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
-    const exposureQuery = this.getExposureQuery(params.exposureQueryId || "");
+    const exposureQuery = this.getExposureQueryOrError(
+      params.exposureQueryId || ""
+    );
 
     const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
 
@@ -2161,7 +2167,9 @@ export default abstract class SqlIntegration
       throw new Error("Could not find fact table");
     }
 
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+    const exposureQuery = this.getExposureQueryOrError(
+      settings.exposureQueryId || ""
+    );
 
     const metricData = metrics.map((metric, i) =>
       this.getMetricData(metric, settings, activationMetric, `m${i}`)
@@ -2675,7 +2683,9 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+    const exposureQuery = this.getExposureQueryOrError(
+      settings.exposureQueryId || ""
+    );
 
     const denominator = denominatorMetrics[denominatorMetrics.length - 1];
     // If the denominator is a binomial, it's just acting as a filter
