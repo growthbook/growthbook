@@ -14,7 +14,6 @@ const tabs: Record<LanguageFilter, string> = {
   server: "Server",
   mobile: "Mobile",
   edge: "Edge",
-  essential: "Essential",
 };
 
 function LanguageOption({

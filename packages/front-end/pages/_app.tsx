@@ -33,7 +33,6 @@ type ModAppProps = AppProps & {
     noOrganization?: boolean;
     preAuth?: boolean;
     liteLayout?: boolean;
-    setupFlow?: boolean;
     preAuthTopNav?: boolean;
   };
 };
