@@ -160,6 +160,9 @@ export const SimulateFeatureValues: FC<{
   if (loading) {
     return <LoadingOverlay />;
   }
+  if (!environments || environments.length === 0) {
+    return <div>No environments added</div>;
+  }
   let attributeText = <>Edit user attributes to see feature results.</>;
   let attributeNodes: ReactNode[] = [];
   if (attributes && Object.keys(attributes).length > 0) {
