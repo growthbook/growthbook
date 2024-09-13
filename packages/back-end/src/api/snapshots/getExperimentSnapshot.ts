@@ -19,7 +19,7 @@ export const getExperimentSnapshot = createApiRequestHandler(
       snapshot.experiment
     );
     if (!experiment) {
-      throw new Error("Experiment not found for that snapshot");
+      throw new Error("Likely you do not have requisite permissions");
     }
     return {
       snapshot: {
