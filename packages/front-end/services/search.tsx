@@ -123,7 +123,7 @@ export function useSearch<T>({
     if (updateSearchQueryOnChange) {
       window.history.replaceState(
         null,
-        "New Page Title",
+        "",
         router.pathname + "?q=" + encodeURI(value)
       );
     }
