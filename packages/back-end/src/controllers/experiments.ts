@@ -535,7 +535,7 @@ export async function postExperiments(
     activationMetric: data.activationMetric || "",
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
-    skipPartialData: !!data.skipPartialData,
+    skipPartialData: data.skipPartialData || true,
     attributionModel: data.attributionModel || "firstExposure",
     variations: data.variations || [],
     implementation: data.implementation || "code",
