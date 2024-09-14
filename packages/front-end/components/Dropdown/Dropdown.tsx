@@ -21,6 +21,8 @@ const Dropdown: FC<{
   width?: number | string;
   className?: string;
   toggleClassName?: string;
+  toggleClosedClassName?: string;
+  toggleOpenClassName?: string;
   open?: boolean;
   setOpen?: (open: boolean) => void;
   enabled?: boolean;
@@ -35,6 +37,8 @@ const Dropdown: FC<{
   width = "auto",
   className = "",
   toggleClassName = "",
+  toggleClosedClassName = "",
+  toggleOpenClassName = "",
   open,
   setOpen,
   enabled = true,
@@ -66,11 +70,15 @@ const Dropdown: FC<{
   return (
     <div
       className={clsx("dropdown", uuid, styles.dropdownwrap, toggleClassName, {
-        [styles.open]: open,
+        [styles.open]: !toggleOpenClassName && open,
       })}
     >
       <div
-        className={clsx({ "dropdown-toggle": caret })}
+        className={clsx({
+          "dropdown-toggle": caret ,
+          [toggleOpenClassName]: open,
+          [toggleClosedClassName]: !open,
+        })}
         onClick={
           enabled
             ? (e) => {

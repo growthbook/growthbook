@@ -16,12 +16,10 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
-import { GBAddCircle } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
-import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -35,6 +33,8 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Dropdown from "@/components/Dropdown/Dropdown";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
 const NUM_PER_PAGE = 20;
 
@@ -76,6 +76,7 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openImportExperimentModal, setOpenImportExperimentModal] = useState(false);
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -250,6 +251,31 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }
 
+  const addExperimentDropdownButton = (
+    <Dropdown
+      uuid="add-experiment"
+      toggleClosedClassName="btn btn-primary"
+      toggleOpenClassName="btn btn-primary-darkened"
+      className="py-0"
+      toggle="Add Experiment"
+    >
+      <div style={{width: 220}}>
+        <div
+          className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
+          onClick={() => setOpenNewExperimentModal(true)}
+        >
+          Create New Experiment
+        </div>
+        <div
+          className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
+          onClick={() => setOpenImportExperimentModal(true)}
+        >
+          Import Existing Experiment
+        </div>
+      </div>
+    </Dropdown>
+  );
+
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
@@ -270,24 +296,14 @@ const ExperimentsPage = (): React.ReactElement => {
             )}
             {canAdd && (
               <div className="col-auto">
-                <button
-                  className="btn btn-primary float-right"
-                  onClick={() => {
-                    setOpenNewExperimentModal(true);
-                  }}
-                >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
-                  Add Experiment
-                </button>
+                {addExperimentDropdownButton}
               </div>
             )}
           </div>
-          <CustomMarkdown page={"experimentList"} />
+          <CustomMarkdown page={"experimentList"}/>
           {!hasExperiments ? (
             <div className="box py-4 text-center">
-              <div className="mx-auto" style={{ maxWidth: 650 }}>
+              <div className="mx-auto" style={{maxWidth: 650 }}>
                 <h1>Test Variations with Targeted Users</h1>
                 <p style={{ fontSize: "17px" }}>
                   Run unlimited tests with linked feature flags, URL redirects
@@ -302,19 +318,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     Setup Instructions
                   </button>
                 </Link>
-                {canAdd && (
-                  <button
-                    className="btn btn-primary float-right"
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Experiment
-                  </button>
-                )}
+                {canAdd && addExperimentDropdownButton}
               </div>
             </div>
           ) : (
@@ -545,18 +549,19 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal &&
-        (growthbook?.isOn("new-experiment-modal") ? (
-          <AddExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ) : (
-          <ImportExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ))}
+      {openNewExperimentModal && (
+        <NewExperimentForm
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="bandits-list"
+          isNewExperiment={true}
+        />
+      )}
+      {openImportExperimentModal && (
+        <ImportExperimentModal
+          onClose={() => setOpenImportExperimentModal(false)}
+          source="experiment-list"
+        />
+      )}
     </>
   );
 };

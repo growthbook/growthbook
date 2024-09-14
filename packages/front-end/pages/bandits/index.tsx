@@ -18,7 +18,6 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
-import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
@@ -30,6 +29,7 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
 const NUM_PER_PAGE = 20;
 
@@ -523,14 +523,14 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <AddExperimentModal
-          type="new"
+        <NewExperimentForm
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="bandits-list"
+          isNewExperiment={true}
           initialValue={{
             type: "multi-armed-bandit",
             statsEngine: "bayesian",
           }}
-          onClose={() => setOpenNewExperimentModal(false)}
-          source="bandits-list"
         />
       )}
     </>
