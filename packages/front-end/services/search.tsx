@@ -54,6 +54,7 @@ export interface SearchProps<T> {
       | (Date | null | undefined)[];
   };
   filterResults?: (items: T[]) => T[];
+  updateSearchQueryOnChange?: boolean;
 }
 
 export interface SearchReturn<T> {
@@ -80,6 +81,7 @@ export function useSearch<T>({
   defaultSortDir,
   undefinedLast,
   searchTermFilters,
+  updateSearchQueryOnChange,
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
     field: defaultSortField,
@@ -117,6 +119,13 @@ export function useSearch<T>({
     let filtered = items;
     if (searchTerm.length > 0) {
       filtered = fuse.search(searchTerm).map((item) => item.item);
+    }
+    if (updateSearchQueryOnChange) {
+      window.history.replaceState(
+        null,
+        "New Page Title",
+        router.pathname + "?q=" + encodeURI(value)
+      );
     }
 
     // Search term filters
