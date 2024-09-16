@@ -1,5 +1,5 @@
-import { ApiSegment } from "@back-end/types/openapi";
-import { SegmentInterface } from "@back-end/types/segment";
+import { ApiSegment } from "back-end/types/openapi";
+import { SegmentInterface } from "back-end/types/segment";
 
 export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
   return {

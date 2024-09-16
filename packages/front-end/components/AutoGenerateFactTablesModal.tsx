@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, Fragment } from "react";
 import {
   AutoFactTableToCreate,
   InformationSchemaInterface,
-} from "@back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+} from "back-end/src/types/Integration";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaRedo } from "react-icons/fa";
