@@ -309,7 +309,7 @@ export default function FactMetricPage() {
           { display: factMetric.name },
         ]}
       />
-      {factMetric.status === "archived" && (
+      {factMetric.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
@@ -354,18 +354,16 @@ export default function FactMetricPage() {
               <button
                 className="btn dropdown-item"
                 onClick={async () => {
-                  const newStatus =
-                    factMetric.status === "archived" ? "active" : "archived";
                   await apiCall(`/fact-metrics/${factMetric.id}`, {
                     method: "PUT",
                     body: JSON.stringify({
-                      status: newStatus,
+                      archived: !factMetric.archived,
                     }),
                   });
                   mutateDefinitions();
                 }}
               >
-                {factMetric.status === "archived" ? "Unarchive" : "Archive"}
+                {factMetric.archived ? "Unarchive" : "Archive"}
               </button>
             )}
           </MoreMenu>

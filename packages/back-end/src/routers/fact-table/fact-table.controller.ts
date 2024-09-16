@@ -165,6 +165,82 @@ export const putFactTable = async (
   });
 };
 
+export const archiveFactTable = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { archived: true })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await updateFactTable(context, factTable, { archived: true });
+
+  // Archive all fact metrics in the fact table
+  const allFactMetrics = await context.models.factMetrics.getAll();
+  const factTableMetrics = allFactMetrics.filter(
+    (m) =>
+      m.numerator.factTableId === factTable.id ||
+      (m.denominator && m.denominator.factTableId === factTable.id)
+  );
+
+  await Promise.all(
+    factTableMetrics.map(async (metric) => {
+      await context.models.factMetrics.updateById(metric.id, {
+        archived: true,
+      });
+    })
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const unarchiveFactTable = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { archived: false })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await updateFactTable(context, factTable, { archived: false });
+
+  // Unarchive all fact metrics in the fact table
+  const allFactMetrics = await context.models.factMetrics.getAll();
+  const factTableMetrics = allFactMetrics.filter(
+    (m) =>
+      m.numerator.factTableId === factTable.id ||
+      (m.denominator && m.denominator.factTableId === factTable.id)
+  );
+
+  await Promise.all(
+    factTableMetrics.map(async (metric) => {
+      await context.models.factMetrics.updateById(metric.id, {
+        archived: false,
+      });
+    })
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
 export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>

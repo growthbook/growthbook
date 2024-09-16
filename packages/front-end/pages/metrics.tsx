@@ -128,7 +128,7 @@ const MetricsPage = (): React.ReactElement => {
       const item: MetricTableItem = {
         id: m.id,
         managedBy: m.managedBy || "",
-        archived: m.status === "archived",
+        archived: !!m.archived,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
         dateCreated: m.dateCreated,
@@ -138,15 +138,14 @@ const MetricsPage = (): React.ReactElement => {
         tags: m.tags || [],
         isRatio: m.metricType === "ratio",
         type: m.metricType,
-        onArchive: async (desiredState) => {
-          const newStatus = desiredState ? "archived" : "active";
+        onArchive: async (archivedState) => {
           await apiCall(`/fact-metrics/${m.id}`, {
             method: "PUT",
             body: JSON.stringify({
-              status: newStatus,
+              archived: archivedState,
             }),
           });
-          if (newStatus === "archived") {
+          if (archivedState) {
             setRecentlyArchived((set) => new Set([...set, m.id]));
           } else {
             setRecentlyArchived(
