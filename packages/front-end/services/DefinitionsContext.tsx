@@ -148,7 +148,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     if (!data || !data.factMetrics) {
       return [];
     }
-    return data.factMetrics.filter((m) => m.status !== "archived");
+    return data.factMetrics.filter((m) => !m.archived);
   }, [data?.factMetrics]);
 
   const allFactMetrics = useMemo(() => {
