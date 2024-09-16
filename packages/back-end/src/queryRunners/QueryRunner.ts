@@ -438,17 +438,22 @@ export abstract class QueryRunner<
         (q) => q.status === "running" || q.status === "queued"
       )
     ) {
-      const queryIds = this.model.queries
-        .filter((q) => q.status === "running" || q.status === "queued")
+      const queuedIds = this.model.queries
+        .filter((q) => q.status === "queued")
+        .map((q) => q.query);
+      queuedIds.forEach((qid) => {
+        this.clearQueuedQueryTimer(qid);
+        this.clearHeartbeat(qid);
+      });
+
+      const runningIds = this.model.queries
+        .filter((q) => q.status === "running")
         .map((q) => q.query);
 
-      if (queryIds.length) {
-        queryIds.forEach((qid) => {
-          this.clearQueuedQueryTimer(qid);
-        });
+      if (runningIds.length) {
         const queryDocs = await getQueriesByIds(
           this.model.organization,
-          queryIds
+          runningIds
         );
 
         const externalIds = queryDocs.map((q) => q.externalId).filter(Boolean);
