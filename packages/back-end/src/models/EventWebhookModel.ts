@@ -16,7 +16,7 @@ import {
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "../types/EventWebHook";
+} from "../validators/event-webhook";
 import { ReqContext } from "../../types/organization";
 import { createEvent } from "./EventModel";
 

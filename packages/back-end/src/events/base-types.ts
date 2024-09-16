@@ -4,21 +4,24 @@ import {
   apiExperimentValidator,
   apiFeatureValidator,
 } from "../validators/openapi";
+import { eventUser } from "../validators/events";
 import { userLoginInterface } from "../validators/users";
 import { experimentWarningNotificationPayload } from "../validators/experiment-warnings";
 import { EventUser } from "./event-types";
 
+type WebhookEntry = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly schema: ZodType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly extra?: ZodType<any>;
+  readonly description: string;
+  readonly isDiff?: boolean;
+  readonly firstVersion?: string;
+  readonly noDoc?: boolean;
+};
+
 type Webhook = {
-  readonly [key: string]: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly schema: ZodType<any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly extra?: ZodType<any>;
-    readonly description: string;
-    readonly isDiff?: boolean;
-    readonly firstVersion?: string;
-    readonly noDoc?: boolean;
-  };
+  readonly [key: string]: WebhookEntry;
 };
 
 type IsWebhooks<T> = T extends {
@@ -161,6 +164,31 @@ export type NotificationEventPayloadExtraAttributes<
   ? z.infer<ZodType<T, U, V>>
   : unknown;
 
+export const notificationEventPayloadData = <
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>
+>(
+  resource: Resource,
+  event: Event
+) => {
+  const data = notificationEvents[resource][event] as WebhookEntry;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const schema = data.schema as z.ZodObject<any, any, any>;
+
+  const ret = z.object({
+    object: schema,
+    ...(data.isDiff
+      ? {
+          previous_attributes: schema.partial(),
+        }
+      : {}),
+  });
+
+  if (!data.extra) return ret;
+
+  return z.union([ret, data.extra]);
+};
+
 export type NotificationEventPayloadDataType<
   Resource extends NotificationEventResource,
   Event extends ResourceEvents<Resource>,
@@ -193,6 +221,25 @@ export type NotificationEventPayload<
   environments: string[];
   containsSecrets: boolean;
 };
+
+export const notificationEventPayload = <
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>
+>(
+  resource: Resource,
+  event: Event
+) =>
+  z.object({
+    event: z.literal(`${resource}.${event}`),
+    object: z.literal(resource),
+    api_version: z.string(),
+    created: z.number(),
+    data: notificationEventPayloadData(resource, event),
+    user: eventUser,
+    tags: z.array(z.string()),
+    environments: z.array(z.string()),
+    containsSecrets: z.boolean(),
+  });
 
 type NotificationEventForResourceAndEvent<
   Resource,
