@@ -1,15 +1,15 @@
 
   | Event name | Description |
   |------------|-------------|
-  | **[feature.created](#featurecreated)** | _Triggered when a feature is created_ |
-| **[feature.updated](#featureupdated)** | _Triggered when a feature is updated_ |
-| **[feature.deleted](#featuredeleted)** | _Triggered when a feature is deleted_ |
-| **[experiment.created](#experimentcreated)** | _Triggered when an experiment is created_ |
-| **[experiment.updated](#experimentupdated)** | _Triggered when an experiment is updated_ |
-| **[experiment.deleted](#experimentdeleted)** | _Triggered when an experiment is deleted_ |
-| **[experiment.warning](#experimentwarning)** | _Triggered when a warning condition is detected on an experiment_ |
-| **[experiment.info.significance](#experimentinfo.significance)** | _Triggered when a primary metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win)_ |
-| **[user.login](#userlogin)** | _Triggered when a user logs in_ |
+  | **[feature.created](#featurecreated)** | Triggered when a feature is created |
+| **[feature.updated](#featureupdated)** | Triggered when a feature is updated |
+| **[feature.deleted](#featuredeleted)** | Triggered when a feature is deleted |
+| **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
+| **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
+| **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
+| **[experiment.warning](#experimentwarning)** | Triggered when a warning condition is detected on an experiment |
+| **[experiment.info.significance](#experimentinfo.significance)** | Triggered when a primary metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win) |
+| **[user.login](#userlogin)** | Triggered when a user logs in |
 
   
 ### feature.created

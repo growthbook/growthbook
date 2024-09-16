@@ -1,4 +1,4 @@
-import { SegmentInterface } from "@back-end/types/segment";
+import { SegmentInterface } from "back-end/types/segment";
 import { getConfigSegments, usingFileConfig } from "../init/config";
 import { segmentValidator } from "../routers/segment/segment.validators";
 import { STORE_SEGMENTS_IN_MONGO } from "../util/secrets";

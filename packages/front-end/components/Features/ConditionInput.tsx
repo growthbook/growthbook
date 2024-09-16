@@ -21,6 +21,9 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
+import CountrySelector, {
+  ALL_COUNTRY_CODES,
+} from "@/components/Forms/CountrySelector";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -73,6 +76,8 @@ export default function ConditionInput(props: Props) {
       value: "$notInGroup",
     },
   ];
+
+  const listOperators = ["$in", "$nin"];
 
   if (advanced || !attributes.size || !simpleAllowed) {
     const hasSecureAttributes = some(
@@ -304,6 +309,7 @@ export default function ConditionInput(props: Props) {
               | "enum"
               | "number"
               | "string"
+              | "isoCountryCode"
               | null = null;
             if (
               [
@@ -316,7 +322,9 @@ export default function ConditionInput(props: Props) {
               ].includes(operator)
             ) {
               displayType = "select-only";
-            } else if (["$in", "$nin"].includes(operator)) {
+            } else if (attribute.enum === ALL_COUNTRY_CODES) {
+              displayType = "isoCountryCode";
+            } else if (listOperators.includes(operator)) {
               displayType = "array-field";
             } else if (attribute.enum.length) {
               displayType = "enum";
@@ -437,6 +445,26 @@ export default function ConditionInput(props: Props) {
                         Switch to {rawTextMode ? "token" : "raw text"} mode
                       </span>
                     </div>
+                  ) : displayType === "isoCountryCode" ? (
+                    listOperators.includes(operator) ? (
+                      <CountrySelector
+                        selectAmount="multi"
+                        displayFlags={true}
+                        value={
+                          value ? value.split(",").map((val) => val.trim()) : []
+                        }
+                        onChange={handleListChange}
+                      />
+                    ) : (
+                      <CountrySelector
+                        selectAmount="single"
+                        displayFlags={true}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                      />
+                    )
                   ) : displayType === "enum" ? (
                     <SelectField
                       options={attribute.enum.map((v) => ({

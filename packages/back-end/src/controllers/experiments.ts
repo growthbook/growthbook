@@ -16,7 +16,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { DataSourceInterface } from "@back-end/types/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   _getSnapshots,

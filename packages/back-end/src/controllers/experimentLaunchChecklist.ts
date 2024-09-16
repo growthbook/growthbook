@@ -1,6 +1,6 @@
 import { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { ExperimentInterface } from "@back-end/types/experiment";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { getContextFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import {
