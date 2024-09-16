@@ -161,7 +161,7 @@ const EditDOMMutatonsModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="visual-editor-edit-dom-mutations"
       open
       close={close}
       size="lg"

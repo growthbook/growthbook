@@ -93,7 +93,7 @@ const ImportExperimentModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="import-experiment"
       header="Add Experiment"
       open={true}
       size="max"

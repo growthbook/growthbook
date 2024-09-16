@@ -73,7 +73,7 @@ export default function EditPhasesModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-experiment-phases"
       open={true}
       header="Edit Phases"
       close={close}

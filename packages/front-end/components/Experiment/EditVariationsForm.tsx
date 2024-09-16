@@ -43,7 +43,7 @@ const EditVariationsForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-experiment-variations"
       header={"Edit Variations"}
       open={true}
       close={cancel}

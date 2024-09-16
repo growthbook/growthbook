@@ -382,7 +382,7 @@ export default function AssignmentTester({ feature, version }: Props) {
             />
           ) : (
             <Modal
-              trackingEventModalType=""
+              trackingEventModalType="assignment-tester-archetype-paywall"
               open={true}
               close={() => setOpenArchetypeModal(null)}
             >
