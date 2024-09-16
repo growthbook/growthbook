@@ -1,5 +1,5 @@
 import React from "react";
-import { SchemaFormat } from "@back-end/types/datasource";
+import { SchemaFormat } from "back-end/types/datasource";
 
 export type LanguageLogo = {
   logo: string;

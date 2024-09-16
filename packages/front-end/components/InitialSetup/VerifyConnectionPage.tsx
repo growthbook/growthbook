@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { useState } from "react";
 import {
   FaAngleDown,

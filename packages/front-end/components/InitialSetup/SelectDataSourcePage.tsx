@@ -1,6 +1,6 @@
 import { PiInfo, PiPaperPlaneTiltFill } from "react-icons/pi";
 import { useState } from "react";
-import { SchemaFormat } from "@back-end/types/datasource";
+import { SchemaFormat } from "back-end/types/datasource";
 import { Callout } from "@radix-ui/themes";
 import clsx from "clsx";
 import { eventSchemas } from "@/services/eventSchema";
