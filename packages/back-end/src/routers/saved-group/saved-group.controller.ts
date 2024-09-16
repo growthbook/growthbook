@@ -18,7 +18,6 @@ import {
 import {
   createSavedGroup,
   deleteSavedGroupById,
-  getAllSavedGroups,
   getSavedGroupById,
   updateSavedGroupById,
 } from "../../models/SavedGroupModel";
@@ -28,44 +27,6 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import { savedGroupUpdated } from "../../services/savedGroups";
-
-// region GET /saved-groups
-type ListSavedGroupsRequest = AuthRequest<
-  Record<string, never>,
-  Record<string, never>
->;
-
-type ListSavedGroupsResponse = {
-  status: 200;
-  savedGroups: SavedGroupInterface[];
-};
-
-/**
- * GET /saved-groups
- * List all saved-group resources
- * @param req
- * @param res
- */
-export const getSavedGroups = async (
-  req: ListSavedGroupsRequest,
-  res: Response<ListSavedGroupsResponse>
-) => {
-  const context = getContextFromReq(req);
-  const { org } = context;
-
-  if (!context.permissions.canCreateSavedGroup({ projects: [] })) {
-    context.permissions.throwPermissionError();
-  }
-
-  const savedGroups = await getAllSavedGroups(org.id);
-
-  return res.status(200).json({
-    status: 200,
-    savedGroups,
-  });
-};
-
-// endregion GET /saved-groups
 
 // region POST /saved-groups
 
