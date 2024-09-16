@@ -10,6 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import styles from "./InitialSetup.module.scss";
 
 interface Props {
@@ -18,8 +19,14 @@ interface Props {
 
 const SelectDataSourcePage = ({ onSuccess }: Props) => {
   const [newModalOpen, setNewModalOpen] = useState(false);
-  const [eventTracker, setEventTracker] = useState<null | SchemaFormat>(null);
   const [inviting, setInviting] = useState(false);
+  const [
+    setupEventTracker,
+    setSetupEventTracker,
+  ] = useLocalStorage<SchemaFormat | null>(`setup_event_tracker`, null);
+  const [eventTracker, setEventTracker] = useState<null | SchemaFormat>(
+    setupEventTracker
+  );
 
   const { refreshOrganization } = useUser();
   const { mutateDefinitions } = useDefinitions();
@@ -49,7 +56,7 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
           }}
           onCancel={() => {
             setNewModalOpen(false);
-            localStorage.setItem(`setup_event_tracker`, eventTracker);
+            setSetupEventTracker(eventTracker);
           }}
           showImportSampleData={!demoDataSourceExists}
           showBackButton={false}
@@ -96,7 +103,7 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
                 .map((eventSchema) => (
                   <div
                     className={`hover-highlight cursor-pointer border rounded ${
-                      eventTracker === eventSchema.value ? "bg-light" : ""
+                      eventTracker === eventSchema.value ? "bg-white" : ""
                     }`}
                     style={{
                       height: 50,

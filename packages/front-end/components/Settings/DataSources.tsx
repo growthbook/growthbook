@@ -140,10 +140,12 @@ const DataSources: FC = () => {
 
               <h4 className="mt-5">Connect your Data Source to GrowthBook</h4>
               <div
-                className="appbox mx-auto mt-4 p-3"
-                style={{ height: "70px", width: "200px" }}
+                className="appbox d-flex mx-auto mt-4"
+                style={{ height: "60px", width: "200px" }}
               >
-                <DataSourceLogo eventTracker={setupEventTracker} showLabel />
+                <span className="row mx-auto">
+                  <DataSourceLogo eventTracker={setupEventTracker} showLabel />
+                </span>
               </div>
               <div className="col mt-4">
                 <div className="row justify-content-center">

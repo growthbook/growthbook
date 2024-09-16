@@ -4,6 +4,7 @@ const getValueFromLocalStorage = (key: string, defaultValue) => {
   let value = defaultValue;
   try {
     const item = localStorage.getItem(key);
+    console.log({ item });
     if (item !== null) {
       value = JSON.parse(item) ?? value;
     }
