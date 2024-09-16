@@ -18,7 +18,7 @@ import {
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
 } from "shared/constants";
-import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";

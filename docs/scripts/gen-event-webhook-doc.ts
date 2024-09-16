@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { notificationEvents } from "@back-end/src/events/base-types";
+import { notificationEvents } from "back-end/src/events/base-types";
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "..");
 

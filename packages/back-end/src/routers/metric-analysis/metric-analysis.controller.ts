@@ -5,7 +5,7 @@ import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
   MetricAnalysisSettings,
-} from "@back-end/types/metric-analysis";
+} from "back-end/types/metric-analysis";
 import { createMetricAnalysis } from "../../services/metric-analysis";
 import { MetricAnalysisQueryRunner } from "../../queryRunners/MetricAnalysisQueryRunner";
 import { getExperimentMetricById } from "../../services/experiments";

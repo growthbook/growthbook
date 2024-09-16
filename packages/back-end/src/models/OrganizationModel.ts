@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "@back-end/types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
   Invite,
   Member,

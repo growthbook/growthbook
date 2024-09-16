@@ -8,7 +8,7 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Button";

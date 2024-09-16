@@ -1,4 +1,4 @@
-import { FeatureInterface, FeatureRule } from "@back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { filterEnvironmentsByFeature } from "shared/dist/util";
 import { useState } from "react";
 import { getRules, useEnvironments } from "@/services/features";

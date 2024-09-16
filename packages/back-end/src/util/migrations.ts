@@ -13,8 +13,8 @@ import {
   ExperimentReportArgs,
   LegacyReportInterface,
   ReportInterface,
-} from "@back-end/types/report";
-import { WebhookInterface } from "@back-end/types/webhook";
+} from "back-end/types/report";
+import { WebhookInterface } from "back-end/types/webhook";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
