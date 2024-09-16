@@ -3,11 +3,11 @@ import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "@back-end/types/sdk-connection";
-import { useForm } from "react-hook-form";
-import { Environment } from "@back-end/types/organization";
+} from "back-end/types/sdk-connection";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { ProjectInterface } from "@back-end/types/project";
+import { ProjectInterface } from "back-end/types/project";
+import { Environment } from "back-end/types/organization";
+import { useForm } from "react-hook-form";
 import PagedModal from "@/components/Modal/PagedModal";
 import { useUser } from "@/services/UserContext";
 import Page from "@/components/Modal/Page";
