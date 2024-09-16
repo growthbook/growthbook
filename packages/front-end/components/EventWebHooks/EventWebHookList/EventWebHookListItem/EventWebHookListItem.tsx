@@ -33,6 +33,8 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
 
   if (!payloadType) return null;
 
+  const detailedWebhook = ["raw", "json"].includes(payloadType);
+
   return (
     <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
       <div className="d-flex">
@@ -66,7 +68,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
                 </span>
               </div>
             )}
-            {payloadType === "raw" && (
+            {detailedWebhook && (
               <span className="text-muted ml-2 d-flex">
                 |
                 <div
