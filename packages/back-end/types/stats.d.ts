@@ -91,6 +91,7 @@ export type BanditResult = {
   seed: number;
   updateMessage?: string;
   error?: string;
+  reweight?: boolean;
 };
 
 export type MultipleExperimentMetricAnalysis = {

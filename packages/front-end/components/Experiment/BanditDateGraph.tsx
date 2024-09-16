@@ -20,6 +20,7 @@ import { MetricInterface } from "@back-end/types/metric";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
+import { FaInfoCircle } from "react-icons/fa";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -40,6 +41,7 @@ export interface DataPointVariation {
 export interface BanditDateGraphDataPoint {
   [key: `${number}`]: number;
   date: Date;
+  reweight?: boolean;
   meta: DataPointVariation;
 }
 export interface BanditDateGraphProps {
@@ -59,6 +61,7 @@ type TooltipData = {
   x: number;
   y?: number[];
   d: BanditDateGraphDataPoint;
+  reweight?: boolean;
   meta: any;
 };
 
@@ -142,6 +145,12 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
+      {!!d.reweight && (
+        <div className="text-sm my-2 alert alert-info py-1 px-2">
+          <FaInfoCircle className="mr-1" />
+          Variation weights were recalculated
+        </div>
+      )}
       <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
     </>
   );
@@ -176,8 +185,9 @@ const getTooltipData = (
         (variation) => yScale(getYVal(variation, mode) ?? 0) ?? 0
       )
     : undefined;
+  const reweight = d?.reweight;
   const meta = d?.meta;
-  return { x, y, d, meta };
+  return { x, y, d, reweight, meta };
 };
 
 const getYVal = (
@@ -269,6 +279,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
       const dataPoint: any = {
         date: new Date(event.date),
+        reweight: !!event.banditResult?.reweight,
         meta: {},
       };
 
@@ -467,6 +478,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
         const allXTicks = stackedData
           .filter((p) => p.meta?.type !== "today")
+          .map((p) => p.date.getTime());
+        const reweights = stackedData
+          .filter((p) => p.meta?.type !== "today" && p?.reweight === true)
           .map((p) => p.date.getTime());
 
         const xScale = scaleTime({
@@ -723,7 +737,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   scale={xScale}
                   stroke="var(--border-color-200)"
                   height={yMax}
-                  tickValues={allXTicks}
+                  tickValues={reweights}
                 />
 
                 {type === "area" && (

@@ -698,7 +698,7 @@ export function updateExperimentBanditSettings({
     }
     changes.phases[lastIndex].banditEvents?.push({
       date: dateCreated,
-      banditResult,
+      banditResult: { ...banditResult, reweight },
       snapshotId: snapshot?.id,
     });
   } else {

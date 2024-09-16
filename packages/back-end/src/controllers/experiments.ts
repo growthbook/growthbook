@@ -1943,10 +1943,10 @@ async function createExperimentSnapshot({
   useCache?: boolean;
   type: SnapshotType;
   banditEventType?: "reweight" | "no-reweight";
-}): {
+}): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
-} {
+}> {
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
