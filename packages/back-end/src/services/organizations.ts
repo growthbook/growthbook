@@ -29,7 +29,7 @@ import {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
-} from "@back-end/types/fact-table";
+} from "../../types/fact-table";
 import {
   createOrganization,
   findAllOrganizations,

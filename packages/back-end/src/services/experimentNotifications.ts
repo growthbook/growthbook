@@ -1,6 +1,6 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
-import { StatsEngine } from "@back-end/types/stats";
+import { StatsEngine } from "../../types/stats";
 import { Context } from "../models/BaseModel";
 import { createEvent, CreateEventData } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
