@@ -1,5 +1,5 @@
-import { FactMetricInterface } from "@back-end/types/fact-table";
-import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "../models/FactTableModel";
 import { Context } from "../models/BaseModel";

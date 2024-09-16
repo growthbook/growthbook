@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { OrganizationInterface } from "@back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";

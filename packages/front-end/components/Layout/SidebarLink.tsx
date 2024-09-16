@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "@back-end/types/organization";
+import { GlobalPermission } from "back-end/types/organization";
 import { Permissions } from "shared/permissions";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";

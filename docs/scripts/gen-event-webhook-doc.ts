@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   notificationEvents,
   notificationEventPayload,
-} from "@back-end/src/events/base-types";
+} from "back-end/src/events/base-types";
 import { z } from "zod";
 // eslint-disable-next-line import/no-unresolved
 import { zodToTs, printNode } from "zod-to-ts";

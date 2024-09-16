@@ -1,6 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { ReqContext } from "../../types/organization";
 import {
   AutoFactTableSchemas,

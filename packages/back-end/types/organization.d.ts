@@ -6,7 +6,7 @@ import {
   Policy,
 } from "shared/permissions";
 import { z } from "zod";
-import { environment } from "@back-end/src/routers/environment/environment.validators";
+import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
