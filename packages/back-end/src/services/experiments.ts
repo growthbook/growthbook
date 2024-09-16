@@ -368,6 +368,7 @@ export function getSnapshotSettings({
   settingsForSnapshotMetrics,
   metricMap,
   type,
+  banditEventType,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -376,6 +377,7 @@ export function getSnapshotSettings({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   type?: SnapshotType;
+  banditEventType?: "reweight" | "no-reweight";
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -402,7 +404,12 @@ export function getSnapshotSettings({
   const banditSettings: SnapshotBanditSettings | undefined =
     experiment.type === "multi-armed-bandit"
       ? {
-          reweight: type === "standard" && experiment.banditPhase === "exploit",
+          reweight:
+            banditEventType === "reweight"
+              ? true
+              : banditEventType === "no-reweight"
+              ? false
+              : type === "standard" && experiment.banditPhase === "exploit",
           decisionMetric: experiment.goalMetrics?.[0], // todo: needed?
           seed: Math.floor(Math.random() * 100000),
           weights:
@@ -660,10 +667,14 @@ export function updateExperimentBanditSettings({
   experiment,
   changes,
   snapshot,
+  reweight = false,
+  scheduleNextUpdate = false,
 }: {
   experiment: ExperimentInterface;
   changes?: Changeset;
   snapshot?: ExperimentSnapshotInterface;
+  reweight?: boolean;
+  scheduleNextUpdate?: boolean;
 }): Changeset {
   if (!changes) {
     changes = {};
@@ -677,7 +688,9 @@ export function updateExperimentBanditSettings({
   const dateCreated = snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
   if (banditResult) {
-    changes.phases[lastIndex].variationWeights = banditResult.weights;
+    if (reweight) {
+      changes.phases[lastIndex].variationWeights = banditResult.weights;
+    }
 
     // log weight change event
     if (!changes.phases[lastIndex].banditEvents) {
@@ -696,10 +709,17 @@ export function updateExperimentBanditSettings({
   }
 
   // scheduling
-  changes.nextSnapshotAttempt = determineNextBanditSchedule({
-    ...experiment,
-    ...changes,
-  } as ExperimentInterface);
+  if (scheduleNextUpdate) {
+    if (
+      changes.banditPhase === "exploit" ||
+      experiment.banditPhase === "exploit"
+    ) {
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface);
+    }
+  }
 
   return changes;
 }
@@ -715,6 +735,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   type,
+  banditEventType,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -726,6 +747,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   type: SnapshotType;
+  banditEventType?: "reweight" | "no-reweight";
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -738,6 +760,7 @@ export async function createSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     type,
+    banditEventType,
   });
 
   const data: ExperimentSnapshotInterface = {

@@ -243,7 +243,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
     let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
     let lastUsers = variationNames.map(() => 0);
-    let lastCrs = variationNames.map(() => 0);
     events.forEach((event) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
@@ -258,21 +257,14 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       lastUsers = users;
 
       const crs = variationNames.map(
-        (_, i) =>
-          (event.banditResult?.singleVariationResults?.[i]?.cr ?? 0) +
-          lastCrs[i]
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.cr ?? 0
       );
-      lastCrs = crs;
 
-      const rawCis = event.banditResult?.singleVariationResults?.map((svr, i) =>
-        svr?.ci ? svr.ci.map((cii) => cii + (lastVal?.[i] ?? 0)) : undefined
+      const rawCis = event.banditResult?.singleVariationResults?.map(
+        (svr) => svr?.ci
       );
       const cis = event.banditResult?.singleVariationResults?.map((svr, i) =>
-        svr?.ci
-          ? svr.ci.map((cii) =>
-              (users?.[i] ?? 0) > 0 ? cii + (lastVal?.[i] ?? 0) : undefined
-            )
-          : undefined
+        svr?.ci?.map((cii) => ((users?.[i] ?? 0) > 0 ? cii : undefined))
       );
 
       const dataPoint: any = {

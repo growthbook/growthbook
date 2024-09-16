@@ -198,6 +198,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       switch (experiment.banditPhase) {
         case "explore":
           // todo: make sure ad-hoc doesn't trigger the exploit phase
+          // todo: allow scheduled informational updates during explore
           changes.banditPhase = "exploit";
           changes.banditPhaseDateStarted = new Date();
           changes.nextSnapshotAttempt = determineNextBanditSchedule({
@@ -212,6 +213,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               experiment,
               changes,
               snapshot: currentSnapshot,
+              reweight: true,
+              scheduleNextUpdate: true,
             })
           );
           break;

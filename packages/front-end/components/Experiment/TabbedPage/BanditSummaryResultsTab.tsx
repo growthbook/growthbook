@@ -9,14 +9,17 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
+import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
   isTabActive?: boolean;
 }
 
 export default function BanditSummaryResultsTab({
   experiment,
+  mutate,
   isTabActive,
 }: Props) {
   const [chartMode, setChartMode] = useLocalStorage<
@@ -37,7 +40,13 @@ export default function BanditSummaryResultsTab({
 
   return (
     <>
-      <h3 className="mt-4 mb-3">Bandit Overview</h3>
+      <div className="d-flex align-items-end mt-4 mb-3">
+        <h3 className="mb-1">Bandit Overview</h3>
+        <div className="flex-1" />
+        <div>
+          <RefreshBanditButton mutate={mutate} experiment={experiment} />
+        </div>
+      </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (
           <div className="alert bg-light border mx-3">

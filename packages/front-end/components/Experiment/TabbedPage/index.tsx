@@ -397,6 +397,7 @@ export default function TabbedPage({
         >
           <BanditSummaryResultsTab
             experiment={experiment}
+            mutate={mutate}
             isTabActive={tab === "results"}
           />
         </div>

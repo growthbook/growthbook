@@ -463,6 +463,10 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
+app.post(
+  "/experiment/:id/banditSnapshot",
+  experimentsController.postBanditSnapshot
+);
 
 app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(

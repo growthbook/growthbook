@@ -7,6 +7,7 @@ import {
   isValidElement,
   cloneElement,
   ReactNode,
+  CSSProperties,
 } from "react";
 import useGlobalMenu from "@/services/useGlobalMenu";
 import DropdownLink from "./DropdownLink";
@@ -23,6 +24,7 @@ const Dropdown: FC<{
   toggleClassName?: string;
   toggleClosedClassName?: string;
   toggleOpenClassName?: string;
+  toggleStyle?: CSSProperties;
   open?: boolean;
   setOpen?: (open: boolean) => void;
   enabled?: boolean;
@@ -39,6 +41,7 @@ const Dropdown: FC<{
   toggleClassName = "",
   toggleClosedClassName = "",
   toggleOpenClassName = "",
+  toggleStyle,
   open,
   setOpen,
   enabled = true,
@@ -72,10 +75,11 @@ const Dropdown: FC<{
       className={clsx("dropdown", uuid, styles.dropdownwrap, toggleClassName, {
         [styles.open]: !toggleOpenClassName && open,
       })}
+      style={toggleStyle}
     >
       <div
         className={clsx({
-          "dropdown-toggle": caret ,
+          "dropdown-toggle": caret,
           [toggleOpenClassName]: open,
           [toggleClosedClassName]: !open,
         })}

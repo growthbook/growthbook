@@ -30,6 +30,7 @@ import {
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
+  updateExperimentBanditSettings,
 } from "../services/experiments";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import {
@@ -1932,6 +1933,7 @@ async function createExperimentSnapshot({
   phase,
   useCache = true,
   type,
+  banditEventType,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1940,7 +1942,11 @@ async function createExperimentSnapshot({
   phase: number;
   useCache?: boolean;
   type: SnapshotType;
-}) {
+  banditEventType?: "reweight" | "no-reweight";
+}): {
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentResultsQueryRunner;
+} {
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
@@ -2005,10 +2011,11 @@ async function createExperimentSnapshot({
     metricMap,
     factTableMap,
     type,
+    banditEventType,
   });
   const snapshot = queryRunner.model;
 
-  return snapshot;
+  return { snapshot, queryRunner };
 }
 
 export async function postSnapshot(
@@ -2127,7 +2134,7 @@ export async function postSnapshot(
   req.setTimeout(30 * 60 * 1000);
 
   try {
-    const snapshot = await createExperimentSnapshot({
+    const { snapshot } = await createExperimentSnapshot({
       context,
       experiment,
       datasource,
@@ -2227,6 +2234,103 @@ export async function postSnapshotAnalysis(
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot analysis");
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+export async function postBanditSnapshot(
+  req: AuthRequest<
+    {
+      reweight?: boolean;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { reweight } = req.body;
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const phase = experiment.phases.length - 1;
+  if (!experiment.phases[phase]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
+  if (!experiment.datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+
+  try {
+    const { queryRunner } = await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      dimension: "",
+      phase,
+      useCache: false,
+      type: "ad-hoc",
+      banditEventType: reweight ? "reweight" : "no-reweight",
+    });
+
+    await queryRunner.waitForResults();
+    const snapshot = queryRunner.model;
+
+    const changes = updateExperimentBanditSettings({
+      experiment,
+      snapshot,
+      reweight,
+    });
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.refresh",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate({
+        phase,
+        dimension: "",
+        useCache: false,
+        manual: false,
+      }),
+    });
+    res.status(200).json({
+      status: 200,
+      snapshot,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot");
     res.status(400).json({
       status: 400,
       message: e.message,
