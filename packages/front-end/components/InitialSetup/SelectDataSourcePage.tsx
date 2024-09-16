@@ -41,7 +41,7 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
               schemaFormat: eventTracker,
             },
           }}
-          source="setup flow"
+          source="setup-flow"
           onSuccess={async () => {
             await mutateDefinitions({});
             setNewModalOpen(false);
@@ -118,7 +118,7 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
                     }}
                   >
                     <DataSourceLogo
-                      language={eventSchema.value}
+                      eventTracker={eventSchema.value}
                       showLabel={true}
                     />
                   </div>

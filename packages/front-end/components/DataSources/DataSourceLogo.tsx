@@ -69,20 +69,20 @@ export const languageMapping: Record<
 };
 
 export default function DataSourceLogo({
-  language,
+  eventTracker,
   showLabel = false,
   size = 25,
   titlePrefix = "",
 }: {
-  language: SchemaFormat;
+  eventTracker: SchemaFormat;
   showLabel?: boolean;
   size?: number;
   titlePrefix?: string;
 }) {
-  if (!Object.keys(languageMapping).includes(language)) {
+  if (!Object.keys(languageMapping).includes(eventTracker)) {
     return null;
   }
-  const { logo, label } = languageMapping[language];
+  const { logo, label } = languageMapping[eventTracker];
 
   return (
     <span className="d-inline-flex align-items-center position-relative">
@@ -92,7 +92,9 @@ export default function DataSourceLogo({
         className="m-0"
         title={titlePrefix + label}
       />
-      <span className="ml-2">{showLabel && label}</span>
+      <span className="ml-2" style={{ fontWeight: 500 }}>
+        {showLabel && label}
+      </span>
     </span>
   );
 }
