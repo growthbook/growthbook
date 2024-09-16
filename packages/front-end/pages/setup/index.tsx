@@ -47,6 +47,14 @@ export default function SetupFlow() {
   const { datasources, setProject, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
 
+  const sdkConnectionForm = useForm<SdkFormValues>({
+    defaultValues: {
+      languages: ["react"],
+      sdkVersion: "",
+      environment: "dev",
+    },
+  });
+
   // Start off user on the correct step depending on how much has already been set up
   useEffect(() => {
     if (!sdkConnectionData?.connections.length) {
@@ -54,6 +62,8 @@ export default function SetupFlow() {
     }
     const firstConnection = sdkConnectionData.connections[0];
     setConnection(firstConnection.id);
+    sdkConnectionForm.setValue("languages", firstConnection.languages);
+    sdkConnectionForm.setValue("environment", firstConnection.environment);
 
     if (!firstConnection.connected) {
       setStep(1);
@@ -64,15 +74,7 @@ export default function SetupFlow() {
         setSetupComplete(true);
       }
     }
-  }, [sdkConnectionData?.connections, datasources.length]);
-
-  const sdkConnectionForm = useForm<SdkFormValues>({
-    defaultValues: {
-      languages: ["react"],
-      sdkVersion: "",
-      environment: "dev",
-    },
-  });
+  }, [sdkConnectionData?.connections, datasources.length, sdkConnectionForm]);
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
