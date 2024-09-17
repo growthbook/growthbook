@@ -1267,6 +1267,8 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       externalId,
     });
 
+    // TODO: Create project
+
     // Alert the site manager about new organizations that are created
     try {
       await sendNewOrgEmail(company, req.email);
@@ -1274,6 +1276,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       req.log.error(e, "New org email sending failure");
     }
 
+    // Include project id in response
     res.status(200).json({
       status: 200,
       orgId: org.id,

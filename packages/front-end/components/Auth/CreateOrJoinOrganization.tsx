@@ -215,6 +215,7 @@ const CreateOrJoinOrganization: FC<{
                     setError(null);
                     setLoading(true);
                     try {
+                      // TODO: Get resp and if project id switch to it
                       await apiCall("/organization", {
                         method: "POST",
                         body: JSON.stringify(value),
