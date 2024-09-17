@@ -90,7 +90,12 @@ const testCases = [
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
     getPValueThresholdForOrg: 0.4,
-    expected: [],
+    expected: [
+      {
+        metricId: snapshots.base.settings.goalMetrics[0],
+        winning: false,
+      },
+    ],
   },
 ];
 
