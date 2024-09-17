@@ -26,7 +26,7 @@ import Toggle from "@/components/Forms/Toggle";
 
 export default function FactTablesPage() {
   const {
-    factTables,
+    _factTablesIncludingArchived: factTables,
     getDatasourceById,
     project,
     factMetrics,
