@@ -47,14 +47,14 @@ handle all of this for you, and you can also serve client-side A/B test via our 
 Client-side A/B tests are great for testing visual changes to your application, but they do have some drawbacks. One of
 the most common issues is caused by the delay in loading the specific variation to a user, which may cause a flash or
 flickering as the experiment loads. This can be reduced by using inline-experiments, or by moving the GrowthBook SDK
-code higher in the code so it loads at the same time or before the page. Sometimes the hashing attribute may not be
+code higher in the code so it loads at time or before the page. Sometimes the hashing attribute may not be
 available until your tracking software has loaded, and you may need to use a custom tracking id.
 
 ### Feature Flags
 
 GrowthBook's feature flags can work just as well from the client/browser as it does server side. The feature flag's
 conditional logic ([rules](/features/rules)) controls how a feature should be shown, and if a feature should be shown as part
-of an experiment. The same  and override rules apply exactly the same to client-side experimentation.
+of an experiment. The same targeting and override rules apply in exactly the same way to client-side experimentation.
 
 ### Inline Experiments
 
