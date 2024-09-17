@@ -62,7 +62,7 @@ const testCases = [
   },
   // if snapshot before was not significant, fire negative notif
   {
-    beforeSnapshot: snapshots.nosignificance,
+    beforeSnapshot: snapshots.noSignificance,
     currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
@@ -77,7 +77,16 @@ const testCases = [
   // if snapshot before was significant, but current is not, no notif
   {
     beforeSnapshot: snapshots.base,
-    currentSnapshot: snapshots.nosignificance,
+    currentSnapshot: snapshots.noSignificance,
+    getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
+    getMetricDefaultsForOrg: [],
+    getPValueThresholdForOrg: 0.4,
+    expected: [],
+  },
+  // if metric was missing in old snapshot, notify if now significant
+  {
+    beforeSnapshot: snapshots.missingMetrics,
+    currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
     getPValueThresholdForOrg: 0.4,

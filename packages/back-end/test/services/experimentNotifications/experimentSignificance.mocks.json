@@ -444,7 +444,173 @@
       "results": [],
       "metricRegressionAdjustmentStatuses": []
     },
-    "nosignificance": {
+    "missingMetrics": {
+      "id": "snp_dd4g1lsim0umhyk5",
+      "organization": "org_dd4g20lalsnhhpa2",
+      "experiment": "exp_dd4gxd4lyeluxct",
+      "phase": 0,
+      "dateCreated": "2024-09-09T06:29:44.885Z",
+      "runStarted": "2024-09-09T06:29:44.957Z",
+      "error": "",
+      "queries": [],
+      "dimension": null,
+      "unknownVariations": ["2"],
+      "multipleExposures": 673,
+      "status": "success",
+      "settings": {
+        "manual": false,
+        "activationMetric": "met_dd4gxd4lyel6394",
+        "attributionModel": "firstExposure",
+        "skipPartialData": false,
+        "segment": "",
+        "queryFilter": "",
+        "datasourceId": "ds_dd4gxd4lyel5js1",
+        "dimensions": [],
+        "startDate": "2023-07-09T16:08:00.000Z",
+        "endDate": "2024-09-09T06:29:44.885Z",
+        "experimentId": "checkout-layout",
+        "goalMetrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
+        "secondaryMetrics": [],
+        "guardrailMetrics": [],
+        "regressionAdjustmentEnabled": false,
+        "defaultMetricPriorSettings": {
+          "override": false,
+          "proper": false,
+          "mean": 123,
+          "stddev": 0.3
+        },
+        "exposureQueryId": "user_id",
+        "metricSettings": [
+          {
+            "id": "met_dd4gxd4lyelugrk",
+            "settings": {
+              "datasource": "ds_dd4gxd4lyel5js1",
+              "type": "binomial",
+              "cappingSettings": {
+                "type": "",
+                "value": 0
+              },
+              "sql": "SELECT\n  user_id as user_id,\n  timestamp as timestamp\nFROM\n  {{snakecase eventName}}",
+              "userIdTypes": ["user_id"]
+            },
+            "computedSettings": {
+              "windowSettings": {
+                "delayHours": 0,
+                "type": "conversion",
+                "windowUnit": "weeks",
+                "windowValue": 72
+              },
+              "properPrior": false,
+              "properPriorMean": 123,
+              "properPriorStdDev": 0.3,
+              "regressionAdjustmentDays": 0,
+              "regressionAdjustmentEnabled": false,
+              "regressionAdjustmentAvailable": true,
+              "regressionAdjustmentReason": "disabled in experiment"
+            }
+          },
+          {
+            "id": "met_dd4gxd4lyel6394",
+            "settings": {
+              "datasource": "ds_dd4gxd4lyel5js1",
+              "type": "binomial",
+              "cappingSettings": {
+                "type": "",
+                "value": 0
+              },
+              "sql": "SELECT\n  user_id as user_id,\n  timestamp as timestamp\nFROM\n  {{snakecase eventName}}",
+              "userIdTypes": ["user_id"]
+            },
+            "computedSettings": {
+              "windowSettings": {
+                "delayHours": 0,
+                "type": "conversion",
+                "windowUnit": "hours",
+                "windowValue": 72
+              },
+              "properPrior": false,
+              "properPriorMean": 123,
+              "properPriorStdDev": 0.3,
+              "regressionAdjustmentDays": 0,
+              "regressionAdjustmentEnabled": false,
+              "regressionAdjustmentAvailable": true,
+              "regressionAdjustmentReason": "disabled in experiment"
+            }
+          }
+        ],
+        "variations": [
+          {
+            "id": "0",
+            "weight": 0.5
+          },
+          {
+            "id": "1",
+            "weight": 0.5
+          }
+        ],
+        "coverage": 1
+      },
+      "analyses": [
+        {
+          "dateCreated": "2024-09-09T06:29:44.885Z",
+          "results": [
+            {
+              "name": "All",
+              "srm": 0.00015787120307242386,
+              "variations": [
+                {
+                  "users": 2314,
+                  "metrics": {}
+                },
+                {
+                  "users": 2064,
+                  "metrics": {}
+                }
+              ]
+            }
+          ],
+          "settings": {
+            "statsEngine": "bayesian",
+            "dimensions": [],
+            "regressionAdjusted": false,
+            "sequentialTesting": false,
+            "sequentialTestingTuningParameter": 5000,
+            "baselineVariationIndex": 0,
+            "differenceType": "relative",
+            "pValueThreshold": 0.05
+          },
+          "status": "success",
+          "error": ""
+        }
+      ],
+      "health": {
+        "traffic": {
+          "overall": {
+            "name": "All",
+            "srm": 0.00015787120307242386,
+            "variationUnits": [2314, 2064]
+          },
+          "dimension": {
+            "dim_exposure_date": [],
+            "dim_activated": [
+              {
+                "name": "Not Activated",
+                "srm": 0.9303770922579987,
+                "variationUnits": [66, 65]
+              },
+              {
+                "name": "Activated",
+                "srm": 0.00015787120307242386,
+                "variationUnits": [2314, 2064]
+              }
+            ]
+          }
+        }
+      },
+      "results": [],
+      "metricRegressionAdjustmentStatuses": []
+    },
+    "noSignificance": {
       "id": "snp_dd4g1lsim0umhyk5",
       "organization": "org_dd4g20lalsnhhpa2",
       "experiment": "exp_dd4gxd4lyeluxct",
