@@ -15,17 +15,21 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    projects?.forEach(async (projectId) => {
-      // Ensure the project exists
-      const project = await req.context.models.projects.getById(projectId);
-      if (!project) {
-        throw new Error("Project does not exist");
-      }
-      // Ensure project is a part of the organization
-      if (project.organization !== req.organization.id) {
-        throw new Error("Project does not belong to this organization");
-      }
-    });
+    if (projects) {
+      await Promise.all(
+        projects.map(async (projectId) => {
+          // Ensure the project exists
+          const project = await req.context.models.projects.getById(projectId);
+          if (!project) {
+            throw new Error("Project does not exist");
+          }
+          // Ensure project is a part of the organization
+          if (project.organization !== req.organization.id) {
+            throw new Error("Project does not belong to this organization");
+          }
+        })
+      );
+    }
 
     let { type } = req.body;
 

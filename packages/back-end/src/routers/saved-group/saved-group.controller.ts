@@ -64,17 +64,21 @@ export const postSavedGroup = async (
     context.permissions.throwPermissionError();
   }
 
-  projects?.forEach(async (projectId) => {
-    // Ensure the project exists
-    const project = await context.models.projects.getById(projectId);
-    if (!project) {
-      throw new Error("Project does not exist");
-    }
-    // Ensure project is a part of the organization
-    if (project.organization !== org.id) {
-      throw new Error("Project does not belong to this organization");
-    }
-  });
+  if (projects) {
+    await Promise.all(
+      projects.map(async (projectId) => {
+        // Ensure the project exists
+        const project = await context.models.projects.getById(projectId);
+        if (!project) {
+          throw new Error("Project does not exist");
+        }
+        // Ensure project is a part of the organization
+        if (project.organization !== org.id) {
+          throw new Error("Project does not belong to this organization");
+        }
+      })
+    );
+  }
 
   const uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
@@ -463,17 +467,21 @@ export const putSavedGroup = async (
     fieldsToUpdate.description = description;
   }
   if (!isEqual(savedGroup.projects, projects)) {
-    projects?.forEach(async (projectId) => {
-      // Ensure the project exists
-      const project = await context.models.projects.getById(projectId);
-      if (!project) {
-        throw new Error("Project does not exist");
-      }
-      // Ensure project is a part of the organization
-      if (project.organization !== org.id) {
-        throw new Error("Project does not belong to this organization");
-      }
-    });
+    if (projects) {
+      await Promise.all(
+        projects.map(async (projectId) => {
+          // Ensure the project exists
+          const project = await context.models.projects.getById(projectId);
+          if (!project) {
+            throw new Error("Project does not exist");
+          }
+          // Ensure project is a part of the organization
+          if (project.organization !== org.id) {
+            throw new Error("Project does not belong to this organization");
+          }
+        })
+      );
+    }
     fieldsToUpdate.projects = projects;
   }
 
