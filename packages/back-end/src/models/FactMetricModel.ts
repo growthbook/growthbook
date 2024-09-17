@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
+  CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
   LegacyFactMetricInterface,
@@ -75,6 +76,42 @@ export class FactMetricModel extends BaseClass {
     }
 
     return newDoc;
+  }
+
+  public async getByFactTableId(
+    orgId: string,
+    factTableId: string
+  ): Promise<FactMetricInterface[]> {
+    const query = {
+      $and: [
+        { organization: orgId },
+        {
+          $or: [
+            { "numerator.factTableId": factTableId },
+            { "denominator.factTableId": factTableId },
+          ],
+        },
+      ],
+    };
+    return await this._find(query);
+  }
+
+  public async createFactMetrics(metricsToCreate: CreateFactMetricProps[]) {
+    const docs: FactMetricInterface[] = [];
+    for (const factMetricToCreate of metricsToCreate) {
+      docs.push(await this.getDocFromRawData(factMetricToCreate));
+    }
+
+    const { insertedIds } = await this._dangerousGetCollection().insertMany(
+      docs
+    );
+
+    return {
+      allFactMetricsToInsert: docs,
+      insertedFactMetrics: await this._find({
+        _id: { $in: Object.values(insertedIds) },
+      }),
+    };
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {

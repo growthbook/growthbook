@@ -9,6 +9,7 @@ import {
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
+  postAutoFactMetricsPropsValidator,
 } from "./fact-table.validators";
 import * as rawFactTableController from "./fact-table.controller";
 
@@ -89,6 +90,21 @@ router.delete(
     params: filterParams,
   }),
   factTableController.deleteFactFilter
+);
+
+router.get(
+  "/fact-tables/:id/auto-metrics",
+  validateRequestMiddleware({ params: factTableParams }),
+  factTableController.getFactMetricsFromFactTable
+);
+
+router.post(
+  "/fact-tables/auto-metrics/:id",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: postAutoFactMetricsPropsValidator,
+  }),
+  factTableController.postAutoFactMetrics
 );
 
 router.post("/fact-metrics", factTableController.postFactMetric);

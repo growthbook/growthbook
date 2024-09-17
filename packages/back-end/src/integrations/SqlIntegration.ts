@@ -71,6 +71,7 @@ import {
   DropTableQueryResponse,
   DropTableQueryParams,
   TestQueryParams,
+  AutoFactMetricToCreate,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
@@ -3578,6 +3579,103 @@ export default abstract class SqlIntegration
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
+
+  factMetricAlreadyExists(
+    existingFactMetrics: FactMetricInterface[],
+    autoFactMetric: AutoFactMetricToCreate
+  ): boolean {
+    return existingFactMetrics.some((existing) => {
+      //TODO: This logic is pretty simple and could be improved
+      return (
+        existing.metricType === autoFactMetric.metricType &&
+        existing.numerator.column === autoFactMetric.numerator.column
+      );
+    });
+  }
+
+  getAutoFactMetricsToCreate(
+    existingFactMetrics: FactMetricInterface[],
+    factTable: FactTableInterface
+  ): AutoFactMetricToCreate[] {
+    const event = factTable.eventName;
+    // based on these docs
+    // - https://support.google.com/analytics/answer/9267735?hl=en&ref_topic=13367566&sjid=16477269010846037969-NA
+    // - https://www.rudderstack.com/docs/event-spec/standard-events/
+    // - https://www.rudderstack.com/docs/event-spec/ecommerce-events-spec/
+    // - https://segment.com/docs/connections/spec/semantic/
+    // - https://segment.com/docs/connections/spec/b2b-saas/
+    // - https://segment.com/docs/connections/spec/ecommerce/v2/
+    const invertedEvents: string[] = [
+      "refund",
+      "disqualify_lead",
+      "app_remove",
+      "app_store_refund",
+      "app_store_subscription_cancel",
+      "error",
+      "Product Removed",
+      "Order Refunded",
+      "Order Cancelled",
+      "Coupon Denied",
+      "Account Deleted",
+      "Acount Removed User",
+      "Application Uninstalled",
+      "Application Crashed",
+      "Push Notification Bounced",
+      "Email Bounced",
+      "Email Marked as Spam",
+      "Unsubscribed",
+    ];
+
+    const inverse = invertedEvents.includes(event);
+
+    const autoFactMetricsToCreate: AutoFactMetricToCreate[] = [];
+
+    // Create Proportion Metric
+    autoFactMetricsToCreate.push({
+      name: `${event} count`,
+      metricType: "proportion",
+      shouldCreate: true,
+      alreadyExists: false,
+      inverse,
+      numerator: {
+        factTableId: factTable.id,
+        column: "$$distinctUsers",
+        filters: [],
+      },
+      denominator: null,
+      datasource: factTable.datasource,
+    });
+
+    // Create Mean Metric
+    autoFactMetricsToCreate.push({
+      name: `${event} mean`,
+      metricType: "mean",
+      shouldCreate: true,
+      inverse,
+      alreadyExists: false,
+      numerator: {
+        factTableId: factTable.id,
+        column: "$$count",
+        filters: [],
+      },
+      denominator: null,
+      datasource: factTable.datasource,
+    });
+
+    //TODO: Update logic to support more metrics
+    return autoFactMetricsToCreate.map((factMetricToCreate) => {
+      const alreadyExists = this.factMetricAlreadyExists(
+        existingFactMetrics,
+        factMetricToCreate
+      );
+      return {
+        ...factMetricToCreate,
+        alreadyExists,
+        shouldCreate: !alreadyExists,
+      };
+    });
+  }
+
   getMetricsToCreate(
     result: TrackedEventData,
     schemaFormat: AutoFactTableSchemas,

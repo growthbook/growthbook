@@ -172,3 +172,18 @@ export const testFactFilterPropsValidator = z
     value: z.string(),
   })
   .strict();
+
+export const postAutoFactMetricsPropsValidator = z.object({
+  autoFactMetricsToCreate: z.array(
+    z.object({
+      name: z.string(),
+      metricType: metricTypeValidator,
+      numerator: columnRefValidator,
+      denominator: columnRefValidator.nullable(),
+      datasource: z.string(),
+      inverse: z.boolean(),
+      alreadyExists: z.boolean(),
+      shouldCreate: z.boolean(),
+    })
+  ),
+});

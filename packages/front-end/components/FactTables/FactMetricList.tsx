@@ -5,6 +5,7 @@ import {
 import { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
+import AutoGenerateFactMetricsModal from "@/components/AutoGenerateFactMetricsModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,6 +37,7 @@ export function getMetricsForFactTable(
 export default function FactMetricList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [discoverMetricsOpen, setDiscoverMetricsOpen] = useState(false);
 
   const { apiCall } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -70,6 +72,12 @@ export default function FactMetricList({ factTable }: Props) {
 
   return (
     <>
+      {discoverMetricsOpen && (
+        <AutoGenerateFactMetricsModal
+          setShowAutoGenerateFactMetricsModal={setDiscoverMetricsOpen}
+          factTableId={factTable.id}
+        />
+      )}
       {editMetric && (
         <FactMetricModal
           close={() => setEditMetric(undefined)}
@@ -104,6 +112,21 @@ export default function FactMetricList({ factTable }: Props) {
           </div>
         )}
         <div className="col-auto">
+          {/* MKTODO: Add tooltip here */}
+          <button
+            className="btn btn-outline-info mr-2"
+            onClick={(e) => {
+              e.preventDefault();
+              setDiscoverMetricsOpen(true);
+              // if (!canCreate) return;
+              // setDiscoverFactOpen(true);
+            }}
+            // disabled={
+            //   !canCreate || !dataSourcesThatSupportAutoFactTables.length
+            // }
+          >
+            <strong>Auto-generate Fact Metrics...</strong>
+          </button>
           <Tooltip
             body={
               canCreateMetrics
