@@ -2,7 +2,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -36,13 +36,7 @@ export function getMetricsForFactTable(
 
 export default function FactMetricList({ factTable }: Props) {
   const [newOpen, setNewOpen] = useState(false);
-  const [showArchived, setShowArchived] = useState(
-    factTable.archived ? true : false
-  );
-
-  useEffect(() => {
-    setShowArchived(factTable.archived ? true : false);
-  }, [factTable]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const { apiCall } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -103,7 +97,7 @@ export default function FactMetricList({ factTable }: Props) {
           close={() => setDuplicateMetric(undefined)}
           existing={duplicateMetric}
           duplicate
-          source="fact-table"
+          source="fact-table-duplicate"
         />
       )}
 
