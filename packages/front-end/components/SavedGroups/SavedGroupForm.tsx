@@ -60,7 +60,7 @@ const SavedGroupForm: FC<{
       type,
       values: current.values || [],
       description: current.description || "",
-      projects: current.projects || project ? [project] : [],
+      projects: current.projects || (project ? [project] : []),
     },
   });
 
