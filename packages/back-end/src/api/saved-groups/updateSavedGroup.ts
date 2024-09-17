@@ -18,16 +18,18 @@ export const updateSavedGroup = createApiRequestHandler(
   async (req): Promise<UpdateSavedGroupResponse> => {
     const { name, values, condition, owner, projects } = req.body;
 
-    if (!req.context.permissions.canUpdateSavedGroup({ projects })) {
-      req.context.permissions.throwPermissionError();
-    }
-
     const { id } = req.params;
 
     const savedGroup = await getSavedGroupById(id, req.organization.id);
 
     if (!savedGroup) {
       throw new Error(`Unable to locate the saved-group: ${id}`);
+    }
+
+    if (
+      !req.context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })
+    ) {
+      req.context.permissions.throwPermissionError();
     }
 
     // Sanity check to make sure arguments match the saved group type
@@ -68,6 +70,20 @@ export const updateSavedGroup = createApiRequestHandler(
 
       fieldsToUpdate.condition = condition;
     }
+    if (!isEqual(savedGroup.projects, projects)) {
+      projects?.forEach(async (projectId) => {
+        // Ensure the project exists
+        const project = await req.context.models.projects.getById(projectId);
+        if (!project) {
+          throw new Error("Project does not exist");
+        }
+        // Ensure project is a part of the organization
+        if (project.organization !== req.organization.id) {
+          throw new Error("Project does not belong to this organization");
+        }
+      });
+      fieldsToUpdate.projects = projects;
+    }
 
     // If there are no changes, return early
     if (Object.keys(fieldsToUpdate).length === 0) {
@@ -82,8 +98,12 @@ export const updateSavedGroup = createApiRequestHandler(
       fieldsToUpdate
     );
 
-    // If the values or key change, we need to invalidate cached feature rules
-    if (fieldsToUpdate.values || fieldsToUpdate.condition) {
+    // If the values, condition, or projects change, we need to invalidate cached feature rules
+    if (
+      fieldsToUpdate.values ||
+      fieldsToUpdate.condition ||
+      fieldsToUpdate.projects
+    ) {
       savedGroupUpdated(req.context, savedGroup.id).catch((e) => {
         logger.error(e, "Error refreshing SDK Payload on saved group update");
       });
