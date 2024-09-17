@@ -121,11 +121,8 @@ export function useSearch<T>({
       filtered = fuse.search(searchTerm).map((item) => item.item);
     }
     if (updateSearchQueryOnChange) {
-      window.history.replaceState(
-        null,
-        "",
-        router.pathname + "?q=" + encodeURI(value)
-      );
+      const queryParams = value.length > 0 ? `?q=${encodeURI(value)}` : "";
+      window.history.replaceState(null, "", router.pathname + queryParams);
     }
 
     // Search term filters
