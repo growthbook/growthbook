@@ -125,12 +125,7 @@ export default function FactTablesPage() {
         />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <h1>
-        Fact Tables
-        <Tooltip body="This initial release of Fact Tables is an early preview of what's to come. Expect some rough edges and bugs.">
-          <span className="badge badge-purple border ml-2">beta</span>
-        </Tooltip>
-      </h1>
+      <h1>Fact Tables</h1>
       <div className="mb-3">
         <a
           className="font-weight-bold"
