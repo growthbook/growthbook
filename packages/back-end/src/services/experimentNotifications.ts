@@ -267,10 +267,11 @@ export const notifySignificance = async ({
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotDocument;
 }) => {
-  const lastSnapshot = await getLatestSnapshot(
-    experiment.id,
-    experiment.phases.length - 1
-  );
+  const lastSnapshot = await getLatestSnapshot({
+    experiment: experiment.id,
+    phase: experiment.phases.length - 1,
+    beforeSnapshot: currentSnapshot,
+  });
 
   if (!lastSnapshot) return;
 
