@@ -5,7 +5,7 @@ from typing import List, Literal, Optional, Dict
 import numpy as np
 import random
 from pydantic.dataclasses import dataclass
-from scipy.stats import norm  # type: ignore
+from scipy.stats import norm, chi2  # type: ignore
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
@@ -24,6 +24,7 @@ from gbstats.utils import (
     variance_of_ratios,
     gaussian_credible_interval,
 )
+from gbstats.models.statistics import BanditPeriodData
 
 
 # Configs
@@ -58,7 +59,7 @@ class BanditConfig(BayesianConfig):
 @dataclass
 class BanditResponse:
     users: Optional[List[float]]
-    users_by_period: Optional[List[List[float]]]
+    users_by_period: Optional[List[List[int]]]
     user_percentages_by_period: Optional[List[List[float]]]
     cr: Optional[List[float]]
     ci: Optional[List[List[float]]]
@@ -254,13 +255,18 @@ class Bandits:
     def __init__(
         self,
         stats: Dict[
-            int, List[BanditStatistic]
+            int, BanditPeriodData
         ],  # keys are 0, 1, 2, etc. mapping to periods; values are lists of length n_variations of summary_statistics
         config: BanditConfig,
     ):
-        self.stats = stats
+        self.stats: Dict[int, List[BanditStatistic]] = {
+            period: stats[period].stats for period in range(len(stats))
+        }
         self.config = config
         self.inverse = self.config.inverse
+        self.historical_weights = []
+        for period in range(self.num_periods):
+            self.historical_weights.append(stats[period].weights)
 
     @staticmethod
     def construct_mean(sums: np.ndarray, counts: np.ndarray) -> np.ndarray:
@@ -284,6 +290,10 @@ class Bandits:
     @property
     def array_shape(self) -> tuple:
         return (self.num_periods, self.num_variations)
+
+    @property
+    def historical_weights_array(self) -> np.ndarray:
+        return np.array(self.historical_weights).reshape(self.array_shape)
 
     @staticmethod
     def attribute_array(
@@ -442,6 +452,26 @@ class Bandits:
     def n_samples(self):
         return int(1e4)
 
+    @property
+    def counts_expected(self) -> np.ndarray:
+        counts_expected = np.empty((self.num_periods, self.num_variations))
+        for period in range(self.num_periods):
+            counts_expected[period] = (
+                self.period_counts[period] * self.historical_weights_array[period, :]
+            )
+        return counts_expected
+
+    def compute_srm(self) -> float:
+        resid = self.counts_array - self.counts_expected
+        resid_squared = resid**2
+        positive_expected = self.counts_expected > 0
+        test_stat = np.sum(
+            resid_squared[positive_expected] / self.counts_expected[positive_expected]
+        )
+        df = self.num_periods * (self.num_variations - 1)
+        # raise ValueError([test_stat, df, self.num_periods, self.num_variations, self.counts_array])
+        return float(1 - chi2.cdf(test_stat, df=df))
+
     # given n_periods x n_variations arrays of counts and means, what is the additional reward compared to fixed weight balanced design?
     def compute_additional_reward(self) -> float:
         variation_counts_balanced = np.tile(
@@ -499,7 +529,7 @@ class Bandits:
 
     # each element of the list is a list of length num_variations of user counts specific to a period
     @property
-    def user_counts_by_period(self) -> List[List[float]]:
+    def user_counts_by_period(self) -> List[List[int]]:
         counts_by_period = []
         for period in range(self.num_periods):
             counts_by_period.append(self.counts_array[period, :].tolist())

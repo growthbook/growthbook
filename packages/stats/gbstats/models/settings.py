@@ -25,22 +25,17 @@ class AnalysisSettingsForStatsEngine:
 
 
 @dataclass
-class BanditWeightsByDate:
+class BanditWeightsSinglePeriod:
     date: str
     weights: List[float]
-
-
-@dataclass
-class UserCountsByDate:
-    date: str
-    user_counts: List[float]
 
 
 @dataclass
 class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
-    weights: List[BanditWeightsByDate]
+    weights: List[BanditWeightsSinglePeriod]
+    reweight: bool = True
     decision_metric: str = ""
     bandit_weights_seed: int = 100
     # we can delete the bottom two attributes, which are currently used in sim study testing

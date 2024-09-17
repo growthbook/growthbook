@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, List
 
 import numpy as np
 import scipy.stats
@@ -303,3 +303,9 @@ BanditStatistic = Union[
     RatioStatistic,
     RegressionAdjustedStatistic,
 ]
+
+
+@dataclass
+class BanditPeriodData:
+    stats: List[BanditStatistic]
+    weights: List[float]

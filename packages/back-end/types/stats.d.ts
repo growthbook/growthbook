@@ -68,16 +68,10 @@ export type SingleVariationResult = {
 };
 
 export type BanditSRMData = {
-  weights: {
+  events: {
     date: Date;
     weights: number[];
-  }[];
-  userCounts?: {
-    date: Date;
     user_counts: number[];
-  }[];
-  userPercentages?: {
-    date: Date;
     user_percentages: number[];
   }[];
 };
