@@ -95,9 +95,10 @@ const testCases = [
 ];
 
 describe("Experiment Significance notifications", () => {
-  setupApp();
+  const { isReady } = setupApp();
 
   beforeAll(async () => {
+    await isReady;
     await metrics.map(insertMetric);
     await experiments.map(async (exp) => {
       await ExperimentModel.create(exp);
