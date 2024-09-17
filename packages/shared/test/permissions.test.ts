@@ -117,7 +117,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(false);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
@@ -226,7 +226,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(false);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
@@ -335,7 +335,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(false);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
@@ -444,7 +444,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(false);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
@@ -553,7 +553,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(true);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
@@ -662,7 +662,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(false);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
@@ -771,7 +771,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(true);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
@@ -880,7 +880,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(true);
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
-    expect(p.canUpdateSavedGroup(projectsResource)).toBe(true);
+    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canManageSomeProjects()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);

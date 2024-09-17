@@ -713,9 +713,14 @@ export class Permissions {
   };
 
   public canUpdateSavedGroup = (
-    savedGroup: Pick<SavedGroupInterface, "projects">
+    existing: Pick<SavedGroupInterface, "projects">,
+    updates: Pick<SavedGroupInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageSavedGroups"
+    );
   };
 
   public canDeleteSavedGroup = (

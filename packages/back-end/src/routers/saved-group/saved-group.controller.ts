@@ -60,9 +60,22 @@ export const postSavedGroup = async (
     projects,
   } = req.body;
 
-  if (!context.permissions.canCreateSavedGroup({ projects })) {
+  if (!context.permissions.canCreateSavedGroup({ ...req.body })) {
     context.permissions.throwPermissionError();
   }
+
+  projects?.forEach(async (projectId) => {
+    // Ensure the project exists
+    const project = await context.models.projects.getById(projectId);
+    if (!project) {
+      throw new Error("Project does not exist");
+    }
+    // Ensure project is a part of the organization
+    if (project.organization !== org.id) {
+      throw new Error("Project does not belong to this organization");
+    }
+  });
+
   const uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
@@ -211,9 +224,7 @@ export const postSavedGroupAddItems = async (
     throw new Error("Could not find saved group");
   }
 
-  if (
-    !context.permissions.canUpdateSavedGroup({ projects: savedGroup.projects })
-  ) {
+  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
     context.permissions.throwPermissionError();
   }
 
@@ -313,9 +324,7 @@ export const postSavedGroupRemoveItems = async (
     throw new Error("Could not find saved group");
   }
 
-  if (
-    !context.permissions.canUpdateSavedGroup({ projects: savedGroup.projects })
-  ) {
+  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
     context.permissions.throwPermissionError();
   }
 
@@ -412,9 +421,7 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
-  if (
-    !context.permissions.canUpdateSavedGroup({ projects: savedGroup.projects })
-  ) {
+  if (!context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })) {
     context.permissions.throwPermissionError();
   }
 
@@ -455,8 +462,20 @@ export const putSavedGroup = async (
     }
     fieldsToUpdate.description = description;
   }
-
-  fieldsToUpdate.projects = projects;
+  if (!isEqual(savedGroup.projects, projects)) {
+    projects?.forEach(async (projectId) => {
+      // Ensure the project exists
+      const project = await context.models.projects.getById(projectId);
+      if (!project) {
+        throw new Error("Project does not exist");
+      }
+      // Ensure project is a part of the organization
+      if (project.organization !== org.id) {
+        throw new Error("Project does not belong to this organization");
+      }
+    });
+    fieldsToUpdate.projects = projects;
+  }
 
   // If there are no changes, return early
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -479,8 +498,12 @@ export const putSavedGroup = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  // If the values or condition change, we need to invalidate cached feature rules
-  if (fieldsToUpdate.condition || fieldsToUpdate.values) {
+  // If the values, condition, or projects change, we need to invalidate cached feature rules
+  if (
+    fieldsToUpdate.condition ||
+    fieldsToUpdate.values ||
+    fieldsToUpdate.projects
+  ) {
     savedGroupUpdated(context, savedGroup.id).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on saved group update");
     });
@@ -543,9 +566,7 @@ export const deleteSavedGroup = async (
     return;
   }
 
-  if (
-    !context.permissions.canDeleteSavedGroup({ projects: savedGroup.projects })
-  ) {
+  if (!context.permissions.canDeleteSavedGroup(savedGroup)) {
     context.permissions.throwPermissionError();
   }
 
