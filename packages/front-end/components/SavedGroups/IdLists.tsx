@@ -43,7 +43,7 @@ export default function IdLists({ groups, mutate }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canViewSavedGroupModal(project);
   const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
-    permissionsUtil.canUpdateSavedGroup(savedGroup);
+    permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
   const canDelete = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
     permissionsUtil.canDeleteSavedGroup(savedGroup);
   const { apiCall } = useAuth();
@@ -226,11 +226,10 @@ export default function IdLists({ groups, mutate }: Props) {
                           </td>
                           <td>{s.owner}</td>
                           <td>{ago(s.dateUpdated)}</td>
-                          {canUpdate({ projects: s.projects }) ||
-                          canDelete({ projects: s.projects }) ? (
+                          {canUpdate(s) || canDelete(s) ? (
                             <td style={{ width: 30 }}>
                               <MoreMenu>
-                                {canUpdate({ projects: s.projects }) ? (
+                                {canUpdate(s) ? (
                                   <a
                                     href="#"
                                     className="dropdown-item"
@@ -242,7 +241,7 @@ export default function IdLists({ groups, mutate }: Props) {
                                     Edit
                                   </a>
                                 ) : null}
-                                {canDelete({ projects: s.projects }) ? (
+                                {canDelete(s) ? (
                                   <DeleteButton
                                     displayName="Saved Group"
                                     className="dropdown-item text-danger"
@@ -276,8 +275,8 @@ export default function IdLists({ groups, mutate }: Props) {
                           colSpan={
                             canUpdate({ projects: [project] }) ||
                             canDelete({ projects: [project] })
-                              ? 6
-                              : 5
+                              ? 7
+                              : 6
                           }
                           align={"center"}
                         >
