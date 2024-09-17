@@ -110,6 +110,7 @@ export abstract class QueryRunner<
   } = {};
   private useCache: boolean;
   private queuedQueryTimers: Record<string, NodeJS.Timeout> = {};
+  private queryHeartbeatIntervals: Record<string, NodeJS.Timeout> = {};
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -342,13 +343,11 @@ export abstract class QueryRunner<
           this.onQueryFinish();
         } else {
           if (await this.concurrencyLimitReached()) {
-            this.queuedQueryTimers[query.id] = setTimeout(() => {
-              this.executeQueryWhenReady(
-                query,
-                runCallbacks.run,
-                runCallbacks.process
-              );
-            }, INITIAL_CONCURRENCY_TIMEOUT);
+            this.queueQueryForExecution(
+              query,
+              runCallbacks.run,
+              runCallbacks.process
+            );
           } else {
             await this.executeQuery(
               query,
@@ -439,6 +438,14 @@ export abstract class QueryRunner<
         (q) => q.status === "running" || q.status === "queued"
       )
     ) {
+      const queuedIds = this.model.queries
+        .filter((q) => q.status === "queued")
+        .map((q) => q.query);
+      queuedIds.forEach((qid) => {
+        this.clearQueuedQueryTimer(qid);
+        this.clearHeartbeat(qid);
+      });
+
       const runningIds = this.model.queries
         .filter((q) => q.status === "running")
         .map((q) => q.query);
@@ -479,7 +486,7 @@ export abstract class QueryRunner<
     }
   }
 
-  public async executeQueryWhenReady<
+  public async executeQueryIfReady<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType
   >(
@@ -491,20 +498,22 @@ export abstract class QueryRunner<
     process: (rows: Rows) => ProcessedRows,
     currentTimeout: number = INITIAL_CONCURRENCY_TIMEOUT
   ): Promise<void> {
-    // If too many queries are running against the datastore, use capped exponential backoff to wait until they've finished
+    // If too many queries are running against the datastore
+    // use capped exponential backoff to wait until they've finished
     const concurrencyLimitReached = await this.concurrencyLimitReached();
     if (concurrencyLimitReached) {
       logger.debug(
         `${doc.id}: Query concurrency limit reached, waiting ${currentTimeout} before retrying`
       );
-      this.runCallbacks[doc.id] = { run, process };
-      const nextTimeout = Math.min(currentTimeout * 2, MAX_CONCURRENCY_TIMEOUT);
-      this.queuedQueryTimers[doc.id] = setTimeout(() => {
-        this.executeQueryWhenReady(doc, run, process, nextTimeout);
-      }, currentTimeout);
+      this.queueQueryForExecution(
+        doc,
+        run,
+        process,
+        Math.min(currentTimeout * 2, MAX_CONCURRENCY_TIMEOUT)
+      );
       return;
     }
-    delete this.queuedQueryTimers[doc.id];
+    this.clearQueuedQueryTimer(doc.id);
     return this.executeQuery(doc, run, process);
   }
 
@@ -519,14 +528,6 @@ export abstract class QueryRunner<
     ) => Promise<QueryResponse<Rows>>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<void> {
-    // Update heartbeat for the query once every 30 seconds
-    // This lets us detect orphaned queries where the thread died
-    const timer = setInterval(() => {
-      updateQuery(doc, { heartbeat: new Date() }).catch((e) => {
-        logger.error(e);
-      });
-    }, 30000);
-
     // Run the query in the background
     logger.debug(`Start executing query in background: ${doc.id}`);
     if (doc.status !== "running") {
@@ -544,7 +545,7 @@ export abstract class QueryRunner<
 
     run(doc.query, setExternalId)
       .then(async ({ rows, statistics }) => {
-        clearInterval(timer);
+        this.clearHeartbeat(doc.id);
         logger.debug("Query succeeded: " + doc.id);
         await updateQuery(doc, {
           finishedAt: new Date(),
@@ -556,7 +557,7 @@ export abstract class QueryRunner<
         this.onQueryFinish();
       })
       .catch(async (e) => {
-        clearInterval(timer);
+        this.clearHeartbeat(doc.id);
         logger.debug("Query failed: " + e.message);
         updateQuery(doc, {
           finishedAt: new Date(),
@@ -656,29 +657,31 @@ export abstract class QueryRunner<
     logger.debug("Creating query for: " + name);
     const concurrencyLimitReached = await this.concurrencyLimitReached();
     const dependenciesComplete = dependencies.length === 0;
-    const readyToRun =
-      dependenciesComplete && !runAtEnd && !concurrencyLimitReached;
+    const readyToRun = dependenciesComplete && !runAtEnd;
     const doc = await createNewQuery({
       query,
       queryType,
+      dependencies,
+      runAtEnd,
       datasource: this.integration.datasource.id,
       organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,
-      dependencies: dependencies,
-      running: readyToRun,
-      runAtEnd: runAtEnd,
+      running: readyToRun && !concurrencyLimitReached,
     });
 
+    // Update heartbeat for the query once every 30 seconds
+    // This lets us detect orphaned queries where the thread died
+    this.updateHeartbeatOnInterval(doc);
+
     logger.debug("Created new query " + doc.id + " for " + name);
-    if (readyToRun) {
+    if (readyToRun && !concurrencyLimitReached) {
       this.executeQuery(doc, run, process);
-    } else if (dependenciesComplete && !runAtEnd) {
-      this.queuedQueryTimers[doc.id] = setTimeout(() => {
-        this.executeQueryWhenReady(doc, run, process);
-      }, INITIAL_CONCURRENCY_TIMEOUT);
     } else {
       // save callback methods for execution later
       this.runCallbacks[doc.id] = { run, process };
+      if (readyToRun && concurrencyLimitReached) {
+        this.queueQueryForExecution(doc, run, process);
+      }
     }
 
     return {
@@ -686,6 +689,45 @@ export abstract class QueryRunner<
       query: doc.id,
       status: doc.status,
     };
+  }
+
+  private async updateHeartbeat(
+    doc: QueryInterface
+  ): Promise<QueryInterface | void> {
+    return updateQuery(doc, { heartbeat: new Date() }).catch((e) => {
+      logger.error(e);
+    });
+  }
+
+  private updateHeartbeatOnInterval(doc: QueryInterface, interval = 30000) {
+    return setInterval(() => this.updateHeartbeat(doc), interval);
+  }
+
+  private clearHeartbeat(queryId: string) {
+    clearInterval(this.queryHeartbeatIntervals[queryId]);
+    delete this.queryHeartbeatIntervals[queryId];
+  }
+
+  private queueQueryForExecution<
+    Rows extends RowsType,
+    ProcessedRows extends ProcessedRowsType
+  >(
+    doc: QueryInterface,
+    run: (
+      query: string,
+      setExternalId: ExternalIdCallback
+    ) => Promise<QueryResponse<Rows>>,
+    process: (rows: Rows) => ProcessedRows,
+    currentTimeout = INITIAL_CONCURRENCY_TIMEOUT
+  ) {
+    this.queuedQueryTimers[doc.id] = setTimeout(() => {
+      this.executeQueryIfReady(doc, run, process);
+    }, currentTimeout);
+  }
+
+  private clearQueuedQueryTimer(queryId: string) {
+    clearTimeout(this.queuedQueryTimers[queryId]);
+    delete this.queuedQueryTimers[queryId];
   }
 
   // Limit number of currently running queries
