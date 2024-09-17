@@ -72,10 +72,6 @@ export const postSavedGroup = async (
         if (!project) {
           throw new Error("Project does not exist");
         }
-        // Ensure project is a part of the organization
-        if (project.organization !== org.id) {
-          throw new Error("Project does not belong to this organization");
-        }
       })
     );
   }
@@ -474,10 +470,6 @@ export const putSavedGroup = async (
           const project = await context.models.projects.getById(projectId);
           if (!project) {
             throw new Error("Project does not exist");
-          }
-          // Ensure project is a part of the organization
-          if (project.organization !== org.id) {
-            throw new Error("Project does not belong to this organization");
           }
         })
       );

@@ -81,10 +81,6 @@ export const updateSavedGroup = createApiRequestHandler(
             if (!project) {
               throw new Error("Project does not exist");
             }
-            // Ensure project is a part of the organization
-            if (project.organization !== req.organization.id) {
-              throw new Error("Project does not belong to this organization");
-            }
           })
         );
       }
