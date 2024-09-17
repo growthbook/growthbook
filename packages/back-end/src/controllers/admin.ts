@@ -1,6 +1,6 @@
 import { Response } from "express";
-import { OrganizationInterface } from "@back-end/types/organization";
-import { UserInterface } from "@back-end/types/user";
+import { OrganizationInterface } from "back-end/types/organization";
+import { UserInterface } from "back-end/types/user";
 import { getAllSSOConnections } from "../models/SSOConnectionModel";
 import {
   getAllUsersFiltered,

@@ -10,12 +10,12 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "@back-end/types/stats";
+import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "@back-end/types/experiment-snapshot";
-import { ExperimentReportInterface } from "@back-end/types/report";
+} from "back-end/types/experiment-snapshot";
+import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getCurrentUser } from "./UserContext";
 import {
@@ -26,7 +26,7 @@ import {
   isTelemetryEnabled,
 } from "./env";
 
-type TrackEventProps = Record<string, unknown>;
+export type TrackEventProps = Record<string, unknown>;
 
 export interface TrackSnapshotProps {
   id: string;

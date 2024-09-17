@@ -199,6 +199,18 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/attributes": {
+    /** Get the organization's attributes */
+    get: operations["listAttributes"];
+    /** Create a new attribute */
+    post: operations["postAttribute"];
+  };
+  "/attributes/${property}": {
+    /** Update an attribute */
+    put: operations["putAttribute"];
+    /** Deletes a single attribute */
+    delete: operations["deleteAttribute"];
+  };
   "/members": {
     /** Get all organization members */
     get: operations["listMembers"];
@@ -416,6 +428,18 @@ export interface components {
       toggleOnList: boolean;
       defaultState: boolean;
       projects: (string)[];
+    };
+    Attribute: {
+      property: string;
+      /** @enum {string} */
+      datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+      description?: string;
+      hashAttribute?: boolean;
+      archived?: boolean;
+      enum?: string;
+      /** @enum {string} */
+      format?: "" | "version" | "date" | "isoCountryCode";
+      projects?: (string)[];
     };
     Segment: {
       id: string;
@@ -5583,6 +5607,149 @@ export interface operations {
       };
     };
   };
+  listAttributes: {
+    /** Get the organization's attributes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attributes: ({
+                property: string;
+                /** @enum {string} */
+                datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+                description?: string;
+                hashAttribute?: boolean;
+                archived?: boolean;
+                enum?: string;
+                /** @enum {string} */
+                format?: "" | "version" | "date" | "isoCountryCode";
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postAttribute: {
+    /** Create a new attribute */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The attribute property */
+          property: string;
+          /**
+           * @description The attribute datatype 
+           * @enum {string}
+           */
+          datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+          /** @description The description of the new attribute */
+          description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
+          /** @description Shall the attribute be hashed */
+          hashAttribute?: boolean;
+          enum?: string;
+          /**
+           * @description The attribute's format 
+           * @enum {string}
+           */
+          format?: "" | "version" | "date" | "isoCountryCode";
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attribute: {
+              property: string;
+              /** @enum {string} */
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+              description?: string;
+              hashAttribute?: boolean;
+              archived?: boolean;
+              enum?: string;
+              /** @enum {string} */
+              format?: "" | "version" | "date" | "isoCountryCode";
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putAttribute: {
+    /** Update an attribute */
+    parameters: {
+        /** @description The attribute property */
+      path: {
+        property: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * @description The attribute datatype 
+           * @enum {string}
+           */
+          datatype?: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+          /** @description The description of the new attribute */
+          description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
+          /** @description Shall the attribute be hashed */
+          hashAttribute?: boolean;
+          enum?: string;
+          /**
+           * @description The attribute's format 
+           * @enum {string}
+           */
+          format?: "" | "version" | "date" | "isoCountryCode";
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attribute: {
+              property: string;
+              /** @enum {string} */
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+              description?: string;
+              hashAttribute?: boolean;
+              archived?: boolean;
+              enum?: string;
+              /** @enum {string} */
+              format?: "" | "version" | "date" | "isoCountryCode";
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteAttribute: {
+    /** Deletes a single attribute */
+    parameters: {
+        /** @description The attribute property */
+      path: {
+        property: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedProperty: string;
+          };
+        };
+      };
+    };
+  };
   listMembers: {
     /** Get all organization members */
     parameters: {
@@ -7032,6 +7199,7 @@ export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidato
 export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
 export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
 export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
+export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
@@ -7102,6 +7270,10 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListAttributesResponse = operations["listAttributes"]["responses"]["200"]["content"]["application/json"];
+export type PostAttributeResponse = operations["postAttribute"]["responses"]["200"]["content"]["application/json"];
+export type PutAttributeResponse = operations["putAttribute"]["responses"]["200"]["content"]["application/json"];
+export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];

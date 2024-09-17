@@ -2,10 +2,7 @@
   // This file is not used in compilation. It is here just for a nice editor experience.
   "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@back-end/*": ["../packages/back-end/*"]
-    }
+    "baseUrl": "."
   },
   "exclude": ["./scripts/*.ts"],
   "ts-node": {

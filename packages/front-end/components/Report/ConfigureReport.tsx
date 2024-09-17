@@ -14,7 +14,7 @@ import {
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
-import { DifferenceType } from "@back-end/types/stats";
+import { DifferenceType } from "back-end/types/stats";
 import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
@@ -182,6 +182,7 @@ export default function ConfigureReport({
 
   return (
     <Modal
+      trackingEventModalType=""
       inline={true}
       header=""
       size="fill"

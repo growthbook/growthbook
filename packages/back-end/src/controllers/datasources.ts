@@ -4,7 +4,7 @@ import * as bq from "@google-cloud/bigquery";
 import {
   CreateFactTableProps,
   FactTableInterface,
-} from "@back-end/types/fact-table";
+} from "back-end/types/fact-table";
 import { AuthRequest } from "../types/AuthRequest";
 import { getContextFromReq } from "../services/organizations";
 import {

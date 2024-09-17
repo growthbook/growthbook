@@ -1,4 +1,4 @@
-import { InformationSchemaTablesInterface } from "@back-end/src/types/Integration";
+import { InformationSchemaTablesInterface } from "back-end/src/types/Integration";
 import React, { useEffect, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { useAuth } from "@/services/auth";

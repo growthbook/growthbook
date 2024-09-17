@@ -148,6 +148,7 @@ export default function EditSavedGroupPage() {
       )}
       {addItems && (
         <Modal
+          trackingEventModalType="edit-saved-group-add-items"
           close={() => {
             setAddItems(false);
             setItemsToAdd([]);

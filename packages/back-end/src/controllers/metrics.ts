@@ -1,10 +1,16 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { createMetric, refreshMetric } from "../services/experiments";
+import {
+  _getSnapshots,
+  createMetric,
+  refreshMetric,
+} from "../services/experiments";
 import { MetricInterface } from "../../types/metric";
+import { ExperimentWithSnapshot } from "../../types/experiment-snapshot";
 import {
   getRecentExperimentsUsingMetric,
   getExperimentsByMetric,
+  getExperimentsUsingMetric,
 } from "../models/ExperimentModel";
 import { getContextFromReq } from "../services/organizations";
 import {
@@ -540,3 +546,36 @@ export async function putMetric(
     }),
   });
 }
+
+export const getMetricExperimentResults = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200; data: ExperimentWithSnapshot[] }>
+) => {
+  const context = getContextFromReq(req);
+
+  const experiments = await getExperimentsUsingMetric(
+    context,
+    req.params.id,
+    500
+  );
+
+  const snapshots = await _getSnapshots(context, experiments);
+
+  // TODO simplify data for front-end?
+  const data = experiments.map((e) => ({
+    ...e,
+    dateCreated: e.dateCreated.toISOString(),
+    dateUpdated: e.dateUpdated.toISOString(),
+    phases: e.phases.map((p) => ({
+      ...p,
+      dateStarted: p.dateStarted.toISOString(),
+      dateEnded: p.dateEnded?.toISOString(),
+    })),
+    snapshot: snapshots.find((s) => s.experiment === e.id),
+  }));
+
+  res.status(200).json({
+    status: 200,
+    data,
+  });
+};

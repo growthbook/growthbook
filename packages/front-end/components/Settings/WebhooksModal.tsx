@@ -8,7 +8,7 @@ import {
   WebhookPayloadFormat,
 } from "back-end/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { SDKLanguage } from "@back-end/types/sdk-connection";
+import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -163,6 +163,7 @@ export function CreateSDKWebhookModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header="Create New SDK Webhook"
       open={true}
@@ -524,6 +525,7 @@ const EditSDKWebhooksModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}

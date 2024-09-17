@@ -127,14 +127,14 @@ export async function getRecentQuery(
 export async function getStaleQueries(): Promise<
   { id: string; organization: string }[]
 > {
-  // Queries get a heartbeat updated every 30 seconds while actively running
-  // If there's a fatal error (e.g. Node gets killed), a query could be stuck in a "running" state
+  // Queries get a heartbeat updated every 30 seconds while running or queued
+  // If there's a fatal error (e.g. Node gets killed), a query could be stuck in one of those states
   // This looks for any recent query that missed 2 heartbeats and marks them as failed
   const lastHeartbeat = new Date();
   lastHeartbeat.setSeconds(lastHeartbeat.getSeconds() - 70);
 
   const query = {
-    status: "running",
+    status: { $in: ["running", "queued"] },
     heartbeat: {
       $lt: lastHeartbeat,
     },
