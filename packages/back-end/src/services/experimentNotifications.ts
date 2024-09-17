@@ -258,7 +258,7 @@ const sendSignificanceEmail = async (
   }
 };
 
-export const notifySignificance = async ({
+export const computeExperimentChanges = async ({
   context,
   experiment,
   snapshot: currentSnapshot,
@@ -266,14 +266,14 @@ export const notifySignificance = async ({
   context: Context;
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotDocument;
-}) => {
+}): Promise<ExperimentSignificanceChange[]> => {
   const lastSnapshot = await getLatestSnapshot({
     experiment: experiment.id,
     phase: experiment.phases.length - 1,
     beforeSnapshot: currentSnapshot,
   });
 
-  if (!lastSnapshot) return;
+  if (!lastSnapshot) return [];
 
   const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
   const currentVariations = currentAnalysis?.results?.[0]?.variations;
@@ -286,7 +286,7 @@ export const notifySignificance = async ({
     !lastVariations ||
     !lastAnalysis
   ) {
-    return;
+    return [];
   }
 
   // get the org level settings for significance:
@@ -372,6 +372,24 @@ export const notifySignificance = async ({
       });
     }
   }
+
+  return experimentChanges;
+};
+
+export const notifySignificance = async ({
+  context,
+  experiment,
+  snapshot,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotDocument;
+}) => {
+  const experimentChanges = await computeExperimentChanges({
+    context,
+    experiment,
+    snapshot,
+  });
 
   if (!experimentChanges.length) return;
 
