@@ -281,12 +281,19 @@ export default function EditSavedGroupPage() {
               <div className="mr-2">Projects:</div>
 
               <div>
-                <div className={"d-flex align-items-center"}>
+                {(savedGroup.projects?.length || 0) > 0 ? (
+                  <div className={"d-flex align-items-center"}>
+                    <ProjectBadges
+                      projectIds={savedGroup.projects}
+                      resourceType="saved group"
+                    />
+                  </div>
+                ) : (
                   <ProjectBadges
-                    projectIds={savedGroup.projects}
                     resourceType="saved group"
+                    className="badge-ellipsis short align-middle"
                   />
-                </div>
+                )}
               </div>
             </div>
           )}
