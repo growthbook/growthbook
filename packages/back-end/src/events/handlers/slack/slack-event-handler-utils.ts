@@ -380,6 +380,7 @@ const buildSlackMessageForExperimentDeletedEvent = (
 const buildSlackMessageForExperimentInfoSignificanceEvent = ({
   metricName,
   experimentName,
+  experimentId,
   variationName,
   statsEngine,
   criticalValue,
@@ -417,7 +418,7 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
           type: "mrkdwn",
           text: text({
             metricName: `*${metricName}*`,
-            experimentName: `*${experimentName}*`,
+            experimentName: `[${experimentName}](/experiments/${experimentId})`,
             variationName: `*${variationName}*`,
           }),
         },
