@@ -281,7 +281,7 @@ export default function EditSavedGroupPage() {
               <div className="mr-2">Projects:</div>
 
               <div>
-                {savedGroup.projects?.length ? (
+                {(savedGroup.projects?.length || 0) > 0 ? (
                   <div className={"d-flex align-items-center"}>
                     <ProjectBadges
                       projectIds={savedGroup.projects}
@@ -289,7 +289,10 @@ export default function EditSavedGroupPage() {
                     />
                   </div>
                 ) : (
-                  <strong>None</strong>
+                  <ProjectBadges
+                    resourceType="saved group"
+                    className="badge-ellipsis short align-middle"
+                  />
                 )}
               </div>
             </div>
