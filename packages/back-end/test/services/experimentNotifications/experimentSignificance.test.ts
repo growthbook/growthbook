@@ -28,8 +28,9 @@ jest.mock("../../../src/services/organizations", () => ({
 }));
 
 const testCases = [
+  // negative significance for metric 0 in base snapshot
   {
-    beforeSnapshot: snapshots.base,
+    beforeSnapshot: undefined,
     currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
@@ -37,9 +38,50 @@ const testCases = [
     expected: [
       {
         metricId: snapshots.base.settings.goalMetrics[0],
-        winning: true,
+        winning: false,
       },
     ],
+  },
+  // if snapshot results are identical, no notif
+  {
+    beforeSnapshot: snapshots.base,
+    currentSnapshot: snapshots.base,
+    getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
+    getMetricDefaultsForOrg: [],
+    getPValueThresholdForOrg: 0.4,
+    expected: [],
+  },
+  // if org confidence level is ridiculously strict, no notif
+  {
+    beforeSnapshot: undefined,
+    currentSnapshot: snapshots.base,
+    getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 1e-14 },
+    getMetricDefaultsForOrg: [],
+    getPValueThresholdForOrg: 0.4,
+    expected: [],
+  },
+  // if snapshot before was not significant, fire negative notif
+  {
+    beforeSnapshot: snapshots.nosignificance,
+    currentSnapshot: snapshots.base,
+    getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
+    getMetricDefaultsForOrg: [],
+    getPValueThresholdForOrg: 0.4,
+    expected: [
+      {
+        metricId: snapshots.base.settings.goalMetrics[0],
+        winning: false,
+      },
+    ],
+  },
+  // if snapshot before was significant, but current is not, no notif
+  {
+    beforeSnapshot: snapshots.base,
+    currentSnapshot: snapshots.nosignificance,
+    getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
+    getMetricDefaultsForOrg: [],
+    getPValueThresholdForOrg: 0.4,
+    expected: [],
   },
 ];
 

@@ -135,68 +135,8 @@
       "tags": [],
       "projects": [],
       "conditions": [],
-      "analysis": {
-        "createdAt": "2024-07-09T15:50:12.470Z",
-        "average": 1,
-        "dates": [
-          {
-            "d": "2024-05-11T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 39
-          },
-          {
-            "d": "2024-05-12T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 65
-          },
-          {
-            "d": "2024-05-13T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 123
-          },
-          {
-            "d": "2024-05-14T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 144
-          },
-          {
-            "d": "2024-05-15T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 194
-          },
-          {
-            "d": "2024-05-16T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 219
-          },
-          {
-            "d": "2024-05-17T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 235
-          },
-          {
-            "d": "2024-05-18T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 244
-          }
-        ],
-        "segment": ""
-      },
-      "queries": [
-        {
-          "query": "qry_dd4gxd4lyel7vkz",
-          "status": "succeeded",
-          "name": "metric"
-        }
-      ],
+      "analysis": {},
+      "queries": [],
       "analysisError": "",
       "runStarted": "2024-07-09T15:50:11.368Z",
       "userIdColumns": {
@@ -255,32 +195,8 @@
       "tags": [],
       "projects": [],
       "conditions": [],
-      "analysis": {
-        "createdAt": "2024-07-09T16:07:49.649Z",
-        "average": 1,
-        "dates": [
-          {
-            "d": "2024-05-11T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 11
-          },
-          {
-            "d": "2024-05-12T10:00:00.000Z",
-            "v": 1,
-            "s": 0,
-            "c": 16
-          }
-        ],
-        "segment": ""
-      },
-      "queries": [
-        {
-          "query": "qry_dd4gxd4lyelujcd",
-          "status": "succeeded",
-          "name": "metric"
-        }
-      ],
+      "analysis": {},
+      "queries": [],
       "analysisError": "",
       "runStarted": "2024-07-09T16:07:48.596Z"
     }
@@ -294,23 +210,7 @@
       "dateCreated": "2024-09-09T06:29:44.885Z",
       "runStarted": "2024-09-09T06:29:44.957Z",
       "error": "",
-      "queries": [
-        {
-          "query": "qry_dd4g1lsim0umhyl0",
-          "status": "succeeded",
-          "name": "met_dd4gxd4lyelugrk"
-        },
-        {
-          "query": "qry_dd4g1lsim0umhylu",
-          "status": "succeeded",
-          "name": "met_dd4gxd4lyel6394"
-        },
-        {
-          "query": "qry_dd4g1lsim0umhym4",
-          "status": "succeeded",
-          "name": "traffic"
-        }
-      ],
+      "queries": [],
       "dimension": null,
       "unknownVariations": ["2"],
       "multipleExposures": 673,
@@ -329,7 +229,7 @@
         "experimentId": "checkout-layout",
         "goalMetrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
         "secondaryMetrics": [],
-        "guardrailMetrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
+        "guardrailMetrics": [],
         "regressionAdjustmentEnabled": false,
         "defaultMetricPriorSettings": {
           "override": false,
@@ -515,114 +415,142 @@
           },
           "status": "success",
           "error": ""
-        },
-        {
-          "dateCreated": "2024-09-09T06:29:44.885Z",
-          "results": [
-            {
-              "name": "All",
-              "srm": 0.00015787120307242386,
-              "variations": [
-                {
-                  "users": 2314,
-                  "metrics": {
-                    "met_dd4gxd4lyelugrk": {
-                      "cr": 0.7545375972342264,
-                      "value": 1746,
-                      "users": 2314,
-                      "denominator": 0,
-                      "stats": {
-                        "users": 2314,
-                        "count": 2314,
-                        "stddev": 0.43036102471555987,
-                        "mean": 0.7545375972342264
-                      },
-                      "buckets": []
-                    },
-                    "met_dd4gxd4lyel6394": {
-                      "cr": 1,
-                      "value": 2314,
-                      "users": 2314,
-                      "denominator": 0,
-                      "stats": {
-                        "users": 2314,
-                        "count": 2314,
-                        "stddev": 0,
-                        "mean": 1
-                      },
-                      "buckets": []
-                    }
-                  }
-                },
-                {
-                  "users": 2064,
-                  "metrics": {
-                    "met_dd4gxd4lyelugrk": {
-                      "cr": 0.6637596899224806,
-                      "value": 1370,
-                      "users": 2064,
-                      "denominator": 0,
-                      "stats": {
-                        "users": 2064,
-                        "count": 2064,
-                        "stddev": 0.4724222305909122,
-                        "mean": 0.6637596899224806
-                      },
-                      "expected": -0.09077790731174584,
-                      "uplift": {
-                        "dist": "normal",
-                        "mean": -0.09077790731174584,
-                        "stddev": 0.013717519530868815
-                      },
-                      "ci": [-0.1176637515494735, -0.06389206307401818],
-                      "errorMessage": null,
-                      "chanceToWin": 1.824621462981739e-11,
-                      "risk": [3.6264256378330286e-14, 0.0907779073117821],
-                      "riskType": "absolute",
-                      "buckets": []
-                    },
-                    "met_dd4gxd4lyel6394": {
-                      "cr": 1,
-                      "value": 2064,
-                      "users": 2064,
-                      "denominator": 0,
-                      "stats": {
-                        "users": 2064,
-                        "count": 2064,
-                        "stddev": 0,
-                        "mean": 1
-                      },
-                      "expected": 0,
-                      "uplift": {
-                        "dist": "normal",
-                        "mean": 0,
-                        "stddev": 0
-                      },
-                      "ci": [0, 0],
-                      "errorMessage": "ZERO_NEGATIVE_VARIANCE",
-                      "chanceToWin": 0.5,
-                      "risk": [0, 0],
-                      "riskType": "absolute",
-                      "buckets": []
-                    }
-                  }
-                }
-              ]
-            }
-          ],
-          "settings": {
-            "statsEngine": "bayesian",
-            "dimensions": [],
-            "regressionAdjusted": false,
-            "sequentialTesting": false,
-            "sequentialTestingTuningParameter": 5000,
-            "baselineVariationIndex": 0,
-            "differenceType": "absolute",
-            "pValueThreshold": 0.05
+        }
+      ],
+      "health": {
+        "traffic": {
+          "overall": {
+            "name": "All",
+            "srm": 0.00015787120307242386,
+            "variationUnits": [2314, 2064]
           },
-          "status": "success",
-          "error": ""
+          "dimension": {
+            "dim_exposure_date": [],
+            "dim_activated": [
+              {
+                "name": "Not Activated",
+                "srm": 0.9303770922579987,
+                "variationUnits": [66, 65]
+              },
+              {
+                "name": "Activated",
+                "srm": 0.00015787120307242386,
+                "variationUnits": [2314, 2064]
+              }
+            ]
+          }
+        }
+      },
+      "results": [],
+      "metricRegressionAdjustmentStatuses": []
+    },
+    "nosignificance": {
+      "id": "snp_dd4g1lsim0umhyk5",
+      "organization": "org_dd4g20lalsnhhpa2",
+      "experiment": "exp_dd4gxd4lyeluxct",
+      "phase": 0,
+      "dateCreated": "2024-09-09T06:29:44.885Z",
+      "runStarted": "2024-09-09T06:29:44.957Z",
+      "error": "",
+      "queries": [],
+      "dimension": null,
+      "unknownVariations": ["2"],
+      "multipleExposures": 673,
+      "status": "success",
+      "settings": {
+        "manual": false,
+        "activationMetric": "met_dd4gxd4lyel6394",
+        "attributionModel": "firstExposure",
+        "skipPartialData": false,
+        "segment": "",
+        "queryFilter": "",
+        "datasourceId": "ds_dd4gxd4lyel5js1",
+        "dimensions": [],
+        "startDate": "2023-07-09T16:08:00.000Z",
+        "endDate": "2024-09-09T06:29:44.885Z",
+        "experimentId": "checkout-layout",
+        "goalMetrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
+        "secondaryMetrics": [],
+        "guardrailMetrics": [],
+        "regressionAdjustmentEnabled": false,
+        "defaultMetricPriorSettings": {
+          "override": false,
+          "proper": false,
+          "mean": 123,
+          "stddev": 0.3
         },
+        "exposureQueryId": "user_id",
+        "metricSettings": [
+          {
+            "id": "met_dd4gxd4lyelugrk",
+            "settings": {
+              "datasource": "ds_dd4gxd4lyel5js1",
+              "type": "binomial",
+              "cappingSettings": {
+                "type": "",
+                "value": 0
+              },
+              "sql": "SELECT\n  user_id as user_id,\n  timestamp as timestamp\nFROM\n  {{snakecase eventName}}",
+              "userIdTypes": ["user_id"]
+            },
+            "computedSettings": {
+              "windowSettings": {
+                "delayHours": 0,
+                "type": "conversion",
+                "windowUnit": "weeks",
+                "windowValue": 72
+              },
+              "properPrior": false,
+              "properPriorMean": 123,
+              "properPriorStdDev": 0.3,
+              "regressionAdjustmentDays": 0,
+              "regressionAdjustmentEnabled": false,
+              "regressionAdjustmentAvailable": true,
+              "regressionAdjustmentReason": "disabled in experiment"
+            }
+          },
+          {
+            "id": "met_dd4gxd4lyel6394",
+            "settings": {
+              "datasource": "ds_dd4gxd4lyel5js1",
+              "type": "binomial",
+              "cappingSettings": {
+                "type": "",
+                "value": 0
+              },
+              "sql": "SELECT\n  user_id as user_id,\n  timestamp as timestamp\nFROM\n  {{snakecase eventName}}",
+              "userIdTypes": ["user_id"]
+            },
+            "computedSettings": {
+              "windowSettings": {
+                "delayHours": 0,
+                "type": "conversion",
+                "windowUnit": "hours",
+                "windowValue": 72
+              },
+              "properPrior": false,
+              "properPriorMean": 123,
+              "properPriorStdDev": 0.3,
+              "regressionAdjustmentDays": 0,
+              "regressionAdjustmentEnabled": false,
+              "regressionAdjustmentAvailable": true,
+              "regressionAdjustmentReason": "disabled in experiment"
+            }
+          }
+        ],
+        "variations": [
+          {
+            "id": "0",
+            "weight": 0.5
+          },
+          {
+            "id": "1",
+            "weight": 0.5
+          }
+        ],
+        "coverage": 1
+      },
+      "analyses": [
         {
           "dateCreated": "2024-09-09T06:29:44.885Z",
           "results": [
@@ -675,17 +603,17 @@
                         "stddev": 0.4724222305909122,
                         "mean": 0.6637596899224806
                       },
-                      "expected": -0.8763933768455744,
+                      "expected": -0.12030932274878574,
                       "uplift": {
                         "dist": "normal",
-                        "mean": -0.8763933768455744,
-                        "stddev": 0.13243247855800383
+                        "mean": -0.12030932274878574,
+                        "stddev": 0.01728354786487873
                       },
-                      "ci": [-1.135956265202635, -0.6168304884885139],
+                      "ci": [-0.1541844540890222, -0.08643419140854927],
                       "errorMessage": null,
-                      "chanceToWin": 1.824621462981739e-11,
-                      "risk": [3.6264256378330286e-14, 0.0907779073117821],
-                      "riskType": "absolute",
+                      "chanceToWin": 0.5,
+                      "risk": [4.039301641021347e-15, 0.12030932274878978],
+                      "riskType": "relative",
                       "buckets": []
                     },
                     "met_dd4gxd4lyel6394": {
@@ -709,7 +637,7 @@
                       "errorMessage": "ZERO_NEGATIVE_VARIANCE",
                       "chanceToWin": 0.5,
                       "risk": [0, 0],
-                      "riskType": "absolute",
+                      "riskType": "relative",
                       "buckets": []
                     }
                   }
@@ -724,7 +652,7 @@
             "sequentialTesting": false,
             "sequentialTestingTuningParameter": 5000,
             "baselineVariationIndex": 0,
-            "differenceType": "scaled",
+            "differenceType": "relative",
             "pValueThreshold": 0.05
           },
           "status": "success",
@@ -739,303 +667,7 @@
             "variationUnits": [2314, 2064]
           },
           "dimension": {
-            "dim_exposure_date": [
-              {
-                "name": "2024-05-11",
-                "srm": 0.6170750774519738,
-                "variationUnits": [9, 7]
-              },
-              {
-                "name": "2024-05-12",
-                "srm": 0.029049022161940607,
-                "variationUnits": [13, 4]
-              },
-              {
-                "name": "2024-05-13",
-                "srm": 0.23931654122149526,
-                "variationUnits": [16, 10]
-              },
-              {
-                "name": "2024-05-14",
-                "srm": 0.249817441835948,
-                "variationUnits": [22, 15]
-              },
-              {
-                "name": "2024-05-15",
-                "srm": 0.5716076449533314,
-                "variationUnits": [23, 27]
-              },
-              {
-                "name": "2024-05-16",
-                "srm": 0.661679914866,
-                "variationUnits": [22, 25]
-              },
-              {
-                "name": "2024-05-17",
-                "srm": 0.8814974521910135,
-                "variationUnits": [23, 22]
-              },
-              {
-                "name": "2024-05-18",
-                "srm": 1,
-                "variationUnits": [26, 26]
-              },
-              {
-                "name": "2024-05-19",
-                "srm": 0.0850890728162037,
-                "variationUnits": [35, 22]
-              },
-              {
-                "name": "2024-05-20",
-                "srm": 0.4250306527849277,
-                "variationUnits": [42, 35]
-              },
-              {
-                "name": "2024-05-21",
-                "srm": 0.8161533547581271,
-                "variationUnits": [38, 36]
-              },
-              {
-                "name": "2024-05-22",
-                "srm": 0.122875388479331,
-                "variationUnits": [42, 29]
-              },
-              {
-                "name": "2024-05-23",
-                "srm": 0.17295491798842066,
-                "variationUnits": [52, 39]
-              },
-              {
-                "name": "2024-05-24",
-                "srm": 0.3883232289789248,
-                "variationUnits": [39, 47]
-              },
-              {
-                "name": "2024-05-25",
-                "srm": 0.6325851216960415,
-                "variationUnits": [33, 37]
-              },
-              {
-                "name": "2024-05-26",
-                "srm": 0.379775474840949,
-                "variationUnits": [57, 48]
-              },
-              {
-                "name": "2024-05-27",
-                "srm": 0.18587673236587587,
-                "variationUnits": [63, 49]
-              },
-              {
-                "name": "2024-05-28",
-                "srm": 0.6188233932543241,
-                "variationUnits": [53, 48]
-              },
-              {
-                "name": "2024-05-29",
-                "srm": 0.9263404892511518,
-                "variationUnits": [59, 58]
-              },
-              {
-                "name": "2024-05-30",
-                "srm": 0.922985566918368,
-                "variationUnits": [53, 54]
-              },
-              {
-                "name": "2024-05-31",
-                "srm": 0.5838824207703651,
-                "variationUnits": [63, 57]
-              },
-              {
-                "name": "2024-06-01",
-                "srm": 0.07941062599894222,
-                "variationUnits": [75, 55]
-              },
-              {
-                "name": "2024-06-02",
-                "srm": 0.5279301962697656,
-                "variationUnits": [65, 58]
-              },
-              {
-                "name": "2024-06-03",
-                "srm": 0.6380975269385074,
-                "variationUnits": [54, 59]
-              },
-              {
-                "name": "2024-06-04",
-                "srm": 0.2194915577019878,
-                "variationUnits": [72, 58]
-              },
-              {
-                "name": "2024-06-05",
-                "srm": 0.8596837951986661,
-                "variationUnits": [65, 63]
-              },
-              {
-                "name": "2024-06-06",
-                "srm": 0.5020007185754667,
-                "variationUnits": [67, 75]
-              },
-              {
-                "name": "2024-06-07",
-                "srm": 0.4496917979688909,
-                "variationUnits": [60, 52]
-              },
-              {
-                "name": "2024-06-08",
-                "srm": 0.7900798285930062,
-                "variationUnits": [62, 65]
-              },
-              {
-                "name": "2024-06-09",
-                "srm": 0.012203606552241841,
-                "variationUnits": [92, 61]
-              },
-              {
-                "name": "2024-06-10",
-                "srm": 0.04284024667327113,
-                "variationUnits": [70, 48]
-              },
-              {
-                "name": "2024-06-11",
-                "srm": 0.11666446478102332,
-                "variationUnits": [60, 44]
-              },
-              {
-                "name": "2024-06-12",
-                "srm": 0.028943137847951994,
-                "variationUnits": [78, 53]
-              },
-              {
-                "name": "2024-06-13",
-                "srm": 0.8473896596867143,
-                "variationUnits": [55, 53]
-              },
-              {
-                "name": "2024-06-14",
-                "srm": 0.9146213878996874,
-                "variationUnits": [44, 43]
-              },
-              {
-                "name": "2024-06-15",
-                "srm": 0.7504854193424545,
-                "variationUnits": [46, 43]
-              },
-              {
-                "name": "2024-06-16",
-                "srm": 0.404248494739471,
-                "variationUnits": [50, 42]
-              },
-              {
-                "name": "2024-06-17",
-                "srm": 0.6586874174078845,
-                "variationUnits": [43, 39]
-              },
-              {
-                "name": "2024-06-18",
-                "srm": 0.2272754949999649,
-                "variationUnits": [47, 36]
-              },
-              {
-                "name": "2024-06-19",
-                "srm": 0.8251990670918412,
-                "variationUnits": [40, 42]
-              },
-              {
-                "name": "2024-06-20",
-                "srm": 0.7928489826282048,
-                "variationUnits": [28, 30]
-              },
-              {
-                "name": "2024-06-21",
-                "srm": 0.7054569861112734,
-                "variationUnits": [30, 33]
-              },
-              {
-                "name": "2024-06-22",
-                "srm": 0.901287773180033,
-                "variationUnits": [32, 33]
-              },
-              {
-                "name": "2024-06-23",
-                "srm": 0.7008964458564652,
-                "variationUnits": [32, 29]
-              },
-              {
-                "name": "2024-06-24",
-                "srm": 1,
-                "variationUnits": [27, 27]
-              },
-              {
-                "name": "2024-06-25",
-                "srm": 0.6744240722352938,
-                "variationUnits": [27, 24]
-              },
-              {
-                "name": "2024-06-26",
-                "srm": 0.6682351417952495,
-                "variationUnits": [23, 26]
-              },
-              {
-                "name": "2024-06-27",
-                "srm": 1,
-                "variationUnits": [21, 21]
-              },
-              {
-                "name": "2024-06-28",
-                "srm": 1,
-                "variationUnits": [21, 21]
-              },
-              {
-                "name": "2024-06-29",
-                "srm": 0.8618044330490108,
-                "variationUnits": [17, 16]
-              },
-              {
-                "name": "2024-06-30",
-                "srm": 0.019149571500766127,
-                "variationUnits": [28, 13]
-              },
-              {
-                "name": "2024-07-01",
-                "srm": 0.11718508719813803,
-                "variationUnits": [12, 21]
-              },
-              {
-                "name": "2024-07-02",
-                "srm": 0.5774686624272996,
-                "variationUnits": [16, 13]
-              },
-              {
-                "name": "2024-07-03",
-                "srm": 0.8618044330490108,
-                "variationUnits": [17, 16]
-              },
-              {
-                "name": "2024-07-04",
-                "srm": 0.2971465303484704,
-                "variationUnits": [9, 14]
-              },
-              {
-                "name": "2024-07-05",
-                "srm": 0.6698153575994166,
-                "variationUnits": [12, 10]
-              },
-              {
-                "name": "2024-07-06",
-                "srm": 1,
-                "variationUnits": [12, 12]
-              },
-              {
-                "name": "2024-07-07",
-                "srm": 0.8272593465627113,
-                "variationUnits": [10, 11]
-              },
-              {
-                "name": "2024-07-08",
-                "srm": 0.6698153575994166,
-                "variationUnits": [12, 10]
-              }
-            ],
+            "dim_exposure_date": [],
             "dim_activated": [
               {
                 "name": "Not Activated",

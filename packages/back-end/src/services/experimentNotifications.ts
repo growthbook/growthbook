@@ -267,27 +267,21 @@ export const computeExperimentChanges = async ({
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotDocument;
 }): Promise<ExperimentSignificanceChange[]> => {
+  const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
+  const currentVariations = currentAnalysis?.results?.[0]?.variations;
+  if (!currentAnalysis || !currentVariations) {
+    return [];
+  }
+
   const lastSnapshot = await getLatestSnapshot({
     experiment: experiment.id,
     phase: experiment.phases.length - 1,
     beforeSnapshot: currentSnapshot,
   });
-
-  if (!lastSnapshot) return [];
-
-  const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
-  const currentVariations = currentAnalysis?.results?.[0]?.variations;
-  const lastAnalysis = getSnapshotAnalysis(lastSnapshot);
+  const lastAnalysis = lastSnapshot
+    ? getSnapshotAnalysis(lastSnapshot)
+    : undefined;
   const lastVariations = lastAnalysis?.results?.[0]?.variations;
-
-  if (
-    !currentAnalysis ||
-    !currentVariations ||
-    !lastVariations ||
-    !lastAnalysis
-  ) {
-    return [];
-  }
 
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
@@ -298,10 +292,10 @@ export const computeExperimentChanges = async ({
   const experimentChanges: ExperimentSignificanceChange[] = [];
 
   const currentBaselineVariation = currentVariations[0];
-  const lastBaselineVariation = lastVariations[0];
+  const lastBaselineVariation = lastVariations?.[0];
   for (let i = 1; i < currentVariations.length; i++) {
     const curVar = currentVariations[i];
-    const lastVar = lastVariations[i];
+    const lastVar = lastVariations?.[i];
 
     for (const m in curVar.metrics) {
       const lastBaselineMetric = lastBaselineVariation?.metrics?.[m];
@@ -331,7 +325,7 @@ export const computeExperimentChanges = async ({
       });
 
       const { resultsStatus: lastResultsStatus } =
-        lastBaselineMetric && lastMetric
+        lastBaselineMetric && lastMetric && lastAnalysis
           ? getMetricResultStatus({
               metric,
               metricDefaults,
