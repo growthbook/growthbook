@@ -105,6 +105,8 @@ import { OrganizationSettings, ReqContext } from "../../types/organization";
 import { CreateURLRedirectProps } from "../../types/url-redirect";
 import { logger } from "../util/logger";
 
+export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
+
 export async function getExperiments(
   req: AuthRequest<
     unknown,
@@ -614,7 +616,7 @@ export async function postExperiments(
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       // This is doing an expensive analytics SQL query, so may take a long time
       // Set timeout to 30 minutes
-      req.setTimeout(30 * 60 * 1000);
+      req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
         await createExperimentSnapshot({
@@ -1978,7 +1980,7 @@ export async function postSnapshot(
 
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
+  req.setTimeout(SNAPSHOT_TIMEOUT);
 
   try {
     const snapshot = await createExperimentSnapshot({

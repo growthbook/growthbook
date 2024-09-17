@@ -4,7 +4,7 @@ import { getExperimentById } from "../../models/ExperimentModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postExperimentSnapshotValidator } from "../../validators/openapi";
-import { createExperimentSnapshot } from "../../controllers/experiments";
+import { createExperimentSnapshot, SNAPSHOT_TIMEOUT } from "../../controllers/experiments";
 
 // TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(
@@ -43,22 +43,23 @@ export const postExperimentSnapshot = createApiRequestHandler(
     if (!experiment.phases.length) {
       throw new Error(`Experiment has no phases`);
     }
-    // use last phase by default
-    const phase = experiment.phases.length - 1;
-    const dimension = undefined;
-    const useCache = true;
+
+    const createSnapshotPayload = {
+      // use last phase by default
+      phase: experiment.phases.length - 1,
+      dimension: undefined,
+      useCache: true,
+    }
 
     // This is doing an expensive analytics SQL query, so may take a long time
     // Set timeout to 30 minutes
-    req.setTimeout(30 * 60 * 1000);
+    req.setTimeout(SNAPSHOT_TIMEOUT);
 
     const snapshot = await createExperimentSnapshot({
       context,
       experiment,
       datasource,
-      dimension,
-      phase,
-      useCache: true,
+      ...createSnapshotPayload
     });
 
     await req.audit({
@@ -68,9 +69,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
         id: experiment.id,
       },
       details: auditDetailsCreate({
-        phase,
-        dimension,
-        useCache,
+        ...createSnapshotPayload,
         manual: false,
       }),
     });

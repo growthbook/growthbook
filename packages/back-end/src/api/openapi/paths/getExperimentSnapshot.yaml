@@ -13,7 +13,7 @@ get:
   x-codeSamples:
     - lang: "cURL"
       source: |
-        curl -X GET https://api.growthbook.io/api/v1/snapshots/snp_1234/ \
+        curl -X GET https://api.growthbook.io/api/v1/snapshots/snp_1234 \
           -u secret_abc123DEF456:
   responses:
     "200":
