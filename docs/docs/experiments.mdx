@@ -47,7 +47,7 @@ handle all of this for you, and you can also serve client-side A/B test via our 
 Client-side A/B tests are great for testing visual changes to your application, but they do have some drawbacks. One of
 the most common issues is caused by the delay in loading the specific variation to a user, which may cause a flash or
 flickering as the experiment loads. This can be reduced by using inline-experiments, or by moving the GrowthBook SDK
-code higher in the code so it loads at time or before the page. Sometimes the hashing attribute may not be
+code higher in the code so it loads at the same time or before the page. Sometimes the hashing attribute may not be
 available until your tracking software has loaded, and you may need to use a custom tracking id.
 
 ### Feature Flags
