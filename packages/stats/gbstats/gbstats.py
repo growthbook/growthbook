@@ -716,13 +716,15 @@ def get_bandit_result(
 ) -> BanditResult:
     b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "All")
     bandit_srm_data = create_default_srm_data(bandit_settings)
+    historical_weights = [w.weights for w in bandit_settings.weights]
+    updated_weights = historical_weights[-1]
     if b:
         if any(value is None for value in b.stats.values()):
             update_str = "not updated"
             error_str = "not all statistics are instance of type BanditStatistic"
             return BanditResult(
                 singleVariationResults=None,
-                weights=bandit_settings.weights[-1].weights,
+                weights=updated_weights,
                 srm=0,
                 banditSRMData=bandit_srm_data,
                 bestArmProbabilities=None,
@@ -747,9 +749,9 @@ def get_bandit_result(
                 )
             ]
             dates = [w.date for w in bandit_settings.weights]
-            historical_weights = [w.weights for w in bandit_settings.weights]
             if bandit_settings.reweight:
                 historical_weights[-1] = bandit_result.bandit_weights
+                updated_weights = bandit_result.bandit_weights
             bandit_srm_data = [
                 BanditEventSinglePeriod(d, w, c, p)
                 for d, w, c, p in zip(
@@ -762,7 +764,7 @@ def get_bandit_result(
         return BanditResult(
             singleVariationResults=single_variation_results,
             banditSRMData=bandit_srm_data,
-            weights=bandit_result.bandit_weights if bandit_settings.reweight else historical_weights[-1],
+            weights=updated_weights,
             srm=srm_p_value,
             bestArmProbabilities=bandit_result.best_arm_probabilities,
             additionalReward=bandit_result.additional_reward,
@@ -829,9 +831,7 @@ def process_experiment_results(
                         weighted_rows = get_weighted_rows(
                             rows, d.metrics[metric], d.analyses, d.bandit_settings
                         )
-                        if (
-                            metric == d.bandit_settings.decision_metric
-                        ):
+                        if metric == d.bandit_settings.decision_metric:
                             if bandit_result is not None:
                                 raise ValueError("Bandit weights already computed")
                             bandit_result = get_bandit_result(
