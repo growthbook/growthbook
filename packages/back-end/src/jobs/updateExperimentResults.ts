@@ -11,7 +11,6 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
-  determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
@@ -23,7 +22,7 @@ import {
   getContextForAgendaJobByOrgId,
 } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { Changeset, ExperimentInterface } from "../../types/experiment";
+import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
 import { notifyAutoUpdate } from "../services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
@@ -194,33 +193,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     );
 
     if (experiment.type === "multi-armed-bandit") {
-      const changes: Changeset = {};
-
-      switch (experiment.banditPhase) {
-        case "explore":
-          // todo: make sure ad-hoc doesn't trigger the exploit phase
-          // todo: allow scheduled informational updates during explore
-          changes.banditPhase = "exploit";
-          changes.banditPhaseDateStarted = new Date();
-          changes.nextSnapshotAttempt = determineNextBanditSchedule({
-            ...experiment,
-            ...changes,
-          } as ExperimentInterface);
-          break;
-        case "exploit":
-          Object.assign(
-            changes,
-            updateExperimentBanditSettings({
-              experiment,
-              changes,
-              snapshot: currentSnapshot,
-              reweight: true,
-              scheduleNextUpdate: true,
-            })
-          );
-          break;
-      }
-
+      const changes = updateExperimentBanditSettings({
+        experiment,
+        snapshot: currentSnapshot,
+        isScheduled: true,
+      });
       await updateExperiment({
         context,
         experiment,
