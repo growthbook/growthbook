@@ -79,6 +79,7 @@ export type BanditSRMData = {
 export type BanditResult = {
   singleVariationResults?: SingleVariationResult[];
   banditSRMData: BanditSRMData;
+  srm: number;
   weights: number[];
   bestArmProbabilities?: number[];
   additionalReward: number;
