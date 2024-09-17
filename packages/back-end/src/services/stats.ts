@@ -274,11 +274,6 @@ function createStatsEngineData(
         phaseLengthDays
       )
     ),
-    // todo: convert SnapshotBanditSettings to BanditSettingsForStatsEngine
-    // ======
-    // ideally, just some minor formatting changes (camelCase -> snake_case)
-    // todo: BanditSettingsForStatsEngine is missing things like `weights[]` history, `reweight` (bool).
-    // todo: SnapshotBanditSettings is "missing" variation ids. Needed?
     bandit_settings: banditSettings
       ? getBanditSettingsForStatsEngine(banditSettings, analyses[0], variations)
       : undefined,
@@ -293,6 +288,7 @@ export async function runSnapshotAnalysis(
       { id: params.id, data: createStatsEngineData(params) },
     ])
   )?.[0];
+
 
   if (!analysis) {
     throw new Error("Error in stats engine: no rows returned");

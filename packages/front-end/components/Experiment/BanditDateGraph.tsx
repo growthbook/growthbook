@@ -735,7 +735,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 />
                 <GridColumns
                   scale={xScale}
-                  stroke="var(--border-color-200)"
+                  stroke="var(--border-color-300)"
                   height={yMax}
                   tickValues={reweights}
                 />

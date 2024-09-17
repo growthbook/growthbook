@@ -41,7 +41,6 @@ class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
     weights: List[BanditWeightsByDate]
-    reweight: bool = True
     decision_metric: str = ""
     bandit_weights_seed: int = 100
     # we can delete the bottom two attributes, which are currently used in sim study testing

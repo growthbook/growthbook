@@ -367,8 +367,7 @@ export function getSnapshotSettings({
   orgPriorSettings,
   settingsForSnapshotMetrics,
   metricMap,
-  type,
-  banditEventType,
+  reweight,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -376,8 +375,7 @@ export function getSnapshotSettings({
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
-  type?: SnapshotType;
-  banditEventType?: "reweight" | "no-reweight";
+  reweight?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -404,12 +402,7 @@ export function getSnapshotSettings({
   const banditSettings: SnapshotBanditSettings | undefined =
     experiment.type === "multi-armed-bandit"
       ? {
-          reweight:
-            banditEventType === "reweight"
-              ? true
-              : banditEventType === "no-reweight"
-              ? false
-              : type === "standard" && experiment.banditPhase === "exploit",
+          reweight: !!reweight,
           decisionMetric: experiment.goalMetrics?.[0], // todo: needed?
           seed: Math.floor(Math.random() * 100000),
           weights:
@@ -476,7 +469,6 @@ export async function createManualSnapshot({
     settings: analysisSettings,
     settingsForSnapshotMetrics: [],
     metricMap,
-    type: "manual",
   });
 
   const { srm, variations } = await getManualSnapshotData(
@@ -682,21 +674,25 @@ export function updateExperimentBanditSettings({
   if (!changes.phases) {
     changes.phases = [...experiment.phases];
   }
-  const lastIndex = changes.phases.length - 1;
+  const phase = changes.phases.length - 1;
 
   const banditResult: BanditResult | undefined = snapshot?.banditResult;
   const dateCreated = snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
   if (banditResult) {
     if (reweight) {
-      changes.phases[lastIndex].variationWeights = banditResult.weights;
+      // apply the latest weights (SDK level)
+      changes.phases[phase].variationWeights = banditResult.weights;
+    } else {
+      // ignore (revert) the weight changes (for graphing)
+      banditResult.weights = changes.phases[phase].variationWeights;
     }
 
     // log weight change event
-    if (!changes.phases[lastIndex].banditEvents) {
-      changes.phases[lastIndex].banditEvents = [];
+    if (!changes.phases[phase].banditEvents) {
+      changes.phases[phase].banditEvents = [];
     }
-    changes.phases[lastIndex].banditEvents?.push({
+    changes.phases[phase].banditEvents?.push({
       date: dateCreated,
       banditResult: { ...banditResult, reweight },
       snapshotId: snapshot?.id,
@@ -735,7 +731,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   type,
-  banditEventType,
+  reweight,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -747,7 +743,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   type: SnapshotType;
-  banditEventType?: "reweight" | "no-reweight";
+  reweight?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -759,8 +755,7 @@ export async function createSnapshot({
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
     metricMap,
-    type,
-    banditEventType,
+    reweight,
   });
 
   const data: ExperimentSnapshotInterface = {

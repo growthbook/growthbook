@@ -1933,7 +1933,7 @@ async function createExperimentSnapshot({
   phase,
   useCache = true,
   type,
-  banditEventType,
+  reweight,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1942,7 +1942,7 @@ async function createExperimentSnapshot({
   phase: number;
   useCache?: boolean;
   type: SnapshotType;
-  banditEventType?: "reweight" | "no-reweight";
+  reweight?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
@@ -2011,7 +2011,7 @@ async function createExperimentSnapshot({
     metricMap,
     factTableMap,
     type,
-    banditEventType,
+    reweight,
   });
   const snapshot = queryRunner.model;
 
@@ -2294,11 +2294,15 @@ export async function postBanditSnapshot(
       phase,
       useCache: false,
       type: "ad-hoc",
-      banditEventType: reweight ? "reweight" : "no-reweight",
+      reweight,
     });
 
     await queryRunner.waitForResults();
     const snapshot = queryRunner.model;
+
+    if (!snapshot.banditResult) {
+      throw new Error(`Unable to update bandit. (${snapshot.id})`);
+    }
 
     const changes = updateExperimentBanditSettings({
       experiment,

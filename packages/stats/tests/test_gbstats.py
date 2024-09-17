@@ -317,7 +317,6 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     bandit_weights_seed=int(100),
     weight_by_period=True,
     top_two=True,
-    reweight=True,
 )
 
 

@@ -2,7 +2,6 @@ import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { FaGear } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
@@ -46,9 +45,18 @@ const RefreshBanditButton: FC<{
       {loading && longResult && (
         <small className="text-muted mr-3">this may take several minutes</small>
       )}
-      <div className="btn-group">
+      <div className="btn-group position-relative">
         <Button
           color="outline-primary"
+          style={{ width: 150 }}
+          errorClassName="position-absolute small text-danger"
+          errorStyle={{
+            top: 40,
+            left: 0,
+            width: 200,
+            whiteSpace: "normal",
+            lineHeight: "14px",
+          }}
           onClick={async () => {
             // resetFilters?.();
             setLoading(true);
@@ -69,19 +77,15 @@ const RefreshBanditButton: FC<{
             }
           }}
         >
-          <BsArrowRepeat /> {reweight ? "Update Weights" : "Check Results"}
+          <BsArrowRepeat /> {reweight ? "Update Weights" : "Refresh Results"}
         </Button>
         <Dropdown
           uuid="bandit-refresh-type"
           open={open}
           setOpen={setOpen}
-          toggle={
-            <div className="d-inline-block py-2 pl-2">
-              <FaGear />
-            </div>
-          }
-          toggleClassName="btn btn-outline-primary p-0 pr-1"
-          toggleStyle={{ zIndex: "auto" }}
+          toggle={<span style={{ lineHeight: "32px" }} />}
+          toggleClassName="btn btn-outline-primary p-0"
+          toggleStyle={{ zIndex: "auto", width: 25 }}
           className="nowrap py-0"
           header={<div className="text-muted pt-1">Refreshing will...</div>}
         >

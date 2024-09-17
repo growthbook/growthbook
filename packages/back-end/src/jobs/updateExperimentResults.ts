@@ -184,6 +184,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       factTableMap,
       useCache: true,
       type: "standard",
+      reweight: true,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;

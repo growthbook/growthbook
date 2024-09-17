@@ -800,10 +800,7 @@ def process_experiment_results(
                 rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
                     if d.bandit_settings:
-                        if (
-                            metric == d.bandit_settings.decision_metric
-                            and d.bandit_settings.reweight
-                        ):
+                        if metric == d.bandit_settings.decision_metric:
                             if bandit_result is not None:
                                 raise ValueError("Bandit weights already computed")
                             bandit_result = get_bandit_result(
