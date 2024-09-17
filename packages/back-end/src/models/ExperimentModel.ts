@@ -43,7 +43,6 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
-import { number } from "zod";
 
 const COLLECTION = "experiments";
 
@@ -69,7 +68,7 @@ const banditResultObject = {
     },
   ],
   weights: [Number],
-  srm: Number, 
+  srm: Number,
   bestArmProbabilities: [Number],
   additionalReward: Number,
   seed: Number,

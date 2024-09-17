@@ -29,6 +29,7 @@ const banditResultObject = {
     },
   ],
   weights: [Number],
+  srm: Number,
   bestArmProbabilities: [Number],
   additionalReward: Number,
   seed: Number,
