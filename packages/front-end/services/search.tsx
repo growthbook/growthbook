@@ -122,7 +122,11 @@ export function useSearch<T>({
     }
     if (updateSearchQueryOnChange) {
       const queryParams = value.length > 0 ? `?q=${encodeURI(value)}` : "";
-      window.history.replaceState(null, "", router.pathname + queryParams);
+      router
+        .replace(router.pathname + queryParams, undefined, {
+          shallow: true,
+        })
+        .then();
     }
 
     // Search term filters
