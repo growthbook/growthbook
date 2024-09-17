@@ -61,6 +61,7 @@ export const updateFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api"]).optional(),
     columnsError: z.string().nullable().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 
@@ -125,6 +126,7 @@ export const factMetricValidator = z
     tags: z.array(z.string()).default([]),
     projects: z.array(z.string()),
     inverse: z.boolean(),
+    archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
     numerator: columnRefValidator,

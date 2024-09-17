@@ -40,14 +40,14 @@ export default function FactTablePage() {
   const permissionsUtil = usePermissionsUtil();
 
   const {
-    factTables,
+    getFactTableById,
     ready,
     mutateDefinitions,
     getProjectById,
     projects,
     getDatasourceById,
   } = useDefinitions();
-  const factTable = factTables.find((f) => f.id === ftid);
+  const factTable = getFactTableById(ftid as string);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -132,6 +132,13 @@ export default function FactTablePage() {
           { display: factTable.name },
         ]}
       />
+      {factTable.archived && (
+        <div className="alert alert-secondary mb-2">
+          <strong>This Fact Table is archived.</strong> Existing references will
+          continue working, but you will be unable to add metrics from this Fact
+          Table to new experiments.
+        </div>
+      )}
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
@@ -150,6 +157,22 @@ export default function FactTablePage() {
                 }}
               >
                 Edit Fact Table
+              </button>
+              <button
+                className="dropdown-item"
+                onClick={async () => {
+                  await apiCall(
+                    `/fact-tables/${factTable.id}/${
+                      factTable.archived ? "unarchive" : "archive"
+                    }`,
+                    {
+                      method: "POST",
+                    }
+                  );
+                  mutateDefinitions();
+                }}
+              >
+                {factTable.archived ? "Unarchive" : "Archive"} Fact Table
               </button>
               <DeleteButton
                 className="dropdown-item"
