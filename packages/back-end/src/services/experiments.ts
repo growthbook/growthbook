@@ -573,7 +573,11 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export function determineNextBanditSchedule(
   exp: ExperimentInterface
 ): Date | undefined {
-  const start = exp?.banditPhaseDateStarted?.getTime() ?? Date.now();
+  const start = (
+    exp?.banditPhaseDateStarted ??
+    exp.phases?.[exp.phases.length]?.dateStarted ??
+    new Date()
+  ).getTime();
 
   if (exp.banditBurnInValue === undefined) {
     throw new Error(
