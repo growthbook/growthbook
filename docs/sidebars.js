@@ -594,6 +594,11 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/nextjs-and-vercel-feature-flags",
+          label: "Next.js + Vercel Feature Flags",
+        },
+        {
+          type: "doc",
           id: "guide/nextjs-app-router",
           label: "Next.js (App Router)",
         },
