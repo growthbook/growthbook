@@ -133,6 +133,7 @@ const ExperimentsPage = (): React.ReactElement => {
     localStorageKey: "experiments",
     defaultSortField: "date",
     defaultSortDir: -1,
+    updateSearchQueryOnChange: true,
     searchFields: [
       "name^3",
       "trackingKey^2",
@@ -199,6 +200,50 @@ const ExperimentsPage = (): React.ReactElement => {
     },
     filterResults,
   });
+
+  const searchTermFilterExplainations = (
+    <>
+      <p>This search field supports advanced syntax search, including:</p>
+      <ul>
+        <li>
+          <strong>name</strong>: The experiment name (eg: name:~homepage)
+        </li>
+        <li>
+          <strong>id</strong>: The experiment id (eg: name:^exp)
+        </li>
+        <li>
+          <strong>status</strong>: Experiment status, can be one of
+          &apos;stopped&apos;, &apos;running&apos;, &apos;draft&apos;,
+          &apos;archived&apos;
+        </li>
+        <li>
+          <strong>datasource</strong>: Experiment datasource
+        </li>
+        <li>
+          <strong>metric</strong>: Experiment uses the specified metric (eg:
+          metric:~revenue)
+        </li>
+        <li>
+          <strong>owner</strong>: The creator of the experiment (eg: owner:abby)
+        </li>
+        <li>
+          <strong>tag</strong>: Experiments tagged with this tag
+        </li>
+        <li>
+          <strong>project</strong>: The experiment&apos;s project
+        </li>
+        <li>
+          <strong>feature</strong>: The experiment is linked to the specified
+          feature
+        </li>
+        <li>
+          <strong>created</strong>:The experiment&apos;s creation date, in UTC.
+          Date entered is parsed so supports most formats.
+        </li>
+      </ul>
+      <p>Click to see all syntax fields supported in our docs.</p>
+    </>
+  );
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -381,6 +426,14 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
                 <div className="col-auto">
                   <TagsFilter filter={tagsFilter} items={items} />
+                </div>
+                <div className="col-auto">
+                  <Link
+                    href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
+                    target="_blank"
+                  >
+                    <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                  </Link>
                 </div>
                 <div className="col-auto ml-auto">
                   <Toggle
