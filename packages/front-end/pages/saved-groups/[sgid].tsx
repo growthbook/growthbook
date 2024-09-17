@@ -276,7 +276,7 @@ export default function EditSavedGroupPage() {
           <div className="col-auto mr-4">
             Attribute Key: <strong>{savedGroup.attributeKey}</strong>
           </div>
-          {(projects.length > 0 || (savedGroup.projects?.length ?? 0) > 0) && (
+          {projects.length > 0 && (
             <div className="col-auto d-flex mr-4">
               <div className="mr-2">Projects:</div>
 
