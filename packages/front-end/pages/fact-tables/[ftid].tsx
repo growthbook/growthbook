@@ -40,14 +40,14 @@ export default function FactTablePage() {
   const permissionsUtil = usePermissionsUtil();
 
   const {
-    factTables,
+    getFactTableById,
     ready,
     mutateDefinitions,
     getProjectById,
     projects,
     getDatasourceById,
   } = useDefinitions();
-  const factTable = factTables.find((f) => f.id === ftid);
+  const factTable = getFactTableById(ftid as string);
 
   if (!ready) return <LoadingOverlay />;
 
