@@ -17,6 +17,7 @@ from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
     BanditStatistic,
+    ScaledImpactStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import (
@@ -94,7 +95,8 @@ class BayesianABTest(BaseABTest):
         self.inverse = config.inverse
         self.relative = config.difference_type == "relative"
         self.scaled = config.difference_type == "scaled"
-        self.traffic_proportion_b = config.traffic_proportion_b
+        self.traffic_percentage = config.traffic_percentage
+        self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
 
     @abstractmethod
@@ -126,14 +128,18 @@ class BayesianABTest(BaseABTest):
         else:
             return norm.sf(0, mean_diff, std_diff)  # type: ignore
 
-    def scale_result(
-        self, result: BayesianTestResult, p: float, d: float
-    ) -> BayesianTestResult:
+    def scale_result(self, result: BayesianTestResult) -> BayesianTestResult:
         if result.uplift.dist != "normal":
             raise ValueError("Cannot scale relative results.")
-        if p == 0:
+        if (
+            self.phase_length_days == 0
+            or self.traffic_percentage == 0
+            or not isinstance(self.stat_a, ScaledImpactStatistic)
+        ):
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        adjustment = self.stat_b.n / p / d
+        adjustment = self.total_users / (
+            self.traffic_percentage * self.phase_length_days
+        )
         return BayesianTestResult(
             chance_to_win=result.chance_to_win,
             expected=result.expected * adjustment,
@@ -236,9 +242,7 @@ class EffectBayesianABTest(BayesianABTest):
             risk_type="relative" if self.relative else "absolute",
         )
         if self.scaled:
-            result = self.scale_result(
-                result, self.traffic_proportion_b, self.phase_length_days
-            )
+            result = self.scale_result(result)
         return result
 
     @staticmethod

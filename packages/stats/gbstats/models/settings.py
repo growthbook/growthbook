@@ -22,6 +22,7 @@ class AnalysisSettingsForStatsEngine:
     phase_length_days: float = 1
     alpha: float = 0.05
     max_dimensions: int = 20
+    traffic_percentage: float = 1
 
 
 @dataclass

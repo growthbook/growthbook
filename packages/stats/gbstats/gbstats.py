@@ -207,7 +207,8 @@ def get_configured_test(
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
 
     base_config = {
-        "traffic_proportion_b": analysis.weights[test_index],
+        "total_users": row["total_users"],
+        "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
     }

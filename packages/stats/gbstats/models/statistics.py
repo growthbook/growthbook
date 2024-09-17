@@ -305,6 +305,13 @@ BanditStatistic = Union[
 ]
 
 
+ScaledImpactStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+]
+
+
 @dataclass
 class BanditPeriodData:
     stats: List[BanditStatistic]
