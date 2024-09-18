@@ -573,42 +573,53 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export function determineNextBanditSchedule(
   exp: ExperimentInterface
 ): Date | undefined {
-  const start = exp?.banditPhaseDateStarted?.getTime() ?? Date.now();
+  const start = (
+    exp?.banditPhaseDateStarted ??
+    exp.phases?.[exp.phases.length]?.dateStarted ??
+    new Date()
+  ).getTime();
+
+  if (exp.banditBurnInValue === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditBurnInValue is unset."
+    );
+  }
+  if (exp.banditBurnInUnit === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditBurnInUnit is unset."
+    );
+  }
+  if (exp.banditScheduleValue === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditScheduleValue is unset."
+    );
+  }
+  if (exp.banditScheduleUnit === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditScheduleUnit is unset."
+    );
+  }
+
+  const standardHoursMultiple = exp.banditScheduleUnit === "days" ? 24 : 1;
+  const standardInterval =
+    exp.banditScheduleValue * standardHoursMultiple * 60 * 60 * 1000;
+  const elapsedTime = Date.now() - start;
+  const intervalsPassed = Math.floor(elapsedTime / standardInterval);
+  const nextStandardRunDate = new Date(
+    start + (intervalsPassed + 1) * standardInterval
+  );
 
   if (exp.banditPhase === "explore") {
-    if (exp.banditBurnInValue === undefined) {
-      throw new Error(
-        "Cannot schedule next experiment update. banditBurnInValue is unset."
-      );
-    }
-    if (exp.banditBurnInUnit === undefined) {
-      throw new Error(
-        "Cannot schedule next experiment update. banditBurnInUnit is unset."
-      );
-    }
-
-    const hoursMultiple = exp.banditBurnInUnit === "days" ? 24 : 1;
-    return new Date(
-      start + exp.banditBurnInValue * hoursMultiple * 60 * 60 * 1000
+    const burnInHoursMultiple = exp.banditBurnInUnit === "days" ? 24 : 1;
+    const burnInRunDate = new Date(
+      start + exp.banditBurnInValue * burnInHoursMultiple * 60 * 60 * 1000
     );
-  } else if (exp.banditPhase === "exploit") {
-    if (exp.banditScheduleValue === undefined) {
-      throw new Error(
-        "Cannot schedule next experiment update. banditScheduleValue is unset."
-      );
+    if (burnInRunDate < nextStandardRunDate) {
+      return burnInRunDate;
     }
-    if (exp.banditScheduleUnit === undefined) {
-      throw new Error(
-        "Cannot schedule next experiment update. banditScheduleUnit is unset."
-      );
-    }
-
-    const hoursMultiple = exp.banditScheduleUnit === "days" ? 24 : 1;
-    const interval = exp.banditScheduleValue * hoursMultiple * 60 * 60 * 1000;
-    const elapsedTime = Date.now() - start;
-    const intervalsPassed = Math.floor(elapsedTime / interval);
-    return new Date(start + (intervalsPassed + 1) * interval);
   }
+
+  return nextStandardRunDate;
 }
 
 export function resetExperimentBanditSettings({
@@ -660,30 +671,62 @@ export function updateExperimentBanditSettings({
   changes,
   snapshot,
   reweight = false,
-  scheduleNextUpdate = false,
+  isScheduled = false,
 }: {
   experiment: ExperimentInterface;
   changes?: Changeset;
   snapshot?: ExperimentSnapshotInterface;
   reweight?: boolean;
-  scheduleNextUpdate?: boolean;
+  isScheduled?: boolean;
 }): Changeset {
-  if (!changes) {
-    changes = {};
-  }
+  if (!changes) changes = {};
   if (!changes.phases) {
     changes.phases = [...experiment.phases];
   }
   const phase = changes.phases.length - 1;
 
   const banditResult: BanditResult | undefined = snapshot?.banditResult;
-  const dateCreated = snapshot?.analyses?.[0]?.dateCreated ?? new Date();
+  const snapshotDateCreated =
+    snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
+  // Check if we need to move from explore to exploit phase:
+  let startNextBanditPhase = false;
+  if (experiment.banditPhase === "explore") {
+    if (!isScheduled && reweight) {
+      // manual reweights during explore immediately start the exploit phase
+      startNextBanditPhase = true;
+    } else {
+      // if we are past the burn-in period, start the exploit phase
+      const banditPhaseStartDate =
+        experiment?.banditPhaseDateStarted ??
+        experiment.phases[phase]?.dateStarted ??
+        new Date();
+      const hoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
+      const interval =
+        (experiment.banditBurnInValue ?? 0) * hoursMultiple * 60 * 60 * 1000;
+
+      if (
+        snapshotDateCreated.getTime() >
+        banditPhaseStartDate.getTime() + interval
+      ) {
+        if (isScheduled) reweight = true;
+        startNextBanditPhase = true;
+      }
+    }
+  }
+
+  if (startNextBanditPhase) {
+    changes.banditPhase = "exploit";
+    changes.banditPhaseDateStarted = new Date();
+  }
+
+  // Apply the bandit results:
   if (banditResult) {
     if (reweight) {
       // apply the latest weights (SDK level)
       changes.phases[phase].variationWeights = banditResult.weights;
     } else {
+      // todo: remove this case?
       // ignore (revert) the weight changes (for graphing)
       banditResult.weights = changes.phases[phase].variationWeights;
     }
@@ -693,7 +736,7 @@ export function updateExperimentBanditSettings({
       changes.phases[phase].banditEvents = [];
     }
     changes.phases[phase].banditEvents?.push({
-      date: dateCreated,
+      date: snapshotDateCreated,
       banditResult: { ...banditResult, reweight },
       snapshotId: snapshot?.id,
     });
@@ -705,16 +748,14 @@ export function updateExperimentBanditSettings({
   }
 
   // scheduling
-  if (scheduleNextUpdate) {
-    if (
-      changes.banditPhase === "exploit" ||
-      experiment.banditPhase === "exploit"
-    ) {
-      changes.nextSnapshotAttempt = determineNextBanditSchedule({
-        ...experiment,
-        ...changes,
-      } as ExperimentInterface);
-    }
+  if (
+    changes.banditPhase === "exploit" ||
+    experiment.banditPhase === "exploit"
+  ) {
+    changes.nextSnapshotAttempt = determineNextBanditSchedule({
+      ...experiment,
+      ...changes,
+    } as ExperimentInterface);
   }
 
   return changes;
@@ -796,13 +837,15 @@ export async function createSnapshot({
 
   let scheduleNextSnapshot = true;
   if (experiment.type === "multi-armed-bandit" && type !== "standard") {
+    // explore tab actions should never trigger the next schedule for bandits
     scheduleNextSnapshot = false;
   }
 
   if (scheduleNextSnapshot) {
     const nextUpdate =
-      determineNextDate(organization.settings?.updateSchedule || null) ||
-      undefined;
+      (experiment.type !== "multi-armed-bandit"
+        ? determineNextDate(organization.settings?.updateSchedule || null)
+        : determineNextBanditSchedule(experiment)) || undefined;
 
     await updateExperiment({
       context,

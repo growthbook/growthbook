@@ -548,7 +548,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               stroke="#66a9"
             />
             <text
-              x={xScale(exploitDate) - 5}
+              x={xScale(exploitDate) - 10}
               y={yMax + 36}
               fill="#66a"
               textAnchor="middle"

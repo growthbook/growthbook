@@ -51,7 +51,7 @@ const RefreshBanditButton: FC<{
           style={{ width: 150 }}
           errorClassName="position-absolute small text-danger"
           errorStyle={{
-            top: 40,
+            top: 36,
             left: 0,
             width: 200,
             whiteSpace: "normal",
