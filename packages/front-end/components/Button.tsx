@@ -3,7 +3,8 @@ import {
   useState,
   ButtonHTMLAttributes,
   DetailedHTMLProps,
-  ReactNode, CSSProperties,
+  ReactNode,
+  CSSProperties,
 } from "react";
 import clsx from "clsx";
 import LoadingSpinner from "./LoadingSpinner";
@@ -19,6 +20,7 @@ interface Props
   description?: string;
   children: ReactNode;
   loading?: boolean;
+  loadingClassName?: string;
   stopPropagation?: boolean;
   loadingCta?: string;
   errorClassName?: string;
@@ -33,6 +35,7 @@ const Button: FC<Props> = ({
   className,
   disabled,
   loading: _externalLoading,
+  loadingClassName = "btn-secondary disabled",
   stopPropagation,
   loadingCta = "Loading",
   errorClassName = "text-danger ml-2",
@@ -48,7 +51,7 @@ const Button: FC<Props> = ({
       <button
         {...otherProps}
         className={clsx("btn", className, {
-          "btn-secondary disabled": loading,
+          [loadingClassName]: loading,
           [`btn-${color}`]: !loading,
         })}
         disabled={disabled || loading}
@@ -76,7 +79,11 @@ const Button: FC<Props> = ({
           children
         )}
       </button>
-      {error && <pre className={errorClassName} style={errorStyle}>{error}</pre>}
+      {error && (
+        <pre className={errorClassName} style={errorStyle}>
+          {error}
+        </pre>
+      )}
       {!error && !loading && description ? (
         <small>
           <em>{description}</em>

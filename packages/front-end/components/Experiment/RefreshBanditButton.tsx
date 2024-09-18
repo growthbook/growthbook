@@ -2,6 +2,7 @@ import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { FaCaretDown } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
@@ -49,6 +50,7 @@ const RefreshBanditButton: FC<{
         <Button
           color="outline-primary"
           style={{ width: 150 }}
+          loadingClassName="btn-outline-primary disabled"
           errorClassName="position-absolute small text-danger"
           errorStyle={{
             top: 36,
@@ -58,7 +60,6 @@ const RefreshBanditButton: FC<{
             lineHeight: "14px",
           }}
           onClick={async () => {
-            // resetFilters?.();
             setLoading(true);
             setLongResult(false);
 
@@ -83,9 +84,14 @@ const RefreshBanditButton: FC<{
           uuid="bandit-refresh-type"
           open={open}
           setOpen={setOpen}
-          toggle={<span style={{ lineHeight: "32px" }} />}
+          caret={false}
+          toggle={
+            <span className="px-2" style={{ lineHeight: "32px" }}>
+              <FaCaretDown />
+            </span>
+          }
           toggleClassName="btn btn-outline-primary p-0"
-          toggleStyle={{ zIndex: "auto", width: 25 }}
+          toggleStyle={{ zIndex: "auto" }}
           className="nowrap py-0"
           header={<div className="text-muted pt-1">Refreshing will...</div>}
         >

@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
-import { ago } from "shared/dates";
+import { ago, datetime } from "shared/dates";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -31,6 +31,9 @@ export default function BanditSummaryResultsTab({
   );
 
   const phase = experiment.phases?.[experiment.phases.length - 1];
+  const lastEvent =
+    phase?.banditEvents?.[(phase?.banditEvents?.length ?? 0) - 1];
+  const lastRun = lastEvent?.date;
 
   const mid = experiment.goalMetrics[0];
   const { getMetricById } = useDefinitions();
@@ -40,13 +43,7 @@ export default function BanditSummaryResultsTab({
 
   return (
     <>
-      <div className="d-flex align-items-end mt-4 mb-3">
-        <h3 className="mb-1">Bandit Overview</h3>
-        <div className="flex-1" />
-        <div>
-          <RefreshBanditButton mutate={mutate} experiment={experiment} />
-        </div>
-      </div>
+      <h3 className="mt-4 mb-3">Bandit Overview</h3>
       <div className="box pt-3">
         {experiment.status === "draft" && (
           <div className="alert bg-light border mx-3">
@@ -73,10 +70,55 @@ export default function BanditSummaryResultsTab({
 
         {showVisualizations && (
           <>
-            <div className="mx-3 h4 mb-0">
-              {metric
-                ? getRenderLabelColumn(false, "bayesian")("", metric)
-                : null}
+            <div className="d-flex mx-3 align-items-center">
+              <div className="h4 mb-0">
+                {metric
+                  ? getRenderLabelColumn(false, "bayesian")("", metric)
+                  : null}
+              </div>
+
+              <div className="flex-1" />
+
+              <div className="d-flex align-items-center">
+                <div
+                  className="text-muted text-right mr-3"
+                  style={{ maxWidth: 130, fontSize: "0.8em" }}
+                >
+                  <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
+                    last updated
+                  </div>
+                  <div className="d-flex align-items-center">
+                    <div
+                      style={{ lineHeight: 1 }}
+                      title={datetime(lastRun ?? "")}
+                    >
+                      {ago(lastRun ?? "")}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="text-muted text-right mr-3"
+                  style={{ maxWidth: 130, fontSize: "0.8em" }}
+                >
+                  <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
+                    next update
+                  </div>
+                  <div className="d-flex align-items-center">
+                    <div
+                      style={{ lineHeight: 1 }}
+                      title={datetime(experiment.nextSnapshotAttempt ?? "")}
+                    >
+                      {experiment.nextSnapshotAttempt &&
+                      experiment.autoSnapshots ? (
+                        ago(experiment.nextSnapshotAttempt)
+                      ) : (
+                        <em>Not scheduled</em>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <RefreshBanditButton mutate={mutate} experiment={experiment} />
+              </div>
             </div>
             <BanditSummaryTable
               experiment={experiment}
@@ -90,8 +132,8 @@ export default function BanditSummaryResultsTab({
       {showVisualizations && (
         <>
           <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
-          <div className="box px-3 py-3">
-            <div className="d-flex mb-2" style={{ minHeight: 90 }}>
+          <div className="box px-3 py-2">
+            <div className="d-flex mb-4 pb-2">
               <div>
                 <label className="uppercase-title">Chart</label>
                 <ButtonSelectField
@@ -132,46 +174,6 @@ export default function BanditSummaryResultsTab({
                   />
                 </div>
               )}
-              <div className="flex-1" />
-              <div>
-                <label className="uppercase-title mb-0">Bandit Status</label>
-                <table className="table-tiny">
-                  <tbody>
-                    <tr>
-                      <td className="text-muted">Bandit phase:</td>
-                      <td>
-                        {experiment.banditPhase === "explore"
-                          ? "burn-in (explore)"
-                          : experiment.banditPhase === "exploit"
-                          ? "exploit"
-                          : ""}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="text-muted">Update cadence:</td>
-                      <td>
-                        every {experiment.banditScheduleValue ?? ""}{" "}
-                        {experiment.banditScheduleUnit ?? ""}
-                      </td>
-                    </tr>
-                    {["explore", "exploit"].includes(
-                      experiment.banditPhase ?? ""
-                    ) && (
-                      <tr>
-                        <td className="text-muted">Next run:</td>
-                        <td>
-                          {experiment.nextSnapshotAttempt &&
-                          experiment.autoSnapshots ? (
-                            ago(experiment.nextSnapshotAttempt)
-                          ) : (
-                            <em>Not scheduled</em>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
             </div>
             <BanditDateGraph
               experiment={experiment}
