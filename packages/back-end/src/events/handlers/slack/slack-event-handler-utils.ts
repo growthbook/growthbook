@@ -294,6 +294,11 @@ const buildSlackMessageForFeatureDeletedEvent = async (
 export const getExperimentUrlFormatted = (experimentId: string): string =>
   `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
 
+export const getExperimentUrlAndNameFormatted = (
+  experimentId: string,
+  experimentName: string
+): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
+
 const buildSlackMessageForExperimentCreatedEvent = (
   { id: experimentId, name: experimentName }: { id: string; name: string },
   eventId: string
@@ -418,7 +423,10 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
           type: "mrkdwn",
           text: text({
             metricName: `*${metricName}*`,
-            experimentName: `[${experimentName}](/experiments/${experimentId})`,
+            experimentName: getExperimentUrlAndNameFormatted(
+              experimentId,
+              experimentName
+            ),
             variationName: `*${variationName}*`,
           }),
         },
