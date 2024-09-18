@@ -391,7 +391,15 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
   criticalValue,
   winning,
 }: ExperimentInfoSignificancePayload): SlackMessage => {
-  const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
+  const percentFormatter = (v: number) => {
+    if (v > 0.99) {
+      return ">99%";
+    }
+    if (v < 0.01) {
+      return "<1%";
+    }
+    return formatNumber("#0.%", v * 100);
+  };
 
   const text = ({
     metricName,
