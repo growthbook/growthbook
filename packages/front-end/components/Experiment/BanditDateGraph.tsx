@@ -555,7 +555,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               fontSize={12}
               fontStyle={"italic"}
             >
-              Burn-in end
+              Explore end
             </text>
           </g>
         ) : null;

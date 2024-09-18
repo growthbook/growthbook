@@ -575,7 +575,7 @@ export function determineNextBanditSchedule(
 ): Date | undefined {
   const start = (
     exp?.banditPhaseDateStarted ??
-    exp.phases?.[exp.phases.length]?.dateStarted ??
+    exp.phases?.[exp.phases.length - 1]?.dateStarted ??
     new Date()
   ).getTime();
 
@@ -696,7 +696,7 @@ export function updateExperimentBanditSettings({
       // manual reweights during explore immediately start the exploit phase
       startNextBanditPhase = true;
     } else {
-      // if we are past the burn-in period, start the exploit phase
+      // if we are past the explore period, start the exploit phase
       const banditPhaseStartDate =
         experiment?.banditPhaseDateStarted ??
         experiment.phases[phase]?.dateStarted ??

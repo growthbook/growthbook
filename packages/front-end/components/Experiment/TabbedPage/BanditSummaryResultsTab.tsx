@@ -2,14 +2,13 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
-import { ago, datetime } from "shared/dates";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
+import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -30,14 +29,10 @@ export default function BanditSummaryResultsTab({
     "line"
   );
 
-  const phase = experiment.phases?.[experiment.phases.length - 1];
-  const lastEvent =
-    phase?.banditEvents?.[(phase?.banditEvents?.length ?? 0) - 1];
-  const lastRun = lastEvent?.date;
-
   const mid = experiment.goalMetrics[0];
   const { getMetricById } = useDefinitions();
   const metric = getMetricById(mid);
+  const phase = experiment.phases?.[experiment.phases.length - 1];
 
   const showVisualizations = (phase?.banditEvents?.length ?? 0) > 0;
 
@@ -56,8 +51,8 @@ export default function BanditSummaryResultsTab({
           <>
             {experiment.banditPhase === "explore" ? (
               <div className="alert bg-light border mx-3">
-                This bandit experiment is still in its burn-in (explore) phase.
-                Please wait a little while longer.
+                This bandit experiment is still in its <strong>Explore</strong>{" "}
+                stage. Please wait a little while longer.
               </div>
             ) : !phase?.banditEvents?.length ? (
               <div className="alert alert-info mx-3">
@@ -80,44 +75,7 @@ export default function BanditSummaryResultsTab({
               <div className="flex-1" />
 
               <div className="d-flex align-items-center">
-                <div
-                  className="text-muted text-right mr-3"
-                  style={{ maxWidth: 130, fontSize: "0.8em" }}
-                >
-                  <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                    last updated
-                  </div>
-                  <div className="d-flex align-items-center">
-                    <div
-                      style={{ lineHeight: 1 }}
-                      title={datetime(lastRun ?? "")}
-                    >
-                      {ago(lastRun ?? "")}
-                    </div>
-                  </div>
-                </div>
-                <div
-                  className="text-muted text-right mr-3"
-                  style={{ maxWidth: 130, fontSize: "0.8em" }}
-                >
-                  <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                    next update
-                  </div>
-                  <div className="d-flex align-items-center">
-                    <div
-                      style={{ lineHeight: 1 }}
-                      title={datetime(experiment.nextSnapshotAttempt ?? "")}
-                    >
-                      {experiment.nextSnapshotAttempt &&
-                      experiment.autoSnapshots ? (
-                        ago(experiment.nextSnapshotAttempt)
-                      ) : (
-                        <em>Not scheduled</em>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <RefreshBanditButton mutate={mutate} experiment={experiment} />
+                <BanditUpdateStatus experiment={experiment} mutate={mutate} />
               </div>
             </div>
             <BanditSummaryTable

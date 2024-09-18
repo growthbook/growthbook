@@ -3,11 +3,13 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaCaretDown } from "react-icons/fa";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import Dropdown from "@/components/Dropdown/Dropdown";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const RefreshBanditButton: FC<{
   mutate: () => void;
@@ -48,8 +50,8 @@ const RefreshBanditButton: FC<{
       )}
       <div className="btn-group position-relative">
         <Button
-          color="outline-primary"
-          style={{ width: 150 }}
+          color="outline-primary btn-sm"
+          style={{ width: 130 }}
           loadingClassName="btn-outline-primary disabled"
           errorClassName="position-absolute small text-danger"
           errorStyle={{
@@ -78,7 +80,7 @@ const RefreshBanditButton: FC<{
             }
           }}
         >
-          <BsArrowRepeat /> {reweight ? "Update Weights" : "Refresh Results"}
+          <BsArrowRepeat /> {reweight ? "Update Weights" : "Check Results"}
         </Button>
         <Dropdown
           uuid="bandit-refresh-type"
@@ -86,24 +88,36 @@ const RefreshBanditButton: FC<{
           setOpen={setOpen}
           caret={false}
           toggle={
-            <span className="px-2" style={{ lineHeight: "32px" }}>
+            <span className="px-2" style={{ lineHeight: "26px" }}>
               <FaCaretDown />
             </span>
           }
-          toggleClassName="btn btn-outline-primary p-0"
+          toggleClassName="btn btn-outline-primary btn-sm p-0"
           toggleStyle={{ zIndex: "auto" }}
           className="nowrap py-0"
           header={<div className="text-muted pt-1">Refreshing will...</div>}
         >
-          <button
-            className="dropdown-item py-2"
-            onClick={() => {
-              setReweight(true);
-              setOpen(false);
-            }}
+          <Tooltip
+            body={
+              <>
+                Will immediately begin the <strong>Exploit</strong> stage
+              </>
+            }
+            popperStyle={{ marginRight: -25, marginTop: 5 }}
+            shouldDisplay={experiment.banditPhase === "explore"}
+            tipPosition="left"
           >
-            Update variation weights
-          </button>
+            <button
+              className="dropdown-item py-2"
+              onClick={() => {
+                setReweight(true);
+                setOpen(false);
+              }}
+            >
+              <HiOutlineExclamationCircle className="mr-1 text-warning-orange" />
+              Update variation weights
+            </button>
+          </Tooltip>
           <button
             className="dropdown-item py-2"
             onClick={() => {

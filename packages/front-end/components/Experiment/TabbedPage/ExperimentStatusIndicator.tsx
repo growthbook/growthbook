@@ -29,12 +29,7 @@ export default function ExperimentStatusIndicator({
       />
       <div className={`text-${color} ml-2`}>
         {status}
-        {subStatus ? (
-          <>
-            {" "}
-            <small>({subStatus})</small>
-          </>
-        ) : null}
+        {subStatus ? <> ({subStatus})</> : null}
       </div>
     </div>
   );
