@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
+import { BsArrowReturnRight } from "react-icons/bs";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 
@@ -67,9 +68,14 @@ export default function BanditUpdateStatus({
         }
         toggleClassName="p-1 rounded"
       >
-        <div className="px-2 py-1" style={{ minWidth: 320 }}>
-          <table className="table-tiny mb-3">
+        <div className="px-2 pb-1" style={{ minWidth: 320 }}>
+          <table className="table-tiny mb-4">
             <tbody>
+              <tr>
+                <td colSpan={2} className="pt-2">
+                  <span className="uppercase-title">Current update</span>
+                </td>
+              </tr>
               <tr>
                 <td className="text-muted">Last updated at:</td>
                 <td className="nowrap">{datetime(lastEvent?.date ?? "")}</td>
@@ -77,8 +83,14 @@ export default function BanditUpdateStatus({
               {lastReweightEvent ? (
                 <>
                   <tr>
-                    <td className="text-muted">Update type:</td>
-                    <td className="nowrap">{upperFirst(updateType)}</td>
+                    <td className="text-muted ml-2">
+                      <BsArrowReturnRight className="mx-2" />
+                      Update type:
+                    </td>
+                    <td className="nowrap">
+                      {updateType === "refresh" && "Refresh (check results)"}
+                      {updateType === "reweight" && "Re-weight"}
+                    </td>
                   </tr>
                   <tr>
                     <td className="text-muted">Last weights updated:</td>
@@ -91,17 +103,24 @@ export default function BanditUpdateStatus({
               {["explore", "exploit"].includes(
                 experiment.banditStage ?? ""
               ) && (
-                <tr>
-                  <td className="text-muted">Next scheduled update:</td>
-                  <td>
-                    {experiment.nextSnapshotAttempt &&
-                    experiment.autoSnapshots ? (
-                      ago(experiment.nextSnapshotAttempt)
-                    ) : (
-                      <em>Not scheduled</em>
-                    )}
-                  </td>
-                </tr>
+                <>
+                  <tr>
+                    <td colSpan={2} className="pt-3">
+                      <span className="uppercase-title">Scheduling</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">Next scheduled update:</td>
+                    <td>
+                      {experiment.nextSnapshotAttempt &&
+                      experiment.autoSnapshots ? (
+                        ago(experiment.nextSnapshotAttempt)
+                      ) : (
+                        <em>Not scheduled</em>
+                      )}
+                    </td>
+                  </tr>
+                </>
               )}
             </tbody>
             <tbody>
@@ -140,18 +159,6 @@ export default function BanditUpdateStatus({
                 {ago(burnInRunDate)}).
               </p>
             )}
-
-            {experiment.banditStage === "exploit" &&
-            experiment.autoSnapshots &&
-            experiment.nextSnapshotAttempt ? (
-              <p>
-                The next update is scheduled for{" "}
-                <em className="nowrap">
-                  {datetime(experiment.nextSnapshotAttempt)}
-                </em>{" "}
-                ({ago(experiment.nextSnapshotAttempt)}).
-              </p>
-            ) : null}
           </div>
 
           <hr />

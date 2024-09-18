@@ -48,7 +48,7 @@ const RefreshBanditButton: FC<{
     <>
       <div className="d-flex align-items-center justify-content-end">
         <div className="text-muted d-block mr-2" style={{ fontSize: "12px" }}>
-          Manually refresh and
+          Manually update and
         </div>
         <div className="btn-group position-relative">
           <Button
@@ -90,7 +90,7 @@ const RefreshBanditButton: FC<{
             toggleClassName="btn btn-outline-primary btn-sm p-0"
             toggleStyle={{ zIndex: "auto" }}
             className="nowrap py-0"
-            header={<div className="text-muted pt-1">Refreshing will...</div>}
+            header={<div className="text-muted pt-1">Updating will...</div>}
           >
             <button
               className="dropdown-item py-2"
@@ -99,7 +99,7 @@ const RefreshBanditButton: FC<{
                 setOpen(false);
               }}
             >
-              Refresh results only
+              Check results only
             </button>
             <Tooltip
               body={
@@ -134,7 +134,10 @@ const RefreshBanditButton: FC<{
         </div>
       ) : null}
       {error ? (
-        <div className="text-danger text-monospace text-right mt-1 small">
+        <div
+          className="text-danger text-monospace mx-2 mt-2 small"
+          style={{ lineHeight: "14px" }}
+        >
           {error}
         </div>
       ) : null}

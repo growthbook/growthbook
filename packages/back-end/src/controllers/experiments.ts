@@ -2337,7 +2337,7 @@ export async function postBanditSnapshot(
     req.log.error(e, "Failed to create experiment snapshot");
     res.status(400).json({
       status: 400,
-      message: e.message,
+      message: e?.message || e,
     });
   }
 }
