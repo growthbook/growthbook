@@ -8,7 +8,8 @@
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
 | **[experiment.warning](#experimentwarning)** | Triggered when a warning condition is detected on an experiment |
-| **[experiment.info.significance](#experimentinfo.significance)** | Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win) |
+| **[experiment.info.significance](#experimentinfo.significance)** | Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win).
+        Be careful when using this without Sequential Testing as it can lead to stopping experiments too early due to peeking. |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
 
   
@@ -1263,7 +1264,8 @@ Triggered when a warning condition is detected on an experiment
 
 ### experiment.info.significance
 
-Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win)
+Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win).
+        Be careful when using this without Sequential Testing as it can lead to stopping experiments too early due to peeking.
 
 <details>
   <summary>Payload</summary>
