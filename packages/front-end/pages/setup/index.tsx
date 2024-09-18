@@ -278,7 +278,7 @@ export default function SetupFlow() {
           />
         </Page>
         <Page enabled={!datasources.length} display="Select Data Source">
-          <SelectDataSourcePage onSuccess={() => setSetupComplete(true)} />
+          <SelectDataSourcePage />
         </Page>
       </PagedModal>
     </div>

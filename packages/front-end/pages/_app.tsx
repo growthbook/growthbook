@@ -140,8 +140,7 @@ function App({
                       {organizationRequired ? (
                         <GetStartedProvider>
                           <DefinitionsProvider>
-                            {!liteLayout && <Layout />}
-                            {liteLayout && <LayoutLite />}
+                            {liteLayout ? <LayoutLite /> : <Layout />}
                             <main className={`main ${parts[0]}`}>
                               <GuidedGetStartedBar />
                               <OrganizationMessagesContainer />
