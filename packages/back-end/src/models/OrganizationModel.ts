@@ -131,7 +131,7 @@ const organizationSchema = new mongoose.Schema({
   customRoles: {},
   deactivatedRoles: [],
   disabled: Boolean,
-  initialSetupProject: String,
+  setupEventTracker: String,
 });
 
 organizationSchema.index({ "members.id": 1 });

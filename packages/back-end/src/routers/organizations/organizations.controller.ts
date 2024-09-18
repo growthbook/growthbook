@@ -2131,22 +2131,22 @@ export async function putGetStartedChecklistItem(
   });
 }
 
-export async function putSetupProject(
+export async function putSetupEventTracker(
   req: AuthRequest<{
-    project: string;
+    eventTracker: string;
   }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { project } = req.body;
+  const { eventTracker } = req.body;
 
   try {
     await updateOrganization(org.id, {
-      initialSetupProject: project,
+      setupEventTracker: eventTracker,
     });
   } catch (e) {
-    throw new Error("Failed to save inital setup project");
+    throw new Error("Failed to save setup event tracker");
   }
 
   res.status(200).json({

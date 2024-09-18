@@ -14,18 +14,18 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Button from "@/components/Button";
 import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
+import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [useSetupEventTracker, setUseSetupEventTracker] = useState(false);
-  const [
-    setupEventTracker,
-    setSetupEventTracker,
-  ] = useLocalStorage<SchemaFormat | null>(`setup_event_tracker`, null);
+  const { organization } = useUser();
+  const { apiCall } = useAuth();
+  const { setupEventTracker } = organization;
 
   const router = useRouter();
 
@@ -146,7 +146,10 @@ const DataSources: FC = () => {
                   padding: 10,
                 }}
               >
-                <DataSourceLogo eventTracker={setupEventTracker} showLabel />
+                <DataSourceLogo
+                  eventTracker={setupEventTracker as SchemaFormat}
+                  showLabel
+                />
               </div>
               <div className="col mt-4">
                 <div className="row justify-content-center">
@@ -238,7 +241,7 @@ const DataSources: FC = () => {
             name: "My Datasource",
             settings:
               useSetupEventTracker && setupEventTracker
-                ? { schemaFormat: setupEventTracker }
+                ? { schemaFormat: setupEventTracker as SchemaFormat }
                 : {},
             projects: project ? [project] : [],
           }}
@@ -246,7 +249,12 @@ const DataSources: FC = () => {
           onSuccess={async (id) => {
             await mutateDefinitions({});
             setNewModalOpen(false);
-            setSetupEventTracker(null);
+            await apiCall(`/organization/setup-event-tracker`, {
+              method: "PUT",
+              body: JSON.stringify({
+                eventTracker: "",
+              }),
+            });
             await router.push(`/datasources/${id}`);
           }}
           onCancel={() => {

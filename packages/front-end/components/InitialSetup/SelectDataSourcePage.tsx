@@ -8,18 +8,15 @@ import DataSourceLogo, {
 } from "@/components/DataSources/DataSourceLogo";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import styles from "./InitialSetup.module.scss";
 
-const SelectDataSourcePage = () => {
+interface Props {
+  eventTracker: SchemaFormat | null;
+  setEventTracker: (eventTracker: SchemaFormat | null) => void;
+}
+
+const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
   const [inviting, setInviting] = useState(false);
-  const [
-    setupEventTracker,
-    setSetupEventTracker,
-  ] = useLocalStorage<SchemaFormat | null>(`setup_event_tracker`, null);
-  const [eventTracker, setEventTracker] = useState<null | SchemaFormat>(
-    setupEventTracker
-  );
 
   const { refreshOrganization } = useUser();
 
@@ -88,7 +85,6 @@ const SelectDataSourcePage = () => {
                         setEventTracker(null);
                       } else {
                         setEventTracker(eventSchema);
-                        setSetupEventTracker(eventSchema);
                       }
                     }}
                   >

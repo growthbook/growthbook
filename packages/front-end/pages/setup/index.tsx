@@ -8,6 +8,7 @@ import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { useForm } from "react-hook-form";
+import { SchemaFormat } from "back-end/types/datasource";
 import PagedModal from "@/components/Modal/PagedModal";
 import { useUser } from "@/services/UserContext";
 import Page from "@/components/Modal/Page";
@@ -37,6 +38,7 @@ export type ProjectApiResponse = {
 export default function SetupFlow() {
   const [step, setStep] = useState(0);
   const [connection, setConnection] = useState<null | string>(null);
+  const [eventTracker, setEventTracker] = useState<null | SchemaFormat>(null);
   const [SDKConnectionModalOpen, setSDKConnectionModalOpen] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
   const [skipped, setSkipped] = useState<Set<number>>(() => new Set());
@@ -91,6 +93,14 @@ export default function SetupFlow() {
 
   // Mark setup as complete
   const handleSubmit = async () => {
+    if (eventTracker) {
+      await apiCall(`/organization/setup-event-tracker`, {
+        method: "PUT",
+        body: JSON.stringify({
+          eventTracker: eventTracker,
+        }),
+      });
+    }
     setSetupComplete(true);
     // TODO: Tracking here
   };
@@ -259,7 +269,10 @@ export default function SetupFlow() {
           />
         </Page>
         <Page enabled={!datasources.length} display="Select Data Source">
-          <SelectDataSourcePage />
+          <SelectDataSourcePage
+            eventTracker={eventTracker}
+            setEventTracker={setEventTracker}
+          />
         </Page>
       </PagedModal>
     </div>

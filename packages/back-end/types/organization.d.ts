@@ -290,7 +290,7 @@ export interface OrganizationInterface {
   customRoles?: Role[];
   deactivatedRoles?: string[];
   disabled?: boolean;
-  initialSetupProject?: string;
+  setupEventTracker?: string;
 }
 
 export type NamespaceUsage = Record<
