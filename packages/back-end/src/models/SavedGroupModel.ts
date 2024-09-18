@@ -127,6 +127,16 @@ export async function updateSavedGroupById(
   return changes;
 }
 
+export async function removeProjectFromSavedGroups(
+  project: string,
+  organization: string
+) {
+  await SavedGroupModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
+}
+
 export async function deleteSavedGroupById(id: string, organization: string) {
   await SavedGroupModel.deleteOne({
     id,
