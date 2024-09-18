@@ -2,7 +2,11 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  ComputedFeatureInterface,
+  FeatureInterface,
+  FeatureRule,
+} from "back-end/types/feature";
 import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
@@ -191,7 +195,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {featureItems.map((feature) => {
+              {featureItems.map((feature: ComputedFeatureInterface) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))

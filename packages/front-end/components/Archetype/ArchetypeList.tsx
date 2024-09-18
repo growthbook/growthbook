@@ -1,5 +1,5 @@
 import React, { FC, useState } from "react";
-import { ArchetypeInterface } from "@back-end/types/archetype";
+import { ArchetypeInterface } from "back-end/types/archetype";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
