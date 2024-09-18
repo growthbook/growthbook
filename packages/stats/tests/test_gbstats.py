@@ -21,8 +21,12 @@ from gbstats.gbstats import (
     create_bandit_statistics,
     get_weighted_rows,
 )
-from gbstats.models.settings import BanditWeightsByDate
-from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
+from gbstats.models.settings import BanditWeightsSinglePeriod
+from gbstats.models.statistics import (
+    RegressionAdjustedStatistic,
+    SampleMeanStatistic,
+    BanditPeriodData,
+)
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -312,7 +316,10 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
-    weights=[BanditWeightsByDate(date="", weights=[1 / 4] * 4)],
+    weights=[
+        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4),
+        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4),
+    ],
     decision_metric="count_metric",
     bandit_weights_seed=int(100),
     weight_by_period=True,
@@ -828,6 +835,9 @@ class TestBandit(TestCase):
         ]
         self.true_weights = [0.3716, 0.13325, 0.2488, 0.24635]
         self.true_additional_reward = 192.0
+        num_variations = len(self.true_weights)
+        self.constant_weights = [1 / num_variations] * num_variations
+        self.historical_weights = [self.constant_weights, self.constant_weights]
 
     def test_create_bandit_statistics(self):
         df = get_metric_df(
@@ -836,12 +846,12 @@ class TestBandit(TestCase):
             var_names=self.bandit_analysis.var_names,
             bandit=True,
         )
-        result = create_bandit_statistics(df, self.metric)
-        period_0 = []
-        period_1 = []
+        result = create_bandit_statistics(df, self.metric, self.historical_weights)
+        stats_0 = []
+        stats_1 = []
         for d in QUERY_OUTPUT_BANDITS:
             if d["bandit_period"] == 0:
-                period_0.append(
+                stats_0.append(
                     SampleMeanStatistic(
                         n=d["count"],
                         sum=d["main_sum"],
@@ -849,14 +859,17 @@ class TestBandit(TestCase):
                     )
                 )
             if d["bandit_period"] == 1:
-                period_1.append(
+                stats_1.append(
                     SampleMeanStatistic(
                         n=d["count"],
                         sum=d["main_sum"],
                         sum_squares=d["main_sum_squares"],
                     )
                 )
-        result_true = {0: period_0, 1: period_1}
+        result_true = {
+            0: BanditPeriodData(stats_0, self.constant_weights),
+            1: BanditPeriodData(stats_1, self.constant_weights),
+        }
         self.assertEqual(result, result_true)
 
     def test_get_weighted_rows(self):
@@ -884,7 +897,7 @@ class TestBandit(TestCase):
         ]
         self.assertEqual(weighted_rows, weighted_rows_true)
 
-    def test_get_bandit_response(self):
+    def test_get_bandit_result(self):
         result = get_bandit_result(
             self.rows, self.metric, self.analysis, self.bandit_analysis
         )

@@ -613,7 +613,6 @@ def create_bandit_statistics(
 
     num_periods = reduced.shape[0]
     period_stats = {}
-    # raise ValueError([num_periods, historical_weights])
     for i in range(num_periods):
         period_stats[i] = BanditPeriodData(
             create_test_statistics_single_period(reduced.iloc[i, :]),
