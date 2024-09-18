@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { removeProjectFromSavedGroups } from "@back-end/src/models/SavedGroupModel";
+import { removeProjectFromSavedGroups } from "back-end/src/models/SavedGroupModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
