@@ -31,7 +31,9 @@ type Definitions = {
   savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
+  _factTablesIncludingArchived: FactTableInterface[];
   factMetrics: FactMetricInterface[];
+  _factMetricsIncludingArchived: FactMetricInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -74,7 +76,9 @@ const defaultValue: DefinitionContextValue = {
   savedGroups: [],
   projects: [],
   factTables: [],
+  _factTablesIncludingArchived: [],
   factMetrics: [],
+  _factMetricsIncludingArchived: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -142,6 +146,49 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metrics;
   }, [data?.metrics]);
 
+  const activeFactMetrics = useMemo(() => {
+    if (!data || !data.factMetrics) {
+      return [];
+    }
+    return data.factMetrics.filter((m) => {
+      const numeratorFactTable = data.factTables.find(
+        (f) => f.id === m.denominator?.factTableId
+      );
+      const denominatorFactTable = m.denominator?.factTableId
+        ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
+        : null;
+
+      return (
+        !m.archived &&
+        !numeratorFactTable?.archived &&
+        !denominatorFactTable?.archived
+      );
+    });
+  }, [data?.factMetrics]);
+
+  const allFactMetrics = useMemo(() => {
+    if (!data || !data.factMetrics) {
+      return [];
+    }
+    return data.factMetrics;
+  }, [data?.factMetrics]);
+
+  const activeFactTables = useMemo(() => {
+    if (!data || !data.factTables) {
+      return [];
+    }
+
+    return data.factTables.filter((t) => !t.archived);
+  }, [data?.factTables]);
+
+  const allFactTables = useMemo(() => {
+    if (!data || !data.factTables) {
+      return [];
+    }
+
+    return data.factTables;
+  }, [data?.factTables]);
+
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
   const getDimensionById = useGetById(data?.dimensions);
@@ -183,8 +230,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       savedGroups: data.savedGroups,
       projects: data.projects,
       project: filteredProject,
-      factTables: data.factTables,
-      factMetrics: data.factMetrics,
+      factTables: activeFactTables,
+      _factTablesIncludingArchived: allFactTables,
+      factMetrics: activeFactMetrics,
+      _factMetricsIncludingArchived: allFactMetrics,
       setProject,
       getMetricById,
       getDatasourceById,

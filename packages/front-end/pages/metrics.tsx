@@ -62,7 +62,7 @@ const MetricsPage = (): React.ReactElement => {
     getDatasourceById,
     mutateDefinitions,
     _metricsIncludingArchived: inlineMetrics,
-    factMetrics,
+    _factMetricsIncludingArchived: factMetrics,
     project,
     ready,
   } = useDefinitions();
@@ -128,7 +128,7 @@ const MetricsPage = (): React.ReactElement => {
       const item: MetricTableItem = {
         id: m.id,
         managedBy: m.managedBy || "",
-        archived: false,
+        archived: !!m.archived,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
         dateCreated: m.dateCreated,
@@ -138,6 +138,21 @@ const MetricsPage = (): React.ReactElement => {
         tags: m.tags || [],
         isRatio: m.metricType === "ratio",
         type: m.metricType,
+        onArchive: async (archivedState) => {
+          await apiCall(`/fact-metrics/${m.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              archived: archivedState,
+            }),
+          });
+          if (archivedState) {
+            setRecentlyArchived((set) => new Set([...set, m.id]));
+          } else {
+            setRecentlyArchived(
+              (set) => new Set([...set].filter((id) => id !== m.id))
+            );
+          }
+        },
       };
       return item;
     }),

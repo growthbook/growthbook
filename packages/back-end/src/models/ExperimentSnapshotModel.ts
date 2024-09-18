@@ -315,12 +315,14 @@ export async function getLatestSnapshot({
   experiment,
   phase,
   dimension,
+  beforeSnapshot,
   withResults = true,
   type,
 }: {
   experiment: string;
   phase: number;
   dimension?: string;
+  beforeSnapshot?: ExperimentSnapshotDocument;
   withResults?: boolean;
   type?: SnapshotType;
 }): Promise<ExperimentSnapshotInterface | null> {
@@ -340,6 +342,9 @@ export async function getLatestSnapshot({
       status: {
         $in: withResults ? ["success"] : ["success", "running", "error"],
       },
+      ...(beforeSnapshot
+        ? { dateCreated: { $lt: beforeSnapshot.dateCreated } }
+        : {}),
     },
     null,
     {
@@ -347,6 +352,7 @@ export async function getLatestSnapshot({
       limit: 1,
     }
   ).exec();
+
   if (all[0]) {
     return toInterface(all[0]);
   }
@@ -355,6 +361,7 @@ export async function getLatestSnapshot({
   if (withResults) {
     query.results = { $exists: true, $type: "array", $ne: [] };
   }
+
   all = await ExperimentSnapshotModel.find(query, null, {
     sort: { dateCreated: -1 },
     limit: 1,

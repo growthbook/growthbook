@@ -10494,6 +10494,11 @@ cosmiconfig@^7.0.0:
     path-type "^4.0.0"
     yaml "^1.10.0"
 
+country-codes-flags-phone-codes@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/country-codes-flags-phone-codes/-/country-codes-flags-phone-codes-1.1.1.tgz#84c647470de04e59ef0d45d98d7aeac90c3209f9"
+  integrity sha512-90bZHByeKNlLKadeMWLBf8YNL0mHWdO2ESD8ts4ggYwmSo/vY3BGwMUQ2/lTfmMkQNLdIZNP1cjbiXWP9lEYIQ==
+
 create-emotion@^10.0.14, create-emotion@^10.0.27:
   version "10.0.27"
   resolved "https://registry.npmjs.org/create-emotion/-/create-emotion-10.0.27.tgz"

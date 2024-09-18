@@ -2,11 +2,11 @@ import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "@back-end/types/experiment";
-import { VisualChangesetInterface } from "@back-end/types/visual-changeset";
-import { URLRedirectInterface } from "@back-end/types/url-redirect";
+} from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "@back-end/types/idea";
+import { IdeaInterface } from "back-end/types/idea";
 import {
   getAffectedEnvsForExperiment,
   includeExperimentInPayload,

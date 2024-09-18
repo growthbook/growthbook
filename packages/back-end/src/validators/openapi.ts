@@ -16,6 +16,8 @@ export const apiProjectValidator = z.object({ "id": z.string(), "name": z.string
 
 export const apiEnvironmentValidator = z.object({ "id": z.string(), "description": z.string(), "toggleOnList": z.boolean(), "defaultState": z.boolean(), "projects": z.array(z.string()) }).strict()
 
+export const apiAttributeValidator = z.object({ "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "archived": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional() }).strict()
+
 export const apiSegmentValidator = z.object({ "id": z.string(), "owner": z.string(), "datasourceId": z.string(), "identifierType": z.string(), "name": z.string(), "query": z.string().optional(), "dateCreated": z.string(), "dateUpdated": z.string(), "type": z.enum(["SQL","FACT"]).optional(), "factTableId": z.string().optional(), "filters": z.array(z.string()).optional() }).strict()
 
 export const apiFeatureValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "archived": z.boolean(), "description": z.string(), "owner": z.string(), "project": z.string(), "valueType": z.enum(["boolean","string","number","json"]), "defaultValue": z.string(), "tags": z.array(z.string()), "environments": z.record(z.object({ "enabled": z.boolean(), "defaultValue": z.string(), "rules": z.array(z.union([z.object({ "description": z.string(), "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("force"), "value": z.string() }), z.object({ "description": z.string(), "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("rollout"), "value": z.string(), "coverage": z.coerce.number(), "hashAttribute": z.string() }), z.object({ "description": z.string(), "condition": z.string(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("experiment"), "trackingKey": z.string().optional(), "hashAttribute": z.string().optional(), "fallbackAttribute": z.string().optional(), "disableStickyBucketing": z.any().optional(), "bucketVersion": z.coerce.number().optional(), "minBucketVersion": z.coerce.number().optional(), "namespace": z.any().optional(), "coverage": z.coerce.number().optional(), "value": z.array(z.object({ "value": z.string(), "weight": z.coerce.number(), "name": z.string().optional() })).optional() }), z.object({ "description": z.string(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("experiment-ref"), "condition": z.string().optional(), "variations": z.array(z.object({ "value": z.string(), "variationId": z.string() })), "experimentId": z.string() })])), "definition": z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional(), "draft": z.object({ "enabled": z.boolean(), "defaultValue": z.string(), "rules": z.array(z.union([z.object({ "description": z.string(), "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("force"), "value": z.string() }), z.object({ "description": z.string(), "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("rollout"), "value": z.string(), "coverage": z.coerce.number(), "hashAttribute": z.string() }), z.object({ "description": z.string(), "condition": z.string(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("experiment"), "trackingKey": z.string().optional(), "hashAttribute": z.string().optional(), "fallbackAttribute": z.string().optional(), "disableStickyBucketing": z.any().optional(), "bucketVersion": z.coerce.number().optional(), "minBucketVersion": z.coerce.number().optional(), "namespace": z.any().optional(), "coverage": z.coerce.number().optional(), "value": z.array(z.object({ "value": z.string(), "weight": z.coerce.number(), "name": z.string().optional() })).optional() }), z.object({ "description": z.string(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("experiment-ref"), "condition": z.string().optional(), "variations": z.array(z.object({ "value": z.string(), "variationId": z.string() })), "experimentId": z.string() })])), "definition": z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional() }).optional() })), "prerequisites": z.array(z.object({ "parentId": z.string(), "parentCondition": z.string() })).optional(), "revision": z.object({ "version": z.coerce.number().int(), "comment": z.string(), "date": z.string(), "publishedBy": z.string() }) }).strict()
@@ -330,6 +332,30 @@ export const putOrganizationValidator = {
   bodySchema: z.object({ "name": z.string().describe("The name of the organization").optional(), "externalId": z.string().describe("An optional identifier that you use within your company for the organization").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const listAttributesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const postAttributeValidator = {
+  bodySchema: z.object({ "property": z.string().describe("The attribute property"), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype"), "description": z.string().describe("The description of the new attribute").optional(), "archived": z.boolean().describe("The attribute is archived").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const putAttributeValidator = {
+  bodySchema: z.object({ "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "archived": z.boolean().describe("The attribute is archived").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "property": z.string() }).strict(),
+};
+
+export const deleteAttributeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "property": z.string() }).strict(),
 };
 
 export const listMembersValidator = {

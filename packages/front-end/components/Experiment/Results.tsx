@@ -8,8 +8,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "@back-end/types/report";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "back-end/types/report";
 import { BsLightbulb } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";

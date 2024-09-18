@@ -5,7 +5,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
-import { MetricDefaults } from "@back-end/types/organization";
+import { MetricDefaults } from "back-end/types/organization";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Tab from "@/components/Tabs/Tab";

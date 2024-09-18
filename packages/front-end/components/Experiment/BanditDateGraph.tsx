@@ -16,7 +16,7 @@ import {
 import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { MetricInterface } from "@back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";

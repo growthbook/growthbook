@@ -289,7 +289,6 @@ export async function runSnapshotAnalysis(
     ])
   )?.[0];
 
-
   if (!analysis) {
     throw new Error("Error in stats engine: no rows returned");
   }
