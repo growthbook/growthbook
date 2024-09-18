@@ -1285,7 +1285,7 @@ Triggered when a goal metric reaches significance in an experiment (e.g. either 
             statsEngine: string;
             criticalValue: number;
             winning: boolean;
-        };
+        }[];
     };
     user: {
         type: "dashboard";

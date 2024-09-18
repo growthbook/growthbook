@@ -62,7 +62,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
               <div className="text-muted">No runs</div>
             ) : (
               <div className="text-main d-flex">
-                <b>Last run:</b> {datetime(lastRunAt)}
+                <b className="mr-1">Last run:</b> {datetime(lastRunAt)}
                 <span className="ml-2" style={{ fontSize: "1.5rem" }}>
                   {iconForState}
                 </span>

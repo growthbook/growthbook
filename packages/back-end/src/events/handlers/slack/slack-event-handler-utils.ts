@@ -382,52 +382,102 @@ const buildSlackMessageForExperimentDeletedEvent = (
   };
 };
 
-const buildSlackMessageForExperimentInfoSignificanceEvent = ({
-  metricName,
-  experimentName,
-  experimentId,
-  variationName,
-  statsEngine,
-  criticalValue,
-  winning,
-}: ExperimentInfoSignificancePayload): SlackMessage => {
-  const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
+type VariationSignficanceMessageData = {
+  experimentName: string;
+  experimentId: string;
+  statsEngine: string;
+  variations: {
+    variationName: string;
+    metrics: { metricName: string; criticalValue: number; winning: boolean }[];
+  }[];
+};
+
+const buildSlackMessageForExperimentInfoSignificanceEvent = (
+  payload: ExperimentInfoSignificancePayload
+): SlackMessage => {
+  const percentFormatter = (v: number) => {
+    if (v > 0.99) {
+      return ">99%";
+    }
+    if (v < 0.01) {
+      return "<1%";
+    }
+    return formatNumber("#0.%", v * 100);
+  };
+  const data: VariationSignficanceMessageData = {
+    experimentName: payload[0].experimentName,
+    experimentId: payload[0].experimentId,
+    statsEngine: payload[0].statsEngine,
+    variations: [],
+  };
+
+  payload.forEach((p) => {
+    const variation = data.variations.find(
+      (v) => v.variationName === p.variationName
+    );
+    if (!variation) {
+      data.variations.push({
+        variationName: p.variationName,
+        metrics: [
+          {
+            metricName: p.metricName,
+            criticalValue: p.criticalValue,
+            winning: p.winning,
+          },
+        ],
+      });
+    } else {
+      variation.metrics.push({
+        metricName: p.metricName,
+        criticalValue: p.criticalValue,
+        winning: p.winning,
+      });
+    }
+  });
 
   const text = ({
-    metricName,
-    variationName,
     experimentName,
-  }: {
-    metricName: string;
-    variationName: string;
-    experimentName: string;
-  }) => {
-    if (statsEngine === "frequentist") {
-      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${
-        winning ? "beating" : "losing to"
-      } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
-        3
-      )}).`;
-    }
-    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
-      winning ? "reached a" : "dropped to a"
-    } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
+    statsEngine,
+    variations,
+  }: VariationSignficanceMessageData) => {
+    return variations
+      .map(
+        (v) =>
+          `In experiment ${experimentName} for variation *${
+            v.variationName
+          }*: ${v.metrics
+            .map((m) => {
+              if (statsEngine === "frequentist") {
+                return `\n- *${m.metricName}* is ${
+                  m.winning ? "*beating*" : "*losing to*"
+                } the baseline and has reached statistical significance (p-value = ${m.criticalValue.toFixed(
+                  3
+                )}).`;
+              }
+              return `\n- *${m.metricName}* has ${
+                m.winning ? "reached a" : "dropped to a"
+              } ${percentFormatter(
+                m.criticalValue
+              )} chance to beat the baseline.`;
+            })
+            .join("")}`
+      )
+      .join("\n\n");
   };
 
   return {
-    text: text({ metricName, experimentName, variationName }),
+    text: text(data),
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
           text: text({
-            metricName: `*${metricName}*`,
+            ...data,
             experimentName: getExperimentUrlAndNameFormatted(
-              experimentId,
-              experimentName
+              data.experimentId,
+              data.experimentName
             ),
-            variationName: `*${variationName}*`,
           }),
         },
       },

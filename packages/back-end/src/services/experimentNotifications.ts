@@ -391,18 +391,14 @@ export const notifySignificance = async ({
   if (isEmailEnabled())
     await sendSignificanceEmail(experiment, experimentChanges);
 
-  await Promise.all(
-    experimentChanges.map((change) =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "info.significance",
-        data: {
-          object: change,
-        },
-      })
-    )
-  );
+  await dispatchEvent({
+    context,
+    experiment,
+    event: "info.significance",
+    data: {
+      object: experimentChanges,
+    },
+  });
 };
 
 export const notifyExperimentChange = async ({
