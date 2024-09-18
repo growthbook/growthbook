@@ -381,7 +381,11 @@ export default function AssignmentTester({ feature, version }: Props) {
               header="Save Archetype"
             />
           ) : (
-            <Modal open={true} close={() => setOpenArchetypeModal(null)}>
+            <Modal
+              trackingEventModalType=""
+              open={true}
+              close={() => setOpenArchetypeModal(null)}
+            >
               <div className="p-3">
                 Archetypes allow you set up user attribute traits to test how
                 feature will be applied to your real users. This feature is part

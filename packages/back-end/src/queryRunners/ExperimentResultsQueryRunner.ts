@@ -7,7 +7,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
-import { ApiReqContext } from "@back-end/types/api";
+import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,

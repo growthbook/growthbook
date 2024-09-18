@@ -1,4 +1,4 @@
-import { ProjectInterface } from "@back-end/types/project";
+import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import Button from "@/components/Button";

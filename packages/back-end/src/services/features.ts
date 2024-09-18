@@ -44,6 +44,7 @@ import {
 } from "../../types/api";
 import {
   ExperimentRefRule,
+  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -646,10 +647,9 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
-  const encryptedSavedGroups = await encrypt(
-    JSON.stringify(scrubbedSavedGroups),
-    encryptionKey
-  );
+  const encryptedSavedGroups = scrubbedSavedGroups
+    ? await encrypt(JSON.stringify(scrubbedSavedGroups), encryptionKey)
+    : undefined;
 
   return {
     features: {},
@@ -657,7 +657,6 @@ export async function getFeatureDefinitionsResponse({
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
-    savedGroups: {},
     encryptedSavedGroups: encryptedSavedGroups,
   };
 }
@@ -1346,7 +1345,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     }
 
     if (r.type === "experiment-ref") {
-      const experimentRule: ExperimentRefRule = {
+      const experimentRefRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
@@ -1357,6 +1356,24 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+      };
+      return experimentRefRule;
+    } else if (r.type === "experiment") {
+      const values = r.values || r.value;
+      if (!values) {
+        throw new Error("Missing values");
+      }
+      const experimentRule: ExperimentRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        hashAttribute: r.hashAttribute ?? "",
+        coverage: r.coverage,
+        // missing tracking key will be filled in by addIdsToRules
+        trackingKey: r.trackingKey ?? "",
+        enabled: r.enabled != null ? r.enabled : true,
+        description: r.description ?? "",
+        values: values,
       };
       return experimentRule;
     } else if (r.type === "force") {

@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { CreateFactTableProps } from "@back-end/types/fact-table";
+import { CreateFactTableProps } from "back-end/types/fact-table";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { logger } from "../util/logger";

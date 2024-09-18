@@ -1,5 +1,5 @@
-import { OrganizationSettings } from "@back-end/types/organization";
-import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { OrganizationSettings } from "back-end/types/organization";
+import { MetricPriorSettings } from "back-end/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 
 export interface MetricParamsBase {

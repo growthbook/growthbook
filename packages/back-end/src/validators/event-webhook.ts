@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { zodNotificationEventNamesEnum } from "../events/base-types";
 
-export const eventWebHookPayloadTypes = ["raw", "slack", "discord"] as const;
+export const eventWebHookPayloadTypes = [
+  "raw",
+  "json",
+  "slack",
+  "discord",
+] as const;
 
 export type EventWebHookPayloadType = typeof eventWebHookPayloadTypes[number];
 

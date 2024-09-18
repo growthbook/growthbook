@@ -33,6 +33,7 @@ const webhookSchema = new mongoose.Schema({
   /** @deprecated */
   sendPayload: Boolean,
   payloadFormat: String,
+  payloadKey: String,
   headers: String,
   httpMethod: String,
 });
@@ -126,9 +127,18 @@ export const updateSdkWebhookValidator = z
     name: z.string().optional(),
     endpoint: z.string().optional(),
     payloadFormat: z
-      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+      .enum([
+        "standard",
+        "standard-no-payload",
+        "sdkPayload",
+        "edgeConfig",
+        "none",
+      ])
       .optional(),
-    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+    payloadKey: z.string().optional(),
+    httpMethod: z
+      .enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"])
+      .optional(),
     headers: z.string().optional(),
   })
   .strict();
@@ -165,9 +175,16 @@ const createSdkWebhookValidator = z
     name: z.string(),
     endpoint: z.string(),
     payloadFormat: z
-      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+      .enum([
+        "standard",
+        "standard-no-payload",
+        "sdkPayload",
+        "edgeConfig",
+        "none",
+      ])
       .optional(),
-    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]),
+    payloadKey: z.string().optional(),
+    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
     headers: z.string(),
   })
   .strict();
