@@ -3,23 +3,15 @@ import { useState } from "react";
 import { SchemaFormat } from "back-end/types/datasource";
 import { Callout } from "@radix-ui/themes";
 import clsx from "clsx";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import DataSourceLogo, {
   eventTrackerMapping,
 } from "@/components/DataSources/DataSourceLogo";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import styles from "./InitialSetup.module.scss";
 
-interface Props {
-  onSuccess: () => void;
-}
-
-const SelectDataSourcePage = ({ onSuccess }: Props) => {
-  const [newModalOpen, setNewModalOpen] = useState(false);
+const SelectDataSourcePage = () => {
   const [inviting, setInviting] = useState(false);
   const [
     setupEventTracker,
@@ -30,8 +22,6 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
   );
 
   const { refreshOrganization } = useUser();
-  const { mutateDefinitions } = useDefinitions();
-  const { exists: demoDataSourceExists } = useDemoDataSourceProject();
 
   return (
     <>
@@ -39,28 +29,6 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
         <InviteModal
           close={() => setInviting(false)}
           mutate={refreshOrganization}
-        />
-      )}
-      {newModalOpen && eventTracker && (
-        <NewDataSourceForm
-          existing={false}
-          data={{
-            settings: {
-              schemaFormat: eventTracker,
-            },
-          }}
-          source="setup-flow"
-          onSuccess={async () => {
-            await mutateDefinitions({});
-            setNewModalOpen(false);
-            onSuccess();
-          }}
-          onCancel={() => {
-            setNewModalOpen(false);
-            setSetupEventTracker(eventTracker);
-          }}
-          showImportSampleData={!demoDataSourceExists}
-          showBackButton={false}
         />
       )}
       <div
@@ -120,7 +88,7 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
                         setEventTracker(null);
                       } else {
                         setEventTracker(eventSchema);
-                        setNewModalOpen(true);
+                        setSetupEventTracker(eventSchema);
                       }
                     }}
                   >
