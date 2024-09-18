@@ -8,8 +8,8 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { OrganizationSettings } from "@back-end/types/organization";
-import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { OrganizationSettings } from "back-end/types/organization";
+import { MetricPriorSettings } from "back-end/types/fact-table";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";

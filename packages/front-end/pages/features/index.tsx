@@ -11,7 +11,6 @@ import {
   StaleFeatureReason,
 } from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { ComputedFeatureInterface } from "@back-end/src/validators/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -143,6 +142,14 @@ export default function FeaturesPage() {
                 Show Archived
               </div>
             )}
+            <div className="col-auto">
+              <Link
+                href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
+                target="_blank"
+              >
+                <Tooltip body={searchTermFilterExplainations}></Tooltip>
+              </Link>
+            </div>
           </div>
 
           <table className="table gbtable table-hover appbox">
@@ -184,7 +191,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {featureItems.map((feature: ComputedFeatureInterface) => {
+              {featureItems.map((feature) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
@@ -394,6 +401,50 @@ export default function FeaturesPage() {
     filterResults,
     environments,
   });
+
+  const searchTermFilterExplainations = (
+    <>
+      <p>This search field supports advanced syntax search, including:</p>
+      <ul>
+        <li>
+          <strong>key</strong>: The feature&apos;s key (name)
+        </li>
+        <li>
+          <strong>owner</strong>: The creator of the feature (eg: owner:abby)
+        </li>
+        <li>
+          <strong>rules</strong>: Matches based on the number of rules (eg:
+          rules:&gt;2)
+        </li>
+        <li>
+          <strong>tag</strong>: Features tagged with this tag
+        </li>
+        <li>
+          <strong>project</strong>: The feature&apos;s project
+        </li>
+        <li>
+          <strong>version</strong>: The feature&apos;s revision number
+        </li>
+        <li>
+          <strong>experiment</strong>: The feature is linked to the specified
+          experiment
+        </li>
+        <li>
+          <strong>created</strong>:The feature&apos;s creation date, in UTC.
+          Date entered is parsed so supports most formats.
+        </li>
+        <li>
+          <strong>on</strong>: Shows features that are on for a specific
+          environment (on:production)
+        </li>
+        <li>
+          <strong>off</strong>: Shows features that are off for a specific
+          environment (off:dev)
+        </li>
+      </ul>
+      <p>Click to see all syntax fields supported in our docs.</p>
+    </>
+  );
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

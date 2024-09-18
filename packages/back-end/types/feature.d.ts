@@ -25,6 +25,7 @@ export {
   NamespaceValue,
   SavedGroupTargeting,
   ExperimentRefVariation,
+  ComputedFeatureInterface,
 } from "../src/validators/features";
 
 export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;

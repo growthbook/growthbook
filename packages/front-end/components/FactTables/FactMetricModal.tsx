@@ -52,6 +52,7 @@ export interface Props {
   close?: () => void;
   initialFactTable?: string;
   existing?: FactMetricInterface;
+  duplicate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
   goBack?: () => void;
@@ -313,6 +314,7 @@ export default function FactMetricModal({
   close,
   initialFactTable,
   existing,
+  duplicate = false,
   showAdvancedSettings,
   onSave,
   goBack,
@@ -484,7 +486,9 @@ export default function FactMetricModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      header={existing ? "Edit Metric" : "Create Fact Table Metric"}
+      header={
+        existing && !duplicate ? "Edit Metric" : "Create Fact Table Metric"
+      }
       close={close}
       submit={form.handleSubmit(async (values) => {
         if (values.denominator && !values.denominator.factTableId) {
@@ -554,7 +558,7 @@ export default function FactMetricModal({
             values.numerator.factTableId === values.denominator?.factTableId,
         };
 
-        if (existing) {
+        if (existing && !duplicate) {
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);

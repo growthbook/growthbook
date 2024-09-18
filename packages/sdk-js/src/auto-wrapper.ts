@@ -7,6 +7,7 @@ import {
   GrowthBook,
   LocalStorageStickyBucketService,
   StickyBucketService,
+  TrackingCallback,
 } from "./index";
 
 type WindowContext = Context & {
@@ -21,6 +22,7 @@ type WindowContext = Context & {
   cacheSettings?: CacheSettings;
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
+  additionalTrackingCallback?: TrackingCallback;
 };
 declare global {
   interface Window {
@@ -286,6 +288,12 @@ const gb = new GrowthBook({
   trackingCallback: async (e, r) => {
     const promises: Promise<unknown>[] = [];
     const eventParams = { experiment_id: e.key, variation_id: r.key };
+
+    if (windowContext.additionalTrackingCallback) {
+      promises.push(
+        Promise.resolve(windowContext.additionalTrackingCallback(e, r))
+      );
+    }
 
     // GA4 - gtag
     if (window.gtag) {

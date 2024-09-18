@@ -16,7 +16,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { DataSourceInterface } from "@back-end/types/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   _getSnapshots,
@@ -331,12 +331,12 @@ async function _getSnapshot(
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot(
-    experimentObj.id,
-    parseInt(phase),
+  return await getLatestSnapshot({
+    experiment: experimentObj.id,
+    phase: parseInt(phase),
     dimension,
-    withResults
-  );
+    withResults,
+  });
 }
 
 export async function getSnapshotWithDimension(

@@ -116,6 +116,11 @@ export class EventWebHookNotifier implements Notifier {
       if (!payloadType) return event.data;
 
       switch (payloadType) {
+        case "json": {
+          if (!event.version) throw new Error("Internal error");
+          return event.data;
+        }
+
         case "raw": {
           const legacyPayload:
             | LegacyNotificationEvent

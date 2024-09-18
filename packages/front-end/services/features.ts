@@ -15,6 +15,7 @@ import {
   FeatureValueType,
   ForceRule,
   RolloutRule,
+  ComputedFeatureInterface,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -29,7 +30,6 @@ import {
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { ComputedFeatureInterface } from "@back-end/src/validators/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -143,6 +143,7 @@ export function useFeatureSearch({
     defaultSortField: defaultSortField,
     searchFields: ["id^3", "description", "tags^2", "defaultValue"],
     filterResults,
+    updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
     searchTermFilters: {
       is: (item) => {
