@@ -64,6 +64,7 @@ export interface FactTableInterface {
   columns: ColumnInterface[];
   columnsError?: string | null;
   filters: FactFilterInterface[];
+  archived?: boolean;
 }
 
 export type ColumnRef = z.infer<typeof columnRefValidator>;

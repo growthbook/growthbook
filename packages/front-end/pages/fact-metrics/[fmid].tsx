@@ -326,6 +326,13 @@ export default function FactMetricPage() {
           { display: factMetric.name },
         ]}
       />
+      {factMetric.archived && (
+        <div className="alert alert-secondary mb-2">
+          <strong>This metric is archived.</strong> Existing references will
+          continue working, but you will be unable to add this metric to new
+          experiments.
+        </div>
+      )}
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
@@ -334,7 +341,7 @@ export default function FactMetricPage() {
         </div>
         <div className="ml-auto">
           <MoreMenu>
-            {canEdit ? (
+            {canEdit && (
               <button
                 className="dropdown-item"
                 onClick={(e) => {
@@ -344,8 +351,8 @@ export default function FactMetricPage() {
               >
                 Edit Metric
               </button>
-            ) : null}
-            {canDelete ? (
+            )}
+            {canDelete && (
               <DeleteButton
                 className="dropdown-item"
                 displayName="Metric"
@@ -359,7 +366,23 @@ export default function FactMetricPage() {
                   router.push("/metrics");
                 }}
               />
-            ) : null}
+            )}
+            {canEdit && (
+              <button
+                className="btn dropdown-item"
+                onClick={async () => {
+                  await apiCall(`/fact-metrics/${factMetric.id}`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      archived: !factMetric.archived,
+                    }),
+                  });
+                  mutateDefinitions();
+                }}
+              >
+                {factMetric.archived ? "Unarchive" : "Archive"}
+              </button>
+            )}
           </MoreMenu>
         </div>
       </div>

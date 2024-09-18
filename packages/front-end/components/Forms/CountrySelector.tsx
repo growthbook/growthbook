@@ -27,7 +27,7 @@ export default function CountrySelector(props: CountrySelectorProps) {
   }));
 
   const formatOptionLabel = ({ label, value }, { context }) => {
-    const text = context === "menu" ? label : value;
+    const text = context === "menu" ? `${label} (${value})` : value;
     const flag = getCountryFlagEmojiFromCountryCode(value);
     return `${props.displayFlags && flag ? flag + " " : ""}${text}`;
   };
