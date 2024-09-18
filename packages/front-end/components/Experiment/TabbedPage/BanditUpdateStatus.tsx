@@ -31,7 +31,7 @@ export default function BanditUpdateStatus({
   }
 
   const start = getValidDate(
-    experiment?.banditPhaseDateStarted ?? phase?.dateStarted
+    experiment?.banditStageDateStarted ?? phase?.dateStarted
   ).getTime();
   const burnInHoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
   const burnInRunDate = getValidDate(
@@ -89,7 +89,7 @@ export default function BanditUpdateStatus({
                 </>
               ) : null}
               {["explore", "exploit"].includes(
-                experiment.banditPhase ?? ""
+                experiment.banditStage ?? ""
               ) && (
                 <tr>
                   <td className="text-muted">Next scheduled update:</td>
@@ -118,21 +118,21 @@ export default function BanditUpdateStatus({
           <div className="mx-2" style={{ fontSize: "12px" }}>
             <p>
               The bandit is{" "}
-              {experiment.banditPhase ? (
+              {experiment.banditStage ? (
                 <>
-                  in the <strong>{upperFirst(experiment.banditPhase)}</strong>{" "}
+                  in the <strong>{upperFirst(experiment.banditStage)}</strong>{" "}
                   stage
                 </>
               ) : (
                 "not running"
               )}
-              {experiment.banditPhase === "explore" && (
+              {experiment.banditStage === "explore" && (
                 <> and is waiting until more data is collected</>
               )}
               .
             </p>
 
-            {experiment.banditPhase === "explore" && (
+            {experiment.banditStage === "explore" && (
               <p>
                 {" "}
                 It will start updating weights and enter the Exploit stage on{" "}
@@ -141,7 +141,7 @@ export default function BanditUpdateStatus({
               </p>
             )}
 
-            {experiment.banditPhase === "exploit" &&
+            {experiment.banditStage === "exploit" &&
             experiment.autoSnapshots &&
             experiment.nextSnapshotAttempt ? (
               <p>
@@ -155,15 +155,7 @@ export default function BanditUpdateStatus({
           </div>
 
           <hr />
-          <div className="d-flex align-items-center justify-content-end">
-            <div
-              className="text-muted d-block mr-2"
-              style={{ fontSize: "12px" }}
-            >
-              Manually refresh and
-            </div>
-            <RefreshBanditButton mutate={mutate} experiment={experiment} />
-          </div>
+          <RefreshBanditButton mutate={mutate} experiment={experiment} />
         </div>
       </Dropdown>
     </div>

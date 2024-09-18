@@ -574,7 +574,7 @@ export function determineNextBanditSchedule(
   exp: ExperimentInterface
 ): Date | undefined {
   const start = (
-    exp?.banditPhaseDateStarted ??
+    exp?.banditStageDateStarted ??
     exp.phases?.[exp.phases.length - 1]?.dateStarted ??
     new Date()
   ).getTime();
@@ -609,7 +609,7 @@ export function determineNextBanditSchedule(
     start + (intervalsPassed + 1) * standardInterval
   );
 
-  if (exp.banditPhase === "explore") {
+  if (exp.banditStage === "explore") {
     const burnInHoursMultiple = exp.banditBurnInUnit === "days" ? 24 : 1;
     const burnInRunDate = new Date(
       start + exp.banditBurnInValue * burnInHoursMultiple * 60 * 60 * 1000
@@ -639,8 +639,8 @@ export function resetExperimentBanditSettings({
   }
   const lastIndex = changes.phases.length - 1;
 
-  changes.banditPhase = "explore";
-  changes.banditPhaseDateStarted = now;
+  changes.banditStage = "explore";
+  changes.banditStageDateStarted = now;
 
   // equal weights
   const weights = getEqualWeights(experiment.variations.length ?? 0);
@@ -690,15 +690,15 @@ export function updateExperimentBanditSettings({
     snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
   // Check if we need to move from explore to exploit phase:
-  let startNextBanditPhase = false;
-  if (experiment.banditPhase === "explore") {
+  let startNextbanditStage = false;
+  if (experiment.banditStage === "explore") {
     if (!isScheduled && reweight) {
       // manual reweights during explore immediately start the exploit phase
-      startNextBanditPhase = true;
+      startNextbanditStage = true;
     } else {
       // if we are past the explore period, start the exploit phase
-      const banditPhaseStartDate =
-        experiment?.banditPhaseDateStarted ??
+      const banditStageStartDate =
+        experiment?.banditStageDateStarted ??
         experiment.phases[phase]?.dateStarted ??
         new Date();
       const hoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
@@ -707,17 +707,17 @@ export function updateExperimentBanditSettings({
 
       if (
         snapshotDateCreated.getTime() >
-        banditPhaseStartDate.getTime() + interval
+        banditStageStartDate.getTime() + interval
       ) {
         if (isScheduled) reweight = true;
-        startNextBanditPhase = true;
+        startNextbanditStage = true;
       }
     }
   }
 
-  if (startNextBanditPhase) {
-    changes.banditPhase = "exploit";
-    changes.banditPhaseDateStarted = new Date();
+  if (startNextbanditStage) {
+    changes.banditStage = "exploit";
+    changes.banditStageDateStarted = new Date();
   }
 
   // Apply the bandit results:
@@ -749,8 +749,8 @@ export function updateExperimentBanditSettings({
 
   // scheduling
   if (
-    changes.banditPhase === "exploit" ||
-    experiment.banditPhase === "exploit"
+    changes.banditStage === "exploit" ||
+    experiment.banditStage === "exploit"
   ) {
     changes.nextSnapshotAttempt = determineNextBanditSchedule({
       ...experiment,

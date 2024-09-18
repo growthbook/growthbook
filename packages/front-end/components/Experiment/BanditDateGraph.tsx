@@ -514,9 +514,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
         const startDate = stackedData[0].date;
         const exploitDate =
-          experiment.banditPhase !== "explore" &&
-          experiment.banditPhaseDateStarted
-            ? new Date(experiment.banditPhaseDateStarted)
+          experiment.banditStage !== "explore" &&
+          experiment.banditStageDateStarted
+            ? new Date(experiment.banditStageDateStarted)
             : undefined;
         const lastDate = stackedData[stackedData.length - 1].date;
         const exploreMask =
