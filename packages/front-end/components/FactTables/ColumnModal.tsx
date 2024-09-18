@@ -42,7 +42,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="fact-table-column-form"
       open={true}
       close={close}
       cta={"Save"}

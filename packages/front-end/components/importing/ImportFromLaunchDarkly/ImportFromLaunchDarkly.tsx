@@ -551,7 +551,7 @@ function FeatureImportRow({
       </tr>
       {open && data.feature && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="launchdarkly-import-feature"
           open
           close={() => setOpen(false)}
           header={`Feature Details`}

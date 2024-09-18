@@ -38,7 +38,7 @@ export default function FeatureImplementationModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="feature-implementation-code-snippet"
       open={true}
       close={close}
       size="lg"

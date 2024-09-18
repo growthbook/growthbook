@@ -202,7 +202,7 @@ export default function TabbedPage({
       )}
       {auditModal && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="experiment-audit-modal"
           open={true}
           header="Audit Log"
           close={() => setAuditModal(false)}
@@ -214,7 +214,7 @@ export default function TabbedPage({
       )}
       {watchersModal && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="experiment-users-watching"
           open={true}
           header="Experiment Watchers"
           close={() => setWatchersModal(false)}

@@ -58,7 +58,7 @@ export default function ExperimentSummary({
       )}
       {experimentInstructions && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="feature-experiment-instructions"
           header={"Experiments need to be set up first"}
           open={true}
           size="lg"

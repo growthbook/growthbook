@@ -164,7 +164,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   if (step === -1) {
     return (
       <Modal
-        trackingEventModalType=""
+        trackingEventModalType="exit-health-tab-onboarding"
         open={open}
         submit={close}
         cta={"Confirm"}
@@ -340,7 +340,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="health-tab-onboarding"
       open={open}
       close={() => {
         setLastStep(step);

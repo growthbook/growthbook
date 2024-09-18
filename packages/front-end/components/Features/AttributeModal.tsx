@@ -71,7 +71,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="attribute-form"
       open={true}
       close={close}
       header={title}

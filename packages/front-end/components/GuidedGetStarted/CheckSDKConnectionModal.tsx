@@ -21,7 +21,7 @@ export default function CheckSDKConnectionModal({
 }: Props) {
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="sdk-check-connection"
       open={true}
       close={showModalClose ? close : undefined}
       closeCta="Close"
