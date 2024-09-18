@@ -44,12 +44,7 @@ export default function SetupFlow() {
   const { hasCommercialFeature } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const { organization, refreshOrganization } = useUser();
-  const {
-    datasources,
-    setProject,
-    mutateDefinitions,
-    project,
-  } = useDefinitions();
+  const { datasources, mutateDefinitions, project } = useDefinitions();
   const environments = useEnvironments();
 
   const sdkConnectionForm = useForm<SdkFormValues>({
@@ -166,25 +161,6 @@ export default function SetupFlow() {
               return Promise.resolve();
             }
 
-            // Create a new project for the org to get started
-            const setupProject: ProjectApiResponse = await apiCall(
-              `/projects`,
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  name: "My First Project",
-                  description: "",
-                }),
-              }
-            );
-
-            await apiCall("/organization/setup-project", {
-              method: "PUT",
-              body: JSON.stringify({
-                project: setupProject.project.id,
-              }),
-            });
-
             // Create the selected environment if it doesn't exist
             if (
               environments.find((e) => e.id === value.environment) === undefined
@@ -194,7 +170,7 @@ export default function SetupFlow() {
                 description: "",
                 toggleOnList: true,
                 defaultState: true,
-                projects: [setupProject.project.id],
+                projects: [project],
               };
               await apiCall(`/environment`, {
                 method: "POST",
@@ -234,7 +210,7 @@ export default function SetupFlow() {
               includeDraftExperiments: true,
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
-              projects: [setupProject.project.id],
+              projects: [project],
             };
 
             const res = await apiCall<{ connection: SDKConnectionInterface }>(
@@ -254,8 +230,6 @@ export default function SetupFlow() {
 
             await refreshOrganization();
             await mutateDefinitions();
-
-            setProject(setupProject.project.id);
           })}
         >
           <InitiateConnectionPage

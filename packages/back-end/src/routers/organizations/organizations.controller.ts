@@ -1229,6 +1229,8 @@ export async function deleteInvite(
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company, externalId } = req.body;
 
+  const context = getContextFromReq(req);
+
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
   if (!IS_MULTI_ORG && orgs) {
@@ -1267,7 +1269,9 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       externalId,
     });
 
-    // TODO: Create project
+    const project = await context.models.projects.create({
+      name: "My First Project",
+    });
 
     // Alert the site manager about new organizations that are created
     try {
@@ -1280,6 +1284,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     res.status(200).json({
       status: 200,
       orgId: org.id,
+      projectId: project.id,
     });
   } catch (e) {
     res.status(400).json({
