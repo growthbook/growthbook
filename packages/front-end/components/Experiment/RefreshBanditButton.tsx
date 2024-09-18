@@ -109,7 +109,9 @@ const RefreshBanditButton: FC<{
                   setOpen(false);
                 }}
               >
-                <HiOutlineExclamationCircle className="mr-1 text-warning-orange" />
+                {experiment.banditStage === "explore" && (
+                  <HiOutlineExclamationCircle className="mr-1 text-warning-orange" />
+                )}
                 Update variation weights
               </button>
             </Tooltip>
