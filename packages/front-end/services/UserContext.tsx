@@ -291,7 +291,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
-  console.log(currentOrg?.organization?.dateCreated);
+
   useEffect(() => {
     growthbook?.setAttributes({
       id: data?.userId || "",
