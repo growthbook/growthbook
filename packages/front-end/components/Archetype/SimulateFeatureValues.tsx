@@ -10,8 +10,8 @@ import React, {
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "@back-end/types/archetype";
-import { FeatureTestResult } from "@back-end/types/feature";
+} from "back-end/types/archetype";
+import { FeatureTestResult } from "back-end/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -249,7 +249,7 @@ export const SimulateFeatureValues: FC<{
                     options={environmentOptions}
                     onChange={(e) => {
                       setSelectedEnvironment(e);
-                      refreshResults(true);
+                      refreshResults();
                     }}
                   />
                 </div>

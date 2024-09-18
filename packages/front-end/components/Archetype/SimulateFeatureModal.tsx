@@ -1,7 +1,7 @@
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "@back-end/types/archetype";
+} from "back-end/types/archetype";
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";
@@ -45,6 +45,7 @@ const SimulateFeatureModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       close={() => {
         close();
       }}
