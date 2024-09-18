@@ -34,9 +34,9 @@ const InitiateConnectionPage = ({ connection, form }: Props) => {
           onValueChange={(val) => form.setValue("environment", val)}
           disabled={!!connection}
         >
-          <RadioGroup.Item value="production">Production</RadioGroup.Item>
           <RadioGroup.Item value="dev">Dev</RadioGroup.Item>
           <RadioGroup.Item value="staging">Staging</RadioGroup.Item>
+          <RadioGroup.Item value="production">Production</RadioGroup.Item>
         </RadioGroup.Root>
       </div>
     </div>

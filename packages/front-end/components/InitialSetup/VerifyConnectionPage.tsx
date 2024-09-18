@@ -7,7 +7,7 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { Callout, Link } from "@radix-ui/themes";
-import { PiInfo, PiPaperPlaneTiltFill } from "react-icons/pi";
+import { PiArrowRight, PiInfo, PiPaperPlaneTiltFill } from "react-icons/pi";
 import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
@@ -22,6 +22,8 @@ import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { DocLink } from "@/components/DocLink";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import styles from "./InitialSetup.module.scss";
 
 interface Props {
@@ -54,6 +56,7 @@ const VerifyConnectionPage = ({
 
   const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
   const language = currentConnection?.languages[0] || "javascript";
+  const { docs } = languageMapping[language];
   const hashSecureAttributes = !!currentConnection?.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
@@ -94,7 +97,7 @@ const VerifyConnectionPage = ({
       )}
       {currentConnection && (
         <div>
-          <div className="d-flex mb-3">
+          <div className="d-flex mb-1">
             <h3>
               SDK Installation Instructions for {currentConnection.environment}{" "}
               Environment
@@ -113,7 +116,10 @@ const VerifyConnectionPage = ({
               </button>
             </div>
           </div>
-          <Callout.Root>
+          <DocLink docSection={docs}>
+            View documentation <PiArrowRight />
+          </DocLink>
+          <Callout.Root className="mt-3">
             <Callout.Icon>
               <PiInfo />
             </Callout.Icon>
