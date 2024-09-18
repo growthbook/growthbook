@@ -1,13 +1,14 @@
 import React from "react";
 import { SchemaFormat } from "back-end/types/datasource";
+import clsx from "clsx";
 
 export type LanguageLogo = {
-  logo: string;
+  logo?: string;
   label: string;
 };
 
-export const languageMapping: Record<
-  Exclude<SchemaFormat, "mixpanel" | "custom">,
+export const eventTrackerMapping: Record<
+  Exclude<SchemaFormat, "mixpanel">,
   LanguageLogo
 > = {
   ga4: {
@@ -66,6 +67,9 @@ export const languageMapping: Record<
     logo: "/images/3rd-party-logos/datasource-logos/clevertap.png",
     label: "CleverTap",
   },
+  custom: {
+    label: "Other",
+  },
 };
 
 export default function DataSourceLogo({
@@ -79,20 +83,29 @@ export default function DataSourceLogo({
   size?: number;
   titlePrefix?: string;
 }) {
-  if (!Object.keys(languageMapping).includes(eventTracker)) {
+  if (!Object.keys(eventTrackerMapping).includes(eventTracker)) {
     return null;
   }
-  const { logo, label } = languageMapping[eventTracker];
+  const { logo, label } = eventTrackerMapping[eventTracker];
 
   return (
-    <span className="d-inline-flex align-items-center position-relative">
-      <img
-        src={logo}
-        style={{ height: size, fontSize: size, lineHeight: size }}
-        className="m-0"
-        title={titlePrefix + label}
-      />
-      <span className="ml-2" style={{ fontWeight: 500 }}>
+    <span
+      className={
+        logo ? "d-inline-flex align-items-center position-relative" : undefined
+      }
+    >
+      {logo && (
+        <img
+          src={logo}
+          style={{ height: size, fontSize: size, lineHeight: size }}
+          className="m-0"
+          title={titlePrefix + label}
+        />
+      )}
+      <span
+        className={clsx({ "ml-2": !!logo, "align-middle": !logo })}
+        style={{ fontWeight: 500 }}
+      >
         {showLabel && label}
       </span>
     </span>

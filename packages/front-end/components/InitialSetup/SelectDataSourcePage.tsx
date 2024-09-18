@@ -3,9 +3,10 @@ import { useState } from "react";
 import { SchemaFormat } from "back-end/types/datasource";
 import { Callout } from "@radix-ui/themes";
 import clsx from "clsx";
-import { eventSchemas } from "@/services/eventSchema";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
+import DataSourceLogo, {
+  eventTrackerMapping,
+} from "@/components/DataSources/DataSourceLogo";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import InviteModal from "@/components/Settings/Team/InviteModal";
@@ -98,38 +99,38 @@ const SelectDataSourcePage = ({ onSuccess }: Props) => {
               className="d-flex flex-wrap pb-3"
               style={{ rowGap: "1em", columnGap: "1em" }}
             >
-              {eventSchemas
-                .filter((s) => s.value !== "mixpanel")
-                .map((eventSchema) => (
+              {Object.keys(eventTrackerMapping).map(
+                (eventSchema: SchemaFormat) => (
                   <div
                     className={`hover-highlight cursor-pointer border rounded ${
-                      eventTracker === eventSchema.value ? "bg-white" : ""
+                      eventTracker === eventSchema ? "bg-white" : ""
                     }`}
                     style={{
                       height: 50,
                       padding: 10,
                       boxShadow:
-                        eventTracker === eventSchema.value
+                        eventTracker === eventSchema
                           ? "0 0 0 1px var(--text-color-primary)"
                           : "",
                     }}
-                    key={eventSchema.value}
+                    key={eventSchema}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (eventTracker === eventSchema.value) {
+                      if (eventTracker === eventSchema) {
                         setEventTracker(null);
                       } else {
-                        setEventTracker(eventSchema.value);
+                        setEventTracker(eventSchema);
                         setNewModalOpen(true);
                       }
                     }}
                   >
                     <DataSourceLogo
-                      eventTracker={eventSchema.value}
+                      eventTracker={eventSchema}
                       showLabel={true}
                     />
                   </div>
-                ))}
+                )
+              )}
             </div>
           </div>
         </div>
