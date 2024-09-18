@@ -43,7 +43,7 @@ export default function BanditSummaryResultsTab({
 
   return (
     <>
-      <h3 className="mt-4 mb-3">Bandit Overview</h3>
+      <h3 className="mt-4 mb-3">Bandit Leaderboard</h3>
       <div className="box pt-3">
         {experiment.status === "draft" && (
           <div className="alert bg-light border mx-3">
