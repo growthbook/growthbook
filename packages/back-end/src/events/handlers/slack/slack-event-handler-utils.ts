@@ -382,16 +382,6 @@ const buildSlackMessageForExperimentDeletedEvent = (
   };
 };
 
-type VariationSignficanceMessageData = {
-  experimentName: string;
-  experimentId: string;
-  statsEngine: string;
-  variations: {
-    variationName: string;
-    metrics: { metricName: string; criticalValue: number; winning: boolean }[];
-  }[];
-};
-
 const buildSlackMessageForExperimentInfoSignificanceEvent = (
   payload: ExperimentInfoSignificancePayload
 ): SlackMessage => {
@@ -404,42 +394,12 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = (
     }
     return formatNumber("#0.%", v * 100);
   };
-  const data: VariationSignficanceMessageData = {
-    experimentName: payload[0].experimentName,
-    experimentId: payload[0].experimentId,
-    statsEngine: payload[0].statsEngine,
-    variations: [],
-  };
-
-  payload.forEach((p) => {
-    const variation = data.variations.find(
-      (v) => v.variationName === p.variationName
-    );
-    if (!variation) {
-      data.variations.push({
-        variationName: p.variationName,
-        metrics: [
-          {
-            metricName: p.metricName,
-            criticalValue: p.criticalValue,
-            winning: p.winning,
-          },
-        ],
-      });
-    } else {
-      variation.metrics.push({
-        metricName: p.metricName,
-        criticalValue: p.criticalValue,
-        winning: p.winning,
-      });
-    }
-  });
 
   const text = ({
     experimentName,
     statsEngine,
     variations,
-  }: VariationSignficanceMessageData) => {
+  }: ExperimentInfoSignificancePayload) => {
     return variations
       .map(
         (v) =>
@@ -466,17 +426,17 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = (
   };
 
   return {
-    text: text(data),
+    text: text(payload),
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
           text: text({
-            ...data,
+            ...payload,
             experimentName: getExperimentUrlAndNameFormatted(
-              data.experimentId,
-              data.experimentName
+              payload.experimentId,
+              payload.experimentName
             ),
           }),
         },

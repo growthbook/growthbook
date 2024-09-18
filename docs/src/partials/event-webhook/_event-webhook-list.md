@@ -1278,14 +1278,18 @@ Triggered when a goal metric reaches significance in an experiment (e.g. either 
         object: {
             experimentName: string;
             experimentId: string;
-            variationId: string;
-            variationName: string;
-            metricName: string;
-            metricId: string;
             statsEngine: string;
-            criticalValue: number;
-            winning: boolean;
-        }[];
+            variations: {
+                variationId: string;
+                variationName: string;
+                metrics: {
+                    metricName: string;
+                    metricId: string;
+                    criticalValue: number;
+                    winning: boolean;
+                }[];
+            }[];
+        };
     };
     user: {
         type: "dashboard";

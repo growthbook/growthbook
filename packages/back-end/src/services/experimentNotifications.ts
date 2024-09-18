@@ -26,6 +26,7 @@ import {
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 import { getExperimentMetricById } from "./experiments";
+import { ExperimentInfoSignificancePayload } from "../validators/experiment-info";
 
 // This ensures that the two types remain equal.
 
@@ -391,12 +392,46 @@ export const notifySignificance = async ({
   if (isEmailEnabled())
     await sendSignificanceEmail(experiment, experimentChanges);
 
+  // Prepare slack-specific payload
+  const data: ExperimentInfoSignificancePayload = {
+    experimentName: experimentChanges[0].experimentName,
+    experimentId: experimentChanges[0].experimentId,
+    statsEngine: experimentChanges[0].statsEngine,
+    variations: [],
+  };
+
+  experimentChanges.forEach((c) => {
+    const variation = data.variations.find(
+      (v) => v.variationName === c.variationName
+    );
+    if (!variation) {
+      data.variations.push({
+        variationName: c.variationName,
+        variationId: c.variationId,
+        metrics: [
+          {
+            metricName: c.metricName,
+            metricId: c.metricId,
+            criticalValue: c.criticalValue,
+            winning: c.winning,
+          },
+        ],
+      });
+    } else {
+      variation.metrics.push({
+        metricName: c.metricName,
+        metricId: c.metricId,
+        criticalValue: c.criticalValue,
+        winning: c.winning,
+      });
+    }
+  });
   await dispatchEvent({
     context,
     experiment,
     event: "info.significance",
     data: {
-      object: experimentChanges,
+      object: data,
     },
   });
 };
