@@ -162,6 +162,7 @@ export default function SetupFlow() {
                 }
               }
         }
+        skipped={skipped}
       >
         <Page
           enabled={!connection}

@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { MdCheck } from "react-icons/md";
+import { PiCircleDashed } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 
@@ -35,6 +36,7 @@ type Props = {
   bodyClassName?: string;
   stickyFooter?: boolean;
   onSkip?: () => Promise<void>;
+  skipped?: Set<number>;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -57,6 +59,7 @@ const PagedModal: FC<Props> = (props) => {
     className,
     bodyClassName,
     onSkip,
+    skipped,
     ...passThrough
   } = props;
 
@@ -174,7 +177,7 @@ const PagedModal: FC<Props> = (props) => {
                   "step d-flex align-items-center justify-content-between",
                   {
                     active: step === i,
-                    completed: i < step,
+                    completed: i < step && !skipped?.has(i),
                     disabled: !enabled,
                   }
                 )}
@@ -196,7 +199,15 @@ const PagedModal: FC<Props> = (props) => {
                   }}
                 >
                   <span className="step-number rounded-circle">
-                    {i < step ? <MdCheck /> : i + 1}
+                    {i < step ? (
+                      skipped?.has(i) ? (
+                        <PiCircleDashed />
+                      ) : (
+                        <MdCheck />
+                      )
+                    ) : (
+                      i + 1
+                    )}
                   </span>
                   <span className="step-title"> {display}</span>
                 </a>
