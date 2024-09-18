@@ -66,7 +66,7 @@
     "dotenv": "^8.2.0",
     "enterprise": "0.0.1",
     "errorhandler": "^1.5.1",
-    "express": "^4.17.1",
+    "express": "^4.20.0",
     "express-async-handler": "^1.1.4",
     "express-jwt": "^6.0.0",
     "express-rate-limit": "^6.6.0",
