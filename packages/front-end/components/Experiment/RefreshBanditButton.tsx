@@ -92,6 +92,15 @@ const RefreshBanditButton: FC<{
             className="nowrap py-0"
             header={<div className="text-muted pt-1">Refreshing will...</div>}
           >
+            <button
+              className="dropdown-item py-2"
+              onClick={() => {
+                setReweight(false);
+                setOpen(false);
+              }}
+            >
+              Refresh results only
+            </button>
             <Tooltip
               body={
                 <>
@@ -115,15 +124,6 @@ const RefreshBanditButton: FC<{
                 Update variation weights
               </button>
             </Tooltip>
-            <button
-              className="dropdown-item py-2"
-              onClick={() => {
-                setReweight(false);
-                setOpen(false);
-              }}
-            >
-              Refresh results only
-            </button>
           </Dropdown>
         </div>
       </div>
