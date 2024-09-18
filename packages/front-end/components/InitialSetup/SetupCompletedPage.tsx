@@ -4,30 +4,31 @@ import { useEffect } from "react";
 import { PiCheckCircleFill } from "react-icons/pi";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
 import { useCelebration } from "@/hooks/useCelebration";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
-interface Props {
-  skipped: Set<number>;
-}
-
-const SetupCompletedPage = ({ skipped }: Props): React.ReactElement => {
+const SetupCompletedPage = (): React.ReactElement => {
   const startCelebration = useCelebration();
+  const { data: sdkConnectionData } = useSDKConnections();
+  const { datasources } = useDefinitions();
+
+  const setupComplete =
+    sdkConnectionData?.connections[0].connected && datasources.length > 0;
 
   useEffect(() => {
-    if (skipped.size) return;
-
     startCelebration();
   });
 
   return (
     <div className="container pagecontents" style={{ maxWidth: "900px" }}>
       <h1 className="my-4">
-        {skipped.size ? "You’re almost done…" : "Setup Complete!"}
+        {!setupComplete ? "You’re almost done…" : "Setup Complete!"}
       </h1>
-      {skipped.size ? (
+      {!setupComplete ? (
         <>
           <h3 className="mb-3">Steps left to complete to run Experiments</h3>
           <ul className="list-unstyled mt-2">
-            {skipped.has(1) ? (
+            {!sdkConnectionData?.connections[0].connected ? (
               <li className="mb-2">
                 <PiCheckCircleFill
                   style={{
@@ -36,10 +37,10 @@ const SetupCompletedPage = ({ skipped }: Props): React.ReactElement => {
                     fill: "var(--gray-9)",
                   }}
                 />{" "}
-                Connect an SDK
+                <Link href={"/sdks"}>Connect an SDK</Link>
               </li>
             ) : null}
-            {skipped.has(2) ? (
+            {datasources.length === 0 ? (
               <li>
                 <PiCheckCircleFill
                   style={{
@@ -48,7 +49,7 @@ const SetupCompletedPage = ({ skipped }: Props): React.ReactElement => {
                     fill: "var(--gray-9)",
                   }}
                 />{" "}
-                Connect a Data Source
+                <Link href={"/datasources"}>Connect a Data Source</Link>
               </li>
             ) : null}
           </ul>
@@ -56,7 +57,7 @@ const SetupCompletedPage = ({ skipped }: Props): React.ReactElement => {
       ) : null}
       <div className="d-flex align-items-center mt-5 mb-2">
         <h3>
-          {skipped.size
+          {!setupComplete
             ? "In the meantime, feel free to explore GrowthBook"
             : "What do you want to do next?"}
         </h3>

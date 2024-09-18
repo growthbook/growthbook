@@ -44,7 +44,12 @@ export default function SetupFlow() {
   const { hasCommercialFeature } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const { organization, refreshOrganization } = useUser();
-  const { datasources, setProject, mutateDefinitions } = useDefinitions();
+  const {
+    datasources,
+    setProject,
+    mutateDefinitions,
+    project,
+  } = useDefinitions();
   const environments = useEnvironments();
 
   const sdkConnectionForm = useForm<SdkFormValues>({
@@ -81,11 +86,13 @@ export default function SetupFlow() {
 
   const canUseSetupFlow =
     permissionsUtil.canCreateSDKConnection({
-      projects: [],
+      projects: [project],
       environment: "production",
     }) &&
-    permissionsUtil.canCreateEnvironment({ projects: [], id: "production" }) &&
-    permissionsUtil.canCreateDataSource({ projects: [] });
+    permissionsUtil.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
 
   // Mark setup as complete
   const handleSubmit = async () => {
@@ -102,7 +109,7 @@ export default function SetupFlow() {
   }
 
   if (setupComplete) {
-    return <SetupCompletedPage skipped={skipped} />;
+    return <SetupCompletedPage />;
   }
 
   return (

@@ -179,15 +179,29 @@ const NewDataSourceForm: FC<{
   );
 
   useEffect(() => {
-    if (schemaFormat && step === 0) {
+    if (schemaFormat && step === 0 && !schema) {
       const schema = eventSchemas.find((s) => s.value === schemaFormat);
       if (schema) {
         setSchemaSettings(schema);
         // jump straight to the form
         setStep(2);
+      } else if (schemaFormat === "custom") {
+        setSchema("custom");
+        setDatasource({
+          name: "My Datasource",
+          settings: {},
+          projects: project ? [project] : [],
+        });
+        // no options for custom:
+        form.setValue(`settings.schemaOptions`, {});
+
+        // set to all possible types:
+        setPossibleTypes(dataSourceConnections.map((o) => o.type));
+        // jump to next step
+        setStep(2);
       }
     }
-  }, [schemaFormat, setSchemaSettings, step]);
+  }, [form, project, schema, schemaFormat, setSchemaSettings, step]);
 
   const selectedSchema = schemasMap.get(schema) || {
     value: "custom",

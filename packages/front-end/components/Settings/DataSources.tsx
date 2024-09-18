@@ -140,12 +140,13 @@ const DataSources: FC = () => {
 
               <h4 className="mt-5">Connect your Data Source to GrowthBook</h4>
               <div
-                className="appbox d-flex mx-auto mt-4"
-                style={{ height: "60px", width: "200px" }}
+                className="border rounded d-inline-flex mt-3"
+                style={{
+                  height: 50,
+                  padding: 10,
+                }}
               >
-                <span className="row mx-auto">
-                  <DataSourceLogo eventTracker={setupEventTracker} showLabel />
-                </span>
+                <DataSourceLogo eventTracker={setupEventTracker} showLabel />
               </div>
               <div className="col mt-4">
                 <div className="row justify-content-center">
@@ -250,6 +251,7 @@ const DataSources: FC = () => {
           }}
           onCancel={() => {
             setNewModalOpen(false);
+            setUseSetupEventTracker(false);
           }}
           showImportSampleData={!demoDataSourceExists}
         />

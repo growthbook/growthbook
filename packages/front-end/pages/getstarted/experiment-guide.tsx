@@ -239,7 +239,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     })
                   }
                 >
-                  Review or Add Environments
+                  Review or Add Environments (Optional)
                 </Link>
                 <p className="mt-2">
                   By default, GrowthBook comes with one
@@ -291,7 +291,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     })
                   }
                 >
-                  Customize Targeting Attributes
+                  Customize Targeting Attributes (Optional)
                 </Link>
                 <p className="mt-2">
                   Define user attributes to use for targeting experiments and
