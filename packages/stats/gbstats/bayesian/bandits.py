@@ -582,7 +582,9 @@ class BanditsRatio(Bandits):
         v_num = self.numerator_variances[variation_index]
         mn_den = self.denominator_means[variation_index]
         v_den = self.denominator_variances[variation_index]
-        cross_product = self.covariances[variation_index] + mn_num * mn_den
+        cross_product = (n - 1) * self.covariances[
+            variation_index
+        ] + n * mn_num * mn_den
         return {
             "dimension": dimension,
             "variation": variation_value,
