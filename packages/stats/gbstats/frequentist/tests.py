@@ -193,7 +193,7 @@ class TTest(BaseABTest):
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
         else:
-            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, or RegressionAdjustedStatistic"
+            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, or RegressionAdjustedStatistic."
             return self._default_output(error_str)
 
 
