@@ -59,7 +59,7 @@ export default function SetupFlow() {
 
   // Start off user on the correct step depending on how much has already been set up
   useEffect(() => {
-    if (!sdkConnectionData?.connections.length) {
+    if (!sdkConnectionData?.connections.length || connection) {
       return;
     }
     const firstConnection = sdkConnectionData.connections[0];
@@ -76,7 +76,7 @@ export default function SetupFlow() {
         setSetupComplete(true);
       }
     }
-  }, [sdkConnectionData?.connections, datasources.length, sdkConnectionForm]);
+  }, [sdkConnectionData, datasources, sdkConnectionForm, connection]);
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -100,6 +100,7 @@ export default function SetupFlow() {
           eventTracker: eventTracker,
         }),
       });
+      refreshOrganization();
     }
     setSetupComplete(true);
     // TODO: Tracking here
@@ -118,7 +119,7 @@ export default function SetupFlow() {
   }
 
   return (
-    <div className="container pagecontents pt-5" style={{ maxWidth: "1000px" }}>
+    <div className="container pagecontents pt-5" style={{ maxWidth: "1100px" }}>
       <PageHead
         breadcrumb={[{ display: "< Exit Setup", href: "/getstarted" }]}
       />

@@ -27,6 +27,8 @@ const DataSources: FC = () => {
   const { apiCall } = useAuth();
   const { setupEventTracker } = organization;
 
+  console.log({ setupEventTracker });
+
   const router = useRouter();
 
   const {

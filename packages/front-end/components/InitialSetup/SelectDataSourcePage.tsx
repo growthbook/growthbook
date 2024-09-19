@@ -72,7 +72,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
                     }`}
                     style={{
                       height: 50,
-                      padding: 10,
+                      padding: eventSchema === "custom" ? "10px 20px" : 10,
                       boxShadow:
                         eventTracker === eventSchema
                           ? "0 0 0 1px var(--text-color-primary)"
