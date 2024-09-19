@@ -67,6 +67,7 @@ export interface AnalysisSettingsForStatsEngine {
   phase_length_days: number;
   alpha: number;
   max_dimensions: number;
+  traffic_percentage: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -174,6 +175,7 @@ export function getAnalysisSettingsForStatsEngine(
       settings.dimensions[0]?.substring(0, 8) === "pre:date"
         ? 9999
         : MAX_DIMENSIONS,
+    traffic_percentage: coverage,
   };
   return analysisData;
 }

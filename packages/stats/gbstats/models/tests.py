@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from pydantic.dataclasses import dataclass
 
@@ -15,8 +15,9 @@ from gbstats.models.settings import DifferenceType
 @dataclass
 class BaseConfig:
     difference_type: DifferenceType = "relative"
-    traffic_proportion_b: float = 1
+    traffic_percentage: float = 1
     phase_length_days: float = 1
+    total_users: Optional[int] = None
 
 
 # Results
