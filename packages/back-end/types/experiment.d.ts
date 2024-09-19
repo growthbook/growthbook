@@ -13,7 +13,7 @@ export {
   ExperimentStatus,
   ExperimentType,
   ExperimentPhase,
-  BanditPhaseType,
+  banditStageType,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,

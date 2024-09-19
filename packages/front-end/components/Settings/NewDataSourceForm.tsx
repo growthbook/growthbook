@@ -10,7 +10,7 @@ import {
   DataSourceSettings,
 } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
-import { MetricType } from "@back-end/types/metric";
+import { MetricType } from "back-end/types/metric";
 import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useRouter } from "next/router";

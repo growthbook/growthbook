@@ -295,11 +295,13 @@ export async function runSnapshotAnalysis(
     throw new Error("Error in stats engine: no rows returned");
   }
   if (analysis.error) {
-    logger.error(
-      analysis.error,
-      "Failed to run stats model: " + analysis.error
-    );
-    throw new Error("Error in stats engine: " + analysis.error);
+    let errorMsg = "Failed to run stats model:\n" + analysis.error;
+    logger.error(analysis.error, errorMsg);
+    if (analysis.traceback) {
+      logger.error("Traceback:\n" + analysis.traceback);
+      errorMsg += "\n\n" + analysis.traceback;
+    }
+    throw new Error("Error in stats engine: " + errorMsg);
   }
   return {
     results: analysis.results,

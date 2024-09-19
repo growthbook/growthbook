@@ -47,8 +47,10 @@ class BaseABTest(ABC):
         self.stat_b = stat_b
 
         # Ensure theta is set for regression adjusted statistics
-        if isinstance(self.stat_b, RegressionAdjustedStatistic) and isinstance(
-            self.stat_a, RegressionAdjustedStatistic
+        if (
+            isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and self.stat_a.theta == 0
         ):
             theta = compute_theta(self.stat_a, self.stat_b)
             if theta == 0:

@@ -1,5 +1,5 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import React from "react";
 import { PiInfoFill } from "react-icons/pi";

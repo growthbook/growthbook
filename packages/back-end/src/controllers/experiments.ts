@@ -17,7 +17,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { DataSourceInterface } from "@back-end/types/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   _getSnapshots,
@@ -857,7 +857,7 @@ export async function postExperiment(
     "sequentialTestingTuningParameter",
     "statsEngine",
     "type",
-    "banditPhase",
+    "banditStage",
     "banditScheduleValue",
     "banditScheduleUnit",
     "banditBurnInValue",
@@ -913,7 +913,7 @@ export async function postExperiment(
   // If it's a draft, hasn't been run as a MAB before, and is/will be a MAB:
   if (
     experiment.status === "draft" &&
-    experiment.banditPhase === undefined &&
+    experiment.banditStage === undefined &&
     ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
       data.type === "multi-armed-bandit")
   ) {
@@ -933,8 +933,8 @@ export async function postExperiment(
     changes.goalMetrics = goalMetric ? [goalMetric] : [];
 
     // start date on bandit phase
-    if (data.banditPhase) {
-      changes.banditPhaseDateStarted = new Date();
+    if (data.banditStage) {
+      changes.banditStageDateStarted = new Date();
     }
 
     // todo: clear out unusable fields?
@@ -952,8 +952,8 @@ export async function postExperiment(
     "releasedVariationId",
     "excludeFromPayload",
     "type",
-    "banditPhase",
-    "banditPhaseDateStarted",
+    "banditStage",
+    "banditStageDateStarted",
     "banditScheduleValue",
     "banditScheduleUnit",
     "banditBurnInValue",
@@ -1247,8 +1247,8 @@ export async function postExperimentStatus(
     if (experiment.type === "multi-armed-bandit") {
       // reset bandit settings if the current bandit phase is inactive
       if (
-        experiment.banditPhase === "paused" ||
-        experiment.banditPhase === undefined
+        experiment.banditStage === "paused" ||
+        experiment.banditStage === undefined
       ) {
         Object.assign(
           changes,
@@ -1386,8 +1386,8 @@ export async function postExperimentStop(
   changes.excludeFromPayload = !!excludeFromPayload;
   if (experiment.type == "multi-armed-bandit") {
     // pause bandit phase
-    changes.banditPhase = "paused";
-    changes.banditPhaseDateStarted = new Date();
+    changes.banditStage = "paused";
+    changes.banditStageDateStarted = new Date();
   }
 
   try {
@@ -1470,7 +1470,7 @@ export async function deleteExperimentPhase(
   if (!changes.phases.length) {
     changes.status = "draft";
     if (experiment.type === "multi-armed-bandit") {
-      changes.banditPhase = "paused";
+      changes.banditStage = "paused";
     }
   }
   const updated = await updateExperiment({
@@ -2337,7 +2337,7 @@ export async function postBanditSnapshot(
     req.log.error(e, "Failed to create experiment snapshot");
     res.status(400).json({
       status: 400,
-      message: e.message,
+      message: e?.message || e,
     });
   }
 }

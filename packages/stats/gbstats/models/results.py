@@ -102,3 +102,4 @@ class MultipleExperimentMetricAnalysis:
     results: List[ExperimentMetricAnalysis]
     banditResult: Optional[BanditResult]
     error: Optional[str]
+    traceback: Optional[str]

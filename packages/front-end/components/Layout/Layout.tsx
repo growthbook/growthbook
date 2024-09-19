@@ -75,7 +75,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Fact Tables",
         href: "/fact-tables",
         path: /^fact-tables/,
-        beta: true,
       },
       {
         name: "Segments",

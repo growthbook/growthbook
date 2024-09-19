@@ -144,10 +144,10 @@ export default function BanditSettings({
                 "font-weight-bold": page === "experiment-settings",
               })}
             >
-              Burn-in Period
+              Explore Stage
             </label>
             <div className="small text-muted mb-2">
-              How long to wait (explore) before updating variation weights:
+              How long to wait before updating variation weights:
             </div>
             <div className="row align-items-center">
               <div className="col-auto">

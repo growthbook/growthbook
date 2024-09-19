@@ -61,6 +61,7 @@ import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
+import FallbackAttributeSelector from "./FallbackAttributeSelector";
 
 export interface Props {
   close: () => void;
@@ -365,6 +366,7 @@ export default function RuleModal({
                 feature.project || ""
               ),
               hashAttribute: values.hashAttribute,
+              fallbackAttribute: values.fallbackAttribute || "",
               goalMetrics: [],
               secondaryMetrics: [],
               guardrailMetrics: [],
@@ -782,19 +784,26 @@ export default function RuleModal({
               placeholder={feature.id}
               helpText="Unique identifier for this experiment, used to track impressions and analyze results"
             />
-            <SelectField
-              label="Assign value based on attribute"
-              options={attributeSchema
-                .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
-              value={form.watch("hashAttribute")}
-              onChange={(v) => {
-                form.setValue("hashAttribute", v);
-              }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
-            />
+            <div className="d-flex" style={{ gap: "2rem" }}>
+              <SelectField
+                label="Assign value based on attribute"
+                containerClassName="flex-1"
+                options={attributeSchema
+                  .filter((s) => !hasHashAttributes || s.hashAttribute)
+                  .map((s) => ({ label: s.property, value: s.property }))}
+                value={form.watch("hashAttribute")}
+                onChange={(v) => {
+                  form.setValue("hashAttribute", v);
+                }}
+                helpText={
+                  "Will be hashed together with the Tracking Key to determine which variation to assign"
+                }
+              />
+              <FallbackAttributeSelector
+                form={form}
+                attributeSchema={attributeSchema}
+              />
+            </div>
           </div>
           {hasSDKWithNoBucketingV2 && (
             <HashVersionSelector

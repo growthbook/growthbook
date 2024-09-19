@@ -2,13 +2,13 @@ import {
   logFeatureCreatedEvent,
   logFeatureUpdatedEvent,
   logFeatureDeletedEvent,
-} from "@back-end/src/models/FeatureModel";
-import { getLegacyMessageForNotificationEvent } from "@back-end/src/events/handlers/legacy";
-import { featureSnapshot } from "@back-end/test/snapshots/feature.snapshot";
-import { EventModel } from "@back-end/src/models/EventModel";
+} from "back-end/src/models/FeatureModel";
+import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
+import { featureSnapshot } from "back-end/test/snapshots/feature.snapshot";
+import { EventModel } from "back-end/src/models/EventModel";
 import { setupApp } from "../api/api.setup";
 
-jest.mock("@back-end/src/events/notifiers/EventNotifier", () => ({
+jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
     perform() {
       return undefined;

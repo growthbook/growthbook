@@ -16,7 +16,7 @@ import {
 import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { MetricInterface } from "@back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
@@ -514,9 +514,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
         const startDate = stackedData[0].date;
         const exploitDate =
-          experiment.banditPhase !== "explore" &&
-          experiment.banditPhaseDateStarted
-            ? new Date(experiment.banditPhaseDateStarted)
+          experiment.banditStage !== "explore" &&
+          experiment.banditStageDateStarted
+            ? new Date(experiment.banditStageDateStarted)
             : undefined;
         const lastDate = stackedData[stackedData.length - 1].date;
         const exploreMask =
@@ -555,7 +555,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               fontSize={12}
               fontStyle={"italic"}
             >
-              Burn-in end
+              Explore end
             </text>
           </g>
         ) : null;

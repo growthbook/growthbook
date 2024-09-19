@@ -94,4 +94,5 @@ export type MultipleExperimentMetricAnalysis = {
   results: ExperimentMetricAnalysis;
   banditResult?: BanditResult;
   error?: string;
+  traceback?: string;
 };

@@ -10,7 +10,7 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
 } from "shared/constants";
-import { OrganizationSettings } from "@back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";

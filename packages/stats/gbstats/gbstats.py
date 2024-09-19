@@ -1,6 +1,7 @@
 from dataclasses import asdict
 import re
 import math
+import traceback
 from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
@@ -10,10 +11,12 @@ from gbstats.bayesian.tests import (
     EffectBayesianABTest,
     EffectBayesianConfig,
     GaussianPrior,
-    BanditConfig,
-    Bandits,
+)
+from gbstats.bayesian.bandits import (
+    BanditsSimple,
     BanditsRatio,
     BanditsCuped,
+    BanditConfig,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -56,6 +59,8 @@ from gbstats.models.statistics import (
     TestStatistic,
     BanditStatistic,
     BanditPeriodData,
+    BanditPeriodDataCuped,
+    BanditPeriodDataRatio,
 )
 from gbstats.utils import check_srm
 
@@ -79,6 +84,7 @@ ROW_COLS = SUM_COLS + [
     "quantile",
     "quantile_lower",
     "quantile_upper",
+    "theta",
 ]
 
 
@@ -457,18 +463,24 @@ def variation_statistic_from_metric_row(
         return base_statistic_from_metric_row(
             row, prefix, "main", metric.main_metric_type
         )
-    elif metric.statistic_type == "mean_ra":
+    elif metric.statistic_type == "mean_ra" or metric.statistic_type == "bandit_ra":
+        post_statistic = base_statistic_from_metric_row(
+            row, prefix, "main", metric.main_metric_type
+        )
+        pre_statistic = base_statistic_from_metric_row(
+            row, prefix, "covariate", metric.covariate_metric_type
+        )
+        post_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
+        n = row[f"{prefix}_users"]
+        theta = row[
+            f"{prefix}_theta"
+        ]  # Theta will be overriden with correct value later for A/B tests
         return RegressionAdjustedStatistic(
-            post_statistic=base_statistic_from_metric_row(
-                row, prefix, "main", metric.main_metric_type
-            ),
-            pre_statistic=base_statistic_from_metric_row(
-                row, prefix, "covariate", metric.covariate_metric_type
-            ),
-            post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
-            n=row[f"{prefix}_users"],
-            # Theta will be overriden with correct value later
-            theta=0,
+            post_statistic=post_statistic,
+            pre_statistic=pre_statistic,
+            post_pre_sum_of_products=post_pre_sum_of_products,
+            n=n,
+            theta=theta,
         )
     else:
         raise ValueError(f"Unexpected statistic_type: {metric.statistic_type}")
@@ -523,7 +535,8 @@ def process_analysis(
     reduced = reduce_dimensionality(
         df=df,
         max=max_dimensions,
-        keep_other=metric.statistic_type not in ["quantile_event", "quantile_unit"],
+        keep_other=metric.statistic_type
+        not in ["bandit_ra", "quantile_event", "quantile_unit"],
     )
 
     # Run the analysis for each variation and dimension
@@ -594,7 +607,7 @@ def create_bandit_statistics(
     reduced: pd.DataFrame,
     metric: MetricSettingsForStatsEngine,
     historical_weights: List[List[float]],
-) -> Dict[int, BanditPeriodData]:
+) -> Dict[int, Union[BanditPeriodData, BanditPeriodDataCuped, BanditPeriodDataRatio]]:
     num_variations = reduced.at[0, "variations"]
 
     def create_test_statistics_single_period(
@@ -614,10 +627,21 @@ def create_bandit_statistics(
     num_periods = reduced.shape[0]
     period_stats = {}
     for i in range(num_periods):
-        period_stats[i] = BanditPeriodData(
-            create_test_statistics_single_period(reduced.iloc[i, :]),
-            historical_weights[i],
-        )
+        if metric.statistic_type == "mean_ra":
+            period_stats[i] = BanditPeriodDataCuped(
+                create_test_statistics_single_period(reduced.iloc[i, :]),  # type: ignore
+                historical_weights[i],
+            )
+        elif metric.statistic_type == "ratio":
+            period_stats[i] = BanditPeriodDataRatio(
+                create_test_statistics_single_period(reduced.iloc[i, :]),  # type: ignore
+                historical_weights[i],
+            )
+        else:
+            period_stats[i] = BanditPeriodData(
+                create_test_statistics_single_period(reduced.iloc[i, :]),  # type: ignore
+                historical_weights[i],
+            )
     return period_stats
 
 
@@ -627,7 +651,7 @@ def preprocess_bandits(
     bandit_settings: BanditSettingsForStatsEngine,
     alpha: float,
     dimension: str,
-) -> Union[Bandits, BanditsCuped, BanditsRatio]:
+) -> Union[BanditsSimple, BanditsCuped, BanditsRatio]:
     if len(rows) == 0:
         bandit_stats = {}
     else:
@@ -640,19 +664,18 @@ def preprocess_bandits(
             var_names=bandit_settings.var_names,
             bandit=True,
         )
-        if not bandit_settings.weights:
-            # remove this later###
-            num_variations = len(bandit_settings.var_ids)
-            from gbstats.models.settings import BanditWeightsSinglePeriod
-            import datetime
+        # if not bandit_settings.weights:
+        #    # remove this later###
+        #    num_variations = len(bandit_settings.var_ids)
+        #    from gbstats.models.settings import BanditWeightsSinglePeriod
+        #    import datetime
 
-            bandit_settings.weights = [
-                BanditWeightsSinglePeriod(
-                    datetime.datetime.now().isoformat(),
-                    [1 / num_variations] * num_variations,
-                )
-            ]
-
+        #    bandit_settings.weights = [
+        #        BanditWeightsSinglePeriod(
+        #            datetime.datetime.now().isoformat(),
+        #            [1 / num_variations] * num_variations,
+        #        )
+        #    ]
         historical_weights = [w.weights for w in bandit_settings.weights]
         bandit_stats = create_bandit_statistics(df, metric, historical_weights)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
@@ -664,12 +687,12 @@ def preprocess_bandits(
         alpha=alpha,
         inverse=metric.inverse,
     )
-    if metric.statistic_type == "ratio":
-        return BanditsRatio(bandit_stats, bandit_config)
-    elif metric.statistic_type == "mean_ra":
-        return BanditsCuped(bandit_stats, bandit_config)
+    if isinstance(bandit_stats[0], BanditPeriodDataRatio):
+        return BanditsRatio(bandit_stats, bandit_config)  # type: ignore
+    elif isinstance(bandit_stats[0], BanditPeriodDataCuped):
+        return BanditsCuped(bandit_stats, bandit_config)  # type: ignore
     else:
-        return Bandits(bandit_stats, bandit_config)
+        return BanditsSimple(bandit_stats, bandit_config)  # type: ignore
 
 
 def get_weighted_rows(
@@ -874,6 +897,7 @@ def process_multiple_experiment_results(
                     results=fixed_results,
                     banditResult=bandit_result,
                     error=None,
+                    traceback=None,
                 )
             )
         except Exception as e:
@@ -882,7 +906,8 @@ def process_multiple_experiment_results(
                     id=exp_data["id"],
                     results=[],
                     banditResult=None,
-                    error=str(e)[:64],
+                    error=str(e),
+                    traceback=traceback.format_exc(),
                 )
             )
     return results

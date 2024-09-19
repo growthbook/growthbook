@@ -1,4 +1,4 @@
-import { BanditResult } from "@back-end/src/validators/experiments";
+import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,

@@ -8,12 +8,12 @@ import {
   getMetricResultStatus,
   isFactMetric,
 } from "shared/experiments";
-import { StatsEngine } from "@back-end/types/stats";
+import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentWithSnapshot,
   SnapshotMetric,
-} from "@back-end/types/experiment-snapshot";
-import { ExperimentStatus } from "@back-end/types/experiment";
+} from "back-end/types/experiment-snapshot";
+import { ExperimentStatus } from "back-end/types/experiment";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";

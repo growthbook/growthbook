@@ -308,7 +308,15 @@ export default function ExperimentHeader({
               {experiment.archived ? (
                 <div className="badge badge-secondary">archived</div>
               ) : (
-                <ExperimentStatusIndicator status={experiment.status} />
+                <ExperimentStatusIndicator
+                  status={experiment.status}
+                  subStatus={
+                    experiment.type === "multi-armed-bandit" &&
+                    experiment.banditStage === "explore"
+                      ? "explore"
+                      : undefined
+                  }
+                />
               )}
             </div>
 

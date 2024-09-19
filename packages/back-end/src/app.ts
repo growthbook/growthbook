@@ -168,7 +168,7 @@ app.get("/robots.txt", (_req, res) => {
   }
 
   res.setHeader("Cache-Control", "max-age=3600");
-  res.setHeader("Content-Type", "text/yaml");
+  res.setHeader("Content-Type", "text/plain");
   res.send(robotsTxt);
 });
 

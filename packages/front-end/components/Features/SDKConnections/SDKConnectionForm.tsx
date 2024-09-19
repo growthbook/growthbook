@@ -186,12 +186,12 @@ export default function SDKConnectionForm({
     form.getValues(),
     "min-ver-intersection"
   );
-
   const showVisualEditorSettings = latestSdkCapabilities.includes(
     "visualEditor"
   );
-
   const showRedirectSettings = latestSdkCapabilities.includes("redirects");
+  const showEncryption = currentSdkCapabilities.includes("encryption");
+  const showRemoteEval = currentSdkCapabilities.includes("remoteEval");
 
   const showSavedGroupSettings = useMemo(
     () => currentSdkCapabilities.includes("savedGroupReferences"),
@@ -658,45 +658,47 @@ export default function SDKConnectionForm({
                   >
                     <div>
                       <label className="mb-3">Cipher Options</label>
-                      <div className="mb-4 d-flex align-items-center">
-                        <Toggle
-                          id="encryptSDK"
-                          value={form.watch("encryptPayload")}
-                          setValue={(val) =>
-                            form.setValue("encryptPayload", val)
-                          }
-                          disabled={!hasEncryptionFeature}
-                        />
-                        <label className="ml-2 mb-0" htmlFor="encryptSDK">
-                          <PremiumTooltip
-                            commercialFeature="encrypt-features-endpoint"
-                            body={
-                              <>
-                                <p>
-                                  SDK payloads will be encrypted via the AES
-                                  encryption algorithm. When evaluating feature
-                                  flags in a public or insecure environment
-                                  (such as a browser), encryption provides an
-                                  additional layer of security through
-                                  obfuscation. This allows you to target users
-                                  based on sensitive attributes.
-                                </p>
-                                <p className="mb-0 text-warning-orange small">
-                                  <FaExclamationCircle /> When using an insecure
-                                  environment, do not rely exclusively on
-                                  payload encryption as a means of securing
-                                  highly sensitive data. Because the client
-                                  performs the decryption, the unencrypted
-                                  payload may be extracted with sufficient
-                                  effort.
-                                </p>
-                              </>
+                      {showEncryption && (
+                        <div className="mb-4 d-flex align-items-center">
+                          <Toggle
+                            id="encryptSDK"
+                            value={form.watch("encryptPayload")}
+                            setValue={(val) =>
+                              form.setValue("encryptPayload", val)
                             }
-                          >
-                            Encrypt SDK payload <FaInfoCircle />
-                          </PremiumTooltip>
-                        </label>
-                      </div>
+                            disabled={!hasEncryptionFeature}
+                          />
+                          <label className="ml-2 mb-0" htmlFor="encryptSDK">
+                            <PremiumTooltip
+                              commercialFeature="encrypt-features-endpoint"
+                              body={
+                                <>
+                                  <p>
+                                    SDK payloads will be encrypted via the AES
+                                    encryption algorithm. When evaluating
+                                    feature flags in a public or insecure
+                                    environment (such as a browser), encryption
+                                    provides an additional layer of security
+                                    through obfuscation. This allows you to
+                                    target users based on sensitive attributes.
+                                  </p>
+                                  <p className="mb-0 text-warning-orange small">
+                                    <FaExclamationCircle /> When using an
+                                    insecure environment, do not rely
+                                    exclusively on payload encryption as a means
+                                    of securing highly sensitive data. Because
+                                    the client performs the decryption, the
+                                    unencrypted payload may be extracted with
+                                    sufficient effort.
+                                  </p>
+                                </>
+                              }
+                            >
+                              Encrypt SDK payload <FaInfoCircle />
+                            </PremiumTooltip>
+                          </label>
+                        </div>
+                      )}
 
                       <div className="mb-4 d-flex align-items-center">
                         <Toggle
@@ -816,7 +818,7 @@ export default function SDKConnectionForm({
                   </Tab>
                 )}
 
-                {["frontend", "nocode", "other"].includes(languageType) && (
+                {showRemoteEval && (
                   <Tab
                     id="remote"
                     padding={false}

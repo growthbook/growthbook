@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { BanditEvent } from "back-end/src/validators/experiments";
-import { MetricInterface } from "@back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
 import {
   LayoutX,

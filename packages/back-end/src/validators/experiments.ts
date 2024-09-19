@@ -104,6 +104,7 @@ export const experimentNotification = [
   "auto-update",
   "multiple-exposures",
   "srm",
+  "significance",
 ] as const;
 export type ExperimentNotification = typeof experimentNotification[number];
 
@@ -129,8 +130,8 @@ export type MetricOverride = z.infer<typeof metricOverride>;
 export const experimentType = ["standard", "multi-armed-bandit"] as const;
 export type ExperimentType = typeof experimentType[number];
 
-export const banditPhaseType = ["explore", "exploit", "paused"] as const;
-export type BanditPhaseType = typeof banditPhaseType[number];
+export const banditStageType = ["explore", "exploit", "paused"] as const;
+export type banditStageType = typeof banditStageType[number];
 
 export const experimentInterface = z
   .object({
@@ -205,8 +206,8 @@ export const experimentInterface = z
       )
       .optional(),
     type: z.enum(experimentType).optional(),
-    banditPhase: z.enum(banditPhaseType).optional(),
-    banditPhaseDateStarted: z.date().optional(),
+    banditStage: z.enum(banditStageType).optional(),
+    banditStageDateStarted: z.date().optional(),
     banditScheduleValue: z.number().optional(),
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),

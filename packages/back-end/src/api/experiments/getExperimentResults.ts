@@ -24,6 +24,7 @@ export const getExperimentResults = createApiRequestHandler(
       dimension: req.query.dimension,
       withResults: true,
     });
+
     if (!snapshot) {
       throw new Error("No results found for that experiment");
     }

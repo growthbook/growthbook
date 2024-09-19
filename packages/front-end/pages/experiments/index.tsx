@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { ExperimentInterfaceStringDates } from "@back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -21,7 +20,6 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
-import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
@@ -51,7 +49,7 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 }
 
 const ExperimentsPage = (): React.ReactElement => {
-  const growthbook = useGrowthBook<AppFeatures>();
+  // const growthbook = useGrowthBook<AppFeatures>();
 
   const {
     ready,
@@ -76,7 +74,9 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
-  const [openImportExperimentModal, setOpenImportExperimentModal] = useState(false);
+  const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
+    false
+  );
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -134,6 +134,7 @@ const ExperimentsPage = (): React.ReactElement => {
     localStorageKey: "experiments",
     defaultSortField: "date",
     defaultSortDir: -1,
+    updateSearchQueryOnChange: true,
     searchFields: [
       "name^3",
       "trackingKey^2",
@@ -201,6 +202,50 @@ const ExperimentsPage = (): React.ReactElement => {
     filterResults,
   });
 
+  const searchTermFilterExplainations = (
+    <>
+      <p>This search field supports advanced syntax search, including:</p>
+      <ul>
+        <li>
+          <strong>name</strong>: The experiment name (eg: name:~homepage)
+        </li>
+        <li>
+          <strong>id</strong>: The experiment id (eg: name:^exp)
+        </li>
+        <li>
+          <strong>status</strong>: Experiment status, can be one of
+          &apos;stopped&apos;, &apos;running&apos;, &apos;draft&apos;,
+          &apos;archived&apos;
+        </li>
+        <li>
+          <strong>datasource</strong>: Experiment datasource
+        </li>
+        <li>
+          <strong>metric</strong>: Experiment uses the specified metric (eg:
+          metric:~revenue)
+        </li>
+        <li>
+          <strong>owner</strong>: The creator of the experiment (eg: owner:abby)
+        </li>
+        <li>
+          <strong>tag</strong>: Experiments tagged with this tag
+        </li>
+        <li>
+          <strong>project</strong>: The experiment&apos;s project
+        </li>
+        <li>
+          <strong>feature</strong>: The experiment is linked to the specified
+          feature
+        </li>
+        <li>
+          <strong>created</strong>:The experiment&apos;s creation date, in UTC.
+          Date entered is parsed so supports most formats.
+        </li>
+      </ul>
+      <p>Click to see all syntax fields supported in our docs.</p>
+    </>
+  );
+
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     items.forEach((item) => {
@@ -259,7 +304,7 @@ const ExperimentsPage = (): React.ReactElement => {
       className="py-0"
       toggle="Add Experiment"
     >
-      <div style={{width: 220}}>
+      <div style={{ width: 220 }}>
         <div
           className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
           onClick={() => setOpenNewExperimentModal(true)}
@@ -295,15 +340,13 @@ const ExperimentsPage = (): React.ReactElement => {
               </Link>
             )}
             {canAdd && (
-              <div className="col-auto">
-                {addExperimentDropdownButton}
-              </div>
+              <div className="col-auto">{addExperimentDropdownButton}</div>
             )}
           </div>
-          <CustomMarkdown page={"experimentList"}/>
+          <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
             <div className="box py-4 text-center">
-              <div className="mx-auto" style={{maxWidth: 650 }}>
+              <div className="mx-auto" style={{ maxWidth: 650 }}>
                 <h1>Test Variations with Targeted Users</h1>
                 <p style={{ fontSize: "17px" }}>
                   Run unlimited tests with linked feature flags, URL redirects
@@ -384,6 +427,14 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
                 <div className="col-auto">
                   <TagsFilter filter={tagsFilter} items={items} />
+                </div>
+                <div className="col-auto">
+                  <Link
+                    href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
+                    target="_blank"
+                  >
+                    <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                  </Link>
                 </div>
                 <div className="col-auto ml-auto">
                   <Toggle

@@ -32,44 +32,48 @@ export const setupApp = () => {
   let reqContext;
   const auditMock = jest.fn();
   const OLD_ENV = process.env;
+  const isReady = new Promise((resolve) => {
+    beforeAll(async () => {
+      mongodb = await MongoMemoryServer.create();
+      const uri = mongodb.getUri();
+      process.env.MONGO_URL = uri;
+      getAuthConnection().middleware.mockImplementation((req, res, next) => {
+        next();
+      });
 
-  beforeAll(async () => {
-    mongodb = await MongoMemoryServer.create();
-    const uri = mongodb.getUri();
-    process.env.MONGO_URL = uri;
-    getAuthConnection().middleware.mockImplementation((req, res, next) => {
-      next();
+      authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
+        req.audit = auditMock;
+        req.context = reqContext;
+        next();
+      });
+
+      await mongoInit();
+      await queueInit();
+      // This seems to help:
+      setTimeout(resolve, 100);
     });
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = reqContext;
-      next();
+    afterAll(async () => {
+      await getAgendaInstance().stop();
+      await mongoose.connection.close();
+      await mongodb.stop();
+      process.env = OLD_ENV;
     });
 
-    await mongoInit();
-    await queueInit();
-  });
-
-  afterAll(async () => {
-    await getAgendaInstance().stop();
-    await mongoose.connection.close();
-    await mongodb.stop();
-    process.env = OLD_ENV;
-  });
-
-  afterEach(async () => {
-    jest.clearAllMocks();
-    const collections = mongoose.connection.collections;
-    for (const key in collections) {
-      const collection = collections[key];
-      await collection.deleteMany();
-    }
+    afterEach(async () => {
+      jest.clearAllMocks();
+      const collections = mongoose.connection.collections;
+      for (const key in collections) {
+        const collection = collections[key];
+        await collection.deleteMany();
+      }
+    });
   });
 
   return {
     app,
     auditMock,
+    isReady,
     setReqContext: (v) => {
       reqContext = v;
     },
