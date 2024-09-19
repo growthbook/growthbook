@@ -233,14 +233,20 @@ const Modal: FC<ModalProps> = ({
               body={disabledMessage || ""}
               shouldDisplay={!ctaEnabled && !!disabledMessage}
               tipPosition="top"
-              className={fullWidthSubmit ? "w-100" : ""}
+              className={
+                stickyFooter
+                  ? "container pagecontents mx-auto text-right"
+                  : fullWidthSubmit
+                  ? "w-100"
+                  : ""
+              }
+              style={stickyFooter ? { maxWidth: "1100px" } : undefined}
             >
               <button
                 className={`btn btn-${submitColor} ${
                   fullWidthSubmit ? "w-100" : ""
-                }`}
+                } ${stickyFooter ? "ml-auto mr-5" : ""}`}
                 type="submit"
-                style={stickyFooter ? { marginRight: "310px" } : undefined}
                 disabled={!ctaEnabled}
               >
                 {cta}
