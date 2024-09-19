@@ -131,27 +131,30 @@ class BayesianABTest(BaseABTest):
     def scale_result(self, result: BayesianTestResult) -> BayesianTestResult:
         if result.uplift.dist != "normal":
             raise ValueError("Cannot scale relative results.")
-        if (
-            self.phase_length_days == 0
-            or self.traffic_percentage == 0
-            or not isinstance(self.stat_a, ScaledImpactStatistic)
-        ):
+        if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        adjustment = self.total_users / (
-            self.traffic_percentage * self.phase_length_days
-        )
-        return BayesianTestResult(
-            chance_to_win=result.chance_to_win,
-            expected=result.expected * adjustment,
-            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
-            uplift=Uplift(
-                dist=result.uplift.dist,
-                mean=result.uplift.mean * adjustment,
-                stddev=result.uplift.stddev * adjustment,
-            ),
-            risk=result.risk,
-            risk_type=result.risk_type,
-        )
+        if isinstance(self.stat_a, ScaledImpactStatistic):
+            if self.total_users:
+                adjustment = self.total_users / (
+                    self.traffic_percentage * self.phase_length_days
+                )
+                return BayesianTestResult(
+                    chance_to_win=result.chance_to_win,
+                    expected=result.expected * adjustment,
+                    ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+                    uplift=Uplift(
+                        dist=result.uplift.dist,
+                        mean=result.uplift.mean * adjustment,
+                        stddev=result.uplift.stddev * adjustment,
+                    ),
+                    risk=result.risk,
+                    risk_type=result.risk_type,
+                )
+            else:
+                return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
+        else:
+            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, or RegressionAdjustedStatistic"
+            return self._default_output(error_str)
 
 
 class EffectBayesianABTest(BayesianABTest):

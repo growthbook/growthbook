@@ -10,6 +10,7 @@ from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
     ZERO_SCALED_VARIATION_MESSAGE,
+    NO_UNITS_IN_VARIATION_MESSAGE,
 )
 from gbstats.models.statistics import TestStatistic, ScaledImpactStatistic
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
@@ -178,19 +179,22 @@ class TTest(BaseABTest):
             or not isinstance(self.stat_a, ScaledImpactStatistic)
         ):
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        adjustment = self.total_users / (
-            self.traffic_percentage * self.phase_length_days
-        )
-        return FrequentistTestResult(
-            expected=result.expected * adjustment,
-            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
-            p_value=result.p_value,
-            uplift=Uplift(
-                dist=result.uplift.dist,
-                mean=result.uplift.mean * adjustment,
-                stddev=result.uplift.stddev * adjustment,
-            ),
-        )
+        if self.total_users:
+            adjustment = self.total_users / (
+                self.traffic_percentage * self.phase_length_days
+            )
+            return FrequentistTestResult(
+                expected=result.expected * adjustment,
+                ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+                p_value=result.p_value,
+                uplift=Uplift(
+                    dist=result.uplift.dist,
+                    mean=result.uplift.mean * adjustment,
+                    stddev=result.uplift.stddev * adjustment,
+                ),
+            )
+        else:
+            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
 
 
 class TwoSidedTTest(TTest):
