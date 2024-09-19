@@ -173,28 +173,28 @@ class TTest(BaseABTest):
         return result
 
     def scale_result(self, result: FrequentistTestResult) -> FrequentistTestResult:
-        if (
-            self.phase_length_days == 0
-            or self.traffic_percentage == 0
-            or not isinstance(self.stat_a, ScaledImpactStatistic)
-        ):
+        if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        if self.total_users:
-            adjustment = self.total_users / (
-                self.traffic_percentage * self.phase_length_days
-            )
-            return FrequentistTestResult(
-                expected=result.expected * adjustment,
-                ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
-                p_value=result.p_value,
-                uplift=Uplift(
-                    dist=result.uplift.dist,
-                    mean=result.uplift.mean * adjustment,
-                    stddev=result.uplift.stddev * adjustment,
-                ),
-            )
+        if isinstance(self.stat_a, ScaledImpactStatistic):
+            if self.total_users:
+                adjustment = self.total_users / (
+                    self.traffic_percentage * self.phase_length_days
+                )
+                return FrequentistTestResult(
+                    expected=result.expected * adjustment,
+                    ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+                    p_value=result.p_value,
+                    uplift=Uplift(
+                        dist=result.uplift.dist,
+                        mean=result.uplift.mean * adjustment,
+                        stddev=result.uplift.stddev * adjustment,
+                    ),
+                )
+            else:
+                return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
         else:
-            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
+            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, or RegressionAdjustedStatistic"
+            return self._default_output(error_str)
 
 
 class TwoSidedTTest(TTest):
