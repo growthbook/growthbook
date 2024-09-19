@@ -65,15 +65,7 @@ export const postSavedGroup = async (
   }
 
   if (projects) {
-    await Promise.all(
-      projects.map(async (projectId) => {
-        // Ensure the project exists
-        const project = await context.models.projects.getById(projectId);
-        if (!project) {
-          throw new Error("Project does not exist");
-        }
-      })
-    );
+    await context.models.projects.ensureProjectsExist(projects);
   }
 
   const uniqValues: string[] | undefined = undefined;
@@ -464,15 +456,7 @@ export const putSavedGroup = async (
   }
   if (!isEqual(savedGroup.projects, projects)) {
     if (projects) {
-      await Promise.all(
-        projects.map(async (projectId) => {
-          // Ensure the project exists
-          const project = await context.models.projects.getById(projectId);
-          if (!project) {
-            throw new Error("Project does not exist");
-          }
-        })
-      );
+      await context.models.projects.ensureProjectsExist(projects);
     }
     fieldsToUpdate.projects = projects;
   }

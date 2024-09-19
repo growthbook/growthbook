@@ -16,15 +16,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     }
 
     if (projects) {
-      await Promise.all(
-        projects.map(async (projectId) => {
-          // Ensure the project exists
-          const project = await req.context.models.projects.getById(projectId);
-          if (!project) {
-            throw new Error("Project does not exist");
-          }
-        })
-      );
+      await req.context.models.projects.ensureProjectsExist(projects);
     }
 
     let { type } = req.body;
