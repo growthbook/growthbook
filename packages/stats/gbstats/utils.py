@@ -2,6 +2,7 @@ import importlib.metadata
 from typing import List
 
 import packaging.version
+import numpy as np
 from scipy.stats import truncnorm
 from scipy.stats.distributions import chi2  # type: ignore
 from scipy.stats import norm  # type: ignore
@@ -58,3 +59,16 @@ def gaussian_credible_interval(
 ) -> List[float]:
     ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
     return ci.tolist()
+
+
+def weighted_mean(
+    n_0: np.ndarray, n_1: np.ndarray, mn_0: np.ndarray, mn_1: np.ndarray
+) -> np.ndarray:
+    n = n_0 + n_1
+    positive_counts = n > 0
+    mn = np.zeros((len(mn_0),))
+    mn[positive_counts] = (
+        n_0[positive_counts] * mn_0[positive_counts]
+        + n_1[positive_counts] * mn_1[positive_counts]
+    ) / (n_0[positive_counts] + n_1[positive_counts])
+    return mn

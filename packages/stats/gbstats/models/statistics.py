@@ -307,5 +307,17 @@ BanditStatistic = Union[
 
 @dataclass
 class BanditPeriodData:
-    stats: List[BanditStatistic]
+    stats: List[Union[ProportionStatistic, SampleMeanStatistic]]
+    weights: List[float]
+
+
+@dataclass
+class BanditPeriodDataRatio:
+    stats: List[RatioStatistic]
+    weights: List[float]
+
+
+@dataclass
+class BanditPeriodDataCuped:
+    stats: List[RegressionAdjustedStatistic]
     weights: List[float]
