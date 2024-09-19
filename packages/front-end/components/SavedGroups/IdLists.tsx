@@ -187,8 +187,7 @@ export default function IdLists({ groups, mutate }: Props) {
                       <SortableTH field={"dateUpdated"}>
                         Date Updated
                       </SortableTH>
-                      {(canUpdate({ projects: [project] }) ||
-                        canDelete({ projects: [project] })) && <th></th>}
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -226,60 +225,50 @@ export default function IdLists({ groups, mutate }: Props) {
                           </td>
                           <td>{s.owner}</td>
                           <td>{ago(s.dateUpdated)}</td>
-                          {canUpdate(s) || canDelete(s) ? (
-                            <td style={{ width: 30 }}>
-                              <MoreMenu>
-                                {canUpdate(s) ? (
-                                  <a
-                                    href="#"
-                                    className="dropdown-item"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSavedGroupForm(s);
-                                    }}
-                                  >
-                                    Edit
-                                  </a>
-                                ) : null}
-                                {canDelete(s) ? (
-                                  <DeleteButton
-                                    displayName="Saved Group"
-                                    className="dropdown-item text-danger"
-                                    useIcon={false}
-                                    text="Delete"
-                                    title="Delete SavedGroup"
-                                    onClick={async () => {
-                                      await apiCall(`/saved-groups/${s.id}`, {
-                                        method: "DELETE",
-                                      });
-                                      mutate();
-                                    }}
-                                    getConfirmationContent={getSavedGroupMessage(
-                                      savedGroupFeatureIds[s.id]
-                                    )}
-                                    canDelete={
-                                      (savedGroupFeatureIds[s.id]?.size ||
-                                        0) === 0
-                                    }
-                                  />
-                                ) : null}
-                              </MoreMenu>
-                            </td>
-                          ) : null}
+                          <td style={{ width: 30 }}>
+                            <MoreMenu>
+                              {canUpdate(s) ? (
+                                <a
+                                  href="#"
+                                  className="dropdown-item"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSavedGroupForm(s);
+                                  }}
+                                >
+                                  Edit
+                                </a>
+                              ) : null}
+                              {canDelete(s) ? (
+                                <DeleteButton
+                                  displayName="Saved Group"
+                                  className="dropdown-item text-danger"
+                                  useIcon={false}
+                                  text="Delete"
+                                  title="Delete SavedGroup"
+                                  onClick={async () => {
+                                    await apiCall(`/saved-groups/${s.id}`, {
+                                      method: "DELETE",
+                                    });
+                                    mutate();
+                                  }}
+                                  getConfirmationContent={getSavedGroupMessage(
+                                    savedGroupFeatureIds[s.id]
+                                  )}
+                                  canDelete={
+                                    (savedGroupFeatureIds[s.id]?.size || 0) ===
+                                    0
+                                  }
+                                />
+                              ) : null}
+                            </MoreMenu>
+                          </td>
                         </tr>
                       );
                     })}
                     {!items.length && isFiltered && (
                       <tr>
-                        <td
-                          colSpan={
-                            canUpdate({ projects: [project] }) ||
-                            canDelete({ projects: [project] })
-                              ? 7
-                              : 6
-                          }
-                          align={"center"}
-                        >
+                        <td colSpan={7} align={"center"}>
                           No matching saved groups
                         </td>
                       </tr>
