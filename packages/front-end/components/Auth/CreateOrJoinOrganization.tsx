@@ -14,7 +14,6 @@ import {
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import WelcomeFrame from "./WelcomeFrame";
 
 import style from "./CreateOrJoinOrganization.module.scss";
@@ -43,7 +42,6 @@ const CreateOrJoinOrganization: FC<{
 
   const { apiCall, logout, setOrgId } = useAuth();
   const { updateUser } = useUser();
-  const { setProject } = useDefinitions();
 
   const { data: recommendedOrgsData } = useApi<{
     organizations: {
@@ -217,9 +215,8 @@ const CreateOrJoinOrganization: FC<{
                     setError(null);
                     setLoading(true);
                     try {
-                      const resp = await apiCall<{
+                      await apiCall<{
                         orgId: string;
-                        projectId?: string;
                         status: number;
                         message?: string;
                       }>("/organization", {
@@ -228,9 +225,6 @@ const CreateOrJoinOrganization: FC<{
                       });
                       track("Create Organization");
                       updateUser();
-                      if (resp.projectId) {
-                        setProject(resp.projectId);
-                      }
                       setLoading(false);
                     } catch (e) {
                       setError(e.message);

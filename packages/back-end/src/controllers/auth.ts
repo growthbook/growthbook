@@ -20,7 +20,10 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../util/cookie";
-import { getContextFromReq } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getContextFromReq,
+} from "../services/organizations";
 import { updatePassword, verifyPassword } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
 import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
@@ -275,10 +278,16 @@ export async function postFirstTimeRegister(
   // grant the first user on a new installation super admin access
   const user = await createUser({ name, email, password, superAdmin: true });
 
-  await createOrganization({
+  const org = await createOrganization({
     email,
     userId: user.id,
     name: companyname,
+  });
+
+  const context = getContextForAgendaJobByOrgObject(org);
+
+  await context.models.projects.create({
+    name: "My First Project",
   });
 
   sendLocalSuccessResponse(req, res, user);
