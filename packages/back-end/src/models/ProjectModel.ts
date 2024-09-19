@@ -83,9 +83,9 @@ export class ProjectModel extends BaseClass {
     const projects = await super.getByIds(projectIds);
     if (projects.length !== projectIds.length) {
       throw new Error(
-        `Invalid project ids: ${projectIds.filter(
-          (id) => !projects.find((p) => p.id === id)
-        )}`
+        `Invalid project ids: ${projectIds
+          .filter((id) => !projects.find((p) => p.id === id))
+          .join(", ")}`
       );
     }
   }
