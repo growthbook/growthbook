@@ -1,6 +1,7 @@
 from dataclasses import asdict
 import re
 import math
+import traceback
 from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
@@ -874,6 +875,7 @@ def process_multiple_experiment_results(
                     results=fixed_results,
                     banditResult=bandit_result,
                     error=None,
+                    traceback=None,
                 )
             )
         except Exception as e:
@@ -882,7 +884,8 @@ def process_multiple_experiment_results(
                     id=exp_data["id"],
                     results=[],
                     banditResult=None,
-                    error=str(e)[:64],
+                    error=str(e),
+                    traceback=traceback.format_exc(),
                 )
             )
     return results

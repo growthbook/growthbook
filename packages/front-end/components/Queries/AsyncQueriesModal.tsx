@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, Fragment, useState } from "react";
 import { QueryInterface } from "back-end/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
@@ -29,7 +29,22 @@ const AsyncQueriesModal: FC<{
           <div>
             <strong>Error Processing Query Results</strong>
           </div>
-          {error}
+          {error
+            .replace(/ {2}/g, "\t")
+            .split("\n")
+            .map((part, index) => (
+              <Fragment key={index}>
+                {part.split("\t").map((segment, tabIndex) => (
+                  <span
+                    key={tabIndex}
+                    style={{ marginLeft: tabIndex > 0 ? "2em" : "0" }}
+                  >
+                    {segment}
+                  </span>
+                ))}
+                {index < error.split("\n").length - 1 && <br />}
+              </Fragment>
+            ))}
         </div>
       )}{" "}
       {data && data.queries.filter((q) => q === null).length > 0 && (
