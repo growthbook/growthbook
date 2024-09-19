@@ -39,6 +39,13 @@ router.put(
   factTableController.putFactTable
 );
 
+router.post("/fact-tables/:id/archive", factTableController.archiveFactTable);
+
+router.post(
+  "/fact-tables/:id/unarchive",
+  factTableController.unarchiveFactTable
+);
+
 router.delete(
   "/fact-tables/:id",
   validateRequestMiddleware({

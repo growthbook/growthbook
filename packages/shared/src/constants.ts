@@ -15,6 +15,10 @@ export const DEFAULT_LOSE_RISK_THRESHOLD = 0.0125;
 // Bayesian prior
 export const DEFAULT_PROPER_PRIOR_STDDEV = 0.3;
 
+export const DEFAULT_MAX_PERCENT_CHANGE = 0.5;
+export const DEFAULT_MIN_PERCENT_CHANGE = 0.005;
+export const DEFAULT_MIN_SAMPLE_SIZE = 150;
+
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;
 export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;

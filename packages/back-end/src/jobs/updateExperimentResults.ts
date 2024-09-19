@@ -1,6 +1,5 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis } from "shared/util";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -8,28 +7,18 @@ import {
   updateExperiment,
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
-  getExperimentMetricById,
   getSettingsForSnapshotMetrics,
 } from "../services/experiments";
-import {
-  getConfidenceLevelsForOrg,
-  getContextForAgendaJobByOrgId,
-} from "../services/organizations";
-import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { getMetricMap } from "../models/MetricModel";
 import { notifyAutoUpdate } from "../services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
-import { ApiReqContext } from "../../types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -153,10 +142,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
-    const lastSnapshot = await getLatestSnapshot(
-      experiment.id,
-      experiment.phases.length - 1
-    );
 
     const {
       regressionAdjustmentEnabled,
@@ -187,20 +172,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       useCache: true,
     });
     await queryRunner.waitForResults();
-    const currentSnapshot = queryRunner.model;
 
     logger.info(
       "Successfully Refreshed Results for experiment " + experimentId
     );
-
-    if (lastSnapshot) {
-      await sendSignificanceEmail(
-        context,
-        experiment,
-        lastSnapshot,
-        currentSnapshot
-      );
-    }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future
@@ -218,98 +193,5 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
       await notifyAutoUpdate({ context, experiment, success: false });
     }
-  }
-}
-
-async function sendSignificanceEmail(
-  context: ApiReqContext,
-  experiment: ExperimentInterface,
-  lastSnapshot: ExperimentSnapshotInterface,
-  currentSnapshot: ExperimentSnapshotInterface
-) {
-  // If email is not configured, there's nothing else to do
-  if (!isEmailEnabled()) {
-    return;
-  }
-
-  const currentVariations = getSnapshotAnalysis(currentSnapshot)?.results?.[0]
-    ?.variations;
-  const lastVariations = getSnapshotAnalysis(lastSnapshot)?.results?.[0]
-    ?.variations;
-
-  if (!currentVariations || !lastVariations) {
-    return;
-  }
-
-  try {
-    // get the org confidence level settings:
-    const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
-
-    // check this and the previous snapshot to see if anything changed:
-    const experimentChanges: string[] = [];
-    for (let i = 1; i < currentVariations.length; i++) {
-      const curVar = currentVariations[i];
-      const lastVar = lastVariations[i];
-
-      for (const m in curVar.metrics) {
-        const curMetric = curVar?.metrics?.[m];
-        const lastMetric = lastVar?.metrics?.[m];
-
-        // sanity checks:
-        if (
-          lastMetric?.chanceToWin &&
-          curMetric?.chanceToWin &&
-          curMetric?.value > 150
-        ) {
-          // checks to see if anything changed:
-          if (
-            curMetric.chanceToWin > ciUpper &&
-            lastMetric.chanceToWin < ciUpper
-          ) {
-            // this test variation has gone significant, and won
-            experimentChanges.push(
-              "The metric " +
-                (await getExperimentMetricById(context, m))?.name +
-                " for variation " +
-                experiment.variations[i].name +
-                " has reached a " +
-                (curMetric.chanceToWin * 100).toFixed(1) +
-                "% chance to beat baseline"
-            );
-          } else if (
-            curMetric.chanceToWin < ciLower &&
-            lastMetric.chanceToWin > ciLower
-          ) {
-            // this test variation has gone significant, and lost
-            experimentChanges.push(
-              "The metric " +
-                (await getExperimentMetricById(context, m))?.name +
-                " for variation " +
-                experiment.variations[i].name +
-                " has dropped to a " +
-                (curMetric.chanceToWin * 100).toFixed(1) +
-                " chance to beat the baseline"
-            );
-          }
-        }
-      }
-    }
-
-    if (experimentChanges.length) {
-      // send an email to any subscribers on this test:
-      const watchers = await getExperimentWatchers(
-        experiment.id,
-        experiment.organization
-      );
-
-      await sendExperimentChangesEmail(
-        watchers,
-        experiment.id,
-        experiment.name,
-        experimentChanges
-      );
-    }
-  } catch (e) {
-    logger.error(e, "Failed to send significance email");
   }
 }

@@ -778,6 +778,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       pendingMembers: org.pendingMembers,
       getStartedChecklistItems: org.getStartedChecklistItems,
       setupEventTracker,
+      dateCreated: org.dateCreated,
     },
     seatsInUse,
   });

@@ -9,6 +9,39 @@ import ExternalLink from '@site/src/components/ExternalLink'
 
 GrowthBook has a Chrome Extension that integrates with the JavaScript SDK's.
 
-QA and debug feature flags and experiments from GrowthBook's JavaScript SDK's.
+The Chrome devtools can be used for easy QA. You can use it to debug feature flags and experiments from GrowthBook's JavaScript SDK's. See what features and experiments are enabled, easily toggle states or experiment variants, and adjust attributes used. The Chome DevTools also includes the visual experiment editor.
 
 You can [download it from the Chrome Web Store <ExternalLink />](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia).
+
+## Setup
+
+When you first install the GrowthBook Chrome devtools, you'll be asked to add the API host and API secret. You can do
+so from the settings -> API Keys page if you haven't made one already. For Cloud users, the API host will be
+`https://api.growthbook.io`.
+
+## Use
+
+The Chrome extension can be viewed from the 'GrowthBook' tab once you open the devtools in Chrome.
+
+![GrowthBook DevTools Tab](/images/chrome-devtools-tab.png)
+
+### Features
+
+At the top of the GrowthBook DevTools, you'll see a list of features. Click on any feature to view its state and toggle
+its value. You'll also see any targeting conditions used for that feature.
+
+![GrowthBook DevTools Features](/images/chrome-devtools-features.png)
+
+### Attributes
+
+Features and experiments rely on user attributes to do the assignment. The attributes used are listed at the bottom of
+the DevTools window. You can click on the pencil icon to edit the attributes and then see how it would change your
+assignment.
+
+![GrowthBook DevTools Attributes](/images/chrome-devtools-attributes.png)
+
+### Experiments
+
+Visual experiments and experiments added as feature rules will be shown under the features on the DevTools. You can
+click on any variant to switch what variant you're seeing. Click on the small circle arrow to reset the variant you're
+seeing to the one assigned based on your attributes.

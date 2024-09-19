@@ -8,6 +8,7 @@
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
 | **[experiment.warning](#experimentwarning)** | Triggered when a warning condition is detected on an experiment |
+| **[experiment.info.significance](#experimentinfo.significance)** | Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems. |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
 
   
@@ -1241,6 +1242,49 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.info.significance
+
+Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.info.significance";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentName: string;
+            experimentId: string;
+            variationId: string;
+            variationName: string;
+            metricName: string;
+            metricId: string;
+            statsEngine: string;
+            criticalValue: number;
+            winning: boolean;
         };
     };
     user: {
