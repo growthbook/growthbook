@@ -425,7 +425,7 @@ const GetStartedPage = (): React.ReactElement => {
             </div>
           </div>
           <div className="col-auto pl-0">
-            <Button className="my-3" onClick={() => router.push("/setup")}>
+            <Button className="mb-3" onClick={() => router.push("/setup")}>
               Launch Setup Flow
             </Button>
             <DocumentationSidebar

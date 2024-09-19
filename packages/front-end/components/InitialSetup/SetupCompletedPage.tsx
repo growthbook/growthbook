@@ -1,71 +1,24 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { useEffect } from "react";
-import { PiCheckCircleFill } from "react-icons/pi";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
 import { useCelebration } from "@/hooks/useCelebration";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 const SetupCompletedPage = (): React.ReactElement => {
   const startCelebration = useCelebration();
-  const { data: sdkConnectionData } = useSDKConnections();
-  const { datasources } = useDefinitions();
-
-  const setupComplete =
-    sdkConnectionData?.connections[0].connected && datasources.length > 0;
 
   useEffect(() => {
     startCelebration();
   });
 
   return (
-    <div className="container pagecontents" style={{ maxWidth: "900px" }}>
-      <h1 className="my-4">
-        {!setupComplete ? "You’re almost done…" : "Setup Complete!"}
-      </h1>
-      {!setupComplete ? (
-        <>
-          <h3 className="mb-3">Steps left to complete to run Experiments</h3>
-          <ul className="list-unstyled mt-2">
-            {!sdkConnectionData?.connections[0].connected ? (
-              <li className="mb-2">
-                <PiCheckCircleFill
-                  style={{
-                    height: "15px",
-                    width: "15px",
-                    fill: "var(--gray-9)",
-                  }}
-                />{" "}
-                <Link href={"/sdks"}>Connect an SDK</Link>
-              </li>
-            ) : null}
-            {datasources.length === 0 ? (
-              <li>
-                <PiCheckCircleFill
-                  style={{
-                    height: "15px",
-                    width: "15px",
-                    fill: "var(--gray-9)",
-                  }}
-                />{" "}
-                <Link href={"/datasources"}>Connect a Data Source</Link>
-              </li>
-            ) : null}
-          </ul>
-        </>
-      ) : null}
+    <div
+      className="container pagecontents"
+      style={{ maxWidth: "885px", height: "100%" }}
+    >
+      <h1 className="my-4">Setup Complete!</h1>
       <div className="d-flex align-items-center mt-5 mb-2">
-        <h3>
-          {!setupComplete
-            ? "In the meantime, feel free to explore GrowthBook"
-            : "What do you want to do next?"}
-        </h3>
-        <div className="ml-auto">
-          <Link href={"/getstarted"}>
-            <button className="btn btn-link">Exit Setup {">"}</button>
-          </Link>
-        </div>
+        <h3>What do you want to do next?</h3>
       </div>
 
       <div className="d-flex flex-wrap">
@@ -140,6 +93,9 @@ const SetupCompletedPage = (): React.ReactElement => {
           </button>
         </Link>
       </div>
+      <Link className="float-right mt-auto" href={"/getstarted"}>
+        <button className="btn btn-primary">Exit Setup</button>
+      </Link>
     </div>
   );
 };
