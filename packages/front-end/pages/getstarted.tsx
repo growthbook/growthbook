@@ -24,7 +24,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FeaturedCard from "@/components/GetStarted/FeaturedCard";
-import Button from "@/components/Button";
 
 function WorkspaceLink({
   Icon,
@@ -106,6 +105,16 @@ const GetStartedPage = (): React.ReactElement => {
       id: "",
     }) &&
     permissionsUtils.canCreateProjects();
+
+  const canUseSetupFlow =
+    permissionsUtils.canCreateSDKConnection({
+      projects: [project],
+      environment: "production",
+    }) &&
+    permissionsUtils.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -425,9 +434,13 @@ const GetStartedPage = (): React.ReactElement => {
             </div>
           </div>
           <div className="col-auto pl-0">
-            <Button className="mb-3" onClick={() => router.push("/setup")}>
-              Launch Setup Flow
-            </Button>
+            {canUseSetupFlow && (
+              <Link href="/setup">
+                <button className="btn btn-primary mb-3">
+                  Launch Setup Flow
+                </button>
+              </Link>
+            )}
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"

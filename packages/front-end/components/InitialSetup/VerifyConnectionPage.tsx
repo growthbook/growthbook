@@ -77,6 +77,7 @@ const VerifyConnectionPage = ({
       {inviting && (
         <InviteModal
           close={() => setInviting(false)}
+          defaultRole="engineer"
           mutate={refreshOrganization}
         />
       )}

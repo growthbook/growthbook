@@ -26,6 +26,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
         <InviteModal
           close={() => setInviting(false)}
           mutate={refreshOrganization}
+          defaultRole="analyst"
         />
       )}
       <div
