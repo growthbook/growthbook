@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -21,6 +21,14 @@ const RefreshBanditButton: FC<{
   const [reweight, setReweight] = useState(false);
   const [open, setOpen] = useState(false);
   const { getDatasourceById } = useDefinitions();
+
+  const trimmedError = useMemo(() => {
+    const trimErrorMessage = (message) => {
+      const index = message.indexOf("\n\nTraceback");
+      return index === -1 ? message : message.substring(0, index);
+    };
+    return trimErrorMessage(error);
+  }, [error]);
 
   const { apiCall } = useAuth();
 
@@ -133,12 +141,12 @@ const RefreshBanditButton: FC<{
           This may take several minutes...
         </div>
       ) : null}
-      {error ? (
+      {trimmedError ? (
         <div
           className="text-danger text-monospace mx-2 mt-2 small"
           style={{ lineHeight: "14px" }}
         >
-          {error}
+          {trimmedError}
         </div>
       ) : null}
     </>
