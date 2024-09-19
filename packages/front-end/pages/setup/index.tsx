@@ -102,8 +102,11 @@ export default function SetupFlow() {
       });
       refreshOrganization();
     }
+    track("Finish Essential Setup", {
+      source: "EssentialSetup",
+      skippedSteps: skipped,
+    });
     setSetupComplete(true);
-    // TODO: Tracking here
   };
 
   if (!canUseSetupFlow) {
