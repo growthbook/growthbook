@@ -45,12 +45,6 @@ jobs:
         if: env.role == 'collaborator'
         run: echo "PR author (${{ env.PR_AUTHOR }}) is a contributor with repo access."
 
-      - name: Get list of changed files
-        id: changed_files
-        run: |
-          echo "::set-output name=files::$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})"
-          echo ${{github.event.pull_request.user_association}}
-
       - name: Get list of changed files in the PR
         id: get_changed_files
         run: |
