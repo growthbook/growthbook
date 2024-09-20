@@ -44,9 +44,15 @@ export default function SetupFlow() {
   const [skipped, setSkipped] = useState<Set<number>>(() => new Set());
 
   const { hasCommercialFeature } = useUser();
+  const { apiCall, initialProjectId } = useAuth();
   const { data: sdkConnectionData } = useSDKConnections();
   const { organization, refreshOrganization } = useUser();
-  const { datasources, mutateDefinitions, project } = useDefinitions();
+  const {
+    datasources,
+    mutateDefinitions,
+    project,
+    setProject,
+  } = useDefinitions();
   const environments = useEnvironments();
 
   const sdkConnectionForm = useForm<SdkFormValues>({
@@ -56,6 +62,12 @@ export default function SetupFlow() {
       environment: "dev",
     },
   });
+
+  useEffect(() => {
+    if (initialProjectId) {
+      setProject(initialProjectId);
+    }
+  }, [initialProjectId, setProject]);
 
   // Start off user on the correct step depending on how much has already been set up
   useEffect(() => {
@@ -78,7 +90,6 @@ export default function SetupFlow() {
     }
   }, [sdkConnectionData, datasources, sdkConnectionForm, connection]);
 
-  const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
 
   const canUseSetupFlow =

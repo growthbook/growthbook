@@ -118,7 +118,8 @@ export async function postOAuthCallback(req: Request, res: Response) {
 async function sendLocalSuccessResponse(
   req: Request,
   res: Response,
-  user: UserInterface
+  user: UserInterface,
+  projectId?: string
 ) {
   const { idToken, refreshToken, expiresIn } = await auth.processCallback(
     req,
@@ -138,6 +139,7 @@ async function sendLocalSuccessResponse(
   res.status(200).json({
     status: 200,
     token: idToken,
+    projectId,
   });
 }
 
@@ -286,11 +288,11 @@ export async function postFirstTimeRegister(
 
   const context = getContextForAgendaJobByOrgObject(org);
 
-  await context.models.projects.create({
+  const project = await context.models.projects.create({
     name: "My First Project",
   });
 
-  sendLocalSuccessResponse(req, res, user);
+  sendLocalSuccessResponse(req, res, user, project.id);
 }
 
 export async function postForgotPassword(

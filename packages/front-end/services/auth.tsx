@@ -48,6 +48,7 @@ export interface AuthContextValue {
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
+  initialProjectId: string | null;
 }
 
 export const AuthContext = React.createContext<AuthContextValue>({
@@ -62,6 +63,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   orgId: null,
+  initialProjectId: null,
 });
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
@@ -204,6 +206,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [initialProjectId, setInitialProjectId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
     specialOrg,
@@ -266,8 +269,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setAuthComponent(
         <Welcome
           firstTime={resp.newInstallation}
-          onSuccess={(t) => {
+          onSuccess={(t, pid) => {
             setToken(t);
+            if (pid) {
+              setInitialProjectId(pid);
+            }
             setAuthComponent(null);
           }}
         />
@@ -484,6 +490,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         apiCall,
         orgId,
         setOrgId,
+        initialProjectId,
         organizations: orgList,
         setOrganizations: wrappedSetOrganizations,
         setOrgName: (name) => {
