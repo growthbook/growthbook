@@ -80,7 +80,7 @@ export class ProjectModel extends BaseClass {
   }
 
   public async ensureProjectsExist(projectIds: string[]) {
-    const projects = await super.getByIds(projectIds);
+    const projects = await this.getByIds(projectIds);
     if (projects.length !== projectIds.length) {
       throw new Error(
         `Invalid project ids: ${projectIds
