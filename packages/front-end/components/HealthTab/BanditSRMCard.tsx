@@ -50,7 +50,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
       0
     ) ?? 0;
 
-  const [chartMode, setChartMode] = useState<"weights" | "users">("weights");
+  const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
   const overallHealth: HealthStatus = srmHealthCheck({
     srm: srm ?? Infinity,
@@ -94,12 +94,12 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
                 setValue={(v) => setChartMode(v)}
                 options={[
                   {
-                    label: "Actual & Expected Traffic Split",
-                    value: "weights",
+                    label: "Actual & Expected Traffic",
+                    value: "users",
                   },
                   {
-                    label: "Actual & Expected Cumulative Traffic",
-                    value: "users",
+                    label: "Actual & Expected Traffic Split",
+                    value: "weights",
                   },
                 ]}
               />
@@ -115,12 +115,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
               overallHealth === "Issues detected") && (
               <>
                 <pre>SRM Warning goes here...</pre>
-                {/*// <SRMWarning*/}
-                {/*//   srm={srm}*/}
-                {/*//   variations={variations}*/}
-                {/*//   users={traffic.overall.variationUnits}*/}
-                {/*//   showWhenHealthy*/}
-                {/*// />*/}
+                P-value: {srm}
               </>
             )}
             {overallHealth === "Not enough traffic" && (

@@ -403,7 +403,7 @@ export function getSnapshotSettings({
     experiment.type === "multi-armed-bandit"
       ? {
           reweight: !!reweight,
-          decisionMetric: experiment.goalMetrics?.[0], // todo: needed?
+          decisionMetric: experiment.goalMetrics?.[0],
           seed: Math.floor(Math.random() * 100000),
           weights:
             phase?.banditEvents?.map((event) => ({

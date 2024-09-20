@@ -18,7 +18,6 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import { ScaleLinear } from "d3-scale";
 import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
@@ -123,7 +122,6 @@ const getTooltipData = (
   mx: number,
   width: number,
   stackedData: any[],
-  yScale: ScaleLinear<number, number, never>,
   xScale
 ): TooltipData => {
   const xCoords = stackedData.map((d) => xScale(d.date));
@@ -175,10 +173,17 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
 
     const data: any[] = [];
 
+    let previousUsers = variationNames.map(() => 0);
+
     events.forEach((event) => {
       const weights = event.banditResult.weights;
 
       const users = variationNames.map(
+        (_, i) =>
+          (event.banditResult?.singleVariationResults?.[i]?.users ?? 0) -
+          (previousUsers?.[i] ?? 0)
+      );
+      previousUsers = variationNames.map(
         (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0
       );
       const totalUsers = users.reduce((sum, val) => sum + val, 0);
@@ -255,23 +260,6 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
   const max =
     data.length > 0 ? Math.max(...data.map((d) => d.date.getTime())) : 0;
 
-  const gradients = variationNames.map((_, i) => (
-    <defs key={`gradient-${i}`}>
-      <linearGradient id={`gradient-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop
-          offset="0%"
-          stopColor={getVariationColor(i, true)}
-          stopOpacity={0.75}
-        />
-        <stop
-          offset="100%"
-          stopColor={getVariationColor(i, true)}
-          stopOpacity={0.65}
-        />
-      </linearGradient>
-    </defs>
-  ));
-
   return (
     <ParentSizeModern>
       {({ width }) => {
@@ -289,13 +277,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
           // coordinates should be relative to the container in which Tooltip is rendered
           const containerX =
             ("clientX" in event ? event.clientX : 0) - containerBounds.left;
-          const tooltipData = getTooltipData(
-            containerX,
-            width,
-            data,
-            yScale,
-            xScale
-          );
+          const tooltipData = getTooltipData(containerX, width, data, xScale);
           if (!tooltipData) {
             hideTooltip();
             return;
@@ -385,7 +367,10 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   <tr>
                     <td>
                       <div
-                        style={{ width: 15, borderBottom: "2px solid black" }}
+                        style={{
+                          width: 15,
+                          borderBottom: "2px solid var(--text-color-main)",
+                        }}
                       />
                     </td>
                     <td>Actual</td>
@@ -393,7 +378,10 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   <tr>
                     <td>
                       <div
-                        style={{ width: 15, borderBottom: "2px dashed black" }}
+                        style={{
+                          width: 15,
+                          borderBottom: "2px dashed var(--text-color-main)",
+                        }}
                       />
                     </td>
                     <td>Expected</td>
@@ -440,6 +428,11 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                             tooltipData?.d?.userRatios?.[i] ?? 0
                           );
                     if (y0 === undefined || y1 === undefined) return;
+                    if (
+                      mode === "weights" &&
+                      (tooltipData?.d?.userRatios?.[i] ?? 0) === 0
+                    )
+                      return;
                     return (
                       <div
                         key={i}
@@ -462,7 +455,6 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
               )}
             </div>
             <svg width={width} height={height}>
-              {gradients}
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
                   scale={yScale}
@@ -473,7 +465,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                 />
                 <GridColumns
                   scale={xScale}
-                  stroke="var(--border-color-100)"
+                  stroke="var(--border-color-200)"
                   height={yMax}
                   tickValues={allXTicks}
                 />
@@ -541,6 +533,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                             strokeWidth={2}
                             strokeDasharray={"2,5"}
                             curve={curveStepAfter}
+                            defined={(d) => d.userRatios?.[i] !== undefined}
                           />
                           <AreaClosed
                             key={`weights-delta-${i}`}
@@ -552,6 +545,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                             fill={getVariationColor(i, true)}
                             opacity={0.12}
                             curve={curveStepAfter}
+                            defined={(d) => d.userRatios?.[i] !== undefined}
                           />
                         </Fragment>
                       );
