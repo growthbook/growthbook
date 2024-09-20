@@ -47,7 +47,7 @@ export const srmHealthCheck = ({
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 
-export default function SRMDrawer({
+export default function SRMCard({
   traffic,
   variations,
   totalUsers,

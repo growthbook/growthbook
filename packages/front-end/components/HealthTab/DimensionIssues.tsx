@@ -16,7 +16,7 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
-import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
+import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMCard";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
 import { HealthStatus } from "./StatusBadge";

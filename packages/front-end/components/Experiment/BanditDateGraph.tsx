@@ -252,7 +252,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     const stackedData: any[] = [];
 
     let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
-    let lastUsers = variationNames.map(() => 0);
     events.forEach((event) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
@@ -260,11 +259,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const weights = event.banditResult.weights;
 
       const users = variationNames.map(
-        (_, i) =>
-          (event.banditResult?.singleVariationResults?.[i]?.users ?? 0) +
-          lastUsers[i]
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0
       );
-      lastUsers = users;
 
       const crs = variationNames.map(
         (_, i) => event.banditResult?.singleVariationResults?.[i]?.cr ?? 0

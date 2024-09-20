@@ -437,7 +437,7 @@ export default function TabbedPage({
         <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
           <HealthTab
             experiment={experiment}
-            onDrawerNotify={handleIncrementHealthNotifications}
+            onHealthNotify={handleIncrementHealthNotifications}
             onSnapshotUpdate={handleSnapshotChange}
             resetResultsSettings={() => {
               setBaselineRow(0);

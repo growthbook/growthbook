@@ -1,8 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import SRMDrawer from "@/components/HealthTab/SRMDrawer";
-import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
+import SRMCard from "@/components/HealthTab/SRMCard";
+import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/components/Button";
@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -23,14 +24,14 @@ const noExposureQueryMessage =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  onDrawerNotify: () => void;
+  onHealthNotify: () => void;
   onSnapshotUpdate: () => void;
   resetResultsSettings: () => void;
 }
 
 export default function HealthTab({
   experiment,
-  onDrawerNotify,
+  onHealthNotify,
   onSnapshotUpdate,
   resetResultsSettings,
 }: Props) {
@@ -79,15 +80,15 @@ export default function HealthTab({
     };
   }, [snapshot, onSnapshotUpdate]);
 
-  const handleDrawerNotify = useCallback(
+  const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
       setHealthIssues((prev) => {
         const issueSet: Set<IssueValue> = new Set([...prev, issue]);
         return [...issueSet];
       });
-      onDrawerNotify();
+      onHealthNotify();
     },
-    [onDrawerNotify]
+    [onHealthNotify]
   );
 
   // If org has the health tab turned to off and has no data, prompt set up if the
@@ -226,17 +227,25 @@ export default function HealthTab({
     <div className="mt-4">
       <IssueTags issues={healthIssues} />
       <TrafficCard traffic={traffic} variations={variations} />
-      <div id={"balanceCheck"} style={{ scrollMarginTop: "100px" }}>
-        <SRMDrawer
-          traffic={traffic}
-          variations={variations}
-          totalUsers={totalUsers}
-          onNotify={handleDrawerNotify}
-          dataSource={datasource}
-          exposureQuery={exposureQuery}
-          healthTabConfigParams={healthTabConfigParams}
-          canConfigHealthTab={hasPermissionToConfigHealthTag}
-        />
+      <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+        {experiment.type !== "multi-armed-bandit" ? (
+          <SRMCard
+            traffic={traffic}
+            variations={variations}
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            dataSource={datasource}
+            exposureQuery={exposureQuery}
+            healthTabConfigParams={healthTabConfigParams}
+            canConfigHealthTab={hasPermissionToConfigHealthTag}
+          />
+        ) : (
+          <BanditSRMCard
+            experiment={experiment}
+            phase={phaseObj}
+            onNotify={handleHealthNotification}
+          />
+        )}
       </div>
 
       <div className="row">
@@ -245,9 +254,9 @@ export default function HealthTab({
           id="multipleExposures"
           style={{ scrollMarginTop: "100px" }}
         >
-          <MultipleExposuresDrawer
+          <MultipleExposuresCard
             totalUsers={totalUsers}
-            onNotify={handleDrawerNotify}
+            onNotify={handleHealthNotification}
           />
         </div>
       </div>
