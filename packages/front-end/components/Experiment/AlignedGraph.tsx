@@ -7,10 +7,10 @@ import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
-import {getExperimentMetricFormatter} from "@/services/metrics";
-import {MetricInterface} from "back-end/types/metric";
-import {useDefinitions} from "@/services/DefinitionsContext";
-import {useCurrency} from "@/hooks/useCurrency";
+import { MetricInterface } from "back-end/types/metric";
+import { getExperimentMetricFormatter } from "@/services/metrics";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -118,11 +118,11 @@ const AlignedGraph: FC<Props> = ({
     ...(domainWidth > 5000 ? { notation: "compact" } : {}),
   });
   const tickFormat = (v: number) => {
-    return metricForFormatting ?
-      getExperimentMetricFormatter(
-        metricForFormatting,
-        getFactTableById
-      )(v as number, metricFormatterOptions)
+    return metricForFormatting
+      ? getExperimentMetricFormatter(metricForFormatting, getFactTableById)(
+          v as number,
+          metricFormatterOptions
+        )
       : !percent
       ? numberFormatter.format(v)
       : domainWidth < 0.05

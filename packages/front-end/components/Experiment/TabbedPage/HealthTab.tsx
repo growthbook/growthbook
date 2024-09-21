@@ -250,7 +250,9 @@ export default function HealthTab({
 
       <div className="row">
         <div
-          className="col-8"
+          className={
+            experiment.type !== "multi-armed-bandit" ? "col-8" : "col-12"
+          }
           id="multipleExposures"
           style={{ scrollMarginTop: "100px" }}
         >

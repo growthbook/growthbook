@@ -50,7 +50,7 @@ const LearnMore = ({
 
 const SRMWarning: FC<{
   srm: number;
-  variations: ExperimentReportVariation[];
+  variations?: ExperimentReportVariation[];
   users: number[];
   linkToHealthTab?: boolean;
   showWhenHealthy?: boolean;
@@ -112,20 +112,24 @@ const SRMWarning: FC<{
                 <div className="alert alert-secondary">
                   {NOT_ENOUGH_EVIDENCE_MESSAGE}
                 </div>
-                <VariationUsersTable
-                  variations={variations}
-                  users={users}
-                  srm={srm}
-                />
+                {variations ? (
+                  <VariationUsersTable
+                    variations={variations}
+                    users={users}
+                    srm={srm}
+                  />
+                ) : null}
               </>
             ) : (
               <>
                 <div className="alert alert-secondary">{srmWarningMessage}</div>
-                <VariationUsersTable
-                  variations={variations}
-                  users={users}
-                  srm={srm}
-                />
+                {variations ? (
+                  <VariationUsersTable
+                    variations={variations}
+                    users={users}
+                    srm={srm}
+                  />
+                ) : null}
                 <p>Most common causes:</p>
                 <ul>
                   <li>

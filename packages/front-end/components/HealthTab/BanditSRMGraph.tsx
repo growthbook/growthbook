@@ -22,8 +22,9 @@ import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import styles from "@/components/Experiment/ExperimentDateGraph.module.scss";
+import { pValueFormatter } from "@/services/experiments";
 
-export interface BanditDateGraphDataPoint {
+export interface BanditSRMGraphDataPoint {
   date: Date;
   users: number[];
   expectedUsers: number[];
@@ -53,7 +54,7 @@ const formatter = new Intl.NumberFormat(undefined, {
 
 type TooltipData = {
   x: number;
-  d: BanditDateGraphDataPoint;
+  d: BanditSRMGraphDataPoint;
 };
 
 const height = 300;
@@ -71,7 +72,13 @@ const getTooltipContents = (
       <table className={`table-condensed ${styles.table}`}>
         <thead>
           <tr>
-            <td></td>
+            <td className="border-bottom-0" />
+            <td className="border-bottom-0" colSpan={3}>
+              {mode === "users" ? "Users" : "Traffic Split"}
+            </td>
+          </tr>
+          <tr>
+            <td />
             <td>Expected</td>
             <td>Actual</td>
             <td>Δ</td>
@@ -98,24 +105,31 @@ const getTooltipContents = (
                     : percentFormatter.format(weight)}
                 </td>
                 <td>
-                  {mode === "users"
-                    ? formatter.format(users)
-                    : userRatio
-                    ? percentFormatter.format(userRatio)
-                    : "n/a"}
+                  {mode === "users" ? (
+                    formatter.format(users)
+                  ) : userRatio ? (
+                    percentFormatter.format(userRatio)
+                  ) : (
+                    <em>n/a</em>
+                  )}
                 </td>
                 <td>
-                  {mode === "users"
-                    ? formatter.format(users - expectedUsers)
-                    : userRatio
-                    ? percentFormatter.format(userRatio - weight)
-                    : "n/a"}
+                  {mode === "users" ? (
+                    formatter.format(users - expectedUsers)
+                  ) : userRatio ? (
+                    percentFormatter.format(userRatio - weight)
+                  ) : (
+                    <em>n/a</em>
+                  )}
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      <div className="mt-1 mb-2 text-right">
+        p-value: {d.srm ? pValueFormatter(d.srm, 4) : <em>n/a</em>}
+      </div>
       <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
     </>
   );
@@ -172,7 +186,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const data: BanditDateGraphDataPoint[] = useMemo(() => {
+  const data: BanditSRMGraphDataPoint[] = useMemo(() => {
     const events = phase?.banditEvents ?? [];
 
     const data: any[] = [];
@@ -201,7 +215,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
 
       const srm = event?.banditResult?.srm;
 
-      const dataPoint: BanditDateGraphDataPoint = {
+      const dataPoint: BanditSRMGraphDataPoint = {
         date: new Date(event.date),
         users,
         expectedUsers,
@@ -349,7 +363,8 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                         );
                       }}
                     >
-                      {showVariations[i] ? (
+                      {showVariations[i] &&
+                      !showVariations.every((sv) => sv) ? (
                         <BiRadioCircleMarked size={24} />
                       ) : (
                         <BiRadioCircle size={24} />
@@ -363,7 +378,8 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                 className="box px-2 py-1"
                 style={{
                   marginRight: 25,
-                  marginBottom: -5,
+                  marginTop: -10,
+                  marginBottom: 0,
                   boxShadow: "0 2px 4px #0001",
                 }}
               >
@@ -408,49 +424,53 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
             >
               {tooltipOpen && (
                 <>
-                  {variationNames.map((_, i) => {
-                    // Render a dot at the current x location for each variation
-                    if (!showVariations[i]) return null;
-                    const y0 =
-                      mode === "users"
-                        ? Math.min(
-                            tooltipData?.d?.expectedUsers?.[i] ?? 0,
-                            tooltipData?.d?.users?.[i] ?? 0
-                          )
-                        : Math.min(
-                            tooltipData?.d?.weights?.[i] ?? 0,
-                            tooltipData?.d?.userRatios?.[i] ?? 0
-                          );
-                    const y1 =
-                      mode === "users"
-                        ? Math.max(
-                            tooltipData?.d?.expectedUsers?.[i] ?? 0,
-                            tooltipData?.d?.users?.[i] ?? 0
-                          )
-                        : Math.max(
-                            tooltipData?.d?.weights?.[i] ?? 0,
-                            tooltipData?.d?.userRatios?.[i] ?? 0
-                          );
-                    if (y0 === undefined || y1 === undefined) return;
-                    if (
-                      mode === "weights" &&
-                      (tooltipData?.d?.userRatios?.[i] ?? 0) === 0
-                    )
-                      return;
-                    return (
-                      <div
-                        key={i}
-                        className={styles.deltaIndicator}
-                        style={{
-                          height: yScale(y0) - yScale(y1),
-                          transform: `translate(${
-                            tooltipLeft + (4 * i) / variationNames.length
-                          }px, ${yScale(y1)}px)`,
-                          background: getVariationColor(i, true),
-                        }}
-                      />
-                    );
-                  })}
+                  {(() => {
+                    let offset = -1;
+                    return variationNames.map((_, i) => {
+                      // Render a dot at the current x location for each variation
+                      if (!showVariations[i]) return null;
+                      offset++;
+                      const y0 =
+                        mode === "users"
+                          ? Math.min(
+                              tooltipData?.d?.expectedUsers?.[i] ?? 0,
+                              tooltipData?.d?.users?.[i] ?? 0
+                            )
+                          : Math.min(
+                              tooltipData?.d?.weights?.[i] ?? 0,
+                              tooltipData?.d?.userRatios?.[i] ?? 0
+                            );
+                      const y1 =
+                        mode === "users"
+                          ? Math.max(
+                              tooltipData?.d?.expectedUsers?.[i] ?? 0,
+                              tooltipData?.d?.users?.[i] ?? 0
+                            )
+                          : Math.max(
+                              tooltipData?.d?.weights?.[i] ?? 0,
+                              tooltipData?.d?.userRatios?.[i] ?? 0
+                            );
+                      if (y0 === undefined || y1 === undefined) return;
+                      if (
+                        mode === "weights" &&
+                        (tooltipData?.d?.userRatios?.[i] ?? 0) === 0
+                      )
+                        return;
+                      return (
+                        <div
+                          key={i}
+                          className={styles.deltaIndicator}
+                          style={{
+                            height: yScale(y0) - yScale(y1),
+                            transform: `translate(${
+                              tooltipLeft + (4 * offset) / variationNames.length
+                            }px, ${yScale(y1)}px)`,
+                            background: getVariationColor(i, true),
+                          }}
+                        />
+                      );
+                    });
+                  })()}
                   <div
                     className={styles.crosshair}
                     style={{ transform: `translateX(${tooltipLeft}px)` }}
@@ -597,7 +617,10 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   numTicks={5}
                   labelOffset={40}
                   tickFormat={(v) =>
-                    mode === "weights" ? intPercentFormatter.format(v as number) : formatter(v as number)}
+                    mode === "weights"
+                      ? intPercentFormatter.format(v as number)
+                      : formatter(v as number)
+                  }
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 11,

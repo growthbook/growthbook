@@ -8,6 +8,8 @@ import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
+import { pValueFormatter } from "@/services/experiments";
+import SRMWarning from "@/components/Experiment/SRMWarning";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -114,8 +116,14 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
             {(overallHealth === "healthy" ||
               overallHealth === "Issues detected") && (
               <>
-                <pre>SRM Warning goes here...</pre>
-                P-value: {srm}
+                <div className="text-muted mx-3 mb-2">
+                  p-value: {srm ? pValueFormatter(srm, 4) : <em>n/a</em>}
+                </div>
+                <SRMWarning
+                  srm={srm ?? Infinity}
+                  users={totalUsers}
+                  showWhenHealthy
+                />
               </>
             )}
             {overallHealth === "Not enough traffic" && (

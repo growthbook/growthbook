@@ -185,6 +185,17 @@ const Results: FC<{
 
   return (
     <>
+      {experiment.type === "multi-armed-bandit" &&
+      (showCompactResults || showDateResults || showBreakDownResults) ? (
+        <div className="alert alert-info mx-3 mt-3 mb-2">
+          <BsLightbulb className="mr-2" />
+          These are bandit results. Bandits are better than regular experiments
+          at directing traffic to the best variation but they can suffer from
+          bias. Learn more (link).
+          {/*todo: docs*/}
+        </div>
+      ) : null}
+
       {!draftMode ? (
         <AnalysisSettingsBar
           mutateExperiment={mutateExperiment}
@@ -308,16 +319,6 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
-
-      {experiment.type === "multi-armed-bandit" &&
-      (showCompactResults || showDateResults || showBreakDownResults) ? (
-        <div className="alert alert-info mx-3 mb-4">
-          <BsLightbulb className="mr-2" />
-          These are bandit results. Bandits are better than regular experiments
-          at directing traffic to the best variation but they can suffer from
-          bias. Learn more (link).
-        </div>
-      ) : null}
 
       {showDateResults ? (
         <DateResults
