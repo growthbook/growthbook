@@ -7,6 +7,10 @@ import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
+import {getExperimentMetricFormatter} from "@/services/metrics";
+import {MetricInterface} from "back-end/types/metric";
+import {useDefinitions} from "@/services/DefinitionsContext";
+import {useCurrency} from "@/hooks/useCurrency";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -24,6 +28,7 @@ interface Props
   significant: boolean;
   showAxis?: boolean;
   axisOnly?: boolean;
+  metricForFormatting?: MetricInterface | null;
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
@@ -55,6 +60,7 @@ const AlignedGraph: FC<Props> = ({
   significant = false,
   showAxis = false,
   axisOnly = false,
+  metricForFormatting,
   graphWidth = 500,
   height = 30,
   inverse = false,
@@ -66,6 +72,10 @@ const AlignedGraph: FC<Props> = ({
   onMouseLeave,
   onClick,
 }) => {
+  const metricDisplayCurrency = useCurrency();
+  const { getFactTableById } = useDefinitions();
+  const metricFormatterOptions = { currency: metricDisplayCurrency };
+
   const axisColor = "var(--text-link-hover-color)";
   const zeroLineColor = "#0077b6";
   const zeroLineWidth = 3;
@@ -108,7 +118,12 @@ const AlignedGraph: FC<Props> = ({
     ...(domainWidth > 5000 ? { notation: "compact" } : {}),
   });
   const tickFormat = (v: number) => {
-    return !percent
+    return metricForFormatting ?
+      getExperimentMetricFormatter(
+        metricForFormatting,
+        getFactTableById
+      )(v as number, metricFormatterOptions)
+      : !percent
       ? numberFormatter.format(v)
       : domainWidth < 0.05
       ? smallPercentFormatter.format(v)

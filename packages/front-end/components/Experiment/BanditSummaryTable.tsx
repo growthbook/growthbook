@@ -22,10 +22,19 @@ export type BanditSummaryTableProps = {
   isTabActive: boolean;
 };
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
+const intPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
-  maximumFractionDigits: 1,
+  maximumFractionDigits: 0,
 });
+const percentileFormatter = (v: number) => {
+  if (v > 0.99) {
+    return ">99%";
+  }
+  if (v < 0.01) {
+    return "<1%";
+  }
+  return intPercentFormatter.format(v);
+};
 
 export default function BanditSummaryTable({
   experiment,
@@ -266,6 +275,7 @@ export default function BanditSummaryTable({
                       graphWidth={graphCellWidth}
                       percent={false}
                       height={45}
+                      metricForFormatting={metric}
                     />
                   </div>
                 </th>
@@ -346,7 +356,7 @@ export default function BanditSummaryTable({
                       onClick={onPointerMove}
                     >
                       {isFinite(probability) ? (
-                        percentFormatter.format(probability)
+                        percentileFormatter(probability)
                       ) : (
                         <em className="text-muted">
                           <small>not enough data</small>

@@ -37,6 +37,10 @@ export interface BanditSRMGraphProps {
   mode: "users" | "weights";
 }
 
+const intPercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 1,
@@ -592,7 +596,8 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   }
                   numTicks={5}
                   labelOffset={40}
-                  tickFormat={(v) => formatter(v as number)}
+                  tickFormat={(v) =>
+                    mode === "weights" ? intPercentFormatter.format(v as number) : formatter(v as number)}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 11,

@@ -15,7 +15,9 @@ from gbstats.messages import (
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
-    ScaledImpactStatistic,
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import (
@@ -106,7 +108,10 @@ class BayesianABTest(BaseABTest):
             raise ValueError("Cannot scale relative results.")
         if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        if isinstance(self.stat_a, ScaledImpactStatistic):
+        if isinstance(
+            self.stat_a,
+            (ProportionStatistic, SampleMeanStatistic, RegressionAdjustedStatistic),
+        ):
             if self.total_users:
                 adjustment = self.total_users / (
                     self.traffic_percentage * self.phase_length_days

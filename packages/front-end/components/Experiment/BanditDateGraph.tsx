@@ -52,8 +52,14 @@ export interface BanditDateGraphProps {
   type: "line" | "area";
 }
 
+const intPercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
+  minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 });
 
@@ -858,7 +864,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                             getFactTableById
                           )(v as number, metricFormatterOptions)
                         : formatter(v as number)
-                      : formatter(v as number)
+                      : intPercentFormatter.format(v as number)
                   }
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
