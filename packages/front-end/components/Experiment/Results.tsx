@@ -10,7 +10,6 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { BsLightbulb } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -151,7 +150,6 @@ const Results: FC<{
     hasData &&
     snapshot &&
     analysis &&
-    analysis.results?.[0] &&
     !analysis?.settings?.dimensions?.length;
 
   const showBreakDownResults =
@@ -159,17 +157,12 @@ const Results: FC<{
     hasData &&
     snapshot?.dimension &&
     snapshot.dimension.substring(0, 8) !== "pre:date" && // todo: refactor hardcoded dimension
-    analysis &&
-    analysis.results?.[0] &&
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
   const showDateResults =
     !draftMode &&
     hasData &&
-    snapshot?.dimension &&
-    snapshot.dimension.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
-    analysis &&
-    analysis.results?.[0] &&
+    snapshot?.dimension?.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
   if (error) {
@@ -185,17 +178,6 @@ const Results: FC<{
 
   return (
     <>
-      {experiment.type === "multi-armed-bandit" &&
-      (showCompactResults || showDateResults || showBreakDownResults) ? (
-        <div className="alert alert-info mx-3 mt-3 mb-2">
-          <BsLightbulb className="mr-2" />
-          These are bandit results. Bandits are better than regular experiments
-          at directing traffic to the best variation but they can suffer from
-          bias. Learn more (link).
-          {/*todo: docs*/}
-        </div>
-      ) : null}
-
       {!draftMode ? (
         <AnalysisSettingsBar
           mutateExperiment={mutateExperiment}

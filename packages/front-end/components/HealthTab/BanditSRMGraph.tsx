@@ -384,28 +384,30 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                 }}
               >
                 <table className="table-tiny">
-                  <tr>
-                    <td>
-                      <div
-                        style={{
-                          width: 15,
-                          borderBottom: "2px solid var(--text-color-main)",
-                        }}
-                      />
-                    </td>
-                    <td>Actual</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div
-                        style={{
-                          width: 15,
-                          borderBottom: "2px dashed var(--text-color-main)",
-                        }}
-                      />
-                    </td>
-                    <td>Expected</td>
-                  </tr>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <div
+                          style={{
+                            width: 15,
+                            borderBottom: "2px solid var(--text-color-main)",
+                          }}
+                        />
+                      </td>
+                      <td>Actual</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div
+                          style={{
+                            width: 15,
+                            borderBottom: "2px dashed var(--text-color-main)",
+                          }}
+                        />
+                      </td>
+                      <td>Expected</td>
+                    </tr>
+                  </tbody>
                 </table>
               </div>
             </div>

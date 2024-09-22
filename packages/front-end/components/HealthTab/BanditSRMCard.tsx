@@ -46,11 +46,10 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
   const srm = currentEvent?.banditResult?.srm;
-  const totalUsers =
-    currentEvent?.banditResult?.singleVariationResults?.reduce(
-      (sum, result) => sum + (result.users ?? 0),
-      0
-    ) ?? 0;
+  const users = experiment.variations.map((_, i) =>
+    currentEvent.banditResult?.singleVariationResults?.[i]?.users ?? 0
+  );
+  const totalUsers = users.reduce((sum, u) => sum + (u ?? 0), 0) ?? 0;
 
   const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
@@ -121,7 +120,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
                 </div>
                 <SRMWarning
                   srm={srm ?? Infinity}
-                  users={totalUsers}
+                  users={users}
                   showWhenHealthy
                 />
               </>

@@ -270,12 +270,14 @@ const CompactResults: FC<{
           )}
 
           <div className="mx-3">
-            <DataQualityWarning
-              results={results}
-              variations={variations}
-              linkToHealthTab
-              setTab={setTab}
-            />
+            {experimentType !== "multi-armed-bandit" && (
+              <DataQualityWarning
+                results={results}
+                variations={variations}
+                linkToHealthTab
+                setTab={setTab}
+              />
+            )}
             <MultipleExposureWarning
               users={users}
               multipleExposures={multipleExposures}

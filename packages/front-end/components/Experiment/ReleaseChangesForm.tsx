@@ -26,6 +26,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
+import { formatPercent } from "@/services/metrics";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -210,6 +211,24 @@ export default function ReleaseChangesForm({
               ? "Sticky Bucketed users will be reassigned."
               : "Sticky Bucketed users will be excluded from the experiment."
             : "No sticky bucketing."}
+          {form.watch("newPhase") && isBandit && (
+            <div className="alert alert-warning text-danger mt-2">
+              <FaExclamationCircle className="mr-2" />
+              This Bandit experiment will restart. Variation weights will reset{" "}
+              (
+              {experiment.variations
+                .map((_, i) =>
+                  i < 3
+                    ? formatPercent(1 / (experiment.variations.length ?? 2))
+                    : i === 3
+                    ? "..."
+                    : null
+                )
+                .filter(Boolean)
+                .join(", ")}
+              ).
+            </div>
+          )}
         </div>
       </div>
 
