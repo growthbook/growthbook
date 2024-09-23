@@ -108,6 +108,7 @@ import { slackIntegrationRouter } from "./routers/slack-integration/slack-integr
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
+import * as gbCloudSdkMiddleware from "./services/gb-cloud-sdk/middleware";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
@@ -254,6 +255,9 @@ app.options(
   (req, res) => res.send(200)
 );
 
+// Initialize GBCloudSDK for standard and apiRouter routes
+app.use(gbCloudSdkMiddleware.initializeSdk);
+
 if (!IS_CLOUD) {
   // Public remoteEval for SDKs:
   // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
@@ -346,6 +350,9 @@ app.use(
     next();
   }
 );
+
+// Set attributes for GBCloudSDK once logged in
+app.use(gbCloudSdkMiddleware.setAttributes);
 
 // Logged-in auth requests
 if (!useSSO) {
