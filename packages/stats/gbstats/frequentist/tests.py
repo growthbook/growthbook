@@ -14,7 +14,7 @@ from gbstats.messages import (
 )
 from gbstats.models.statistics import TestStatistic, ScaledImpactStatistic
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.utils import variance_of_ratios
+from gbstats.utils import variance_of_ratios, isinstance_union
 
 
 # Configs
@@ -175,7 +175,7 @@ class TTest(BaseABTest):
     def scale_result(self, result: FrequentistTestResult) -> FrequentistTestResult:
         if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        if isinstance(self.stat_a, ScaledImpactStatistic):
+        if isinstance_union(self.stat_a, ScaledImpactStatistic):
             if self.total_users:
                 adjustment = self.total_users / (
                     self.traffic_percentage * self.phase_length_days

@@ -664,18 +664,6 @@ def preprocess_bandits(
             var_names=bandit_settings.var_names,
             bandit=True,
         )
-        # if not bandit_settings.weights:
-        #    # remove this later###
-        #    num_variations = len(bandit_settings.var_ids)
-        #    from gbstats.models.settings import BanditWeightsSinglePeriod
-        #    import datetime
-
-        #    bandit_settings.weights = [
-        #        BanditWeightsSinglePeriod(
-        #            datetime.datetime.now().isoformat(),
-        #            [1 / num_variations] * num_variations,
-        #        )
-        #    ]
         historical_weights = [w.weights for w in bandit_settings.weights]
         bandit_stats = create_bandit_statistics(df, metric, historical_weights)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
@@ -851,9 +839,6 @@ def process_experiment_results(
                 rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
                     if d.bandit_settings:
-                        weighted_rows = get_weighted_rows(
-                            rows, d.metrics[metric], d.analyses, d.bandit_settings
-                        )
                         if metric == d.bandit_settings.decision_metric:
                             if bandit_result is not None:
                                 raise ValueError("Bandit weights already computed")
@@ -863,6 +848,9 @@ def process_experiment_results(
                                 settings=d.analyses[0],
                                 bandit_settings=d.bandit_settings,
                             )
+                        weighted_rows = get_weighted_rows(
+                            rows, d.metrics[metric], d.analyses, d.bandit_settings
+                        )
                         results.append(
                             process_single_metric(
                                 rows=weighted_rows,

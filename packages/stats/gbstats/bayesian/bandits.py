@@ -582,9 +582,9 @@ class BanditsRatio(Bandits):
         v_num = self.numerator_variances[variation_index]
         mn_den = self.denominator_means[variation_index]
         v_den = self.denominator_variances[variation_index]
-        cross_product = (n - 1) * self.covariances[
-            variation_index
-        ] + n * mn_num * mn_den
+        main_denominator_sum_product = n * (
+            self.covariances[variation_index] + mn_num * mn_den
+        )
         return {
             "dimension": dimension,
             "variation": variation_value,
@@ -594,7 +594,7 @@ class BanditsRatio(Bandits):
             "main_sum_squares": self.sum_squares_from_moments(n, mn_num, v_num),
             "denominator_sum": self.sum_from_moments(n, mn_den),
             "denominator_sum_squares": self.sum_squares_from_moments(n, mn_den, v_den),
-            "main_denominator_sum_product": cross_product,
+            "main_denominator_sum_product": main_denominator_sum_product,
         }
 
 
@@ -787,8 +787,21 @@ class BanditsCuped(Bandits):
 
     @property
     def variation_post_pre_sum_of_products(self) -> np.ndarray:
-        return self.construct_weighted_means(
-            self.post_pre_sum_of_products_array, self.weights_array
+        return (
+            self.weighted_covariances
+            + self.variation_counts
+            * self.variation_means_post
+            * self.variation_means_pre
+        )
+
+    @property
+    def covariances_array(self) -> np.ndarray:
+        return self.attribute_array(self.stats, self.array_shape, "covariance")
+
+    @property
+    def weighted_covariances(self) -> np.ndarray:
+        return self.construct_weighted_variances(
+            self.covariances_array, self.weights_array, self.counts_array
         )
 
     def make_row(self, dimension, variation_index, variation_value) -> Dict[str, Any]:
@@ -797,6 +810,10 @@ class BanditsCuped(Bandits):
         v_post = self.variation_variances_post[variation_index]
         mn_pre = self.variation_means_pre[variation_index]
         v_pre = self.variation_variances_pre[variation_index]
+        # note that weighted covariances is already multplied by n
+        main_covariate_sum_product = (
+            self.weighted_covariances[variation_index] + n * mn_post * mn_pre
+        )
         theta = self.theta
         return {
             "dimension": dimension,
@@ -807,9 +824,7 @@ class BanditsCuped(Bandits):
             "main_sum_squares": self.sum_squares_from_moments(n, mn_post, v_post),
             "covariate_sum": self.sum_from_moments(n, mn_pre),
             "covariate_sum_squares": self.sum_squares_from_moments(n, mn_pre, v_pre),
-            "main_covariate_sum_product": self.variation_post_pre_sum_of_products[
-                variation_index
-            ],
+            "main_covariate_sum_product": main_covariate_sum_product,
             "theta": theta,
         }
 

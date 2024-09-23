@@ -72,3 +72,9 @@ def weighted_mean(
         + n_1[positive_counts] * mn_1[positive_counts]
     ) / (n_0[positive_counts] + n_1[positive_counts])
     return mn
+
+
+def isinstance_union(obj, union):
+    if hasattr(union, "__args__"):
+        return any(isinstance(obj, arg) for arg in union.__args__)
+    return isinstance(obj, union)

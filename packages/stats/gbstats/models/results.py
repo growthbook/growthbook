@@ -24,7 +24,9 @@ class BanditEventSinglePeriod(BanditWeightsSinglePeriod):
 @dataclass
 class BanditResult:
     singleVariationResults: Optional[List[SingleVariationResult]]
-    banditSRMData: List[BanditEventSinglePeriod]
+    banditSRMData: List[
+        BanditEventSinglePeriod
+    ]  # need to remove this list, add the cells that have the largest deviations
     weights: Optional[List[float]]
     srm: float
     bestArmProbabilities: Optional[List[float]]
