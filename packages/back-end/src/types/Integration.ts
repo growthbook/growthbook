@@ -338,7 +338,6 @@ export type PastExperimentResponseRows = {
 
 export type ExperimentMetricQueryResponseRows = {
   dimension: string;
-  bandit_period?: string;
   variation: string;
   users: number;
   count: number;
