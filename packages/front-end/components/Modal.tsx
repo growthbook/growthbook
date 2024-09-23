@@ -227,46 +227,46 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
-          {secondaryCTA}
-          {submit && !isSuccess ? (
-            <Tooltip
-              body={disabledMessage || ""}
-              shouldDisplay={!ctaEnabled && !!disabledMessage}
-              tipPosition="top"
-              className={
-                stickyFooter
-                  ? "container pagecontents mx-auto text-right"
-                  : fullWidthSubmit
-                  ? "w-100"
-                  : ""
-              }
-              style={stickyFooter ? { maxWidth: "1100px" } : undefined}
-            >
-              <button
-                className={`btn btn-${submitColor} ${
-                  fullWidthSubmit ? "w-100" : ""
-                } ${stickyFooter ? "ml-auto mr-5" : ""}`}
-                type="submit"
-                disabled={!ctaEnabled}
+          <div
+            className={
+              stickyFooter ? "container pagecontents mx-auto text-right" : ""
+            }
+            style={stickyFooter ? { maxWidth: "1100px" } : undefined}
+          >
+            {secondaryCTA}
+            {submit && !isSuccess ? (
+              <Tooltip
+                body={disabledMessage || ""}
+                shouldDisplay={!ctaEnabled && !!disabledMessage}
+                tipPosition="top"
+                className={fullWidthSubmit ? "w-100" : ""}
               >
-                {cta}
+                <button
+                  className={`btn btn-${submitColor} ${
+                    fullWidthSubmit ? "w-100" : ""
+                  } ${stickyFooter ? "ml-auto mr-5" : ""}`}
+                  type="submit"
+                  disabled={!ctaEnabled}
+                >
+                  {cta}
+                </button>
+              </Tooltip>
+            ) : (
+              ""
+            )}
+            {close && includeCloseCta ? (
+              <button
+                className="btn btn-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+              >
+                {isSuccess && successMessage ? "Close" : closeCta}
               </button>
-            </Tooltip>
-          ) : (
-            ""
-          )}
-          {close && includeCloseCta ? (
-            <button
-              className="btn btn-link"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-            >
-              {isSuccess && successMessage ? "Close" : closeCta}
-            </button>
-          ) : null}
-          {tertiaryCTA}
+            ) : null}
+            {tertiaryCTA}
+          </div>
         </div>
       ) : null}
     </div>
