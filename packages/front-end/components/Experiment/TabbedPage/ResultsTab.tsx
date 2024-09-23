@@ -17,6 +17,7 @@ import {
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { BsLightbulb } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -30,7 +31,6 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
-import {BsLightbulb} from "react-icons/bs";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

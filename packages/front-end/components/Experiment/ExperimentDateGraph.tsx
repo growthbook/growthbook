@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -15,6 +15,7 @@ import { date, getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { ScaleLinear } from "d3-scale";
+import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
@@ -65,6 +66,7 @@ const margin = [15, 15, 30, 80];
 const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
+  showVariations: boolean[],
   statsEngine: StatsEngine,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions?: Intl.NumberFormatOptions,
@@ -104,6 +106,7 @@ const getTooltipContents = (
         <tbody>
           {variationNames.map((v, i) => {
             if (!d.variations) return null;
+            if (!showVariations[i]) return null;
             const variation = d.variations[i];
             return (
               <tr key={i}>
@@ -237,6 +240,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
     detectBounds: true,
   });
 
+  const [showVariations, setShowVariations] = useState<boolean[]>(
+    variationNames.map(() => true)
+  );
+
   const {
     showTooltip,
     hideTooltip,
@@ -288,7 +295,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.min(
-              ...d.variations.map((variation) => getYVal(variation, yaxis) ?? 0)
+              ...d.variations
+                .filter((_, i) => showVariations[i])
+                .map((variation) => getYVal(variation, yaxis) ?? 0)
             )
           : 0
       )
@@ -297,7 +306,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.max(
-              ...d.variations.map((variation) => getYVal(variation, yaxis) ?? 0)
+              ...d.variations
+                .filter((_, i) => showVariations[i])
+                .map((variation) => getYVal(variation, yaxis) ?? 0)
             )
           : 0
       )
@@ -306,11 +317,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.min(
-              ...d.variations.map((variation) =>
-                variation.ci?.[0]
-                  ? variation.ci[0]
-                  : getYVal(variation, yaxis) ?? 0
-              )
+              ...d.variations
+                .filter((_, i) => showVariations[i])
+                .map((variation) =>
+                  variation.ci?.[0]
+                    ? variation.ci[0]
+                    : getYVal(variation, yaxis) ?? 0
+                )
             )
           : 0
       )
@@ -319,11 +332,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.max(
-              ...d.variations.map((variation) =>
-                variation.ci?.[1]
-                  ? variation.ci[1]
-                  : getYVal(variation, yaxis) ?? 0
-              )
+              ...d.variations
+                .filter((_, i) => showVariations[i])
+                .map((variation) =>
+                  variation.ci?.[1]
+                    ? variation.ci[1]
+                    : getYVal(variation, yaxis) ?? 0
+                )
             )
           : 0
       )
@@ -334,7 +349,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       Math.max(minError, minValue > 0 ? minValue / 2 : minValue * 2),
       Math.min(maxError, maxValue > 0 ? maxValue * 2 : maxValue / 2),
     ];
-  }, [datapoints, yaxis]);
+  }, [datapoints, yaxis, showVariations]);
 
   // Get x-axis domain
   const min = Math.min(...datapoints.map((d) => d.d.getTime()));
@@ -396,6 +411,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 {getTooltipContents(
                   tooltipData,
                   variationNames,
+                  showVariations,
                   statsEngine,
                   formatter,
                   formatterOptions,
@@ -403,18 +419,60 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 )}
               </TooltipWithBounds>
             )}
-            <div className="d-flex flex-wrap" style={{ gap: "0.25rem 1rem" }}>
-              {variationNames.map((v, i) => {
-                return (
-                  <div
-                    key={i}
-                    className="nowrap text-ellipsis"
-                    style={{ maxWidth: 200, color: getVariationColor(i, true) }}
-                  >
-                    <strong>&mdash;</strong> {v}
-                  </div>
-                );
-              })}
+            <div className="d-flex align-items-start">
+              <div
+                className="d-flex flex-wrap px-3 mb-2"
+                style={{ gap: "0.25rem 1rem" }}
+              >
+                <div
+                  key={"all"}
+                  className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                  onClick={() => {
+                    if (!showVariations.every((sv) => sv)) {
+                      setShowVariations(variationNames.map(() => true));
+                    } else {
+                      setShowVariations(
+                        variationNames.map((_, i) => (i === 0 ? true : false))
+                      );
+                    }
+                  }}
+                >
+                  {showVariations.every((sv) => sv) ? (
+                    <BiCheckboxSquare size={24} />
+                  ) : (
+                    <BiCheckbox size={24} />
+                  )}
+                  Show all
+                </div>
+                {variationNames.map((v, i) => {
+                  if (i === 0 && yaxis === "effect") return null;
+                  return (
+                    <div
+                      key={i}
+                      className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                      style={{
+                        maxWidth: 200,
+                        color: getVariationColor(i, true),
+                      }}
+                      onClick={() => {
+                        let sv = [...showVariations];
+                        sv[i] = !sv[i];
+                        if (sv.every((v) => !v)) {
+                          sv = variationNames.map((_, j) => i !== j);
+                        }
+                        setShowVariations(sv);
+                      }}
+                    >
+                      {showVariations[i] ? (
+                        <BiCheckboxSquare size={24} />
+                      ) : (
+                        <BiCheckbox size={24} />
+                      )}
+                      {v}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             <div
               ref={containerRef}
@@ -431,6 +489,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               {tooltipOpen && (
                 <>
                   {variationNames.map((v, i) => {
+                    if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return;
                     }
@@ -472,6 +531,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
 
                 {variationNames.map((v, i) => {
+                  if (!showVariations[i]) return null;
                   if (yaxis === "effect" && i === 0) {
                     return <></>;
                   }
@@ -499,8 +559,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 })}
 
                 {variationNames.map((_, i) => {
+                  if (!showVariations[i]) return null;
                   if (yaxis === "effect" && i === 0) {
-                    return <></>;
+                    return null;
                   }
                   // Render the actual line chart for each variation
                   return (
