@@ -95,8 +95,37 @@ jobs:
           docker pull growthbook/growthbook:latest
           docker create --name temp-container growthbook/growthbook:latest
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
+          # This is for the sentry source maps task below.
+          docker cp temp-container:/usr/local/src/app/packages/back-end/dist ./back-end-dist
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Generate sentry sourcemaps
+        run: |
+          mv ./back-end-dist ./packages/back-end/dist
+          yarn install
+          yarn sourcemap:inject
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        with:
+          environment: 'production'
+          sourcemaps: './packages/back-end/dist'
+          version: ${{ steps.metadata.outputs.sha }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
