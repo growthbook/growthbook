@@ -15,6 +15,7 @@
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
     "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -p 'enterprise' -t -c build",
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
+    "sourcemap:inject": "wsrun -p 'back-end' -c sourcemap:inject",
     "build": "yarn build:deps && yarn build:app",
     "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
     "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
