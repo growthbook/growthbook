@@ -107,11 +107,62 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
             of BigQuery, where your data is stored. You will need to configure
             BigQuery in order to connect GrowthBook to Google Analytics
           </p>
-          <img
-            className="mt-2"
-            src="images/essential-setup/data-source-diagram.svg"
-            style={{ maxWidth: "100%", display: "block", margin: "auto" }}
-          />
+          <div
+            className={clsx(
+              styles.setupPage,
+              "d-flex align-items-center position-relative mt-4 mb-3"
+            )}
+          >
+            <div className={styles.bottomArrow} />
+            <div
+              className="appbox p-3 d-flex flex-wrap justify-content-center"
+              style={{ maxWidth: 325 }}
+            >
+              <img
+                src="/logo/logo-mark.png"
+                style={{ width: 40 }}
+                alt="GrowthBook"
+              />
+              <div className="col">
+                <h5 className="mb-0">GrowthBook</h5>
+                <strong className="text-muted">SDK</strong>
+              </div>
+            </div>
+            <div className={styles.rightArrow}>
+              <span>trackingCallback</span>
+            </div>
+            <div
+              className="appbox p-3 d-flex flex-wrap justify-content-center"
+              style={{ maxWidth: 325 }}
+            >
+              <img
+                src="/images/3rd-party-logos/datasource-logos/ga4.svg"
+                style={{ width: 30 }}
+                alt="GA4"
+              />
+              <div className="col">
+                <h5 className="mb-0">Google Analytics v4</h5>
+                <strong className="text-muted">Event Tracker</strong>
+              </div>
+            </div>
+            <div className={styles.rightArrow}>
+              <span>polling</span>
+            </div>
+            <div
+              className="appbox p-3 d-flex flex-wrap justify-content-center"
+              style={{ maxWidth: 325 }}
+            >
+              <img
+                src="/images/3rd-party-logos/bigquery.svg"
+                style={{ width: 40 }}
+                alt="GA4"
+              />
+              <div className="col">
+                <h5 className="mb-0">Big Query</h5>
+                <strong className="text-muted">Data Warehouse</strong>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </>
