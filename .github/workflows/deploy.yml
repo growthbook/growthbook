@@ -52,31 +52,6 @@ jobs:
             growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
           platforms: linux/amd64,linux/arm64
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'yarn'
-
-      - name: Generate sentry sourcemaps
-        run: |
-          yarn install
-          id=$(docker create growthbook/growthbook:git-${{ steps.metadata.outputs.sha }})
-          docker cp $id:/usr/local/src/app/packages/back-end/dist packages/back-end
-          docker rm -v $id
-          yarn sourcemap:inject
-
-      - name: Create Sentry release
-        uses: getsentry/action-release@v1
-        with:
-          environment: 'production'
-          sourcemaps: './packages/back-end/dist'
-          version: ${{ steps.metadata.outputs.sha }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-
   # Deploy the back-end for GrowthBook Cloud
   prod:
     runs-on: ubuntu-latest
