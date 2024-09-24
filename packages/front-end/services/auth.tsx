@@ -20,6 +20,7 @@ import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
@@ -48,7 +49,6 @@ export interface AuthContextValue {
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
-  initialProjectId: string | null;
 }
 
 export const AuthContext = React.createContext<AuthContextValue>({
@@ -63,7 +63,6 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   orgId: null,
-  initialProjectId: null,
 });
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
@@ -206,7 +205,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [initialProjectId, setInitialProjectId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
     specialOrg,
@@ -217,6 +215,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [sessionError, setSessionError] = useState(false);
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
+
+  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
 
   async function init() {
     const resp = await refreshToken();
@@ -272,7 +272,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           onSuccess={(t, pid) => {
             setToken(t);
             if (pid) {
-              setInitialProjectId(pid);
+              setProject(pid);
             }
             setAuthComponent(null);
           }}
@@ -290,6 +290,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setInitError(e.message);
       console.error(e);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const orgList = [...organizations];
@@ -490,7 +491,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         apiCall,
         orgId,
         setOrgId,
-        initialProjectId,
         organizations: orgList,
         setOrganizations: wrappedSetOrganizations,
         setOrgName: (name) => {
