@@ -113,7 +113,9 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
               "d-flex align-items-center position-relative mt-4 mb-3"
             )}
           >
-            <div className={styles.bottomArrow} />
+            <div className={styles.bottomArrow}>
+              <span>Metrics</span>
+            </div>
             <div
               className="appbox p-3 d-flex flex-wrap justify-content-center"
               style={{ maxWidth: 325 }}

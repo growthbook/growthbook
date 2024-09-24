@@ -49,6 +49,7 @@
   width: -webkit-fill-available;
   flex: 1;
   font-size: 8px;
+  text-align: center;
   color: var(--border-color-100);
   line-height: 10px;
   &:before {
@@ -56,5 +57,12 @@
     position: absolute;
     top: -2px;
     left: -5px;
+  }
+  > span {
+    position: absolute;
+    top: 30px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-color-main);
   }
 }
