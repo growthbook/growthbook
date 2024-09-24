@@ -510,8 +510,8 @@ export async function postExperiments(
             status: 403,
             message: "Unknown metric: " + metricIds[i],
           });
+          return;
         }
-        return;
       }
     }
   }

@@ -142,6 +142,7 @@ const MetricGroupModal: FC<{
           <MetricsSelector
             datasource={form.watch("datasource")}
             includeFacts={true}
+            includeGroups={false}
             selected={form.watch("metrics")}
             onChange={(value) => {
               form.setValue("metrics", value || "");
