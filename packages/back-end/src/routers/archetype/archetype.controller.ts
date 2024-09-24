@@ -249,12 +249,14 @@ export const putArchetype = async (
     projects,
   };
 
-  if (!context.permissions.canUpdateArchetype(req.body, updates)) {
-    context.permissions.throwPermissionError();
-  }
-
   const archetype = await getArchetypeById(id, org.id);
 
+  if (!archetype) {
+    throw new Error("Could not find sample user");
+  }
+  if (!context.permissions.canUpdateArchetype(archetype, updates)) {
+    context.permissions.throwPermissionError();
+  }
   if (!archetype) {
     throw new Error("Could not find sample user");
   }
