@@ -1,13 +1,7 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { useRouter } from "next/router";
-import React, { ReactElement, ReactNode, useState } from "react";
-import {
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaInfoCircle,
-  FaLock,
-  FaQuestionCircle,
-} from "react-icons/fa";
+import React, { useState } from "react";
+import { FaInfoCircle, FaLock } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
 import {
   filterProjectsByEnvironment,
@@ -36,122 +30,8 @@ import Badge from "@/components/Badge";
 import ProjectBadges from "@/components/ProjectBadges";
 import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-
-function ConnectionDot({ left }: { left: boolean }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        [left ? "right" : "left"]: "100%",
-        top: "50%",
-        marginTop: -7,
-        [left ? "marginRight" : "marginLeft"]: -8,
-        width: 16,
-        height: 16,
-        borderRadius: 20,
-        border: "3px solid var(--text-color-primary)",
-        background: "#fff",
-        zIndex: 1,
-      }}
-    />
-  );
-}
-function ConnectionNode({
-  children,
-  title,
-  first,
-  last,
-}: {
-  children: ReactElement;
-  title: ReactNode;
-  first?: boolean;
-  last?: boolean;
-}) {
-  return (
-    <div
-      className={`appbox p-3 ${
-        first ? "mr" : last ? "ml" : "mx"
-      }-3 text-center position-relative`}
-      style={{
-        zIndex: 10,
-        overflow: "visible",
-      }}
-    >
-      {!first && <ConnectionDot left={true} />}
-      {!last && <ConnectionDot left={false} />}
-      <h3>{title}</h3>
-      {children}
-    </div>
-  );
-}
-function ConnectionStatus({
-  connected,
-  error,
-  errorTxt,
-  refresh,
-  canRefresh,
-}: {
-  connected: boolean;
-  error?: boolean;
-  errorTxt?: string;
-  refresh?: ReactElement;
-  canRefresh: boolean;
-}) {
-  return (
-    <div
-      className="mx-3 text-center"
-      style={{ zIndex: 10, marginTop: -8, whiteSpace: "nowrap" }}
-    >
-      {connected ? (
-        <>
-          <span className="text-success">
-            <FaCheckCircle /> connected
-          </span>
-        </>
-      ) : (
-        <>
-          {error ? (
-            <>
-              <span className="text-danger">
-                <FaExclamationTriangle /> error
-              </span>
-              {errorTxt !== undefined && (
-                <Tooltip
-                  className="ml-1"
-                  innerClassName="pb-1"
-                  usePortal={true}
-                  body={
-                    <>
-                      <div className="mb-2">
-                        Encountered an error while trying to connect:
-                      </div>
-                      {errorTxt ? (
-                        <div className="alert alert-danger mt-2">
-                          {errorTxt}
-                        </div>
-                      ) : (
-                        <div className="alert alert-danger">
-                          <em>Unknown error</em>
-                        </div>
-                      )}
-                    </>
-                  }
-                />
-              )}
-            </>
-          ) : (
-            <span className="text-secondary">
-              <FaQuestionCircle /> not connected
-            </span>
-          )}
-        </>
-      )}
-      <div style={{ marginTop: 10, textAlign: "center" }}>
-        {canRefresh && refresh ? refresh : <>&nbsp;</>}
-      </div>
-    </div>
-  );
-}
+import ConnectionStatus from "@/components/Features/SDKConnections/ConnectionStatus";
+import ConnectionNode from "@/components/Features/SDKConnections/ConnectionNode";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
