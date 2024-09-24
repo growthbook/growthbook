@@ -7,8 +7,6 @@
     "noImplicitAny": true,
     "moduleResolution": "node",
     "sourceMap": true,
-    "inlineSources": true,
-    "sourceRoot": "/",
     "outDir": "dist",
     "typeRoots": ["node_modules/@types", "./typings"],
     "strictNullChecks": true,

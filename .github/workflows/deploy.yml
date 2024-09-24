@@ -75,26 +75,21 @@ jobs:
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
-      - name: Checkout code
-        uses: actions/checkout@v2
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'yarn'
 
       - name: Generate sentry sourcemaps
         run: |
-          mv ./back-end-dist ./packages/back-end/dist
-          yarn install
-          yarn sourcemap:inject
+          npm install -g @sentry/cli
+          npm exec sentry-cli -- sourcemaps inject ./back-end-dist
 
       - name: Create Sentry release
         uses: getsentry/action-release@v1
         with:
           environment: 'production'
-          sourcemaps: './packages/back-end/dist'
+          sourcemaps: './back-end-dist'
           version: ${{ steps.metadata.outputs.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
