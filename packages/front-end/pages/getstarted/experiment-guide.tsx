@@ -490,6 +490,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
                   </p>
+                  <hr />
                 </div>
               </div>
             )}

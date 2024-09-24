@@ -9,9 +9,12 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const DataSourcesPage: FC = () => {
-  const { exists: demoDataSourceExists } = useDemoDataSourceProject();
+  const {
+    exists: demoDataSourceExists,
+    projectId: demoProjectId,
+  } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, setProject } = useDefinitions();
 
   return (
     <div className="container-fluid pagecontents">
@@ -29,7 +32,10 @@ const DataSourcesPage: FC = () => {
                 track("Create Sample Project", {
                   source: "sample-project-page",
                 });
-                mutateDefinitions();
+                if (demoProjectId) {
+                  setProject(demoProjectId);
+                }
+                await mutateDefinitions();
               } catch (e: unknown) {
                 console.error(e);
               }
