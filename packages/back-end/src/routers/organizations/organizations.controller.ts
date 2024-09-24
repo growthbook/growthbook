@@ -138,6 +138,7 @@ import {
   getUserCodesForOrg,
 } from "../../services/licenseData";
 import { findSDKConnectionsByIds } from "../../models/SdkConnectionModel";
+import { getAllMetricGroupsForOrganization } from "../../models/MetricGroupModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -151,6 +152,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     datasources,
     dimensions,
     segments,
+    metricGroups,
     tags,
     savedGroups,
     projects,
@@ -161,6 +163,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     context.models.segments.getAll(),
+    getAllMetricGroupsForOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     context.models.projects.getAll(),
@@ -189,6 +192,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     }),
     dimensions,
     segments,
+    metricGroups,
     tags,
     savedGroups,
     projects,

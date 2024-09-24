@@ -18,6 +18,7 @@ import {
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -29,6 +30,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
+  metricGroups: MetricGroupInterface[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
   _factTablesIncludingArchived: FactTableInterface[];
@@ -53,6 +55,7 @@ type DefinitionContextValue = Definitions & {
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getMetricGroupById: (id: string) => null | MetricGroupInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -74,6 +77,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  metricGroups: [],
   projects: [],
   factTables: [],
   _factTablesIncludingArchived: [],
@@ -89,6 +93,7 @@ const defaultValue: DefinitionContextValue = {
   getFactTableById: () => null,
   getFactMetricById: () => null,
   getExperimentMetricById: () => null,
+  getMetricGroupById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -198,6 +203,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getTagById = useGetById(data?.tags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+  const getMetricGroupById = useGetById(data?.metricGroups);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -228,6 +234,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: data.tags,
       savedGroups: data.savedGroups,
+      metricGroups: data.metricGroups,
       projects: data.projects,
       project: filteredProject,
       factTables: activeFactTables,
@@ -245,6 +252,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getFactTableById,
       getFactMetricById,
       getExperimentMetricById,
+      getMetricGroupById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));

@@ -104,6 +104,7 @@ import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "../../types/organization";
 import { CreateURLRedirectProps } from "../../types/url-redirect";
 import { logger } from "../util/logger";
+import { getMetricGroupById } from "../models/MetricGroupModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -490,11 +491,26 @@ export async function postExperiments(
           return;
         }
       } else {
-        // new metric that's not recognized...
-        res.status(403).json({
-          status: 403,
-          message: "Unknown metric: " + metricIds[i],
-        });
+        // check to see if this metric is actually a metric group
+        const metricGroup = await getMetricGroupById(context, metricIds[i]);
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (data.datasource && metricGroup.datasource !== data.datasource) {
+            res.status(400).json({
+              status: 400,
+              message:
+                "Metric group must be tied to the same datasource as the experiment: " +
+                metricIds[i],
+            });
+            return;
+          }
+        } else {
+          // new metric that's not recognized...
+          res.status(403).json({
+            status: 403,
+            message: "Unknown metric: " + metricIds[i],
+          });
+        }
         return;
       }
     }
@@ -705,6 +721,7 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
+  let compareDatasource = experiment?.datasource || "";
   if (data.datasource) {
     const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
@@ -714,22 +731,21 @@ export async function postExperiment(
       });
       return;
     }
+    compareDatasource = datasource.id;
   }
   // Validate that specified metrics exist and belong to the organization
   const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
   const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
     (m) => !oldMetricIds.includes(m)
   );
+
   if (newMetricIds.length) {
     const map = await getMetricMap(context);
     for (let i = 0; i < newMetricIds.length; i++) {
       const metric = map.get(newMetricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
-        if (
-          experiment.datasource &&
-          metric.datasource !== experiment.datasource
-        ) {
+        if (metric.datasource !== compareDatasource) {
           res.status(400).json({
             status: 400,
             message:
@@ -739,12 +755,27 @@ export async function postExperiment(
           return;
         }
       } else {
-        // new metric that's not recognized...
-        res.status(403).json({
-          status: 403,
-          message: "Unknown metric: " + newMetricIds[i],
-        });
-        return;
+        // check to see if this metric is actually a metric group
+        const metricGroup = await getMetricGroupById(context, newMetricIds[i]);
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (metricGroup.datasource !== compareDatasource) {
+            res.status(400).json({
+              status: 400,
+              message:
+                "Metric group must be tied to the same datasource as the experiment: " +
+                newMetricIds[i],
+            });
+            return;
+          }
+        } else {
+          // new metric that's not recognized...
+          res.status(403).json({
+            status: 403,
+            message: "Unknown metric: " + newMetricIds[i],
+          });
+          return;
+        }
       }
     }
   }

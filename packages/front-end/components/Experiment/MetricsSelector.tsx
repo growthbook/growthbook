@@ -86,6 +86,7 @@ const MetricsSelector: FC<{
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
+  includeGroups?: boolean;
 }> = ({
   datasource,
   project,
@@ -94,9 +95,11 @@ const MetricsSelector: FC<{
   onChange,
   autoFocus,
   includeFacts,
+  includeGroups = true,
 }) => {
   const {
     metrics,
+    metricGroups,
     factMetrics,
     factTables,
     getDatasourceById,
@@ -113,6 +116,18 @@ const MetricsSelector: FC<{
       factTables: [],
       userIdTypes: m.userIdTypes || [],
     })),
+    ...(includeGroups
+      ? metricGroups.map((mg) => ({
+          id: mg.id,
+          name: mg.name + " (" + mg.metrics.length + " metrics)",
+          description: mg.description || "",
+          datasource: mg.datasource,
+          tags: mg.tags || [],
+          projects: mg.projects || [],
+          factTables: [],
+          userIdTypes: [],
+        }))
+      : []),
     ...(includeFacts
       ? factMetrics.map((m) => ({
           id: m.id,
