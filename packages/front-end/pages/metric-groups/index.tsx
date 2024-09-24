@@ -12,7 +12,11 @@ import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
 
 const MetricGroupsPage: FC = () => {
   const [openModal, setOpenModal] = useState(false);
-  const { metricGroups, mutateDefinitions, getDatasourceById } = useDefinitions();
+  const {
+    metricGroups,
+    mutateDefinitions,
+    getDatasourceById,
+  } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canCreateMetricGroup();
   const canDelete = permissionsUtil.canDeleteMetricGroup();
