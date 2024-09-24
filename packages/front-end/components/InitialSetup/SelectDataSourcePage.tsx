@@ -110,7 +110,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
           <div
             className={clsx(
               styles.setupPage,
-              "d-flex align-items-center position-relative mt-4 mb-3"
+              "d-flex align-items-center position-relative mt-4 mb-4"
             )}
           >
             <div className={styles.bottomArrow}>
