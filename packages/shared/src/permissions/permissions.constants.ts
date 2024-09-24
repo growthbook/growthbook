@@ -472,6 +472,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "canReview",
   "manageFeatureDrafts",
   "manageFeatures",
+  "manageArchetype",
   "manageProjects",
   "createAnalyses",
   "createIdeas",
@@ -502,7 +503,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageBilling",
   "manageNorthStarMetric",
   "manageNamespaces",
-  "manageArchetype",
   "manageCustomRoles",
   "viewAuditLog",
 ] as const;
