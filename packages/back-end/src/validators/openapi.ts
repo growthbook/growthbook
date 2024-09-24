@@ -52,7 +52,7 @@ export const apiVisualChangesetValidator = z.object({ "id": z.string().optional(
 
 export const apiVisualChangeValidator = z.object({ "description": z.string().optional(), "css": z.string().optional(), "js": z.string().optional(), "variation": z.string(), "domMutations": z.array(z.object({ "selector": z.string(), "action": z.enum(["append","set","remove"]), "attribute": z.string(), "value": z.string().optional(), "parentSelector": z.string().optional(), "insertBeforeSelector": z.string().optional() })).optional() }).strict()
 
-export const apiSavedGroupValidator = z.object({ "id": z.string(), "type": z.enum(["condition","list"]), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "owner": z.string().optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "attributeKey": z.string().describe("When type = 'list', this is the attribute key the group is based on").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "description": z.string().optional() }).strict()
+export const apiSavedGroupValidator = z.object({ "id": z.string(), "type": z.enum(["condition","list"]), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "owner": z.string().optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "attributeKey": z.string().describe("When type = 'list', this is the attribute key the group is based on").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "description": z.string().optional(), "projects": z.array(z.string()).optional() }).strict()
 
 export const apiOrganizationValidator = z.object({ "id": z.string().describe("The Growthbook unique identifier for the organization").optional(), "externalId": z.string().describe("An optional identifier that you use within your company for the organization").optional(), "dateCreated": z.string().describe("The date the organization was created").optional(), "name": z.string().describe("The name of the organization").optional(), "ownerEmail": z.string().describe("The email address of the organization owner").optional() }).strict()
 
@@ -293,7 +293,7 @@ export const listSavedGroupsValidator = {
 };
 
 export const postSavedGroupValidator = {
-  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group"), "type": z.enum(["condition","list"]).describe("The type of Saved Group (inferred from other arguments if missing)").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "attributeKey": z.string().describe("When type = 'list', this is the attribute key the group is based on").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional() }).strict(),
+  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group"), "type": z.enum(["condition","list"]).describe("The type of Saved Group (inferred from other arguments if missing)").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "attributeKey": z.string().describe("When type = 'list', this is the attribute key the group is based on").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
@@ -305,7 +305,7 @@ export const getSavedGroupValidator = {
 };
 
 export const updateSavedGroupValidator = {
-  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional() }).strict(),
+  bodySchema: z.object({ "name": z.string().describe("The display name of the Saved Group").optional(), "condition": z.string().describe("When type = 'condition', this is the JSON-encoded condition for the group").optional(), "values": z.array(z.string()).describe("When type = 'list', this is the list of values for the attribute key").optional(), "owner": z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

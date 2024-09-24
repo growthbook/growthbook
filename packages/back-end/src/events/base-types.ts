@@ -7,6 +7,7 @@ import {
 import { eventUser } from "../validators/events";
 import { userLoginInterface } from "../validators/users";
 import { experimentWarningNotificationPayload } from "../validators/experiment-warnings";
+import { experimentInfoSignificance } from "../validators/experiment-info";
 import { EventUser } from "./event-types";
 
 type WebhookEntry = {
@@ -66,6 +67,10 @@ export const notificationEvents = {
       schema: experimentWarningNotificationPayload,
       description:
         "Triggered when a warning condition is detected on an experiment",
+    },
+    "info.significance": {
+      schema: experimentInfoSignificance,
+      description: `Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
     },
   },
   user: {

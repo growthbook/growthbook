@@ -18,12 +18,13 @@ export const getExperimentResults = createApiRequestHandler(
       req.query.phase ?? experiment.phases.length - 1 + ""
     );
 
-    const snapshot = await getLatestSnapshot(
-      experiment.id,
+    const snapshot = await getLatestSnapshot({
+      experiment: experiment.id,
       phase,
-      req.query.dimension,
-      true
-    );
+      dimension: req.query.dimension,
+      withResults: true,
+    });
+
     if (!snapshot) {
       throw new Error("No results found for that experiment");
     }

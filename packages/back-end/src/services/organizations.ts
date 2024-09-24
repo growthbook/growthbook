@@ -14,6 +14,23 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import {
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+} from "shared/constants";
+import {
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "../../types/fact-table";
+import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
@@ -30,6 +47,7 @@ import {
   Member,
   MemberRoleInfo,
   MemberRoleWithProjects,
+  MetricDefaults,
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
@@ -143,6 +161,40 @@ export function getConfidenceLevelsForOrg(context: ReqContext) {
     ciUpperDisplay: Math.round(ciUpper * 100) + "%",
     ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
   };
+}
+
+export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
+  const defaultMetricWindowSettings: MetricWindowSettings = {
+    type: DEFAULT_METRIC_WINDOW,
+    windowValue: DEFAULT_METRIC_WINDOW_HOURS,
+    delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    windowUnit: "hours",
+  };
+  const defaultMetricCappingSettings: MetricCappingSettings = {
+    type: DEFAULT_METRIC_CAPPING,
+    value: DEFAULT_METRIC_CAPPING_VALUE,
+  };
+  const defaultMetricPriorSettings: MetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
+
+  const METRIC_DEFAULTS = {
+    minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
+    maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
+    minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    windowSettings: defaultMetricWindowSettings,
+    cappingSettings: defaultMetricCappingSettings,
+    priorSettings: defaultMetricPriorSettings,
+  };
+
+  return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
+}
+
+export function getPValueThresholdForOrg(context: ReqContext): number {
+  return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
 export function getRole(

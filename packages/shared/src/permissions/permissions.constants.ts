@@ -485,6 +485,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "runQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
+  "manageSavedGroups",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
@@ -502,7 +503,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageBilling",
   "manageNorthStarMetric",
   "manageNamespaces",
-  "manageSavedGroups",
   "manageCustomRoles",
   "viewAuditLog",
 ] as const;

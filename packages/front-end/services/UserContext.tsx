@@ -32,6 +32,7 @@ import {
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
+import { getValidDate } from "shared/dates";
 import {
   getSuperadminDefaultRole,
   isCloud,
@@ -90,7 +91,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
-  manageSavedGroups: false,
   manageTags: false,
   manageTeam: false,
   manageEventWebhooks: false,
@@ -289,6 +289,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
+
   useEffect(() => {
     growthbook?.setAttributes({
       id: data?.userId || "",
@@ -296,6 +297,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       superAdmin: data?.superAdmin || false,
       company: currentOrg?.organization?.name || "",
       organizationId: hashedOrganizationId,
+      orgDateCreated: currentOrg?.organization?.dateCreated
+        ? getValidDate(currentOrg.organization.dateCreated).toISOString()
+        : "",
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { removeProjectFromSavedGroups } from "../../models/SavedGroupModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
@@ -280,6 +281,8 @@ export const deleteProject = async (
   }
 
   await removeProjectFromProjectRoles(id, org);
+
+  await removeProjectFromSavedGroups(id, org.id);
 
   // ideas?
   // report?

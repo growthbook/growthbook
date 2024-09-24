@@ -14,7 +14,8 @@ export interface Props {
     | "team"
     | "fact table"
     | "attribute"
-    | "sdk connection";
+    | "sdk connection"
+    | "saved group";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;

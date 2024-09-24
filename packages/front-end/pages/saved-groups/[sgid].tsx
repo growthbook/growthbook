@@ -24,6 +24,8 @@ import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ProjectBadges from "@/components/ProjectBadges";
 
 const NUM_PER_PAGE = 10;
 
@@ -58,6 +60,7 @@ export default function EditSavedGroupPage() {
     "replace"
   );
   const { attributeSchema } = useOrgSettings();
+  const { projects } = useDefinitions();
 
   const {
     hasLargeSavedGroupFeature,
@@ -271,12 +274,36 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div className="row m-0 mb-3 align-items-center justify-content-flex-start">
-          <div className="mr-4">Attribute Key: {savedGroup.attributeKey}</div>
-          <div className="mr-4">
-            Date Updated: {ago(savedGroup.dateUpdated)}
+          <div className="col-auto mr-4">
+            Attribute Key: <strong>{savedGroup.attributeKey}</strong>
           </div>
-          <div className="mr-4">
-            Owner: {savedGroup.owner ? savedGroup.owner : "None"}
+          {(projects.length > 0 || (savedGroup.projects?.length ?? 0) > 0) && (
+            <div className="col-auto d-flex mr-4">
+              <div className="mr-2">Projects:</div>
+
+              <div>
+                {(savedGroup.projects?.length || 0) > 0 ? (
+                  <div className={"d-flex align-items-center"}>
+                    <ProjectBadges
+                      projectIds={savedGroup.projects}
+                      resourceType="saved group"
+                    />
+                  </div>
+                ) : (
+                  <ProjectBadges
+                    resourceType="saved group"
+                    className="badge-ellipsis short align-middle"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          <div className="col-auto mr-4">
+            Date Updated: <strong>{ago(savedGroup.dateUpdated)}</strong>
+          </div>
+          <div className="col-auto mr-4">
+            Owner:{" "}
+            <strong>{savedGroup.owner ? savedGroup.owner : "None"}</strong>
           </div>
         </div>
         <div>{savedGroup.description}</div>

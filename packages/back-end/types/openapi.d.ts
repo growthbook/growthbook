@@ -1322,6 +1322,7 @@ export interface components {
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
       description?: string;
+      projects?: (string)[];
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -5321,6 +5322,7 @@ export interface operations {
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
                 description?: string;
+                projects?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -5354,6 +5356,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };
@@ -5378,6 +5381,7 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
+              projects?: (string)[];
             };
           };
         };
@@ -5413,6 +5417,7 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
+              projects?: (string)[];
             };
           };
         };
@@ -5438,6 +5443,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };
@@ -5462,6 +5468,7 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
+              projects?: (string)[];
             };
           };
         };

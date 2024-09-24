@@ -15,6 +15,7 @@ import {
   getFilterDataForNotificationEvent,
 } from "../utils";
 import { ExperimentWarningNotificationPayload } from "../../../validators/experiment-warnings";
+import { ExperimentInfoSignificancePayload } from "../../../validators/experiment-info";
 
 // region Filtering
 
@@ -65,6 +66,11 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "experiment.warning":
       return buildSlackMessageForExperimentWarningEvent(event.data.object);
+
+    case "experiment.info.significance":
+      return buildSlackMessageForExperimentInfoSignificanceEvent(
+        event.data.object
+      );
 
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(
@@ -288,6 +294,11 @@ const buildSlackMessageForFeatureDeletedEvent = async (
 export const getExperimentUrlFormatted = (experimentId: string): string =>
   `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
 
+export const getExperimentUrlAndNameFormatted = (
+  experimentId: string,
+  experimentName: string
+): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
+
 const buildSlackMessageForExperimentCreatedEvent = (
   { id: experimentId, name: experimentName }: { id: string; name: string },
   eventId: string
@@ -365,6 +376,67 @@ const buildSlackMessageForExperimentDeletedEvent = (
           text:
             `The experiment *${experimentName}* has been deleted.` +
             getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentInfoSignificanceEvent = ({
+  metricName,
+  experimentName,
+  experimentId,
+  variationName,
+  statsEngine,
+  criticalValue,
+  winning,
+}: ExperimentInfoSignificancePayload): SlackMessage => {
+  const percentFormatter = (v: number) => {
+    if (v > 0.99) {
+      return ">99%";
+    }
+    if (v < 0.01) {
+      return "<1%";
+    }
+    return formatNumber("#0.%", v * 100);
+  };
+
+  const text = ({
+    metricName,
+    variationName,
+    experimentName,
+  }: {
+    metricName: string;
+    variationName: string;
+    experimentName: string;
+  }) => {
+    if (statsEngine === "frequentist") {
+      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${
+        winning ? "beating" : "losing to"
+      } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
+        3
+      )}).`;
+    }
+    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
+      winning ? "reached a" : "dropped to a"
+    } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
+  };
+
+  return {
+    text: text({ metricName, experimentName, variationName }),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: text({
+            metricName: `*${metricName}*`,
+            experimentName: getExperimentUrlAndNameFormatted(
+              experimentId,
+              experimentName
+            ),
+            variationName: `*${variationName}*`,
+          }),
         },
       },
     ],

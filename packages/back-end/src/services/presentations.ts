@@ -38,7 +38,10 @@ export async function getPresentationSnapshots(
   const promises = experiments.map(async (experiment) => {
     // get best phase to show:
     const phase = experiment.phases.length - 1;
-    const snapshot = await getLatestSnapshot(experiment.id, phase);
+    const snapshot = await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+    });
     withSnapshots.push({
       experiment,
       snapshot: snapshot ? snapshot : null,

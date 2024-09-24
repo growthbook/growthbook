@@ -130,7 +130,9 @@ const metricSchema = new mongoose.Schema({
     conversionDelayHours: Number,
   },
 });
+
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
+
 const MetricModel = mongoose.model<LegacyMetricInterface>(
   "Metric",
   metricSchema

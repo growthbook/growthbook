@@ -12,8 +12,6 @@ const router = express.Router();
 
 const savedGroupController = wrapController(rawSavedGroupController);
 
-router.get("/", savedGroupController.getSavedGroups);
-
 router.get(
   "/:id",
   validateRequestMiddleware({

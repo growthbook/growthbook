@@ -33,6 +33,8 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
 
   if (!payloadType) return null;
 
+  const detailedWebhook = ["raw", "json"].includes(payloadType);
+
   return (
     <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
       <div className="d-flex">
@@ -60,13 +62,13 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
               <div className="text-muted">No runs</div>
             ) : (
               <div className="text-main d-flex">
-                <b>Last run:</b> {datetime(lastRunAt)}
+                <b className="mr-1">Last run:</b> {datetime(lastRunAt)}
                 <span className="ml-2" style={{ fontSize: "1.5rem" }}>
                   {iconForState}
                 </span>
               </div>
             )}
-            {payloadType === "raw" && (
+            {detailedWebhook && (
               <span className="text-muted ml-2 d-flex">
                 |
                 <div

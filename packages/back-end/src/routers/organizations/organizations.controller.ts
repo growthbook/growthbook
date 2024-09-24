@@ -776,6 +776,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       messages: messages || [],
       pendingMembers: org.pendingMembers,
       getStartedChecklistItems: org.getStartedChecklistItems,
+      dateCreated: org.dateCreated,
     },
     seatsInUse,
   });

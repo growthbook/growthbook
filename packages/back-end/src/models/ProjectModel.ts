@@ -79,6 +79,17 @@ export class ProjectModel extends BaseClass {
     return super.updateById(id, { settings });
   }
 
+  public async ensureProjectsExist(projectIds: string[]) {
+    const projects = await this.getByIds(projectIds);
+    if (projects.length !== projectIds.length) {
+      throw new Error(
+        `Invalid project ids: ${projectIds
+          .filter((id) => !projects.find((p) => p.id === id))
+          .join(", ")}`
+      );
+    }
+  }
+
   public toApiInterface(project: ProjectInterface): ApiProject {
     return {
       id: project.id,
