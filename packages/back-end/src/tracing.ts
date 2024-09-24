@@ -19,8 +19,11 @@ import {
   getNodeAutoInstrumentations,
   getResourceDetectors,
 } from "@opentelemetry/auto-instrumentations-node";
+import { Resource } from "@opentelemetry/resources";
+import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { getBuild } from "./util/handler";
 
 diag.setLogger(
   new DiagConsoleLogger(),
@@ -36,6 +39,11 @@ const sdk = new opentelemetry.NodeSDK({
   instrumentations: getNodeAutoInstrumentations(),
   resourceDetectors: getResourceDetectors(),
   metricReader,
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: "growthbook",
+    [SemanticResourceAttributes.SERVICE_NAMESPACE]: "backend",
+    [SemanticResourceAttributes.SERVICE_VERSION]: getBuild().sha,
+  }),
 });
 
 try {
