@@ -36,6 +36,7 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getContextForAgendaJobByOrgObject,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -1230,9 +1231,8 @@ export async function deleteInvite(
 }
 
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
+  // Note: Request will not have an organization at this point. Do not use getContextFromReq
   const { company, externalId } = req.body;
-
-  const context = getContextFromReq(req);
 
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
@@ -1271,6 +1271,8 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       verifiedDomain,
       externalId,
     });
+
+    const context = getContextForAgendaJobByOrgObject(org);
 
     const project = await context.models.projects.create({
       name: "My First Project",
