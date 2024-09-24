@@ -1196,7 +1196,11 @@ export default function FeaturesOverview({
         {environments.length > 0 && (
           <div className="mb-4">
             <h3>Test Feature Rules</h3>
-            <AssignmentTester feature={feature} version={currentVersion} />
+            <AssignmentTester
+              feature={feature}
+              version={currentVersion}
+              project={feature.project}
+            />
           </div>
         )}
 

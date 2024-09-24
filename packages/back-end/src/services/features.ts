@@ -934,7 +934,7 @@ export function evaluateFeature({
             [feature.id]: definition,
           },
           savedGroups: savedGroups,
-          attributes: attributes,
+          attributes: attributes ? attributes : {},
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           log: (msg: string, ctx: any) => {
             const ruleId = ctx?.rule?.id ?? null;

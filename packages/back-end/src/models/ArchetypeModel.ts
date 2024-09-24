@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ArchetypeInterface } from "../../types/archetype";
@@ -16,6 +16,7 @@ const archetypeSchema = new mongoose.Schema({
   description: String,
   owner: String,
   isPublic: Boolean,
+  projects: [String],
   dateCreated: Date,
   dateUpdated: Date,
   attributes: String,
@@ -54,24 +55,32 @@ export function parseArchetypeString(list: string) {
 }
 
 export async function createArchetype(
-  user: CreateArchetypeProps
+  arch: CreateArchetypeProps
 ): Promise<ArchetypeInterface> {
-  const newUser = await ArchetypeModel.create({
-    ...user,
+  const newArch = await ArchetypeModel.create({
+    ...arch,
     id: uniqid("sam_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
-  return toInterface(newUser);
+  return toInterface(newArch);
 }
 
 export async function getAllArchetypes(
   organization: string,
-  owner: string
+  owner: string,
+  project?: string
 ): Promise<ArchetypeInterface[]> {
-  const archetype: ArchetypeDocument[] = await ArchetypeModel.find({
-    organization,
-  });
+  const query: FilterQuery<ArchetypeDocument> = {
+    organization: organization,
+    $or: [{ projects: { $exists: false } }, { projects: { $eq: [] } }], // returns archetypes that are not associated with a project (all projects)
+  };
+  // if project is set, return archetypes that are either all projects
+  // or are associated with the specified project
+  if (project && query["$or"]) {
+    query["$or"].push({ projects: { $eq: project } });
+  }
+  const archetype: ArchetypeDocument[] = await ArchetypeModel.find(query);
   return (
     archetype
       .filter((su) => su.owner === owner || su.isPublic)
@@ -94,10 +103,10 @@ export async function getArchetypeById(
 export async function updateArchetypeById(
   archetypeId: string,
   organization: string,
-  user: UpdateArchetypeProps
+  archProps: UpdateArchetypeProps
 ): Promise<UpdateArchetypeProps> {
   const changes = {
-    ...user,
+    ...archProps,
     dateUpdated: new Date(),
   };
 

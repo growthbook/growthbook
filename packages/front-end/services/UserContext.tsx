@@ -91,7 +91,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
-  manageArchetype: false,
   manageTags: false,
   manageTeam: false,
   manageEventWebhooks: false,
