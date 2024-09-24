@@ -240,7 +240,16 @@ export const putArchetype = async (
     });
   }
 
-  if (!context.permissions.canDeleteArchetype(req.body)) {
+  const updates = {
+    attributes,
+    name,
+    description,
+    isPublic,
+    owner,
+    projects,
+  };
+
+  if (!context.permissions.canUpdateArchetype(req.body, updates)) {
     context.permissions.throwPermissionError();
   }
 
@@ -250,14 +259,7 @@ export const putArchetype = async (
     throw new Error("Could not find sample user");
   }
 
-  const changes = await updateArchetypeById(id, org.id, {
-    attributes,
-    name,
-    description,
-    isPublic,
-    owner,
-    projects,
-  });
+  const changes = await updateArchetypeById(id, org.id, updates);
 
   const updatedArchetype = { ...archetype, ...changes };
 
