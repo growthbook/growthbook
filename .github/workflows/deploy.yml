@@ -75,9 +75,6 @@ jobs:
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
-        run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
-
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -104,3 +101,5 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
+      - name: Deploy docker image to ECS for GrowthBook Cloud API
+        run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
