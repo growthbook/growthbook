@@ -42,11 +42,8 @@
   border-bottom: 2px solid var(--border-color-100);
   border-left: 2px solid var(--border-color-100);
   border-right: 2px solid var(--border-color-100);
-  position: absolute;
-  top: 73px;
-  left: 90px;
-  right: 90px;
-  width: -webkit-fill-available;
+  position: relative;
+  margin: 0 80px;
   flex: 1;
   font-size: 8px;
   text-align: center;

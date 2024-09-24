@@ -110,14 +110,11 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
           <div
             className={clsx(
               styles.setupPage,
-              "d-flex align-items-center position-relative mt-4 mb-4"
+              "d-flex align-items-center position-relative mt-4"
             )}
           >
-            <div className={styles.bottomArrow}>
-              <span>Metrics</span>
-            </div>
             <div
-              className="appbox p-3 d-flex flex-wrap justify-content-center"
+              className="appbox mb-0 p-3 d-flex flex-wrap justify-content-center"
               style={{ maxWidth: 325 }}
             >
               <img
@@ -134,7 +131,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
               <span>trackingCallback</span>
             </div>
             <div
-              className="appbox p-3 d-flex flex-wrap justify-content-center"
+              className="appbox mb-0  p-3 d-flex flex-wrap justify-content-center"
               style={{ maxWidth: 325 }}
             >
               <img
@@ -151,7 +148,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
               <span>polling</span>
             </div>
             <div
-              className="appbox p-3 d-flex flex-wrap justify-content-center"
+              className="appbox mb-0 p-3 d-flex flex-wrap justify-content-center"
               style={{ maxWidth: 325 }}
             >
               <img
@@ -164,6 +161,9 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
                 <strong className="text-muted">Data Warehouse</strong>
               </div>
             </div>
+          </div>
+          <div className={clsx(styles.bottomArrow, "mb-4")}>
+            <span>Metrics</span>
           </div>
         </div>
       </div>
