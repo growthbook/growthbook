@@ -40,12 +40,18 @@ const ArchetypeAttributesModal: FC<{
     permissionsUtil.canCreateArchetype({
       projects: initialValues?.projects ? initialValues.projects : [project],
     }) ||
-    permissionsUtil.canUpdateArchetype({
-      projects: initialValues?.projects ? initialValues.projects : [project],
-    });
+    permissionsUtil.canUpdateArchetype(
+      {
+        projects: initialValues?.projects ? initialValues.projects : [project],
+      },
+      {}
+    );
   const permissionRequired = (project: string) => {
     return initialValues?.id
-      ? permissionsUtil.canUpdateArchetype({ projects: [project] })
+      ? permissionsUtil.canUpdateArchetype(
+          { projects: initialValues?.projects },
+          { projects: [project] }
+        )
       : permissionsUtil.canCreateArchetype({ projects: [project] });
   };
 

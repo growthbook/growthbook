@@ -42,9 +42,12 @@ const ArchetypeResults: FC<{
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canUpdateArchetype({
-    projects: [feature?.project ? feature.project : project ? project : ""],
-  });
+  const canEdit = permissionsUtil.canUpdateArchetype(
+    {
+      projects: [feature?.project ? feature.project : project ? project : ""],
+    },
+    {}
+  );
   const canDelete = permissionsUtil.canDeleteArchetype({
     projects: [feature?.project ? feature.project : project ? project : ""],
   });

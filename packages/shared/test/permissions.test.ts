@@ -100,7 +100,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(false);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
@@ -209,7 +209,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(false);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
@@ -318,7 +318,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(false);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
@@ -427,7 +427,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(false);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
@@ -536,7 +536,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(true);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
@@ -645,7 +645,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(false);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(false);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(true);
@@ -754,7 +754,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(false);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(true);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(true);
@@ -863,7 +863,7 @@ describe("Role permissions", () => {
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(true);
-    expect(p.canUpdateArchetype(projectsResource)).toBe(true);
+    expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(true);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(true);

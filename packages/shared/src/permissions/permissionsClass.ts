@@ -399,10 +399,12 @@ export class Permissions {
   };
 
   public canUpdateArchetype = (
-    archetype: Pick<ArchetypeInterface, "projects">
+    archetype: Pick<ArchetypeInterface, "projects">,
+    updates: Pick<ArchetypeInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(
+    return this.checkProjectFilterUpdatePermission(
       { projects: archetype?.projects ? archetype.projects : [] },
+      "projects" in updates ? { projects: updates.projects } : {},
       "manageArchetype"
     );
   };
