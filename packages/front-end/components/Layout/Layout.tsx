@@ -46,6 +46,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/experiments",
     path: /^(experiment|bandit)/,
     Icon: GBExperiment,
+    openOnClick: true,
     subLinks: [
       {
         name: "Standard Experiments",

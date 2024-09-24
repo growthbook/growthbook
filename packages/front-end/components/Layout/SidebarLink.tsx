@@ -34,6 +34,7 @@ export type SidebarLinkProps = {
     project?: string;
   }) => boolean;
   subLinks?: SidebarLinkProps[];
+  openOnClick?: boolean;
   beta?: boolean;
 };
 
@@ -109,10 +110,18 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
             e.preventDefault();
             if (props.subLinks) {
               setOpen(!open);
-              e.stopPropagation();
-            } else {
-              router.push(props.href);
+              if (!props.openOnClick) {
+                e.stopPropagation();
+                return;
+              }
+              if (open) return;
+              for (let i = 0; i < props.subLinks.length; i++) {
+                if (props.subLinks?.[i]?.path?.test(path)) {
+                  return;
+                }
+              }
             }
+            router.push(props.href);
           }}
         >
           {props.Icon && <props.Icon className={styles.icon} />}
