@@ -19,6 +19,7 @@ export interface EnvironmentInitValue {
   build?: {
     sha: string;
     date: string;
+    lastVersion: string;
   };
   sentryDSN: string;
   usingSSO: boolean;
@@ -61,6 +62,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const build = {
     sha: "",
     date: "",
+    lastVersion: "",
   };
   if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
     build.sha = fs
@@ -71,6 +73,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     build.date = fs
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
       .toString();
+  }
+
+  // Read version from package.json
+  try {
+    const packageJSONPath = path.join(rootPath, "package.json");
+    if (fs.existsSync(packageJSONPath)) {
+      const json = JSON.parse(fs.readFileSync(packageJSONPath).toString());
+      build.lastVersion = json.version;
+    }
+  } catch (e) {
+    // Ignore errors here, not important
   }
 
   const body: EnvironmentInitValue = {
