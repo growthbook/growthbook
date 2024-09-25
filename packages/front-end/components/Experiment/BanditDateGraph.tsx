@@ -17,10 +17,11 @@ import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { MetricInterface } from "back-end/types/metric";
+import { BanditEvent } from "back-end/src/validators/experiments";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import { FaInfoCircle } from "react-icons/fa";
+import {FaExclamationTriangle, FaInfoCircle} from "react-icons/fa";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -42,6 +43,8 @@ export interface BanditDateGraphDataPoint {
   [key: `${number}`]: number;
   date: Date;
   reweight?: boolean;
+  updateMessage?: string;
+  error?: string;
   meta: DataPointVariation;
 }
 export interface BanditDateGraphProps {
@@ -68,6 +71,8 @@ type TooltipData = {
   y?: number[];
   d: BanditDateGraphDataPoint;
   reweight?: boolean;
+  updateMessage?: string;
+  error?: string;
   meta: any;
 };
 
@@ -157,6 +162,21 @@ const getTooltipContents = (
           Variation weights were recalculated
         </div>
       )}
+
+      {d.updateMessage ? (
+        <div className="text-sm my-2 alert alert-warning py-1 px-2">
+          <FaExclamationTriangle className="mr-1" />
+          {d.updateMessage}
+        </div>
+      ) : null}
+
+      {d.error ? (
+        <div className="text-sm my-2 alert alert-danger py-1 px-2">
+          <FaExclamationTriangle className="mr-1" />
+          {d.error}
+        </div>
+      ) : null}
+
       <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
     </>
   );
@@ -192,8 +212,10 @@ const getTooltipData = (
       )
     : undefined;
   const reweight = d?.reweight;
+  const updateMessage = d?.updateMessage;
+  const error = d?.error;
   const meta = d?.meta;
-  return { x, y, d, reweight, meta };
+  return { x, y, d, reweight, updateMessage, error, meta };
 };
 
 const getYVal = (
@@ -253,7 +275,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
   const stackedData: BanditDateGraphDataPoint[] = useMemo(() => {
     const phase = experiment.phases[experiment.phases.length - 1];
-    const events = phase?.banditEvents ?? [];
+    const events: BanditEvent[] = phase?.banditEvents ?? [];
 
     const stackedData: any[] = [];
 
@@ -282,6 +304,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const dataPoint: any = {
         date: new Date(event.date),
         reweight: !!event.banditResult?.reweight,
+        updateMessage: event.banditResult?.updateMessage && event.banditResult?.updateMessage !== "successfully updated" ? event.banditResult?.updateMessage : undefined,
+        error: event.banditResult?.error,
         meta: {},
       };
 
@@ -483,6 +507,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           .map((p) => p.date.getTime());
         const reweights = stackedData
           .filter((p) => p.meta?.type !== "today" && p?.reweight === true)
+          .map((p) => p.date.getTime());
+        const errorTicks = stackedData
+          .filter((p) => p?.error)
           .map((p) => p.date.getTime());
 
         const xScale = scaleTime({
@@ -848,6 +875,22 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     return date(d as Date);
                   }}
                 />
+
+                <AxisBottom
+                  top={yMax}
+                  scale={xScale}
+                  tickValues={errorTicks}
+                  tickFormat={() => "⚠️"}
+                  tickLabelProps={() => ({
+                    fontSize: 10,
+                    textAnchor: "middle",
+                    dy: 4,
+                  })}
+                  tickLineProps={{
+                    stroke: "#ff6600"
+                  }}
+                />
+
                 {exploreTick}
                 <AxisLeft
                   scale={yScale}

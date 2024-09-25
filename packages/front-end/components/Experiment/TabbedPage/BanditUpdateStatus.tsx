@@ -4,6 +4,7 @@ import { BanditEvent } from "back-end/src/validators/experiments";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { BsArrowReturnRight } from "react-icons/bs";
+import { FaExclamationTriangle } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 
@@ -44,6 +45,10 @@ export default function BanditUpdateStatus({
         1000
   );
 
+  const error = !lastEvent?.banditResult
+    ? "Bandit update failed"
+    : lastEvent?.banditResult?.error;
+
   return (
     <div className="hover-highlight rounded">
       <Dropdown
@@ -54,6 +59,12 @@ export default function BanditUpdateStatus({
             style={{ maxWidth: 130, fontSize: "0.8em" }}
           >
             <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
+              {error ? (
+                <FaExclamationTriangle
+                  className="text-danger mr-1 mb-1"
+                  size={14}
+                />
+              ) : null}
               last updated
             </div>
             <div className="d-flex align-items-center">
@@ -160,6 +171,13 @@ export default function BanditUpdateStatus({
               </p>
             )}
           </div>
+
+          {error ? (
+            <div className="alert alert-danger mx-2 px-2 py-1">
+              <FaExclamationTriangle className="mr-1" />
+              {error}
+            </div>
+          ) : null}
 
           <hr />
           <RefreshBanditButton mutate={mutate} experiment={experiment} />
