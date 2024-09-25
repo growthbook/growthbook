@@ -36,6 +36,7 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getContextForAgendaJobByOrgObject,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -669,6 +670,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     licenseKey,
     messages,
     externalId,
+    setupEventTracker,
   } = org;
 
   let license;
@@ -776,6 +778,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       messages: messages || [],
       pendingMembers: org.pendingMembers,
       getStartedChecklistItems: org.getStartedChecklistItems,
+      setupEventTracker,
       dateCreated: org.dateCreated,
     },
     seatsInUse,
@@ -1228,6 +1231,7 @@ export async function deleteInvite(
 }
 
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
+  // Note: Request will not have an organization at this point. Do not use getContextFromReq
   const { company, externalId } = req.body;
 
   const orgs = await hasOrganization();
@@ -1268,6 +1272,12 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       externalId,
     });
 
+    const context = getContextForAgendaJobByOrgObject(org);
+
+    const project = await context.models.projects.create({
+      name: "My First Project",
+    });
+
     // Alert the site manager about new organizations that are created
     try {
       await sendNewOrgEmail(company, req.email);
@@ -1275,9 +1285,11 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       req.log.error(e, "New org email sending failure");
     }
 
+    // Include project id in response
     res.status(200).json({
       status: 200,
       orgId: org.id,
+      projectId: project.id,
     });
   } catch (e) {
     res.status(400).json({
@@ -2118,6 +2130,29 @@ export async function putGetStartedChecklistItem(
   }
 
   addGetStartedChecklistItem(org.id, checklistItem);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putSetupEventTracker(
+  req: AuthRequest<{
+    eventTracker: string;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { eventTracker } = req.body;
+
+  try {
+    await updateOrganization(org.id, {
+      setupEventTracker: eventTracker,
+    });
+  } catch (e) {
+    throw new Error("Failed to save setup event tracker");
+  }
 
   res.status(200).json({
     status: 200,

@@ -8,6 +8,7 @@ import SelectField from "@/components/Forms/SelectField";
 import AttributeForm from "@/components/Archetype/AttributeForm";
 import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const SimulateFeatureModal: FC<{
   archetype: string;
@@ -31,8 +32,9 @@ const SimulateFeatureModal: FC<{
       attributes: attributes || "",
     },
   });
+  const { project } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canCreateArchetype();
+  const canCreate = permissionsUtil.canCreateArchetype({ projects: [project] });
 
   // get all the archetypes for use in the select field options
   const archetypeOptions: { value: string; label: string }[] = [];

@@ -53,6 +53,7 @@ type ModalProps = {
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
+  stickyFooter?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -85,6 +86,7 @@ const Modal: FC<ModalProps> = ({
   formRef,
   customValidation,
   increasedElevation,
+  stickyFooter = false,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
@@ -185,7 +187,13 @@ const Modal: FC<ModalProps> = ({
         className={`modal-body ${bodyClassName}`}
         ref={bodyRef}
         style={
-          overflowAuto ? { overflowY: "auto", scrollBehavior: "smooth" } : {}
+          overflowAuto
+            ? {
+                overflowY: "auto",
+                scrollBehavior: "smooth",
+                marginBottom: stickyFooter ? "100px" : undefined,
+              }
+            : {}
         }
       >
         {isSuccess ? (
@@ -195,7 +203,20 @@ const Modal: FC<ModalProps> = ({
         )}
       </div>
       {submit || secondaryCTA || (close && includeCloseCta) ? (
-        <div className="modal-footer">
+        <div
+          className="modal-footer"
+          style={
+            stickyFooter
+              ? {
+                  position: "fixed",
+                  left: "0",
+                  bottom: "0",
+                  width: "100%",
+                  backgroundColor: "var(--surface-background-color-alt)",
+                }
+              : undefined
+          }
+        >
           {error && (
             <div className="alert alert-danger mr-auto">
               {error
@@ -206,39 +227,46 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
-          {secondaryCTA}
-          {submit && !isSuccess ? (
-            <Tooltip
-              body={disabledMessage || ""}
-              shouldDisplay={!ctaEnabled && !!disabledMessage}
-              tipPosition="top"
-              className={fullWidthSubmit ? "w-100" : ""}
-            >
-              <button
-                className={`btn btn-${submitColor} ${
-                  fullWidthSubmit ? "w-100" : ""
-                }`}
-                type="submit"
-                disabled={!ctaEnabled}
+          <div
+            className={
+              stickyFooter ? "container pagecontents mx-auto text-right" : ""
+            }
+            style={stickyFooter ? { maxWidth: "1100px" } : undefined}
+          >
+            {secondaryCTA}
+            {submit && !isSuccess ? (
+              <Tooltip
+                body={disabledMessage || ""}
+                shouldDisplay={!ctaEnabled && !!disabledMessage}
+                tipPosition="top"
+                className={fullWidthSubmit ? "w-100" : ""}
               >
-                {cta}
+                <button
+                  className={`btn btn-${submitColor} ${
+                    fullWidthSubmit ? "w-100" : ""
+                  } ${stickyFooter ? "ml-auto mr-5" : ""}`}
+                  type="submit"
+                  disabled={!ctaEnabled}
+                >
+                  {cta}
+                </button>
+              </Tooltip>
+            ) : (
+              ""
+            )}
+            {close && includeCloseCta ? (
+              <button
+                className="btn btn-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+              >
+                {isSuccess && successMessage ? "Close" : closeCta}
               </button>
-            </Tooltip>
-          ) : (
-            ""
-          )}
-          {close && includeCloseCta ? (
-            <button
-              className="btn btn-link"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-            >
-              {isSuccess && successMessage ? "Close" : closeCta}
-            </button>
-          ) : null}
-          {tertiaryCTA}
+            ) : null}
+            {tertiaryCTA}
+          </div>
         </div>
       ) : null}
     </div>

@@ -35,6 +35,7 @@ import SimulateFeatureModal from "@/components/Archetype/SimulateFeatureModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -82,7 +83,8 @@ export const SimulateFeatureValues: FC<{
     [tagsFilter.tags]
   );
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canCreateArchetype();
+  const { project } = useDefinitions();
+  const canCreate = permissionsUtil.canCreateArchetype({ projects: [project] });
 
   const { searchInputProps, items, SortableTH } = useFeatureSearch({
     allFeatures,
@@ -163,13 +165,15 @@ export const SimulateFeatureValues: FC<{
   if (!environments || environments.length === 0) {
     return <div>No environments added</div>;
   }
-  let attributeText = <>Edit user attributes to see feature results.</>;
+  let attributeText = (
+    <>Select Archetype or edit user attributes to see feature results.</>
+  );
   let attributeNodes: ReactNode[] = [];
   if (attributes && Object.keys(attributes).length > 0) {
     attributeText = archetype ? (
       <>
         Showing feature results for archetype{" "}
-        <strong>{archetypeMap.get(archetype)?.name ?? "?"}</strong>
+        <strong>{archetypeMap.get(archetype)?.name ?? "?"}</strong>:
       </>
     ) : (
       <>Showing feature results for users with attributes: </>

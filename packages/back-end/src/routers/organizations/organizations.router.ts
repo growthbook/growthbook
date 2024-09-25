@@ -59,6 +59,10 @@ router.put(
   "/organization/get-started-checklist",
   organizationsController.putGetStartedChecklistItem
 );
+router.put(
+  "/organization/setup-event-tracker",
+  organizationsController.putSetupEventTracker
+);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);

@@ -106,6 +106,16 @@ const GetStartedPage = (): React.ReactElement => {
     }) &&
     permissionsUtils.canCreateProjects();
 
+  const canUseSetupFlow =
+    permissionsUtils.canCreateSDKConnection({
+      projects: [project],
+      environment: "production",
+    }) &&
+    permissionsUtils.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
+
   // If they view the guide, clear the current step
   useEffect(() => {
     clearStep();
@@ -126,7 +136,6 @@ const GetStartedPage = (): React.ReactElement => {
           videoId={showVideoId}
         />
       )}
-      <h1 className="mb-3">Get Started</h1>
       <div className="container-fluid mx-0 mb-3">
         <div className="row">
           <div
@@ -135,6 +144,7 @@ const GetStartedPage = (): React.ReactElement => {
               maxWidth: 862,
             }}
           >
+            <h1 className="mb-3">Get Started</h1>
             <div className="d-flex flex-wrap">
               <Link
                 href={"/getstarted/feature-flag-guide"}
@@ -424,6 +434,13 @@ const GetStartedPage = (): React.ReactElement => {
             </div>
           </div>
           <div className="col-auto pl-0">
+            {canUseSetupFlow && (
+              <Link href="/setup">
+                <button className="btn btn-primary mb-3">
+                  Launch Setup Flow
+                </button>
+              </Link>
+            )}
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"

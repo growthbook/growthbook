@@ -2595,6 +2595,10 @@ paths:
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -2665,6 +2669,10 @@ paths:
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -5947,6 +5955,10 @@ components:
             type: string
         description:
           type: string
+        projects:
+          type: array
+          items:
+            type: string
     Organization:
       type: object
       properties:

@@ -31,6 +31,7 @@ const savedGroupSchema = new mongoose.Schema({
   },
   attributeKey: String,
   description: String,
+  projects: [String],
 });
 
 type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
@@ -126,6 +127,16 @@ export async function updateSavedGroupById(
   return changes;
 }
 
+export async function removeProjectFromSavedGroups(
+  project: string,
+  organization: string
+) {
+  await SavedGroupModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
+}
+
 export async function deleteSavedGroupById(id: string, organization: string) {
   await SavedGroupModel.deleteOne({
     id,
@@ -147,5 +158,6 @@ export function toSavedGroupApiInterface(
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
     description: savedGroup.description,
+    projects: savedGroup.projects || [],
   };
 }

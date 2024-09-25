@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { ArchetypeInterface } from "back-end/types/archetype";
+import Link from "next/link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -10,6 +11,7 @@ import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -21,9 +23,11 @@ export const ArchetypeList: FC<{
     setEditArchetype,
   ] = useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canUpdateArchetype();
-  const canDelete = permissionsUtil.canDeleteArchetype();
-  const canCreate = permissionsUtil.canCreateArchetype();
+  const { project, getProjectById } = useDefinitions();
+
+  const canCreateGlobal = permissionsUtil.canCreateArchetype({
+    projects: [project],
+  });
 
   const { apiCall } = useAuth();
 
@@ -41,7 +45,7 @@ export const ArchetypeList: FC<{
         <div className="col">
           <h1>Archetypes</h1>
         </div>
-        {canCreate && (
+        {canCreateGlobal && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"
@@ -83,7 +87,7 @@ export const ArchetypeList: FC<{
                     <div className="text-center p-3 ">
                       No archetypes created. Click the &ldquo;Add
                       Archetype&rdquo; button to create one.
-                      {!canCreate && (
+                      {!canCreateGlobal && (
                         <div className="text-muted small">
                           (You do not have permissions to create archetypes)
                         </div>
@@ -94,81 +98,97 @@ export const ArchetypeList: FC<{
               ) : (
                 <></>
               )}
-              {archetypes.map((archetype: ArchetypeInterface) => (
-                <tr key={archetype.id} className={``}>
-                  <td>
-                    <Tooltip
-                      body={
-                        <>
-                          <Code
-                            code={JSON.stringify(
-                              JSON.parse(archetype.attributes),
-                              null,
-                              2
-                            )}
-                            language="json"
-                          />
-                        </>
-                      }
-                    >
-                      {archetype.name}
-                      {archetype.description && (
-                        <>
-                          <br />
-                          <span className="small text-muted">
-                            {archetype.description}
-                          </span>
-                        </>
+              {archetypes.map((archetype: ArchetypeInterface) => {
+                const canEdit = permissionsUtil.canUpdateArchetype(
+                  archetype,
+                  {}
+                );
+                const canDelete = permissionsUtil.canDeleteArchetype(archetype);
+                return (
+                  <tr key={archetype.id} className={``}>
+                    <td>
+                      <Tooltip
+                        body={
+                          <>
+                            <Code
+                              code={JSON.stringify(
+                                JSON.parse(archetype.attributes),
+                                null,
+                                2
+                              )}
+                              language="json"
+                            />
+                          </>
+                        }
+                      >
+                        {archetype.name}
+                        {archetype.description && (
+                          <>
+                            <br />
+                            <span className="small text-muted">
+                              {archetype.description}
+                            </span>
+                          </>
+                        )}
+                      </Tooltip>
+                    </td>
+                    <td>
+                      {archetype?.projects ? (
+                        archetype.projects.map((project) => {
+                          const pObj = getProjectById(project);
+                          if (!pObj) {
+                            return null;
+                          }
+                          return (
+                            <div key={pObj.id} className="small">
+                              <Link href={`/project/${pObj.id}`}>
+                                {pObj.name}
+                              </Link>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <></>
                       )}
-                    </Tooltip>
-                  </td>
-                  <td>
-                    {/* for the PR to be merged:
-                      archetype.projects.map((project) => (
-                        <div key={project.id}>
-                          <Link href={`/project/${project.id}`}>
-                            <a>{project.name}</a>
-                          </Link>
-                        </div>
-                      ))*/}
-                  </td>
-                  <td>
-                    {archetype.isPublic ? (
-                      <span className="text-muted">Yes</span>
-                    ) : (
-                      <span className="text-muted">No</span>
-                    )}
-                  </td>
-                  <td className={styles.showOnHover}>
-                    <MoreMenu>
-                      {canEdit ? (
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setEditArchetype(archetype);
-                          }}
-                        >
-                          Edit
-                        </button>
-                      ) : null}
-                      {canDelete ? (
-                        <DeleteButton
-                          className="dropdown-item"
-                          displayName="Archetype"
-                          text="Delete"
-                          useIcon={false}
-                          onClick={async () => {
-                            await apiCall(`/archetype/${archetype.id}`, {
-                              method: "DELETE",
-                            });
-                            await mutate();
-                          }}
-                        />
-                      ) : null}
-                    </MoreMenu>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      {archetype.isPublic ? (
+                        <span className="text-muted">Yes</span>
+                      ) : (
+                        <span className="text-muted">No</span>
+                      )}
+                    </td>
+                    <td className={styles.showOnHover}>
+                      <MoreMenu>
+                        {canEdit ? (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              setEditArchetype(archetype);
+                            }}
+                          >
+                            Edit
+                          </button>
+                        ) : null}
+                        {canDelete ? (
+                          <DeleteButton
+                            className="dropdown-item"
+                            displayName="Archetype"
+                            text="Delete"
+                            useIcon={false}
+                            onClick={async () => {
+                              await apiCall(`/archetype/${archetype.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutate();
+                            }}
+                          />
+                        ) : null}
+                      </MoreMenu>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {editArchetype && (

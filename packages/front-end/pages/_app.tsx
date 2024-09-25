@@ -23,6 +23,7 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
+import LayoutLite from "@/components/Layout/LayoutLite";
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
@@ -139,7 +140,7 @@ function App({
                       {organizationRequired ? (
                         <GetStartedProvider>
                           <DefinitionsProvider>
-                            {!liteLayout && <Layout />}
+                            {liteLayout ? <LayoutLite /> : <Layout />}
                             <main className={`main ${parts[0]}`}>
                               <GuidedGetStartedBar />
                               <OrganizationMessagesContainer />

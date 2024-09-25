@@ -9,11 +9,16 @@ import { postSavedGroupValidator } from "../../validators/openapi";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    if (!req.context.permissions.canCreateSavedGroup()) {
+    const { name, attributeKey, values, condition, owner, projects } = req.body;
+
+    if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
     }
 
-    const { name, attributeKey, values, condition, owner } = req.body;
+    if (projects) {
+      await req.context.models.projects.ensureProjectsExist(projects);
+    }
+
     let { type } = req.body;
 
     // Infer type from arguments if not specified
@@ -74,6 +79,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       owner: owner || "",
       condition: condition || "",
       attributeKey,
+      projects,
     });
 
     return {
