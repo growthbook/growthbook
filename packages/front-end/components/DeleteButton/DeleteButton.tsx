@@ -60,6 +60,7 @@ const DeleteButton: FC<{
       {confirming ? (
         <Modal
           trackingEventModalType="delete-button-confirmation"
+          allowlistedTrackingEventProps={{ type: displayName }}
           header={`Delete ${displayName}`}
           close={() => setConfirming(false)}
           open={true}

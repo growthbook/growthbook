@@ -260,7 +260,7 @@ const Modal: FC<ModalProps> = ({
         return;
       }
       track(eventName, {
-        type: trackingEventModalType,
+        modalType: trackingEventModalType,
         source: trackingEventModalSource,
         ...allowlistedTrackingEventProps,
         ...(additionalProps || {}),
