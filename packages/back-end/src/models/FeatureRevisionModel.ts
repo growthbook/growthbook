@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "../../types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "../../types/feature-revision";
-import { EventUser, EventUserLoggedIn } from "../events/event-types";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
+} from "back-end/types/feature-revision";
+import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 

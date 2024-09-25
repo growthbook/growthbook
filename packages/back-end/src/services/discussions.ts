@@ -1,10 +1,10 @@
 import uniqid from "uniqid";
-import { Comment, DiscussionParentType } from "../../types/discussion";
-import { DiscussionModel } from "../models/DiscussionModel";
-import { getExperimentById } from "../models/ExperimentModel";
-import { getFeature } from "../models/FeatureModel";
-import { getMetricById } from "../models/MetricModel";
-import { ReqContext } from "../../types/organization";
+import { Comment, DiscussionParentType } from "back-end/types/discussion";
+import { DiscussionModel } from "back-end/src/models/DiscussionModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getMetricById } from "back-end/src/models/MetricModel";
+import { ReqContext } from "back-end/types/organization";
 import { getIdeaById } from "./ideas";
 
 export async function getDiscussionByParent(

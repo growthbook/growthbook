@@ -109,6 +109,7 @@
     },
     {
       "files": [
+        "./packages/back-end/**/*.ts*",
         "./packages/front-end/**/*.ts*"
       ],
       "rules": {

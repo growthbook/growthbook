@@ -4,17 +4,17 @@ import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
-} from "../../types/metric";
-import { getConfigMetrics, usingFileConfig } from "../init/config";
-import { upgradeMetricDoc } from "../util/migrations";
-import { ALLOW_CREATE_METRICS } from "../util/secrets";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/types/metric";
+import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
+import { upgradeMetricDoc } from "back-end/src/util/migrations";
+import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";

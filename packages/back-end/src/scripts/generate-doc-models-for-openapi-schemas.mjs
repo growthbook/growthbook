@@ -6,7 +6,7 @@ import { load, dump } from "js-yaml";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 async function run() {
-  const specPath = path.join(__dirname, "../api/openapi/openapi.yaml");
+  const specPath = path.join(__dirname, "back-end/src/api/openapi/openapi.yaml");
   const api = load(fs.readFileSync(specPath));
 
   // Group all existing tags under "Endpoints"
@@ -19,7 +19,7 @@ async function run() {
 
   // Before generating types, programmatically add all models to the spec
   const models = fs
-    .readdirSync(path.join(__dirname, "../api/openapi/schemas"))
+    .readdirSync(path.join(__dirname, "back-end/src/api/openapi/schemas"))
     .filter((fileName) => !fileName.includes("index"))
     .map((fileName) => fileName.replace(".yaml", ""));
 
@@ -40,7 +40,7 @@ async function run() {
 
   const output = dump(api);
   fs.writeFileSync(
-    path.join(__dirname, "../api/openapi/openapi.tmp.yaml"),
+    path.join(__dirname, "back-end/src/api/openapi/openapi.tmp.yaml"),
     output
   );
 }

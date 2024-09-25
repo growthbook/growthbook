@@ -1,7 +1,7 @@
 import { SegmentInterface } from "back-end/types/segment";
-import { getConfigSegments, usingFileConfig } from "../init/config";
-import { segmentValidator } from "../routers/segment/segment.validators";
-import { STORE_SEGMENTS_IN_MONGO } from "../util/secrets";
+import { getConfigSegments, usingFileConfig } from "back-end/src/init/config";
+import { segmentValidator } from "back-end/src/routers/segment/segment.validators";
+import { STORE_SEGMENTS_IN_MONGO } from "back-end/src/util/secrets";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

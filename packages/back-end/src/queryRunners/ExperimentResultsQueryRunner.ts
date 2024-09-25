@@ -13,19 +13,19 @@ import {
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "../../types/experiment-snapshot";
-import { MetricInterface } from "../../types/metric";
-import { Queries, QueryPointer, QueryStatus } from "../../types/query";
-import { SegmentInterface } from "../../types/segment";
+} from "back-end/types/experiment-snapshot";
+import { MetricInterface } from "back-end/types/metric";
+import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
+import { SegmentInterface } from "back-end/types/segment";
 import {
   findSnapshotById,
   updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
-import { parseDimensionId } from "../services/experiments";
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { parseDimensionId } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
-} from "../services/stats";
+} from "back-end/src/services/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
@@ -36,12 +36,12 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { expandDenominatorMetrics } from "../util/sql";
-import { FactTableMap } from "../models/FactTableModel";
-import { OrganizationInterface } from "../../types/organization";
-import { FactMetricInterface } from "../../types/fact-table";
-import SqlIntegration from "../integrations/SqlIntegration";
+} from "back-end/src/types/Integration";
+import { expandDenominatorMetrics } from "back-end/src/util/sql";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
   QueryRunner,
   QueryMap,
