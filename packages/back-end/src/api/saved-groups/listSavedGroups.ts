@@ -3,7 +3,10 @@ import {
   getAllSavedGroups,
   toSavedGroupApiInterface,
 } from "back-end/src/models/SavedGroupModel";
-import { applyPagination, createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
 import { listSavedGroupsValidator } from "back-end/src/validators/openapi";
 
 export const listSavedGroups = createApiRequestHandler(

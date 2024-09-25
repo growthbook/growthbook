@@ -8,7 +8,10 @@ import {
   ScimGroupMember,
   ScimGroupPatchRequest,
 } from "back-end/types/scim";
-import { findTeamById, updateTeamMetadata } from "back-end/src/models/TeamModel";
+import {
+  findTeamById,
+  updateTeamMetadata,
+} from "back-end/src/models/TeamModel";
 import {
   addMembersToTeam,
   expandOrgMembers,

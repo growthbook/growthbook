@@ -23,7 +23,10 @@ import {
   getIntegrationFromDatasourceId,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
-import { getQueriesByDatasource, getQueriesByIds } from "back-end/src/models/QueryModel";
+import {
+  getQueriesByDatasource,
+  getQueriesByIds,
+} from "back-end/src/models/QueryModel";
 import { findDimensionsByDataSource } from "back-end/src/models/DimensionModel";
 import {
   createDataSource,

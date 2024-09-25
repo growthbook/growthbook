@@ -3,7 +3,10 @@ import {
   getFactTable,
   toFactTableFilterApiInterface,
 } from "back-end/src/models/FactTableModel";
-import { applyPagination, createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
 import { listFactTableFiltersValidator } from "back-end/src/validators/openapi";
 
 export const listFactTableFilters = createApiRequestHandler(

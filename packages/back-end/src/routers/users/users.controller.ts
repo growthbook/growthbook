@@ -10,8 +10,15 @@ import {
   getContextFromReq,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
-import { createUser, getUserByEmail, updateUser } from "back-end/src/models/UserModel";
-import { deleteWatchedByEntity, upsertWatch } from "back-end/src/models/WatchModel";
+import {
+  createUser,
+  getUserByEmail,
+  updateUser,
+} from "back-end/src/models/UserModel";
+import {
+  deleteWatchedByEntity,
+  upsertWatch,
+} from "back-end/src/models/WatchModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 

@@ -1,6 +1,9 @@
 import Agenda, { Job } from "agenda";
 import { ReqContext } from "back-end/types/organization";
-import { getFactTable, updateFactTableColumns } from "back-end/src/models/FactTableModel";
+import {
+  getFactTable,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   ColumnInterface,

@@ -24,7 +24,10 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { FeatureTestResult } from "back-end/types/feature";
-import { evaluateFeature, getSavedGroupMap } from "back-end/src/services/features";
+import {
+  evaluateFeature,
+  getSavedGroupMap,
+} from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";

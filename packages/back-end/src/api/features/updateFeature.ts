@@ -18,7 +18,10 @@ import { FeatureInterface } from "back-end/types/feature";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { createRevision, getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";

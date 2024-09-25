@@ -4,7 +4,10 @@ import {
   getAllFactTablesForOrganization,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
-import { applyPagination, createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
 import { listFactTablesValidator } from "back-end/src/validators/openapi";
 
 export const listFactTables = createApiRequestHandler(listFactTablesValidator)(

@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { Document } from "mongodb";
 import { UserInterface } from "back-end/types/user";
-import { usingOpenId, validatePasswordFormat } from "back-end/src/services/auth";
+import {
+  usingOpenId,
+  validatePasswordFormat,
+} from "back-end/src/services/auth";
 import { hash } from "back-end/src/services/users";
 import {
   ToInterface,

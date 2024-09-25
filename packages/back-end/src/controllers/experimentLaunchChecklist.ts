@@ -10,7 +10,10 @@ import {
   updateExperimentLaunchChecklist,
 } from "back-end/src/models/ExperimentLaunchChecklistModel";
 import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
-import { getExperimentById, updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export async function postExperimentLaunchChecklist(

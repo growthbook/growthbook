@@ -15,7 +15,10 @@ import {
   testDataSourceConnection,
   testQueryValidity,
 } from "back-end/src/services/datasource";
-import { usingFileConfig, getConfigDatasources } from "back-end/src/init/config";
+import {
+  usingFileConfig,
+  getConfigDatasources,
+} from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
 import { ApiDataSource } from "back-end/types/openapi";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";

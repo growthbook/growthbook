@@ -3,7 +3,10 @@ import { getMetricResultStatus } from "shared/experiments";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { getExperimentById, updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import { getExperimentWatchers } from "back-end/src/models/WatchModel";
 import { logger } from "back-end/src/util/logger";
 import { ensureAndReturn } from "back-end/src/util/types";

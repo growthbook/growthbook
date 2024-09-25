@@ -17,7 +17,10 @@ import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
 import { DataSourceInterface } from "back-end/types/datasource";
-import { AuthRequest, ResponseWithStatusAndError } from "back-end/src/types/AuthRequest";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
   SnapshotAnalysisParams,
@@ -99,7 +102,10 @@ import {
   createUserVisualEditorApiKey,
   getVisualEditorApiKey,
 } from "back-end/src/models/ApiKeyModel";
-import { getExperimentWatchers, upsertWatch } from "back-end/src/models/WatchModel";
+import {
+  getExperimentWatchers,
+  upsertWatch,
+} from "back-end/src/models/WatchModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";

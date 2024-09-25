@@ -2,7 +2,10 @@ import { keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { DestinationURL, URLRedirectInterface } from "back-end/types/url-redirect";
+import {
+  DestinationURL,
+  URLRedirectInterface,
+} from "back-end/types/url-redirect";
 import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { urlRedirectValidator } from "back-end/src/routers/url-redirects/url-redirects.validators";
 import {

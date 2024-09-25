@@ -103,7 +103,10 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { FactTableMap, getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { StatsEngine } from "back-end/types/stats";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";

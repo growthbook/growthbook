@@ -20,7 +20,10 @@ import {
 } from "back-end/src/models/WebhookModel";
 import { WebhookInterface, WebhookPayloadFormat } from "back-end/types/webhook";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
-import { cancellableFetch, CancellableFetchReturn } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  CancellableFetchReturn,
+} from "back-end/src/util/http.util";
 import {
   getContextForAgendaJobByOrgId,
   getContextForAgendaJobByOrgObject,

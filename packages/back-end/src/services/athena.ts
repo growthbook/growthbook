@@ -3,7 +3,10 @@ import { Athena, ResultSet } from "@aws-sdk/client-athena";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { ExternalIdCallback, QueryResponse } from "back-end/src/types/Integration";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+} from "back-end/src/types/Integration";
 
 async function assumeRole(params: AthenaConnectionParams) {
   // build sts client

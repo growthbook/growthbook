@@ -2,7 +2,10 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { isEmailEnabled, sendResetPasswordEmail } from "back-end/src/services/email";
+import {
+  isEmailEnabled,
+  sendResetPasswordEmail,
+} from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 
 export interface ForgotPasswordInterface {

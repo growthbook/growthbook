@@ -10,7 +10,10 @@ import {
 } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie } from "back-end/src/util/cookie";
 import { UnauthenticatedResponse } from "back-end/types/sso-connection";
-import { getUserLoginPropertiesFromRequest, trackLoginForUser } from "back-end/src/services/users";
+import {
+  getUserLoginPropertiesFromRequest,
+  trackLoginForUser,
+} from "back-end/src/services/users";
 import { getUserById } from "back-end/src/models/UserModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";

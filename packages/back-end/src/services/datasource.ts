@@ -11,7 +11,10 @@ import Vertica from "back-end/src/integrations/Vertica";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
-import { SourceIntegrationInterface, TestQueryRow } from "back-end/src/types/Integration";
+import {
+  SourceIntegrationInterface,
+  TestQueryRow,
+} from "back-end/src/types/Integration";
 import {
   DataSourceInterface,
   DataSourceParams,

@@ -4,7 +4,10 @@ import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
-import { hasExceededUsageQuota, simpleCompletion } from "back-end/src/services/openai";
+import {
+  hasExceededUsageQuota,
+  simpleCompletion,
+} from "back-end/src/services/openai";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;

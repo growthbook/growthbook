@@ -16,7 +16,10 @@ import {
   createExperiment,
   getAllExperiments,
 } from "back-end/src/models/ExperimentModel";
-import { createMetric, createSnapshot } from "back-end/src/services/experiments";
+import {
+  createMetric,
+  createSnapshot,
+} from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { DataSourceSettings } from "back-end/types/datasource";
 import { ExperimentInterface } from "back-end/types/experiment";

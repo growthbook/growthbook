@@ -2,7 +2,10 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { GetFeatureResponse } from "back-end/types/openapi";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getFeature as getFeatureDB } from "back-end/src/models/FeatureModel";
-import { getApiFeatureObj, getSavedGroupMap } from "back-end/src/services/features";
+import {
+  getApiFeatureObj,
+  getSavedGroupMap,
+} from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeatureValidator } from "back-end/src/validators/openapi";
 
