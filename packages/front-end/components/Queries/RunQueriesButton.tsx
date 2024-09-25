@@ -7,6 +7,7 @@ import { getValidDate } from "shared/dates";
 import { FaXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {
@@ -88,6 +89,34 @@ const RunQueriesButton: FC<{
   // Used to refresh this component while query is running so we can show an elapsed timer
   // eslint-disable-next-line
   const [_, setCounter] = useState(0);
+  const [darkness, setDarkness] = useLocalStorage<number>(
+    "gb-april-1-2025",
+    100
+  );
+  useEffect(() => {
+    setDarkness(100);
+  }, []);
+
+  useEffect(() => {
+    // ensure this only runs on april 1st 2025
+    const date = new Date();
+    console.log(date.getMonth());
+    if (
+      date.getMonth() !== 7 ||
+      date.getDate() !== 28 ||
+      date.getFullYear() !== 2024
+    )
+      return;
+
+    if (darkness < 10) setDarkness(10);
+    console.log(darkness);
+    const body = document.querySelector("body");
+    const html = document.querySelector("html");
+    html?.style.setProperty("background", "#000");
+
+    body?.style.setProperty("transition", "opacity 2s");
+    body?.style.setProperty("opacity", `${darkness}%`);
+  }, [darkness]);
 
   const numFinished = model.queries.filter((q) => q.status === "succeeded")
     .length;
@@ -154,6 +183,7 @@ const RunQueriesButton: FC<{
             onClick={async (e) => {
               e.preventDefault();
               onSubmit?.();
+              setDarkness(darkness - 10);
               try {
                 await apiCall(cancelEndpoint, { method: "POST" });
               } catch (e) {
@@ -173,7 +203,10 @@ const RunQueriesButton: FC<{
             })}
             disabled={status === "running"}
             type="submit"
-            onClick={onSubmit}
+            onClick={() => {
+              onSubmit?.();
+              setDarkness(darkness - 10);
+            }}
           >
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               {buttonIcon}
