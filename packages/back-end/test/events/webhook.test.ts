@@ -1,17 +1,17 @@
-import { setupApp } from "../api/api.setup";
-import { EventNotifier } from "../../src/events/notifiers/EventNotifier";
+import { setupApp } from "back-end/test/api/api.setup";
+import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 import {
   EventWebHookModel,
   sendEventWebhookTestEvent,
-} from "../../src/models/EventWebhookModel";
-import { EventModel } from "../../src/models/EventModel";
+} from "back-end/src/models/EventWebhookModel";
+import { EventModel } from "back-end/src/models/EventModel";
 
-jest.mock("../../src/models/EventWebhookModel", () => ({
-  ...jest.requireActual("../../src/models/EventWebhookModel"),
+jest.mock("back-end/src/models/EventWebhookModel", () => ({
+  ...jest.requireActual("back-end/src/models/EventWebhookModel"),
   getEventWebHookById: jest.fn(),
 }));
 
-jest.mock("../../src/events/notifiers/EventNotifier", () => ({
+jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: jest.fn(),
 }));
 

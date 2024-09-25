@@ -1,26 +1,26 @@
 import { Promise as BluebirdPromise } from "bluebird";
-import { setupApp } from "../../api/api.setup";
-import { insertMetric } from "../../../src/models/MetricModel";
-import { ExperimentModel } from "../../../src/models/ExperimentModel";
+import { setupApp } from "back-end/test/api/api.setup";
+import { insertMetric } from "back-end/src/models/MetricModel";
+import { ExperimentModel } from "back-end/src/models/ExperimentModel";
 import {
   getConfidenceLevelsForOrg,
   getMetricDefaultsForOrg,
   getPValueThresholdForOrg,
-} from "../../../src/services/organizations";
-import { getLatestSnapshot } from "../../../src/models/ExperimentSnapshotModel";
-import { computeExperimentChanges } from "../../../src/services/experimentNotifications";
-import { ensureAndReturn } from "../../../src/util/types";
+} from "back-end/src/services/organizations";
+import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
+import { ensureAndReturn } from "back-end/src/util/types";
 import {
   metrics,
   snapshots,
   experiments,
 } from "./experimentSignificance.mocks.json";
 
-jest.mock("../../../src/models/ExperimentSnapshotModel", () => ({
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   getLatestSnapshot: jest.fn(),
 }));
 
-jest.mock("../../../src/services/organizations", () => ({
+jest.mock("back-end/src/services/organizations", () => ({
   getConfidenceLevelsForOrg: jest.fn(),
   getEnvironmentIdsFromOrg: jest.fn(),
   getMetricDefaultsForOrg: jest.fn(),
