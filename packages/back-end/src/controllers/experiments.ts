@@ -2314,6 +2314,7 @@ export async function postBanditSnapshot(
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
+  let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
     const { queryRunner } = await createExperimentSnapshot({
@@ -2328,10 +2329,14 @@ export async function postBanditSnapshot(
     });
 
     await queryRunner.waitForResults();
-    const snapshot = queryRunner.model;
+    snapshot = queryRunner.model;
 
-    if (!snapshot.banditResult) {
-      throw new Error(`Unable to update bandit. (${snapshot.id})`);
+    if (!snapshot?.banditResult) {
+      return res.status(400).json({
+        status: 400,
+        message: "Unable to update bandit.",
+        snapshot,
+      });
     }
 
     const changes = updateExperimentBanditSettings({
@@ -2359,15 +2364,15 @@ export async function postBanditSnapshot(
         manual: false,
       }),
     });
-    res.status(200).json({
+    return res.status(200).json({
       status: 200,
       snapshot,
     });
   } catch (e) {
-    req.log.error(e, "Failed to create experiment snapshot");
-    res.status(400).json({
+    return res.status(400).json({
       status: 400,
       message: e?.message || e,
+      snapshot,
     });
   }
 }

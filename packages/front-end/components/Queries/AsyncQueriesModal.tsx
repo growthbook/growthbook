@@ -32,7 +32,7 @@ const AsyncQueriesModal: FC<{
     }
 
     const match = _error.match(/(.*?)\n\n(Traceback.*)/s);
-    const errorPart = match?.[1];
+    const errorPart = match?.[1] || _error;
     const tracebackPart = match?.[2];
 
     const formattedError = errorPart
