@@ -47,7 +47,8 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
   const currentEvent = banditEvents?.[banditEvents.length - 1];
   const srm = currentEvent?.banditResult?.srm;
   const users = experiment.variations.map(
-    (_, i) => currentEvent.banditResult?.singleVariationResults?.[i]?.users ?? 0
+    (_, i) =>
+      currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0
   );
   const totalUsers = users.reduce((sum, u) => sum + (u ?? 0), 0) ?? 0;
 

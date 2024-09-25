@@ -88,6 +88,7 @@ const MetricsSelector: FC<{
   autoFocus?: boolean;
   includeFacts?: boolean;
   forceSingleMetric?: boolean;
+  noPercentile?: boolean;
 }> = ({
   datasource,
   project,
@@ -97,6 +98,7 @@ const MetricsSelector: FC<{
   autoFocus,
   includeFacts,
   forceSingleMetric = false,
+  noPercentile = false,
 }) => {
   const {
     metrics,
@@ -106,7 +108,9 @@ const MetricsSelector: FC<{
   } = useDefinitions();
 
   const options: MetricOption[] = [
-    ...metrics.map((m) => ({
+    ...metrics
+      .filter((m) => noPercentile ? m.cappingSettings.type !== "percentile" : true)
+      .map((m) => ({
       id: m.id,
       name: m.name,
       description: m.description || "",
@@ -117,7 +121,9 @@ const MetricsSelector: FC<{
       userIdTypes: m.userIdTypes || [],
     })),
     ...(includeFacts
-      ? factMetrics.map((m) => ({
+      ? factMetrics
+        .filter((m) => noPercentile ? m.cappingSettings.type !== "percentile" : true)
+        .map((m) => ({
           id: m.id,
           name: m.name,
           description: m.description || "",

@@ -13,7 +13,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { getScopedSettings } from "shared/settings";
+import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
   DRAFT_REVISION_STATUSES,
   generateVariationId,
@@ -625,29 +625,48 @@ export function determineNextBanditSchedule(
 export function resetExperimentBanditSettings({
   experiment,
   changes,
+  settings,
   now = new Date(),
 }: {
   experiment: ExperimentInterface;
   changes?: Changeset;
+  settings: ScopedSettings;
   now?: Date;
 }): Changeset {
-  if (!changes) {
-    changes = {};
-  }
-  if (!changes.phases) {
-    changes.phases = [...experiment.phases];
-  }
-  const lastIndex = changes.phases.length - 1;
+  if (!changes) changes = {};
+  if (!changes.phases) changes.phases = [...experiment.phases];
+  const phase = changes.phases.length - 1;
 
+  // 1 goal metric
+  // todo: force datasource (no manual)
+  // todo: force non-quantile
+  const goalMetric = changes.goalMetrics?.[0] || experiment.goalMetrics?.[0];
+  changes.goalMetrics = goalMetric ? [goalMetric] : [];
+
+  // Scrub invalid settings:
+  // stats engine
+  changes.statsEngine = "bayesian";
+  // activation metric
+  changes.activationMetric = undefined;
+  // segments
+  changes.segment = undefined;
+  // conversion windows
+  changes.attributionModel = "firstExposure";
+  // custom SQL filter
+  changes.queryFilter = undefined;
+  // metric overrides
+  changes.metricOverrides = undefined;
+
+  // Reset bandit stage
   changes.banditStage = "explore";
   changes.banditStageDateStarted = now;
 
-  // equal weights
+  // Set equal weights
   const weights = getEqualWeights(experiment.variations.length ?? 0);
-  changes.phases[lastIndex].variationWeights = weights;
+  changes.phases[phase].variationWeights = weights;
 
-  // log first weight change event
-  changes.phases[lastIndex].banditEvents = [
+  // Log first weight change event
+  changes.phases[phase].banditEvents = [
     {
       date: now,
       banditResult: {
@@ -657,7 +676,17 @@ export function resetExperimentBanditSettings({
     },
   ];
 
-  // scheduling
+  // Scheduling
+  // ensure bandit scheduling exists
+  changes.banditScheduleValue =
+    changes.banditScheduleValue ?? settings.banditScheduleValue.value;
+  changes.banditScheduleUnit =
+    changes.banditScheduleUnit ?? settings.banditScheduleUnit.value;
+  changes.banditBurnInValue =
+    changes.banditBurnInValue ?? settings.banditBurnInValue.value;
+  changes.banditBurnInUnit =
+    changes.banditBurnInUnit ?? settings.banditBurnInUnit.value;
+  // schedule
   changes.nextSnapshotAttempt = determineNextBanditSchedule({
     ...experiment,
     ...changes,

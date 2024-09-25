@@ -12,7 +12,6 @@ import {
 import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
-  getEqualWeights,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -79,7 +78,7 @@ import {
   ExperimentType,
   Variation,
 } from "../../types/experiment";
-import { getMetricMap } from "../models/MetricModel";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -767,7 +766,15 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
+  let datasourceId = experiment.datasource;
+
   if (data.datasource) {
+    datasourceId = data.datasource;
     const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
@@ -788,10 +795,7 @@ export async function postExperiment(
       const metric = map.get(newMetricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
-        if (
-          experiment.datasource &&
-          metric.datasource !== experiment.datasource
-        ) {
+        if (datasourceId && metric.datasource !== datasourceId) {
           res.status(400).json({
             status: 400,
             message:
@@ -863,8 +867,7 @@ export async function postExperiment(
     "banditBurnInValue",
     "banditBurnInUnit",
   ];
-  const existing: ExperimentInterface = experiment;
-  const changes: Changeset = {};
+  let changes: Changeset = {};
 
   keys.forEach((key) => {
     if (!(key in data)) {
@@ -872,7 +875,7 @@ export async function postExperiment(
     }
 
     // Do a deep comparison for arrays, shallow for everything else
-    let hasChanges = data[key] !== existing[key];
+    let hasChanges = data[key] !== experiment[key];
     if (
       key === "goalMetrics" ||
       key === "secondaryMetrics" ||
@@ -880,7 +883,8 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "variations"
     ) {
-      hasChanges = JSON.stringify(data[key]) !== JSON.stringify(existing[key]);
+      hasChanges =
+        JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
     }
 
     if (hasChanges) {
@@ -917,27 +921,11 @@ export async function postExperiment(
     ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
       data.type === "multi-armed-bandit")
   ) {
-    // equal weights
-    changes.phases = changes.phases ?? [...experiment.phases];
-    changes.phases[
-      changes.phases.length - 1
-    ].variationWeights = getEqualWeights(
-      data?.variations?.length ?? existing?.variations?.length ?? 0
-    );
-
-    // stats engine
-    changes.statsEngine = "bayesian";
-
-    // 1 primary metric
-    const goalMetric = changes.goalMetrics?.[0] || existing.goalMetrics?.[0];
-    changes.goalMetrics = goalMetric ? [goalMetric] : [];
-
-    // start date on bandit phase
-    if (data.banditStage) {
-      changes.banditStageDateStarted = new Date();
-    }
-
-    // todo: clear out unusable fields?
+    changes = resetExperimentBanditSettings({
+      experiment,
+      changes,
+      settings,
+    });
   }
 
   // Only some fields affect production SDK payloads
@@ -1203,6 +1191,11 @@ export async function postExperimentStatus(
     context.permissions.throwPermissionError();
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
@@ -1245,7 +1238,7 @@ export async function postExperimentStatus(
     changes.phases = phases;
 
     if (experiment.type === "multi-armed-bandit") {
-      // reset bandit settings if the current bandit phase is inactive
+      // reset bandit settings if the current bandit stage is inactive
       if (
         experiment.banditStage === "paused" ||
         experiment.banditStage === undefined
@@ -1255,9 +1248,45 @@ export async function postExperimentStatus(
           resetExperimentBanditSettings({
             experiment,
             changes,
+            settings,
             now,
           })
         );
+      }
+
+      // validate datasources
+      let datasource: DataSourceInterface | null = null;
+      if (!experiment.datasource) {
+        throw new Error("Missing datasource");
+      }
+      datasource = await getDataSourceById(context, experiment.datasource);
+      if (!datasource) {
+        res.status(403).json({
+          status: 403,
+          message: "Invalid datasource: " + experiment.datasource,
+        });
+        return;
+      }
+
+      // validate goal metric
+      let metric: MetricInterface | null = null;
+      if (!experiment?.goalMetrics?.[0]) {
+        throw new Error("Missing goal metric");
+      }
+      metric = await getMetricById(context, experiment.goalMetrics[0]);
+      if (!metric) {
+        res.status(403).json({
+          status: 403,
+          message: "Invalid metric: " + experiment.goalMetrics[0],
+        });
+        return;
+      }
+      if (metric.cappingSettings.type === "percentile") {
+        res.status(403).json({
+          status: 403,
+          message: "Goal metric must not use percentile capping",
+        });
+        return;
       }
     }
   }
@@ -1278,6 +1307,7 @@ export async function postExperimentStatus(
         resetExperimentBanditSettings({
           experiment,
           changes,
+          settings,
         })
       );
     }
@@ -1385,7 +1415,7 @@ export async function postExperimentStop(
   changes.releasedVariationId = releasedVariationId;
   changes.excludeFromPayload = !!excludeFromPayload;
   if (experiment.type == "multi-armed-bandit") {
-    // pause bandit phase
+    // pause bandit stage
     changes.banditStage = "paused";
     changes.banditStageDateStarted = new Date();
   }

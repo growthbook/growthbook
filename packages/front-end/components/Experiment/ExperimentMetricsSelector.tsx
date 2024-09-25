@@ -12,6 +12,7 @@ export interface Props {
   setGuardrailMetrics?: (guardrailMetrics: string[]) => void;
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
+  noPercentileGoalMetrics?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -26,6 +27,7 @@ export default function ExperimentMetricsSelector({
   setGuardrailMetrics,
   autoFocus = false,
   forceSingleGoalMetric = false,
+  noPercentileGoalMetrics = false,
 }: Props) {
   return (
     <>
@@ -51,6 +53,7 @@ export default function ExperimentMetricsSelector({
             autoFocus={autoFocus}
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
+            noPercentile={noPercentileGoalMetrics}
           />
         </div>
       )}

@@ -37,6 +37,7 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { formatPercent } from "@/services/metrics";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
@@ -104,7 +105,6 @@ export default function ExperimentHeader({
   healthNotificationCount,
   verifiedConnections,
 }: Props) {
-  const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -154,10 +154,6 @@ export default function ExperimentHeader({
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
   const disableHealthTab = isUsingHealthUnsupportDatasource;
-
-  const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
-  );
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -389,112 +385,10 @@ export default function ExperimentHeader({
                   </button>
                 )}
                 {canRunExperiment && (
-                  <Tooltip
-                    body="Experiments can only be converted while in draft mode"
-                    shouldDisplay={experiment.status !== "draft"}
-                    usePortal={true}
-                  >
-                    <ConfirmButton
-                      modalHeader={`Convert to ${
-                        isBandit ? "Standard Experiment" : "Bandit Experiment"
-                      }`}
-                      disabled={experiment.status !== "draft"}
-                      size="lg"
-                      confirmationText={
-                        <div>
-                          <p>
-                            Are you sure you want to convert this experiment to
-                            a{" "}
-                            <strong>
-                              {isBandit
-                                ? "Standard Experiment"
-                                : "Bandit Experiment"}
-                            </strong>
-                            ?
-                          </p>
-                          {!isBandit && experiment.goalMetrics.length > 0 && (
-                            <div className="alert alert-warning">
-                              <Collapsible
-                                trigger={
-                                  <div>
-                                    <FaExclamationTriangle className="mr-2" />
-                                    Some of your experiment settings may be
-                                    altered. More info{" "}
-                                    <FaAngleRight className="chevron" />
-                                  </div>
-                                }
-                                transitionTime={100}
-                              >
-                                <ul className="ml-0 pl-3 mt-3">
-                                  <li>
-                                    A <strong>single decision metric</strong>{" "}
-                                    will be automatically assigned. You may
-                                    change this before running the experiment.
-                                  </li>
-                                  <li>
-                                    Experiment variations will begin with{" "}
-                                    <strong>equal weights</strong>.
-                                  </li>
-                                  <li>
-                                    The stats engine will be locked to{" "}
-                                    <strong>Bayesian</strong>.
-                                  </li>
-                                  <li>
-                                    Any <strong>Activation Metric</strong>,{" "}
-                                    <strong>Segments</strong>,{" "}
-                                    <strong>Conversion Window overrides</strong>
-                                    , <strong>Custom SQL Filters</strong>, or{" "}
-                                    <strong>Metric Overrides</strong> will be
-                                    removed.
-                                  </li>
-                                </ul>
-                              </Collapsible>
-                            </div>
-                          )}
-                        </div>
-                      }
-                      onClick={async () => {
-                        if (!isBandit && !hasMultiArmedBanditFeature) return;
-                        try {
-                          await apiCall(`/experiment/${experiment.id}`, {
-                            method: "POST",
-                            body: JSON.stringify({
-                              type: !isBandit
-                                ? "multi-armed-bandit"
-                                : "standard",
-                            }),
-                          });
-                          mutate();
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      }}
-                      cta={
-                        isBandit ? (
-                          "Convert"
-                        ) : (
-                          <PremiumTooltip
-                            body={null}
-                            commercialFeature="multi-armed-bandits"
-                            usePortal={true}
-                          >
-                            Convert
-                          </PremiumTooltip>
-                        )
-                      }
-                      ctaEnabled={isBandit || hasMultiArmedBanditFeature}
-                    >
-                      <button
-                        className="dropdown-item"
-                        type="button"
-                        disabled={experiment.status !== "draft"}
-                      >
-                        Convert to
-                        <br />
-                        {isBandit ? "Standard Experiment" : "Bandit Experiment"}
-                      </button>
-                    </ConfirmButton>
-                  </Tooltip>
+                  <ConvertBanditExperiment
+                    experiment={experiment}
+                    mutate={mutate}
+                  />
                 )}
                 <WatchButton
                   itemType="experiment"
@@ -703,5 +597,135 @@ export default function ExperimentHeader({
         </div>
       </div>
     </>
+  );
+}
+
+export function ConvertBanditExperiment({
+  experiment,
+  mutate,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
+
+  return (
+    <Tooltip
+      body="Experiments can only be converted while in draft mode"
+      shouldDisplay={experiment.status !== "draft"}
+      usePortal={true}
+    >
+      <ConfirmButton
+        modalHeader={`Convert to ${
+          isBandit ? "Standard Experiment" : "Bandit Experiment"
+        }`}
+        disabled={experiment.status !== "draft"}
+        size="lg"
+        confirmationText={
+          <div>
+            <p>
+              Are you sure you want to convert this experiment to a{" "}
+              <strong>
+                {isBandit ? "Standard Experiment" : "Bandit Experiment"}
+              </strong>
+              ?
+            </p>
+            {!isBandit && experiment.goalMetrics.length > 0 && (
+              <div className="alert alert-warning">
+                <Collapsible
+                  trigger={
+                    <div>
+                      <FaExclamationTriangle className="mr-2" />
+                      Some of your experiment settings may be altered. More info{" "}
+                      <FaAngleRight className="chevron" />
+                    </div>
+                  }
+                  transitionTime={100}
+                >
+                  <ul className="ml-0 pl-3 mt-3">
+                    <li>
+                      A <strong>single decision metric</strong> will be
+                      automatically assigned. You may change this before running
+                      the experiment.
+                    </li>
+                    <li>
+                      Experiment variations will begin with{" "}
+                      <strong>equal weights</strong> (
+                      {experiment.variations
+                        .map((_, i) =>
+                          i < 3
+                            ? formatPercent(
+                                1 / (experiment.variations.length ?? 2)
+                              )
+                            : i === 3
+                            ? "..."
+                            : null
+                        )
+                        .filter(Boolean)
+                        .join(", ")}
+                      ).
+                    </li>
+                    <li>
+                      The stats engine will be locked to{" "}
+                      <strong>Bayesian</strong>.
+                    </li>
+                    <li>
+                      Any <strong>Activation Metric</strong>,{" "}
+                      <strong>Segments</strong>,{" "}
+                      <strong>Conversion Window overrides</strong>,{" "}
+                      <strong>Custom SQL Filters</strong>, or{" "}
+                      <strong>Metric Overrides</strong> will be removed.
+                    </li>
+                  </ul>
+                </Collapsible>
+              </div>
+            )}
+          </div>
+        }
+        onClick={async () => {
+          if (!isBandit && !hasMultiArmedBanditFeature) return;
+          try {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({
+                type: !isBandit ? "multi-armed-bandit" : "standard",
+              }),
+            });
+            mutate();
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        cta={
+          isBandit ? (
+            "Convert"
+          ) : (
+            <PremiumTooltip
+              body={null}
+              commercialFeature="multi-armed-bandits"
+              usePortal={true}
+            >
+              Convert
+            </PremiumTooltip>
+          )
+        }
+        ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+      >
+        <button
+          className="dropdown-item"
+          type="button"
+          disabled={experiment.status !== "draft"}
+        >
+          Convert to
+          <br />
+          {isBandit ? "Standard Experiment" : "Bandit Experiment"}
+        </button>
+      </ConfirmButton>
+    </Tooltip>
   );
 }

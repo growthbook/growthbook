@@ -272,8 +272,11 @@ const AnalysisForm: FC<{
         }
         if (body.type === "multi-armed-bandit") {
           body.statsEngine = "bayesian";
+          if (!body.datasource) {
+            throw new Error("You must select a datasource");
+          }
           if ((body.goalMetrics?.length ?? 0) !== 1) {
-            throw new Error("You must select 1 goal metric");
+            throw new Error("You must select 1 decision metric");
           }
         }
 
@@ -359,7 +362,7 @@ const AnalysisForm: FC<{
               label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
           className="portal-overflow-ellipsis"
-          initialOption="Manual"
+          initialOption={experiment.type !== "multi-armed-bandit" ? "Manual" : undefined}
           helpText={
             <>
               <strong className="text-danger">Warning:</strong> Changing this
@@ -688,6 +691,7 @@ const AnalysisForm: FC<{
                   : undefined
               }
               forceSingleGoalMetric={type === "multi-armed-bandit"}
+              noPercentileGoalMetrics={type === "multi-armed-bandit"}
             />
 
             {hasMetrics && type !== "multi-armed-bandit" && (

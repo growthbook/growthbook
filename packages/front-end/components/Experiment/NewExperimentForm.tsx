@@ -319,8 +319,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }
       if (data.type === "multi-armed-bandit") {
         data.statsEngine = "bayesian";
+        if (!data.datasource) {
+          throw new Error("You must select a datasource");
+        }
         if ((data.goalMetrics?.length ?? 0) !== 1) {
-          throw new Error("You must select 1 goal metric");
+          throw new Error("You must select 1 decision metric");
         }
       }
     }
@@ -675,6 +678,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               exposureQueryId={exposureQueryId}
               project={project}
               forceSingleGoalMetric={true}
+              noPercentileGoalMetrics={true}
               goalMetrics={form.watch("goalMetrics") ?? []}
               secondaryMetrics={form.watch("secondaryMetrics") ?? []}
               guardrailMetrics={form.watch("guardrailMetrics") ?? []}
