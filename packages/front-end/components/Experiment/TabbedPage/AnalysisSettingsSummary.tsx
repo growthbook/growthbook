@@ -37,6 +37,7 @@ import OverflowText from "./OverflowText";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -48,6 +49,7 @@ export interface Props {
 
 export default function AnalysisSettingsSummary({
   experiment,
+  envs,
   mutate,
   statsEngine,
   editMetrics,
@@ -237,6 +239,7 @@ export default function AnalysisSettingsSummary({
       {analysisModal && (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
+          envs={envs}
           experiment={experiment}
           mutate={mutate}
           phase={experiment.phases.length - 1}

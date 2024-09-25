@@ -7,10 +7,7 @@ import {
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import {
-  getAffectedEnvsForExperiment,
-  isProjectListValidForProject,
-} from "shared/util";
+import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -40,6 +37,7 @@ import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   phase: number;
   cancel: () => void;
   mutate: () => void;
@@ -48,6 +46,7 @@ const AnalysisForm: FC<{
   editMetrics?: boolean;
 }> = ({
   experiment,
+  envs,
   cancel,
   mutate,
   phase,
@@ -89,7 +88,6 @@ const AnalysisForm: FC<{
   );
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;

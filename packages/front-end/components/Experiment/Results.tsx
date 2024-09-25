@@ -34,6 +34,7 @@ const CompactResults = dynamic(
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   mutateExperiment: () => void;
   draftMode?: boolean;
   editMetrics?: () => void;
@@ -58,6 +59,7 @@ const Results: FC<{
   setTab?: (tab: ExperimentTab) => void;
 }> = ({
   experiment,
+  envs,
   mutateExperiment,
   draftMode = false,
   editMetrics,
@@ -186,6 +188,7 @@ const Results: FC<{
     <>
       {!draftMode ? (
         <AnalysisSettingsBar
+          envs={envs}
           mutateExperiment={mutateExperiment}
           setAnalysisSettings={setAnalysisSettings}
           editMetrics={editMetrics}

@@ -14,22 +14,53 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { Environment } from "back-end/types/organization";
 
 export * from "./features";
 export * from "./saved-groups";
 
 export function getAffectedEnvsForExperiment({
   experiment,
+  orgEnvironments,
+  linkedFeatures,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
+  orgEnvironments?: Environment[];
+  linkedFeatures?: FeatureInterface[];
 }): string[] {
+  if (!orgEnvironments) {
+    return [];
+  }
   // Visual changesets are not environment-scoped, so it affects all of them
-  if (experiment.hasVisualChangesets || experiment.hasURLRedirects)
+  // Also fallback to all envs if linkedFeatures is undefined, but the experiment does actually have linked features
+  if (
+    experiment.hasVisualChangesets ||
+    experiment.hasURLRedirects ||
+    (!linkedFeatures && !!experiment.linkedFeatures?.length)
+  )
     return ["__ALL__"];
 
-  // TODO: get actual environments for linked feature flags. We are being overly conservative here
-  if (experiment.linkedFeatures && experiment.linkedFeatures.length > 0) {
-    return ["__ALL__"];
+  if (linkedFeatures?.length) {
+    const envs = new Set<string>();
+    const orgEnvIds = orgEnvironments.map((e) => e.id);
+    linkedFeatures.forEach((linkedFeature) => {
+      const matches = getMatchingRules(
+        linkedFeature,
+        (rule) =>
+          (rule.type === "experiment-ref" &&
+            rule.enabled &&
+            rule.experimentId === experiment.id) ||
+          false,
+        orgEnvIds,
+        undefined,
+        // the boolean below omits skips environments if they are disabled on the feature
+        true
+      );
+      if (matches.length) {
+        matches.forEach((match) => envs.add(match.environmentId));
+      }
+    });
+    return Array.from(envs);
   }
 
   return [];
@@ -167,7 +198,8 @@ export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
   environments: string[],
-  revision?: FeatureRevisionInterface
+  revision?: FeatureRevisionInterface,
+  omitDisabledEnvironments: boolean = false
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
@@ -175,6 +207,8 @@ export function getMatchingRules(
     Object.entries(feature.environmentSettings).forEach(
       ([environmentId, settings]) => {
         if (!isValidEnvironment(environmentId, environments)) return;
+
+        if (omitDisabledEnvironments && !settings.enabled) return;
 
         const rules = revision ? revision.rules[environmentId] : settings.rules;
 

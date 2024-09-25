@@ -104,6 +104,7 @@ import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "../../types/organization";
 import { CreateURLRedirectProps } from "../../types/url-redirect";
 import { logger } from "../util/logger";
+import { getFeaturesByIds } from "../models/FeatureModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -297,14 +298,25 @@ export async function getExperiment(
     experiment.id
   );
 
-  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+  const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment);
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments,
+    linkedFeatures,
+  });
 
   res.status(200).json({
     status: 200,
     experiment,
     visualChangesets,
     urlRedirects,
-    linkedFeatures,
+    linkedFeatures: linkedFeatureInfo,
+    envs,
     idea,
   });
 }
@@ -854,8 +866,13 @@ export async function postExperiment(
     "excludeFromPayload",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
+    const linkedFeatureIds = experiment.linkedFeatures || [];
+
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
     const envs = getAffectedEnvsForExperiment({
       experiment,
+      linkedFeatures,
     });
     if (envs.length > 0) {
       const projects = [experiment.project || undefined];
@@ -968,8 +985,13 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
   if (
     envs.length > 0 &&
@@ -1097,8 +1119,13 @@ export async function postExperimentStatus(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1212,8 +1239,13 @@ export async function postExperimentStop(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1308,8 +1340,13 @@ export async function deleteExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1382,8 +1419,13 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1469,8 +1511,13 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1590,8 +1637,13 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1709,8 +1761,13 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -2483,8 +2540,13 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -2533,7 +2595,13 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({ experiment, linkedFeatures })
+    : [];
   if (!context.permissions.canRunExperiment(experiment, envs)) {
     context.permissions.throwPermissionError();
   }
@@ -2572,7 +2640,13 @@ export async function deleteVisualChangeset(
     visualChangeset.experiment
   );
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  const linkedFeatureIds = experiment?.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({ experiment, linkedFeatures })
+    : [];
   if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
     context.permissions.throwPermissionError();
   }

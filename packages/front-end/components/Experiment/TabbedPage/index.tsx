@@ -51,6 +51,7 @@ export interface Props {
   editProject?: (() => void) | null;
   idea?: IdeaInterface;
   checklistItemsRemaining: number | null;
+  envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
@@ -73,6 +74,7 @@ export default function TabbedPage({
   idea,
   editVariations,
   visualChangesets,
+  envs,
   urlRedirects,
   editPhases,
   editTargeting,
@@ -266,6 +268,7 @@ export default function TabbedPage({
       {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}
       <ExperimentHeader
         experiment={experiment}
+        envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
@@ -394,7 +397,7 @@ export default function TabbedPage({
             editResult={editResult}
             newPhase={newPhase}
             connections={connections}
-            linkedFeatures={linkedFeatures}
+            envs={envs}
             setTab={setTabAndScroll}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}

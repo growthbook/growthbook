@@ -6,7 +6,6 @@ import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { FaHeartPulse } from "react-icons/fa6";
 import { useRouter } from "next/router";
-import { getAffectedEnvsForExperiment } from "shared/util";
 import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
@@ -40,6 +39,7 @@ export interface Props {
   tab: ExperimentTab;
   setTab: (tab: ExperimentTab) => void;
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   setEditNameOpen: (open: boolean) => void;
@@ -83,6 +83,7 @@ export default function ExperimentHeader({
   tab,
   setTab,
   experiment,
+  envs,
   mutate,
   setEditNameOpen,
   duplicate,
@@ -136,7 +137,6 @@ export default function ExperimentHeader({
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
-  const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       hasRunExperimentsPermission = false;
