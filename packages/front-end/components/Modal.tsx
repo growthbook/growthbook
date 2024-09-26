@@ -205,18 +205,7 @@ const Modal: FC<ModalProps> = ({
       </div>
       {submit || secondaryCTA || (close && includeCloseCta) ? (
         <div
-          className="modal-footer"
-          style={
-            stickyFooter
-              ? {
-                  position: "fixed",
-                  left: "0",
-                  bottom: "0",
-                  width: "100%",
-                  backgroundColor: "var(--surface-background-color-alt)",
-                }
-              : undefined
-          }
+          className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >
           {error && (
             <div className="alert alert-danger mr-auto">
