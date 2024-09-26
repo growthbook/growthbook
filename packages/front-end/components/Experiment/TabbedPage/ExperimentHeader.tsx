@@ -489,7 +489,7 @@ export default function ExperimentHeader({
                           body: JSON.stringify({ id: experiment.id }),
                         }
                       );
-                      router.push("/experiments");
+                      router.push(isBandit ? "/bandits" : "/experiments");
                     }}
                   />
                 )}

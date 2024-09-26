@@ -19,6 +19,7 @@ const ROW_HEIGHT_CONDENSED = 34;
 export type BanditSummaryTableProps = {
   experiment: ExperimentInterfaceStringDates;
   metric: MetricInterface | null;
+  phase: number;
   isTabActive: boolean;
 };
 
@@ -39,6 +40,7 @@ const percentileFormatter = (v: number) => {
 export default function BanditSummaryTable({
   experiment,
   metric,
+  phase,
   isTabActive,
 }: BanditSummaryTableProps) {
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -58,7 +60,7 @@ export default function BanditSummaryTable({
     setGraphCellWidth(Math.max(graphWidth, 200));
   }
 
-  const phase = experiment.phases[experiment.phases.length - 1];
+  const phaseObj = experiment.phases[phase];
 
   const variations = experiment.variations.map((v, i) => {
     return {
@@ -85,7 +87,7 @@ export default function BanditSummaryTable({
   }, [isTabActive, setShowVariationsFilter]);
 
   const validEvents: BanditEvent[] =
-    phase?.banditEvents?.filter(
+    phaseObj?.banditEvents?.filter(
       (event) =>
         event.banditResult?.singleVariationResults && !event.banditResult?.error
     ) || [];

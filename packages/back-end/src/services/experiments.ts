@@ -626,12 +626,10 @@ export function resetExperimentBanditSettings({
   experiment,
   changes,
   settings,
-  now = new Date(),
 }: {
   experiment: ExperimentInterface;
   changes?: Changeset;
   settings: ScopedSettings;
-  now?: Date;
 }): Changeset {
   if (!changes) changes = {};
   if (!changes.phases) changes.phases = [...experiment.phases];
@@ -659,7 +657,7 @@ export function resetExperimentBanditSettings({
 
   // Reset bandit stage
   changes.banditStage = "explore";
-  changes.banditStageDateStarted = now;
+  changes.banditStageDateStarted = new Date();
 
   // Set equal weights
   const weights = getEqualWeights(experiment.variations.length ?? 0);
@@ -668,7 +666,7 @@ export function resetExperimentBanditSettings({
   // Log first weight change event
   changes.phases[phase].banditEvents = [
     {
-      date: now,
+      date: new Date(),
       banditResult: {
         weights,
         bestArmProbabilities: weights,

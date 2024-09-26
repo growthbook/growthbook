@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React from "react";
+import React, { useState } from "react";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -9,6 +9,7 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
+import PhaseSelector from "@/components/Experiment/PhaseSelector";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -28,17 +29,25 @@ export default function BanditSummaryResultsTab({
     `banditSummaryResultsChartType__${experiment.id}`,
     "line"
   );
+  const [phase, setPhase] = useState<number>(experiment.phases.length - 1);
+  const isCurrentPhase = phase === experiment.phases.length - 1;
 
   const mid = experiment.goalMetrics[0];
   const { getMetricById } = useDefinitions();
   const metric = getMetricById(mid);
-  const phase = experiment.phases?.[experiment.phases.length - 1];
+  const phaseObj = experiment.phases[phase];
 
-  const showVisualizations = (phase?.banditEvents?.length ?? 0) > 0;
+  const showVisualizations = (phaseObj?.banditEvents?.length ?? 0) > 0;
 
   return (
     <>
-      <h3 className="mt-4 mb-3">Bandit Leaderboard</h3>
+      <div className="d-flex mt-4 mb-3 align-items-end">
+        <h3 className="mb-0">Bandit Leaderboard</h3>
+        <div className="flex-1" />
+        <div style={{ marginBottom: -5 }}>
+          <PhaseSelector phase={phase} setPhase={setPhase} isBandit={true} />
+        </div>
+      </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (
           <div className="alert bg-light border mx-3">
@@ -47,21 +56,24 @@ export default function BanditSummaryResultsTab({
           </div>
         )}
 
-        {experiment.status === "running" && (
-          <>
-            {experiment.banditStage === "explore" ? (
-              <div className="alert bg-light border mx-3">
-                This bandit experiment is still in its <strong>Explore</strong>{" "}
-                stage. Please wait a little while longer.
-              </div>
-            ) : !phase?.banditEvents?.length ? (
-              <div className="alert alert-info mx-3">
-                No data yet.
-                {/*todo: differentiate new (no runs) versus problem*/}
-              </div>
-            ) : null}
-          </>
-        )}
+        {isCurrentPhase &&
+        experiment.status === "running" &&
+        experiment.banditStage === "explore" ? (
+          <div className="alert bg-light border mx-3">
+            This bandit experiment is still in its <strong>Explore</strong>{" "}
+            stage. Please wait a little while longer.
+          </div>
+        ) : null}
+        {isCurrentPhase &&
+        experiment.status === "running" &&
+        !phaseObj?.banditEvents?.length ? (
+          <div className="alert alert-info mx-3">No data yet.</div>
+        ) : null}
+        {!isCurrentPhase && !phaseObj?.banditEvents?.length ? (
+          <div className="alert alert-info mx-3">
+            No data available for this phase.
+          </div>
+        ) : null}
 
         {showVisualizations && (
           <>
@@ -71,16 +83,17 @@ export default function BanditSummaryResultsTab({
                   ? getRenderLabelColumn(false, "bayesian")("", metric)
                   : null}
               </div>
-
               <div className="flex-1" />
-
-              <div className="d-flex align-items-center">
-                <BanditUpdateStatus experiment={experiment} mutate={mutate} />
-              </div>
+              {isCurrentPhase && (
+                <div className="d-flex align-items-center">
+                  <BanditUpdateStatus experiment={experiment} mutate={mutate} />
+                </div>
+              )}
             </div>
             <BanditSummaryTable
               experiment={experiment}
               metric={metric}
+              phase={phase}
               isTabActive={!!isTabActive}
             />
           </>
@@ -136,6 +149,7 @@ export default function BanditSummaryResultsTab({
             <BanditDateGraph
               experiment={experiment}
               metric={metric}
+              phase={phase}
               label={
                 chartMode === "values"
                   ? undefined

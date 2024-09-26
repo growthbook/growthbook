@@ -1229,11 +1229,10 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
-    const now = new Date();
     // use the current date as the phase start date
     phases[lastIndex] = {
       ...phases[lastIndex],
-      dateStarted: now,
+      dateStarted: new Date(),
     };
     changes.phases = phases;
 
@@ -1249,7 +1248,6 @@ export async function postExperimentStatus(
             experiment,
             changes,
             settings,
-            now,
           })
         );
       }
@@ -1548,6 +1546,11 @@ export async function putExperimentPhase(
     throw new Error("You do not have access to this experiment");
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   if (!experiment.phases?.[i]) {
     throw new Error("Invalid phase");
   }
@@ -1580,6 +1583,18 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
+
+  if (experiment.type === "multi-armed-bandit") {
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+      })
+    );
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
@@ -1639,6 +1654,11 @@ export async function postExperimentTargeting(
     return;
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
@@ -1688,6 +1708,17 @@ export async function postExperimentTargeting(
     });
   }
   changes.phases = phases;
+
+  if (experiment.type === "multi-armed-bandit") {
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+      })
+    );
+  }
 
   changes.hashAttribute = hashAttribute;
   changes.fallbackAttribute = fallbackAttribute;

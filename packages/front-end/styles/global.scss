@@ -2642,6 +2642,9 @@ html {
   }
 }
 .phase-selector {
+  .gb-select__control {
+    background-color: transparent !important;
+  }
   .gb-select__single-value {
     .phase-selector-select-option {
       display: none;
@@ -2650,6 +2653,13 @@ html {
   .gb-select__menu-portal {
     .phase-selector-with-tooltip {
       display: none;
+    }
+  }
+  &.align-right {
+    .gb-select__menu-portal {
+      .gb-select__menu {
+        right: 0;
+      }
     }
   }
 }

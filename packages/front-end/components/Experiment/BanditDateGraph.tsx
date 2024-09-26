@@ -21,7 +21,7 @@ import { BanditEvent } from "back-end/src/validators/experiments";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import {FaExclamationTriangle, FaInfoCircle} from "react-icons/fa";
+import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -50,6 +50,7 @@ export interface BanditDateGraphDataPoint {
 export interface BanditDateGraphProps {
   experiment: ExperimentInterfaceStringDates;
   metric: MetricInterface | null;
+  phase: number;
   label?: string;
   mode: "values" | "probabilities" | "weights";
   type: "line" | "area";
@@ -238,6 +239,7 @@ const getYVal = (
 const BanditDateGraph: FC<BanditDateGraphProps> = ({
   experiment,
   metric,
+  phase,
   label,
   mode,
   type,
@@ -274,8 +276,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   } = useTooltip<TooltipData>();
 
   const stackedData: BanditDateGraphDataPoint[] = useMemo(() => {
-    const phase = experiment.phases[experiment.phases.length - 1];
-    const events: BanditEvent[] = phase?.banditEvents ?? [];
+    const phaseObj = experiment.phases[phase];
+    const events: BanditEvent[] = phaseObj?.banditEvents ?? [];
 
     const stackedData: any[] = [];
 
@@ -304,7 +306,11 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const dataPoint: any = {
         date: new Date(event.date),
         reweight: !!event.banditResult?.reweight,
-        updateMessage: event.banditResult?.updateMessage && event.banditResult?.updateMessage !== "successfully updated" ? event.banditResult?.updateMessage : undefined,
+        updateMessage:
+          event.banditResult?.updateMessage &&
+          event.banditResult?.updateMessage !== "successfully updated"
+            ? event.banditResult?.updateMessage
+            : undefined,
         error: event.banditResult?.error,
         meta: {},
       };
@@ -348,7 +354,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     const now = new Date();
     if (
       experiment.status === "running" &&
-      // todo: analyzing current phase?
       now > stackedData[stackedData.length - 1].date
     ) {
       const dataPoint: BanditDateGraphDataPoint = {
@@ -365,7 +370,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     }
 
     return stackedData;
-  }, [experiment, mode, variationNames]);
+  }, [experiment, phase, mode, variationNames]);
 
   const filteredStackedData: BanditDateGraphDataPoint[] = useMemo(() => {
     const filtered = cloneDeep(stackedData);
@@ -543,10 +548,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
         const startDate = stackedData[0].date;
         const exploitDate =
-          experiment.banditStage !== "explore" &&
-          experiment.banditStageDateStarted
-            ? new Date(experiment.banditStageDateStarted)
-            : undefined;
+          stackedData.find(
+            (p) => p.meta?.type !== "today" && p?.reweight === true
+          )?.date ?? undefined;
         const lastDate = stackedData[stackedData.length - 1].date;
         const exploreMask =
           xScale(exploitDate ?? lastDate) - xScale(startDate) > 0 ? (
@@ -887,7 +891,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     dy: 4,
                   })}
                   tickLineProps={{
-                    stroke: "#ff6600"
+                    stroke: "#ff6600",
                   }}
                 />
 

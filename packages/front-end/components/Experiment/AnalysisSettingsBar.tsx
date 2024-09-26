@@ -190,6 +190,7 @@ export default function AnalysisSettingsBar({
                 <PhaseSelector
                   mutateExperiment={mutateExperiment}
                   editPhases={!isBandit ? editPhases : undefined}
+                  isBandit={isBandit}
                 />
               </div>
             )}

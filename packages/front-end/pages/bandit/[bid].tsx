@@ -153,6 +153,19 @@ const BanditExperimentPage = (): ReactElement => {
             ...experiment,
             name: experiment.name + " (Copy)",
             trackingKey: "",
+            status: "draft",
+            phases: experiment.phases.map((p, i) => {
+              if (i < experiment.phases.length - 1) {
+                return p;
+              }
+              return {
+                ...p,
+                dateStarted: new Date().toISOString(),
+                dateEnded: undefined,
+                variationWeights: p.variationWeights.map(() => 1 / (p.variationWeights.length || 2)),
+                banditEvents: undefined,
+              }
+            }),
           }}
           source="duplicate"
         />
