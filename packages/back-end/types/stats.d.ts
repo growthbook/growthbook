@@ -67,18 +67,9 @@ export type SingleVariationResult = {
   ci?: [number, number];
 };
 
-export type BanditSRMData = {
-  events: {
-    date: Date;
-    weights: number[];
-    user_counts: number[];
-    user_percentages: number[];
-  }[];
-};
 
 export type BanditResult = {
   singleVariationResults?: SingleVariationResult[];
-  banditSRMData: BanditSRMData;
   srm: number;
   weights: number[];
   bestArmProbabilities?: number[];

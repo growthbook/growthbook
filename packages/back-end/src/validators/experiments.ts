@@ -26,7 +26,6 @@ export const banditResult = z.object({
   weights: z.array(z.number()),
   srm: z.number().optional(),
   bestArmProbabilities: z.array(z.number()).optional(),
-  additionalReward: z.number().optional(),
   seed: z.number().optional(),
   updateMessage: z.string().optional(),
   error: z.string().optional(),

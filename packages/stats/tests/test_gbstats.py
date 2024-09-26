@@ -1,7 +1,7 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
-
+from typing import Dict, Union
 import copy
 import numpy as np
 import pandas as pd
@@ -18,14 +18,20 @@ from gbstats.gbstats import (
     format_results,
     variation_statistic_from_metric_row,
     get_bandit_result,
-    create_bandit_statistics,
+    create_bandit_statistics_previous,
     get_weighted_rows,
 )
 from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    BanditPeriodData,
+    BanditPeriodDataSampleMean,
+)
+
+from gbstats.gbstats import preprocess_bandits_previous, get_var_id_map
+from gbstats.bayesian.bandits_previous import (
+    BanditsSampleMeanPrevious,
+    BanditSampleMeanStatistics,
 )
 
 DECIMALS = 9
@@ -867,8 +873,8 @@ class TestBandit(TestCase):
                     )
                 )
         result_true = {
-            0: BanditPeriodData(stats_0, self.constant_weights),
-            1: BanditPeriodData(stats_1, self.constant_weights),
+            0: BanditPeriodDataSampleMean(stats_0, self.constant_weights),
+            1: BanditPeriodDataSampleMean(stats_1, self.constant_weights),
         }
         self.assertEqual(result, result_true)
 
@@ -897,13 +903,34 @@ class TestBandit(TestCase):
         ]
         self.assertEqual(weighted_rows, weighted_rows_true)
 
-    def test_get_bandit_result(self):
+    def test_get_bandit_result_previous(self):
         result = get_bandit_result(
             self.rows, self.metric, self.analysis, self.bandit_analysis
         )
         self.assertEqual(result.updateMessage, self.update_messages[0])
         self.assertEqual(result.weights, self.true_weights)
-        self.assertEqual(result.additionalReward, self.true_additional_reward)
+        # self.assertEqual(result.additionalReward, self.true_additional_reward)
+
+    def test_get_bandit_result_2(self):
+        b = preprocess_bandits_previous(
+            self.rows, self.metric, self.bandit_analysis, self.analysis.alpha, "All"
+        )
+        if isinstance(b, BanditsSampleMeanPrevious):
+            rows_2 = BanditSampleMeanStatistics(b).compute_rows()
+            rows_3 = rows_2.copy()
+            var_id_map = get_var_id_map(self.bandit_analysis.var_ids)
+            var_id_map_reversed = {value: key for key, value in var_id_map.items()}
+            # rows_2 is list of dicts
+            for d in rows_3:
+                d["variation"] = var_id_map_reversed[int(d["variation"])]
+            result = get_bandit_result(
+                rows_2, self.metric, self.analysis, self.bandit_analysis
+            )
+            self.assertEqual(result.updateMessage, self.update_messages[0])
+            self.assertEqual(result.weights, self.true_weights)
+            # self.assertEqual(result.additionalReward, self.true_additional_reward)
+        else:
+            assert 1 > 2, "wrong class"
 
 
 if __name__ == "__main__":

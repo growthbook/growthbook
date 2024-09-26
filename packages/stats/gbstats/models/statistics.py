@@ -313,8 +313,8 @@ ScaledImpactStatistic = Union[
 
 
 @dataclass
-class BanditPeriodData:
-    stats: List[Union[ProportionStatistic, SampleMeanStatistic]]
+class BanditPeriodDataSampleMean:
+    stats: List[SampleMeanStatistic]
     weights: List[float]
 
 
