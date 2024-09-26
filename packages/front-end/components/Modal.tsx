@@ -10,6 +10,7 @@ import {
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import track, { TrackEventProps } from "@/services/track";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -227,11 +228,14 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
-          <div
-            className={
-              stickyFooter ? "container pagecontents mx-auto text-right" : ""
+          <ConditionalWrapper
+            condition={stickyFooter}
+            wrapper={
+              <div
+                className="container pagecontents mx-auto text-right"
+                style={{ maxWidth: 1100 }}
+              />
             }
-            style={stickyFooter ? { maxWidth: "1100px" } : undefined}
           >
             {secondaryCTA}
             {submit && !isSuccess ? (
@@ -266,7 +270,7 @@ const Modal: FC<ModalProps> = ({
               </button>
             ) : null}
             {tertiaryCTA}
-          </div>
+          </ConditionalWrapper>
         </div>
       ) : null}
     </div>
