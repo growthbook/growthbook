@@ -287,7 +287,7 @@ function ColumnRefSelector({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder="All Rows"
+              placeholder={topLevelEnumFields.length > 0 ? "None" : "All Rows"}
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);
