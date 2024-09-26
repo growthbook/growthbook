@@ -352,7 +352,7 @@ const GetStartedPage = (): React.ReactElement => {
                     key="3-2-release"
                   >
                     <FeaturedCard
-                      imgUrl={"/images/get-started/thumbnails/3.2-release.png"}
+                      imgUrl={"/images/get-started/thumbnails/3.2-release.svg"}
                       lastCard
                     />
                   </a>
