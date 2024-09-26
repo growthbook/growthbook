@@ -408,7 +408,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             {tab.slice(1)}
                           </span>
                           {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2">
+                            <span className="badge bg-white border text-dark mr-2 mb-0">
                               {tabCounts[tab] || 0}
                             </span>
                           )}
