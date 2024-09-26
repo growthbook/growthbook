@@ -77,6 +77,7 @@ export default function track(
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,
+    build_version: build.lastVersion,
     account_plan: effectiveAccountPlan,
     configFile: hasFileConfig(),
     role: id ? role : "",
