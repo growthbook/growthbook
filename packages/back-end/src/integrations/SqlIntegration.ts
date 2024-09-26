@@ -12,6 +12,7 @@ import {
   ExperimentMetricInterface,
   getMetricTemplateVariables,
   quantileMetricType,
+  getColumnRefWhereClause,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -87,7 +88,6 @@ import { SQLVars, TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 import { logger } from "../util/logger";
 import {
-  FactFilterInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricQuantileSettings,
@@ -3891,19 +3891,6 @@ export default abstract class SqlIntegration
     }).join("\n")}`;
   }
 
-  getFilterValues(
-    filterIds: string[],
-    filters: FactFilterInterface[]
-  ): string[] {
-    const filterValues: string[] = [];
-    filterIds.forEach((filterId) => {
-      const filter = filters.find((f) => f.id === filterId);
-      if (filter) {
-        filterValues.push(filter.value);
-      }
-    });
-    return filterValues;
-  }
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
   private getFactMetricCTE({
     metrics,
@@ -3977,10 +3964,7 @@ export default abstract class SqlIntegration
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = this.getFilterValues(
-        m.numerator.filters,
-        factTable.filters
-      );
+      const filters = getColumnRefWhereClause(factTable, m.numerator);
 
       const column =
         filters.length > 0
@@ -4003,10 +3987,7 @@ export default abstract class SqlIntegration
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = this.getFilterValues(
-          m.denominator.filters,
-          factTable.filters
-        );
+        const filters = getColumnRefWhereClause(factTable, m.denominator);
         const column =
           filters.length > 0
             ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
@@ -4198,15 +4179,8 @@ export default abstract class SqlIntegration
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      const filterIds: Set<string> = new Set();
-      if (columnRef.filters) {
-        columnRef.filters.forEach((f) => filterIds.add(f));
-      }
-      filterIds.forEach((filterId) => {
-        const filter = factTable.filters.find((f) => f.id === filterId);
-        if (filter) {
-          where.push(filter.value);
-        }
+      getColumnRefWhereClause(factTable, columnRef).forEach((filterSQL) => {
+        where.push(filterSQL);
       });
 
       sql = factTable.sql;

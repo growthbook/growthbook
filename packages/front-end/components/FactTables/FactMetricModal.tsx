@@ -180,6 +180,16 @@ function ColumnRefSelector({
     });
   }
 
+  const topLevelEnumFields = (factTable?.columns || [])
+    .filter((col) => col.datatype === "string" && col.topLevelEnum)
+    .map((col) => {
+      return {
+        label: col.name || col.column,
+        key: col.column,
+        options: col.topValues || [],
+      };
+    });
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-center">
@@ -220,12 +230,54 @@ function ColumnRefSelector({
             required
           />
         </div>
+        {topLevelEnumFields.map(({ label, key, options }) => (
+          <div className="col-auto" key={key}>
+            {options.length > 0 ? (
+              <SelectField
+                label={label}
+                value={value.topLevelEnums?.[key] || ""}
+                onChange={(v) =>
+                  setValue({
+                    ...value,
+                    topLevelEnums: { ...value.topLevelEnums, [key]: v },
+                  })
+                }
+                options={options.map((o) => ({
+                  label: o,
+                  value: o,
+                }))}
+                initialOption="Any"
+                formatOptionLabel={({ value, label }) =>
+                  value ? label : <em className="text-muted">{label}</em>
+                }
+                createable
+              />
+            ) : (
+              <Field
+                label={label}
+                value={value.topLevelEnums?.[key] || ""}
+                onChange={(v) =>
+                  setValue({
+                    ...value,
+                    topLevelEnums: {
+                      ...value.topLevelEnums,
+                      [key]: v.target.value,
+                    },
+                  })
+                }
+                placeholder="Any"
+              />
+            )}
+          </div>
+        ))}
         {factTable && factTable.filters.length > 0 ? (
           <div className="col-auto">
             <MultiSelectField
               label={
                 <>
-                  Included Rows{" "}
+                  {topLevelEnumFields.length > 0
+                    ? "Additional Filters"
+                    : "Included Rows"}{" "}
                   <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
                 </>
               }

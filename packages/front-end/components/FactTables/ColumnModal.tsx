@@ -8,12 +8,14 @@ import {
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
+import { isColumnEligibleForTopLevelEnum } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -37,6 +39,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       name: existing?.name || "",
       numberFormat: existing?.numberFormat || "",
       datatype: existing?.datatype || "",
+      topLevelEnum: existing?.topLevelEnum || false,
     },
   });
 
@@ -56,6 +59,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             name: value.name,
             numberFormat: value.numberFormat,
             datatype: value.datatype,
+            topLevelEnum: value.topLevelEnum,
           };
           await apiCall(
             `/fact-tables/${factTable.id}/column/${existing.column}`,
@@ -144,6 +148,20 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         {...form.register("name")}
         placeholder={form.watch("column")}
       />
+
+      {isColumnEligibleForTopLevelEnum(factTable, {
+        column: form.watch("column"),
+        datatype: form.watch("datatype"),
+        deleted: false,
+      }) && (
+        <div className="form-group">
+          <label>
+            <input type="checkbox" {...form.register("topLevelEnum")} /> Prompt
+            all metrics to filter on this column{" "}
+            <Tooltip body="Use this for columns that are almost always required, like 'event_type' if this is an events table" />
+          </label>
+        </div>
+      )}
 
       {showDescription ? (
         <div className="form-group">

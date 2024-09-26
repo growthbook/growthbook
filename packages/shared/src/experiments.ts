@@ -1,6 +1,9 @@
 import { MetricInterface } from "back-end/types/metric";
 import {
+  ColumnInterface,
+  ColumnRef,
   FactMetricInterface,
+  FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
   MetricWindowSettings,
@@ -32,6 +35,56 @@ export function isFactMetric(
   m: ExperimentMetricInterface
 ): m is FactMetricInterface {
   return "metricType" in m;
+}
+
+export function isColumnEligibleForTopLevelEnum(
+  factTable: Pick<FactTableInterface, "userIdTypes">,
+  column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
+): boolean {
+  if (column.deleted) return false;
+
+  if (column.datatype !== "string") return false;
+
+  // If the column is one of the identifier columns, it is not eligible for top-level enum
+  if (factTable.userIdTypes.includes(column.column)) return false;
+
+  return true;
+}
+
+export function getColumnRefWhereClause(
+  factTable: FactTableInterface,
+  columnRef: ColumnRef
+): string[] {
+  const topLevelEnums = columnRef.topLevelEnums || {};
+  const filterIds = columnRef.filters || [];
+
+  const where: string[] = [];
+
+  // First add top-level enum filters
+  factTable.columns.forEach((column) => {
+    if (column.topLevelEnum) {
+      if (column.column in topLevelEnums) {
+        if (!isColumnEligibleForTopLevelEnum(factTable, column)) {
+          return;
+        }
+
+        const escapedValue = topLevelEnums[column.column].replace(/'/g, "''");
+        if (escapedValue.length > 0) {
+          where.push(`${column.column} = '${escapedValue}'`);
+        }
+      }
+    }
+  });
+
+  // Then add additional filters
+  filterIds.forEach((filterId) => {
+    const filter = factTable.filters.find((f) => f.id === filterId);
+    if (filter) {
+      where.push(filter.value);
+    }
+  });
+
+  return where;
 }
 
 export function getMetricTemplateVariables(

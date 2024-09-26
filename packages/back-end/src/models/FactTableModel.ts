@@ -41,6 +41,8 @@ const factTableSchema = new mongoose.Schema({
       numberFormat: String,
       datatype: String,
       deleted: Boolean,
+      topLevelEnum: Boolean,
+      topValues: [String],
     },
   ],
   columnsError: String,
@@ -238,6 +240,13 @@ export async function updateColumn(
 ) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");
+
+  if (
+    changes.topLevelEnum &&
+    (changes.datatype || factTable.columns[columnIndex]?.datatype) !== "string"
+  ) {
+    throw new Error("Only string columns can be top-level enums");
+  }
 
   factTable.columns[columnIndex] = {
     ...factTable.columns[columnIndex],
