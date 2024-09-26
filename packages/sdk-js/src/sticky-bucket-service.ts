@@ -147,7 +147,7 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     prefix = "gbStickyBuckets__",
     req,
     res,
-    cookieAttributes = {},
+    cookieAttributes = { maxAge: 180 * 24 * 60 * 60 * 1000 }, // 180 days
   }: {
     prefix?: string;
     req: RequestCompat;
@@ -200,7 +200,7 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
   constructor({
     prefix = "gbStickyBuckets__",
     jsCookie,
-    cookieAttributes = {},
+    cookieAttributes = { expires: 180 }, // 180 days
   }: {
     prefix?: string;
     jsCookie: JsCookiesCompat;
