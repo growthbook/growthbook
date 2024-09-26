@@ -174,6 +174,14 @@ export default function ConditionInput(props: Props) {
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
               .filter((g) => g.type === "list" && g.attributeKey === field)
+              // Filter by project
+              .filter((group) => {
+                return (
+                  !props.project ||
+                  !group.projects?.length ||
+                  group.projects.includes(props.project)
+                );
+              })
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 

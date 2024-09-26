@@ -18,7 +18,6 @@ import {
 import {
   createSavedGroup,
   deleteSavedGroupById,
-  getAllSavedGroups,
   getSavedGroupById,
   updateSavedGroupById,
 } from "../../models/SavedGroupModel";
@@ -28,44 +27,6 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import { savedGroupUpdated } from "../../services/savedGroups";
-
-// region GET /saved-groups
-type ListSavedGroupsRequest = AuthRequest<
-  Record<string, never>,
-  Record<string, never>
->;
-
-type ListSavedGroupsResponse = {
-  status: 200;
-  savedGroups: SavedGroupInterface[];
-};
-
-/**
- * GET /saved-groups
- * List all saved-group resources
- * @param req
- * @param res
- */
-export const getSavedGroups = async (
-  req: ListSavedGroupsRequest,
-  res: Response<ListSavedGroupsResponse>
-) => {
-  const context = getContextFromReq(req);
-  const { org } = context;
-
-  if (!context.permissions.canCreateSavedGroup()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const savedGroups = await getAllSavedGroups(org.id);
-
-  return res.status(200).json({
-    status: 200,
-    savedGroups,
-  });
-};
-
-// endregion GET /saved-groups
 
 // region POST /saved-groups
 
@@ -96,11 +57,17 @@ export const postSavedGroup = async (
     type,
     condition,
     description,
+    projects,
   } = req.body;
 
-  if (!context.permissions.canCreateSavedGroup()) {
+  if (!context.permissions.canCreateSavedGroup({ ...req.body })) {
     context.permissions.throwPermissionError();
   }
+
+  if (projects) {
+    await context.models.projects.ensureProjectsExist(projects);
+  }
+
   const uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
@@ -151,6 +118,7 @@ export const postSavedGroup = async (
     owner: owner || userName,
     attributeKey,
     description,
+    projects,
   });
 
   await req.audit({
@@ -242,14 +210,14 @@ export const postSavedGroupAddItems = async (
     throw new Error("Must specify saved group id");
   }
 
-  if (!context.permissions.canUpdateSavedGroup()) {
-    context.permissions.throwPermissionError();
-  }
-
   const savedGroup = await getSavedGroupById(id, org.id);
 
   if (!savedGroup) {
     throw new Error("Could not find saved group");
+  }
+
+  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+    context.permissions.throwPermissionError();
   }
 
   if (savedGroup.type !== "list") {
@@ -342,14 +310,14 @@ export const postSavedGroupRemoveItems = async (
     throw new Error("Must specify saved group id");
   }
 
-  if (!context.permissions.canUpdateSavedGroup()) {
-    context.permissions.throwPermissionError();
-  }
-
   const savedGroup = await getSavedGroupById(id, org.id);
 
   if (!savedGroup) {
     throw new Error("Could not find saved group");
+  }
+
+  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+    context.permissions.throwPermissionError();
   }
 
   if (savedGroup.type !== "list") {
@@ -425,21 +393,28 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { groupName, owner, values, condition, description } = req.body;
+  const {
+    groupName,
+    owner,
+    values,
+    condition,
+    description,
+    projects,
+  } = req.body;
   const { id } = req.params;
 
   if (!id) {
     throw new Error("Must specify saved group id");
   }
 
-  if (!context.permissions.canUpdateSavedGroup()) {
-    context.permissions.throwPermissionError();
-  }
-
   const savedGroup = await getSavedGroupById(id, org.id);
 
   if (!savedGroup) {
     throw new Error("Could not find saved group");
+  }
+
+  if (!context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })) {
+    context.permissions.throwPermissionError();
   }
 
   const fieldsToUpdate: UpdateSavedGroupProps = {};
@@ -479,6 +454,12 @@ export const putSavedGroup = async (
     }
     fieldsToUpdate.description = description;
   }
+  if (!isEqual(savedGroup.projects, projects)) {
+    if (projects) {
+      await context.models.projects.ensureProjectsExist(projects);
+    }
+    fieldsToUpdate.projects = projects;
+  }
 
   // If there are no changes, return early
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -501,8 +482,12 @@ export const putSavedGroup = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  // If the values or condition change, we need to invalidate cached feature rules
-  if (fieldsToUpdate.condition || fieldsToUpdate.values) {
+  // If the values, condition, or projects change, we need to invalidate cached feature rules
+  if (
+    fieldsToUpdate.condition ||
+    fieldsToUpdate.values ||
+    fieldsToUpdate.projects
+  ) {
     savedGroupUpdated(context, savedGroup.id).catch((e) => {
       logger.error(e, "Error refreshing SDK Payload on saved group update");
     });
@@ -545,10 +530,6 @@ export const deleteSavedGroup = async (
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateSavedGroup()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { org } = context;
 
   const savedGroup = await getSavedGroupById(id, org.id);
@@ -567,6 +548,10 @@ export const deleteSavedGroup = async (
       message: "You do not have access to this saved group",
     });
     return;
+  }
+
+  if (!context.permissions.canDeleteSavedGroup(savedGroup)) {
+    context.permissions.throwPermissionError();
   }
 
   await deleteSavedGroupById(id, org.id);

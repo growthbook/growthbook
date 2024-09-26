@@ -63,6 +63,7 @@ export const getArchetypeAndEval = async (
     {
       scrubPrerequisites?: string;
       skipRulesWithPrerequisites?: string;
+      project?: string;
     }
   >,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
@@ -73,6 +74,7 @@ export const getArchetypeAndEval = async (
   const {
     scrubPrerequisites: scrubPrerequisitesStr,
     skipRulesWithPrerequisites: skipRulesWithPrerequisitesStr,
+    project,
   } = req.query;
   const feature = await getFeature(context, id);
 
@@ -101,7 +103,7 @@ export const getArchetypeAndEval = async (
     throw new Error("Could not find feature revision");
   }
 
-  const archetype = await getAllArchetypes(org.id, userId);
+  const archetype = await getAllArchetypes(org.id, userId, project);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
@@ -112,9 +114,9 @@ export const getArchetypeAndEval = async (
 
     archetype.forEach((arch) => {
       try {
-        const attributes = JSON.parse(
-          arch.attributes
-        ) as ArchetypeAttributeValues;
+        const attributes = arch.attributes
+          ? (JSON.parse(arch.attributes) as ArchetypeAttributeValues)
+          : ({} as ArchetypeAttributeValues);
         const result = evaluateFeature({
           feature,
           attributes,
@@ -147,6 +149,7 @@ type CreateArchetypeRequest = AuthRequest<{
   owner: string;
   isPublic: boolean;
   attributes: string;
+  projects?: string[];
 }>;
 
 type CreateArchetypeResponse = {
@@ -160,7 +163,7 @@ export const postArchetype = async (
 ) => {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { name, attributes, description, isPublic } = req.body;
+  const { name, attributes, description, isPublic, projects } = req.body;
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
@@ -169,7 +172,7 @@ export const postArchetype = async (
     });
   }
 
-  if (!context.permissions.canCreateArchetype()) {
+  if (!context.permissions.canCreateArchetype(req.body)) {
     context.permissions.throwPermissionError();
   }
 
@@ -180,6 +183,7 @@ export const postArchetype = async (
     owner: userId,
     isPublic,
     organization: org.id,
+    projects,
   });
 
   await req.audit({
@@ -205,6 +209,7 @@ type PutArchetypeRequest = AuthRequest<
     owner: string;
     attributes: string;
     isPublic: boolean;
+    projects?: string[];
   },
   { id: string }
 >;
@@ -221,7 +226,7 @@ export const putArchetype = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, description, isPublic, owner, attributes } = req.body;
+  const { name, description, isPublic, owner, attributes, projects } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -235,23 +240,25 @@ export const putArchetype = async (
     });
   }
 
-  if (!context.permissions.canUpdateArchetype()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const archetype = await getArchetypeById(id, org.id);
-
-  if (!archetype) {
-    throw new Error("Could not find sample user");
-  }
-
-  const changes = await updateArchetypeById(id, org.id, {
+  const updates = {
     attributes,
     name,
     description,
     isPublic,
     owner,
-  });
+    projects,
+  };
+
+  const archetype = await getArchetypeById(id, org.id);
+
+  if (!archetype) {
+    throw new Error("Could not find archetype");
+  }
+  if (!context.permissions.canUpdateArchetype(archetype, updates)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const changes = await updateArchetypeById(id, org.id, updates);
 
   const updatedArchetype = { ...archetype, ...changes };
 
@@ -293,11 +300,15 @@ export const deleteArchetype = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  if (!context.permissions.canDeleteArchetype()) {
+  const archetype = await getArchetypeById(id, org.id);
+
+  if (
+    !context.permissions.canDeleteArchetype({
+      projects: archetype?.projects || [],
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
-
-  const archetype = await getArchetypeById(id, org.id);
 
   if (!archetype) {
     res.status(403).json({

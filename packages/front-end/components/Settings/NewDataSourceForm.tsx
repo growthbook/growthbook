@@ -4,6 +4,8 @@ import {
   useEffect,
   ChangeEventHandler,
   ReactElement,
+  useCallback,
+  useMemo,
 } from "react";
 import {
   DataSourceInterfaceWithParams,
@@ -44,6 +46,7 @@ const NewDataSourceForm: FC<{
   showImportSampleData: boolean;
   inline?: boolean;
   secondaryCTA?: ReactElement;
+  showBackButton?: boolean;
 }> = ({
   data,
   onSuccess,
@@ -53,6 +56,7 @@ const NewDataSourceForm: FC<{
   showImportSampleData,
   inline,
   secondaryCTA,
+  showBackButton = true,
 }) => {
   const {
     projects: allProjects,
@@ -101,6 +105,8 @@ const NewDataSourceForm: FC<{
     mutateDefinitions,
   ]);
 
+  const schemaFormat = data.settings?.schemaFormat;
+
   const form = useForm<{
     settings: DataSourceSettings | undefined;
     metricsToCreate: {
@@ -115,14 +121,88 @@ const NewDataSourceForm: FC<{
       metricsToCreate: [],
     },
   });
-  const schemasMap = new Map();
-  const dataSourcesMap = new Map();
-  eventSchemas.forEach((o) => {
-    schemasMap.set(o.value, o);
-  });
-  dataSourceConnections.forEach((d) => {
-    dataSourcesMap.set(d.type, d);
-  });
+
+  const schemasMap = useMemo(() => {
+    const map = new Map();
+    eventSchemas.forEach((o) => {
+      map.set(o.value, o);
+    });
+    return map;
+  }, []);
+
+  const dataSourcesMap = useMemo(() => {
+    const map = new Map();
+    dataSourceConnections.forEach((d) => {
+      map.set(d.type, d);
+    });
+    return map;
+  }, []);
+
+  const setSchemaSettings = useCallback(
+    (s: eventSchema) => {
+      setSchema(s.value);
+      form.setValue("settings.schemaFormat", s.value);
+      track("Selected Event Schema", {
+        schema: s.value,
+        source,
+        newDatasourceForm: true,
+      });
+      if (s.types?.length === 1) {
+        const data = dataSourcesMap.get(s.types[0]);
+        setDatasource({
+          ...datasource,
+          type: s.types[0],
+          name: `${s.label}`,
+          params: data.default,
+        } as Partial<DataSourceInterfaceWithParams>);
+      } else {
+        setDatasource({
+          name: `${s.label}`,
+          settings: {},
+          projects: project ? [project] : [],
+        });
+      }
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceType[] | undefined' is... Remove this comment to see the full error message
+      setPossibleTypes(s.types);
+      if (s.options) {
+        s.options.map((o) => {
+          form.setValue(
+            `settings.schemaOptions.${o.name}`,
+            o.defaultValue || ""
+          );
+        });
+      } else {
+        form.setValue(`settings.schemaOptions`, {});
+      }
+    },
+    [dataSourcesMap, datasource, form, project, source]
+  );
+
+  useEffect(() => {
+    if (schemaFormat && step === 0 && !schema) {
+      const schema = eventSchemas.find((s) => s.value === schemaFormat);
+      if (schema) {
+        setSchemaSettings(schema);
+        // jump straight to the form
+        setStep(2);
+      } else if (schemaFormat === "custom") {
+        setSchema("custom");
+        setDatasource({
+          name: "My Datasource",
+          settings: {},
+          projects: project ? [project] : [],
+        });
+        // no options for custom:
+        form.setValue(`settings.schemaOptions`, {});
+
+        // set to all possible types:
+        setPossibleTypes(dataSourceConnections.map((o) => o.type));
+        // jump to next step
+        setStep(2);
+      }
+    }
+  }, [form, project, schema, schemaFormat, setSchemaSettings, step]);
+
   const selectedSchema = schemasMap.get(schema) || {
     value: "custom",
     label: "Custom",
@@ -302,40 +382,6 @@ const NewDataSourceForm: FC<{
     setStep(2);
   };
 
-  const setSchemaSettings = (s: eventSchema) => {
-    setSchema(s.value);
-    form.setValue("settings.schemaFormat", s.value);
-    track("Selected Event Schema", {
-      schema: s.value,
-      source,
-      newDatasourceForm: true,
-    });
-    if (s.types?.length === 1) {
-      const data = dataSourcesMap.get(s.types[0]);
-      setDatasource({
-        ...datasource,
-        type: s.types[0],
-        name: `${s.label}`,
-        params: data.default,
-      } as Partial<DataSourceInterfaceWithParams>);
-    } else {
-      setDatasource({
-        name: `${s.label}`,
-        settings: {},
-        projects: project ? [project] : [],
-      });
-    }
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceType[] | undefined' is... Remove this comment to see the full error message
-    setPossibleTypes(s.types);
-    if (s.options) {
-      s.options.map((o) => {
-        form.setValue(`settings.schemaOptions.${o.name}`, o.defaultValue || "");
-      });
-    } else {
-      form.setValue(`settings.schemaOptions`, {});
-    }
-  };
-
   const hasStep2 = !!selectedSchema?.options;
   const isFinalStep = step === 3 || (!hasStep2 && step === 2);
   const updateSettingsRequired = isFinalStep && dataSourceId && step !== 2;
@@ -476,19 +522,21 @@ const NewDataSourceForm: FC<{
     stepContents = (
       <div>
         <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setLastError("");
-              selectedSchema.value === "custom" ? setStep(0) : setStep(1);
-            }}
-          >
-            <span style={{ position: "relative", top: "-1px" }}>
-              <GBCircleArrowLeft />
-            </span>{" "}
-            Back
-          </a>
+          {showBackButton && (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setLastError("");
+                selectedSchema.value === "custom" ? setStep(0) : setStep(1);
+              }}
+            >
+              <span style={{ position: "relative", top: "-1px" }}>
+                <GBCircleArrowLeft />
+              </span>{" "}
+              Change Event Tracker
+            </a>
+          )}
         </div>
         <h3>{selectedSchema.label}</h3>
         {selectedSchema && selectedSchema.intro && (

@@ -24,7 +24,7 @@ const ExperimentGuide = (): React.ReactElement => {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
   const { experiments, loading: experimentsLoading, error } = useExperiments();
-  const { project, ready: definitionsReady } = useDefinitions();
+  const { project, ready: definitionsReady, datasources } = useDefinitions();
   const { setStep, clearStep } = useGetStarted();
 
   const router = useRouter();
@@ -90,6 +90,10 @@ const ExperimentGuide = (): React.ReactElement => {
   const manualChecks = organization.getStartedChecklistItems;
   const environmentsReviewed = manualChecks?.includes("environments");
   const attributesSet = manualChecks?.includes("attributes");
+  // Ignore the demo datasource
+  const hasDatasource = datasources.some(
+    (d) => !d.projects?.includes(demoProjectId)
+  );
 
   const hasStartedExperiment = project
     ? experiments.some(
@@ -239,7 +243,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     })
                   }
                 >
-                  Review or Add Environments
+                  Review or Add Environments (Optional)
                 </Link>
                 <p className="mt-2">
                   By default, GrowthBook comes with one
@@ -291,7 +295,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     })
                   }
                 >
-                  Customize Targeting Attributes
+                  Customize Targeting Attributes (Optional)
                 </Link>
                 <p className="mt-2">
                   Define user attributes to use for targeting experiments and
@@ -486,9 +490,62 @@ const ExperimentGuide = (): React.ReactElement => {
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
                   </p>
+                  <hr />
                 </div>
               </div>
             )}
+
+            <div className="row">
+              <div className="col-sm-auto">
+                {hasDatasource ? (
+                  <PiCheckCircleFill
+                    className="mt-1"
+                    style={{
+                      fill: "#56BA9F",
+                      width: "18.5px",
+                      height: "18.5px",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      borderRadius: "50%",
+                      borderStyle: "solid",
+                      borderWidth: "0.6px",
+                      borderColor: "#D3D4DB",
+                      width: "15px",
+                      height: "15px",
+                      margin: "2px",
+                    }}
+                  />
+                )}
+              </div>
+              <div className="col">
+                <Link
+                  href="/datasources"
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasDatasource ? "line-through" : "none",
+                  }}
+                  onClick={() =>
+                    setStep({
+                      step: "Connect to Your Data Warehouse",
+                      source: "experiments",
+                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
+                      stepKey: "connectDataWarehouse",
+                    })
+                  }
+                >
+                  Connect to Your Data Warehouse
+                </Link>
+                <p className="mt-2">
+                  Allow GrowthBook to query your warehouse to compute traffic
+                  totals and metric results.
+                </p>
+                <hr />
+              </div>
+            </div>
           </div>
         </div>
         {loadingHypothesis && <LoadingOverlay />}

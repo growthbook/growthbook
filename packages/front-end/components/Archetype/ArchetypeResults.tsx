@@ -13,6 +13,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ArchetypeResults: FC<{
   feature: FeatureInterface;
@@ -21,6 +22,7 @@ const ArchetypeResults: FC<{
   onChange: () => void;
 }> = ({ feature, archetype, featureResults, onChange }) => {
   const { apiCall } = useAuth();
+  const { project } = useDefinitions();
   const enableAdvDebug = false;
   const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
     false
@@ -40,8 +42,15 @@ const ArchetypeResults: FC<{
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canUpdateArchetype();
-  const canDelete = permissionsUtil.canDeleteArchetype();
+  const canEdit = permissionsUtil.canUpdateArchetype(
+    {
+      projects: [feature?.project ? feature.project : project ? project : ""],
+    },
+    {}
+  );
+  const canDelete = permissionsUtil.canDeleteArchetype({
+    projects: [feature?.project ? feature.project : project ? project : ""],
+  });
 
   if (archetype.length === 0) {
     return null;

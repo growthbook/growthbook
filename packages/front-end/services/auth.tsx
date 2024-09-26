@@ -20,6 +20,7 @@ import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
@@ -215,6 +216,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
+  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
   async function init() {
     const resp = await refreshToken();
     if ("token" in resp) {
@@ -266,8 +269,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setAuthComponent(
         <Welcome
           firstTime={resp.newInstallation}
-          onSuccess={(t) => {
+          onSuccess={(t, pid) => {
             setToken(t);
+            if (pid) {
+              setProject(pid);
+            }
             setAuthComponent(null);
           }}
         />
@@ -284,6 +290,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setInitError(e.message);
       console.error(e);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const orgList = [...organizations];

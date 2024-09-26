@@ -1,6 +1,9 @@
-import { FC, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import {
+  DefaultMemberRole,
+  MemberRoleWithProjects,
+} from "back-end/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
@@ -18,10 +21,13 @@ type InviteResult = {
   inviteUrl: string;
 };
 
-const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
-  mutate,
-  close,
-}) => {
+interface Props {
+  mutate: () => void;
+  close: () => void;
+  defaultRole?: DefaultMemberRole;
+}
+
+const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   const { license, seatsInUse, organization, effectiveAccountPlan } = useUser();
 
   const form = useForm<{
@@ -33,6 +39,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       roleInfo: {
         projectRoles: [],
         ...getDefaultRole(organization),
+        ...(defaultRole ? { role: defaultRole } : {}),
       },
     },
   });

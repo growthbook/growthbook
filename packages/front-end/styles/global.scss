@@ -57,6 +57,11 @@ body {
   &.present {
     padding: 0;
   }
+
+  &.setup {
+    padding-left: 0;
+  }
+
   & > .container-fluid,
   & > .pagecontents {
     padding: 15px;
