@@ -68,7 +68,7 @@ export const postSavedGroup = async (
     await context.models.projects.ensureProjectsExist(projects);
   }
 
-  const uniqValues: string[] | undefined = undefined;
+  let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const conditionRes = validateCondition(condition);
@@ -95,7 +95,7 @@ export const postSavedGroup = async (
         "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
       );
     }
-    const uniqValues = [...new Set(values)];
+    uniqValues = [...new Set(values)];
     if (
       new Blob([JSON.stringify(uniqValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
     ) {
