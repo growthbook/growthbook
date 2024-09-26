@@ -918,6 +918,13 @@ main.main.report {
     color: colors.$highlight-purple;
     font-weight: 600;
   }
+  .modal-footer.sticky-footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: var(--surface-background-color-alt);
+  }
 }
 .modal-dialog.modal-fill {
   margin: 0 auto;
