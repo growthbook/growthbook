@@ -109,7 +109,8 @@
     },
     {
       "files": [
-        "./packages/back-end/**/*.ts*",
+        "./packages/back-end/src/**/*.ts*",
+	"./packages/back-end/types/**/*.ts*",
         "./packages/front-end/**/*.ts*"
       ],
       "rules": {
