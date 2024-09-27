@@ -25,10 +25,10 @@ export const createColumnPropsValidator = z
 
 export const updateColumnPropsValidator = z
   .object({
-    name: z.string(),
-    description: z.string(),
-    numberFormat: numberFormatValidator,
-    datatype: factTableColumnTypeValidator,
+    name: z.string().optional(),
+    description: z.string().optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: factTableColumnTypeValidator.optional(),
     topLevelEnum: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),

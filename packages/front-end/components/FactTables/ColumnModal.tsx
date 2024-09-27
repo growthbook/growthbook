@@ -61,6 +61,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             datatype: value.datatype,
             topLevelEnum: value.topLevelEnum,
           };
+
+          if (
+            value.topLevelEnum &&
+            !isColumnEligibleForTopLevelEnum(factTable, {
+              ...existing,
+              ...data,
+            })
+          ) {
+            value.topLevelEnum = false;
+          }
+
           await apiCall(
             `/fact-tables/${factTable.id}/column/${existing.column}`,
             {

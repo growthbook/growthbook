@@ -251,6 +251,7 @@ function ColumnRefSelector({
                   value ? label : <em className="text-muted">{label}</em>
                 }
                 createable
+                sort={false}
               />
             ) : (
               <Field

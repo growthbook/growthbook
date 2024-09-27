@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { isColumnEligibleForTopLevelEnum } from "shared/experiments";
 import { ReqContext } from "../../types/organization";
 import { getFactTable, updateFactTableColumns } from "../models/FactTableModel";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -12,6 +13,7 @@ import { getSourceIntegrationObject } from "../services/datasource";
 import { DataSourceInterface } from "../../types/datasource";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { trackJob } from "../services/otel";
+import { logger } from "../util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
@@ -54,10 +56,43 @@ const refreshFactTableColumns = trackJob(
   }
 );
 
+export async function runColumnTopValuesQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: Pick<FactTableInterface, "sql" | "eventName">,
+  column: ColumnInterface
+): Promise<string[]> {
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (
+    !integration.getColumnTopValuesQuery ||
+    !integration.runColumnTopValuesQuery
+  ) {
+    throw new Error("Top values not supported on this data source");
+  }
+
+  const sql = integration.getColumnTopValuesQuery({
+    factTable,
+    column,
+    limit: 100,
+  });
+
+  const result = await integration.runColumnTopValuesQuery(sql);
+
+  return result.rows.map((r) => r.value);
+}
+
 export async function runRefreshColumnsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "columns" | "userIdTypes"
+  >
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -125,6 +160,21 @@ export async function runRefreshColumnsQuery(
       });
     }
   });
+
+  for (const col of columns) {
+    if (col.topLevelEnum && isColumnEligibleForTopLevelEnum(factTable, col)) {
+      try {
+        col.topValues = await runColumnTopValuesQuery(
+          context,
+          datasource,
+          factTable,
+          col
+        );
+      } catch (e) {
+        logger.error("Error running top values query", e);
+      }
+    }
+  }
 
   return columns;
 }

@@ -72,6 +72,8 @@ import {
   DropTableQueryResponse,
   DropTableQueryParams,
   TestQueryParams,
+  ColumnTopValuesParams,
+  ColumnTopValuesResponse,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
@@ -3889,6 +3891,57 @@ export default abstract class SqlIntegration
             upper
           )}`;
     }).join("\n")}`;
+  }
+
+  public getColumnTopValuesQuery({
+    factTable,
+    column,
+    limit = 50,
+  }: ColumnTopValuesParams) {
+    if (column.datatype !== "string") {
+      throw new Error(`Column ${column.column} is not a string column`);
+    }
+
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+
+    return format(
+      `
+WITH
+  __factTable as (
+    ${compileSqlTemplate(factTable.sql, {
+      startDate: start,
+      templateVariables: {
+        eventName: factTable.eventName,
+      },
+    })}
+  ),
+  __topValues as (
+    SELECT
+      ${column.column} as value,
+      COUNT(*) as count
+    FROM __factTable
+    WHERE timestamp >= ${this.toTimestamp(start)}
+    GROUP BY ${column.column}
+  )
+${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
+    `,
+      this.getFormatDialect()
+    );
+  }
+
+  public async runColumnTopValuesQuery(
+    sql: string
+  ): Promise<ColumnTopValuesResponse> {
+    const { rows, statistics } = await this.runQuery(sql);
+
+    return {
+      statistics,
+      rows: rows.map((r) => ({
+        value: r.value + "",
+        count: 1 * r.count,
+      })),
+    };
   }
 
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
