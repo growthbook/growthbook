@@ -84,12 +84,7 @@ export abstract class StickyBucketService {
     return docs;
   }
 
-  /**
-   * Get the key to store/retrieve a sticky bucket assignment.
-   *
-   * @returns {string} The key to use for the given attribute name and value.
-   */
-  getKey(attributeName: string, attributeValue: string) {
+  getKey(attributeName: string, attributeValue: string): string {
     return `${this.prefix}${attributeName}||${attributeValue}`;
   }
 }
@@ -147,7 +142,7 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     prefix = "gbStickyBuckets__",
     req,
     res,
-    cookieAttributes = { maxAge: 180 * 24 * 60 * 60 * 1000 }, // 180 days
+    cookieAttributes = { maxAge: 180 * 24 * 3600 * 1000 }, // 180 days
   }: {
     prefix?: string;
     req: RequestCompat;
@@ -241,7 +236,6 @@ export class RedisStickyBucketService extends StickyBucketService {
     super();
     this.redis = redis;
   }
-
   async getAllAssignments(
     attributes: Record<string, string>
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
@@ -267,12 +261,10 @@ export class RedisStickyBucketService extends StickyBucketService {
     });
     return docs;
   }
-
   async getAssignments(_attributeName: string, _attributeValue: string) {
     // not implemented
     return null;
   }
-
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.redis) return;
