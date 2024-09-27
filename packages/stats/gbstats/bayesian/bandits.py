@@ -107,7 +107,7 @@ class Bandits(ABC):
     @property
     def period_counts(self) -> np.ndarray:
         cumulative_counts_historical = [
-            bandit_period.n for bandit_period in self.historical_periods
+            bandit_period.total_users for bandit_period in self.historical_periods
         ]
         cumulative_counts = cumulative_counts_historical + [self.current_sample_size]
         period_counts = [cumulative_counts[0]]

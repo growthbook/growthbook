@@ -31,7 +31,7 @@ class AnalysisSettingsForStatsEngine:
 class BanditWeightsSinglePeriod:
     date: str
     weights: List[float]
-    n: int  # sample size across all variations
+    total_users: int  # sample size across all variations
 
 
 @dataclass
