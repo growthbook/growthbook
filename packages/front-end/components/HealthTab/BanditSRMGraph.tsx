@@ -194,7 +194,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
     let previousUsers = variationNames.map(() => 0);
 
     events.forEach((event) => {
-      const weights = event.banditResult.weights;
+      const weights = event.banditResult.currentWeights;
 
       const users = variationNames.map(
         (_, i) =>

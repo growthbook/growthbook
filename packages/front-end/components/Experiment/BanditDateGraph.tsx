@@ -286,7 +286,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
 
-      const weights = event.banditResult.weights;
+      const weights = event.banditResult.updatedWeights;
 
       const users = variationNames.map(
         (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0

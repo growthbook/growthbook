@@ -405,10 +405,20 @@ export function getSnapshotSettings({
           reweight: !!reweight,
           decisionMetric: experiment.goalMetrics?.[0],
           seed: Math.floor(Math.random() * 100000),
-          weights:
+          currentWeights:
+            phase?.banditEvents?.[phase.banditEvents.length - 1]?.banditResult
+              ?.currentWeights ??
+            phase?.variationWeights ??
+            [],
+          historicalWeights:
             phase?.banditEvents?.map((event) => ({
               date: event.date,
-              weights: event.banditResult.weights,
+              weights: event.banditResult.currentWeights,
+              totalUsers:
+                event.banditResult?.singleVariationResults?.reduce(
+                  (sum, cur) => sum + (cur.users ?? 0),
+                  0
+                ) ?? 0,
             })) ?? [],
         }
       : undefined;
@@ -668,7 +678,8 @@ export function resetExperimentBanditSettings({
     {
       date: new Date(),
       banditResult: {
-        weights,
+        currentWeights: weights,
+        updatedWeights: weights,
         bestArmProbabilities: weights,
       },
     },
@@ -751,11 +762,11 @@ export function updateExperimentBanditSettings({
   if (banditResult) {
     if (reweight) {
       // apply the latest weights (SDK level)
-      changes.phases[phase].variationWeights = banditResult.weights;
+      changes.phases[phase].variationWeights = banditResult.updatedWeights;
     } else {
-      // todo: remove this case?
       // ignore (revert) the weight changes (for graphing)
-      banditResult.weights = changes.phases[phase].variationWeights;
+      // todo: is this correct? do we need to alter currentWeights too?
+      banditResult.updatedWeights = changes.phases[phase].variationWeights;
     }
 
     // log weight change event

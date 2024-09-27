@@ -76,9 +76,9 @@ export interface BanditSettingsForStatsEngine {
   historical_weights?: {
     date: Date;
     weights: number[];
-    n: number;
+    total_users: number;
   }[];
-  current_weights: [];
+  current_weights: number[];
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
@@ -197,7 +197,12 @@ export function getBanditSettingsForStatsEngine(
     var_ids: sortedVariations.map((v) => v.id),
     decision_metric: banditSettings.decisionMetric,
     bandit_weights_seed: banditSettings.seed,
-    weights: banditSettings.weights,
+    current_weights: banditSettings.currentWeights,
+    historical_weights: banditSettings.historicalWeights.map((hw) => ({
+      date: hw.date,
+      weights: hw.weights,
+      total_users: hw.totalUsers,
+    })),
   };
   return (analysisData as unknown) as BanditSettingsForStatsEngine;
 }

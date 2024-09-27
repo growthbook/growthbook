@@ -134,9 +134,11 @@ export interface SnapshotBanditSettings {
   reweight: boolean;
   decisionMetric: string;
   seed: number;
-  weights: {
+  currentWeights: number[];
+  historicalWeights: {
     date: Date;
     weights: number[];
+    totalUsers: number;
   }[];
 }
 
