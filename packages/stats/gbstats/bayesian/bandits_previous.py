@@ -600,7 +600,7 @@ class BanditsRatioPrevious(BanditsPrevious):
         mn_den = self.denominator_means[variation_index]
         v_den = self.denominator_variances[variation_index]
         main_denominator_sum_product = n * (
-            self.covariances[variation_index] + mn_num * mn_den
+            (n - 1) * self.covariances[variation_index] / n + mn_num * mn_den
         )
         return {
             "dimension": dimension,
@@ -878,10 +878,9 @@ class BanditStatistics(ABC):
     def statistics(self) -> List:
         pass
 
-    @abstractmethod
     @staticmethod
     def create_row(variation, s) -> Dict[str, Union[str, int, float]]:
-        pass
+        return {}
 
     @staticmethod
     def calculate_sample_mean_statistic_from_moments(n, mn, var) -> SampleMeanStatistic:

@@ -53,7 +53,6 @@ class BaseABTest(ABC):
             and self.stat_a.theta == 0
         ):
             theta = compute_theta(self.stat_a, self.stat_b)
-            print(["brenda", theta])
             if theta == 0:
                 # revert to non-RA under the hood if no variance in a time period
                 self.stat_a = self.stat_a.post_statistic

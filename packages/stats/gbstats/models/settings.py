@@ -31,13 +31,15 @@ class AnalysisSettingsForStatsEngine:
 class BanditWeightsSinglePeriod:
     date: str
     weights: List[float]
+    n: int  # sample size across all variations
 
 
 @dataclass
 class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
-    weights: List[BanditWeightsSinglePeriod]
+    historical_weights: Optional[List[BanditWeightsSinglePeriod]]
+    current_weights: List[float]
     reweight: bool = True
     decision_metric: str = ""
     bandit_weights_seed: int = 100

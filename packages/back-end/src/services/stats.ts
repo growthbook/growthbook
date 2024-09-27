@@ -73,10 +73,12 @@ export interface AnalysisSettingsForStatsEngine {
 export interface BanditSettingsForStatsEngine {
   var_names: string[];
   var_ids: string[];
-  weights: {
+  historical_weights?: {
     date: Date;
     weights: number[];
+    n: number;
   }[];
+  current_weights: [];
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;

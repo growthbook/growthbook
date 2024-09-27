@@ -5,6 +5,7 @@ from typing import List, Optional
 import numpy as np
 import random
 from pydantic.dataclasses import dataclass
+from scipy.stats import chi2  # type: ignore
 
 from gbstats.models.statistics import (
     SampleMeanStatistic,
@@ -16,6 +17,7 @@ from gbstats.utils import (
     gaussian_credible_interval,
 )
 from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
+from gbstats.models.settings import BanditWeightsSinglePeriod
 
 
 @dataclass
@@ -56,11 +58,13 @@ class Bandits(ABC):
     def __init__(
         self,
         stats: List,
-        historical_weights: List[List[float]],
+        historical_periods: List[BanditWeightsSinglePeriod],
+        current_weights: List[float],
         config: BanditConfig,
     ):
         self.stats = stats
-        self.historical_weights = historical_weights
+        self.historical_periods = historical_periods
+        self.current_weights = current_weights
         self.config = config
         self.inverse = self.config.inverse
 
@@ -76,8 +80,66 @@ class Bandits(ABC):
         return self.config.bandit_weights_seed
 
     @property
+    def num_periods_historical(self) -> int:
+        return len(self.historical_periods)
+
+    @property
+    def num_periods(self) -> int:
+        return self.num_periods_historical + 1
+
+    @property
     def num_variations(self) -> int:
         return len(self.stats)
+
+    @property
+    def current_sample_size(self):
+        return sum(self.variation_counts)
+
+    @property
+    def historical_weights_array(self) -> np.ndarray:
+        weights_list = []
+        for period in range(self.num_periods_historical):
+            weights_list.append(self.historical_periods[period].weights)
+        return np.array(weights_list).reshape(
+            (self.num_periods_historical, self.num_variations)
+        )
+
+    @property
+    def period_counts(self) -> np.ndarray:
+        cumulative_counts_historical = [
+            bandit_period.n for bandit_period in self.historical_periods
+        ]
+        cumulative_counts = cumulative_counts_historical + [self.current_sample_size]
+        period_counts = [cumulative_counts[0]]
+        if self.num_periods > 1:
+            for period in range(1, self.num_periods):
+                period_counts.append(
+                    cumulative_counts[period] - cumulative_counts[period - 1]
+                )
+        return np.array(period_counts)
+
+    @property
+    def counts_expected(self) -> np.ndarray:
+        counts_expected_by_period = np.empty((self.num_periods, self.num_variations))
+        for period in range(self.num_periods_historical):
+            counts_expected_by_period[period] = (
+                self.period_counts[period] * self.historical_weights_array[period, :]
+            )
+        counts_expected_by_period[self.num_periods_historical] = (
+            np.array(self.current_weights)
+            * self.period_counts[self.num_periods_historical]
+        )
+        return np.sum(counts_expected_by_period, axis=0)
+
+    def compute_srm(self) -> float:
+        resid = self.variation_counts - self.counts_expected
+        resid_squared = resid**2
+        positive_expected = self.counts_expected > 0
+        test_stat = np.sum(
+            resid_squared[positive_expected] / self.counts_expected[positive_expected]
+        )
+        df = self.num_variations - 1
+        return float(1 - chi2.cdf(test_stat, df=df))
 
     # sample sizes by variation
     @property
@@ -233,11 +295,13 @@ class BanditsSimple(Bandits):
     def __init__(
         self,
         stats: List[SampleMeanStatistic],
-        historical_weights: List[List[float]],
+        historical_periods: List[BanditWeightsSinglePeriod],
+        current_weights: List[float],
         config: BanditConfig,
     ):
         self.stats = stats
-        self.historical_weights = historical_weights
+        self.historical_periods = historical_periods
+        self.current_weights = current_weights
         self.config = config
         self.inverse = self.config.inverse
 
@@ -254,11 +318,13 @@ class BanditsRatio(Bandits):
     def __init__(
         self,
         stats: List[RatioStatistic],
-        historical_weights: List[List[float]],
+        historical_periods: List[BanditWeightsSinglePeriod],
+        current_weights: List[float],
         config: BanditConfig,
     ):
         self.stats = stats
-        self.historical_weights = historical_weights
+        self.historical_periods = historical_periods
+        self.current_weights = current_weights
         self.config = config
         self.inverse = self.config.inverse
 
@@ -308,11 +374,13 @@ class BanditsCuped(Bandits):
     def __init__(
         self,
         stats: List[RegressionAdjustedStatistic],
-        historical_weights: List[List[float]],
+        historical_periods: List[BanditWeightsSinglePeriod],
+        current_weights: List[float],
         config: BanditConfig,
     ):
         self.stats = stats
-        self.historical_weights = historical_weights
+        self.historical_periods = historical_periods
+        self.current_weights = current_weights
         self.config = config
         self.inverse = self.config.inverse
 

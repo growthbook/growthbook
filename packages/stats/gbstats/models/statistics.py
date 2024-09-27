@@ -298,7 +298,6 @@ TestStatistic = Union[
 ]
 
 BanditStatistic = Union[
-    ProportionStatistic,
     SampleMeanStatistic,
     RatioStatistic,
     RegressionAdjustedStatistic,

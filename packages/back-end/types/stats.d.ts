@@ -70,10 +70,10 @@ export type SingleVariationResult = {
 
 export type BanditResult = {
   singleVariationResults?: SingleVariationResult[];
+  currentWeights: number[];
+  updatedWeights: number[];
   srm: number;
-  weights: number[];
   bestArmProbabilities?: number[];
-  additionalReward: number;
   seed: number;
   updateMessage?: string;
   error?: string;
