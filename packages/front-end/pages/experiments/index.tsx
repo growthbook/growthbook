@@ -403,12 +403,12 @@ const ExperimentsPage = (): React.ReactElement => {
                               : `Include ${tab} experiments`
                           }
                         >
-                          <span className="mr-1">
+                          <span className="mr-1 ml-2">
                             {tab.slice(0, 1).toUpperCase()}
                             {tab.slice(1)}
                           </span>
                           {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2">
+                            <span className="badge bg-white border text-dark mr-2 mb-0">
                               {tabCounts[tab] || 0}
                             </span>
                           )}

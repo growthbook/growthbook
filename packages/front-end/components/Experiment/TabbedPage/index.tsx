@@ -384,7 +384,11 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
+        <div
+          className={
+            tab === "results" ? "d-block pt-3" : "d-none d-print-block"
+          }
+        >
           {/* TODO: Update ResultsTab props to include redirest and pipe through to StartExperimentBanner */}
           <ResultsTab
             experiment={experiment}
