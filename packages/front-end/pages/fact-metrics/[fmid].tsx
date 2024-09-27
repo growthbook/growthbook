@@ -777,7 +777,7 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-      <div className="row align-items-center ml-1">
+      <div className="row align-items-center">
         <ControlledTabs
           orientation="horizontal"
           className="col"
