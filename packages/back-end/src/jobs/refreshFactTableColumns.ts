@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { isColumnEligibleForTopLevelEnum } from "shared/experiments";
+import { isColumnEligibleForPrompting } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -165,7 +165,7 @@ export async function runRefreshColumnsQuery(
   });
 
   for (const col of columns) {
-    if (col.topLevelEnum && isColumnEligibleForTopLevelEnum(factTable, col)) {
+    if (col.alwaysPrompt && isColumnEligibleForPrompting(factTable, col)) {
       try {
         col.topValues = await runColumnTopValuesQuery(
           context,

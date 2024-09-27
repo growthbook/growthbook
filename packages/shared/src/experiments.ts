@@ -37,7 +37,7 @@ export function isFactMetric(
   return "metricType" in m;
 }
 
-export function isColumnEligibleForTopLevelEnum(
+export function isColumnEligibleForPrompting(
   factTable: Pick<FactTableInterface, "userIdTypes">,
   column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
 ): boolean {
@@ -45,7 +45,7 @@ export function isColumnEligibleForTopLevelEnum(
 
   if (column.datatype !== "string") return false;
 
-  // If the column is one of the identifier columns, it is not eligible for top-level enum
+  // If the column is one of the identifier columns, it is not eligible for prompting
   if (factTable.userIdTypes.includes(column.column)) return false;
 
   return true;
@@ -55,22 +55,27 @@ export function getColumnRefWhereClause(
   factTable: FactTableInterface,
   columnRef: ColumnRef
 ): string[] {
-  const topLevelEnums = columnRef.topLevelEnums || {};
+  const promptValues = columnRef.promptValues || {};
   const filterIds = columnRef.filters || [];
 
   const where: string[] = [];
 
-  // First add top-level enum filters
+  // First add prompted filters
   factTable.columns.forEach((column) => {
-    if (column.topLevelEnum) {
-      if (column.column in topLevelEnums) {
-        if (!isColumnEligibleForTopLevelEnum(factTable, column)) {
+    if (column.alwaysPrompt) {
+      if (column.column in promptValues) {
+        if (!isColumnEligibleForPrompting(factTable, column)) {
           return;
         }
 
-        const escapedValue = topLevelEnums[column.column].replace(/'/g, "''");
-        if (escapedValue.length > 0) {
-          where.push(`${column.column} = '${escapedValue}'`);
+        const escapedValues = promptValues[column.column]
+          .map((v) => "'" + v.replace(/'/g, "''") + "'")
+          .filter((v) => v.length > 0);
+
+        if (escapedValues.length === 1) {
+          where.push(`${column.column} = ${escapedValues[0]}`);
+        } else if (escapedValues.length > 1) {
+          where.push(`${column.column} IN (${escapedValues.join(", ")})`);
         }
       }
     }

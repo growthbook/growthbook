@@ -8,7 +8,7 @@ import {
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
-import { isColumnEligibleForTopLevelEnum } from "shared/experiments";
+import { isColumnEligibleForPrompting } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -39,7 +39,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       name: existing?.name || "",
       numberFormat: existing?.numberFormat || "",
       datatype: existing?.datatype || "",
-      topLevelEnum: existing?.topLevelEnum || false,
+      alwaysPrompt: existing?.alwaysPrompt || false,
     },
   });
 
@@ -59,17 +59,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             name: value.name,
             numberFormat: value.numberFormat,
             datatype: value.datatype,
-            topLevelEnum: value.topLevelEnum,
+            alwaysPrompt: value.alwaysPrompt,
           };
 
           if (
-            value.topLevelEnum &&
-            !isColumnEligibleForTopLevelEnum(factTable, {
+            value.alwaysPrompt &&
+            !isColumnEligibleForPrompting(factTable, {
               ...existing,
               ...data,
             })
           ) {
-            value.topLevelEnum = false;
+            value.alwaysPrompt = false;
           }
 
           await apiCall(
@@ -160,14 +160,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         placeholder={form.watch("column")}
       />
 
-      {isColumnEligibleForTopLevelEnum(factTable, {
+      {isColumnEligibleForPrompting(factTable, {
         column: form.watch("column"),
         datatype: form.watch("datatype"),
         deleted: false,
       }) && (
         <div className="form-group">
           <label>
-            <input type="checkbox" {...form.register("topLevelEnum")} /> Prompt
+            <input type="checkbox" {...form.register("alwaysPrompt")} /> Prompt
             all metrics to filter on this column{" "}
             <Tooltip body="Use this for columns that are almost always required, like 'event_type' if this is an events table" />
           </label>

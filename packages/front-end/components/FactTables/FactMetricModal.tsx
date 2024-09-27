@@ -180,8 +180,8 @@ function ColumnRefSelector({
     });
   }
 
-  const topLevelEnumFields = (factTable?.columns || [])
-    .filter((col) => col.datatype === "string" && col.topLevelEnum)
+  const promptFields = (factTable?.columns || [])
+    .filter((col) => col.datatype === "string" && col.alwaysPrompt)
     .map((col) => {
       return {
         label: col.name || col.column,
@@ -230,16 +230,16 @@ function ColumnRefSelector({
             required
           />
         </div>
-        {topLevelEnumFields.map(({ label, key, options }) => (
+        {promptFields.map(({ label, key, options }) => (
           <div className="col-auto" key={key}>
             {options.length > 0 ? (
               <SelectField
                 label={label}
-                value={value.topLevelEnums?.[key] || ""}
+                value={value.promptValues?.[key]?.[0] || ""}
                 onChange={(v) =>
                   setValue({
                     ...value,
-                    topLevelEnums: { ...value.topLevelEnums, [key]: v },
+                    promptValues: { ...value.promptValues, [key]: [v] },
                   })
                 }
                 options={options.map((o) => ({
@@ -256,13 +256,13 @@ function ColumnRefSelector({
             ) : (
               <Field
                 label={label}
-                value={value.topLevelEnums?.[key] || ""}
+                value={value.promptValues?.[key]?.[0] || ""}
                 onChange={(v) =>
                   setValue({
                     ...value,
-                    topLevelEnums: {
-                      ...value.topLevelEnums,
-                      [key]: v.target.value,
+                    promptValues: {
+                      ...value.promptValues,
+                      [key]: [v.target.value],
                     },
                   })
                 }
@@ -276,7 +276,7 @@ function ColumnRefSelector({
             <MultiSelectField
               label={
                 <>
-                  {topLevelEnumFields.length > 0
+                  {promptFields.length > 0
                     ? "Additional Filters"
                     : "Included Rows"}{" "}
                   <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
@@ -288,7 +288,7 @@ function ColumnRefSelector({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder={topLevelEnumFields.length > 0 ? "None" : "All Rows"}
+              placeholder={promptFields.length > 0 ? "None" : "All Rows"}
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);

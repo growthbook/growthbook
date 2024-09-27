@@ -133,7 +133,7 @@ export default function ColumnList({ factTable }: Props) {
                       </span>
                     </Tooltip>
                   )}
-                  {col.topLevelEnum && (
+                  {col.alwaysPrompt && (
                     <Tooltip body="Prompt all metrics to filter on this column">
                       <span className="badge badge-purple">
                         <FaFilter />

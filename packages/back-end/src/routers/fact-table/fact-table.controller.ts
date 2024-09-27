@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { isColumnEligibleForTopLevelEnum } from "shared/experiments";
+import { isColumnEligibleForPrompting } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -269,11 +269,11 @@ export const putColumn = async (
 
   const updatedCol = { ...col, ...data };
 
-  // If we're just toggling topLevelEnum on, populate values
+  // If we're just toggling prompting on, populate values
   if (
-    !col.topLevelEnum &&
-    data.topLevelEnum &&
-    isColumnEligibleForTopLevelEnum(factTable, updatedCol)
+    !col.alwaysPrompt &&
+    data.alwaysPrompt &&
+    isColumnEligibleForPrompting(factTable, updatedCol)
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {
