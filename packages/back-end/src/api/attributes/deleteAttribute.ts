@@ -1,9 +1,9 @@
-import { DeleteAttributeResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { deleteAttributeValidator } from "../../validators/openapi";
-import { updateOrganization } from "../../models/OrganizationModel";
-import { OrganizationInterface } from "../../../types/organization";
-import { auditDetailsDelete } from "../../services/audit";
+import { DeleteAttributeResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { deleteAttributeValidator } from "back-end/src/validators/openapi";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteAttribute = createApiRequestHandler(
   deleteAttributeValidator

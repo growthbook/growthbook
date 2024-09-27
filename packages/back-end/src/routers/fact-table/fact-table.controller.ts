@@ -1,7 +1,7 @@
 import type { Response } from "express";
-import { ReqContext } from "../../../types/organization";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
+import { ReqContext } from "back-end/types/organization";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -12,7 +12,7 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
-} from "../../../types/fact-table";
+} from "back-end/types/fact-table";
 import {
   createFactTable,
   getAllFactTablesForOrganization,
@@ -23,12 +23,12 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
-} from "../../models/FactTableModel";
-import { addTags, addTagsDiff } from "../../models/TagModel";
-import { getSourceIntegrationObject } from "../../services/datasource";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { DataSourceInterface } from "../../../types/datasource";
-import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
+} from "back-end/src/models/FactTableModel";
+import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { runRefreshColumnsQuery } from "back-end/src/jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,

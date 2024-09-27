@@ -1,16 +1,16 @@
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
 import {
   ProxyConnection,
   SDKConnectionInterface,
-} from "../../types/sdk-connection";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+} from "back-end/types/sdk-connection";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   getSurrogateKeysFromEnvironments,
   purgeCDNCache,
-} from "../util/cdn.util";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/src/util/cdn.util";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
 import {
   fireGlobalSdkWebhooks,

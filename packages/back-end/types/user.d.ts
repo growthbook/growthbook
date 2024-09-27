@@ -1,4 +1,4 @@
-export { UserInterface } from "../src/validators/users";
+export { UserInterface } from "back-end/src/validators/users";
 
 export interface UserRef {
   id: string;

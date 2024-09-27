@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { windowTypeValidator } from "../routers/fact-table/fact-table.validators";
-import { statsEngines } from "../util/constants";
+import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
+import { statsEngines } from "back-end/src/util/constants";
 import {
   namespaceValue,
   featurePrerequisite,

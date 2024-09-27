@@ -1,14 +1,17 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { Document } from "mongodb";
-import { UserInterface } from "../../types/user";
-import { usingOpenId, validatePasswordFormat } from "../services/auth";
-import { hash } from "../services/users";
+import { UserInterface } from "back-end/types/user";
+import {
+  usingOpenId,
+  validatePasswordFormat,
+} from "back-end/src/services/auth";
+import { hash } from "back-end/src/services/users";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const userSchema = new mongoose.Schema({
   id: {

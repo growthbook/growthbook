@@ -4,32 +4,32 @@ import type pino from "pino";
 import type { Request } from "express";
 import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { MetricAnalysisModel } from "../models/MetricAnalysisModel";
+import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
   Permission,
   UserPermissions,
-} from "../../types/organization";
-import { EventUser } from "../events/event-types";
+} from "back-end/types/organization";
+import { EventUser } from "back-end/src/events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
   getEnvironmentIdsFromOrg,
-} from "../util/organization.util";
-import { TeamInterface } from "../../types/team";
-import { FactMetricModel } from "../models/FactMetricModel";
-import { ProjectModel } from "../models/ProjectModel";
-import { ProjectInterface } from "../../types/project";
-import { addTags, getAllTags } from "../models/TagModel";
-import { AuditInterfaceInput } from "../../types/audit";
-import { insertAudit } from "../models/AuditModel";
-import { logger } from "../util/logger";
-import { UrlRedirectModel } from "../models/UrlRedirectModel";
-import { ExperimentInterface } from "../../types/experiment";
-import { DataSourceInterface } from "../../types/datasource";
-import { getExperimentsByIds } from "../models/ExperimentModel";
-import { getDataSourcesByOrganization } from "../models/DataSourceModel";
-import { SegmentModel } from "../models/SegmentModel";
+} from "back-end/src/util/organization.util";
+import { TeamInterface } from "back-end/types/team";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { ProjectInterface } from "back-end/types/project";
+import { addTags, getAllTags } from "back-end/src/models/TagModel";
+import { AuditInterfaceInput } from "back-end/types/audit";
+import { insertAudit } from "back-end/src/models/AuditModel";
+import { logger } from "back-end/src/util/logger";
+import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {

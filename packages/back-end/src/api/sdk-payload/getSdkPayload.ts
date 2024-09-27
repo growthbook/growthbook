@@ -2,9 +2,9 @@ import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import {
   FeatureDefinitionSDKPayload,
   getFeatureDefinitions,
-} from "../../services/features";
-import { createApiRequestHandler } from "../../util/handler";
-import { getPayloadParamsFromApiKey } from "../../controllers/features";
+} from "back-end/src/services/features";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getPayloadParamsFromApiKey } from "back-end/src/controllers/features";
 
 export const getSdkPayload = createApiRequestHandler()(
   async (req): Promise<FeatureDefinitionSDKPayload & { status: number }> => {

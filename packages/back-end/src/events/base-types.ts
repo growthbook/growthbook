@@ -1,13 +1,13 @@
 import { z, ZodType } from "zod";
-import { UnionToTuple } from "../util/types";
+import { UnionToTuple } from "back-end/src/util/types";
 import {
   apiExperimentValidator,
   apiFeatureValidator,
-} from "../validators/openapi";
-import { eventUser } from "../validators/events";
-import { userLoginInterface } from "../validators/users";
-import { experimentWarningNotificationPayload } from "../validators/experiment-warnings";
-import { experimentInfoSignificance } from "../validators/experiment-info";
+} from "back-end/src/validators/openapi";
+import { eventUser } from "back-end/src/validators/events";
+import { userLoginInterface } from "back-end/src/validators/users";
+import { experimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
+import { experimentInfoSignificance } from "back-end/src/validators/experiment-info";
 import { EventUser } from "./event-types";
 
 type WebhookEntry = {

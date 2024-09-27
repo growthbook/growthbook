@@ -2,13 +2,13 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
-import { ApiSavedGroup } from "../../types/openapi";
+import { ApiSavedGroup } from "back-end/types/openapi";
 import {
   CreateSavedGroupProps,
   LegacySavedGroupInterface,
   UpdateSavedGroupProps,
-} from "../../types/saved-group";
-import { migrateSavedGroup } from "../util/migrations";
+} from "back-end/types/saved-group";
+import { migrateSavedGroup } from "back-end/src/util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {

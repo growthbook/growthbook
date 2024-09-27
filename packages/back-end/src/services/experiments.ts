@@ -34,9 +34,9 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import { promiseAllChunks } from "../util/promise";
-import { updateExperiment } from "../models/ExperimentModel";
-import { Context } from "../models/BaseModel";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { Context } from "back-end/src/models/BaseModel";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -44,72 +44,75 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotVariation,
-} from "../../types/experiment-snapshot";
+} from "back-end/types/experiment-snapshot";
 import {
   getMetricById,
   getMetricMap,
   getMetricsByIds,
   insertMetric,
-} from "../models/MetricModel";
-import { checkSrm, sumSquaresFromStats } from "../util/stats";
-import { addTags } from "../models/TagModel";
+} from "back-end/src/models/MetricModel";
+import { checkSrm, sumSquaresFromStats } from "back-end/src/util/stats";
+import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
-} from "../models/ExperimentSnapshotModel";
-import { Dimension } from "../types/Integration";
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { Dimension } from "back-end/src/types/Integration";
 import {
   Condition,
   MetricInterface,
   MetricStats,
   Operator,
-} from "../../types/metric";
-import { SegmentInterface } from "../../types/segment";
+} from "back-end/types/metric";
+import { SegmentInterface } from "back-end/types/segment";
 import {
   ExperimentInterface,
   ExperimentPhase,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
-} from "../../types/experiment";
-import { findDimensionById } from "../models/DimensionModel";
+} from "back-end/types/experiment";
+import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
-} from "../util/secrets";
+} from "back-end/src/util/secrets";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
   ReqContext,
-} from "../../types/organization";
-import { logger } from "../util/logger";
-import { DataSourceInterface } from "../../types/datasource";
+} from "back-end/types/organization";
+import { logger } from "back-end/src/util/logger";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
   ApiExperiment,
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
-} from "../../types/openapi";
-import { MetricSnapshotSettings } from "../../types/report";
+} from "back-end/types/openapi";
+import { MetricSnapshotSettings } from "back-end/types/report";
 import {
   postExperimentValidator,
   postMetricValidator,
   putMetricValidator,
   updateExperimentValidator,
-} from "../validators/openapi";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
-import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
-import { FactTableMap, getFactTableMap } from "../models/FactTableModel";
-import { StatsEngine } from "../../types/stats";
-import { getFeaturesByIds } from "../models/FeatureModel";
-import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
-import { ExperimentRefRule, FeatureRule } from "../../types/feature";
-import { ApiReqContext } from "../../types/api";
-import { ProjectInterface } from "../../types/project";
+} from "back-end/src/validators/openapi";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
+import {
+  FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
+import { StatsEngine } from "back-end/types/stats";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
+import { ApiReqContext } from "back-end/types/api";
+import { ProjectInterface } from "back-end/types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {

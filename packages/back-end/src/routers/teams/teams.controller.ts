@@ -1,25 +1,25 @@
 import type { Response } from "express";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
-import { TeamInterface } from "../../../types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
   createTeam,
   deleteTeam,
   findTeamById,
   findTeamByName,
   updateTeamMetadata,
-} from "../../models/TeamModel";
+} from "back-end/src/models/TeamModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../../services/audit";
+} from "back-end/src/services/audit";
 import {
   addMembersToTeam,
   getContextFromReq,
   removeMembersFromTeam,
-} from "../../services/organizations";
-import { AuthRequest } from "../../types/AuthRequest";
-import { MemberRoleWithProjects } from "../../../types/organization";
+} from "back-end/src/services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { MemberRoleWithProjects } from "back-end/types/organization";
 
 // region POST /teams
 

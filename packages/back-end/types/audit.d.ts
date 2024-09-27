@@ -1,5 +1,5 @@
-import { EntityType, EntityEvents } from "../src/types/Audit";
-export { EventType } from "../src/types/Audit";
+import { EntityType, EntityEvents } from "back-end/src/types/Audit";
+export { EventType } from "back-end/src/types/Audit";
 
 export interface AuditUserLoggedIn {
   id: string;

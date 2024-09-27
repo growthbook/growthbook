@@ -7,26 +7,26 @@ import {
   validateCondition,
 } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
-import { logger } from "../../util/logger";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
+import { logger } from "back-end/src/util/logger";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
-} from "../../../types/saved-group";
+} from "back-end/types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,
   getSavedGroupById,
   updateSavedGroupById,
-} from "../../models/SavedGroupModel";
+} from "back-end/src/models/SavedGroupModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../../services/audit";
-import { savedGroupUpdated } from "../../services/savedGroups";
+} from "back-end/src/services/audit";
+import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 
 // region POST /saved-groups
 
