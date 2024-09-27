@@ -79,7 +79,7 @@ export default function BanditUpdateStatus({
         }
         toggleClassName="p-1 rounded"
       >
-        <div className="px-2 pb-1" style={{ minWidth: 320 }}>
+        <div className="px-2 pb-1" style={{ minWidth: 330 }}>
           <table className="table-tiny mb-4">
             <tbody>
               <tr>

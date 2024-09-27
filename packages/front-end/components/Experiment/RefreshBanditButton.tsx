@@ -70,7 +70,7 @@ const RefreshBanditButton: FC<{
         getDatasourceById(experiment.datasource)?.type || null,
         res.snapshot
       );
-      mutate();
+      await mutate();
     } catch (e) {
       console.error(e);
     }
@@ -79,7 +79,7 @@ const RefreshBanditButton: FC<{
 
   return (
     <>
-      <div className="d-flex align-items-center justify-content-end">
+      <div className="d-flex align-items-center justify-content-end mx-2">
         <div className="text-muted d-block mr-2" style={{ fontSize: "12px" }}>
           Manually update and
         </div>
@@ -102,8 +102,11 @@ const RefreshBanditButton: FC<{
                 setGeneratedSnapshot(
                   res?.snapshot as ExperimentSnapshotInterface | undefined
                 );
+                const banditError = res?.snapshot?.banditResult?.error;
                 if (res.status >= 400) {
                   setError(res.message || "Unable to update bandit.");
+                } else if (banditError) {
+                  setError(banditError);
                 } else {
                   setError("");
                 }

@@ -164,7 +164,7 @@ const getTooltipContents = (
         </div>
       )}
 
-      {d.updateMessage ? (
+      {d.updateMessage && !d.error ? (
         <div className="text-sm my-2 alert alert-warning py-1 px-2">
           <FaExclamationTriangle className="mr-1" />
           {d.updateMessage}
