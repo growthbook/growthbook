@@ -403,7 +403,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               : `Include ${tab} experiments`
                           }
                         >
-                          <span className="mr-1">
+                          <span className="mr-1 ml-2">
                             {tab.slice(0, 1).toUpperCase()}
                             {tab.slice(1)}
                           </span>
