@@ -946,9 +946,9 @@ main.main.report {
       color: var(--text-color-th);
       white-space: nowrap;
       border-bottom-width: 1px;
-      border-bottom-color: var(--border-color-300);
+      border-bottom-color: var(--border-color-200);
       border-top: 0;
-
+      background-color: rgba(colors.$gray4, 0.05);
       .activesort,
       .inactivesort {
         font-size: 13px;
@@ -1130,6 +1130,10 @@ main.main.report {
     }
   }
 }
+.shiftdown-1 {
+  position: relative;
+  top: 1px;
+}
 .paged-modal-default {
   justify-content: space-between;
   flex-wrap: wrap;
@@ -1252,6 +1256,9 @@ main.main.report {
   td {
     vertical-align: top;
   }
+}
+.tabbed-content {
+  border-top-left-radius: 0;
 }
 
 .flex-1 {

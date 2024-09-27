@@ -782,7 +782,7 @@ export default function FactMetricPage() {
           orientation="horizontal"
           className="col"
           buttonsClassName="mb-0"
-          buttonsWrapperClassName="ml-2 border-bottom-0 mb-n2 p-1 large"
+          buttonsWrapperClassName="border-bottom-0 large shiftdown-1"
           defaultTab="analysis"
           newStyle={false}
           showActiveCount={false}
@@ -802,7 +802,11 @@ export default function FactMetricPage() {
             lazy={true}
           >
             {datasource ? (
-              <MetricAnalysis factMetric={factMetric} datasource={datasource} />
+              <MetricAnalysis
+                factMetric={factMetric}
+                datasource={datasource}
+                className="tabbed-content"
+              />
             ) : null}
           </Tab>
           <Tab

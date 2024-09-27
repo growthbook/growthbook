@@ -271,20 +271,19 @@ pre {
 // region Tabs
 
 .nav-tabs {
-  border-color: var(--border-color-300);
+  border-color: var(--border-color-200);
 }
-
 .nav-tabs .nav-link.active,
 .nav-tabs .nav-item.show .nav-link {
   color: var(--text-color-muted);
   background-color: var(--surface-background-color);
-  border-color: var(--border-color-300) var(--border-color-300)
+  border-color: var(--border-color-200) var(--border-color-200)
     var(--surface-background-color);
 }
 
 .nav-tabs .nav-link:hover,
 .nav-tabs .nav-link:focus {
-  border-color: var(--border-color-300) var(--border-color-300)
+  border-color: var(--border-color-200) var(--border-color-200)
     var(--surface-background-color);
 }
 
