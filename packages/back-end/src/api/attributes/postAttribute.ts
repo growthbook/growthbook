@@ -1,9 +1,9 @@
-import { PostAttributeResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { postAttributeValidator } from "../../validators/openapi";
-import { updateOrganization } from "../../models/OrganizationModel";
-import { OrganizationInterface } from "../../../types/organization";
-import { auditDetailsCreate } from "../../services/audit";
+import { PostAttributeResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postAttributeValidator } from "back-end/src/validators/openapi";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(

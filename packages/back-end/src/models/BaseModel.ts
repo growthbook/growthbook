@@ -7,21 +7,21 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
-import { logger } from "../util/logger";
-import { EntityType, EventTypes, EventType } from "../types/Audit";
-import { AuditInterfaceTemplate } from "../../types/audit";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
+import { logger } from "back-end/src/util/logger";
+import { EntityType, EventTypes, EventType } from "back-end/src/types/Audit";
+import { AuditInterfaceTemplate } from "back-end/types/audit";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../services/audit";
+} from "back-end/src/services/audit";
 import {
   ForeignKeys,
   ForeignRefs,
   ForeignRefsCacheKeys,
-} from "../services/context";
+} from "back-end/src/services/context";
 
 export type Context = ApiReqContext | ReqContext;
 

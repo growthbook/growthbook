@@ -1,23 +1,26 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
-import { StatsEngine } from "../../types/stats";
-import { Context } from "../models/BaseModel";
-import { createEvent, CreateEventData } from "../models/EventModel";
-import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
-import { getExperimentWatchers } from "../models/WatchModel";
-import { logger } from "../util/logger";
-import { ensureAndReturn } from "../util/types";
+import { StatsEngine } from "back-end/types/stats";
+import { Context } from "back-end/src/models/BaseModel";
+import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { getExperimentWatchers } from "back-end/src/models/WatchModel";
+import { logger } from "back-end/src/util/logger";
+import { ensureAndReturn } from "back-end/src/util/types";
 import {
   ExperimentSnapshotDocument,
   getDefaultAnalysisResults,
   getLatestSnapshot,
-} from "../models/ExperimentSnapshotModel";
+} from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ExperimentInterface,
   ExperimentNotification,
-} from "../../types/experiment";
-import { ExperimentReportResultDimension } from "../../types/report";
-import { ResourceEvents } from "../events/base-types";
+} from "back-end/types/experiment";
+import { ExperimentReportResultDimension } from "back-end/types/report";
+import { ResourceEvents } from "back-end/src/events/base-types";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,

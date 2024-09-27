@@ -7,26 +7,26 @@ import {
   validateCondition,
 } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
-import { logger } from "../../util/logger";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
+import { logger } from "back-end/src/util/logger";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
-} from "../../../types/saved-group";
+} from "back-end/types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,
   getSavedGroupById,
   updateSavedGroupById,
-} from "../../models/SavedGroupModel";
+} from "back-end/src/models/SavedGroupModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../../services/audit";
-import { savedGroupUpdated } from "../../services/savedGroups";
+} from "back-end/src/services/audit";
+import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 
 // region POST /saved-groups
 
@@ -68,7 +68,7 @@ export const postSavedGroup = async (
     await context.models.projects.ensureProjectsExist(projects);
   }
 
-  const uniqValues: string[] | undefined = undefined;
+  let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
     const conditionRes = validateCondition(condition);
@@ -95,7 +95,7 @@ export const postSavedGroup = async (
         "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
       );
     }
-    const uniqValues = [...new Set(values)];
+    uniqValues = [...new Set(values)];
     if (
       new Blob([JSON.stringify(uniqValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
     ) {

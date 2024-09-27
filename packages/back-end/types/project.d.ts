@@ -1,1 +1,4 @@
-export { ProjectInterface, ProjectSettings } from "../src/models/ProjectModel";
+export {
+  ProjectInterface,
+  ProjectSettings,
+} from "back-end/src/models/ProjectModel";

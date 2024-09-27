@@ -1,23 +1,23 @@
 import request from "supertest";
-import { createFeature, getFeature } from "../../src/models/FeatureModel";
-import { addTags } from "../../src/models/TagModel";
+import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
+import { addTags } from "back-end/src/models/TagModel";
 import {
   getSavedGroupMap,
   getApiFeatureObj,
   createInterfaceEnvSettingsFromApiEnvSettings,
-} from "../../src/services/features";
+} from "back-end/src/services/features";
 import { setupApp } from "./api.setup";
 
-jest.mock("../../src/models/FeatureModel", () => ({
+jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   createFeature: jest.fn(),
 }));
 
-jest.mock("../../src/models/TagModel", () => ({
+jest.mock("back-end/src/models/TagModel", () => ({
   addTags: jest.fn(),
 }));
 
-jest.mock("../../src/services/features", () => ({
+jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
   getSavedGroupMap: jest.fn(),
   addIdsToRules: jest.fn(),

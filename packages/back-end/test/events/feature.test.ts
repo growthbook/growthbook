@@ -6,7 +6,7 @@ import {
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { featureSnapshot } from "back-end/test/snapshots/feature.snapshot";
 import { EventModel } from "back-end/src/models/EventModel";
-import { setupApp } from "../api/api.setup";
+import { setupApp } from "back-end/test/api/api.setup";
 
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {

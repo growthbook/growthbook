@@ -7198,7 +7198,7 @@ export interface operations {
   };
 }
 import { z } from "zod";
-import * as openApiValidators from "../src/validators/openapi";
+import * as openApiValidators from "back-end/src/validators/openapi";
 
 // Schemas
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;

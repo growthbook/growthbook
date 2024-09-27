@@ -12,8 +12,12 @@
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-    "rootDir": "src",
-    "resolveJsonModule": true
+    "baseUrl": "./",
+    "paths": {
+      "back-end/*": ["./*"]
+    },
+    "resolveJsonModule": true,
+    "plugins": [{ "transform": "typescript-transform-paths" }]
   },
   "include": ["src/**/*", "types/**/*.d.ts", "typings/**/*.d.ts"]
 }

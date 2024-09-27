@@ -9,31 +9,31 @@ import {
   ExperimentInterface,
   LegacyExperimentInterface,
   Variation,
-} from "../../types/experiment";
-import { ReqContext } from "../../types/organization";
-import { VisualChange } from "../../types/visual-changeset";
+} from "back-end/types/experiment";
+import { ReqContext } from "back-end/types/organization";
+import { VisualChange } from "back-end/types/visual-changeset";
 import {
   determineNextDate,
   generateTrackingKey,
   toExperimentApiInterface,
-} from "../services/experiments";
-import { logger } from "../util/logger";
-import { upgradeExperimentDoc } from "../util/migrations";
+} from "back-end/src/services/experiments";
+import { logger } from "back-end/src/util/logger";
+import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
   refreshSDKPayloadCache,
   URLRedirectExperiment,
   VisualExperiment,
-} from "../services/features";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { FeatureInterface } from "../../types/feature";
-import { getAffectedSDKPayloadKeys } from "../util/features";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/src/services/features";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { FeatureInterface } from "back-end/types/feature";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getCollection,
   removeMongooseFields,
   ToInterface,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";

@@ -1,11 +1,11 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "../../../types/openapi";
+import { PostSavedGroupResponse } from "back-end/types/openapi";
 import {
   createSavedGroup,
   toSavedGroupApiInterface,
-} from "../../models/SavedGroupModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postSavedGroupValidator } from "../../validators/openapi";
+} from "back-end/src/models/SavedGroupModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postSavedGroupValidator } from "back-end/src/validators/openapi";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {

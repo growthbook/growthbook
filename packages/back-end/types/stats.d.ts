@@ -1,4 +1,4 @@
-export { StatsEngine } from "../src/models/ProjectModel";
+export { StatsEngine } from "back-end/src/models/ProjectModel";
 
 import type { MetricStats } from "./metric";
 
