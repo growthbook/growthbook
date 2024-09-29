@@ -117,16 +117,18 @@ const MetricsSelector: FC<{
       userIdTypes: m.userIdTypes || [],
     })),
     ...(includeGroups
-      ? metricGroups.map((mg) => ({
-          id: mg.id,
-          name: mg.name + " (" + mg.metrics.length + " metrics)",
-          description: mg.description || "",
-          datasource: mg.datasource,
-          tags: mg.tags || [],
-          projects: mg.projects || [],
-          factTables: [],
-          userIdTypes: [],
-        }))
+      ? metricGroups
+          .filter((mg) => !mg.archived)
+          .map((mg) => ({
+            id: mg.id,
+            name: mg.name + " (" + mg.metrics.length + " metrics)",
+            description: mg.description || "",
+            datasource: mg.datasource,
+            tags: mg.tags || [],
+            projects: mg.projects || [],
+            factTables: [],
+            userIdTypes: [],
+          }))
       : []),
     ...(includeFacts
       ? factMetrics.map((m) => ({

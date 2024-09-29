@@ -221,6 +221,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
+    //console.log("data is", data);
     const filteredProject =
       data.projects && data.projects.map((p) => p.id).includes(project)
         ? project

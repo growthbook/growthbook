@@ -9,6 +9,7 @@ export const createMetricGroupPropsValidator = z
     owner: z.string().default(""),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
+    archived: z.boolean().default(false).optional(),
   })
   .strict();
 
@@ -21,6 +22,7 @@ export const updateMetricGroupPropsValidator = z
     owner: z.string().optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
+    archived: z.boolean().default(false).optional(),
   })
   .strict();
 
@@ -37,6 +39,7 @@ export const metricGroupValidator = z
     projects: z.array(z.string()),
     metrics: z.array(z.string()),
     datasource: z.string(),
+    archived: z.boolean().default(false),
   })
   .strict();
 

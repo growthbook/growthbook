@@ -57,17 +57,12 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^(metric$|metrics|fact-metric)/,
+        path: /^(metric$|metrics|fact-metric|metric-group)/,
       },
       {
         name: "Fact Tables",
         href: "/fact-tables",
         path: /^fact-tables/,
-      },
-      {
-        name: "Metric Groups",
-        href: "/metric-groups",
-        path: /^metric-groups/,
       },
       {
         name: "Segments",

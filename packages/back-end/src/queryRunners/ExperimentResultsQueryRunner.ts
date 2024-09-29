@@ -43,7 +43,7 @@ import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
 import { FactMetricInterface } from "../../types/fact-table";
 import SqlIntegration from "../integrations/SqlIntegration";
-import { getAllMetricGroupsForOrganization } from "../models/MetricGroupModel";
+
 import {
   QueryRunner,
   QueryMap,
@@ -182,7 +182,7 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const allMetricGroups = await getAllMetricGroupsForOrganization(org.id);
+  const allMetricGroups = await context.models.metricGroups.getAll();
   const selectedMetrics = expandMetricGroups(
     getAllMetricIdsFromExperiment(snapshotSettings, false),
     allMetricGroups

@@ -64,7 +64,8 @@ export type CommercialFeature =
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
-  | "large-saved-groups";
+  | "large-saved-groups"
+  | "metric-groups";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -227,6 +228,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "experiment-impact",
     "metric-populations",
     "large-saved-groups",
+    "metric-groups",
   ]),
 };
 

@@ -19,6 +19,7 @@ import {
 import { TeamInterface } from "../../types/team";
 import { FactMetricModel } from "../models/FactMetricModel";
 import { ProjectModel } from "../models/ProjectModel";
+import { MetricGroupModel } from "../models/MetricGroupModel";
 import { ProjectInterface } from "../../types/project";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterfaceInput } from "../../types/audit";
@@ -45,6 +46,7 @@ export class ReqContextClass {
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
+    metricGroups: MetricGroupModel;
     segments: SegmentModel;
   };
   private initModels() {
@@ -53,6 +55,7 @@ export class ReqContextClass {
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
+      metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
     };
   }
