@@ -173,6 +173,7 @@ export async function runRefreshColumnsQuery(
           factTable,
           col
         );
+        col.topValuesDate = new Date();
       } catch (e) {
         logger.error("Error running top values query", e);
       }

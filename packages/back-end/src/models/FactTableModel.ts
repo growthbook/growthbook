@@ -43,6 +43,7 @@ const factTableSchema = new mongoose.Schema({
       deleted: Boolean,
       alwaysPrompt: Boolean,
       topValues: [String],
+      topValuesDate: Date,
     },
   ],
   columnsError: String,
@@ -251,6 +252,7 @@ export async function updateColumn(
   factTable.columns[columnIndex] = {
     ...factTable.columns[columnIndex],
     ...changes,
+    ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   };
 

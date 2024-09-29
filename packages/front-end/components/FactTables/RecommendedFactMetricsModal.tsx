@@ -2,6 +2,7 @@ import { MdInfoOutline } from "react-icons/md";
 import {
   ColumnInterface,
   CreateFactMetricProps,
+  FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { isColumnEligibleForPrompting } from "shared/experiments";

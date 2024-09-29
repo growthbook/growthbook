@@ -35,6 +35,7 @@ export interface ColumnInterface {
   numberFormat: NumberFormat;
   alwaysPrompt?: boolean;
   topValues?: string[];
+  topValuesDate?: Date;
   deleted: boolean;
 }
 
