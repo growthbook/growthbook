@@ -17,6 +17,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Toggle from "@/components/Forms/Toggle";
+import RecommendedFactMetricsModal, {
+  getRecommendedFactMetrics,
+} from "@/components/FactTables/RecommendedFactMetricsModal";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -76,6 +79,12 @@ export default function FactMetricList({ factTable }: Props) {
     projects: factTable.projects,
   });
 
+  const recommendedMetrics = getRecommendedFactMetrics(factTable, metrics);
+  const [
+    showRecommendedMetricsModal,
+    setShowRecommendedMetricsModal,
+  ] = useState(false);
+
   return (
     <>
       {editMetric && (
@@ -98,6 +107,13 @@ export default function FactMetricList({ factTable }: Props) {
           existing={duplicateMetric}
           duplicate
           source="fact-table-duplicate"
+        />
+      )}
+      {showRecommendedMetricsModal && (
+        <RecommendedFactMetricsModal
+          factTable={factTable}
+          metrics={recommendedMetrics}
+          close={() => setShowRecommendedMetricsModal(false)}
         />
       )}
 
@@ -146,6 +162,23 @@ export default function FactMetricList({ factTable }: Props) {
       </div>
       {metrics.length > 0 && (
         <>
+          {recommendedMetrics.length > 0 && canCreateMetrics && (
+            <div className="alert alert-info mt-3">
+              There {recommendedMetrics.length === 1 ? "is" : "are"}{" "}
+              <strong>{recommendedMetrics.length}</strong> metric
+              {recommendedMetrics.length === 1 ? "" : "s"} we recommend creating
+              for this fact table.{" "}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowRecommendedMetricsModal(true);
+                }}
+              >
+                View Recommendation{recommendedMetrics.length === 1 ? "" : "s"}
+              </a>
+            </div>
+          )}
           <table className="table appbox gbtable mt-2 mb-0 table-hover">
             <thead>
               <tr className="cursor-pointer">

@@ -10,6 +10,9 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
 } from "shared/constants";
 import {
   CreateFactMetricProps,
@@ -18,9 +21,15 @@ import {
   UpdateFactMetricProps,
   MetricQuantileSettings,
   FactMetricType,
+  FactTableInterface,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -363,6 +372,87 @@ function ColumnRefSelector({
   );
 }
 
+export function getDefaultFactMetricProps({
+  metricDefaults,
+  existing,
+  settings,
+  project,
+  datasources,
+  initialFactTable,
+}: {
+  metricDefaults: MetricDefaults;
+  settings: OrganizationSettings;
+  project?: string;
+  datasources: DataSourceInterfaceWithParams[];
+  existing?: Partial<FactMetricInterface>;
+  initialFactTable?: FactTableInterface;
+}): CreateFactMetricProps {
+  return {
+    name: existing?.name || "",
+    owner: existing?.owner || "",
+    description: existing?.description || "",
+    tags: existing?.tags || [],
+    metricType: existing?.metricType || "proportion",
+    numerator: existing?.numerator || {
+      factTableId: initialFactTable?.id || "",
+      column: "$$count",
+      filters: [],
+    },
+    projects: existing?.projects || [],
+    denominator: existing?.denominator || null,
+    datasource:
+      existing?.datasource ||
+      getNewExperimentDatasourceDefaults(
+        datasources,
+        settings,
+        project,
+        initialFactTable ? { datasource: initialFactTable?.datasource } : {}
+      ).datasource,
+    inverse: existing?.inverse || false,
+    cappingSettings: existing?.cappingSettings || {
+      type: "",
+      value: 0,
+    },
+    quantileSettings: existing?.quantileSettings || null,
+    windowSettings: existing?.windowSettings || {
+      type: DEFAULT_FACT_METRIC_WINDOW,
+      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      windowUnit: "days",
+      windowValue: 3,
+    },
+    winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
+    loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
+    minPercentChange:
+      (existing?.minPercentChange ||
+        metricDefaults.minPercentageChange ||
+        DEFAULT_MIN_PERCENT_CHANGE) * 100,
+    maxPercentChange:
+      (existing?.maxPercentChange ||
+        metricDefaults.maxPercentageChange ||
+        DEFAULT_MAX_PERCENT_CHANGE) * 100,
+    minSampleSize:
+      existing?.minSampleSize ||
+      metricDefaults.minimumSampleSize ||
+      DEFAULT_MIN_SAMPLE_SIZE,
+    regressionAdjustmentOverride:
+      existing?.regressionAdjustmentOverride || false,
+    regressionAdjustmentEnabled:
+      existing?.regressionAdjustmentEnabled ||
+      DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+    regressionAdjustmentDays:
+      existing?.regressionAdjustmentDays ||
+      (settings.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
+    priorSettings:
+      existing?.priorSettings ||
+      (metricDefaults.priorSettings ?? {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      }),
+  };
+}
+
 export default function FactMetricModal({
   close,
   initialFactTable,
@@ -396,68 +486,16 @@ export default function FactMetricModal({
     .filter((d) => d.properties?.queryLanguage === "sql");
 
   const form = useForm<CreateFactMetricProps>({
-    defaultValues: {
-      name: existing?.name || "",
-      description: existing?.description || "",
-      tags: existing?.tags || [],
-      metricType: existing?.metricType || "proportion",
-      numerator: existing?.numerator || {
-        factTableId: initialFactTable || "",
-        column: "$$count",
-        filters: [],
-      },
-      projects: existing?.projects || [],
-      denominator: existing?.denominator || null,
-      datasource:
-        existing?.datasource ||
-        getNewExperimentDatasourceDefaults(
-          datasources,
-          settings,
-          project,
-          initialFactTable
-            ? { datasource: getFactTableById(initialFactTable)?.datasource }
-            : {}
-        ).datasource,
-      inverse: existing?.inverse || false,
-      cappingSettings: existing?.cappingSettings || {
-        type: "",
-        value: 0,
-      },
-      quantileSettings: existing?.quantileSettings || null,
-      windowSettings: existing?.windowSettings || {
-        type: DEFAULT_FACT_METRIC_WINDOW,
-        delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-        windowUnit: "days",
-        windowValue: 3,
-      },
-      winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
-      loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
-      minPercentChange:
-        (existing?.minPercentChange || metricDefaults.minPercentageChange) *
-        100,
-      maxPercentChange:
-        (existing?.maxPercentChange || metricDefaults.maxPercentageChange) *
-        100,
-      minSampleSize:
-        existing?.minSampleSize || metricDefaults.minimumSampleSize,
-      regressionAdjustmentOverride:
-        existing?.regressionAdjustmentOverride || false,
-      regressionAdjustmentEnabled:
-        existing?.regressionAdjustmentEnabled ||
-        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      regressionAdjustmentDays:
-        existing?.regressionAdjustmentDays ||
-        (settings.regressionAdjustmentDays ??
-          DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
-      priorSettings:
-        existing?.priorSettings ||
-        (metricDefaults.priorSettings ?? {
-          override: false,
-          proper: false,
-          mean: 0,
-          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-        }),
-    },
+    defaultValues: getDefaultFactMetricProps({
+      datasources,
+      metricDefaults,
+      existing,
+      settings,
+      project,
+      initialFactTable: initialFactTable
+        ? getFactTableById(initialFactTable) || undefined
+        : undefined,
+    }),
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
