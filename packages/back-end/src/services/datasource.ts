@@ -1,28 +1,31 @@
 import { AES, enc } from "crypto-js";
-import { ENCRYPTION_KEY } from "../util/secrets";
-import GoogleAnalytics from "../integrations/GoogleAnalytics";
-import Athena from "../integrations/Athena";
-import Presto from "../integrations/Presto";
-import Databricks from "../integrations/Databricks";
-import Redshift from "../integrations/Redshift";
-import Snowflake from "../integrations/Snowflake";
-import Postgres from "../integrations/Postgres";
-import Vertica from "../integrations/Vertica";
-import BigQuery from "../integrations/BigQuery";
-import ClickHouse from "../integrations/ClickHouse";
-import Mixpanel from "../integrations/Mixpanel";
-import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
+import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
+import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
+import Athena from "back-end/src/integrations/Athena";
+import Presto from "back-end/src/integrations/Presto";
+import Databricks from "back-end/src/integrations/Databricks";
+import Redshift from "back-end/src/integrations/Redshift";
+import Snowflake from "back-end/src/integrations/Snowflake";
+import Postgres from "back-end/src/integrations/Postgres";
+import Vertica from "back-end/src/integrations/Vertica";
+import BigQuery from "back-end/src/integrations/BigQuery";
+import ClickHouse from "back-end/src/integrations/ClickHouse";
+import Mixpanel from "back-end/src/integrations/Mixpanel";
+import {
+  SourceIntegrationInterface,
+  TestQueryRow,
+} from "back-end/src/types/Integration";
 import {
   DataSourceInterface,
   DataSourceParams,
   ExposureQuery,
-} from "../../types/datasource";
-import Mysql from "../integrations/Mysql";
-import Mssql from "../integrations/Mssql";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { TemplateVariables } from "../../types/sql";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/types/datasource";
+import Mysql from "back-end/src/integrations/Mysql";
+import Mssql from "back-end/src/integrations/Mssql";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { TemplateVariables } from "back-end/types/sql";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string

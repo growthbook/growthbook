@@ -29,7 +29,13 @@ export default function SavedGroupTargetingField({
 
   if (!savedGroups.length) return null;
 
-  const options = savedGroups.map((s) => ({
+  const filteredSavedGroups = savedGroups.filter((group) => {
+    return (
+      !project || !group.projects?.length || group.projects.includes(project)
+    );
+  });
+
+  const options = filteredSavedGroups.map((s) => ({
     value: s.id,
     label: s.groupName,
   }));

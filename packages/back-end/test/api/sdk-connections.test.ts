@@ -7,20 +7,20 @@ import {
   findSDKConnectionById,
   editSDKConnection,
   deleteSDKConnectionById,
-} from "../../src/models/SdkConnectionModel";
-import { validatePayload } from "../../src/api/sdk-connections/validations";
-import { sdkConnectionFactory } from "../factories/SdkConnection.factory";
+} from "back-end/src/models/SdkConnectionModel";
+import { validatePayload } from "back-end/src/api/sdk-connections/validations";
+import { sdkConnectionFactory } from "back-end/test/factories/SdkConnection.factory";
 import { setupApp } from "./api.setup";
 
-jest.mock("../../src/api/sdk-connections/validations", () => ({
+jest.mock("back-end/src/api/sdk-connections/validations", () => ({
   validatePayload: jest.fn(),
 }));
 
 const originalValidatePayload = jest.requireActual(
-  "../../src/api/sdk-connections/validations"
+  "back-end/src/api/sdk-connections/validations"
 ).validatePayload;
 
-jest.mock("../../src/models/SdkConnectionModel", () => ({
+jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   toApiSDKConnectionInterface: jest.fn(),
   createSDKConnection: jest.fn(),
   editSDKConnection: jest.fn(),

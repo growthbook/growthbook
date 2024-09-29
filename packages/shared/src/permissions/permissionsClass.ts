@@ -19,6 +19,8 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { ArchetypeInterface } from "back-end/types/archetype";
+import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -154,30 +156,6 @@ export class Permissions {
 
   public canViewAuditLogs = (): boolean => {
     return this.checkGlobalPermission("viewAuditLog");
-  };
-
-  public canCreateArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canUpdateArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canDeleteArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canCreateSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
-  };
-
-  public canUpdateSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
-  };
-
-  public canDeleteSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
   };
 
   public canCreateNamespace = (): boolean => {
@@ -409,6 +387,35 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       { projects: idea.project ? [idea.project] : [] },
       "createIdeas"
+    );
+  };
+
+  public canCreateArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "manageArchetype"
+    );
+  };
+
+  public canUpdateArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">,
+    updates: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "projects" in updates ? { projects: updates.projects } : {},
+      "manageArchetype"
+    );
+  };
+
+  public canDeleteArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "manageArchetype"
     );
   };
 
@@ -722,6 +729,34 @@ export class Permissions {
       [environment.id],
       "manageEnvironments"
     );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewSavedGroupModal = (project?: string): boolean => {
+    return this.canCreateSavedGroup({ projects: project ? [project] : [] });
+  };
+
+  public canCreateSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canUpdateSavedGroup = (
+    existing: Pick<SavedGroupInterface, "projects">,
+    updates: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageSavedGroups"
+    );
+  };
+
+  public canDeleteSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
   };
 
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions

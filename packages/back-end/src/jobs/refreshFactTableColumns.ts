@@ -1,17 +1,20 @@
 import Agenda, { Job } from "agenda";
-import { ReqContext } from "../../types/organization";
-import { getFactTable, updateFactTableColumns } from "../models/FactTableModel";
-import { getDataSourceById } from "../models/DataSourceModel";
+import { ReqContext } from "back-end/types/organization";
+import {
+  getFactTable,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
-} from "../../types/fact-table";
-import { determineColumnTypes } from "../util/sql";
-import { getSourceIntegrationObject } from "../services/datasource";
-import { DataSourceInterface } from "../../types/datasource";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { trackJob } from "../services/otel";
+} from "back-end/types/fact-table";
+import { determineColumnTypes } from "back-end/src/util/sql";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { trackJob } from "back-end/src/services/otel";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{

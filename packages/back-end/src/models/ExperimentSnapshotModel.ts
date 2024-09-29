@@ -4,9 +4,9 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
-import { migrateSnapshot } from "../util/migrations";
-import { notifyExperimentChange } from "../services/experimentNotifications";
+} from "back-end/types/experiment-snapshot";
+import { migrateSnapshot } from "back-end/src/util/migrations";
+import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 

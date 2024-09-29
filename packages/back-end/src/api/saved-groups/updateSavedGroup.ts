@@ -1,26 +1,22 @@
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
-import { logger } from "../../util/logger";
-import { UpdateSavedGroupResponse } from "../../../types/openapi";
+import { logger } from "back-end/src/util/logger";
+import { UpdateSavedGroupResponse } from "back-end/types/openapi";
 import {
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
-} from "../../models/SavedGroupModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateSavedGroupValidator } from "../../validators/openapi";
-import { savedGroupUpdated } from "../../services/savedGroups";
-import { UpdateSavedGroupProps } from "../../../types/saved-group";
+} from "back-end/src/models/SavedGroupModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { updateSavedGroupValidator } from "back-end/src/validators/openapi";
+import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { UpdateSavedGroupProps } from "back-end/types/saved-group";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
-    if (!req.context.permissions.canUpdateSavedGroup()) {
-      req.context.permissions.throwPermissionError();
-    }
-
-    const { name, values, condition, owner } = req.body;
+    const { name, values, condition, owner, projects } = req.body;
 
     const { id } = req.params;
 
@@ -28,6 +24,12 @@ export const updateSavedGroup = createApiRequestHandler(
 
     if (!savedGroup) {
       throw new Error(`Unable to locate the saved-group: ${id}`);
+    }
+
+    if (
+      !req.context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })
+    ) {
+      req.context.permissions.throwPermissionError();
     }
 
     // Sanity check to make sure arguments match the saved group type
@@ -68,6 +70,12 @@ export const updateSavedGroup = createApiRequestHandler(
 
       fieldsToUpdate.condition = condition;
     }
+    if (!isEqual(savedGroup.projects, projects)) {
+      if (projects) {
+        await req.context.models.projects.ensureProjectsExist(projects);
+      }
+      fieldsToUpdate.projects = projects;
+    }
 
     // If there are no changes, return early
     if (Object.keys(fieldsToUpdate).length === 0) {
@@ -82,8 +90,12 @@ export const updateSavedGroup = createApiRequestHandler(
       fieldsToUpdate
     );
 
-    // If the values or key change, we need to invalidate cached feature rules
-    if (fieldsToUpdate.values || fieldsToUpdate.condition) {
+    // If the values, condition, or projects change, we need to invalidate cached feature rules
+    if (
+      fieldsToUpdate.values ||
+      fieldsToUpdate.condition ||
+      fieldsToUpdate.projects
+    ) {
       savedGroupUpdated(req.context, savedGroup.id).catch((e) => {
         logger.error(e, "Error refreshing SDK Payload on saved group update");
       });

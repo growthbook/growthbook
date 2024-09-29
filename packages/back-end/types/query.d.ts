@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   queryPointerValidator,
   queryStatusValidator,
-} from "../src/validators/queries";
+} from "back-end/src/validators/queries";
 import { QueryLanguage } from "./datasource";
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;

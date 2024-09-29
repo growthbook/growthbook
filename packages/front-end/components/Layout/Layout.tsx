@@ -486,7 +486,7 @@ const Layout = (): React.ReactElement => {
                 rel="noreferrer"
                 className="text-white"
               >
-                {build.sha.substr(0, 7)}
+                {build.lastVersion}+{build.sha.substr(0, 7)}
               </a>{" "}
               {build.date && (
                 <span className="text-muted">({build.date.substr(0, 10)})</span>

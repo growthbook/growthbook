@@ -6,12 +6,12 @@ import {
   MetricAnalysisInterface,
   MetricAnalysisSettings,
 } from "back-end/types/metric-analysis";
-import { createMetricAnalysis } from "../../services/metric-analysis";
-import { MetricAnalysisQueryRunner } from "../../queryRunners/MetricAnalysisQueryRunner";
-import { getExperimentMetricById } from "../../services/experiments";
-import { getIntegrationFromDatasourceId } from "../../services/datasource";
-import { getContextFromReq } from "../../services/organizations";
-import { AuthRequest } from "../../types/AuthRequest";
+import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
+import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
+import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,

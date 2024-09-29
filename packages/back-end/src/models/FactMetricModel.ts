@@ -4,11 +4,11 @@ import {
   FactMetricInterface,
   FactTableInterface,
   LegacyFactMetricInterface,
-} from "../../types/fact-table";
-import { ApiFactMetric } from "../../types/openapi";
-import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { UpdateProps } from "../../types/models";
+} from "back-end/types/fact-table";
+import { ApiFactMetric } from "back-end/types/openapi";
+import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
+import { UpdateProps } from "back-end/types/models";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 

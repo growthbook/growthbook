@@ -15,33 +15,33 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import { WebhookInterface } from "back-end/types/webhook";
-import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
-import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
+import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
+import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "../../types/datasource";
-import { decryptDataSourceParams } from "../services/datasource";
+} from "back-end/types/datasource";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { OrganizationInterface } from "../../types/organization";
-import { getConfigOrganizationSettings } from "../init/config";
+} from "back-end/types/feature";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "../../types/experiment";
+} from "back-end/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "../../types/experiment-snapshot";
-import { getEnvironments } from "../services/organizations";
-import { LegacySavedGroupInterface } from "../../types/saved-group";
+} from "back-end/types/experiment-snapshot";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { LegacySavedGroupInterface } from "back-end/types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {

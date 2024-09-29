@@ -1,7 +1,7 @@
-import { DeleteMemberResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { deleteMemberValidator } from "../../validators/openapi";
-import { removeUserFromOrg } from "../../scim/users/patchUser";
+import { DeleteMemberResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { deleteMemberValidator } from "back-end/src/validators/openapi";
+import { removeUserFromOrg } from "back-end/src/scim/users/patchUser";
 
 export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
   async (req): Promise<DeleteMemberResponse> => {

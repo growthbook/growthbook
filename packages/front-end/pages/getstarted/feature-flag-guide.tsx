@@ -177,7 +177,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                     })
                   }
                 >
-                  Review or Add Environments
+                  Review or Add Environments (Optional)
                 </Link>
                 <p className="mt-2">
                   By default, GrowthBook comes with one
@@ -228,7 +228,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                     })
                   }
                 >
-                  Customize Targeting Attributes
+                  Customize Targeting Attributes (Optional)
                 </Link>
                 <p className="mt-2">
                   Define user attributes used to target specific feature values

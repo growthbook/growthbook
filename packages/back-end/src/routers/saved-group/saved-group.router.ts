@@ -1,7 +1,7 @@
 import express from "express";
 import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSavedGroupController from "./saved-group.controller";
 import {
   postSavedGroupBodyValidator,
@@ -11,8 +11,6 @@ import {
 const router = express.Router();
 
 const savedGroupController = wrapController(rawSavedGroupController);
-
-router.get("/", savedGroupController.getSavedGroups);
 
 router.get(
   "/:id",

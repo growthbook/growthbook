@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import { SchemaFormat } from "back-end/types/datasource";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
@@ -13,10 +14,20 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Button";
+import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
+import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
+  const [useSetupEventTracker, setUseSetupEventTracker] = useState(false);
+  const { organization } = useUser();
+  const { apiCall } = useAuth();
+  const { setupEventTracker } = organization;
+
+  console.log({ setupEventTracker });
 
   const router = useRouter();
 
@@ -114,47 +125,100 @@ const DataSources: FC = () => {
           </tbody>
         </table>
       ) : (
-        <div>
-          <p>
-            Connect GrowthBook to your data so we can automatically fetch
-            experiment results and metric values. We currently support{" "}
-            <strong>Redshift</strong>, <strong>Snowflake</strong>,{" "}
-            <strong>BigQuery</strong>, <strong>ClickHouse</strong>,{" "}
-            <strong>Postgres</strong>, <strong>MySQL</strong>,{" "}
-            <strong>MS SQL/SQL Server</strong>, <strong>Athena</strong>,{" "}
-            <strong>PrestoDB</strong>, <strong>Databricks</strong>,{" "}
-            <strong>Mixpanel</strong>, and <strong>Google Analytics</strong>{" "}
-            with more coming soon.
-          </p>
-          <p>
-            We only ever fetch aggregate data, so none of your user&apos;s
-            Personally Identifiable Information ever hits our servers. Plus, we
-            use multiple layers of encryption to store your credentials and
-            require minimal read-only permissions, so you can be sure your
-            source data remains secure.
-          </p>
-          {!demoDataSourceExists && !currentProjectIsDemo && (
+        <div className="appbox py-5 px-5 text-center mt-4">
+          {setupEventTracker &&
+          permissionsUtil.canViewCreateDataSourceModal(project) &&
+          !hasFileConfig() ? (
+            <>
+              <div className="mx-5">
+                <h1>Automatically Fetch Experiment Results & Metric Values</h1>
+                <h4 className="font-weight-normal mx-5">
+                  Securely connect your data source to analyze experiment
+                  results from within GrowthBook. We use multiple layers of
+                  encryption, and no Personally Identifiable Information (PII)
+                  ever hits our servers.
+                </h4>
+              </div>
+
+              <h4 className="mt-5">Connect your Data Source to GrowthBook</h4>
+              <div
+                className="border rounded d-inline-flex mt-3"
+                style={{
+                  height: 50,
+                  padding: 10,
+                }}
+              >
+                <DataSourceLogo
+                  eventTracker={setupEventTracker as SchemaFormat}
+                  showLabel
+                />
+              </div>
+              <div className="col mt-4">
+                <div className="row justify-content-center">
+                  <Button
+                    onClick={() => {
+                      setUseSetupEventTracker(true);
+                      setNewModalOpen(true);
+                    }}
+                  >
+                    Complete Connection
+                  </Button>
+                </div>
+                <div className="row justify-content-center mt-3">
+                  <button
+                    className="btn btn-link"
+                    onClick={() => setNewModalOpen(true)}
+                  >
+                    Change selections
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
             <>
               <p>
-                You can also create a{" "}
-                <Link href="/demo-datasource-project" className="info">
-                  demo datasource project
-                </Link>
-                .
+                Connect GrowthBook to your data so we can automatically fetch
+                experiment results and metric values. We currently support{" "}
+                <strong>Redshift</strong>, <strong>Snowflake</strong>,{" "}
+                <strong>BigQuery</strong>, <strong>ClickHouse</strong>,{" "}
+                <strong>Postgres</strong>, <strong>MySQL</strong>,{" "}
+                <strong>MS SQL/SQL Server</strong>, <strong>Athena</strong>,{" "}
+                <strong>PrestoDB</strong>, <strong>Databricks</strong>,{" "}
+                <strong>Mixpanel</strong>, and <strong>Google Analytics</strong>{" "}
+                with more coming soon.
               </p>
+              <p>
+                We only ever fetch aggregate data, so none of your user&apos;s
+                Personally Identifiable Information ever hits our servers. Plus,
+                we use multiple layers of encryption to store your credentials
+                and require minimal read-only permissions, so you can be sure
+                your source data remains secure.
+              </p>
+              {!demoDataSourceExists && !currentProjectIsDemo && (
+                <>
+                  <p>
+                    You can also create a{" "}
+                    <Link href="/demo-datasource-project" className="info">
+                      demo datasource project
+                    </Link>
+                    .
+                  </p>
+                </>
+              )}
+              {hasFileConfig() && (
+                <div className="alert alert-info">
+                  It looks like you have a <code>config.yml</code> file. Data
+                  sources defined there will show up on this page.{" "}
+                  <DocLink docSection="config_yml">View Documentation</DocLink>
+                </div>
+              )}
             </>
-          )}
-          {hasFileConfig() && (
-            <div className="alert alert-info">
-              It looks like you have a <code>config.yml</code> file. Data
-              sources defined there will show up on this page.{" "}
-              <DocLink docSection="config_yml">View Documentation</DocLink>
-            </div>
           )}
         </div>
       )}
 
       {!hasFileConfig() &&
+        !setupEventTracker &&
         permissionsUtil.canViewCreateDataSourceModal(project) && (
           <button
             className="btn btn-primary"
@@ -177,17 +241,27 @@ const DataSources: FC = () => {
           existing={false}
           data={{
             name: "My Datasource",
-            settings: {},
+            settings:
+              useSetupEventTracker && setupEventTracker
+                ? { schemaFormat: setupEventTracker as SchemaFormat }
+                : {},
             projects: project ? [project] : [],
           }}
           source="datasource-list"
           onSuccess={async (id) => {
             await mutateDefinitions({});
             setNewModalOpen(false);
+            await apiCall(`/organization/setup-event-tracker`, {
+              method: "PUT",
+              body: JSON.stringify({
+                eventTracker: "",
+              }),
+            });
             await router.push(`/datasources/${id}`);
           }}
           onCancel={() => {
             setNewModalOpen(false);
+            setUseSetupEventTracker(false);
           }}
           showImportSampleData={!demoDataSourceExists}
         />
