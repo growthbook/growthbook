@@ -75,7 +75,9 @@ export function getColumnRefWhereClause(
         if (escapedValues.length === 1) {
           where.push(`${column.column} = ${escapedValues[0]}`);
         } else if (escapedValues.length > 1) {
-          where.push(`${column.column} IN (${escapedValues.join(", ")})`);
+          where.push(
+            `${column.column} IN (\n  ${escapedValues.join(",\n  ")}\n)`
+          );
         }
       }
     }
