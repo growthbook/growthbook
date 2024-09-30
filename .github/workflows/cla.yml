@@ -27,4 +27,4 @@ jobs:
           branch: "main"
           allowlist: bot*,august-growthbook,Auz,bryce-fitzsimons,gazzding,jdorn,lukebrawleysmith,lukesonnet,madhuchavva,mattdp,mknowlton89,msamper,natasha-growthbook,romain-growthbook,toots,tzjames,Kevin-Chant
           remote-organization-name: growthbook
-          remote-repository-name: cla
+          remote-repository-name: cla-signatures
