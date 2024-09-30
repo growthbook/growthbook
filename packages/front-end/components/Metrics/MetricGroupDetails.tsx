@@ -270,7 +270,8 @@ function MetricRow({
       <td style={{ width: "3%" }}>
         <DeleteButton
           className="dropdown-item text-danger"
-          displayName="Remove Metric from Group"
+          displayName="Metric from Group"
+          deleteMessage="Remove this metric from the group?"
           useIcon={true}
           onClick={async () => {
             await apiCall<{ version: number }>(
