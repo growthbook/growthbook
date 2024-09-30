@@ -109,38 +109,42 @@ const MetricsSelector: FC<{
 
   const options: MetricOption[] = [
     ...metrics
-      .filter((m) => noPercentile ? m.cappingSettings.type !== "percentile" : true)
+      .filter((m) =>
+        noPercentile ? m.cappingSettings.type !== "percentile" : true
+      )
       .map((m) => ({
-      id: m.id,
-      name: m.name,
-      description: m.description || "",
-      datasource: m.datasource || "",
-      tags: m.tags || [],
-      projects: m.projects || [],
-      factTables: [],
-      userIdTypes: m.userIdTypes || [],
-    })),
+        id: m.id,
+        name: m.name,
+        description: m.description || "",
+        datasource: m.datasource || "",
+        tags: m.tags || [],
+        projects: m.projects || [],
+        factTables: [],
+        userIdTypes: m.userIdTypes || [],
+      })),
     ...(includeFacts
       ? factMetrics
-        .filter((m) => noPercentile ? m.cappingSettings.type !== "percentile" : true)
-        .map((m) => ({
-          id: m.id,
-          name: m.name,
-          description: m.description || "",
-          datasource: m.datasource,
-          tags: m.tags || [],
-          projects: m.projects || [],
-          factTables: [
-            m.numerator.factTableId,
-            (m.metricType === "ratio" && m.denominator
-              ? m.denominator.factTableId
-              : "") || "",
-          ],
-          // only focus on numerator user id types
-          userIdTypes:
-            factTables.find((f) => f.id === m.numerator.factTableId)
-              ?.userIdTypes || [],
-        }))
+          .filter((m) =>
+            noPercentile ? m.cappingSettings.type !== "percentile" : true
+          )
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            description: m.description || "",
+            datasource: m.datasource,
+            tags: m.tags || [],
+            projects: m.projects || [],
+            factTables: [
+              m.numerator.factTableId,
+              (m.metricType === "ratio" && m.denominator
+                ? m.denominator.factTableId
+                : "") || "",
+            ],
+            // only focus on numerator user id types
+            userIdTypes:
+              factTables.find((f) => f.id === m.numerator.factTableId)
+                ?.userIdTypes || [],
+          }))
       : []),
   ];
 

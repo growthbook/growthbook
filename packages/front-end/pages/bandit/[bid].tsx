@@ -162,9 +162,11 @@ const BanditExperimentPage = (): ReactElement => {
                 ...p,
                 dateStarted: new Date().toISOString(),
                 dateEnded: undefined,
-                variationWeights: p.variationWeights.map(() => 1 / (p.variationWeights.length || 2)),
+                variationWeights: p.variationWeights.map(
+                  () => 1 / (p.variationWeights.length || 2)
+                ),
                 banditEvents: undefined,
-              }
+              };
             }),
           }}
           source="duplicate"

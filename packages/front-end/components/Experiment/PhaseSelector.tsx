@@ -1,9 +1,9 @@
 import { date } from "shared/dates";
+import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
-import {ExperimentPhaseStringDates} from "back-end/types/experiment";
 
 export interface Props {
   mutateExperiment?: () => void;
@@ -22,7 +22,11 @@ export default function PhaseSelector({
   setPhase,
   isBandit,
 }: Props) {
-  const { phase: snapshotPhase, setPhase: setSnapshotPhase, experiment } = useSnapshot();
+  const {
+    phase: snapshotPhase,
+    setPhase: setSnapshotPhase,
+    experiment,
+  } = useSnapshot();
 
   const phaseOptions =
     (phases ?? experiment?.phases)?.map((phase, i) => ({
@@ -49,9 +53,7 @@ export default function PhaseSelector({
               <div className="tooltip-phase-label font-weight-bold">
                 {phaseIndex + 1}: {phase.name}
               </div>
-              <div className="mt-1">
-                {phaseSummary(phase, isBandit)}
-              </div>
+              <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
             </>
           }
           shouldDisplay={!isBandit}

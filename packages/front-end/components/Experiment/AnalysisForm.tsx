@@ -362,7 +362,9 @@ const AnalysisForm: FC<{
               label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
           className="portal-overflow-ellipsis"
-          initialOption={experiment.type !== "multi-armed-bandit" ? "Manual" : undefined}
+          initialOption={
+            experiment.type !== "multi-armed-bandit" ? "Manual" : undefined
+          }
           helpText={
             <>
               <strong className="text-danger">Warning:</strong> Changing this

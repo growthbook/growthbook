@@ -486,20 +486,25 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       : 0;
 
   const gradients = variationNames.map((_, i) => (
-    <defs key={`gradient-${i}`}>
-      <linearGradient id={`gradient-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop
-          offset="0%"
-          stopColor={getVariationColor(i, true)}
-          stopOpacity={0.75}
-        />
-        <stop
-          offset="100%"
-          stopColor={getVariationColor(i, true)}
-          stopOpacity={0.65}
-        />
-      </linearGradient>
-    </defs>
+    <linearGradient
+      key={`gradient-${i}`}
+      id={`gradient-${i}`}
+      x1="0%"
+      y1="0%"
+      x2="0%"
+      y2="100%"
+    >
+      <stop
+        offset="0%"
+        stopColor={getVariationColor(i, true)}
+        stopOpacity={0.75}
+      />
+      <stop
+        offset="100%"
+        stopColor={getVariationColor(i, true)}
+        stopOpacity={0.65}
+      />
+    </linearGradient>
   ));
 
   return (
@@ -756,8 +761,16 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   <rect fill="#aaaaaa" x="3.5" width="2.5" height="6" />
                 </pattern>
                 {exploreMask}
+                <clipPath id="bandit-date-graph-clip">
+                  <rect
+                    x={0}
+                    y={0}
+                    width={width - margin[1] - margin[3]}
+                    height={height - margin[0] - margin[2]}
+                  />
+                </clipPath>
+                {gradients}
               </defs>
-              {gradients}
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
                   scale={yScale}
@@ -773,78 +786,80 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   tickValues={reweights}
                 />
 
-                {type === "area" && (
-                  <AreaStack
-                    keys={variationNames.map((_, i) => i)}
-                    data={filteredStackedData}
-                    x={(d) => xScale(d.data.date)}
-                    y0={(d) => yScale(d[0])}
-                    y1={(d) => yScale(d[1])}
-                    order="reverse"
-                    curve={
-                      mode === "values"
-                        ? curveMonotoneX
-                        : mode === "probabilities"
-                        ? curveMonotoneX
-                        : curveStepAfter
-                    }
-                  >
-                    {({ stacks, path }) =>
-                      stacks.map((stack, i) => {
-                        if (!showVariations[i]) return null;
-                        return (
-                          <path
-                            key={`stack-${stack.key}`}
-                            d={path(stack) || ""}
-                            stroke={getVariationColor(i, true)}
-                            fill={`url(#gradient-${i})`}
-                            mask="url(#stripe-mask)"
-                          />
-                        );
-                      })
-                    }
-                  </AreaStack>
-                )}
+                <Group clipPath="url(#bandit-date-graph-clip)">
+                  {type === "area" && (
+                    <AreaStack
+                      keys={variationNames.map((_, i) => i)}
+                      data={filteredStackedData}
+                      x={(d) => xScale(d.data.date)}
+                      y0={(d) => yScale(d[0])}
+                      y1={(d) => yScale(d[1])}
+                      order="reverse"
+                      curve={
+                        mode === "values"
+                          ? curveMonotoneX
+                          : mode === "probabilities"
+                          ? curveMonotoneX
+                          : curveStepAfter
+                      }
+                    >
+                      {({ stacks, path }) =>
+                        stacks.map((stack, i) => {
+                          if (!showVariations[i]) return null;
+                          return (
+                            <path
+                              key={`stack-${stack.key}`}
+                              d={path(stack) || ""}
+                              stroke={getVariationColor(i, true)}
+                              fill={`url(#gradient-${i})`}
+                              mask="url(#stripe-mask)"
+                            />
+                          );
+                        })
+                      }
+                    </AreaStack>
+                  )}
 
-                {mode === "values" &&
-                  variationNames.map((_, i) => {
-                    if (!showVariations[i]) return null;
-                    return (
-                      <AreaClosed
-                        key={`ci_${i}`}
-                        yScale={yScale}
-                        data={stackedData}
-                        x={(d) => xScale(d.date)}
-                        y0={(d) => yScale(d?.meta?.[i]?.ci?.[0] ?? 0) ?? 0}
-                        y1={(d) => yScale(d?.meta?.[i]?.ci?.[1] ?? 0) ?? 0}
-                        fill={getVariationColor(i, true)}
-                        opacity={0.12}
-                        curve={curveMonotoneX}
-                      />
-                    );
-                  })}
+                  {mode === "values" &&
+                    variationNames.map((_, i) => {
+                      if (!showVariations[i]) return null;
+                      return (
+                        <AreaClosed
+                          key={`ci_${i}`}
+                          yScale={yScale}
+                          data={stackedData}
+                          x={(d) => xScale(d.date)}
+                          y0={(d) => yScale(d?.meta?.[i]?.ci?.[0] ?? 0) ?? 0}
+                          y1={(d) => yScale(d?.meta?.[i]?.ci?.[1] ?? 0) ?? 0}
+                          fill={getVariationColor(i, true)}
+                          opacity={0.12}
+                          curve={curveMonotoneX}
+                        />
+                      );
+                    })}
 
-                {type === "line" &&
-                  variationNames.map((_, i) => {
-                    if (!showVariations[i]) return null;
-                    return (
-                      <LinePath
-                        key={`linepath-${i}`}
-                        data={stackedData}
-                        x={(d) => xScale(d.date)}
-                        y={(d) => yScale(d[i])}
-                        stroke={getVariationColor(i, true)}
-                        strokeWidth={2}
-                        curve={
-                          mode === "values"
-                            ? curveMonotoneX
-                            : mode === "probabilities"
-                            ? curveMonotoneX
-                            : curveStepAfter
-                        }
-                      />
-                    );
-                  })}
+                  {type === "line" &&
+                    variationNames.map((_, i) => {
+                      if (!showVariations[i]) return null;
+                      return (
+                        <LinePath
+                          key={`linepath-${i}`}
+                          data={stackedData}
+                          x={(d) => xScale(d.date)}
+                          y={(d) => yScale(d[i])}
+                          stroke={getVariationColor(i, true)}
+                          strokeWidth={2}
+                          curve={
+                            mode === "values"
+                              ? curveMonotoneX
+                              : mode === "probabilities"
+                              ? curveMonotoneX
+                              : curveStepAfter
+                          }
+                        />
+                      );
+                    })}
+                </Group>
 
                 <AxisBottom
                   top={yMax}

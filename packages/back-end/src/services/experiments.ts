@@ -36,8 +36,8 @@ import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { BanditResult } from "back-end/src/validators/experiments";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "../util/promise";
-import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {
   SnapshotType,

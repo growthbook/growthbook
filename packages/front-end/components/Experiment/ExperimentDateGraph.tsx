@@ -515,6 +515,16 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               )}
             </div>
             <svg width={width} height={height}>
+              <defs>
+                <clipPath id="experiment-date-graph-clip">
+                  <rect
+                    x={0}
+                    y={0}
+                    width={width - margin[1] - margin[3]}
+                    height={height - margin[0] - margin[2]}
+                  />
+                </clipPath>
+              </defs>
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
                   scale={yScale}
@@ -530,55 +540,59 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
                 />
 
-                {variationNames.map((v, i) => {
-                  if (!showVariations[i]) return null;
-                  if (yaxis === "effect" && i === 0) {
-                    return <></>;
-                  }
-                  // Render a shaded area for error bars for each variation if defined
-                  return (
-                    typeof datapoints[0]?.variations?.[i]?.ci !==
-                      "undefined" && (
-                      <AreaClosed
-                        key={`ci_${i}`}
-                        yScale={yScale}
-                        data={datapoints}
-                        x={(d) => xScale(d.d) ?? 0}
-                        y0={(d) =>
-                          yScale(d?.variations?.[i]?.ci?.[0] ?? 0) ?? 0
-                        }
-                        y1={(d) =>
-                          yScale(d?.variations?.[i]?.ci?.[1] ?? 0) ?? 0
-                        }
-                        fill={getVariationColor(i, true)}
-                        opacity={0.12}
-                        curve={curveMonotoneX}
-                      />
-                    )
-                  );
-                })}
+                <Group clipPath="url(#experiment-date-graph-clip)">
+                  {variationNames.map((v, i) => {
+                    if (!showVariations[i]) return null;
+                    if (yaxis === "effect" && i === 0) {
+                      return <></>;
+                    }
+                    // Render a shaded area for error bars for each variation if defined
+                    return (
+                      typeof datapoints[0]?.variations?.[i]?.ci !==
+                        "undefined" && (
+                        <AreaClosed
+                          key={`ci_${i}`}
+                          yScale={yScale}
+                          data={datapoints}
+                          x={(d) => xScale(d.d) ?? 0}
+                          y0={(d) =>
+                            yScale(d?.variations?.[i]?.ci?.[0] ?? 0) ?? 0
+                          }
+                          y1={(d) =>
+                            yScale(d?.variations?.[i]?.ci?.[1] ?? 0) ?? 0
+                          }
+                          fill={getVariationColor(i, true)}
+                          opacity={0.12}
+                          curve={curveMonotoneX}
+                        />
+                      )
+                    );
+                  })}
 
-                {variationNames.map((_, i) => {
-                  if (!showVariations[i]) return null;
-                  if (yaxis === "effect" && i === 0) {
-                    return null;
-                  }
-                  // Render the actual line chart for each variation
-                  return (
-                    <LinePath
-                      key={`linepath_${i}`}
-                      data={datapoints}
-                      x={(d) => xScale(d.d)}
-                      y={(d) => yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)}
-                      stroke={getVariationColor(i, true)}
-                      strokeWidth={2}
-                      curve={curveMonotoneX}
-                      defined={(d) =>
-                        getYVal(d?.variations?.[i], yaxis) !== undefined
-                      }
-                    />
-                  );
-                })}
+                  {variationNames.map((_, i) => {
+                    if (!showVariations[i]) return null;
+                    if (yaxis === "effect" && i === 0) {
+                      return null;
+                    }
+                    // Render the actual line chart for each variation
+                    return (
+                      <LinePath
+                        key={`linepath_${i}`}
+                        data={datapoints}
+                        x={(d) => xScale(d.d)}
+                        y={(d) =>
+                          yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
+                        }
+                        stroke={getVariationColor(i, true)}
+                        strokeWidth={2}
+                        curve={curveMonotoneX}
+                        defined={(d) =>
+                          getYVal(d?.variations?.[i], yaxis) !== undefined
+                        }
+                      />
+                    );
+                  })}
+                </Group>
 
                 <AxisBottom
                   top={yMax}
