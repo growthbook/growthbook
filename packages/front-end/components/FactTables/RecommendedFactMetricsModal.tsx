@@ -300,7 +300,8 @@ export default function RecommendedFactMetricsModal({
               ))}
               <td>
                 <Tooltip body={metric.description}>
-                  {metric.metricType} <MdInfoOutline className="text-info" />
+                  {metric.metricType}&nbsp;
+                  <MdInfoOutline className="text-info" />
                 </Tooltip>
               </td>
               <td>{getName(metric)}</td>
