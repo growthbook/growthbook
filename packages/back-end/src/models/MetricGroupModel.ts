@@ -1,4 +1,4 @@
-import { metricGroupValidator } from "../routers/metric-group/metric-group.validators";
+import { metricGroupValidator } from "back-end/src/routers/metric-group/metric-group.validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

@@ -110,7 +110,6 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
-import { getMetricGroupById } from "back-end/src/models/MetricGroupModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -498,7 +497,9 @@ export async function postExperiments(
         }
       } else {
         // check to see if this metric is actually a metric group
-        const metricGroup = await getMetricGroupById(context, metricIds[i]);
+        const metricGroup = await context.models.metricGroups.getById(
+          metricIds[i]
+        );
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
           if (data.datasource && metricGroup.datasource !== data.datasource) {
@@ -762,7 +763,9 @@ export async function postExperiment(
         }
       } else {
         // check to see if this metric is actually a metric group
-        const metricGroup = await getMetricGroupById(context, newMetricIds[i]);
+        const metricGroup = await context.models.metricGroups.getById(
+          newMetricIds[i]
+        );
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
           if (metricGroup.datasource !== compareDatasource) {
