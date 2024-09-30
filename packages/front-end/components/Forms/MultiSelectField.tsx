@@ -187,6 +187,18 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
             value={selected}
+            {...(creatable
+              ? {
+                  formatCreateLabel: (input: string) => {
+                    return (
+                      <span>
+                        <span className="text-muted">Create Option</span> &quot;
+                        {input}&quot;
+                      </span>
+                    );
+                  },
+                }
+              : {})}
             placeholder={initialOption ?? placeholder}
             isOptionDisabled={isOptionDisabled}
             {...{ ...ReactSelectProps, ...mergeStyles }}

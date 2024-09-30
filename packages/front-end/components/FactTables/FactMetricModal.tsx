@@ -192,10 +192,17 @@ function ColumnRefSelector({
   const promptFields = (factTable?.columns || [])
     .filter((col) => col.datatype === "string" && col.alwaysPrompt)
     .map((col) => {
+      const options = new Set(col.topValues || []);
+
+      // Add any custom values that have been entered
+      if (value.promptValues?.[col.column]) {
+        value.promptValues[col.column].forEach((v) => options.add(v));
+      }
+
       return {
         label: col.name || col.column,
         key: col.column,
-        options: col.topValues || [],
+        options: [...options],
       };
     });
 
@@ -242,13 +249,13 @@ function ColumnRefSelector({
         {promptFields.map(({ label, key, options }) => (
           <div className="col-auto" key={key}>
             {options.length > 0 ? (
-              <SelectField
+              <MultiSelectField
                 label={label}
-                value={value.promptValues?.[key]?.[0] || ""}
+                value={value.promptValues?.[key] || []}
                 onChange={(v) =>
                   setValue({
                     ...value,
-                    promptValues: { ...value.promptValues, [key]: [v] },
+                    promptValues: { ...value.promptValues, [key]: v },
                   })
                 }
                 options={options.map((o) => ({
@@ -259,7 +266,7 @@ function ColumnRefSelector({
                 formatOptionLabel={({ value, label }) =>
                   value ? label : <em className="text-muted">{label}</em>
                 }
-                createable
+                creatable
                 sort={false}
               />
             ) : (
