@@ -4,8 +4,8 @@ import {
   RawInformationSchema,
   Schema,
   Table,
-} from "../types/Integration";
-import { DataSourceType } from "../../types/datasource";
+} from "back-end/src/types/Integration";
+import { DataSourceType } from "back-end/types/datasource";
 
 type RowType = {
   tableCatalog: string;

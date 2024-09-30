@@ -5,9 +5,9 @@ import {
   VercelEnvVar,
   VercelProject,
   VercelTarget,
-} from "../../types/vercel";
-import { createLegacySdkKey } from "../models/ApiKeyModel";
-import { logger } from "../util/logger";
+} from "back-end/types/vercel";
+import { createLegacySdkKey } from "back-end/src/models/ApiKeyModel";
+import { logger } from "back-end/src/util/logger";
 
 interface VercelApiCallProps {
   token: string;

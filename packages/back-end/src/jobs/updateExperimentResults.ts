@@ -5,20 +5,20 @@ import {
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
   updateExperiment,
-} from "../models/ExperimentModel";
-import { getDataSourceById } from "../models/DataSourceModel";
+} from "back-end/src/models/ExperimentModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createSnapshot,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getSettingsForSnapshotMetrics,
-} from "../services/experiments";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { getMetricMap } from "../models/MetricModel";
-import { notifyAutoUpdate } from "../services/experimentNotifications";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { logger } from "../util/logger";
-import { getFactTableMap } from "../models/FactTableModel";
+} from "back-end/src/services/experiments";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;

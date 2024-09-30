@@ -29,7 +29,7 @@ import {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
-} from "../../types/fact-table";
+} from "back-end/types/fact-table";
 import {
   createOrganization,
   findAllOrganizations,
@@ -37,9 +37,9 @@ import {
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
+} from "back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   ExpandedMember,
   ExpandedMemberInfo,
@@ -52,34 +52,34 @@ import {
   PendingMember,
   ProjectMemberRole,
   ReqContext,
-} from "../../types/organization";
-import { ApiReqContext, ExperimentOverride } from "../../types/api";
-import { ConfigFile } from "../init/config";
+} from "back-end/types/organization";
+import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
+import { ConfigFile } from "back-end/src/init/config";
 import {
   createDataSource,
   getDataSourceById,
   updateDataSource,
-} from "../models/DataSourceModel";
+} from "back-end/src/models/DataSourceModel";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
   updateMetric,
-} from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
+} from "back-end/src/models/MetricModel";
+import { MetricInterface } from "back-end/types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
-} from "../models/DimensionModel";
-import { DimensionInterface } from "../../types/dimension";
-import { DataSourceInterface } from "../../types/datasource";
-import { SSOConnectionInterface } from "../../types/sso-connection";
-import { logger } from "../util/logger";
-import { SegmentInterface } from "../../types/segment";
-import { getAllExperiments } from "../models/ExperimentModel";
-import { LegacyExperimentPhase } from "../../types/experiment";
-import { addTags } from "../models/TagModel";
-import { getUsersByIds } from "../models/UserModel";
+} from "back-end/src/models/DimensionModel";
+import { DimensionInterface } from "back-end/types/dimension";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { logger } from "back-end/src/util/logger";
+import { SegmentInterface } from "back-end/types/segment";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { LegacyExperimentPhase } from "back-end/types/experiment";
+import { addTags } from "back-end/src/models/TagModel";
+import { getUsersByIds } from "back-end/src/models/UserModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -92,7 +92,7 @@ import { ReqContextClass } from "./context";
 export {
   getEnvironments,
   getEnvironmentIdsFromOrg,
-} from "../util/organization.util";
+} from "back-end/src/util/organization.util";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);

@@ -1,5 +1,5 @@
 module.exports = {
-  moduleFileExtensions: ["ts", "js", "node"],
+  moduleFileExtensions: ["ts", "js", "node", "json"],
   transform: {
     "^.+\\.(ts|tsx)$": "@swc/jest",
   },

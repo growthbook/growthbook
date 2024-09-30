@@ -103,7 +103,7 @@ From this, you can export types to use throughout the front-end and back-end. Th
 ```ts
 // File: back-end/types/foo.d.ts
 import { z } from "zod";
-import type { fooSchema } from "../src/validators/foo";
+import type { fooSchema } from "back-end/src/validators/foo";
 import { CreateProps, UpdateProps } from "./models";
 
 // Full interface
@@ -119,7 +119,7 @@ Create the data model class based on the schema.
 
 ```ts
 // File: back-end/src/models/FooModel.ts
-import { fooSchema } from "../validators/foo";
+import { fooSchema } from "back-end/src/validators/foo";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -406,8 +406,8 @@ Next, you'll need to create a helper function to convert from our internal DB in
 
 ```ts
 // src/models/ProjectModel.ts
-import { ApiProject } from "../../types/openapi";
-import { ProjectInterface } from "../../types/project";
+import { ApiProject } from "back-end/types/openapi";
+import { ProjectInterface } from "back-end/types/project";
 
 export class ProjectModel extends BaseClass {
   ...
@@ -424,9 +424,12 @@ export class ProjectModel extends BaseClass {
 Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
-import { ListProjectsResponse } from "../../../types/openapi";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listProjectsValidator } from "../../validators/openapi";
+import { ListProjectsResponse } from "back-end/types/openapi";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
+import { listProjectsValidator } from "back-end/src/validators/openapi";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {

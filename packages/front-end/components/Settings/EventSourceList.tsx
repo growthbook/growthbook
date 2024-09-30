@@ -12,7 +12,7 @@ export default function EventSourceList({ onSelect, selected }: Props) {
   return (
     <>
       <div
-        className="d-flex flex-wrap align-items-stretch align-middle row mb-3"
+        className="d-flex flex-wrap align-items-stretch align-middle row mb-3 pt-1"
         style={{
           maxHeight: 999,
           overflow: "hidden",
@@ -56,7 +56,7 @@ export default function EventSourceList({ onSelect, selected }: Props) {
             <div className="col-4">
               <a
                 className={`btn btn-light-hover btn-outline-primary
-               mb-3 py-3`}
+               mb-3 py-3 ${styles.customSourceCard}`}
                 onClick={(e) => {
                   e.preventDefault();
                   onSelect({

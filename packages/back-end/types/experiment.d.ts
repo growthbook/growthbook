@@ -3,7 +3,7 @@ import {
   Variation,
   MetricOverride,
   ExperimentInterface,
-} from "../src/validators/experiments";
+} from "back-end/src/validators/experiments";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
@@ -17,7 +17,7 @@ export {
   ExperimentResultsType,
   Screenshot,
   Variation,
-} from "../src/validators/experiments";
+} from "back-end/src/validators/experiments";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 

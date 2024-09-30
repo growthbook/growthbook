@@ -3,9 +3,9 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
 import { z } from "zod";
-import { ReqContext } from "../../types/organization";
-import { migrateWebhookModel } from "../util/migrations";
-import { WebhookInterface } from "../../types/webhook";
+import { ReqContext } from "back-end/types/organization";
+import { migrateWebhookModel } from "back-end/src/util/migrations";
+import { WebhookInterface } from "back-end/types/webhook";
 
 const webhookSchema = new mongoose.Schema({
   id: {

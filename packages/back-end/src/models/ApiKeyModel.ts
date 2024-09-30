@@ -2,20 +2,20 @@ import crypto from "crypto";
 import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ApiKeyInterface, SecretApiKey } from "../../types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
-} from "../util/secrets";
-import { roleForApiKey } from "../util/api-key.util";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/src/util/secrets";
+import { roleForApiKey } from "back-end/src/util/api-key.util";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({

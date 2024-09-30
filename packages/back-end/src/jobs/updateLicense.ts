@@ -6,13 +6,13 @@
  */
 import Agenda from "agenda";
 import { licenseInit } from "enterprise";
-import { getSelfHostedOrganization } from "../models/OrganizationModel";
-import { trackJob } from "../services/otel";
-import { IS_CLOUD } from "../util/secrets";
+import { getSelfHostedOrganization } from "back-end/src/models/OrganizationModel";
+import { trackJob } from "back-end/src/services/otel";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
-} from "../services/licenseData";
+} from "back-end/src/services/licenseData";
 
 const UPDATE_LICENSES_JOB_NAME = "updateLicenses";
 

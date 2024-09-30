@@ -1,17 +1,17 @@
 import path from "path";
 import fs from "fs";
 import md5 from "md5";
-import { findAllSDKConnectionsAcrossAllOrgs } from "../models/SdkConnectionModel";
-import { getInstallationId } from "../models/InstallationModel";
-import { IS_CLOUD } from "../util/secrets";
-import { getInstallationDatasources } from "../models/DataSourceModel";
-import { OrganizationInterface } from "../../types/organization";
-import { getAllInviteEmailsInDb } from "../models/OrganizationModel";
+import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
+import { getInstallationId } from "back-end/src/models/InstallationModel";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getInstallationDatasources } from "back-end/src/models/DataSourceModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getAllInviteEmailsInDb } from "back-end/src/models/OrganizationModel";
 import {
   getAllUserEmailsAcrossAllOrgs,
   getUsersByIds,
-} from "../models/UserModel";
-import { logger } from "../util/logger";
+} from "back-end/src/models/UserModel";
+import { logger } from "back-end/src/util/logger";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";

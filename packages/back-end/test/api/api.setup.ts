@@ -1,27 +1,27 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { getAuthConnection } from "../../src/services/auth";
-import authenticateApiRequestMiddleware from "../../src/middleware/authenticateApiRequestMiddleware";
-import app from "../../src/app";
-import mongoInit from "../../src/init/mongo";
-import { queueInit } from "../../src/init/queue";
-import { getAgendaInstance } from "../../src/services/queueing";
+import { getAuthConnection } from "back-end/src/services/auth";
+import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import app from "back-end/src/app";
+import mongoInit from "back-end/src/init/mongo";
+import { queueInit } from "back-end/src/init/queue";
+import { getAgendaInstance } from "back-end/src/services/queueing";
 
-jest.mock("../../src/util/secrets", () => ({
-  ...jest.requireActual("../../src/util/secrets"),
+jest.mock("back-end/src/util/secrets", () => ({
+  ...jest.requireActual("back-end/src/util/secrets"),
   CRON_ENABLED: 1,
 }));
 
-jest.mock("../../src/services/auth", () => ({
-  ...jest.requireActual("../../src/services/auth"),
+jest.mock("back-end/src/services/auth", () => ({
+  ...jest.requireActual("back-end/src/services/auth"),
   getAuthConnection: () => ({
     middleware: jest.fn(),
   }),
 }));
 
-jest.mock("../../src/middleware/authenticateApiRequestMiddleware", () => ({
+jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
   ...jest.requireActual(
-    "../../src/middleware/authenticateApiRequestMiddleware"
+    "back-end/src/middleware/authenticateApiRequestMiddleware"
   ),
   __esModule: true,
   default: jest.fn(),

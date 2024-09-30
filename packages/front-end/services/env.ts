@@ -77,8 +77,12 @@ export function envAllowsCreatingMetrics() {
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
 }
-export function getGrowthBookBuild(): { sha: string; date: string } {
-  return env.build || { sha: "", date: "" };
+export function getGrowthBookBuild(): {
+  sha: string;
+  date: string;
+  lastVersion: string;
+} {
+  return env.build || { sha: "", date: "", lastVersion: "" };
 }
 export function usingSSO() {
   return env.usingSSO;

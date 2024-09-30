@@ -1,7 +1,7 @@
-import { toSegmentApiInterface } from "../../services/segments";
-import { createApiRequestHandler } from "../../util/handler";
-import { GetSegmentResponse } from "../../../types/openapi";
-import { getSegmentValidator } from "../../validators/openapi";
+import { toSegmentApiInterface } from "back-end/src/services/segments";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { GetSegmentResponse } from "back-end/types/openapi";
+import { getSegmentValidator } from "back-end/src/validators/openapi";
 
 export const getSegment = createApiRequestHandler(getSegmentValidator)(
   async (req): Promise<GetSegmentResponse> => {

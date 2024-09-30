@@ -21,22 +21,22 @@ import chunk from "lodash/chunk";
 import {
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
-} from "../../types/stats";
+} from "back-end/types/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
-} from "../types/Integration";
+} from "back-end/src/types/Integration";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
   ExperimentReportVariation,
-} from "../../types/report";
-import { ReqContext } from "../../types/organization";
-import { checkSrm } from "../util/stats";
-import { promiseAllChunks } from "../util/promise";
-import { logger } from "../util/logger";
+} from "back-end/types/report";
+import { ReqContext } from "back-end/types/organization";
+import { checkSrm } from "back-end/src/util/stats";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { logger } from "back-end/src/util/logger";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
@@ -45,11 +45,11 @@ import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
   SnapshotSettingsVariation,
-} from "../../types/experiment-snapshot";
-import { QueryMap } from "../queryRunners/QueryRunner";
-import { updateSnapshotAnalysis } from "../models/ExperimentSnapshotModel";
-import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
-import { applyMetricOverrides } from "../util/integration";
+} from "back-end/types/experiment-snapshot";
+import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
+import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {

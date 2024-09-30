@@ -1,9 +1,12 @@
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
 import { Athena, ResultSet } from "@aws-sdk/client-athena";
-import { AthenaConnectionParams } from "../../types/integrations/athena";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
-import { ExternalIdCallback, QueryResponse } from "../types/Integration";
+import { AthenaConnectionParams } from "back-end/types/integrations/athena";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+} from "back-end/src/types/Integration";
 
 async function assumeRole(params: AthenaConnectionParams) {
   // build sts client

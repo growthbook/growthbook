@@ -5,7 +5,7 @@ import {
   QueryPointer,
   QueryStatus,
   QueryType,
-} from "../../types/query";
+} from "back-end/types/query";
 import {
   countRunningQueries,
   createNewQuery,
@@ -13,16 +13,16 @@ import {
   getQueriesByIds,
   getRecentQuery,
   updateQuery,
-} from "../models/QueryModel";
+} from "back-end/src/models/QueryModel";
 import {
   ExternalIdCallback,
   QueryResponse,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
 export type QueryMap = Map<string, QueryInterface>;
 
