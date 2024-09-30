@@ -144,7 +144,7 @@ export default function RecommendedFactMetricsModal({
 
   const [checked, setChecked] = useState(new Set<number>());
   const [progress, setProgress] = useState(0);
-  const [namePrefix, setNamePrefix] = useState(factTable.name + ": ");
+  const [namePrefix, setNamePrefix] = useState(factTable.name + ":");
 
   function checkAll() {
     setChecked(new Set(metrics.map((_, i) => i)));
@@ -153,26 +153,29 @@ export default function RecommendedFactMetricsModal({
   const columns = [...new Set(metrics.map((m) => m.column).filter(Boolean))];
 
   function getName(metric: RecommendedMetric) {
-    // Uppercase first letter of metric value
-    const metricValue = metric.value
-      ? metric.value[0].toUpperCase() + metric.value.slice(1)
-      : metric.value;
+    let prefix = namePrefix ? namePrefix.trim() + " " : "";
+
+    if (metric.value) {
+      prefix += metric.value.trim() + " - ";
+    }
 
     if (metric.metricType === "mean") {
-      return `${namePrefix}${metricValue} Count per User`;
+      return `${prefix}Count per User`;
     }
     if (metric.metricType === "proportion") {
-      return `${namePrefix}${metricValue} Conversion Rate`;
+      return `${prefix}Percent of Users`;
     }
 
-    return `${namePrefix}${metricValue} - ${metric.metricType}`;
+    return `${namePrefix}${metric.metricType}`;
   }
 
   return (
     <Modal
       open
       header="Review Recommended Metrics"
-      cta="Create Metrics"
+      cta={`Create ${checked.size} Selected Metric${
+        checked.size === 1 ? "" : "s"
+      }`}
       ctaEnabled={checked.size > 0}
       disabledMessage="Select at least one metric to create"
       trackingEventModalType="recommended-metrics"
@@ -213,13 +216,12 @@ export default function RecommendedFactMetricsModal({
 
         if (failures) {
           setChecked(new Set());
-          throw new Error("Some of the metrics failed to create");
+          throw new Error(`${failures} of the metrics failed to create`);
         }
       }}
     >
       <p>
-        Review the metrics below and decide which ones you want to create. You
-        will be able to edit them after creation.
+        Review the metrics below and decide which ones you want to create now.
       </p>
       <div className="row align-items-center mb-1">
         <div className="col-auto">

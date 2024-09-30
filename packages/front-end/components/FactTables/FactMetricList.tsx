@@ -117,6 +117,24 @@ export default function FactMetricList({ factTable }: Props) {
         />
       )}
 
+      {recommendedMetrics.length > 0 && canCreateMetrics && (
+        <div className="alert alert-info mt-3">
+          There {recommendedMetrics.length === 1 ? "is" : "are"}{" "}
+          <strong>{recommendedMetrics.length}</strong> metric
+          {recommendedMetrics.length === 1 ? "" : "s"} we recommend creating for
+          this fact table.{" "}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowRecommendedMetricsModal(true);
+            }}
+          >
+            View Recommendation{recommendedMetrics.length === 1 ? "" : "s"}
+          </a>
+        </div>
+      )}
+
       <div className="row align-items-center">
         {metrics.length > 0 && (
           <div className="col-auto">
@@ -160,23 +178,6 @@ export default function FactMetricList({ factTable }: Props) {
           </Tooltip>
         </div>
       </div>
-      {recommendedMetrics.length > 0 && canCreateMetrics && (
-        <div className="alert alert-info mt-3">
-          There {recommendedMetrics.length === 1 ? "is" : "are"}{" "}
-          <strong>{recommendedMetrics.length}</strong> metric
-          {recommendedMetrics.length === 1 ? "" : "s"} we recommend creating for
-          this fact table.{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowRecommendedMetricsModal(true);
-            }}
-          >
-            View Recommendation{recommendedMetrics.length === 1 ? "" : "s"}
-          </a>
-        </div>
-      )}
       {metrics.length > 0 && (
         <>
           <table className="table appbox gbtable mt-2 mb-0 table-hover">
