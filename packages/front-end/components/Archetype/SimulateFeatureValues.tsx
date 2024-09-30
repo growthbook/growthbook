@@ -178,12 +178,16 @@ export const SimulateFeatureValues: FC<{
     ) : (
       <>Showing feature results for users with attributes: </>
     );
-    attributeNodes = Object.keys(attributes).map((key, i) => (
-      <Fragment key={`attr-${key}-${i}`}>
-        <strong>{key}</strong>: <strong>{attributes[key].toString()}</strong>
-        {i !== Object.keys(attributes).length - 1 ? ", " : ""}
-      </Fragment>
-    ));
+    const attrsLength = Object.keys(attributes).length;
+    attributeNodes = Object.keys(attributes).map((key, i) => {
+      const attrValue = JSON.stringify(attributes[key]);
+      return (
+        <Fragment key={`attr-${key}-${i}`}>
+          <strong>{key}</strong>: <strong>{attrValue}</strong>
+          {i === attrsLength - 1 ? "" : i === attrsLength - 2 ? ", and " : ", "}
+        </Fragment>
+      );
+    });
   }
 
   const showEnvDropdown = true; //environments.length > maxEnvironments;
