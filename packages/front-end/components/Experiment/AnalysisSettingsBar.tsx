@@ -180,7 +180,6 @@ export default function AnalysisSettingsBar({
                 loading={!!loading}
                 mutate={mutate}
                 phase={phase}
-                skipScaled={isBandit}
               />
             </div>
           ) : null}

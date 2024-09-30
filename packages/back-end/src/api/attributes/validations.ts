@@ -1,4 +1,4 @@
-import { ApiReqContext } from "../../../types/api";
+import { ApiReqContext } from "back-end/types/api";
 
 export const validatePayload = async (
   context: ApiReqContext,

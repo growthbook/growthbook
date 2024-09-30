@@ -2,10 +2,10 @@ import z from "zod";
 import {
   FactMetricInterface,
   UpdateFactMetricProps,
-} from "../../../types/fact-table";
-import { UpdateFactMetricResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateFactMetricValidator } from "../../validators/openapi";
+} from "back-end/types/fact-table";
+import { UpdateFactMetricResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { updateFactMetricValidator } from "back-end/src/validators/openapi";
 
 export function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>,

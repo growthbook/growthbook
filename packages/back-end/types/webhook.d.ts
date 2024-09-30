@@ -38,4 +38,4 @@ export type WebhookPayloadFormat =
 export type {
   UpdateSdkWebhookProps,
   CreateSdkWebhookProps,
-} from "../src/models/WebhookModel";
+} from "back-end/src/models/WebhookModel";

@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import { UpdateResult } from "mongodb";
-import { WatchInterface } from "../../types/watch";
+import { WatchInterface } from "back-end/types/watch";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const watchSchema = new mongoose.Schema({
   userId: String,

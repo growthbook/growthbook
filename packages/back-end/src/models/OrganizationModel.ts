@@ -11,15 +11,15 @@ import {
   OrganizationInterface,
   OrganizationMessage,
   Role,
-} from "../../types/organization";
-import { upgradeOrganizationDoc } from "../util/migrations";
-import { ApiOrganization } from "../../types/openapi";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/types/organization";
+import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
+import { ApiOrganization } from "back-end/types/openapi";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const baseMemberFields = {
   _id: false,

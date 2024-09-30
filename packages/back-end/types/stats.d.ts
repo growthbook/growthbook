@@ -1,4 +1,4 @@
-export { StatsEngine } from "../src/models/ProjectModel";
+export { StatsEngine } from "back-end/src/models/ProjectModel";
 
 import type { MetricStats } from "./metric";
 
@@ -66,7 +66,6 @@ export type SingleVariationResult = {
   cr?: number;
   ci?: [number, number];
 };
-
 
 export type BanditResult = {
   singleVariationResults?: SingleVariationResult[];

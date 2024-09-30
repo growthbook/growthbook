@@ -206,7 +206,10 @@ export default function AnalysisSettingsSummary({
                 ))}
               </ul>
             ) : (
-              <em>none</em>
+              <>
+                {" "}
+                <em>none</em>
+              </>
             )}
           </div>
           <div className="mb-2 text-left">
@@ -218,11 +221,14 @@ export default function AnalysisSettingsSummary({
                 ))}
               </ul>
             ) : (
-              <em>none</em>
+              <>
+                {" "}
+                <em>none</em>
+              </>
             )}
           </div>
           <div className="text-left">
-            <strong>Guardrails:</strong>{" "}
+            <strong>Guardrails:</strong>
             {guardrails.length > 0 ? (
               <ul className="ml-0 pl-3 mb-0">
                 {guardrails.map((m, i) => (
@@ -230,7 +236,10 @@ export default function AnalysisSettingsSummary({
                 ))}
               </ul>
             ) : (
-              <em>none</em>
+              <>
+                {" "}
+                <em>none</em>
+              </>
             )}
           </div>
         </>

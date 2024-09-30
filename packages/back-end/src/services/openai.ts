@@ -1,11 +1,11 @@
 import { Configuration, OpenAIApi, ChatCompletionRequestMessage } from "openai";
 import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
-import { logger } from "../util/logger";
-import { OrganizationInterface } from "../../types/organization";
+import { logger } from "back-end/src/util/logger";
+import { OrganizationInterface } from "back-end/types/organization";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,
-} from "../models/AITokenUsageModel";
+} from "back-end/src/models/AITokenUsageModel";
 
 /**
  * Snapshot of gpt-3.5-turbo from March 1st 2023. Unlike gpt-3.5-turbo, this

@@ -2,7 +2,7 @@ import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-} from "../src/services/stats";
+} from "back-end/src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import { DifferenceType, RiskType, StatsEngine } from "./stats";

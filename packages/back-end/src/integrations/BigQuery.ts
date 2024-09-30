@@ -1,18 +1,18 @@
 import * as bq from "@google-cloud/bigquery";
 import { bigQueryCreateTableOptions } from "enterprise";
 import { getValidDate } from "shared/dates";
-import { format, FormatDialect } from "../util/sql";
-import { decryptDataSourceParams } from "../services/datasource";
-import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
-import { IS_CLOUD } from "../util/secrets";
+import { format, FormatDialect } from "back-end/src/util/sql";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ExternalIdCallback,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
-} from "../types/Integration";
-import { formatInformationSchema } from "../util/informationSchemas";
-import { logger } from "../util/logger";
+} from "back-end/src/types/Integration";
+import { formatInformationSchema } from "back-end/src/util/informationSchemas";
+import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {

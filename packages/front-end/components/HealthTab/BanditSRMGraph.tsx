@@ -581,6 +581,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                 <AxisBottom
                   top={yMax}
                   scale={xScale}
+                  stroke={"var(--text-color-table)"}
                   tickValues={allXTicks}
                   tickLabelProps={(value, i) => {
                     const currentX = xScale(value);
@@ -613,6 +614,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                 />
                 <AxisLeft
                   scale={yScale}
+                  stroke={"var(--text-color-table)"}
                   tickValues={
                     mode !== "users" ? [0, 0.25, 0.5, 0.75, 1] : undefined
                   }

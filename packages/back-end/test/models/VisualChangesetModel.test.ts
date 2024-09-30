@@ -1,12 +1,12 @@
 import {
   VisualChangesetModel,
   updateVisualChangeset,
-} from "../../src/models/VisualChangesetModel";
-import { ReqContext } from "../../types/organization";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { getCollection } from "../../src/util/mongo.util";
+} from "back-end/src/models/VisualChangesetModel";
+import { ReqContext } from "back-end/types/organization";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { getCollection } from "back-end/src/util/mongo.util";
 
-jest.mock("../../src/util/mongo.util");
+jest.mock("back-end/src/util/mongo.util");
 
 describe("updateVisualChangeset", () => {
   const context: ReqContext = {

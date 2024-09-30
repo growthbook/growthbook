@@ -66,7 +66,6 @@ export interface Props {
   loading: boolean;
   mutate: () => void;
   disabled?: boolean;
-  skipScaled?: boolean;
 }
 
 export default function DifferenceTypeChooser({
@@ -79,7 +78,6 @@ export default function DifferenceTypeChooser({
   loading,
   mutate,
   disabled,
-  skipScaled,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -91,9 +89,7 @@ export default function DifferenceTypeChooser({
   const differenceTypeMap = new Map<DifferenceType, string>([
     ["relative", "Relative"],
     ["absolute", "Absolute"],
-    ...(!skipScaled
-      ? ([["scaled", "Scaled Impact"]] as [DifferenceType, string][])
-      : []),
+    ["scaled", "Scaled Impact"],
   ]);
   const selectedDifferenceName = differenceTypeMap.get(differenceType);
   const triggerAnalysisUpdate = useCallback(analysisUpdate, [

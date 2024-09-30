@@ -7,8 +7,8 @@ import {
 } from "shared/permissions";
 import { z } from "zod";
 import { environment } from "back-end/src/routers/environment/environment.validators";
-import type { ReqContextClass } from "../src/services/context";
-import { attributeDataTypes } from "../src/util/organization.util";
+import type { ReqContextClass } from "back-end/src/services/context";
+import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {

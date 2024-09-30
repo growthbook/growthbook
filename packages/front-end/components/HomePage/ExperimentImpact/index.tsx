@@ -292,13 +292,10 @@ function scaleImpactAndSetMissingExperiments({
 }
 
 export default function ExperimentImpact({
-  experiments: allExperiments,
+  experiments,
 }: {
   experiments: ExperimentInterfaceStringDates[];
 }) {
-  const experiments = allExperiments.filter(
-    (exp) => exp.type !== "multi-armed-bandit"
-  );
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const displayCurrency = useCurrency();

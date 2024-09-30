@@ -1,5 +1,5 @@
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
-import { metricAnalysisInterfaceValidator } from "../routers/metric-analysis/metric-analysis.validators";
+import { metricAnalysisInterfaceValidator } from "back-end/src/routers/metric-analysis/metric-analysis.validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

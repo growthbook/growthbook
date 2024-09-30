@@ -849,6 +849,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 <AxisBottom
                   top={yMax}
                   scale={xScale}
+                  stroke={"var(--text-color-table)"}
                   tickValues={allXTicks}
                   tickLabelProps={(value, i) => {
                     const currentX = xScale(value);
@@ -883,12 +884,14 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 <AxisBottom
                   top={yMax}
                   scale={xScale}
+                  stroke={"transparent"}
+                  tickLength={4}
                   tickValues={errorTicks}
                   tickFormat={() => "⚠️"}
                   tickLabelProps={() => ({
                     fontSize: 10,
                     textAnchor: "middle",
-                    dy: 4,
+                    dy: 0,
                   })}
                   tickLineProps={{
                     stroke: "#ff6600",
@@ -898,6 +901,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 {exploreTick}
                 <AxisLeft
                   scale={yScale}
+                  stroke={"var(--text-color-table)"}
                   tickValues={
                     mode !== "values" ? [0, 0.25, 0.5, 0.75, 1] : undefined
                   }
