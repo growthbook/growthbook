@@ -113,6 +113,7 @@ export default function MetricName({
     }
     return (
       <>
+        <span className="small text-muted float-right py-1">GROUP</span>
         <span className="mr-1" style={{ position: "relative", top: "-1px" }}>
           <VscListTree />
         </span>
