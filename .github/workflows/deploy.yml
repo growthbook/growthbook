@@ -93,8 +93,8 @@ jobs:
           version: ${{ steps.metadata.outputs.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_ORG: growthbook
+          SENTRY_PROJECT: api
 
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
