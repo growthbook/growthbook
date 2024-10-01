@@ -172,7 +172,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       factTableMap,
       useCache: true,
       type: "standard",
-      reweight: true,
+      reweight: experiment?.banditStage === "exploit",
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
@@ -185,6 +185,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       const changes = updateExperimentBanditSettings({
         experiment,
         snapshot: currentSnapshot,
+        reweight:
+          currentSnapshot?.banditResult?.reweight &&
+          experiment.banditStage === "exploit",
         isScheduled: true,
       });
       await updateExperiment({

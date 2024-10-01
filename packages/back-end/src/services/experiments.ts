@@ -743,12 +743,12 @@ export function updateExperimentBanditSettings({
         experiment.phases[phase]?.dateStarted ??
         new Date();
       const hoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
-      const interval =
+      const exploitInterval =
         (experiment.banditBurnInValue ?? 0) * hoursMultiple * 60 * 60 * 1000;
 
       if (
         snapshotDateCreated.getTime() >
-        banditStageStartDate.getTime() + interval
+        banditStageStartDate.getTime() + exploitInterval
       ) {
         if (isScheduled) reweight = true;
         startNextbanditStage = true;

@@ -78,7 +78,7 @@ type TooltipData = {
 };
 
 const height = 300;
-const margin = [15, 25, 50, 70];
+const margin = [15, 30, 50, 80];
 
 const getTooltipContents = (
   data: TooltipData,
@@ -578,16 +578,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           ) : null;
         const exploreTick = exploitDate ? (
           <g>
-            <line
-              x1={xScale(exploitDate)}
-              y1={0}
-              x2={xScale(exploitDate)}
-              y2={yMax}
-              stroke="#66a9"
-            />
             <text
-              x={xScale(exploitDate) - 10}
-              y={yMax + 36}
+              x={xScale(exploitDate)}
+              y={yMax + 40}
               fill="#66a"
               textAnchor="middle"
               fontSize={12}
@@ -713,7 +706,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               className={styles.dategraph}
               style={{
                 width: width - margin[1] - margin[3],
-                height: height - margin[0] - margin[2],
+                height: height - margin[0],
                 marginLeft: margin[3],
                 marginTop: margin[0],
               }}
@@ -743,7 +736,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     })}
                   <div
                     className={styles.crosshair}
-                    style={{ transform: `translateX(${tooltipLeft}px)` }}
+                    style={{
+                      transform: `translateX(${tooltipLeft}px)`,
+                      height: `calc(100% - ${margin[2]}px`,
+                    }}
                   />
                 </>
               )}
@@ -757,8 +753,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   height="6"
                   patternTransform="rotate(45)"
                 >
-                  <rect fill="#cccccc" width="3.5" height="6" />
-                  <rect fill="#aaaaaa" x="3.5" width="2.5" height="6" />
+                  <rect fill="#b0b0b0" width="3.5" height="6" />
+                  <rect fill="#a0a0a0" x="3.5" width="2.5" height="6" />
                 </pattern>
                 {exploreMask}
                 <clipPath id="bandit-date-graph-clip">
@@ -904,12 +900,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   tickValues={errorTicks}
                   tickFormat={() => "⚠️"}
                   tickLabelProps={() => ({
-                    fontSize: 10,
+                    fontSize: 12,
                     textAnchor: "middle",
-                    dy: 0,
+                    dy: 25,
                   })}
                   tickLineProps={{
-                    stroke: "#ff6600",
+                    stroke: "transparent",
                   }}
                 />
 
