@@ -43,13 +43,13 @@ export default function DesignSystemPage() {
             description="This is a description"
           />
           <Checkbox
-            label="Checkbox With Warning"
+            label="Checkbox With Warning (and description)"
             value={checked}
             setValue={(v) => {
               setChecked(v);
             }}
             description="This is a description"
-            error="This is an error message"
+            error="This is a warning message"
             errorLevel="warning"
           />
           <Checkbox
