@@ -110,7 +110,7 @@ const AddLinkedChangeRow = ({
           </b>
           {isCTAClickable ? (
             <div
-              className="btn btn-link p-0"
+              className="btn btn-link link-purple p-0"
               onClick={() => {
                 setModal(true);
                 track(`Open ${type} modal`, {

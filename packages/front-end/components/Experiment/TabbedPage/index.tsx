@@ -287,7 +287,7 @@ export default function TabbedPage({
         checklistItemsRemaining={checklistItemsRemaining}
         verifiedConnections={verifiedConnections}
       />
-      <div className="container pagecontents pb-4">
+      <div className="container pagecontents pb-4 px-3">
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
           <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
@@ -354,8 +354,6 @@ export default function TabbedPage({
           <SetupTabOverview
             experiment={experiment}
             mutate={mutate}
-            safeToEdit={safeToEdit}
-            editVariations={!viewingOldPhase ? editVariations : undefined}
             disableEditing={viewingOldPhase}
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
@@ -367,6 +365,8 @@ export default function TabbedPage({
           <Implementation
             experiment={experiment}
             mutate={mutate}
+            safeToEdit={safeToEdit}
+            editVariations={!viewingOldPhase ? editVariations : undefined}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
             setUrlRedirectModal={setUrlRedirectModal}
