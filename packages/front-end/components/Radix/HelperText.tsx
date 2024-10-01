@@ -1,4 +1,4 @@
-import { Text, TextProps } from "@radix-ui/themes";
+import { Flex, Text, TextProps } from "@radix-ui/themes";
 import { ReactElement } from "react";
 import {
   PiCheckCircleFill,
@@ -44,7 +44,9 @@ export default function HelperText({
 }) {
   return (
     <Text color={getRadixColor(status)}>
-      <RadixStatusIcon status={status} /> {children}
+      <Flex align="center" gap="1">
+        <RadixStatusIcon status={status} /> {children}
+      </Flex>
     </Text>
   );
 }
