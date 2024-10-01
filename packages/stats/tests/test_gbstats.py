@@ -322,10 +322,12 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
-    weights=[
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4),
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4),
+    historical_weights=[
+        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
+        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
     ],
+    current_weights=[1 / 4] * 4,
+    reweight=True,
     decision_metric="count_metric",
     bandit_weights_seed=int(100),
     weight_by_period=True,
@@ -852,7 +854,9 @@ class TestBandit(TestCase):
             var_names=self.bandit_analysis.var_names,
             bandit=True,
         )
-        result = create_bandit_statistics(df, self.metric, self.historical_weights)
+        result = create_bandit_statistics_previous(
+            df, self.metric, self.historical_weights
+        )
         stats_0 = []
         stats_1 = []
         for d in QUERY_OUTPUT_BANDITS:
@@ -908,7 +912,7 @@ class TestBandit(TestCase):
             self.rows, self.metric, self.analysis, self.bandit_analysis
         )
         self.assertEqual(result.updateMessage, self.update_messages[0])
-        self.assertEqual(result.weights, self.true_weights)
+        self.assertEqual(result.updatedWeights, self.true_weights)
         # self.assertEqual(result.additionalReward, self.true_additional_reward)
 
     def test_get_bandit_result_2(self):
@@ -927,7 +931,7 @@ class TestBandit(TestCase):
                 rows_2, self.metric, self.analysis, self.bandit_analysis
             )
             self.assertEqual(result.updateMessage, self.update_messages[0])
-            self.assertEqual(result.weights, self.true_weights)
+            self.assertEqual(result.updatedWeights, self.true_weights)
             # self.assertEqual(result.additionalReward, self.true_additional_reward)
         else:
             assert 1 > 2, "wrong class"

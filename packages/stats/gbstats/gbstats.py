@@ -467,7 +467,7 @@ def variation_statistic_from_metric_row(
         return base_statistic_from_metric_row(
             row, prefix, "main", metric.main_metric_type
         )
-    elif metric.statistic_type == "mean_ra" or metric.statistic_type == "bandit_ra":
+    elif metric.statistic_type == "mean_ra":
         post_statistic = base_statistic_from_metric_row(
             row, prefix, "main", metric.main_metric_type
         )
@@ -476,9 +476,8 @@ def variation_statistic_from_metric_row(
         )
         post_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
         n = row[f"{prefix}_users"]
-        theta = row[
-            f"{prefix}_theta"
-        ]  # Theta will be overriden with correct value later for A/B tests
+        # Theta will be overriden with correct value later for A/B tests, needs to be passed in for bandits
+        theta = row[f"{prefix}_theta"] if f"{prefix}_theta" in row.index else 0
         return RegressionAdjustedStatistic(
             post_statistic=post_statistic,
             pre_statistic=pre_statistic,
