@@ -30,7 +30,8 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { isColumnEligibleForPrompting } from "shared/experiments";
+import { canInlineFilterColumn } from "shared/experiments";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -68,6 +69,13 @@ export interface Props {
   goBack?: () => void;
   source: string;
 }
+
+type InlineFilterField = {
+  label: string;
+  key: string;
+  options: string[];
+  error?: string;
+};
 
 function QuantileSelector({
   value,
@@ -190,17 +198,17 @@ function ColumnRefSelector({
     });
   }
 
-  const promptFields = (factTable?.columns || [])
+  const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
     .filter((col) =>
-      isColumnEligibleForPrompting(factTable as FactTableInterface, col)
+      canInlineFilterColumn(factTable as FactTableInterface, col)
     )
     .filter((col) => {
-      // Always show prompt fields for certain columns
-      if (col.alwaysPrompt) return true;
+      // Always show fields for certain columns
+      if (col.alwaysInlineFilter) return true;
 
-      // If there is an existing prompt value, show the prompt field
-      // This could happen if the column was previously always prompted
-      if (value.promptValues?.[col.column]?.some((v) => !!v)) return true;
+      // If there is an existing inline filter, show the field
+      // This could happen if the column was previously inline filtered
+      if (value.inlineFilters?.[col.column]?.some((v) => !!v)) return true;
 
       // Otherwise, don't prompt for this column
       return false;
@@ -209,8 +217,8 @@ function ColumnRefSelector({
       const options = new Set(col.topValues || []);
 
       // Add any custom values that have been entered
-      if (value.promptValues?.[col.column]) {
-        value.promptValues[col.column].forEach((v) => options.add(v));
+      if (value.inlineFilters?.[col.column]) {
+        value.inlineFilters[col.column].forEach((v) => options.add(v));
       }
 
       return {
@@ -219,6 +227,19 @@ function ColumnRefSelector({
         options: [...options],
       };
     });
+
+  // Additional prompt fields referencing columns that are not eligible for prompting
+  Object.entries(value.inlineFilters || {}).forEach(([k, v]) => {
+    if (!v.some((v) => !!v)) return;
+    if (!inlineFilterFields.some((f) => f.key === k)) {
+      inlineFilterFields.push({
+        label: k,
+        key: k,
+        options: v,
+        error: "This column is no longer available for filtering",
+      });
+    }
+  });
 
   return (
     <div className="appbox px-3 pt-3 bg-light">
@@ -260,15 +281,23 @@ function ColumnRefSelector({
             required
           />
         </div>
-        {promptFields.map(({ label, key, options }) => (
+        {inlineFilterFields.map(({ label, key, options, error }) => (
           <div className="col-auto" key={key}>
             <MultiSelectField
-              label={label}
-              value={value.promptValues?.[key] || []}
+              label={
+                error ? (
+                  <Tooltip body={error}>
+                    {label} <FaTriangleExclamation className="text-danger" />
+                  </Tooltip>
+                ) : (
+                  label
+                )
+              }
+              value={value.inlineFilters?.[key] || []}
               onChange={(v) =>
                 setValue({
                   ...value,
-                  promptValues: { ...value.promptValues, [key]: v },
+                  inlineFilters: { ...value.inlineFilters, [key]: v },
                 })
               }
               options={options.map((o) => ({
@@ -289,7 +318,7 @@ function ColumnRefSelector({
             <MultiSelectField
               label={
                 <>
-                  {promptFields.length > 0
+                  {inlineFilterFields.length > 0
                     ? "Additional Filters"
                     : "Included Rows"}{" "}
                   <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
@@ -301,7 +330,7 @@ function ColumnRefSelector({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder={promptFields.length > 0 ? "None" : "All Rows"}
+              placeholder={inlineFilterFields.length > 0 ? "None" : "All Rows"}
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);

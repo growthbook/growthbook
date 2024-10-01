@@ -37,7 +37,7 @@ export function isFactMetric(
   return "metricType" in m;
 }
 
-export function isColumnEligibleForPrompting(
+export function canInlineFilterColumn(
   factTable: Pick<FactTableInterface, "userIdTypes">,
   column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
 ): boolean {
@@ -56,29 +56,25 @@ export function getColumnRefWhereClause(
   columnRef: ColumnRef,
   escapeStringLiteral: (s: string) => string
 ): string[] {
-  const promptValues = columnRef.promptValues || {};
+  const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
 
-  const where: string[] = [];
+  const where = new Set<string>();
 
-  // First add prompted filters
-  factTable.columns.forEach((column) => {
-    if (column.column in promptValues) {
-      if (!isColumnEligibleForPrompting(factTable, column)) {
-        return;
-      }
-
-      const escapedValues = promptValues[column.column]
+  // First add inline filters
+  Object.entries(inlineFilters).forEach(([column, values]) => {
+    const escapedValues = new Set(
+      values
         .filter((v) => v.length > 0)
-        .map((v) => "'" + escapeStringLiteral(v) + "'");
+        .map((v) => "'" + escapeStringLiteral(v) + "'")
+    );
 
-      if (escapedValues.length === 1) {
-        where.push(`${column.column} = ${escapedValues[0]}`);
-      } else if (escapedValues.length > 1) {
-        where.push(
-          `${column.column} IN (\n  ${escapedValues.join(",\n  ")}\n)`
-        );
-      }
+    if (!escapedValues.size) {
+      return;
+    } else if (escapedValues.size === 1) {
+      where.add(`${column} = ${[...escapedValues][0]}`);
+    } else {
+      where.add(`${column} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
     }
   });
 
@@ -86,11 +82,11 @@ export function getColumnRefWhereClause(
   filterIds.forEach((filterId) => {
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (filter) {
-      where.push(filter.value);
+      where.add(filter.value);
     }
   });
 
-  return where;
+  return [...where];
 }
 
 export function getMetricTemplateVariables(

@@ -8,7 +8,7 @@ import {
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
-import { isColumnEligibleForPrompting } from "shared/experiments";
+import { canInlineFilterColumn } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -39,7 +39,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       name: existing?.name || "",
       numberFormat: existing?.numberFormat || "",
       datatype: existing?.datatype || "",
-      alwaysPrompt: existing?.alwaysPrompt || false,
+      alwaysInlineFilter: existing?.alwaysInlineFilter || false,
     },
   });
 
@@ -59,17 +59,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             name: value.name,
             numberFormat: value.numberFormat,
             datatype: value.datatype,
-            alwaysPrompt: value.alwaysPrompt,
+            alwaysInlineFilter: value.alwaysInlineFilter,
           };
 
           if (
-            data.alwaysPrompt &&
-            !isColumnEligibleForPrompting(factTable, {
+            data.alwaysInlineFilter &&
+            !canInlineFilterColumn(factTable, {
               ...existing,
               ...data,
             })
           ) {
-            data.alwaysPrompt = false;
+            data.alwaysInlineFilter = false;
           }
 
           await apiCall(
@@ -160,15 +160,15 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         placeholder={form.watch("column")}
       />
 
-      {isColumnEligibleForPrompting(factTable, {
+      {canInlineFilterColumn(factTable, {
         column: form.watch("column"),
         datatype: form.watch("datatype"),
         deleted: false,
       }) && (
         <div className="form-group">
           <label>
-            <input type="checkbox" {...form.register("alwaysPrompt")} /> Prompt
-            all metrics to filter on this column{" "}
+            <input type="checkbox" {...form.register("alwaysInlineFilter")} />{" "}
+            Prompt all metrics to filter on this column{" "}
             <Tooltip body="Use this for columns that are almost always required, like 'event_type' if this is an events table" />
           </label>
         </div>

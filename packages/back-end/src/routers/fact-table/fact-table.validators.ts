@@ -18,7 +18,7 @@ export const createColumnPropsValidator = z
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
     deleted: z.boolean().optional(),
-    alwaysPrompt: z.boolean().optional(),
+    alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
   })
   .strict();
@@ -29,7 +29,7 @@ export const updateColumnPropsValidator = z
     description: z.string().optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
-    alwaysPrompt: z.boolean().optional(),
+    alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
   })
@@ -73,7 +73,7 @@ export const columnRefValidator = z
   .object({
     factTableId: z.string(),
     column: z.string(),
-    promptValues: z.record(z.string().array()).optional(),
+    inlineFilters: z.record(z.string().array()).optional(),
     filters: z.array(z.string()),
   })
   .strict();

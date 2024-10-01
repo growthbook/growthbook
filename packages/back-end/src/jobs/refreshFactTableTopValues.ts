@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { isColumnEligibleForPrompting } from "shared/experiments";
+import { canInlineFilterColumn } from "shared/experiments";
 import { getFactTable, updateColumn } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { FactTableInterface } from "back-end/types/fact-table";
@@ -32,8 +32,8 @@ const refreshFactTableTopValues = trackJob(
     if (!column) return;
 
     if (
-      !column.alwaysPrompt ||
-      !isColumnEligibleForPrompting(factTable, column)
+      !column.alwaysInlineFilter ||
+      !canInlineFilterColumn(factTable, column)
     ) {
       return;
     }

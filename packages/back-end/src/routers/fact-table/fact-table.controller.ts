@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { isColumnEligibleForPrompting } from "shared/experiments";
+import { canInlineFilterColumn } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -271,9 +271,9 @@ export const putColumn = async (
 
   // If we're just toggling prompting on, populate values
   if (
-    !col.alwaysPrompt &&
-    data.alwaysPrompt &&
-    isColumnEligibleForPrompting(factTable, updatedCol)
+    !col.alwaysInlineFilter &&
+    data.alwaysInlineFilter &&
+    canInlineFilterColumn(factTable, updatedCol)
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {

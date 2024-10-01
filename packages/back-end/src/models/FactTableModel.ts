@@ -41,7 +41,7 @@ const factTableSchema = new mongoose.Schema({
       numberFormat: String,
       datatype: String,
       deleted: Boolean,
-      alwaysPrompt: Boolean,
+      alwaysInlineFilter: Boolean,
       topValues: [String],
       topValuesDate: Date,
     },
@@ -243,10 +243,10 @@ export async function updateColumn(
   if (columnIndex < 0) throw new Error("Could not find that column");
 
   if (
-    changes.alwaysPrompt &&
+    changes.alwaysInlineFilter &&
     (changes.datatype || factTable.columns[columnIndex]?.datatype) !== "string"
   ) {
-    throw new Error("Only string columns can be set to always prompt");
+    throw new Error("Only string columns are eligible for inline filtering");
   }
 
   factTable.columns[columnIndex] = {

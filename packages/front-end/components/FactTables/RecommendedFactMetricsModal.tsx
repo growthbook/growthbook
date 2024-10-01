@@ -5,7 +5,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
-import { isColumnEligibleForPrompting } from "shared/experiments";
+import { canInlineFilterColumn } from "shared/experiments";
 import { useState } from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -49,7 +49,7 @@ export function getRecommendedFactMetrics(
         factTableId: factTable.id,
         column: type === "proportion" ? "$$distinctUsers" : "$$count",
         filters: [],
-        promptValues: column
+        inlineFilters: column
           ? {
               [column.column]: [value || ""],
             }
@@ -64,8 +64,8 @@ export function getRecommendedFactMetrics(
 
   const columnsWithTopValues = factTable.columns.filter(
     (column) =>
-      column.alwaysPrompt &&
-      isColumnEligibleForPrompting(factTable, column) &&
+      column.alwaysInlineFilter &&
+      canInlineFilterColumn(factTable, column) &&
       column.topValues?.length
   );
 
@@ -80,7 +80,7 @@ export function getRecommendedFactMetrics(
       (m) =>
         m.metricType === "proportion" &&
         !m.numerator.filters?.length &&
-        !Object.values(m.numerator.promptValues || {}).filter(Boolean).length
+        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length
     )
   ) {
     addMetric("proportion");
@@ -93,7 +93,7 @@ export function getRecommendedFactMetrics(
         m.metricType === "mean" &&
         m.numerator.column === "$$count" &&
         !m.numerator.filters?.length &&
-        !Object.values(m.numerator.promptValues || {}).filter(Boolean).length
+        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length
     )
   ) {
     addMetric("mean");
@@ -106,7 +106,7 @@ export function getRecommendedFactMetrics(
       if (
         metrics.some(
           (m) =>
-            m.numerator.promptValues?.[column.column]?.includes(value) ||
+            m.numerator.inlineFilters?.[column.column]?.includes(value) ||
             m.numerator.filters?.some(
               (f) =>
                 filterMap[f]?.includes(column.column) &&

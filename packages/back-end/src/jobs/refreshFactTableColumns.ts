@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { isColumnEligibleForPrompting } from "shared/experiments";
+import { canInlineFilterColumn } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -165,7 +165,7 @@ export async function runRefreshColumnsQuery(
   });
 
   for (const col of columns) {
-    if (col.alwaysPrompt && isColumnEligibleForPrompting(factTable, col)) {
+    if (col.alwaysInlineFilter && canInlineFilterColumn(factTable, col)) {
       try {
         col.topValues = await runColumnTopValuesQuery(
           context,
