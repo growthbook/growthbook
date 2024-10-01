@@ -47,6 +47,7 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHours";
 import { AppFeatures } from "@/types/app-features";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export interface Props {
   close?: () => void;
@@ -976,23 +977,14 @@ export default function FactMetricModal({
                 <div className="px-3 py-2 pb-0 mb-2 border rounded">
                   {regressionAdjustmentAvailableForMetric ? (
                     <>
-                      <div className="form-group mb-0 mr-0 form-inline">
-                        <div className="form-inline my-1">
-                          <input
-                            type="checkbox"
-                            className="form-check-input"
-                            {...form.register("regressionAdjustmentOverride")}
-                            id={"toggle-regressionAdjustmentOverride"}
-                            disabled={!hasRegressionAdjustmentFeature}
-                          />
-                          <label
-                            className="mr-1 cursor-pointer"
-                            htmlFor="toggle-regressionAdjustmentOverride"
-                          >
-                            Override organization-level settings
-                          </label>
-                        </div>
-                      </div>
+                      <Checkbox
+                        label="Override organization-level settings"
+                        value={form.watch("regressionAdjustmentOverride")}
+                        setValue={(v) =>
+                          form.setValue("regressionAdjustmentOverride", v)
+                        }
+                        disabled={!hasRegressionAdjustmentFeature}
+                      />
                       <div
                         style={{
                           display: form.watch("regressionAdjustmentOverride")

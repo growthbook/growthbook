@@ -130,6 +130,7 @@ function App({
       {ready ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
+            <div id="portal-root" />
             {preAuth ? (
               renderPreAuth()
             ) : (
