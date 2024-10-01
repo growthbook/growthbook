@@ -39,7 +39,7 @@ export default function HelperText({
   children,
   status,
 }: {
-  children: React.ReactNode;
+  children: string;
   status: Status;
 }) {
   return (
