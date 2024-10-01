@@ -3908,7 +3908,7 @@ export default abstract class SqlIntegration
     return format(
       `
 WITH
-  __factTable as (
+  __factTable AS (
     ${compileSqlTemplate(factTable.sql, {
       startDate: start,
       templateVariables: {
@@ -3916,10 +3916,10 @@ WITH
       },
     })}
   ),
-  __topValues as (
+  __topValues AS (
     SELECT
-      ${column.column} as value,
-      COUNT(*) as count
+      ${column.column} AS value,
+      COUNT(*) AS count
     FROM __factTable
     WHERE timestamp >= ${this.toTimestamp(start)}
     GROUP BY ${column.column}
@@ -3939,7 +3939,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       statistics,
       rows: rows.map((r) => ({
         value: r.value + "",
-        count: 1 * r.count,
+        count: parseFloat(r.count),
       })),
     };
   }

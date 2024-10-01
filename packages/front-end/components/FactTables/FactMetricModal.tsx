@@ -285,13 +285,16 @@ function ColumnRefSelector({
           <div className="col-auto" key={key}>
             <MultiSelectField
               label={
-                error ? (
-                  <Tooltip body={error}>
-                    {label} <FaTriangleExclamation className="text-danger" />
-                  </Tooltip>
-                ) : (
-                  label
-                )
+                <>
+                  {label}{" "}
+                  {error ? (
+                    <Tooltip body={error}>
+                      <FaTriangleExclamation className="text-danger" />
+                    </Tooltip>
+                  ) : (
+                    <Tooltip body="If selecting multiple values, only one needs to match for a row to be included." />
+                  )}
+                </>
               }
               value={value.inlineFilters?.[key] || []}
               onChange={(v) =>
