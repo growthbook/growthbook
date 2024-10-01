@@ -1,12 +1,12 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateMetricGroupProps,
   MetricGroupInterface,
-} from "../../../types/metric-groups";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { removeMetricFromExperiments } from "../../models/ExperimentModel";
+} from "back-end/types/metric-groups";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { removeMetricFromExperiments } from "back-end/src/models/ExperimentModel";
 
 export const getMetricGroups = async (
   req: AuthRequest,
