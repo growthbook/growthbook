@@ -41,7 +41,7 @@ In practice, GrowthBook ensures that each variation has at least 1% of traffic (
 
 To run a bandit experiment, go to "Experiments" on the left side-bar, and click "Bandit Experiments". Select the "Add Experiment" button.
 
-When creating your experiment, most of the fields are the same as those described in [setup of a standard A/B test](/app/experiments-setup). We list key differences below.
+When creating your experiment, most of the fields are the same as those described in [setup of a standard A/B test](/app/experiment-configuration). We list key differences below.
 
 First, you will need to specify a decision metric, which is the metric used to determine how much traffic to send to each variation. In our example above, revenue was the decision metric.
 
@@ -61,10 +61,10 @@ Longer update cadences can reduce cost, as fewer queries are run. However, if yo
 
 ## Bias
 
-Bandit results can be biased, and the potential direction of bias is unknown.  
-First, variation means can be biased low, because bandits allocate more traffic to the most profitable variations.  
+Bandit results can be biased, and the potential direction of bias is unknown.
+First, variation means can be biased low, because bandits allocate more traffic to the most profitable variations.
 A variation that is "unlucky" at the beginning of an experiment (i.e., biased low) receive less traffic going forward, and has fewer chances to have have its luck even out and become unbiased.
-A variation that is "lucky" at the beginning of an experiment receive more traffic going forward, and its sample mean is likely to regress towards its population mean. Note that all variation means being biased low is better for inference than only 1 being biased low, because when we take the difference in sample means, some of this bias cancels.  
+A variation that is "lucky" at the beginning of an experiment receive more traffic going forward, and its sample mean is likely to regress towards its population mean. Note that all variation means being biased low is better for inference than only 1 being biased low, because when we take the difference in sample means, some of this bias cancels.
 Second, if you terminate your experiment early because of the success of one specific mean, then this variation mean may be biased high due to luck at the beginning of the experiment. Terminating the experiment precludes future data from mitigating this bias.
 
 In summary, bandit experiments can exhibit bias. The magnitude of this bias decreases as the experiment continues, so large sample sizes help. Further, compared to fixed weight experiments, bandits can better identify the best arm, can save money, and produce more accurate results in some cases.
@@ -95,7 +95,7 @@ We use the following notation.
 4. Define the current sample size as $n$.
 5. After collecting $n$ observations, for each arm define sample mean revenue as $\bar{\mu}_{k, n}$ and its estimated standard error as $\hat{s}_{k, n}$.
 
-As stated above, in the exploratory phase traffic is randomly assigned to each variation with equal probability. After this (usually short) phase, traffic is assigned to variation $k$ proportionally to the probability that the $k^{\text{th}}$ arm has the highest mean revenue.  
+As stated above, in the exploratory phase traffic is randomly assigned to each variation with equal probability. After this (usually short) phase, traffic is assigned to variation $k$ proportionally to the probability that the $k^{\text{th}}$ arm has the highest mean revenue.
 After $n$ samples have been collected, our model is of the form
 
 $$
@@ -121,22 +121,22 @@ $$
 
 We estimate the variation weights as follows. We use Equation (2) to generate a realization from the posterior for each arm, and store which realization was the largest. We repeat this 10,000 times. The average number of times the $k^{\text{th}}$ realization was the biggest is an empirical estimate for the probability we desire. We return these empirical estimates to our SDK, which uses them for multinomial random assignment.
 
-Note: top-two sampling math and perhaps other details will be in separate technical doc, as for Bayesian power.  
+Note: top-two sampling math and perhaps other details will be in separate technical doc, as for Bayesian power.
 We also permit top-two sampling, where we estimate variation weights that is equivalent to:
 
 1. sampling from the posterior mean for each variation; and 2) randomly assigning to treatment with equal probabiity from the two largest posterior mean realizations.
 
-WLOG we estimate the probability that variations 1 and 2 have the largest two samples. Suppose they have variation weights $p_{1}$ and $p_{2}$ respectively.  
-The probability that variation 1 has the largest posterior mean realization is $p1$.  
-The probability that variation 2 has the second largest posterior mean realization conditional upon variation 1 being the largest is $p2 / (1-p1)$.  
-Multiplying these together produces $p1 p2 / (1 - p1)$.  
-Similarly, the probability of variation 2 being the biggest, and then variation 1 being the second biggest, is $p2 p1 / (1 - p2)$.  
-Summing these two terms together gives the probability that variations 1 and 2 have the largest two samples.  
-For variation 1 we calculate this quantity for all other arms and then sum across arms.  
-Dividing by 2 to account for the second sampling stage produces the desired result.  
+WLOG we estimate the probability that variations 1 and 2 have the largest two samples. Suppose they have variation weights $p_{1}$ and $p_{2}$ respectively.
+The probability that variation 1 has the largest posterior mean realization is $p1$.
+The probability that variation 2 has the second largest posterior mean realization conditional upon variation 1 being the largest is $p2 / (1-p1)$.
+Multiplying these together produces $p1 p2 / (1 - p1)$.
+Similarly, the probability of variation 2 being the biggest, and then variation 1 being the second biggest, is $p2 p1 / (1 - p2)$.
+Summing these two terms together gives the probability that variations 1 and 2 have the largest two samples.
+For variation 1 we calculate this quantity for all other arms and then sum across arms.
+Dividing by 2 to account for the second sampling stage produces the desired result.
 Top-two sampling helps exploration.
 
-To estimate effects we use our standard Bayesian machinery, as described [here](/statistics/details#bayesian-engine).  
+To estimate effects we use our standard Bayesian machinery, as described [here](/statistics/details#bayesian-engine).
 The independent normal priors translate to
 
 $$
