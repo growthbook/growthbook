@@ -45,7 +45,7 @@ export const growthbook = new GrowthBook<AppFeatures>({
       : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
   subscribeToChanges: true,
-  realtimeKey: process.env?.DISABLE_TELEMETRY
+  realtimeKey: process?.env?.DISABLE_TELEMETRY
     ? ""
     : "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
