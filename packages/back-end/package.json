@@ -14,8 +14,6 @@
     "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
     "start": "node dist/server.js",
     "start:with-tracing": "node --require @opentelemetry/auto-instrumentations-node/register dist/server.js",
-    "start:with-source-maps": "NODE_OPTIONS=--enable-source-maps yarn start",
-    "start:with-tracing:with-source-maps": "NODE_OPTIONS=--enable-source-maps yarn start:with-tracing",
     "repl": "node --require ts-node/register/transpile-only --experimental-repl-await repl",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
