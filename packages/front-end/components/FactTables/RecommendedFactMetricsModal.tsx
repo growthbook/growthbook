@@ -163,7 +163,7 @@ export default function RecommendedFactMetricsModal({
       return `${prefix}Count per User`;
     }
     if (metric.metricType === "proportion") {
-      return `${prefix}Percent of Users`;
+      return `${prefix}Proportion of Users`;
     }
 
     return `${namePrefix}${metric.metricType}`;
@@ -184,6 +184,7 @@ export default function RecommendedFactMetricsModal({
       submit={async () => {
         let failures = 0;
         setProgress(0);
+        let numProcessed = 0;
         for (const i of checked) {
           const body: CreateFactMetricProps = getDefaultFactMetricProps({
             datasources,
@@ -203,11 +204,12 @@ export default function RecommendedFactMetricsModal({
               method: "POST",
               body: JSON.stringify(body),
             });
-            await new Promise((r) => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 750));
           } catch (e) {
             failures++;
           }
-          setProgress((i + 1) / metrics.length);
+          numProcessed++;
+          setProgress(numProcessed / checked.size);
         }
         // Hide progress bar at end
         setProgress(0);
@@ -311,15 +313,19 @@ export default function RecommendedFactMetricsModal({
           ))}
         </tbody>
       </table>
-      {progress > 0 && (
-        <div className="progress mt-2">
+
+      {progress > 0 ? (
+        <div
+          className="progress"
+          style={{ position: "sticky", bottom: "-1rem", height: 10 }}
+        >
           <div
             className="progress-bar"
             role="progressbar"
             style={{ width: `${100 * parseFloat(progress.toFixed(3))}%` }}
           />
         </div>
-      )}
+      ) : null}
     </Modal>
   );
 }
