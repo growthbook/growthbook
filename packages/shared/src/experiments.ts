@@ -52,8 +52,9 @@ export function isColumnEligibleForPrompting(
 }
 
 export function getColumnRefWhereClause(
-  factTable: FactTableInterface,
-  columnRef: ColumnRef
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
+  columnRef: ColumnRef,
+  escapeStringLiteral: (s: string) => string
 ): string[] {
   const promptValues = columnRef.promptValues || {};
   const filterIds = columnRef.filters || [];
@@ -62,23 +63,21 @@ export function getColumnRefWhereClause(
 
   // First add prompted filters
   factTable.columns.forEach((column) => {
-    if (column.alwaysPrompt) {
-      if (column.column in promptValues) {
-        if (!isColumnEligibleForPrompting(factTable, column)) {
-          return;
-        }
+    if (column.column in promptValues) {
+      if (!isColumnEligibleForPrompting(factTable, column)) {
+        return;
+      }
 
-        const escapedValues = promptValues[column.column]
-          .map((v) => "'" + v.replace(/'/g, "''") + "'")
-          .filter((v) => v.length > 0);
+      const escapedValues = promptValues[column.column]
+        .filter((v) => v.length > 0)
+        .map((v) => "'" + escapeStringLiteral(v) + "'");
 
-        if (escapedValues.length === 1) {
-          where.push(`${column.column} = ${escapedValues[0]}`);
-        } else if (escapedValues.length > 1) {
-          where.push(
-            `${column.column} IN (\n  ${escapedValues.join(",\n  ")}\n)`
-          );
-        }
+      if (escapedValues.length === 1) {
+        where.push(`${column.column} = ${escapedValues[0]}`);
+      } else if (escapedValues.length > 1) {
+        where.push(
+          `${column.column} IN (\n  ${escapedValues.join(",\n  ")}\n)`
+        );
       }
     }
   });

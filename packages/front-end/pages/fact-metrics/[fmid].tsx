@@ -153,7 +153,9 @@ function ColumnRefSQL({
 
   const name = colData?.name;
 
-  const where = getColumnRefWhereClause(factTable, columnRef);
+  const where = getColumnRefWhereClause(factTable, columnRef, (s) =>
+    s.replace(/'/g, "''")
+  );
 
   const column =
     id === "$$count"

@@ -1,5 +1,6 @@
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
+import refreshFactTableTopValues from "back-end/src/jobs/refreshFactTableTopValues";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
 import addWebhooksJob from "back-end/src/jobs/webhooks";
 import addMetricUpdateJob from "back-end/src/jobs/updateMetrics";
@@ -35,6 +36,7 @@ export async function queueInit() {
   updateStaleInformationSchemaTable(agenda);
   expireOldQueries(agenda);
   refreshFactTableColumns(agenda);
+  refreshFactTableTopValues(agenda);
   addSdkWebhooksJob(agenda);
   updateLicenseJob(agenda);
 

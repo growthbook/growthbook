@@ -4017,7 +4017,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = getColumnRefWhereClause(factTable, m.numerator);
+      const filters = getColumnRefWhereClause(factTable, m.numerator, (s) =>
+        this.escapeStringLiteral(s)
+      );
 
       const column =
         filters.length > 0
@@ -4040,7 +4042,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = getColumnRefWhereClause(factTable, m.denominator);
+        const filters = getColumnRefWhereClause(factTable, m.denominator, (s) =>
+          this.escapeStringLiteral(s)
+        );
         const column =
           filters.length > 0
             ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
@@ -4232,7 +4236,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      getColumnRefWhereClause(factTable, columnRef).forEach((filterSQL) => {
+      getColumnRefWhereClause(factTable, columnRef, (s) =>
+        this.escapeStringLiteral(s)
+      ).forEach((filterSQL) => {
         where.push(filterSQL);
       });
 

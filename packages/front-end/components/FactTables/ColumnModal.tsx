@@ -63,13 +63,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           };
 
           if (
-            value.alwaysPrompt &&
+            data.alwaysPrompt &&
             !isColumnEligibleForPrompting(factTable, {
               ...existing,
               ...data,
             })
           ) {
-            value.alwaysPrompt = false;
+            data.alwaysPrompt = false;
           }
 
           await apiCall(

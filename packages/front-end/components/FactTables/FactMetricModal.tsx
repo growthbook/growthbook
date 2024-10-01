@@ -30,6 +30,7 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { isColumnEligibleForPrompting } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -190,7 +191,20 @@ function ColumnRefSelector({
   }
 
   const promptFields = (factTable?.columns || [])
-    .filter((col) => col.datatype === "string" && col.alwaysPrompt)
+    .filter((col) =>
+      isColumnEligibleForPrompting(factTable as FactTableInterface, col)
+    )
+    .filter((col) => {
+      // Always show prompt fields for certain columns
+      if (col.alwaysPrompt) return true;
+
+      // If there is an existing prompt value, show the prompt field
+      // This could happen if the column was previously always prompted
+      if (value.promptValues?.[col.column]?.length) return true;
+
+      // Otherwise, don't prompt for this column
+      return false;
+    })
     .map((col) => {
       const options = new Set(col.topValues || []);
 
