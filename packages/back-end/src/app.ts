@@ -31,9 +31,7 @@ import { getBuild } from "./util/handler";
 if (SENTRY_DSN) {
   const buildInfo = getBuild();
 
-  Sentry.init({ dsn: SENTRY_DSN, release: `growthbook@${buildInfo.sha}` });
-
-  Sentry.setTag("build_date", buildInfo.date);
+  Sentry.init({ dsn: SENTRY_DSN, release: buildInfo.sha });
 }
 
 // Begin Controllers

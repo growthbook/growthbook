@@ -52,22 +52,22 @@ jobs:
             growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
           platforms: linux/amd64,linux/arm64
 
-      - name: Notify Sentry of new release
+  sentry-release:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1.7.0
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
           SENTRY_PROJECT: api
-        run: |
-          # Install the cli
-          curl -sL https://sentry.io/get-cli/ | bash
-
-          # Setup configuration values
-          VERSION=growthbook@${{ steps.metadata.outputs.sha }}
-
-          # Workflow to create releases
-          sentry-cli releases new "$VERSION"
-          sentry-cli releases set-commits "$VERSION" --auto
-          sentry-cli releases finalize "$VERSION"
+        with:
+          environment: production
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
