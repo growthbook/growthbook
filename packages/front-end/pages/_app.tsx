@@ -14,7 +14,7 @@ import { AuthProvider } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
 import { DefinitionsProvider } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import { initEnv } from "@/services/env";
+import { initEnv, isTelemetryEnabled } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "@/components/Layout/Layout";
@@ -45,7 +45,7 @@ export const growthbook = new GrowthBook<AppFeatures>({
       : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
   subscribeToChanges: true,
-  realtimeKey: "key_prod_cb40dfcb0eb98e44",
+  realtimeKey: isTelemetryEnabled() ? "key_prod_cb40dfcb0eb98e44" : "",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
       experimentId: experiment.key,
