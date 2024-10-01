@@ -73,3 +73,5 @@ export default function DesignSystemPage() {
     </div>
   );
 }
+DesignSystemPage.preAuth = true;
+DesignSystemPage.preAuthTopNav = true;
