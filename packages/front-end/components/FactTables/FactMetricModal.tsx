@@ -200,7 +200,7 @@ function ColumnRefSelector({
 
       // If there is an existing prompt value, show the prompt field
       // This could happen if the column was previously always prompted
-      if (value.promptValues?.[col.column]?.length) return true;
+      if (value.promptValues?.[col.column]?.some((v) => !!v)) return true;
 
       // Otherwise, don't prompt for this column
       return false;
@@ -262,43 +262,26 @@ function ColumnRefSelector({
         </div>
         {promptFields.map(({ label, key, options }) => (
           <div className="col-auto" key={key}>
-            {options.length > 0 ? (
-              <MultiSelectField
-                label={label}
-                value={value.promptValues?.[key] || []}
-                onChange={(v) =>
-                  setValue({
-                    ...value,
-                    promptValues: { ...value.promptValues, [key]: v },
-                  })
-                }
-                options={options.map((o) => ({
-                  label: o,
-                  value: o,
-                }))}
-                initialOption="Any"
-                formatOptionLabel={({ value, label }) =>
-                  value ? label : <em className="text-muted">{label}</em>
-                }
-                creatable
-                sort={false}
-              />
-            ) : (
-              <Field
-                label={label}
-                value={value.promptValues?.[key]?.[0] || ""}
-                onChange={(v) =>
-                  setValue({
-                    ...value,
-                    promptValues: {
-                      ...value.promptValues,
-                      [key]: [v.target.value],
-                    },
-                  })
-                }
-                placeholder="Any"
-              />
-            )}
+            <MultiSelectField
+              label={label}
+              value={value.promptValues?.[key] || []}
+              onChange={(v) =>
+                setValue({
+                  ...value,
+                  promptValues: { ...value.promptValues, [key]: v },
+                })
+              }
+              options={options.map((o) => ({
+                label: o,
+                value: o,
+              }))}
+              initialOption="Any"
+              formatOptionLabel={({ value, label }) =>
+                value ? label : <em className="text-muted">{label}</em>
+              }
+              creatable
+              sort={false}
+            />
           </div>
         ))}
         {factTable && factTable.filters.length > 0 ? (

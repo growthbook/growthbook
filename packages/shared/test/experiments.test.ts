@@ -17,6 +17,16 @@ describe("Experiments", () => {
       name: "Event Name",
       deleted: false,
     };
+    const userIdColumn: ColumnInterface = {
+      column: "user_id",
+      datatype: "string",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "The user id",
+      numberFormat: "",
+      name: "User ID",
+      deleted: false,
+    };
     const numericColumn: ColumnInterface = {
       column: "event_count",
       datatype: "number",
@@ -105,6 +115,7 @@ describe("Experiments", () => {
               unknown_column: ["unknown_value"],
               [numericColumn.column]: ["1"],
               [deletedColumn.column]: ["deleted"],
+              [userIdColumn.column]: ["user"],
             },
           },
           escapeStringLiteral
