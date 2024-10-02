@@ -416,6 +416,7 @@ export function getDefaultFactMetricProps({
   project,
   datasources,
   initialFactTable,
+  convertToPercents,
 }: {
   metricDefaults: MetricDefaults;
   settings: OrganizationSettings;
@@ -423,7 +424,10 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
+  convertToPercents: boolean;
 }): CreateFactMetricProps {
+  const multiplier = convertToPercents ? 100 : 1;
+
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
@@ -457,19 +461,19 @@ export function getDefaultFactMetricProps({
       windowUnit: "days",
       windowValue: 3,
     },
-    winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
-    loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
+    winRisk: (existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD) * multiplier,
+    loseRisk: (existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD) * multiplier,
     minPercentChange:
-      (existing?.minPercentChange ||
-        metricDefaults.minPercentageChange ||
-        DEFAULT_MIN_PERCENT_CHANGE) * 100,
+      (existing?.minPercentChange ??
+        metricDefaults.minPercentageChange ??
+        DEFAULT_MIN_PERCENT_CHANGE) * multiplier,
     maxPercentChange:
-      (existing?.maxPercentChange ||
-        metricDefaults.maxPercentageChange ||
-        DEFAULT_MAX_PERCENT_CHANGE) * 100,
+      (existing?.maxPercentChange ??
+        metricDefaults.maxPercentageChange ??
+        DEFAULT_MAX_PERCENT_CHANGE) * multiplier,
     minSampleSize:
-      existing?.minSampleSize ||
-      metricDefaults.minimumSampleSize ||
+      existing?.minSampleSize ??
+      metricDefaults.minimumSampleSize ??
       DEFAULT_MIN_SAMPLE_SIZE,
     regressionAdjustmentOverride:
       existing?.regressionAdjustmentOverride || false,
@@ -477,8 +481,9 @@ export function getDefaultFactMetricProps({
       existing?.regressionAdjustmentEnabled ||
       DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
     regressionAdjustmentDays:
-      existing?.regressionAdjustmentDays ||
-      (settings.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
+      existing?.regressionAdjustmentDays ??
+      settings.regressionAdjustmentDays ??
+      DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     priorSettings:
       existing?.priorSettings ||
       (metricDefaults.priorSettings ?? {
@@ -529,6 +534,7 @@ export default function FactMetricModal({
       existing,
       settings,
       project,
+      convertToPercents: true,
       initialFactTable: initialFactTable
         ? getFactTableById(initialFactTable) || undefined
         : undefined,
