@@ -2,11 +2,13 @@ import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
 import { getFactTable, updateColumn } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "back-end/types/fact-table";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { trackJob } from "back-end/src/services/otel";
 import { logger } from "back-end/src/util/logger";
-import { runColumnTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
+import { ReqContext } from "back-end/types/organization";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 
 // Not used anywhere yet, but might be useful in the future
 const JOB_NAME = "refreshFactTableTopValues";
@@ -15,6 +17,36 @@ type RefreshFactTableTopValuesJob = Job<{
   factTableId: string;
   column: string;
 }>;
+
+export async function runColumnTopValuesQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: Pick<FactTableInterface, "sql" | "eventName">,
+  column: ColumnInterface
+): Promise<string[]> {
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (
+    !integration.getColumnTopValuesQuery ||
+    !integration.runColumnTopValuesQuery
+  ) {
+    throw new Error("Top values not supported on this data source");
+  }
+
+  const sql = integration.getColumnTopValuesQuery({
+    factTable,
+    column,
+    limit: 100,
+  });
+
+  const result = await integration.runColumnTopValuesQuery(sql);
+
+  return result.rows.map((r) => r.value);
+}
 
 const refreshFactTableTopValues = trackJob(
   JOB_NAME,
