@@ -1077,7 +1077,6 @@ export default abstract class SqlIntegration
         return {
           variation: row.variation ?? "",
           dimension: row.dimension || "",
-          bandit_period: row.bandit_period ?? 0,
           users: parseInt(row.users) || 0,
           count: parseInt(row.users) || 0,
           ...metricData,
@@ -1097,7 +1096,6 @@ export default abstract class SqlIntegration
         return {
           variation: row.variation ?? "",
           dimension: row.dimension || "",
-          bandit_period: row.bandit_period ?? 0,
           users: parseInt(row.users) || 0,
           count: parseInt(row.users) || 0,
           main_sum: parseFloat(row.main_sum) || 0,
@@ -3137,106 +3135,292 @@ export default abstract class SqlIntegration
         `
           : ""
       }
-      -- One row per variation/dimension with aggregations
-      SELECT
-        m.variation AS variation,
+  ${
+    banditDates?.length
+      ? this.getBanditStatisticsCTE({
+          baseIdType,
+          capCoalesceMetric,
+          isPercentileCapped,
+          capCoalesceDenominator,
+          ratioMetric,
+          denominatorIsPercentileCapped,
+          regressionAdjusted,
+          capCoalesceCovariate,
+          ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
+        })
+      : `
+  -- One row per variation/dimension with aggregations
+  SELECT
+    m.variation AS variation,
+    ${
+      cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
+    } AS dimension,
+    ${banditDates?.length ? "m.bandit_period AS bandit_period," : ""}
+    COUNT(*) AS users,
+    ${
+      isPercentileCapped
+        ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
+        : ""
+    }
+    SUM(${capCoalesceMetric}) AS main_sum,
+    SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
+    ${
+      quantileMetric === "event"
+        ? `, SUM(COALESCE(m.n_events, 0)) AS denominator_sum
+      , SUM(POWER(COALESCE(m.n_events, 0), 2)) AS denominator_sum_squares
+      , SUM(COALESCE(m.n_events, 0) * ${capCoalesceMetric}) AS main_denominator_sum_product
+      , SUM(COALESCE(m.n_events, 0)) AS quantile_n
+      , MAX(qm.quantile) AS quantile
+        ${N_STAR_VALUES.map(
+          (n) => `, MAX(qm.quantile_lower_${n}) AS quantile_lower_${n}
+                , MAX(qm.quantile_upper_${n}) AS quantile_upper_${n}`
+        ).join("\n")}`
+        : ""
+    }
+    ${
+      quantileMetric === "unit"
+        ? `${this.getQuantileGridColumns(metricQuantileSettings, "")}
+        , COUNT(m.value) AS quantile_n`
+        : ""
+    }
+    ${
+      ratioMetric
+        ? `,
+      ${
+        denominatorIsPercentileCapped
+          ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
+          : ""
+      }
+      SUM(${capCoalesceDenominator}) AS denominator_sum,
+      SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares,
+      SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
+    `
+        : ""
+    }
+    ${
+      regressionAdjusted
+        ? `,
+      SUM(${capCoalesceCovariate}) AS covariate_sum,
+      SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
+      SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
+      `
+        : ""
+    }
+  FROM
+    __userMetricAgg m
+    ${
+      quantileMetric === "event"
+        ? `LEFT JOIN __quantileMetric qm ON (
+      qm.dimension = m.dimension AND qm.variation = m.variation
+        )`
+        : ""
+    }
+  ${
+    ratioMetric
+      ? `LEFT JOIN __userDenominatorAgg d ON (
+          d.${baseIdType} = m.${baseIdType}
+          ${cumulativeDate ? "AND d.day = m.day" : ""}
+        )
         ${
-          cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
-        } AS dimension,
-        ${banditDates?.length ? "m.bandit_period AS bandit_period," : ""}
-        COUNT(*) AS users,
-        ${
-          isPercentileCapped
-            ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
+          denominatorIsPercentileCapped
+            ? "CROSS JOIN __capValueDenominator capd"
             : ""
-        }
-        SUM(${capCoalesceMetric}) AS main_sum,
-        SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
-        ${
-          quantileMetric === "event"
-            ? `, SUM(COALESCE(m.n_events, 0)) AS denominator_sum
-          , SUM(POWER(COALESCE(m.n_events, 0), 2)) AS denominator_sum_squares
-          , SUM(COALESCE(m.n_events, 0) * ${capCoalesceMetric}) AS main_denominator_sum_product
-          , SUM(COALESCE(m.n_events, 0)) AS quantile_n
-          , MAX(qm.quantile) AS quantile
-            ${N_STAR_VALUES.map(
-              (n) => `, MAX(qm.quantile_lower_${n}) AS quantile_lower_${n}
-                    , MAX(qm.quantile_upper_${n}) AS quantile_upper_${n}`
-            ).join("\n")}`
-            : ""
-        }
-        ${
-          quantileMetric === "unit"
-            ? `${this.getQuantileGridColumns(metricQuantileSettings, "")}
-            , COUNT(m.value) AS quantile_n`
-            : ""
-        }
-        ${
-          ratioMetric
-            ? `,
-          ${
-            denominatorIsPercentileCapped
-              ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
-              : ""
-          }
-          SUM(${capCoalesceDenominator}) AS denominator_sum,
-          SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares,
-          SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
-        `
-            : ""
-        }
-        ${
-          regressionAdjusted
-            ? `,
-          SUM(${capCoalesceCovariate}) AS covariate_sum,
-          SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
-          SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
-          `
-            : ""
-        }
-      FROM
-        __userMetricAgg m
-        ${
-          quantileMetric === "event"
-            ? `LEFT JOIN __quantileMetric qm ON (
-          qm.dimension = m.dimension AND qm.variation = m.variation
-            )`
-            : ""
-        }
+        }`
+      : ""
+  }
+  ${
+    regressionAdjusted
+      ? `
+      LEFT JOIN __userCovariateMetric c
+      ON (c.${baseIdType} = m.${baseIdType})
+      `
+      : ""
+  }
+  ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
+  ${"ignoreNulls" in metric && metric.ignoreNulls ? `WHERE m.value != 0` : ""}
+  GROUP BY
+    m.variation
+    , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+    ${banditDates?.length ? ", m.bandit_period" : ""}
+`
+  }`,
+      this.getFormatDialect()
+    );
+  }
+
+  getBanditStatisticsCTE({
+    baseIdType,
+    capCoalesceMetric,
+    isPercentileCapped,
+    capCoalesceDenominator,
+    ratioMetric,
+    denominatorIsPercentileCapped,
+    regressionAdjusted,
+    capCoalesceCovariate,
+    ignoreNulls,
+  }: {
+    baseIdType: string;
+    capCoalesceMetric: string;
+    isPercentileCapped: boolean;
+    capCoalesceDenominator: string;
+    ratioMetric: boolean;
+    denominatorIsPercentileCapped: boolean;
+    regressionAdjusted: boolean;
+    capCoalesceCovariate: string;
+    ignoreNulls: boolean;
+  }): string {
+    // todo percentile capped
+    return `-- One row per variation/dimension with aggregations
+  , __banditPeriodStatistics AS (
+    SELECT
+      m.variation AS variation
+      , m.dimension AS dimension
+      , m.bandit_period AS bandit_period
+      , COUNT(*) AS users
+      ${
+        isPercentileCapped
+          ? ", MAX(COALESCE(cap.cap_value, 0)) as main_cap_value"
+          : ""
+      }
+      , SUM(${capCoalesceMetric}) AS main_sum
+      , SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
       ${
         ratioMetric
-          ? `LEFT JOIN __userDenominatorAgg d ON (
-              d.${baseIdType} = m.${baseIdType}
-              ${cumulativeDate ? "AND d.day = m.day" : ""}
-            )
-            ${
-              denominatorIsPercentileCapped
-                ? "CROSS JOIN __capValueDenominator capd"
-                : ""
-            }`
+          ? `
+        ${
+          denominatorIsPercentileCapped
+            ? ", MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value"
+            : ""
+        }
+        , SUM(${capCoalesceDenominator}) AS denominator_sum
+        , SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares
+        , SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
+      `
           : ""
       }
       ${
         regressionAdjusted
           ? `
-          LEFT JOIN __userCovariateMetric c
-          ON (c.${baseIdType} = m.${baseIdType})
-          `
+        , SUM(${capCoalesceCovariate}) AS covariate_sum
+        , SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares
+        , SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
+        `
           : ""
       }
-      ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
+    FROM
+      __userMetricAgg m
+    ${
+      ratioMetric
+        ? `LEFT JOIN __userDenominatorAgg d ON (
+            d.${baseIdType} = m.${baseIdType}
+          )
+          ${
+            denominatorIsPercentileCapped
+              ? "CROSS JOIN __capValueDenominator capd"
+              : ""
+          }`
+        : ""
+    }
+    ${
+      regressionAdjusted
+        ? `
+        LEFT JOIN __userCovariateMetric c
+        ON (c.${baseIdType} = m.${baseIdType})
+        `
+        : ""
+    }
+    ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
+    ${ignoreNulls ? `WHERE m.value != 0` : ""}
+    GROUP BY
+      m.variation
+      , m.bandit_period
+      , m.dimension
+  ),
+  __dimensionTotals AS (
+    SELECT
+      dimension
+      , SUM(users) AS total_users
+    FROM 
+      __banditPeriodStatistics
+    GROUP BY
+      dimension
+  ),
+  __banditPeriodWeights AS (
+    SELECT
+      bps.bandit_period
+      , bps.dimension
+      , SUM(bps.users) / MAX(dt.total_users) AS weight
       ${
-        "ignoreNulls" in metric && metric.ignoreNulls
-          ? `WHERE m.value != 0`
+        regressionAdjusted
+          ? `
+        `
           : ""
       }
-      GROUP BY
-        m.variation
-        , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
-        ${banditDates?.length ? ", m.bandit_period" : ""}
-    `,
-      this.getFormatDialect()
-    );
+    FROM 
+      __banditPeriodStatistics bps
+    LEFT JOIN
+      __dimensionTotals dt 
+      ON (bps.dimension = dt.dimension)
+    GROUP BY
+      bps.bandit_period
+      , bps.dimension
+  )
+  SELECT
+    bps.variation
+    , bps.dimension
+    , SUM(bps.users) AS users
+    , SUM(bpw.weight * bps.main_sum / bps.users) * SUM(bps.users) AS main_sum
+    , SUM(bps.users) * (SUM(
+      POWER(bpw.weight, 2) * ((bps.main_sum_squares - POWER(bps.main_sum, 2) / bps.users) / (bps.users - 1)) / bps.users
+    ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.main_sum / bps.users), 2)) as main_sum_squares
+    ${
+      ratioMetric
+        ? `
+      , SUM(bpw.weight * bps.denominator_sum / bps.users) * SUM(bps.users) AS denominator_sum
+      , SUM(bps.users) * (SUM(
+        POWER(bpw.weight, 2) * ((bps.denominator_sum_squares - POWER(bps.denominator_sum, 2) / bps.users) / (bps.users - 1)) / bps.users
+      ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.denominator_sum / bps.users), 2)) as denominator_sum_squares
+      , SUM(bps.users) * (
+          (SUM(bps.users) - 1) * SUM(
+            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (bps.main_denominator_sum_product - bps.main_sum * bps.denominator_sum / bps.users)
+          ) +
+          (
+            SUM(bpw.weight * bps.main_sum / bps.users) * SUM(bpw.weight * bps.denominator_sum / bps.users)
+          )
+        ) AS main_denominator_sum_product`
+        : ""
+    }
+    -- TODO CUPED
+    ${
+      regressionAdjusted
+        ? `
+      , SUM(bpw.weight * bps.covariate_sum / bps.users) * SUM(bps.users) AS covariate_sum
+      , SUM(bps.users) * (SUM(
+        POWER(bpw.weight, 2) * ((bps.covariate_sum_squares - POWER(bps.covariate_sum, 2) / bps.users) / (bps.users - 1)) / bps.users
+      ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.covariate_sum / bps.users), 2)) as covariate_sum_squares
+      , SUM(bps.users) * (
+          (SUM(bps.users) - 1) * SUM(
+            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (bps.main_covariate_sum_product - bps.main_sum * bps.covariate_sum / bps.users)
+          ) +
+          (
+            SUM(bpw.weight * bps.main_sum / bps.users) * SUM(bpw.weight * bps.covariate_sum / bps.users)
+          )
+        ) AS main_covariate_sum_product
+        `
+        : ""
+    }
+  FROM 
+    __banditPeriodStatistics bps
+  LEFT JOIN
+    __banditPeriodWeights bpw
+    ON (
+      bps.bandit_period = bpw.bandit_period 
+      AND bps.dimension = bpw.dimension
+    )
+  GROUP BY
+    bps.variation
+    , bps.dimension
+  `;
   }
 
   getQuantileBoundValues(
