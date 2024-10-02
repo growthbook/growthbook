@@ -41,7 +41,9 @@ const metricReader = new PeriodicExportingMetricReader({
 const sdk = new opentelemetry.NodeSDK({
   instrumentations: [
     ...getNodeAutoInstrumentations(),
-    new PinoInstrumentation(),
+    ...(process.env.GROWTHBOOK_OTEL_DISABLE_LOGS_COLLECTION
+      ? []
+      : [new PinoInstrumentation()]),
   ],
   resourceDetectors: getResourceDetectors(),
   logRecordProcessor: new BatchLogRecordProcessor(new OTLPLogExporter()),
