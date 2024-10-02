@@ -1,9 +1,10 @@
 import { Flex, Badge as RadixBadge } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { ReactNode } from "react";
 import { RadixColor } from "@/components/Radix/HelperText";
 
 type Props = {
-  content: string;
+  content: string | ReactNode;
   color?: RadixColor;
   variant?: "solid" | "soft" | "surface" | "outline";
   highContrast?: boolean;
