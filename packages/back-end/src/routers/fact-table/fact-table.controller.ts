@@ -29,11 +29,9 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { DataSourceInterface } from "back-end/types/datasource";
-import {
-  runColumnTopValuesQuery,
-  runRefreshColumnsQuery,
-} from "back-end/src/jobs/refreshFactTableColumns";
+import { runRefreshColumnsQuery } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
+import { runColumnTopValuesQuery } from "back-end/src/jobs/refreshFactTableTopValues";
 
 export const getFactTables = async (
   req: AuthRequest,
