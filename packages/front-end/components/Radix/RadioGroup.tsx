@@ -3,17 +3,19 @@ import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 
+export type RadioOptions = {
+  value: string;
+  label?: string | ReactElement;
+  description?: string | ReactElement;
+  sub?: string;
+  error?: string | ReactElement;
+  errorLevel?: "error" | "warning";
+  disabled?: boolean;
+}[];
+
 export type Props = {
   disabled?: boolean;
-  options: {
-    value: string;
-    label?: string | ReactElement;
-    description?: string | ReactElement;
-    sub?: string;
-    error?: string;
-    errorLevel?: "error" | "warning";
-    disabled?: boolean;
-  }[];
+  options: RadioOptions;
   value: string;
   setValue: (value: string) => void;
 } & MarginProps;
