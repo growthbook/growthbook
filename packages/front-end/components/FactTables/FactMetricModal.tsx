@@ -416,7 +416,6 @@ export function getDefaultFactMetricProps({
   project,
   datasources,
   initialFactTable,
-  convertToPercents,
 }: {
   metricDefaults: MetricDefaults;
   settings: OrganizationSettings;
@@ -424,10 +423,7 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
-  convertToPercents: boolean;
 }): CreateFactMetricProps {
-  const multiplier = convertToPercents ? 100 : 1;
-
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
@@ -461,16 +457,16 @@ export function getDefaultFactMetricProps({
       windowUnit: "days",
       windowValue: 3,
     },
-    winRisk: (existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD) * multiplier,
-    loseRisk: (existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD) * multiplier,
+    winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
+    loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
     minPercentChange:
-      (existing?.minPercentChange ??
-        metricDefaults.minPercentageChange ??
-        DEFAULT_MIN_PERCENT_CHANGE) * multiplier,
+      existing?.minPercentChange ??
+      metricDefaults.minPercentageChange ??
+      DEFAULT_MIN_PERCENT_CHANGE,
     maxPercentChange:
-      (existing?.maxPercentChange ??
-        metricDefaults.maxPercentageChange ??
-        DEFAULT_MAX_PERCENT_CHANGE) * multiplier,
+      existing?.maxPercentChange ??
+      metricDefaults.maxPercentageChange ??
+      DEFAULT_MAX_PERCENT_CHANGE,
     minSampleSize:
       existing?.minSampleSize ??
       metricDefaults.minimumSampleSize ??
@@ -527,18 +523,26 @@ export default function FactMetricModal({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql");
 
+  const defaultValues = getDefaultFactMetricProps({
+    datasources,
+    metricDefaults,
+    existing,
+    settings,
+    project,
+    initialFactTable: initialFactTable
+      ? getFactTableById(initialFactTable) || undefined
+      : undefined,
+  });
+
+  // Multiple percent values by 100 for the UI
+  // These are corrected in the submit method later
+  defaultValues.winRisk = defaultValues.winRisk * 100;
+  defaultValues.loseRisk = defaultValues.loseRisk * 100;
+  defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
+  defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
+
   const form = useForm<CreateFactMetricProps>({
-    defaultValues: getDefaultFactMetricProps({
-      datasources,
-      metricDefaults,
-      existing,
-      settings,
-      project,
-      convertToPercents: true,
-      initialFactTable: initialFactTable
-        ? getFactTableById(initialFactTable) || undefined
-        : undefined,
-    }),
+    defaultValues,
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));

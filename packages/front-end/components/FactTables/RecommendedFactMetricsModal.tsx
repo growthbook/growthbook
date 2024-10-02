@@ -191,7 +191,6 @@ export default function RecommendedFactMetricsModal({
             metricDefaults,
             project,
             settings,
-            convertToPercents: false,
             existing: {
               ...metrics[i],
               datasource: factTable.datasource,
