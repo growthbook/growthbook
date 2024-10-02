@@ -710,6 +710,7 @@ def preprocess_bandits_previous(
         alpha=alpha,
         inverse=metric.inverse,
     )
+    # raise ValueError(bandit_stats)
     if isinstance(bandit_stats[0], BanditPeriodDataRatio):
         return BanditsRatioPrevious(bandit_stats, bandit_config)  # type: ignore
     elif isinstance(bandit_stats[0], BanditPeriodDataCuped):
