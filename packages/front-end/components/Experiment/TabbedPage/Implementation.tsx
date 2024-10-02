@@ -67,37 +67,37 @@ export default function Implementation({
 
   return (
     <div className="my-4">
+      <h2>Implementation</h2>
+
+      <div className="box my-3 mb-4 px-2 py-3">
+        <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-2">
+          <h4 className="m-0">Variations</h4>
+          <div className="flex-1" />
+          {showEditVariations ? (
+            <Tooltip
+              shouldDisplay={!safeToEdit}
+              body="Cannot edit variations while the experiment is running."
+            >
+              <button
+                className="btn p-0 link-purple"
+                disabled={!safeToEdit}
+                onClick={editVariations}
+              >
+                <span className="text-purple">Edit</span>
+              </button>
+            </Tooltip>
+          ) : null}
+        </div>
+
+        <VariationsTable
+          experiment={experiment}
+          canEditExperiment={canEditExperiment}
+          mutate={mutate}
+        />
+      </div>
+
       {hasLinkedChanges ? (
         <>
-          <h2>Implementation</h2>
-
-          <div className="box my-3 mb-4 px-2 py-3">
-            <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-2">
-              <h4 className="m-0">Variations</h4>
-              <div className="flex-1" />
-              {showEditVariations ? (
-                <Tooltip
-                  shouldDisplay={!safeToEdit}
-                  body="Cannot edit variations while the experiment is running."
-                >
-                  <button
-                    className="btn p-0 link-purple"
-                    disabled={!safeToEdit}
-                    onClick={editVariations}
-                  >
-                    <span className="text-purple">Edit</span>
-                  </button>
-                </Tooltip>
-              ) : null}
-            </div>
-
-            <VariationsTable
-              experiment={experiment}
-              canEditExperiment={canEditExperiment}
-              mutate={mutate}
-            />
-          </div>
-
           <VisualLinkedChanges
             setVisualEditorModal={setVisualEditorModal}
             visualChangesets={visualChangesets}
