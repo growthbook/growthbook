@@ -2,6 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
+import Badge from "@/components/Radix/Badge";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -22,6 +23,24 @@ export default function DesignSystemPage() {
           <HelperText status="warning">This is a warning message</HelperText>
           <HelperText status="error">This is an error message</HelperText>
           <HelperText status="success">This is a success message</HelperText>
+        </Flex>
+      </div>
+      <div className="appbox p-3">
+        <h3>Badge</h3>
+        <Flex direction="column" gap="3">
+          <Badge content="Label" />
+          <Badge content="Label" color="indigo" />
+          <Badge content="Label" color="cyan" />
+          <Badge content="Label" color="orange" />
+          <Badge content="Label" color="crimson" />
+          <Badge content="Label" variant="solid" />
+          <Badge content="Label" variant="surface" />
+          <Badge content="Label" variant="outline" />
+          <Badge content="Label" highContrast={true} />
+          <Badge content="Label" radius="small" />
+          <Badge content="Label" radius="medium" />
+          <Badge content="Label" radius="large" />
+          <Badge content="Label" radius="full" />
         </Flex>
       </div>
       <div className="appbox p-3">
