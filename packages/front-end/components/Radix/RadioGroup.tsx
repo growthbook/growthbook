@@ -8,7 +8,7 @@ export type RadioOptions = {
   label?: string | ReactElement;
   description?: string | ReactElement;
   sub?: string;
-  error?: string | ReactElement;
+  error?: string;
   errorLevel?: "error" | "warning";
   disabled?: boolean;
 }[];
