@@ -14,6 +14,7 @@ import Dropdown from "@/components/Dropdown/Dropdown";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 const RefreshBanditButton: FC<{
   mutate: () => void;
@@ -27,6 +28,9 @@ const RefreshBanditButton: FC<{
   const [longResult, setLongResult] = useState(false);
   const [reweight, setReweight] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const { mutateSnapshot } = useSnapshot();
+
   const { getDatasourceById } = useDefinitions();
 
   const error = useMemo(() => {
@@ -118,6 +122,7 @@ const RefreshBanditButton: FC<{
                 clearTimeout(timer);
                 throw e;
               }
+              mutateSnapshot();
             }}
           >
             <BsArrowRepeat /> {reweight ? "Update Weights" : "Check Results"}
@@ -174,49 +179,38 @@ const RefreshBanditButton: FC<{
       </div>
 
       {loading && longResult ? (
-        <div className="text-muted text-right mt-1 small">
+        <div className="text-muted text-right mx-2 mt-1 small">
           This may take several minutes...
         </div>
       ) : null}
       {error ? (
-        <div
-          className="text-danger text-monospace mx-2 mt-2 small"
-          style={{ lineHeight: "14px" }}
-        >
-          {error}
-        </div>
-      ) : null}
-      {generatedSnapshot ? (
-        <div className="d-flex">
-          {error ? (
-            <div className="mx-2 mt-2">
+        <>
+          {generatedSnapshot ? (
+            <div className="d-flex mx-2 my-1">
               <div
-                className={clsx("position-relative pr-2", {
+                className={clsx("position-relative", {
                   "text-danger":
                     status === "failed" || status == "partially-succeeded",
                 })}
               >
                 <ViewAsyncQueriesButton
-                  queries={generatedSnapshot.queries.map((q) => q.query)}
+                  queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
                   error={generatedSnapshot.error}
-                  color={clsx(
-                    {
-                      "outline-danger":
-                        error ||
-                        status === "failed" ||
-                        status === "partially-succeeded",
-                    },
-                    " "
-                  )}
+                  color={clsx({
+                    "outline-danger btn-sm":
+                      error ||
+                      status === "failed" ||
+                      status === "partially-succeeded",
+                  })}
                   display={null}
                   status={status}
                   icon={
-                    <span className="position-relative pr-2">
+                    <span className="position-relative pr-3">
                       <span className="text-main">
                         <FaDatabase />
                       </span>
                       <FaExclamationTriangle
-                        className="position-absolute"
+                        className="position-absolute mr-2"
                         style={{
                           top: -6,
                           right: -4,
@@ -229,14 +223,38 @@ const RefreshBanditButton: FC<{
               </div>
               <div className="flex-1" />
             </div>
-          ) : (
-            <div className="mx-3 my-2 text-success">
-              <FaRegCircleCheck className="text-success mr-1" />
-              Update successful
-            </div>
-          )}
+          ) : null}
+          <div
+            className="text-danger text-monospace mx-2 my-1 small"
+            style={{ lineHeight: "14px" }}
+          >
+            {error}
+          </div>
+        </>
+      ) : (
+        <div className="d-flex align-items-center mx-2 mt-2">
+          <div className="text-success">
+            <FaRegCircleCheck className="text-success mr-1" />
+            Update successful
+          </div>
+          <div className="flex-1" />
+          {generatedSnapshot ? (
+            <ViewAsyncQueriesButton
+              queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
+              error={generatedSnapshot.error}
+              display="View Queries"
+              status={status}
+              color="outline-primary btn-sm"
+              icon={
+                <span style={{ marginRight: -10 }}>
+                  <FaDatabase className="mr-1" />
+                </span>
+              }
+              condensed={false}
+            />
+          ) : null}
         </div>
-      ) : null}
+      )}
     </>
   );
 };

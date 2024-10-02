@@ -179,7 +179,7 @@ export default function BanditUpdateStatus({
             </div>
           ) : null}
 
-          <hr />
+          <hr className="mx-2" />
           <RefreshBanditButton mutate={mutate} experiment={experiment} />
         </div>
       </Dropdown>
