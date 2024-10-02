@@ -15,7 +15,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -99,7 +99,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         {...form.register("column")}
         disabled={!!existing}
       />
-
       <SelectField
         label="Data Type"
         value={form.watch("datatype")}
@@ -130,7 +129,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           },
         ]}
       />
-
       {form.watch("datatype") === "number" && (
         <SelectField
           label="Number Format"
@@ -153,27 +151,24 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           ]}
         />
       )}
-
       <Field
         label="Display Name"
         {...form.register("name")}
         placeholder={form.watch("column")}
       />
-
       {canInlineFilterColumn(factTable, {
         column: form.watch("column"),
         datatype: form.watch("datatype"),
         deleted: false,
       }) && (
-        <div className="form-group">
-          <label>
-            <input type="checkbox" {...form.register("alwaysInlineFilter")} />{" "}
-            Prompt all metrics to filter on this column{" "}
-            <Tooltip body="Use this for columns that are almost always required, like 'event_type' if this is an events table" />
-          </label>
-        </div>
+        <Checkbox
+          value={form.watch("alwaysInlineFilter") ?? false}
+          setValue={(v) => form.setValue("alwaysInlineFilter", v)}
+          label="Prompt all metrics to filter on this column"
+          description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
+          mb="3"
+        />
       )}
-
       {showDescription ? (
         <div className="form-group">
           <label>Description</label>
