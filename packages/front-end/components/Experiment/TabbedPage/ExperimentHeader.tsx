@@ -309,7 +309,7 @@ export default function ExperimentHeader({
                   subStatus={
                     experiment.type === "multi-armed-bandit" &&
                     experiment.banditStage === "explore"
-                      ? "explore"
+                      ? "exploratory"
                       : undefined
                   }
                 />

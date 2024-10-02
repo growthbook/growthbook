@@ -580,13 +580,18 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           <g>
             <text
               x={xScale(exploitDate)}
-              y={yMax + 40}
+              y={yMax + 38}
               fill="#66a"
               textAnchor="middle"
-              fontSize={12}
+              fontSize={9}
               fontStyle={"italic"}
             >
-              Explore end
+              <tspan x={xScale(exploitDate)} dy="0">
+                Exploratory
+              </tspan>
+              <tspan x={xScale(exploitDate)} dy="1em">
+                stage end
+              </tspan>
             </text>
           </g>
         ) : null;
