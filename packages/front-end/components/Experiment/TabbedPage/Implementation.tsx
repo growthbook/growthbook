@@ -12,7 +12,8 @@ import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLin
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import TargetingInfo from "./TargetingInfo";
+import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
+import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -147,16 +148,16 @@ export default function Implementation({
           )}
         </>
       )}
+
       {(hasLinkedChanges || isBandit) && (
-        <div className="appbox p-3">
-          <TargetingInfo
-            experiment={experiment}
-            editTargeting={editTargeting}
-            phaseIndex={phases.length - 1}
-            horizontalView
-          />
-        </div>
+        <TrafficAndTargeting
+          experiment={experiment}
+          editTargeting={editTargeting}
+          phaseIndex={phases.length - 1}
+        />
       )}
+
+      <AnalysisSettings experiment={experiment} mutate={mutate} />
     </div>
   );
 }
