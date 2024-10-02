@@ -77,12 +77,12 @@ const ViewAsyncQueriesButton: FC<{
           >
             <span
               className={clsx("h4", {
-                "position-relative d-flex m-0 d-inline-block align-top pr-3": condensed,
+                "position-relative d-flex m-0 d-inline-block align-top pr-2": condensed,
                 "pr-2": !condensed,
               })}
             >
               {icon !== undefined ? icon : <FaDatabase />}
-            </span>{" "}
+            </span>
             {display}
             {queries.length > 0 ? (
               condensed ? (

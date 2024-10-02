@@ -2,16 +2,13 @@ import React, { FC, useMemo, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { FaCaretDown, FaDatabase, FaExclamationTriangle } from "react-icons/fa";
-import { HiOutlineExclamationCircle } from "react-icons/hi";
-import clsx from "clsx";
-import { FaRegCircleCheck } from "react-icons/fa6";
+import {FaCaretDown, FaDatabase, FaExclamationCircle, FaExclamationTriangle} from "react-icons/fa";
+import {FaRegCircleCheck, FaRegCircleXmark} from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import Dropdown from "@/components/Dropdown/Dropdown";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -140,7 +137,6 @@ const RefreshBanditButton: FC<{
             toggleClassName="btn btn-outline-primary btn-sm p-0"
             toggleStyle={{ zIndex: "auto" }}
             className="nowrap py-0"
-            header={<div className="text-muted pt-1">Updating will...</div>}
           >
             <button
               className="dropdown-item py-2"
@@ -149,31 +145,23 @@ const RefreshBanditButton: FC<{
                 setOpen(false);
               }}
             >
-              Check results only
+              Check results
             </button>
-            <Tooltip
-              body={
-                <>
-                  Will immediately begin the <strong>Exploit</strong> stage
-                </>
-              }
-              popperStyle={{ marginRight: -25, marginTop: 5 }}
-              shouldDisplay={experiment.banditStage === "explore"}
-              tipPosition="left"
+            <button
+              className="dropdown-item py-2"
+              onClick={() => {
+                setReweight(true);
+                setOpen(false);
+              }}
             >
-              <button
-                className="dropdown-item py-2"
-                onClick={() => {
-                  setReweight(true);
-                  setOpen(false);
-                }}
-              >
-                {experiment.banditStage === "explore" && (
-                  <HiOutlineExclamationCircle className="mr-1 text-warning-orange" />
-                )}
-                Update variation weights
-              </button>
-            </Tooltip>
+              Check results and<br />update variation weights
+              {experiment.banditStage === "explore" && (
+                <div className="small text-warning-orange">
+                  <FaExclamationCircle className="mr-1" />
+                  Will immediately begin the <strong>Exploit</strong> stage
+                </div>
+              )}
+            </button>
           </Dropdown>
         </div>
       </div>
@@ -186,55 +174,45 @@ const RefreshBanditButton: FC<{
       {error ? (
         <>
           {generatedSnapshot ? (
-            <div className="d-flex mx-2 my-1">
-              <div
-                className={clsx("position-relative", {
-                  "text-danger":
-                    status === "failed" || status == "partially-succeeded",
-                })}
-              >
-                <ViewAsyncQueriesButton
-                  queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
-                  error={generatedSnapshot.error}
-                  color={clsx({
-                    "outline-danger btn-sm":
-                      error ||
-                      status === "failed" ||
-                      status === "partially-succeeded",
-                  })}
-                  display={null}
-                  status={status}
-                  icon={
-                    <span className="position-relative pr-3">
-                      <span className="text-main">
-                        <FaDatabase />
-                      </span>
-                      <FaExclamationTriangle
-                        className="position-absolute mr-2"
-                        style={{
-                          top: -6,
-                          right: -4,
-                        }}
-                      />
-                    </span>
-                  }
-                  condensed={true}
-                />
+            <div className="d-flex align-items-center mx-2 my-2">
+              <div className="text-danger">
+                <FaRegCircleXmark className="mr-1"/>
+                Update errored
               </div>
-              <div className="flex-1" />
+              <div className="flex-1"/>
+              <ViewAsyncQueriesButton
+                queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
+                error={generatedSnapshot.error}
+                display="View Queries"
+                status={status}
+                color="link link-purple p-0"
+                condensed={false}
+                icon={
+                  <span className="position-relative pr-2">
+                    <FaDatabase/>
+                    <FaExclamationTriangle
+                      className="position-absolute mr-2 text-danger"
+                      style={{
+                        top: -6,
+                        right: -12,
+                      }}
+                    />
+                  </span>
+                }
+              />
             </div>
           ) : null}
           <div
             className="text-danger text-monospace mx-2 my-1 small"
-            style={{ lineHeight: "14px" }}
+            style={{lineHeight: "14px" }}
           >
             {error}
           </div>
         </>
       ) : (
-        <div className="d-flex align-items-center mx-2 mt-2">
+        <div className="d-flex align-items-center mx-2 mt-2 mb-1">
           <div className="text-success">
-            <FaRegCircleCheck className="text-success mr-1" />
+            <FaRegCircleCheck className="mr-1" />
             Update successful
           </div>
           <div className="flex-1" />
@@ -244,12 +222,7 @@ const RefreshBanditButton: FC<{
               error={generatedSnapshot.error}
               display="View Queries"
               status={status}
-              color="outline-primary btn-sm"
-              icon={
-                <span style={{ marginRight: -10 }}>
-                  <FaDatabase className="mr-1" />
-                </span>
-              }
+              color="link link-purple p-0"
               condensed={false}
             />
           ) : null}
