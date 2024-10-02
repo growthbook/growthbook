@@ -1123,6 +1123,9 @@ export default abstract class SqlIntegration
           ...(row.denominator_cap_value !== undefined && {
             denominator_cap_value: row.denominator_cap_value,
           }),
+          ...(row.theta !== undefined && {
+            theta: parseFloat(row.theta) || 0,
+          }),
         };
       }),
       statistics: statistics,
@@ -3353,6 +3356,9 @@ export default abstract class SqlIntegration
       ${
         regressionAdjusted
           ? `
+          , SUM(bps.covariate_sum_squares) / SUM(bps.users) - POWER(SUM(bps.covariate_sum) / SUM(bps.users), 2) AS period_pre_variance
+          , SUM(main_covariate_sum_product) / SUM(bps.users) - 
+            SUM(bps.covariate_sum) / SUM(bps.users) * SUM(bps.main_sum) / SUM(bps.users) AS period_covariance
         `
           : ""
       }
@@ -3365,6 +3371,22 @@ export default abstract class SqlIntegration
       bps.bandit_period
       , bps.dimension
   )
+  ${
+    regressionAdjusted
+      ? `
+      , __theta AS (
+      SELECT
+        dimension
+        , SUM(POWER(weight, 2) * period_covariance) / 
+          SUM(POWER(weight, 2) * period_pre_variance) AS theta
+      FROM
+        __banditPeriodWeights
+      GROUP BY
+        dimension
+      )
+    `
+      : ""
+  }
   SELECT
     bps.variation
     , bps.dimension
@@ -3406,6 +3428,7 @@ export default abstract class SqlIntegration
             SUM(bpw.weight * bps.main_sum / bps.users) * SUM(bpw.weight * bps.covariate_sum / bps.users)
           )
         ) AS main_covariate_sum_product
+      , MAX(t.theta) AS theta
         `
         : ""
     }
@@ -3417,6 +3440,15 @@ export default abstract class SqlIntegration
       bps.bandit_period = bpw.bandit_period 
       AND bps.dimension = bpw.dimension
     )
+  ${
+    regressionAdjusted
+      ? `
+    LEFT JOIN
+      __theta t
+      ON (bps.dimension = t.dimension)
+    `
+      : ""
+  }
   GROUP BY
     bps.variation
     , bps.dimension

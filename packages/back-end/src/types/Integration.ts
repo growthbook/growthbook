@@ -363,6 +363,8 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
 
+  theta?: number; // for bandits only
+
   quantile?: number;
   quantile_n?: number;
   quantile_lower?: number;
