@@ -33,6 +33,9 @@ export interface ColumnInterface {
   column: string;
   datatype: FactTableColumnType;
   numberFormat: NumberFormat;
+  alwaysInlineFilter?: boolean;
+  topValues?: string[];
+  topValuesDate?: Date;
   deleted: boolean;
 }
 

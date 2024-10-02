@@ -8,12 +8,14 @@ import {
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
+import { canInlineFilterColumn } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -37,6 +39,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       name: existing?.name || "",
       numberFormat: existing?.numberFormat || "",
       datatype: existing?.datatype || "",
+      alwaysInlineFilter: existing?.alwaysInlineFilter || false,
     },
   });
 
@@ -56,7 +59,19 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             name: value.name,
             numberFormat: value.numberFormat,
             datatype: value.datatype,
+            alwaysInlineFilter: value.alwaysInlineFilter,
           };
+
+          if (
+            data.alwaysInlineFilter &&
+            !canInlineFilterColumn(factTable, {
+              ...existing,
+              ...data,
+            })
+          ) {
+            data.alwaysInlineFilter = false;
+          }
+
           await apiCall(
             `/fact-tables/${factTable.id}/column/${existing.column}`,
             {
@@ -84,7 +99,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         {...form.register("column")}
         disabled={!!existing}
       />
-
       <SelectField
         label="Data Type"
         value={form.watch("datatype")}
@@ -115,7 +129,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           },
         ]}
       />
-
       {form.watch("datatype") === "number" && (
         <SelectField
           label="Number Format"
@@ -138,13 +151,24 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           ]}
         />
       )}
-
       <Field
         label="Display Name"
         {...form.register("name")}
         placeholder={form.watch("column")}
       />
-
+      {canInlineFilterColumn(factTable, {
+        column: form.watch("column"),
+        datatype: form.watch("datatype"),
+        deleted: false,
+      }) && (
+        <Checkbox
+          value={form.watch("alwaysInlineFilter") ?? false}
+          setValue={(v) => form.setValue("alwaysInlineFilter", v)}
+          label="Prompt all metrics to filter on this column"
+          description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
+          mb="3"
+        />
+      )}
       {showDescription ? (
         <div className="form-group">
           <label>Description</label>

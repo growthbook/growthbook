@@ -12,6 +12,7 @@ import {
   ExperimentMetricInterface,
   getMetricTemplateVariables,
   quantileMetricType,
+  getColumnRefWhereClause,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -71,6 +72,8 @@ import {
   DropTableQueryResponse,
   DropTableQueryParams,
   TestQueryParams,
+  ColumnTopValuesParams,
+  ColumnTopValuesResponse,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -87,7 +90,6 @@ import { SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import {
-  FactFilterInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricQuantileSettings,
@@ -3891,19 +3893,57 @@ export default abstract class SqlIntegration
     }).join("\n")}`;
   }
 
-  getFilterValues(
-    filterIds: string[],
-    filters: FactFilterInterface[]
-  ): string[] {
-    const filterValues: string[] = [];
-    filterIds.forEach((filterId) => {
-      const filter = filters.find((f) => f.id === filterId);
-      if (filter) {
-        filterValues.push(filter.value);
-      }
-    });
-    return filterValues;
+  public getColumnTopValuesQuery({
+    factTable,
+    column,
+    limit = 50,
+  }: ColumnTopValuesParams) {
+    if (column.datatype !== "string") {
+      throw new Error(`Column ${column.column} is not a string column`);
+    }
+
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+
+    return format(
+      `
+WITH
+  __factTable AS (
+    ${compileSqlTemplate(factTable.sql, {
+      startDate: start,
+      templateVariables: {
+        eventName: factTable.eventName,
+      },
+    })}
+  ),
+  __topValues AS (
+    SELECT
+      ${column.column} AS value,
+      COUNT(*) AS count
+    FROM __factTable
+    WHERE timestamp >= ${this.toTimestamp(start)}
+    GROUP BY ${column.column}
+  )
+${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
+    `,
+      this.getFormatDialect()
+    );
   }
+
+  public async runColumnTopValuesQuery(
+    sql: string
+  ): Promise<ColumnTopValuesResponse> {
+    const { rows, statistics } = await this.runQuery(sql);
+
+    return {
+      statistics,
+      rows: rows.map((r) => ({
+        value: r.value + "",
+        count: parseFloat(r.count),
+      })),
+    };
+  }
+
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
   private getFactMetricCTE({
     metrics,
@@ -3977,9 +4017,8 @@ export default abstract class SqlIntegration
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = this.getFilterValues(
-        m.numerator.filters,
-        factTable.filters
+      const filters = getColumnRefWhereClause(factTable, m.numerator, (s) =>
+        this.escapeStringLiteral(s)
       );
 
       const column =
@@ -4003,9 +4042,8 @@ export default abstract class SqlIntegration
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = this.getFilterValues(
-          m.denominator.filters,
-          factTable.filters
+        const filters = getColumnRefWhereClause(factTable, m.denominator, (s) =>
+          this.escapeStringLiteral(s)
         );
         const column =
           filters.length > 0
@@ -4198,15 +4236,10 @@ export default abstract class SqlIntegration
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      const filterIds: Set<string> = new Set();
-      if (columnRef.filters) {
-        columnRef.filters.forEach((f) => filterIds.add(f));
-      }
-      filterIds.forEach((filterId) => {
-        const filter = factTable.filters.find((f) => f.id === filterId);
-        if (filter) {
-          where.push(filter.value);
-        }
+      getColumnRefWhereClause(factTable, columnRef, (s) =>
+        this.escapeStringLiteral(s)
+      ).forEach((filterSQL) => {
+        where.push(filterSQL);
       });
 
       sql = factTable.sql;

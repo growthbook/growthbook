@@ -10,6 +10,9 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
 } from "shared/constants";
 import {
   CreateFactMetricProps,
@@ -18,9 +21,17 @@ import {
   UpdateFactMetricProps,
   MetricQuantileSettings,
   FactMetricType,
+  FactTableInterface,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { canInlineFilterColumn } from "shared/experiments";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -59,6 +70,13 @@ export interface Props {
   goBack?: () => void;
   source: string;
 }
+
+type InlineFilterField = {
+  label: string;
+  key: string;
+  options: string[];
+  error?: string;
+};
 
 function QuantileSelector({
   value,
@@ -181,6 +199,49 @@ function ColumnRefSelector({
     });
   }
 
+  const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
+    .filter((col) =>
+      canInlineFilterColumn(factTable as FactTableInterface, col)
+    )
+    .filter((col) => {
+      // Always show fields for certain columns
+      if (col.alwaysInlineFilter) return true;
+
+      // If there is an existing inline filter, show the field
+      // This could happen if the column was previously inline filtered
+      if (value.inlineFilters?.[col.column]?.some((v) => !!v)) return true;
+
+      // Otherwise, don't prompt for this column
+      return false;
+    })
+    .map((col) => {
+      const options = new Set(col.topValues || []);
+
+      // Add any custom values that have been entered
+      if (value.inlineFilters?.[col.column]) {
+        value.inlineFilters[col.column].forEach((v) => options.add(v));
+      }
+
+      return {
+        label: col.name || col.column,
+        key: col.column,
+        options: [...options],
+      };
+    });
+
+  // Additional prompt fields referencing columns that are not eligible for prompting
+  Object.entries(value.inlineFilters || {}).forEach(([k, v]) => {
+    if (!v.some((v) => !!v)) return;
+    if (!inlineFilterFields.some((f) => f.key === k)) {
+      inlineFilterFields.push({
+        label: k,
+        key: k,
+        options: v,
+        error: "This column is no longer available for filtering",
+      });
+    }
+  });
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-center">
@@ -221,12 +282,49 @@ function ColumnRefSelector({
             required
           />
         </div>
+        {inlineFilterFields.map(({ label, key, options, error }) => (
+          <div className="col-auto" key={key}>
+            <MultiSelectField
+              label={
+                <>
+                  {label}{" "}
+                  {error ? (
+                    <Tooltip body={error}>
+                      <FaTriangleExclamation className="text-danger" />
+                    </Tooltip>
+                  ) : (
+                    <Tooltip body="If selecting multiple values, only one needs to match for a row to be included." />
+                  )}
+                </>
+              }
+              value={value.inlineFilters?.[key] || []}
+              onChange={(v) =>
+                setValue({
+                  ...value,
+                  inlineFilters: { ...value.inlineFilters, [key]: v },
+                })
+              }
+              options={options.map((o) => ({
+                label: o,
+                value: o,
+              }))}
+              initialOption="Any"
+              formatOptionLabel={({ value, label }) =>
+                value ? label : <em className="text-muted">{label}</em>
+              }
+              creatable
+              sort={false}
+            />
+          </div>
+        ))}
         {factTable && factTable.filters.length > 0 ? (
           <div className="col-auto">
             <MultiSelectField
               label={
                 <>
-                  Included Rows{" "}
+                  {inlineFilterFields.length > 0
+                    ? "Additional Filters"
+                    : "Included Rows"}{" "}
                   <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
                 </>
               }
@@ -236,7 +334,7 @@ function ColumnRefSelector({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder="All Rows"
+              placeholder={inlineFilterFields.length > 0 ? "None" : "All Rows"}
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);
@@ -311,6 +409,87 @@ function ColumnRefSelector({
   );
 }
 
+export function getDefaultFactMetricProps({
+  metricDefaults,
+  existing,
+  settings,
+  project,
+  datasources,
+  initialFactTable,
+}: {
+  metricDefaults: MetricDefaults;
+  settings: OrganizationSettings;
+  project?: string;
+  datasources: DataSourceInterfaceWithParams[];
+  existing?: Partial<FactMetricInterface>;
+  initialFactTable?: FactTableInterface;
+}): CreateFactMetricProps {
+  return {
+    name: existing?.name || "",
+    owner: existing?.owner || "",
+    description: existing?.description || "",
+    tags: existing?.tags || [],
+    metricType: existing?.metricType || "proportion",
+    numerator: existing?.numerator || {
+      factTableId: initialFactTable?.id || "",
+      column: "$$count",
+      filters: [],
+    },
+    projects: existing?.projects || [],
+    denominator: existing?.denominator || null,
+    datasource:
+      existing?.datasource ||
+      getNewExperimentDatasourceDefaults(
+        datasources,
+        settings,
+        project,
+        initialFactTable ? { datasource: initialFactTable?.datasource } : {}
+      ).datasource,
+    inverse: existing?.inverse || false,
+    cappingSettings: existing?.cappingSettings || {
+      type: "",
+      value: 0,
+    },
+    quantileSettings: existing?.quantileSettings || null,
+    windowSettings: existing?.windowSettings || {
+      type: DEFAULT_FACT_METRIC_WINDOW,
+      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      windowUnit: "days",
+      windowValue: 3,
+    },
+    winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
+    loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
+    minPercentChange:
+      (existing?.minPercentChange ||
+        metricDefaults.minPercentageChange ||
+        DEFAULT_MIN_PERCENT_CHANGE) * 100,
+    maxPercentChange:
+      (existing?.maxPercentChange ||
+        metricDefaults.maxPercentageChange ||
+        DEFAULT_MAX_PERCENT_CHANGE) * 100,
+    minSampleSize:
+      existing?.minSampleSize ||
+      metricDefaults.minimumSampleSize ||
+      DEFAULT_MIN_SAMPLE_SIZE,
+    regressionAdjustmentOverride:
+      existing?.regressionAdjustmentOverride || false,
+    regressionAdjustmentEnabled:
+      existing?.regressionAdjustmentEnabled ||
+      DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+    regressionAdjustmentDays:
+      existing?.regressionAdjustmentDays ||
+      (settings.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
+    priorSettings:
+      existing?.priorSettings ||
+      (metricDefaults.priorSettings ?? {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      }),
+  };
+}
+
 export default function FactMetricModal({
   close,
   initialFactTable,
@@ -344,68 +523,16 @@ export default function FactMetricModal({
     .filter((d) => d.properties?.queryLanguage === "sql");
 
   const form = useForm<CreateFactMetricProps>({
-    defaultValues: {
-      name: existing?.name || "",
-      description: existing?.description || "",
-      tags: existing?.tags || [],
-      metricType: existing?.metricType || "proportion",
-      numerator: existing?.numerator || {
-        factTableId: initialFactTable || "",
-        column: "$$count",
-        filters: [],
-      },
-      projects: existing?.projects || [],
-      denominator: existing?.denominator || null,
-      datasource:
-        existing?.datasource ||
-        getNewExperimentDatasourceDefaults(
-          datasources,
-          settings,
-          project,
-          initialFactTable
-            ? { datasource: getFactTableById(initialFactTable)?.datasource }
-            : {}
-        ).datasource,
-      inverse: existing?.inverse || false,
-      cappingSettings: existing?.cappingSettings || {
-        type: "",
-        value: 0,
-      },
-      quantileSettings: existing?.quantileSettings || null,
-      windowSettings: existing?.windowSettings || {
-        type: DEFAULT_FACT_METRIC_WINDOW,
-        delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-        windowUnit: "days",
-        windowValue: 3,
-      },
-      winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
-      loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
-      minPercentChange:
-        (existing?.minPercentChange || metricDefaults.minPercentageChange) *
-        100,
-      maxPercentChange:
-        (existing?.maxPercentChange || metricDefaults.maxPercentageChange) *
-        100,
-      minSampleSize:
-        existing?.minSampleSize || metricDefaults.minimumSampleSize,
-      regressionAdjustmentOverride:
-        existing?.regressionAdjustmentOverride || false,
-      regressionAdjustmentEnabled:
-        existing?.regressionAdjustmentEnabled ||
-        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      regressionAdjustmentDays:
-        existing?.regressionAdjustmentDays ||
-        (settings.regressionAdjustmentDays ??
-          DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
-      priorSettings:
-        existing?.priorSettings ||
-        (metricDefaults.priorSettings ?? {
-          override: false,
-          proper: false,
-          mean: 0,
-          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-        }),
-    },
+    defaultValues: getDefaultFactMetricProps({
+      datasources,
+      metricDefaults,
+      existing,
+      settings,
+      project,
+      initialFactTable: initialFactTable
+        ? getFactTableById(initialFactTable) || undefined
+        : undefined,
+    }),
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));

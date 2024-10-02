@@ -41,6 +41,9 @@ const factTableSchema = new mongoose.Schema({
       numberFormat: String,
       datatype: String,
       deleted: Boolean,
+      alwaysInlineFilter: Boolean,
+      topValues: [String],
+      topValuesDate: Date,
     },
   ],
   columnsError: String,
@@ -239,9 +242,17 @@ export async function updateColumn(
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");
 
+  if (
+    changes.alwaysInlineFilter &&
+    (changes.datatype || factTable.columns[columnIndex]?.datatype) !== "string"
+  ) {
+    throw new Error("Only string columns are eligible for inline filtering");
+  }
+
   factTable.columns[columnIndex] = {
     ...factTable.columns[columnIndex],
     ...changes,
+    ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   };
 
