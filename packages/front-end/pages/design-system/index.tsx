@@ -28,19 +28,19 @@ export default function DesignSystemPage() {
       <div className="appbox p-3">
         <h3>Badge</h3>
         <Flex direction="column" gap="3">
-          <Badge content="Label" />
-          <Badge content="Label" color="indigo" />
-          <Badge content="Label" color="cyan" />
-          <Badge content="Label" color="orange" />
-          <Badge content="Label" color="crimson" />
-          <Badge content="Label" variant="solid" />
-          <Badge content="Label" variant="surface" />
-          <Badge content="Label" variant="outline" />
-          <Badge content="Label" highContrast={true} />
-          <Badge content="Label" radius="small" />
-          <Badge content="Label" radius="medium" />
-          <Badge content="Label" radius="large" />
-          <Badge content="Label" radius="full" />
+          <Badge>Label</Badge>
+          <Badge color="indigo">Label</Badge>
+          <Badge color="cyan">Label</Badge>
+          <Badge color="orange">Label</Badge>
+          <Badge color="crimson">Label</Badge>
+          <Badge variant="solid">Label</Badge>
+          <Badge variant="surface">Label</Badge>
+          <Badge variant="outline">Label</Badge>
+          <Badge highContrast={true}>Label</Badge>
+          <Badge radius="small">Label</Badge>
+          <Badge radius="medium">Label</Badge>
+          <Badge radius="large">Label</Badge>
+          <Badge radius="full">Label</Badge>
         </Flex>
       </div>
       <div className="appbox p-3">

@@ -152,14 +152,13 @@ export default function SDKConnectionsList() {
                     <td>
                       {showAllEnvironmentProjects && (
                         <Badge
-                          content={
-                            <b>All env projects ({envProjects.length})</b>
-                          }
                           key="All env projects"
                           color="teal"
                           radius="medium"
                           variant="solid"
-                        />
+                        >
+                          <b>All env projects ({envProjects.length})</b>
+                        </Badge>
                       )}
                       <div
                         className={clsx("d-flex flex-wrap align-items-center", {

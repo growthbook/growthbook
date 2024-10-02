@@ -1,10 +1,9 @@
 import { Flex, Badge as RadixBadge } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { ReactNode } from "react";
 import { RadixColor } from "@/components/Radix/HelperText";
 
 type Props = {
-  content: string | ReactNode;
+  children: string | JSX.Element;
   color?: RadixColor;
   variant?: "solid" | "soft" | "surface" | "outline";
   highContrast?: boolean;
@@ -12,7 +11,7 @@ type Props = {
 } & MarginProps;
 
 export default function Badge({
-  content,
+  children,
   color,
   variant,
   highContrast,
@@ -27,7 +26,7 @@ export default function Badge({
         highContrast={highContrast}
         radius={radius}
       >
-        {content}
+        {children}
       </RadixBadge>
     </Flex>
   );
