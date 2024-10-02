@@ -2,9 +2,11 @@ import { Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
+import RadioGroup from "@/components/Radix/RadioGroup";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
+  const [radioSelected, setRadioSelected] = useState("k1");
 
   return (
     <div className="pagecontents container-fluid">
@@ -67,6 +69,91 @@ export default function DesignSystemPage() {
               setChecked(v);
             }}
             disabled
+          />
+        </Flex>
+      </div>
+      <div className="appbox p-3">
+        <h3>Radio Group</h3>
+        <Flex direction="column" gap="3">
+          <h4>Radio Group</h4>
+          <RadioGroup
+            value={radioSelected}
+            setValue={(v) => {
+              setRadioSelected(v);
+            }}
+            options={[
+              {
+                value: "k1",
+                label: "Radio 1",
+              },
+              {
+                value: "k2",
+                label: "Radio 2",
+              },
+              {
+                value: "k3",
+                label: "Radio 3, with description",
+                description: "This is a description",
+              },
+              {
+                value: "k4",
+                label: "Radio 4, with sub",
+                description: "This is a description",
+                sub: "This is a sub",
+              },
+              {
+                value: "k5",
+                label: "Radio 5, with error",
+                error: "This is an error",
+                errorLevel: "error",
+              },
+              {
+                value: "k6",
+                label: "Radio 6, with warning",
+                error: "This is a warning",
+                errorLevel: "warning",
+              },
+              {
+                value: "k7",
+                label: "Radio 7, disabled",
+                description: "This is a description",
+                disabled: true,
+              },
+              {
+                value: "k7",
+                label: "Radio 7, disabled with error",
+                description: "This is a description",
+                disabled: true,
+                error: "This is an error",
+                errorLevel: "error",
+              },
+            ]}
+          />
+          <h4>Radio Group, all disabled</h4>
+
+          <RadioGroup
+            value={radioSelected}
+            setValue={(v) => {
+              setRadioSelected(v);
+            }}
+            disabled={true}
+            options={[
+              {
+                value: "k1",
+                label: "Radio 1",
+                description: "This is a description",
+              },
+              {
+                value: "k2",
+                label: "Radio 2",
+                description: "This is a description",
+              },
+              {
+                value: "k3",
+                label: "Radio 3",
+                description: "This is a description",
+              },
+            ]}
           />
         </Flex>
       </div>
