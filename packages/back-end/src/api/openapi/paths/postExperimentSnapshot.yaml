@@ -5,6 +5,15 @@ parameters:
     description: The experiment id of the experiment to update
     schema:
       type: string
+  - name: triggeredBy
+    in: query
+    required: false
+    description: Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.
+    schema:
+      type: enum
+      enum:
+        - manual
+        - schedule
 post:
   tags:
     - experiments

@@ -13,6 +13,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   async (req): Promise<PostExperimentSnapshotResponse> => {
     const context = req.context;
     const id = req.params.id;
+    const triggeredBy = req.query.triggeredBy;
 
     const experiment = await getExperimentById(context, id);
 
@@ -59,7 +60,8 @@ export const postExperimentSnapshot = createApiRequestHandler(
       context,
       experiment,
       datasource,
-      ...createSnapshotPayload
+      triggeredBy,
+      ...createSnapshotPayload,
     });
 
     await req.audit({
