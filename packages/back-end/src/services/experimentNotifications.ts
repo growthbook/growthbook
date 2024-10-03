@@ -418,6 +418,9 @@ export const notifyExperimentChange = async ({
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
 
+  // do not fire significance or error events for dimension analyses
+  if (snapshot.dimension) return;
+
   await notifySignificance({ context, experiment, snapshot });
 
   const results = getDefaultAnalysisResults(snapshot);
