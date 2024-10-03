@@ -376,7 +376,9 @@ export default function GuidedGetStarted({
                 steps[currentStep].docSection && (
                   <span>
                     {steps[currentStep].docSection ? (
-                      <DocLink docSection={steps[currentStep].docSection}>
+                      <DocLink
+                        docSection={steps[currentStep].docSection as DocSection}
+                      >
                         {steps[currentStep].learnMoreLink}
                       </DocLink>
                     ) : null}

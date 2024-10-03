@@ -379,6 +379,7 @@ const NewDataSourceForm: FC<{
       : step === "connection"
       ? async () => {
           const ds = await saveConnectionInfo();
+          mutateDefinitions();
 
           // If the selected schema supports options, go to that step
           // Otherwise, skip to end
