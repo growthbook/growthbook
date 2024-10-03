@@ -1011,7 +1011,7 @@ export async function createInitialResources({
       onProgress((success + errors) / totalResources);
     }
   };
-  const delay = () => new Promise((resolve) => setTimeout(resolve, 750));
+  const delay = () => new Promise((resolve) => setTimeout(resolve, 500));
 
   for (const { factTable, filters, metrics } of resources.factTables) {
     try {

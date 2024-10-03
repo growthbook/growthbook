@@ -291,9 +291,16 @@ const NewDataSourceForm: FC<{
       throw new Error("No data source created yet");
     }
 
+    // Re-generate settings with the entered schema options
+    const settings = getInitialSettings(
+      selectedSchema.value,
+      createdDatasource.params,
+      values
+    );
+
     const updates: Pick<DataSourceInterfaceWithParams, "settings"> = {
       settings: {
-        ...createdDatasource.settings,
+        ...settings,
         schemaOptions: values,
       },
     };
@@ -689,7 +696,18 @@ const NewDataSourceForm: FC<{
               />
             </div>
           </div>
-        ) : null}
+        ) : resourceProgress > 0 ? (
+          <div>
+            <p>All done! Now you&apos;re ready to start experimenting.</p>
+          </div>
+        ) : (
+          <div>
+            <p>
+              All done! Now you&apos;re ready to create metrics and start
+              experimenting.
+            </p>
+          </div>
+        )}
       </div>
     );
 
