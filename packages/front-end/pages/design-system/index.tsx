@@ -2,6 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
+import Callout from "@/components/Radix/Callout";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -16,12 +17,12 @@ export default function DesignSystemPage() {
 
       <h2>Components</h2>
       <div className="appbox p-3">
-        <h3>HelperText</h3>
+        <h3>Callout</h3>
         <Flex direction="column" gap="3">
-          <HelperText status="info">This is an info message</HelperText>
-          <HelperText status="warning">This is a warning message</HelperText>
-          <HelperText status="error">This is an error message</HelperText>
-          <HelperText status="success">This is a success message</HelperText>
+          <Callout status="info">This is an informational callout.</Callout>
+          <Callout status="warning">This is a warning callout.</Callout>
+          <Callout status="error">This is an error callout.</Callout>
+          <Callout status="success">This is a success callout.</Callout>
         </Flex>
       </div>
       <div className="appbox p-3">
@@ -68,6 +69,15 @@ export default function DesignSystemPage() {
             }}
             disabled
           />
+        </Flex>
+      </div>
+      <div className="appbox p-3">
+        <h3>HelperText</h3>
+        <Flex direction="column" gap="3">
+          <HelperText status="info">This is an info message</HelperText>
+          <HelperText status="warning">This is a warning message</HelperText>
+          <HelperText status="error">This is an error message</HelperText>
+          <HelperText status="success">This is a success message</HelperText>
         </Flex>
       </div>
     </div>
