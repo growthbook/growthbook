@@ -419,7 +419,7 @@ export const notifyExperimentChange = async ({
   if (!experiment) throw new Error("Error while fetching experiment!");
 
   // do not fire significance or error events for ad-hoc analyses
-  if ((snapshot.type ?? "manual") === "ad-hoc") return;
+  if (snapshot.type === "ad-hoc") return;
 
   await notifySignificance({ context, experiment, snapshot });
 

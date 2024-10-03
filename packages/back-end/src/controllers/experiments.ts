@@ -92,6 +92,7 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
@@ -1787,6 +1788,28 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
+function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "ad-hoc";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "ad-hoc";
+  }
+
+  return "manual";
+}
+
 async function createExperimentSnapshot({
   context,
   experiment,
@@ -1851,7 +1874,11 @@ async function createExperimentSnapshot({
     dimension
   );
 
-  const snapshotType = dimension ? "ad-hoc" : "manual";
+  const snapshotType = getSnapshotType({
+    experiment,
+    dimension,
+    phaseIndex: phase,
+  });
 
   const factTableMap = await getFactTableMap(context);
 
