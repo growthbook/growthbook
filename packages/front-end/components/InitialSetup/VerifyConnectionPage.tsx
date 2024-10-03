@@ -122,7 +122,7 @@ const VerifyConnectionPage = ({
             View documentation <PiArrowRight />
           </DocLink>
           <div className="mt-3">
-            <Callout type="info">
+            <Callout status="info">
               Each environment requires its own SDK connection. Add more
               environments via <b>SDK Configuration {">"} Environments</b>.
               Then, create the SDK connection for each environment.

@@ -46,7 +46,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
             </button>
           </div>
         </div>
-        <Callout type="info">
+        <Callout status="info">
           To analyze experiment results, connect an event tracker and data
           source. If using GrowthBook to manage feature flags only, feel free to
           skip this step.

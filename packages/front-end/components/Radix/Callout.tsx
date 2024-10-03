@@ -5,19 +5,19 @@ import styles from "./RadixOverrides.module.scss";
 
 export default function Callout({
   children,
-  type,
+  status,
 }: {
   children: ReactNode;
-  type: Status;
+  status: Status;
 }) {
   return (
     <RadixCallout.Root
       className={styles.callout}
-      color={getRadixColor(type)}
-      role={type === "error" ? "alert" : undefined}
+      color={getRadixColor(status)}
+      role={status === "error" ? "alert" : undefined}
     >
       <RadixCallout.Icon>
-        <RadixStatusIcon status={type} />
+        <RadixStatusIcon status={status} />
       </RadixCallout.Icon>
       <RadixCallout.Text>{children}</RadixCallout.Text>
     </RadixCallout.Root>

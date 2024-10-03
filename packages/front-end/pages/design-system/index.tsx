@@ -19,10 +19,10 @@ export default function DesignSystemPage() {
       <div className="appbox p-3">
         <h3>Callout</h3>
         <Flex direction="column" gap="3">
-          <Callout type="info">This is an informational callout.</Callout>
-          <Callout type="warning">This is a warning callout.</Callout>
-          <Callout type="error">This is an error callout.</Callout>
-          <Callout type="success">This is a success callout.</Callout>
+          <Callout status="info">This is an informational callout.</Callout>
+          <Callout status="warning">This is a warning callout.</Callout>
+          <Callout status="error">This is an error callout.</Callout>
+          <Callout status="success">This is a success callout.</Callout>
         </Flex>
       </div>
       <div className="appbox p-3">
