@@ -420,6 +420,8 @@ export const notifyExperimentChange = async ({
 
   // do not fire significance or error events for ad-hoc analyses
   if (snapshot.type === "ad-hoc") return;
+  // do not fire significance events for old snapshots that have no type
+  if (snapshot.type === undefined) return;
 
   await notifySignificance({ context, experiment, snapshot });
 
