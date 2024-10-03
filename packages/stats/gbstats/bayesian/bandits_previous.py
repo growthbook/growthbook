@@ -757,14 +757,33 @@ class BanditsCupedPrevious(BanditsPrevious):
 
     @property
     def period_variances_pre(self) -> np.ndarray:
-        return self.period_means_pre_sum_squares - self.period_means_pre**2
+        v = np.zeros((self.num_periods,))
+        for period in range(self.num_periods):
+            s = 0
+            ss = 0
+            n = 0
+            for variation in range(self.num_variations):
+                s += self.stats[period][variation].pre_statistic.sum
+                ss += self.stats[period][variation].pre_statistic.sum_squares
+                n += self.stats[period][variation].n
+            v[period] = (ss - s**2 / n) / (n - 1) if n > 1 else 0
+        return np.array(v)
 
     @property
     def period_covariances(self) -> np.ndarray:
-        return (
-            self.period_means_cross_product
-            - self.period_means_post * self.period_means_pre
-        )
+        v = np.zeros((self.num_periods,))
+        for period in range(self.num_periods):
+            s_post = 0
+            s_pre = 0
+            s_post_pre = 0
+            n = 0
+            for variation in range(self.num_variations):
+                s_post += self.stats[period][variation].post_statistic.sum
+                s_pre += self.stats[period][variation].pre_statistic.sum
+                s_post_pre += self.stats[period][variation].post_pre_sum_of_products
+                n += self.stats[period][variation].n
+            v[period] = (s_post_pre - s_post * s_pre / n) / (n - 1) if n > 1 else 0
+        return np.array(v)
 
     @property
     def weighted_covariance(self) -> np.float64:

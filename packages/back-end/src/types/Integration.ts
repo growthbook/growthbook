@@ -17,6 +17,7 @@ import { FormatDialect } from "back-end/src/util/sql";
 import { TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricQuantileSettings,
@@ -144,6 +145,16 @@ export type TestQueryParams = {
   templateVariables?: TemplateVariables;
   testDays?: number;
   limit?: number;
+};
+
+export type ColumnTopValuesParams = {
+  factTable: Pick<FactTableInterface, "sql" | "eventName">;
+  column: ColumnInterface;
+  limit?: number;
+};
+export type ColumnTopValuesResponseRow = {
+  value: string;
+  count: number;
 };
 
 interface ExperimentBaseQueryParams {
@@ -398,6 +409,9 @@ export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
+export type ColumnTopValuesResponse = QueryResponse<
+  ColumnTopValuesResponseRow[]
+>;
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -563,6 +577,8 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<PastExperimentQueryResponse>;
+  runColumnTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  getColumnTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
     schema?: string

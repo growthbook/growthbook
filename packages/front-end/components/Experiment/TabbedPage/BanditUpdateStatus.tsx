@@ -3,7 +3,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
-import { BsArrowReturnRight } from "react-icons/bs";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
@@ -92,24 +91,12 @@ export default function BanditUpdateStatus({
                 <td className="nowrap">{datetime(lastEvent?.date ?? "")}</td>
               </tr>
               {lastReweightEvent ? (
-                <>
-                  <tr>
-                    <td className="text-muted ml-2">
-                      <BsArrowReturnRight className="mx-2" />
-                      Update type:
-                    </td>
-                    <td className="nowrap">
-                      {updateType === "refresh" && "Refresh (check results)"}
-                      {updateType === "reweight" && "Re-weight"}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">Last weights updated:</td>
-                    <td className="nowrap">
-                      {datetime(lastReweightEvent?.date ?? "")}
-                    </td>
-                  </tr>
-                </>
+                <tr>
+                  <td className="text-muted">Last weights updated:</td>
+                  <td className="nowrap">
+                    {datetime(lastReweightEvent?.date ?? "")}
+                  </td>
+                </tr>
               ) : null}
               {["explore", "exploit"].includes(
                 experiment.banditStage ?? ""
@@ -150,7 +137,12 @@ export default function BanditUpdateStatus({
               The bandit is{" "}
               {experiment.banditStage ? (
                 <>
-                  in the <strong>{upperFirst(experiment.banditStage)}</strong>{" "}
+                  in the{" "}
+                  <strong>
+                    {experiment.banditStage === "explore"
+                      ? "Exploratory"
+                      : upperFirst(experiment.banditStage)}
+                  </strong>{" "}
                   stage
                 </>
               ) : (
@@ -179,7 +171,7 @@ export default function BanditUpdateStatus({
             </div>
           ) : null}
 
-          <hr />
+          <hr className="mx-2" />
           <RefreshBanditButton mutate={mutate} experiment={experiment} />
         </div>
       </Dropdown>

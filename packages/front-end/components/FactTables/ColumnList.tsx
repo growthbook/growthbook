@@ -1,6 +1,6 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useMemo, useState } from "react";
-import { FaClock, FaUser } from "react-icons/fa";
+import { FaClock, FaFilter, FaUser } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
@@ -130,6 +130,13 @@ export default function ColumnList({ factTable }: Props) {
                     <Tooltip body="Main date field used for sorting and filtering">
                       <span className="badge badge-purple">
                         <FaClock />
+                      </span>
+                    </Tooltip>
+                  )}
+                  {col.alwaysInlineFilter && (
+                    <Tooltip body="Prompt all metrics to filter on this column">
+                      <span className="badge badge-purple">
+                        <FaFilter />
                       </span>
                     </Tooltip>
                   )}

@@ -144,7 +144,7 @@ export default function BanditSettings({
                 "font-weight-bold": page === "experiment-settings",
               })}
             >
-              Explore Stage
+              Exploratory Stage
             </label>
             <div className="small text-muted mb-2">
               How long to wait before updating variation weights:

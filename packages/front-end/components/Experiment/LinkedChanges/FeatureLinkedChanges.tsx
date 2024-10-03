@@ -1,16 +1,19 @@
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
+import { FaInfoCircle } from "react-icons/fa";
 import track from "@/services/track";
 
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
-import {ExperimentInterfaceStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
-import {FaInfoCircle} from "react-icons/fa";
 
 export default function FeatureLinkedChanges({
   setFeatureModal,
   linkedFeatures,
   experiment,
   canAddChanges,
-} : {
+}: {
   setFeatureModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   experiment: ExperimentInterfaceStringDates;
@@ -37,7 +40,9 @@ export default function FeatureLinkedChanges({
         {hasDraftFeatures && (
           <div className="alert alert-info my-3">
             <FaInfoCircle className="mr-2" />
-            Features in <strong>Draft</strong> mode will not allow experiments to run. Publish Feature from the Feature Flag detail page to unblock.
+            Features in <strong>Draft</strong> mode will not allow experiments
+            to run. Publish Feature from the Feature Flag detail page to
+            unblock.
           </div>
         )}
         {linkedFeatures.map((info, i) => (
