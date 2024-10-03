@@ -81,10 +81,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
       <div>
         {dataSourceOpen && (
           <NewDataSourceForm
-            initial={{
-              name: "My Datasource",
-              settings: {},
-            }}
             source="get-started"
             onCancel={() => setDataSourceOpen(false)}
             onSuccess={async () => {

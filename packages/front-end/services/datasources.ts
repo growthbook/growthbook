@@ -689,7 +689,7 @@ function generateColumns(
     description: "",
     numberFormat: "",
     alwaysInlineFilter: false,
-    name: "",
+    name: name,
     ...data,
   }));
 }
@@ -716,7 +716,7 @@ interface InitialDatasourceResources {
   }[];
 }
 
-function getInitialDatasourceResources({
+export function getInitialDatasourceResources({
   datasource,
 }: {
   datasource: DataSourceInterfaceWithParams;
@@ -726,6 +726,12 @@ function getInitialDatasourceResources({
     datasource.settings?.schemaFormat === "ga4"
   ) {
     const params = datasource.params;
+
+    // Sanity check
+    if (!params.defaultDataset?.startsWith("analytics_")) {
+      return { factTables: [] };
+    }
+
     const userIdTypes: string[] = [];
     if (
       datasource.settings?.userIdTypes?.some((t) => t.userIdType === "user_id")
@@ -979,6 +985,7 @@ export async function createInitialResources({
   datasource,
   metricDefaults,
   settings,
+  resources,
 }: {
   onProgress?: (progress: number) => void;
   // eslint-disable-next-line
@@ -986,9 +993,8 @@ export async function createInitialResources({
   metricDefaults: MetricDefaults;
   settings: OrganizationSettings;
   datasource: DataSourceInterfaceWithParams;
+  resources: InitialDatasourceResources;
 }) {
-  const resources = getInitialDatasourceResources({ datasource });
-
   // Count total resources that need to be created
   let totalResources = 0;
   totalResources += resources.factTables.length;
@@ -1035,7 +1041,7 @@ export async function createInitialResources({
         try {
           const filterBody: CreateFactFilterProps = filter;
           const res: { filterId: string } = await apiCall(
-            `/fact-tables/${factTableId}/filters`,
+            `/fact-tables/${factTableId}/filter`,
             {
               method: "POST",
               body: JSON.stringify(filterBody),

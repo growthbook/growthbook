@@ -221,10 +221,6 @@ export default function GuidedGetStarted({
             />
           ) : (
             <NewDataSourceForm
-              initial={{
-                name: "My Datasource",
-                settings: {},
-              }}
               inline={true}
               source="get-started"
               onSuccess={async () => {
@@ -379,9 +375,11 @@ export default function GuidedGetStarted({
               {steps[currentStep].learnMoreLink &&
                 steps[currentStep].docSection && (
                   <span>
-                    <DocLink docSection={steps[currentStep].docSection}>
-                      {steps[currentStep].learnMoreLink}
-                    </DocLink>
+                    {steps[currentStep].docSection ? (
+                      <DocLink docSection={steps[currentStep].docSection}>
+                        {steps[currentStep].learnMoreLink}
+                      </DocLink>
+                    ) : null}
                   </span>
                 )}
             </p>

@@ -19,6 +19,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
   createInitialResources,
+  getInitialDatasourceResources,
   getInitialSettings,
 } from "@/services/datasources";
 import {
@@ -111,7 +112,7 @@ const NewDataSourceForm: FC<{
 
   // Progress for the resource creation screen (final screen)
   const [resourceProgress, setResourceProgress] = useState(0);
-  const [createingResources, setCreatingResources] = useState(false);
+  const [creatingResources, setCreatingResources] = useState(false);
 
   // Holds the final data source object
   const [
@@ -178,9 +179,18 @@ const NewDataSourceForm: FC<{
     }
   }, [initial?.settings?.schemaFormat, setSchemaSettings]);
 
-  const selectedSchema = schemasMap.get(
+  const selectedSchema: eventSchema = schemasMap.get(
     eventTracker || "custom"
-  ) as eventSchema;
+  ) || {
+    label: "Custom",
+    value: "custom",
+    intro: (
+      <>
+        Connect to your data warehouse and manually configure GrowthBook with
+        SQL queries
+      </>
+    ),
+  };
 
   // Filter out demo datasource from available projects
   const projects = allProjects.filter(
@@ -320,25 +330,33 @@ const NewDataSourceForm: FC<{
     });
   };
 
-  const createResources = () => {
-    if (!createdDatasource) {
+  const createResources = (ds: DataSourceInterfaceWithParams) => {
+    if (!ds) {
       return;
     }
+
+    const resources = getInitialDatasourceResources({ datasource: ds });
+    if (!resources.factTables.length) {
+      setCreatingResources(false);
+      return;
+    }
+
     setCreatingResources(true);
     createInitialResources({
-      datasource: createdDatasource,
+      datasource: ds,
       onProgress: (progress) => {
         setResourceProgress(progress);
       },
       apiCall,
       metricDefaults,
       settings,
+      resources,
     })
       .then(() => {
         track("Creating Datasource Resources", {
           source,
-          type: createdDatasource.type,
-          schema: createdDatasource.settings?.schemaFormat,
+          type: ds.type,
+          schema: ds.settings?.schemaFormat,
           newDatasourceForm: true,
         });
       })
@@ -360,21 +378,21 @@ const NewDataSourceForm: FC<{
         }
       : step === "connection"
       ? async () => {
-          await saveConnectionInfo();
+          const ds = await saveConnectionInfo();
 
           // If the selected schema supports options, go to that step
           // Otherwise, skip to end
           if (selectedSchema.options) {
             setStep("schemaOptions");
           } else {
-            createResources();
+            createResources(ds);
             setStep("done");
           }
         }
       : step === "schemaOptions"
       ? schemaOptionsForm.handleSubmit(async (values) => {
           await saveSchemaOptions(values);
-          createResources();
+          createdDatasource && createResources(createdDatasource);
           setStep("done");
         })
       : async () => {
@@ -656,27 +674,25 @@ const NewDataSourceForm: FC<{
           <strong>Connection successful!</strong>
         </div>
 
-        {createingResources ? (
+        {creatingResources ? (
           <div>
-            Hang tight while we create some metrics to get you started.
+            <p>Hang tight while we create some metrics to get you started.</p>
             <div className="progress">
               <div
                 className="progress-bar"
                 role="progressbar"
-                style={{ width: `${resourceProgress * 100}%` }}
+                style={{ width: `${Math.floor(resourceProgress * 100)}%` }}
                 aria-valuenow={resourceProgress}
                 aria-valuemin={0}
                 aria-valuemax={100}
-              >
-                {resourceProgress}%
-              </div>
+              />
             </div>
           </div>
         ) : null}
       </div>
     );
 
-    if (createingResources) {
+    if (creatingResources) {
       ctaEnabled = false;
     }
   }
