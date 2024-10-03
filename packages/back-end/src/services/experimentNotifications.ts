@@ -391,8 +391,13 @@ export const notifySignificance = async ({
   if (!experimentChanges.length) return;
 
   // send email if enabled and the snapshot is scheduled standard analysis
-  if (isEmailEnabled() && snapshot.triggeredBy === "schedule" && snapshot.type === "standard")
+  if (
+    isEmailEnabled() &&
+    snapshot.triggeredBy === "schedule" &&
+    snapshot.type === "standard"
+  ) {
     await sendSignificanceEmail(experiment, experimentChanges);
+  }
 
   await Promise.all(
     experimentChanges.map((change) =>
