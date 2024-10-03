@@ -118,7 +118,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
               style={{ maxWidth: 325 }}
             >
               <img
-                src="/logo/logo-mark.png"
+                src="/logo/Logo-mark.png"
                 style={{ width: 40 }}
                 alt="GrowthBook"
               />
