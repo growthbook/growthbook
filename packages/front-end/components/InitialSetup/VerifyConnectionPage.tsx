@@ -121,13 +121,11 @@ const VerifyConnectionPage = ({
           <DocLink docSection={docs}>
             View documentation <PiArrowRight />
           </DocLink>
-          <div className="mt-3">
-            <Callout status="info">
-              Each environment requires its own SDK connection. Add more
-              environments via <b>SDK Configuration {">"} Environments</b>.
-              Then, create the SDK connection for each environment.
-            </Callout>
-          </div>
+          <Callout status="info" mt="3">
+            Each environment requires its own SDK connection. Add more
+            environments via <b>SDK Configuration {">"} Environments</b>. Then,
+            create the SDK connection for each environment.
+          </Callout>
           <div className="mt-4 mb-3">
             <h4
               className="cursor-pointer"
