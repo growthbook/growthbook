@@ -390,8 +390,8 @@ export const notifySignificance = async ({
 
   if (!experimentChanges.length) return;
 
-  // send email if enabled and the snapshot is standard
-  if (isEmailEnabled() && snapshot.type === "standard")
+  // send email if enabled and the snapshot is scheduled standard analysis
+  if (isEmailEnabled() && snapshot.triggeredBy === "schedule" && snapshot.type === "standard")
     await sendSignificanceEmail(experiment, experimentChanges);
 
   await Promise.all(
@@ -418,10 +418,12 @@ export const notifyExperimentChange = async ({
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
 
-  // do not fire significance or error events for ad-hoc analyses
-  if (snapshot.type === "ad-hoc") return;
+  // do not fire significance or error events for exploratory analyses
+  if (snapshot.type === "exploratory") return;
   // do not fire significance events for old snapshots that have no type
   if (snapshot.type === undefined) return;
+  // do not fire for snapshots where statistics are manually entered in the UI
+  if (snapshot.manual) return;
 
   await notifySignificance({ context, experiment, snapshot });
 

@@ -127,7 +127,8 @@ export interface SnapshotSettingsVariation {
   weight: number;
 }
 
-export type SnapshotType = "standard" | "ad-hoc" | "manual"; // todo: add "report" type?
+export type SnapshotType = "standard" | "exploratory";
+export type SnapshotTriggeredBy = "schedule" | "manual";
 
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
@@ -170,6 +171,7 @@ export interface ExperimentSnapshotInterface {
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
+  triggeredBy?: SnapshotTriggeredBy;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

@@ -43,6 +43,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotTriggeredBy,
   SnapshotType,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
@@ -582,6 +583,7 @@ export async function createSnapshot({
   experiment,
   context,
   type,
+  triggeredBy,
   phaseIndex,
   useCache = false,
   defaultAnalysisSettings,
@@ -593,6 +595,7 @@ export async function createSnapshot({
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
   type: SnapshotType;
+  triggeredBy: SnapshotTriggeredBy;
   phaseIndex: number;
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -625,6 +628,7 @@ export async function createSnapshot({
     dimension: dimension || null,
     settings: snapshotSettings,
     type: type,
+    triggeredBy: triggeredBy,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [

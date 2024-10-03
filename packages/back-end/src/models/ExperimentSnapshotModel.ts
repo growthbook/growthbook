@@ -26,6 +26,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   experiment: String,
   phase: Number,
   type: { type: String },
+  triggeredBy: String,
   dateCreated: Date,
   runStarted: Date,
   manual: Boolean,
@@ -232,12 +233,10 @@ export async function updateSnapshotAnalysis({
   organization,
   id,
   analysis,
-  context,
 }: {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
-  context: Context;
 }) {
   await ExperimentSnapshotModel.updateOne(
     {
@@ -256,10 +255,12 @@ export async function updateSnapshotAnalysis({
   });
   if (!experimentSnapshotModel) throw "Internal error";
 
-  await notifyExperimentChange({
-    context,
-    snapshot: experimentSnapshotModel,
-  });
+  // Not notifying on new analysis because new analyses in an existing snapshot
+  // are akin to ad-hoc snapshots
+  // await notifyExperimentChange({
+  //   context,
+  //   snapshot: experimentSnapshotModel,
+  // });
 }
 
 export async function deleteSnapshotById(organization: string, id: string) {

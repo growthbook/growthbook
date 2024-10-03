@@ -1799,15 +1799,15 @@ function getSnapshotType({
 }): SnapshotType {
   // dimension analyses are ad-hoc
   if (dimension) {
-    return "ad-hoc";
+    return "exploratory";
   }
 
   // analyses of old phases are ad-hoc
   if (phaseIndex !== experiment.phases.length - 1) {
-    return "ad-hoc";
+    return "exploratory";
   }
 
-  return "manual";
+  return "standard";
 }
 
 async function createExperimentSnapshot({
@@ -1895,6 +1895,7 @@ async function createExperimentSnapshot({
     metricMap,
     factTableMap,
     type: snapshotType,
+    triggeredBy: "manual"
   });
   const snapshot = queryRunner.model;
 
