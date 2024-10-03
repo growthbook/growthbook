@@ -154,7 +154,6 @@ export default function SDKConnectionsList() {
                         <Badge
                           key="All env projects"
                           color="teal"
-                          radius="medium"
                           variant="solid"
                         >
                           <b>All env projects ({envProjects.length})</b>

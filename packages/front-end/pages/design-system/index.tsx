@@ -34,13 +34,6 @@ export default function DesignSystemPage() {
           <Badge color="orange">Label</Badge>
           <Badge color="crimson">Label</Badge>
           <Badge variant="solid">Label</Badge>
-          <Badge variant="surface">Label</Badge>
-          <Badge variant="outline">Label</Badge>
-          <Badge highContrast={true}>Label</Badge>
-          <Badge radius="small">Label</Badge>
-          <Badge radius="medium">Label</Badge>
-          <Badge radius="large">Label</Badge>
-          <Badge radius="full">Label</Badge>
         </Flex>
       </div>
       <div className="appbox p-3">
