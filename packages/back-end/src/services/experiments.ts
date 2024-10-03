@@ -43,6 +43,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotType,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import {
@@ -580,6 +581,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export async function createSnapshot({
   experiment,
   context,
+  type,
   phaseIndex,
   useCache = false,
   defaultAnalysisSettings,
@@ -590,6 +592,7 @@ export async function createSnapshot({
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
+  type: SnapshotType;
   phaseIndex: number;
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -621,6 +624,7 @@ export async function createSnapshot({
     queries: [],
     dimension: dimension || null,
     settings: snapshotSettings,
+    type: type,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [

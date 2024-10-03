@@ -170,6 +170,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricMap,
       factTableMap,
       useCache: true,
+      type: "standard",
     });
     await queryRunner.waitForResults();
 

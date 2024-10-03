@@ -422,6 +422,7 @@ spacing and headings.`,
       metricMap: metricMap,
       factTableMap,
       useCache: true,
+      type: "standard",
     });
 
     res.status(200).json({

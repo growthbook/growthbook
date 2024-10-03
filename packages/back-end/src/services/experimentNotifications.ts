@@ -390,8 +390,8 @@ export const notifySignificance = async ({
 
   if (!experimentChanges.length) return;
 
-  // If email is not configured, there's nothing else to do
-  if (isEmailEnabled())
+  // send email if enabled and the snapshot is standard
+  if (isEmailEnabled() && snapshot.type === "standard")
     await sendSignificanceEmail(experiment, experimentChanges);
 
   await Promise.all(
@@ -418,8 +418,8 @@ export const notifyExperimentChange = async ({
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
 
-  // do not fire significance or error events for dimension analyses
-  if (snapshot.dimension) return;
+  // do not fire significance or error events for ad-hoc analyses
+  if ((snapshot.type ?? "manual") === "ad-hoc") return;
 
   await notifySignificance({ context, experiment, snapshot });
 

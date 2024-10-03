@@ -1851,6 +1851,8 @@ async function createExperimentSnapshot({
     dimension
   );
 
+  const snapshotType = dimension ? "ad-hoc" : "manual";
+
   const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({
@@ -1865,6 +1867,7 @@ async function createExperimentSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
+    type: snapshotType,
   });
   const snapshot = queryRunner.model;
 
