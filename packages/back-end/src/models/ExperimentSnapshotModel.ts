@@ -204,13 +204,12 @@ export type AddOrUpdateSnapshotAnalysisParams = {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
-  context: Context;
 };
 
 export async function addOrUpdateSnapshotAnalysis(
   params: AddOrUpdateSnapshotAnalysisParams
 ) {
-  const { organization, id, analysis, context } = params;
+  const { organization, id, analysis } = params;
   // looks for snapshots with this ID but WITHOUT these analysis settings
   const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
     {
@@ -225,7 +224,7 @@ export async function addOrUpdateSnapshotAnalysis(
   // if analysis already exist, no documents will be returned by above query
   // so instead find and update existing analysis in DB
   if (experimentSnapshotModel.matchedCount === 0) {
-    await updateSnapshotAnalysis({ organization, id, analysis, context });
+    await updateSnapshotAnalysis({ organization, id, analysis });
   }
 }
 

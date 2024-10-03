@@ -778,7 +778,6 @@ async function getSnapshotAnalyses(
           organization: organization.id,
           id: snapshot.id,
           analysis,
-          context,
         })
       );
 
@@ -845,12 +844,11 @@ export async function createSnapshotAnalyses(
   );
 
   // parses results and writes to mongo
-  await writeSnapshotAnalyses(results, analysisParamsMap, context);
+  await writeSnapshotAnalyses(results, analysisParamsMap);
 }
 
 export async function createSnapshotAnalysis(
-  params: SnapshotAnalysisParams,
-  context: Context
+  params: SnapshotAnalysisParams
 ): Promise<void> {
   const {
     snapshot,
@@ -882,7 +880,6 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
-    context,
   });
 
   // Format data correctly
@@ -907,7 +904,6 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
-    context,
   });
 }
 
