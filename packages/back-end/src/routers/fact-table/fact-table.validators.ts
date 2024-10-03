@@ -18,15 +18,19 @@ export const createColumnPropsValidator = z
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
     deleted: z.boolean().optional(),
+    alwaysInlineFilter: z.boolean().optional(),
+    topValues: z.array(z.string()).optional(),
   })
   .strict();
 
 export const updateColumnPropsValidator = z
   .object({
-    name: z.string(),
-    description: z.string(),
-    numberFormat: numberFormatValidator,
-    datatype: factTableColumnTypeValidator,
+    name: z.string().optional(),
+    description: z.string().optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: factTableColumnTypeValidator.optional(),
+    alwaysInlineFilter: z.boolean().optional(),
+    topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
   })
   .strict();
@@ -61,6 +65,7 @@ export const updateFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api"]).optional(),
     columnsError: z.string().nullable().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 
@@ -68,6 +73,7 @@ export const columnRefValidator = z
   .object({
     factTableId: z.string(),
     column: z.string(),
+    inlineFilters: z.record(z.string().array()).optional(),
     filters: z.array(z.string()),
   })
   .strict();
@@ -125,6 +131,7 @@ export const factMetricValidator = z
     tags: z.array(z.string()).default([]),
     projects: z.array(z.string()),
     inverse: z.boolean(),
+    archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
     numerator: columnRefValidator,

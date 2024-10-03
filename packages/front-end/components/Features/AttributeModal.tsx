@@ -26,6 +26,16 @@ export interface Props {
   attribute?: string;
 }
 
+const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
+  boolean: "true or false",
+  number: "Floats or integers",
+  string: "Freeform text",
+  enum: "For a small list of pre-defined values",
+  secureString: "Freeform text; values hashed before passing to the SDK",
+  "number[]": "Useful for multiple numeric values",
+  "string[]": 'Useful for things like "tags"',
+  "secureString[]": "Useful for passing multiple values securely",
+};
 export default function AttributeModal({ close, attribute }: Props) {
   const { projects, project } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -185,7 +195,6 @@ export default function AttributeModal({ close, attribute }: Props) {
           { value: "string", label: "String" },
           { value: "enum", label: "Enum" },
           { value: "secureString", label: "Secure String" },
-          { value: "isoCountryCode", label: "ISO Country Code" },
           { value: "number[]", label: "Array of Numbers" },
           { value: "string[]", label: "Array of Strings" },
           {
@@ -193,6 +202,16 @@ export default function AttributeModal({ close, attribute }: Props) {
             label: "Array of Secure Strings",
           },
         ]}
+        formatOptionLabel={(value) => {
+          return (
+            <div className="d-flex">
+              <span className="pr-2">{value.label}</span>
+              <span className="ml-auto text-muted">
+                {DATA_TYPE_TO_DESCRIPTION[value.value]}
+              </span>
+            </div>
+          );
+        }}
         helpText={
           <>
             {["secureString", "secureString[]"].includes(datatype) && (
@@ -242,6 +261,7 @@ export default function AttributeModal({ close, attribute }: Props) {
             options={[
               { value: "version", label: "Version string" },
               { value: "date", label: "Date string" },
+              { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
             ]}
             sort={false}
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."

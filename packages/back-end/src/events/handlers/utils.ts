@@ -3,8 +3,8 @@ import intersection from "lodash/intersection";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "../notification-events";
-import { ApiFeature } from "../../../types/openapi";
+} from "back-end/src/events/notification-events";
+import { ApiFeature } from "back-end/types/openapi";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];

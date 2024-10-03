@@ -23,6 +23,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -37,6 +38,8 @@ const SavedGroupForm: FC<{
   const attributeSchema = useAttributeSchema();
 
   const { mutateDefinitions } = useDefinitions();
+
+  const { projects, project } = useDefinitions();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -57,8 +60,14 @@ const SavedGroupForm: FC<{
       type,
       values: current.values || [],
       description: current.description || "",
+      projects: current.projects || (project ? [project] : []),
     },
   });
+
+  const projectsOptions = projects.map((p) => ({
+    label: p.name,
+    value: p.id,
+  }));
 
   const isValid =
     !!form.watch("groupName") &&
@@ -102,6 +111,7 @@ const SavedGroupForm: FC<{
             owner: value.owner,
             values: value.values,
             description: value.description,
+            projects: value.projects,
           };
           await apiCall(`/saved-groups/${current.id}`, {
             method: "PUT",
@@ -166,6 +176,16 @@ const SavedGroupForm: FC<{
           <FaPlusCircle /> Add a description
         </p>
       )}
+      <MultiSelectField
+        label="Projects"
+        labelClassName="font-weight-bold"
+        placeholder="All Projects"
+        value={form.watch("projects") || []}
+        onChange={(projects) => form.setValue("projects", projects)}
+        options={projectsOptions}
+        sort={false}
+        closeMenuOnSelect={true}
+      />
       {current.id && (
         <SelectField
           label="Owner"

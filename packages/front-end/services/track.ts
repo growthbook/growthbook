@@ -10,12 +10,12 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "@back-end/types/stats";
+import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "@back-end/types/experiment-snapshot";
-import { ExperimentReportInterface } from "@back-end/types/report";
+} from "back-end/types/experiment-snapshot";
+import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getCurrentUser } from "./UserContext";
 import {
@@ -77,6 +77,7 @@ export default function track(
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,
+    build_version: build.lastVersion,
     account_plan: effectiveAccountPlan,
     configFile: hasFileConfig(),
     role: id ? role : "",

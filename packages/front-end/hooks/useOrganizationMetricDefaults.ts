@@ -6,18 +6,17 @@ import {
   MetricWindowSettings,
 } from "back-end/types/fact-table";
 import {
+  DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_PROPER_PRIOR_STDDEV,
 } from "shared/constants";
 import useOrgSettings from "./useOrgSettings";
-
-const defaultMaxPercentChange = 0.5;
-const defaultMinPercentChange = 0.005;
-const defaultMinSampleSize = 150;
 
 const defaultMetricWindowSettings: MetricWindowSettings = {
   type: DEFAULT_METRIC_WINDOW,
@@ -37,9 +36,9 @@ const defaultMetricPriorSettings: MetricPriorSettings = {
 };
 
 const METRIC_DEFAULTS = {
-  minimumSampleSize: defaultMinSampleSize,
-  maxPercentageChange: defaultMaxPercentChange,
-  minPercentageChange: defaultMinPercentChange,
+  minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
+  maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
+  minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
   windowSettings: defaultMetricWindowSettings,
   cappingSettings: defaultMetricCappingSettings,
   priorSettings: defaultMetricPriorSettings,

@@ -20,5 +20,6 @@ export interface SavedGroupInterface {
   dateUpdated: Date;
   dateCreated: Date;
   description?: string;
+  projects?: string[];
 }
 export type SavedGroupType = "condition" | "list";

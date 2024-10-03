@@ -84,12 +84,10 @@ app.post(
     const signature = rawSignature.split(",")[1];
 
     if (id && timestamp && signature) {
-      // Base64 encode the secret
-      const base64_secret = btoa(GROWTHBOOK_WEBHOOK_SECRET);
 
       // Compute the signature
       const computed = crypto
-        .createHmac("sha256", base64_secret)
+        .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
         .update(`${id}.${timestamp}.${body}`)
         .digest("base64");
 

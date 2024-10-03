@@ -1,19 +1,24 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "../../../types/openapi";
+import { PostSavedGroupResponse } from "back-end/types/openapi";
 import {
   createSavedGroup,
   toSavedGroupApiInterface,
-} from "../../models/SavedGroupModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postSavedGroupValidator } from "../../validators/openapi";
+} from "back-end/src/models/SavedGroupModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postSavedGroupValidator } from "back-end/src/validators/openapi";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    if (!req.context.permissions.canCreateSavedGroup()) {
+    const { name, attributeKey, values, condition, owner, projects } = req.body;
+
+    if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
     }
 
-    const { name, attributeKey, values, condition, owner } = req.body;
+    if (projects) {
+      await req.context.models.projects.ensureProjectsExist(projects);
+    }
+
     let { type } = req.body;
 
     // Infer type from arguments if not specified
@@ -74,6 +79,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       owner: owner || "",
       condition: condition || "",
       attributeKey,
+      projects,
     });
 
     return {

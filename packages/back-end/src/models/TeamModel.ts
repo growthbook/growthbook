@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { TeamInterface } from "../../types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const teamSchema = new mongoose.Schema({
   id: {

@@ -9,29 +9,29 @@ import {
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { ExperimentInterface } from "../../types/experiment";
+} from "back-end/types/feature";
+import { ExperimentInterface } from "back-end/types/experiment";
 import {
   generateRuleId,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
   refreshSDKPayloadCache,
-} from "../services/features";
-import { upgradeFeatureInterface } from "../util/migrations";
-import { ReqContext } from "../../types/organization";
+} from "back-end/src/services/features";
+import { upgradeFeatureInterface } from "back-end/src/util/migrations";
+import { ReqContext } from "back-end/types/organization";
 import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
-} from "../util/features";
-import { EventUser } from "../events/event-types";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { logger } from "../util/logger";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
-import { simpleSchemaValidator } from "../validators/features";
-import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
-import { ResourceEvents } from "../events/base-types";
+} from "back-end/src/util/features";
+import { EventUser } from "back-end/src/events/event-types";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { logger } from "back-end/src/util/logger";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { ApiReqContext } from "back-end/types/api";
+import { simpleSchemaValidator } from "back-end/src/validators/features";
+import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
+import { ResourceEvents } from "back-end/src/events/base-types";
 import {
   createEvent,
   hasPreviousObject,

@@ -4,6 +4,7 @@ import { redirectWithTimeout, useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Button";
+import { isCloud } from "@/services/env";
 import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {
@@ -35,7 +36,7 @@ export default function SubscriptionInfo() {
         />
       )}
       <div className="col-auto mb-3">
-        <strong>Current Plan:</strong> Cloud Pro
+        <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
         {subscriptionStatus === "trialing" && (
           <>
             {" "}

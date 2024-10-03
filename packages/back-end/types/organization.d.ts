@@ -6,9 +6,9 @@ import {
   Policy,
 } from "shared/permissions";
 import { z } from "zod";
-import { environment } from "@back-end/src/routers/environment/environment.validators";
-import type { ReqContextClass } from "../src/services/context";
-import { attributeDataTypes } from "../src/util/organization.util";
+import { environment } from "back-end/src/routers/environment/environment.validators";
+import type { ReqContextClass } from "back-end/src/services/context";
+import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -132,7 +132,7 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
-export type SDKAttributeFormat = "" | "version" | "date";
+export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 
 export type SDKAttributeType = typeof attributeDataTypes[number];
 
@@ -290,6 +290,7 @@ export interface OrganizationInterface {
   customRoles?: Role[];
   deactivatedRoles?: string[];
   disabled?: boolean;
+  setupEventTracker?: string;
 }
 
 export type NamespaceUsage = Record<

@@ -164,7 +164,7 @@ export default function ResultsTab({
 
   return (
     <>
-      <div className="bg-white border mt-3">
+      <div className="bg-white border">
         {analysisSettingsOpen && (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}

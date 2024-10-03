@@ -11,9 +11,9 @@ import {
   EMAIL_PORT,
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
-} from "../util/secrets";
-import { OrganizationInterface } from "../../types/organization";
-import { getEmailFromUserId } from "../models/UserModel";
+} from "back-end/src/util/secrets";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getEmailFromUserId } from "back-end/src/models/UserModel";
 import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {

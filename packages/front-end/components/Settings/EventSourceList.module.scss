@@ -6,4 +6,13 @@
   background-size: 76%;
   background-repeat: no-repeat;
   background-position: center center;
+  background-color: rgba(255, 255, 255, 0.89);
+  transition: transform 0.2s;
+  &:hover {
+    background-color: rgba(255, 255, 255, 1);
+    transform: scale(1.03);
+  }
+}
+.customSourceCard {
+  background-color: rgba($highlight-purple-light, 0.05);
 }

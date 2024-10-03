@@ -182,9 +182,9 @@ export default function SDKLanguageSelector({
     <div>
       <div className="row">
         {backEnd.length > 0 && (
-          <div className="col-auto">
+          <div className="col-auto mb-1">
             {renderLabels && (
-              <div className="small">
+              <div className="small mb-2">
                 <strong>Back-end</strong>
               </div>
             )}
@@ -205,9 +205,9 @@ export default function SDKLanguageSelector({
           </div>
         )}
         {frontEnd.length > 0 && (
-          <div className="col-auto">
+          <div className="col-auto mb-1">
             {renderLabels && (
-              <div className="small">
+              <div className="small mb-2">
                 <strong>Front-end</strong>
               </div>
             )}
@@ -228,9 +228,9 @@ export default function SDKLanguageSelector({
           </div>
         )}
         {mobile.length > 0 && (
-          <div className="col-auto">
+          <div className="col-auto mb-1">
             {renderLabels && (
-              <div className="small">
+              <div className="small mb-2">
                 <strong>Mobile</strong>
               </div>
             )}
@@ -251,9 +251,9 @@ export default function SDKLanguageSelector({
           </div>
         )}
         {edge.length > 0 && (
-          <div className="col-auto">
+          <div className="col-auto mb-1">
             {renderLabels && (
-              <div className="small">
+              <div className="small mb-2">
                 <strong>Edge</strong>
               </div>
             )}
@@ -274,9 +274,9 @@ export default function SDKLanguageSelector({
           </div>
         )}
         {nocode.length > 0 && (
-          <div className="col-auto">
+          <div className="col-auto mb-1">
             {renderLabels && (
-              <div className="small">
+              <div className="small mb-2">
                 <strong>No/Low Code Platform</strong>
               </div>
             )}
@@ -297,9 +297,9 @@ export default function SDKLanguageSelector({
           </div>
         )}
         {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
-          <div className="col-auto">
+          <div className="col-auto mb-1">
             {renderLabels && (
-              <div className="small">
+              <div className="small mb-2">
                 <strong>Other</strong>
               </div>
             )}

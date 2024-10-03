@@ -11,17 +11,23 @@ import {
 import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
-import { MemoryCache } from "../cache";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { MemoryCache } from "back-end/src/services/cache";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
-} from "../../../types/sso-connection";
-import { AuthChecksCookie, SSOConnectionIdCookie } from "../../util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "../../util/secrets";
-import { getSSOConnectionById } from "../../models/SSOConnectionModel";
-import { getUserLoginPropertiesFromRequest, trackLoginForUser } from "../users";
-import { getHttpOptions } from "../../util/http.util";
+} from "back-end/types/sso-connection";
+import {
+  AuthChecksCookie,
+  SSOConnectionIdCookie,
+} from "back-end/src/util/cookie";
+import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
+import { getSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
+import {
+  getUserLoginPropertiesFromRequest,
+  trackLoginForUser,
+} from "back-end/src/services/users";
+import { getHttpOptions } from "back-end/src/util/http.util";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {

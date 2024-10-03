@@ -7,7 +7,7 @@ import {
   metricAnalysisPopulationTypeValidator,
   metricAnalysisResultValidator,
   metricAnalysisSettingsValidator,
-} from "../src/routers/metric-analysis/metric-analysis.validators";
+} from "back-end/src/routers/metric-analysis/metric-analysis.validators";
 
 export type CreateMetricAnalysisProps = z.infer<
   typeof createMetricAnalysisPropsValidator

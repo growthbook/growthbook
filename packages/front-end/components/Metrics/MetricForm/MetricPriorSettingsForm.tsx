@@ -1,5 +1,5 @@
-import { MetricPriorSettings } from "@back-end/types/fact-table";
-import { MetricDefaults } from "@back-end/types/organization";
+import { MetricPriorSettings } from "back-end/types/fact-table";
+import { MetricDefaults } from "back-end/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useState } from "react";
 import Toggle from "@/components/Forms/Toggle";

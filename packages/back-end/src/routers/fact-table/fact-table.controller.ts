@@ -1,7 +1,8 @@
 import type { Response } from "express";
-import { ReqContext } from "../../../types/organization";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
+import { canInlineFilterColumn } from "shared/experiments";
+import { ReqContext } from "back-end/types/organization";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -12,7 +13,7 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
-} from "../../../types/fact-table";
+} from "back-end/types/fact-table";
 import {
   createFactTable,
   getAllFactTablesForOrganization,
@@ -23,12 +24,16 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
-} from "../../models/FactTableModel";
-import { addTags, addTagsDiff } from "../../models/TagModel";
-import { getSourceIntegrationObject } from "../../services/datasource";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { DataSourceInterface } from "../../../types/datasource";
-import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
+} from "back-end/src/models/FactTableModel";
+import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { DataSourceInterface } from "back-end/types/datasource";
+import {
+  runRefreshColumnsQuery,
+  runColumnTopValuesQuery,
+} from "back-end/src/jobs/refreshFactTableColumns";
+import { logger } from "back-end/src/util/logger";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -165,6 +170,50 @@ export const putFactTable = async (
   });
 };
 
+export const archiveFactTable = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { archived: true })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await updateFactTable(context, factTable, { archived: true });
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const unarchiveFactTable = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { archived: false })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await updateFactTable(context, factTable, { archived: false });
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
 export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
@@ -211,6 +260,38 @@ export const putColumn = async (
 
   if (!context.permissions.canUpdateFactTable(factTable, {})) {
     context.permissions.throwPermissionError();
+  }
+
+  const col = factTable.columns.find((c) => c.name === req.params.column);
+  if (!col) {
+    throw new Error("Could not find column with that name");
+  }
+
+  const updatedCol = { ...col, ...data };
+
+  // If we're just toggling prompting on, populate values
+  if (
+    !col.alwaysInlineFilter &&
+    data.alwaysInlineFilter &&
+    canInlineFilterColumn(factTable, updatedCol)
+  ) {
+    const datasource = await getDataSourceById(context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource");
+    }
+
+    if (context.permissions.canRunFactQueries(datasource)) {
+      runColumnTopValuesQuery(context, datasource, factTable, col)
+        .then(async (values) => {
+          if (!values.length) return;
+          await updateColumn(factTable, col.column, {
+            topValues: values,
+          });
+        })
+        .catch((e) => {
+          logger.warn("Failed to get top values for column", e);
+        });
+    }
   }
 
   await updateColumn(factTable, req.params.column, data);

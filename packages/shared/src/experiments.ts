@@ -1,6 +1,9 @@
 import { MetricInterface } from "back-end/types/metric";
 import {
+  ColumnInterface,
+  ColumnRef,
   FactMetricInterface,
+  FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
   MetricWindowSettings,
@@ -32,6 +35,58 @@ export function isFactMetric(
   m: ExperimentMetricInterface
 ): m is FactMetricInterface {
   return "metricType" in m;
+}
+
+export function canInlineFilterColumn(
+  factTable: Pick<FactTableInterface, "userIdTypes">,
+  column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
+): boolean {
+  if (column.deleted) return false;
+
+  if (column.datatype !== "string") return false;
+
+  // If the column is one of the identifier columns, it is not eligible for prompting
+  if (factTable.userIdTypes.includes(column.column)) return false;
+
+  return true;
+}
+
+export function getColumnRefWhereClause(
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
+  columnRef: ColumnRef,
+  escapeStringLiteral: (s: string) => string
+): string[] {
+  const inlineFilters = columnRef.inlineFilters || {};
+  const filterIds = columnRef.filters || [];
+
+  const where = new Set<string>();
+
+  // First add inline filters
+  Object.entries(inlineFilters).forEach(([column, values]) => {
+    const escapedValues = new Set(
+      values
+        .filter((v) => v.length > 0)
+        .map((v) => "'" + escapeStringLiteral(v) + "'")
+    );
+
+    if (!escapedValues.size) {
+      return;
+    } else if (escapedValues.size === 1) {
+      where.add(`${column} = ${[...escapedValues][0]}`);
+    } else {
+      where.add(`${column} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+    }
+  });
+
+  // Then add additional filters
+  filterIds.forEach((filterId) => {
+    const filter = factTable.filters.find((f) => f.id === filterId);
+    if (filter) {
+      where.add(filter.value);
+    }
+  });
+
+  return [...where];
 }
 
 export function getMetricTemplateVariables(

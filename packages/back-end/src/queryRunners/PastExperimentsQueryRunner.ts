@@ -3,16 +3,16 @@ import {
   PastExperimentParams,
   PastExperimentResponseRows,
   PastExperimentResult,
-} from "../types/Integration";
+} from "back-end/src/types/Integration";
 import {
   PastExperiment,
   PastExperimentsInterface,
-} from "../../types/past-experiments";
-import { Queries, QueryStatus } from "../../types/query";
+} from "back-end/types/past-experiments";
+import { Queries, QueryStatus } from "back-end/types/query";
 import {
   getPastExperimentsById,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
+} from "back-end/src/models/PastExperimentsModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class PastExperimentsQueryRunner extends QueryRunner<

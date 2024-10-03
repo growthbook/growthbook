@@ -1,4 +1,4 @@
-import { MetricInterface } from "@back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
 import { FaArchive, FaChevronRight, FaPlus, FaRegCopy } from "react-icons/fa";
 import Link from "next/link";

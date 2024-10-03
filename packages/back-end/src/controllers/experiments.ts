@@ -16,8 +16,11 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { DataSourceInterface } from "@back-end/types/datasource";
-import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
+import { DataSourceInterface } from "back-end/types/datasource";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
   SnapshotAnalysisParams,
@@ -28,8 +31,8 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
-} from "../services/experiments";
-import { MetricInterface, MetricStats } from "../../types/metric";
+} from "back-end/src/services/experiments";
+import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -40,7 +43,7 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
-} from "../models/ExperimentModel";
+} from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
   deleteVisualChangesetById,
@@ -48,24 +51,24 @@ import {
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
   updateVisualChangeset,
-} from "../models/VisualChangesetModel";
+} from "back-end/src/models/VisualChangesetModel";
 import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
-} from "../models/ExperimentSnapshotModel";
-import { getIntegrationFromDatasourceId } from "../services/datasource";
-import { addTagsDiff } from "../models/TagModel";
-import { getContextFromReq } from "../services/organizations";
-import { removeExperimentFromPresentations } from "../services/presentations";
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { addTagsDiff } from "back-end/src/models/TagModel";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
 import {
   createPastExperiments,
   getPastExperimentsById,
   getPastExperimentsModelByDatasource,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
+} from "back-end/src/models/PastExperimentsModel";
 import {
   Changeset,
   ExperimentInterface,
@@ -74,36 +77,41 @@ import {
   ExperimentStatus,
   ExperimentTargetingData,
   Variation,
-} from "../../types/experiment";
-import { getMetricMap } from "../models/MetricModel";
-import { IdeaModel } from "../models/IdeasModel";
-import { IdeaInterface } from "../../types/idea";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { generateExperimentNotebook } from "../services/notebook";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
+} from "back-end/types/experiment";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { IdeaModel } from "back-end/src/models/IdeasModel";
+import { IdeaInterface } from "back-end/types/idea";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { generateExperimentNotebook } from "back-end/src/services/notebook";
+import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../services/audit";
+} from "back-end/src/services/audit";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
-import { EventUserForResponseLocals } from "../events/event-types";
-import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
+  SnapshotTriggeredBy,
+  SnapshotType,
+} from "back-end/types/experiment-snapshot";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
+import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import {
   createUserVisualEditorApiKey,
   getVisualEditorApiKey,
-} from "../models/ApiKeyModel";
-import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
-import { getFactTableMap } from "../models/FactTableModel";
-import { OrganizationSettings, ReqContext } from "../../types/organization";
-import { CreateURLRedirectProps } from "../../types/url-redirect";
-import { logger } from "../util/logger";
+} from "back-end/src/models/ApiKeyModel";
+import {
+  getExperimentWatchers,
+  upsertWatch,
+} from "back-end/src/models/WatchModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { CreateURLRedirectProps } from "back-end/types/url-redirect";
+import { logger } from "back-end/src/util/logger";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -333,12 +341,12 @@ async function _getSnapshot(
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot(
-    experimentObj.id,
-    parseInt(phase),
+  return await getLatestSnapshot({
+    experiment: experimentObj.id,
+    phase: parseInt(phase),
     dimension,
-    withResults
-  );
+    withResults,
+  });
 }
 
 export async function getSnapshotWithDimension(
@@ -1783,6 +1791,28 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
+function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "exploratory";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "exploratory";
+  }
+
+  return "standard";
+}
+
 export async function createExperimentSnapshot({
   context,
   experiment,
@@ -1790,6 +1820,7 @@ export async function createExperimentSnapshot({
   dimension,
   phase,
   useCache = true,
+  triggeredBy,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1797,6 +1828,7 @@ export async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
 }) {
   let project = null;
   if (experiment.project) {
@@ -1847,6 +1879,12 @@ export async function createExperimentSnapshot({
     dimension
   );
 
+  const snapshotType = getSnapshotType({
+    experiment,
+    dimension,
+    phaseIndex: phase,
+  });
+
   const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({
@@ -1861,6 +1899,8 @@ export async function createExperimentSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
+    type: snapshotType,
+    triggeredBy: triggeredBy ?? "manual",
   });
   const snapshot = queryRunner.model;
 
@@ -2067,16 +2107,13 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis(
-      {
-        experiment: experiment,
-        organization: org,
-        analysisSettings: analysisSettings,
-        metricMap: metricMap,
-        snapshot: snapshot,
-      },
-      context
-    );
+    await createSnapshotAnalysis({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: analysisSettings,
+      metricMap: metricMap,
+      snapshot: snapshot,
+    });
     res.status(200).json({
       status: 200,
     });

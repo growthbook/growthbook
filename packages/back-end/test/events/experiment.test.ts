@@ -3,16 +3,16 @@ import {
   logExperimentUpdated,
   logExperimentDeleted,
   ExperimentModel,
-} from "@back-end/src/models/ExperimentModel";
-import { getLegacyMessageForNotificationEvent } from "@back-end/src/events/handlers/legacy";
-import { experimentSnapshot } from "@back-end/test/snapshots/experiment.snapshot";
+} from "back-end/src/models/ExperimentModel";
+import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
+import { experimentSnapshot } from "back-end/test/snapshots/experiment.snapshot";
 import {
   notifyMultipleExposures,
   notifySrm,
-} from "@back-end/src/services/experimentNotifications";
-import { EventModel } from "@back-end/src/models/EventModel";
+} from "back-end/src/services/experimentNotifications";
+import { EventModel } from "back-end/src/models/EventModel";
 
-jest.mock("@back-end/src/events/notifiers/EventNotifier", () => ({
+jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
     perform() {
       return undefined;
