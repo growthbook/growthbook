@@ -3356,9 +3356,14 @@ export default abstract class SqlIntegration
       ${
         regressionAdjusted
           ? `
-          , SUM(bps.covariate_sum_squares) / SUM(bps.users) - POWER(SUM(bps.covariate_sum) / SUM(bps.users), 2) AS period_pre_variance
-          , SUM(main_covariate_sum_product) / SUM(bps.users) - 
-            SUM(bps.covariate_sum) / SUM(bps.users) * SUM(bps.main_sum) / SUM(bps.users) AS period_covariance
+          , (
+              SUM(bps.covariate_sum_squares) - 
+              POWER(SUM(bps.covariate_sum), 2) / SUM(bps.users)
+            ) / (SUM(bps.users) - 1) AS period_pre_variance
+          , (
+              SUM(main_covariate_sum_product) - 
+              SUM(bps.covariate_sum) * SUM(bps.main_sum) / SUM(bps.users)
+            ) / (SUM(bps.users) - 1) AS period_covariance
         `
           : ""
       }
