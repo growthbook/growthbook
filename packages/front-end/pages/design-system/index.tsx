@@ -28,12 +28,24 @@ export default function DesignSystemPage() {
       <div className="appbox p-3">
         <h3>Badge</h3>
         <Flex direction="column" gap="3">
-          <Badge>Label</Badge>
-          <Badge color="indigo">Label</Badge>
-          <Badge color="cyan">Label</Badge>
-          <Badge color="orange">Label</Badge>
-          <Badge color="crimson">Label</Badge>
-          <Badge variant="solid">Label</Badge>
+          <Flex>
+            <Badge>Label</Badge>
+          </Flex>
+          <Flex>
+            <Badge color="indigo">Label</Badge>
+          </Flex>
+          <Flex>
+            <Badge color="cyan">Label</Badge>
+          </Flex>
+          <Flex>
+            <Badge color="orange">Label</Badge>
+          </Flex>
+          <Flex>
+            <Badge color="crimson">Label</Badge>
+          </Flex>
+          <Flex>
+            <Badge variant="solid">Label</Badge>
+          </Flex>
         </Flex>
       </div>
       <div className="appbox p-3">
