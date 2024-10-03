@@ -42,6 +42,8 @@ class BanditResponsePrevious:
     user_percentages_by_period: Optional[List[List[float]]]
     cr: Optional[List[float]]
     ci: Optional[List[List[float]]]
+    cr_unadjusted: Optional[List[float]]
+    ci_unadjusted: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     additional_reward: Optional[float]
@@ -54,6 +56,8 @@ class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
     ci: Optional[List[List[float]]]
+    cr_unadjusted: Optional[List[float]]
+    ci_unadjusted: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     additional_reward: Optional[float]
@@ -208,6 +212,10 @@ class BanditsPrevious(ABC):
         return 1 / self.posterior_precision
 
     @property
+    def posterior_variance_unadjusted(self) -> np.ndarray:
+        return self.posterior_variance
+
+    @property
     def prior_mean(self) -> np.ndarray:
         return np.full((self.num_variations,), self.config.prior_distribution.mean)
 
@@ -217,6 +225,10 @@ class BanditsPrevious(ABC):
             self.prior_precision * self.prior_mean
             + self.data_precision * self.variation_means
         )
+
+    @property
+    def posterior_mean_unadjusted(self) -> np.ndarray:
+        return self.posterior_mean
 
     # number of Monte Carlo samples to perform when sampling to estimate weights for the SDK
     @property
@@ -271,6 +283,13 @@ class BanditsPrevious(ABC):
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.posterior_mean, np.sqrt(self.posterior_variance))
         ]
+        credible_intervals_unadjusted = [
+            gaussian_credible_interval(mn, s, self.config.alpha)
+            for mn, s in zip(
+                self.posterior_mean_unadjusted,
+                np.sqrt(self.posterior_variance_unadjusted),
+            )
+        ]
         min_n = 100 * self.num_variations
         enough_data = sum(self.variation_counts) >= min_n
         return BanditResponsePrevious(
@@ -279,6 +298,8 @@ class BanditsPrevious(ABC):
             user_percentages_by_period=self.user_percentages_by_period,
             cr=self.variation_means.tolist(),
             ci=credible_intervals,
+            cr_unadjusted=self.variation_means_unadjusted.tolist(),
+            ci_unadjusted=credible_intervals_unadjusted,
             bandit_weights=p.tolist() if enough_data else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             additional_reward=self.compute_additional_reward(),
@@ -370,9 +391,17 @@ class BanditsPrevious(ABC):
         raise NotImplementedError
 
     @property
+    def variation_means_unadjusted(self) -> np.ndarray:
+        return self.variation_means
+
+    @property
     @abstractmethod
     def variation_variances(self) -> np.ndarray:
         raise NotImplementedError
+
+    @property
+    def variation_variances_unadjusted(self) -> np.ndarray:
+        return self.variation_variances
 
     @abstractmethod
     def attribute_array(
@@ -804,6 +833,20 @@ class BanditsCupedPrevious(BanditsPrevious):
     @property
     def variation_means_post(self) -> np.ndarray:
         return self.construct_weighted_means(self.post_mean_array, self.weights_array)
+
+    @property
+    def posterior_mean_unadjusted(self) -> np.ndarray:
+        return self.variation_means_post
+
+    @property
+    def posterior_variance_unadjusted(self) -> np.ndarray:
+        v = np.zeros((self.num_variations,))
+        positive_n = self.variation_counts > 0
+        v[positive_n] = (
+            self.variation_variances_post[positive_n]
+            / self.variation_counts[positive_n]
+        )
+        return v
 
     @property
     def variation_variances_post(self) -> np.ndarray:
