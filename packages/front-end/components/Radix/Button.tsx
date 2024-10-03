@@ -1,5 +1,5 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { ReactNode } from "react";
+import { CSSProperties, ReactNode } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import Link from "next/link";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
@@ -61,18 +61,20 @@ export default function Button({
   ...otherProps
 }: Props) {
   const radixSize = getRadixSize(size);
-  let style = otherProps.style ?? {};
-
+  let style: CSSProperties = {};
   if (variant === "ghost") {
     // hack to make ghost buttons have proper margins / padding
-    style = Object.assign(style, {
+    style = {
       margin: 0,
       height: "var(--base-button-height)",
       paddingTop: 0,
       paddingBottom: 0,
       paddingLeft: `var(--space-${parseInt(radixSize as string) + 1})`,
       paddingRight: `var(--space-${parseInt(radixSize as string) + 1})`,
-    });
+    };
+  }
+  if (otherProps.style) {
+    style = Object.assign(style, otherProps.style);
   }
 
   return (
