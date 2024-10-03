@@ -23,6 +23,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FeaturedCard from "@/components/GetStarted/FeaturedCard";
+import Button from "@/components/Radix/Button";
 
 function WorkspaceLink({
   Icon,
@@ -415,11 +416,9 @@ const GetStartedPage = (): React.ReactElement => {
           </div>
           <div className="col-auto pl-0">
             {canUseSetupFlow && (
-              <Link href="/setup">
-                <button className="btn btn-primary mb-3">
-                  Launch Setup Flow
-                </button>
-              </Link>
+              <Button href="/setup" className="mt-2 mb-4">
+                Launch Setup Flow
+              </Button>
             )}
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}

@@ -1,5 +1,5 @@
 import React, { ReactElement, useCallback, useState } from "react";
-import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
+import { FaArchive, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -7,7 +7,6 @@ import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
-import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
 import TagsFilter, {
   filterByTags,
@@ -30,6 +29,7 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
 interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
@@ -304,10 +304,9 @@ const MetricsPage = (): React.ReactElement => {
                 setShowAutoGenerateMetricsModal={
                   setShowAutoGenerateMetricsModal
                 }
-                size="lg"
+                size="sm"
               />
-              <button
-                className="btn btn-lg btn-success"
+              <Button
                 onClick={(e) => {
                   e.preventDefault();
                   setModalData({
@@ -317,8 +316,8 @@ const MetricsPage = (): React.ReactElement => {
                   });
                 }}
               >
-                <FaPlus /> Add your first Metric
-              </button>
+                Add your first Metric
+              </Button>
             </>
           )}
       </div>
@@ -368,21 +367,17 @@ const MetricsPage = (): React.ReactElement => {
                   setShowAutoGenerateMetricsModal
                 }
               />
-              <button
-                className="btn btn-primary float-right"
-                onClick={() =>
+              <Button
+                onClick={() => {
                   setModalData({
                     current: {},
                     edit: false,
                     duplicate: false,
-                  })
-                }
+                  });
+                }}
               >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
                 Add Metric
-              </button>
+              </Button>
             </div>
           )}
       </div>

@@ -25,9 +25,9 @@ export default function DesignSystemPage() {
           <SelectField
             value={size}
             options={[
+              { label: "extra sm", value: "xs" },
               { label: "small", value: "sm" },
               { label: "medium", value: "md" },
-              { label: "large", value: "lg" },
             ]}
             sort={false}
             onChange={(v: Size) => setSize(v)}
@@ -38,13 +38,13 @@ export default function DesignSystemPage() {
           <Button size={size} aria-label="Aria">
             Aria
           </Button>
-          <Button size={size} theme="danger">
+          <Button size={size} color="danger">
             Danger
           </Button>
           <Button size={size} variant="soft">
             Primary soft
           </Button>
-          <Button size={size} theme="danger" variant="outline">
+          <Button size={size} color="danger" variant="outline">
             Danger outline
           </Button>
           <Button size={size} variant="ghost">
@@ -55,7 +55,7 @@ export default function DesignSystemPage() {
           <Button size={size} loading disabled>
             Primary loading
           </Button>
-          <Button size={size} loading theme="danger" disabled>
+          <Button size={size} loading color="danger" disabled>
             Danger loading
           </Button>
           <Button size={size} loading disabled>

@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,

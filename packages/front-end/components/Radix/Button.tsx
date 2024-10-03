@@ -1,18 +1,22 @@
-import { Button as RadixButton, ButtonProps, Strong } from "@radix-ui/themes";
+import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
+import Link from "next/link";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 
 type Overwrite<T, NewT> = Omit<T, keyof NewT> & NewT;
 
-export type Theme = "primary" | "danger";
+export type Color = "primary" | "danger";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
-export type Size = "sm" | "md" | "lg";
+export type Size = "xs" | "sm" | "md";
 
 export type Props = Overwrite<
   ButtonProps,
   {
-    onClick?: () => void;
-    theme?: Theme;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onClick?: (e: any) => void;
+    href?: string;
+    color?: Color | ButtonProps["color"];
     variant?: Variant;
     size?: Size;
     disabled?: boolean;
@@ -21,29 +25,34 @@ export type Props = Overwrite<
   }
 >;
 
-export function getRadixColor(theme: Theme): ButtonProps["color"] {
-  switch (theme) {
+export function getRadixColor(
+  color: Color | ButtonProps["color"]
+): ButtonProps["color"] {
+  switch (color) {
     case "primary":
       return "violet";
     case "danger":
       return "red";
+    default:
+      return color;
   }
 }
 
 export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
   switch (size) {
-    case "sm":
+    case "xs":
       return "1";
-    case "md":
+    case "sm":
       return "2";
-    case "lg":
+    case "md":
       return "3";
   }
 }
 
 export default function Button({
   onClick,
-  theme = "primary",
+  href,
+  color = "primary",
   variant = "solid",
   size = "md",
   disabled,
@@ -53,6 +62,7 @@ export default function Button({
 }: Props) {
   const radixSize = getRadixSize(size);
   let style = otherProps.style ?? {};
+
   if (variant === "ghost") {
     // hack to make ghost buttons have proper margins / padding
     style = Object.assign(style, {
@@ -66,17 +76,22 @@ export default function Button({
   }
 
   return (
-    <RadixButton
-      onClick={onClick}
-      color={getRadixColor(theme)}
-      variant={variant}
-      size={radixSize}
-      disabled={disabled}
-      loading={loading}
-      style={style}
-      {...otherProps}
+    <ConditionalWrapper
+      condition={!!href}
+      wrapper={<Link href={href ?? "#"} />}
     >
-      <Strong>{children}</Strong>
-    </RadixButton>
+      <RadixButton
+        onClick={onClick}
+        color={getRadixColor(color)}
+        variant={variant}
+        size={radixSize}
+        disabled={disabled}
+        loading={loading}
+        style={style}
+        {...otherProps}
+      >
+        <Text weight="medium">{children}</Text>
+      </RadixButton>
+    </ConditionalWrapper>
   );
 }

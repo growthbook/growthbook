@@ -20,6 +20,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Badge";
+import Button from "@/components/Radix/Button";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 
@@ -62,15 +63,14 @@ export default function SDKConnectionsList() {
         </div>
         {connections.length > 0 && canCreateSDKConnections ? (
           <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
+            <Button
               onClick={(e) => {
                 e.preventDefault();
                 setModalOpen(true);
               }}
             >
-              <GBAddCircle /> Add SDK Connection
-            </button>
+              Add SDK Connection
+            </Button>
           </div>
         ) : null}
       </div>
