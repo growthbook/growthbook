@@ -4266,6 +4266,17 @@ export interface operations {
   };
   postExperimentSnapshot: {
     /** Create Experiment Snapshot */
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * @description Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual. 
+           * @enum {string}
+           */
+          triggeredBy?: "manual" | "schedule";
+        };
+      };
+    };
     responses: {
       200: {
         content: {

@@ -5,15 +5,6 @@ parameters:
     description: The experiment id of the experiment to update
     schema:
       type: string
-  - name: triggeredBy
-    in: query
-    required: false
-    description: Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.
-    schema:
-      type: enum
-      enum:
-        - manual
-        - schedule
 post:
   tags:
     - experiments
@@ -24,7 +15,14 @@ post:
     - lang: "cURL"
       source: |
         curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234/snapshot \
+          -d '{"triggeredBy":"schedule"}' \
           -u secret_abc123DEF456:
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: "../payload-schemas/PostExperimentSnapshotPayload.yaml"
   responses:
     "200":
       content:

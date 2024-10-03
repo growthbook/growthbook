@@ -1,10 +1,13 @@
-import { auditDetailsCreate } from "../../services/audit";
-import { PostExperimentSnapshotResponse } from "../../../types/openapi";
-import { getExperimentById } from "../../models/ExperimentModel";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postExperimentSnapshotValidator } from "../../validators/openapi";
-import { createExperimentSnapshot, SNAPSHOT_TIMEOUT } from "../../controllers/experiments";
+import {
+  createExperimentSnapshot,
+  SNAPSHOT_TIMEOUT,
+} from "back-end/src/controllers/experiments";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { auditDetailsCreate } from "back-end/src/services/audit";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postExperimentSnapshotValidator } from "back-end/src/validators/openapi";
+import { PostExperimentSnapshotResponse } from "back-end/types/openapi";
 
 // TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(
@@ -13,8 +16,8 @@ export const postExperimentSnapshot = createApiRequestHandler(
   async (req): Promise<PostExperimentSnapshotResponse> => {
     const context = req.context;
     const id = req.params.id;
-    const triggeredBy = req.query.triggeredBy;
 
+    const { triggeredBy } = req.body;
     const experiment = await getExperimentById(context, id);
 
     if (!experiment) {
@@ -50,7 +53,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
       phase: experiment.phases.length - 1,
       dimension: undefined,
       useCache: true,
-    }
+    };
 
     // This is doing an expensive analytics SQL query, so may take a long time
     // Set timeout to 30 minutes

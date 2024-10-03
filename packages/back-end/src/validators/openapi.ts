@@ -223,7 +223,7 @@ export const updateExperimentValidator = {
 };
 
 export const postExperimentSnapshotValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ "triggeredBy": z.enum(["manual","schedule"]).describe("Set to \"schedule\" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
