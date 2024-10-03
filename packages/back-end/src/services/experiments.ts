@@ -40,12 +40,13 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
 import {
-  SnapshotType,
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotTriggeredBy,
+  SnapshotType,
   SnapshotVariation,
   SnapshotBanditSettings,
 } from "back-end/types/experiment-snapshot";
@@ -521,7 +522,7 @@ export async function createManualSnapshot({
         ],
       },
     ],
-    type: "manual",
+    triggeredBy: "manual",
   };
 
   return await createExperimentSnapshotModel({ data, context });
@@ -805,6 +806,8 @@ export function updateExperimentBanditSettings({
 export async function createSnapshot({
   experiment,
   context,
+  type,
+  triggeredBy,
   phaseIndex,
   useCache = false,
   defaultAnalysisSettings,
@@ -812,11 +815,12 @@ export async function createSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
-  type,
   reweight,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
+  type: SnapshotType;
+  triggeredBy: SnapshotTriggeredBy;
   phaseIndex: number;
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -824,7 +828,6 @@ export async function createSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  type: SnapshotType;
   reweight?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
@@ -851,6 +854,8 @@ export async function createSnapshot({
     queries: [],
     dimension: dimension || null,
     settings: snapshotSettings,
+    type,
+    triggeredBy,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
@@ -873,7 +878,6 @@ export async function createSnapshot({
         }),
     ],
     status: "running",
-    type,
   };
 
   let scheduleNextSnapshot = true;
@@ -1010,7 +1014,6 @@ async function getSnapshotAnalyses(
           organization: organization.id,
           id: snapshot.id,
           analysis,
-          context,
         })
       );
 
@@ -1077,12 +1080,11 @@ export async function createSnapshotAnalyses(
   );
 
   // parses results and writes to mongo
-  await writeSnapshotAnalyses(results, analysisParamsMap, context);
+  await writeSnapshotAnalyses(results, analysisParamsMap);
 }
 
 export async function createSnapshotAnalysis(
-  params: SnapshotAnalysisParams,
-  context: Context
+  params: SnapshotAnalysisParams
 ): Promise<void> {
   const {
     snapshot,
@@ -1114,7 +1116,6 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
-    context,
   });
 
   // Format data correctly
@@ -1139,7 +1140,6 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
-    context,
   });
 }
 

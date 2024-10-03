@@ -2,8 +2,13 @@ import React, { FC, useMemo, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import {FaCaretDown, FaDatabase, FaExclamationCircle, FaExclamationTriangle} from "react-icons/fa";
-import {FaRegCircleCheck, FaRegCircleXmark} from "react-icons/fa6";
+import {
+  FaCaretDown,
+  FaDatabase,
+  FaExclamationCircle,
+  FaExclamationTriangle,
+} from "react-icons/fa";
+import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
@@ -154,7 +159,9 @@ const RefreshBanditButton: FC<{
                 setOpen(false);
               }}
             >
-              Check results and<br />update variation weights
+              Check results and
+              <br />
+              update variation weights
               {experiment.banditStage === "explore" && (
                 <div className="small text-warning-orange">
                   <FaExclamationCircle className="mr-1" />
@@ -176,10 +183,10 @@ const RefreshBanditButton: FC<{
           {generatedSnapshot ? (
             <div className="d-flex align-items-center mx-2 my-2">
               <div className="text-danger">
-                <FaRegCircleXmark className="mr-1"/>
+                <FaRegCircleXmark className="mr-1" />
                 Update errored
               </div>
-              <div className="flex-1"/>
+              <div className="flex-1" />
               <ViewAsyncQueriesButton
                 queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
                 error={generatedSnapshot.error}
@@ -189,7 +196,7 @@ const RefreshBanditButton: FC<{
                 condensed={false}
                 icon={
                   <span className="position-relative pr-2">
-                    <FaDatabase/>
+                    <FaDatabase />
                     <FaExclamationTriangle
                       className="position-absolute mr-2 text-danger"
                       style={{
@@ -204,7 +211,7 @@ const RefreshBanditButton: FC<{
           ) : null}
           <div
             className="text-danger text-monospace mx-2 my-1 small"
-            style={{lineHeight: "14px" }}
+            style={{ lineHeight: "14px" }}
           >
             {error}
           </div>

@@ -48,6 +48,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   experiment: String,
   phase: Number,
   type: { type: String },
+  triggeredBy: String,
   dateCreated: Date,
   runStarted: Date,
   manual: Boolean,
@@ -226,13 +227,12 @@ export type AddOrUpdateSnapshotAnalysisParams = {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
-  context: Context;
 };
 
 export async function addOrUpdateSnapshotAnalysis(
   params: AddOrUpdateSnapshotAnalysisParams
 ) {
-  const { organization, id, analysis, context } = params;
+  const { organization, id, analysis } = params;
   // looks for snapshots with this ID but WITHOUT these analysis settings
   const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
     {
@@ -247,7 +247,7 @@ export async function addOrUpdateSnapshotAnalysis(
   // if analysis already exist, no documents will be returned by above query
   // so instead find and update existing analysis in DB
   if (experimentSnapshotModel.matchedCount === 0) {
-    await updateSnapshotAnalysis({ organization, id, analysis, context });
+    await updateSnapshotAnalysis({ organization, id, analysis });
   }
 }
 
@@ -255,12 +255,10 @@ export async function updateSnapshotAnalysis({
   organization,
   id,
   analysis,
-  context,
 }: {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
-  context: Context;
 }) {
   await ExperimentSnapshotModel.updateOne(
     {
@@ -279,10 +277,12 @@ export async function updateSnapshotAnalysis({
   });
   if (!experimentSnapshotModel) throw "Internal error";
 
-  await notifyExperimentChange({
-    context,
-    snapshot: experimentSnapshotModel,
-  });
+  // Not notifying on new analysis because new analyses in an existing snapshot
+  // are akin to ad-hoc snapshots
+  // await notifyExperimentChange({
+  //   context,
+  //   snapshot: experimentSnapshotModel,
+  // });
 }
 
 export async function deleteSnapshotById(organization: string, id: string) {

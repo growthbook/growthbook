@@ -96,6 +96,7 @@ import {
   SnapshotType,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
@@ -690,7 +691,6 @@ export async function postExperiments(
           dimension: "",
           phase: 0,
           useCache: true,
-          type: "ad-hoc",
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -1992,6 +1992,28 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
+function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "exploratory";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "exploratory";
+  }
+
+  return "standard";
+}
+
 async function createExperimentSnapshot({
   context,
   experiment,
@@ -1999,7 +2021,6 @@ async function createExperimentSnapshot({
   dimension,
   phase,
   useCache = true,
-  type,
   reweight,
 }: {
   context: ReqContext;
@@ -2008,7 +2029,6 @@ async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
-  type: SnapshotType;
   reweight?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
@@ -2063,6 +2083,12 @@ async function createExperimentSnapshot({
     dimension
   );
 
+  const snapshotType = getSnapshotType({
+    experiment,
+    dimension,
+    phaseIndex: phase,
+  });
+
   const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({
@@ -2077,8 +2103,9 @@ async function createExperimentSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
-    type,
     reweight,
+    type: snapshotType,
+    triggeredBy: "manual",
   });
   const snapshot = queryRunner.model;
 
@@ -2208,7 +2235,6 @@ export async function postSnapshot(
       dimension,
       phase,
       useCache,
-      type: "ad-hoc",
     });
 
     await req.audit({
@@ -2286,16 +2312,13 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis(
-      {
-        experiment: experiment,
-        organization: org,
-        analysisSettings: analysisSettings,
-        metricMap: metricMap,
-        snapshot: snapshot,
-      },
-      context
-    );
+    await createSnapshotAnalysis({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: analysisSettings,
+      metricMap: metricMap,
+      snapshot: snapshot,
+    });
     res.status(200).json({
       status: 200,
     });
@@ -2361,7 +2384,6 @@ export async function postBanditSnapshot(
       dimension: "",
       phase,
       useCache: false,
-      type: "ad-hoc",
       reweight,
     });
 

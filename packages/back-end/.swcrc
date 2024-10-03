@@ -14,5 +14,7 @@
   },
   "module": {
     "type": "commonjs"
-  }
+  },
+  "sourceMaps": true,
+  "inlineSourcesContent": true
 }

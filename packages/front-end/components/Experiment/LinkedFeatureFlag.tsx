@@ -3,10 +3,10 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import { PiPencilSimple, PiPlay, PiXCircle } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
-import {PiPencilSimple, PiPlay, PiXCircle} from "react-icons/pi";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -26,18 +26,15 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
       additionalBadge={
         info.state === "draft" ? (
           <span className="rounded-pill px-2 badge-secondary ml-3">
-            <PiPencilSimple />{" "}
-            Draft
+            <PiPencilSimple /> Draft
           </span>
         ) : info.state === "locked" ? (
           <span className="rounded-pill px-2 badge-danger ml-3">
-            <PiXCircle />{" "}
-            Removed
+            <PiXCircle /> Removed
           </span>
         ) : info.state === "live" ? (
           <span className="rounded-pill px-2 badge-success ml-3">
-            <PiPlay />{" "}
-            Live
+            <PiPlay /> Live
           </span>
         ) : null
       }

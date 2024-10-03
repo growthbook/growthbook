@@ -391,7 +391,7 @@ export default function CodeSnippetModal({
                   setAttributesOpen(!attributesOpen);
                 }}
               >
-                Targeting Attributes (Optional){" "}
+                Targeting Attributes{" "}
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (

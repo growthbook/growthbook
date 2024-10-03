@@ -172,6 +172,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       factTableMap,
       useCache: true,
       type: "standard",
+      triggeredBy: "schedule",
       reweight: experiment?.banditStage === "exploit",
     });
     await queryRunner.waitForResults();
