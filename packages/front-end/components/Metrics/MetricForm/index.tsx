@@ -277,26 +277,23 @@ const MetricForm: FC<MetricFormProps> = ({
     {
       value: "binomial",
       label: "Binomial",
-      description: "Percent of users who do something",
-      sub: "click, view, download, bounce, etc.",
+      description: "Percent of users who do something (click, view, etc.)",
     },
     {
       value: "count",
       label: "Count",
-      description: "Number of actions per user",
-      sub: "clicks, views, downloads, etc.",
+      description: "Number of actions per user (clicks, views, etc.)",
     },
     {
       value: "duration",
       label: "Duration",
-      description: "How long something takes",
-      sub: "time on site, loading speed, etc.",
+      description:
+        "How long something takes (time on site, loading speed, etc.)",
     },
     {
       value: "revenue",
       label: "Revenue",
-      description: `How much money a user pays (in ${displayCurrency})`,
-      sub: "revenue per visitor, average order value, etc.",
+      description: `How much money a user pays in ${displayCurrency} (revenue per visitor, average order value, etc.)`,
     },
   ];
 
