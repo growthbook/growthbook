@@ -902,7 +902,7 @@ WHERE
               metricType: "proportion",
               numerator: {
                 factTableId: "",
-                column: "$$count",
+                column: "$$distinctUsers",
                 filters: [],
                 inlineFilters: {
                   event_name: ["form_submit"],

@@ -109,13 +109,16 @@ export const postFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  data.columns = await runRefreshColumnsQuery(
-    context,
-    datasource,
-    data as FactTableInterface
-  );
-  if (!data.columns.length) {
-    throw new Error("SQL did not return any rows");
+  if (!data.columns?.length) {
+    data.columns = await runRefreshColumnsQuery(
+      context,
+      datasource,
+      data as FactTableInterface
+    );
+
+    if (!data.columns.length) {
+      throw new Error("SQL did not return any rows");
+    }
   }
 
   const factTable = await createFactTable(context, data);

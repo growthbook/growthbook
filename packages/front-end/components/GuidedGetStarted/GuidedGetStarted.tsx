@@ -221,11 +221,10 @@ export default function GuidedGetStarted({
             />
           ) : (
             <NewDataSourceForm
-              data={{
+              initial={{
                 name: "My Datasource",
                 settings: {},
               }}
-              existing={false}
               inline={true}
               source="get-started"
               onSuccess={async () => {
@@ -380,7 +379,6 @@ export default function GuidedGetStarted({
               {steps[currentStep].learnMoreLink &&
                 steps[currentStep].docSection && (
                   <span>
-                    {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"ruby" | "home" | "features" | "experiments"... Remove this comment to see the full error message */}
                     <DocLink docSection={steps[currentStep].docSection}>
                       {steps[currentStep].learnMoreLink}
                     </DocLink>

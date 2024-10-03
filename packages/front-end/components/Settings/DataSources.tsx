@@ -238,8 +238,7 @@ const DataSources: FC = () => {
 
       {newModalOpen && (
         <NewDataSourceForm
-          existing={false}
-          data={{
+          initial={{
             name: "My Datasource",
             settings:
               useSetupEventTracker && setupEventTracker
