@@ -19,7 +19,7 @@ import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
-import Badge from "@/components/Badge";
+import Badge from "@/components/Radix/Badge";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 
@@ -152,10 +152,10 @@ export default function SDKConnectionsList() {
                     <td>
                       {showAllEnvironmentProjects && (
                         <Badge
-                          content={`All env projects (${envProjects.length})`}
                           key="All env projects"
-                          className="badge-muted-info border-info"
-                          skipMargin={true}
+                          color="teal"
+                          variant="solid"
+                          label={`All env projects (${envProjects.length})`}
                         />
                       )}
                       <div

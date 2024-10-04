@@ -3,6 +3,7 @@ import { useState } from "react";
 import { PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
+import Badge from "@/components/Radix/Badge";
 import Callout from "@/components/Radix/Callout";
 import Avatar from "@/components/Radix/Avatar";
 
@@ -44,6 +45,29 @@ export default function DesignSystemPage() {
           <Callout status="warning">This is a warning callout.</Callout>
           <Callout status="error">This is an error callout.</Callout>
           <Callout status="success">This is a success callout.</Callout>
+        </Flex>
+      </div>
+      <div className="appbox p-3">
+        <h3>Badge</h3>
+        <Flex direction="column" gap="3">
+          <Flex>
+            <Badge label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="indigo" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="cyan" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="orange" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="crimson" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge variant="solid" label="Label" />
+          </Flex>
         </Flex>
       </div>
       <div className="appbox p-3">
