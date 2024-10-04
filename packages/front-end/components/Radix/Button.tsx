@@ -3,6 +3,7 @@ import { CSSProperties, ReactNode } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import Link from "next/link";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
+import styles from "./RadixOverrides.module.scss";
 
 type Overwrite<T, NewT> = Omit<T, keyof NewT> & NewT;
 
@@ -83,6 +84,8 @@ export default function Button({
       wrapper={<Link href={href ?? "#"} />}
     >
       <RadixButton
+        {...otherProps}
+        className={styles.button}
         onClick={onClick}
         color={getRadixColor(color)}
         variant={variant}
@@ -90,7 +93,6 @@ export default function Button({
         disabled={disabled}
         loading={loading}
         style={style}
-        {...otherProps}
       >
         <Text weight="medium">{children}</Text>
       </RadixButton>
