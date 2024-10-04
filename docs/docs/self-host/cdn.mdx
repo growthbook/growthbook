@@ -1,7 +1,7 @@
 ---
 title: Using a CDN
 description: Adding a CDN in front of GrowthBook is a cheap and easy way to scale
-sidebar_label: GrowthBook CDN
+sidebar_label: Using a CDN
 slug: cdn
 ---
 
@@ -38,11 +38,15 @@ public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000
 
 This will serve all requests from cache and refresh in the background every 30 seconds. You can override these settings in your CDN if desired.
 
-**Important**: Make sure to block all other routes besides `/api/features/*`. This will greatly increase security by limiting the potential attack surface.
+**Important**: Make sure to block all other routes besides `/api/features/*`. Doing this will greatly increase security by limiting the potential attack surface.
 
 ### Health Checks
 
 The GrowthBook API server exposes a `/healthcheck` route. You can optionally use this in your CDN so it can tell if your origin server goes down.
+
+## SDK Configuration
+
+Most of our SDKs accept an `apiHost` setting. Simply change this from your GrowthBook API server to the new CDN domain.
 
 ## Purging / Invalidation
 
