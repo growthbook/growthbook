@@ -155,9 +155,8 @@ export default function SDKConnectionsList() {
                           key="All env projects"
                           color="teal"
                           variant="solid"
-                        >
-                          <b>All env projects ({envProjects.length})</b>
-                        </Badge>
+                          label={`All env projects (${envProjects.length})`}
+                        />
                       )}
                       <div
                         className={clsx("d-flex flex-wrap align-items-center", {

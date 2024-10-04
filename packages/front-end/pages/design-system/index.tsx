@@ -29,22 +29,22 @@ export default function DesignSystemPage() {
         <h3>Badge</h3>
         <Flex direction="column" gap="3">
           <Flex>
-            <Badge>Label</Badge>
+            <Badge label="Label" />
           </Flex>
           <Flex>
-            <Badge color="indigo">Label</Badge>
+            <Badge color="indigo" label="Label" />
           </Flex>
           <Flex>
-            <Badge color="cyan">Label</Badge>
+            <Badge color="cyan" label="Label" />
           </Flex>
           <Flex>
-            <Badge color="orange">Label</Badge>
+            <Badge color="orange" label="Label" />
           </Flex>
           <Flex>
-            <Badge color="crimson">Label</Badge>
+            <Badge color="crimson" label="Label" />
           </Flex>
           <Flex>
-            <Badge variant="solid">Label</Badge>
+            <Badge variant="solid" label="Label" />
           </Flex>
         </Flex>
       </div>
