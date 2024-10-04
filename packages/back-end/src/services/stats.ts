@@ -33,7 +33,6 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { ReqContext } from "back-end/types/organization";
 import { checkSrm } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
@@ -529,8 +528,7 @@ function parseStatsEngineResult(
 
 export async function writeSnapshotAnalyses(
   results: MultipleExperimentMetricAnalysis[],
-  paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
-  context: ReqContext
+  paramsMap: Map<string, ExperimentAnalysisParamsContextData>
 ) {
   const promises: (() => Promise<void>)[] = [];
   results.map((result) => {
@@ -564,7 +562,6 @@ export async function writeSnapshotAnalyses(
         organization,
         id: snapshot,
         analysis: analysisObj,
-        context,
       })
     );
   });
