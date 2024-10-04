@@ -64,6 +64,7 @@ const AlignedGraph: FC<Props> = ({
   onMouseLeave,
   onClick,
 }) => {
+  id = id.replaceAll("%20", "_").replace(/[\W]+/g, "_");
   const axisColor = "var(--text-link-hover-color)";
   const zeroLineColor = "#0077b6";
   const zeroLineWidth = 3;
