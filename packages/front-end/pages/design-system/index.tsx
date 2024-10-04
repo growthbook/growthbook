@@ -2,6 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
+import Badge from "@/components/Radix/Badge";
 import Button, { Size } from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
@@ -19,6 +20,30 @@ export default function DesignSystemPage() {
       </p>
 
       <h2>Components</h2>
+
+      <div className="appbox p-3">
+        <h3>Badge</h3>
+        <Flex direction="column" gap="3">
+          <Flex>
+            <Badge label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="indigo" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="cyan" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="orange" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge color="crimson" label="Label" />
+          </Flex>
+          <Flex>
+            <Badge variant="solid" label="Label" />
+          </Flex>
+        </Flex>
+      </div>
 
       <div className="appbox p-3">
         <h3>Button</h3>
