@@ -1050,6 +1050,7 @@ export default abstract class SqlIntegration
       "covariate_sum_squares",
       "main_covariate_sum_product",
       "quantile",
+      "theta",
     ];
 
     return {
@@ -2552,6 +2553,16 @@ export default abstract class SqlIntegration
         `
           : ""
       }
+      ${
+        banditDates?.length
+          ? this.getBanditStatisticsCTE({
+              baseIdType,
+              factMetrics: true,
+              metricData,
+              hasRegressionAdjustment: regressionAdjustedMetrics.length > 0,
+              hasCapping: percentileData.length > 0,
+            })
+          : `
       -- One row per variation/dimension with aggregations
       SELECT
         m.variation AS variation,
@@ -2656,7 +2667,8 @@ export default abstract class SqlIntegration
       GROUP BY
         m.variation
         , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
-    `,
+    `
+      }`,
       this.getFormatDialect()
     );
     // TODO cumulativeDate in more places
@@ -3145,6 +3157,7 @@ export default abstract class SqlIntegration
           metricData: [
             {
               alias: "",
+              id: metric.id,
               ratioMetric,
               regressionAdjusted,
               isPercentileCapped,
@@ -3284,9 +3297,10 @@ export default abstract class SqlIntegration
       , m.dimension AS dimension
       , m.bandit_period AS bandit_period
       , COUNT(*) AS users
-      ${metricData.map((data) => {
-        const alias = data.alias + (factMetrics ? "_" : "");
-        return `
+      ${metricData
+        .map((data) => {
+          const alias = data.alias + (factMetrics ? "_" : "");
+          return `
         ${
           data.isPercentileCapped
             ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
@@ -3322,7 +3336,8 @@ export default abstract class SqlIntegration
           `
             : ""
         }`;
-      })}
+        })
+        .join("\n")}
     FROM
       __userMetricAgg m
     ${
@@ -3366,24 +3381,26 @@ export default abstract class SqlIntegration
       bps.bandit_period
       , bps.dimension
       , SUM(bps.users) / MAX(dt.total_users) AS weight
-      ${metricData.map((data) => {
-        const alias = data.alias + (factMetrics ? "_" : "");
-        return `
+      ${metricData
+        .map((data) => {
+          const alias = data.alias + (factMetrics ? "_" : "");
+          return `
       ${
         data.regressionAdjusted
           ? `
           , (
               SUM(bps.${alias}covariate_sum_squares) - 
               POWER(SUM(bps.${alias}covariate_sum), 2) / SUM(bps.users)
-            ) / (SUM(bps.users) - 1) AS period_pre_variance
+            ) / (SUM(bps.users) - 1) AS ${alias}period_pre_variance
           , (
               SUM(bps.${alias}main_covariate_sum_product) - 
               SUM(bps.${alias}covariate_sum) * SUM(bps.${alias}main_sum) / SUM(bps.users)
-            ) / (SUM(bps.users) - 1) AS period_covariance
+            ) / (SUM(bps.users) - 1) AS ${alias}period_covariance
         `
           : ""
       }`;
-      })}
+        })
+        .join("\n")}
     FROM 
       __banditPeriodStatistics bps
     LEFT JOIN
@@ -3399,9 +3416,10 @@ export default abstract class SqlIntegration
       , __theta AS (
       SELECT
         dimension
-      ${metricData.map((data) => {
-        const alias = data.alias + (factMetrics ? "_" : "");
-        return `
+      ${metricData
+        .map((data) => {
+          const alias = data.alias + (factMetrics ? "_" : "");
+          return `
       ${
         data.regressionAdjusted
           ? `
@@ -3411,7 +3429,8 @@ export default abstract class SqlIntegration
         `
           : ""
       }`;
-      })}
+        })
+        .join("\n")}
       FROM
         __banditPeriodWeights
       GROUP BY
@@ -3424,9 +3443,11 @@ export default abstract class SqlIntegration
     bps.variation
     , bps.dimension
     , SUM(bps.users) AS users
-    ${metricData.map((data) => {
-      const alias = data.alias + (factMetrics ? "_" : "");
-      return `
+    ${metricData
+      .map((data) => {
+        const alias = data.alias + (factMetrics ? "_" : "");
+        return `
+    , '${data.id}' as ${alias}id
     , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
     , SUM(bps.users) * (SUM(
       POWER(bpw.weight, 2) * ((
@@ -3459,7 +3480,7 @@ export default abstract class SqlIntegration
     ${
       data.regressionAdjusted
         ? `
-      , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS covariate_sum
+      , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
       , SUM(bps.users) * (SUM(
         POWER(bpw.weight, 2) * (
           (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1)
@@ -3479,7 +3500,8 @@ export default abstract class SqlIntegration
         `
         : ""
     }`;
-    })}
+      })
+      .join("\n")}
   FROM 
     __banditPeriodStatistics bps
   LEFT JOIN

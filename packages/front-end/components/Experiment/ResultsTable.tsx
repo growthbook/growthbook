@@ -228,7 +228,7 @@ export default function ResultsTable({
           cr: 0,
           users: 0,
         };
-
+        console.log(stats);
         const rowResults = getRowResults({
           stats,
           baseline,

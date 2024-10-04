@@ -70,6 +70,7 @@ export type FactMetricData = {
 export type BanditMetricData = Pick<
   FactMetricData,
   | "alias"
+  | "id"
   | "ratioMetric"
   | "regressionAdjusted"
   | "isPercentileCapped"
