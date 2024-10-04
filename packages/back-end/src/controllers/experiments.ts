@@ -2020,6 +2020,7 @@ async function createExperimentSnapshot({
   dimension,
   phase,
   useCache = true,
+  type,
   reweight,
 }: {
   context: ReqContext;
@@ -2028,11 +2029,20 @@ async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
+  type?: SnapshotType;
   reweight?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
 }> {
+  const snapshotType =
+    type ??
+    getSnapshotType({
+      experiment,
+      dimension,
+      phaseIndex: phase,
+    });
+
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
@@ -2081,12 +2091,6 @@ async function createExperimentSnapshot({
     regressionAdjustmentEnabled,
     dimension
   );
-
-  const snapshotType = getSnapshotType({
-    experiment,
-    dimension,
-    phaseIndex: phase,
-  });
 
   const factTableMap = await getFactTableMap(context);
 
@@ -2234,6 +2238,8 @@ export async function postSnapshot(
       dimension,
       phase,
       useCache,
+      type:
+        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
     });
 
     await req.audit({
@@ -2383,6 +2389,7 @@ export async function postBanditSnapshot(
       dimension: "",
       phase,
       useCache: false,
+      type: "standard",
       reweight,
     });
 
