@@ -1,3 +1,11 @@
 .callout p {
   margin-bottom: 0;
 }
+
+.avatar {
+  overflow: hidden;
+  img {
+    max-width: 100%;
+    max-height: 100%;
+  }
+}

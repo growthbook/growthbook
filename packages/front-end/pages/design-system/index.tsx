@@ -24,13 +24,11 @@ export default function DesignSystemPage() {
         <h3>Avatar</h3>
         <Flex direction="row" gap="3">
           <Avatar>BF</Avatar>
-          <Avatar color="green" icon={<PiInfoFill size={25} />} />
-          <Avatar
-            size="lg"
-            radius="small"
-            src="https://app.growthbook.io/logo/growth-book-logomark-white.svg"
-          >
-            GB
+          <Avatar color="green">
+            <PiInfoFill size={25} />
+          </Avatar>
+          <Avatar size="lg" radius="small">
+            <img src="https://app.growthbook.io/logo/growth-book-logomark-white.svg" />
           </Avatar>
           <Avatar color="orange" variant="soft" size="sm">
             sm
