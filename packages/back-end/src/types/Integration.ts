@@ -67,6 +67,17 @@ export type FactMetricData = {
   maxHoursToConvert: number;
 };
 
+export type BanditMetricData = Pick<
+  FactMetricData,
+  | "alias"
+  | "ratioMetric"
+  | "regressionAdjusted"
+  | "isPercentileCapped"
+  | "capCoalesceMetric"
+  | "capCoalesceDenominator"
+  | "capCoalesceCovariate"
+>;
+
 export interface ExperimentMetricStats {
   metric_type: MetricType;
   count: number;
