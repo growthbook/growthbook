@@ -14,6 +14,10 @@ body,
 #__next,
 main {
   height: 100%;
+
+  > *:last-child {
+    padding-bottom: 70px !important;
+  }
 }
 
 body {
