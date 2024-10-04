@@ -355,7 +355,7 @@ function ChangeTypeSelector({
 
   return (
     <div>
-      <label>What do you want to change?</label>
+      <h5>What do you want to change?</h5>
       <div className="ml-2">
         <RadioGroup
           value={changeType || ""}

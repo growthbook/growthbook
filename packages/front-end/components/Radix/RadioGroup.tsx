@@ -19,10 +19,10 @@ export type Props = {
 } & MarginProps;
 
 export default function RadioGroup({
+  disabled,
   options,
   value,
   setValue,
-  disabled,
   ...containerProps
 }: Props) {
   // get color for selected option
@@ -34,46 +34,48 @@ export default function RadioGroup({
 
   return (
     <Flex {...containerProps}>
-      <Text as="label" size="2" color={disabled ? "gray" : undefined}>
-        <RadixRadioGroup.Root
-          value={value}
-          onValueChange={(val) => setValue(val)}
-          disabled={disabled}
-          color={radioColor}
-        >
-          {options.map(
-            ({
-              value,
-              label,
-              description,
-              disabled,
-              error,
-              errorLevel = "error",
-            }) => {
-              const selected = value == selectedValue;
-              return (
-                <RadixRadioGroup.Item
-                  key={value}
-                  value={value}
-                  disabled={disabled}
-                >
-                  <Text color={disabled ? "gray" : undefined}>
-                    <Flex direction="column" gap="1">
-                      <Text weight="bold">{label || value}</Text>
-                      {description && (
-                        <Text weight="regular">{description}</Text>
-                      )}
-                      {error && selected ? (
-                        <HelperText status={errorLevel}>{error}</HelperText>
-                      ) : null}
-                    </Flex>
-                  </Text>
-                </RadixRadioGroup.Item>
-              );
-            }
-          )}
-        </RadixRadioGroup.Root>
-      </Text>
+      <Flex direction={"column"}>
+        <Text as="label" size="2" color={disabled ? "gray" : undefined}>
+          <RadixRadioGroup.Root
+            value={value}
+            onValueChange={(val) => setValue(val)}
+            disabled={disabled}
+            color={radioColor}
+          >
+            {options.map(
+              ({
+                value,
+                label,
+                description,
+                disabled,
+                error,
+                errorLevel = "error",
+              }) => {
+                const selected = value == selectedValue;
+                return (
+                  <RadixRadioGroup.Item
+                    key={value}
+                    value={value}
+                    disabled={disabled}
+                  >
+                    <Text color={disabled ? "gray" : undefined}>
+                      <Flex direction="column" gap="1">
+                        <Text weight="bold">{label || value}</Text>
+                        {description && (
+                          <Text weight="regular">{description}</Text>
+                        )}
+                        {error && selected ? (
+                          <HelperText status={errorLevel}>{error}</HelperText>
+                        ) : null}
+                      </Flex>
+                    </Text>
+                  </RadixRadioGroup.Item>
+                );
+              }
+            )}
+          </RadixRadioGroup.Root>
+        </Text>
+      </Flex>
     </Flex>
   );
 }
