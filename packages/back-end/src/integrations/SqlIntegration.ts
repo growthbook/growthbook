@@ -3178,7 +3178,6 @@ export default abstract class SqlIntegration
     ${
       cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
     } AS dimension,
-    ${banditDates?.length ? "m.bandit_period AS bandit_period," : ""}
     COUNT(*) AS users,
     ${
       isPercentileCapped
