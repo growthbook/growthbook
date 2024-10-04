@@ -342,7 +342,9 @@ export default function AnalysisSettingsSummary({
                       setVariationFilter?.([]);
                     }
                     setDifferenceType("relative");
-                    setSnapshotType("ad-hoc");
+                    experiment.type === "multi-armed-bandit"
+                      ? setSnapshotType("exploratory")
+                      : setSnapshotType(undefined);
                   }}
                   onSubmit={async () => {
                     await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
@@ -386,7 +388,9 @@ export default function AnalysisSettingsSummary({
                       setVariationFilter?.([]);
                     }
                     setDifferenceType("relative");
-                    setSnapshotType("ad-hoc");
+                    experiment.type === "multi-armed-bandit"
+                      ? setSnapshotType("exploratory")
+                      : setSnapshotType(undefined);
                   }}
                 />
               )}

@@ -7,7 +7,7 @@ import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, AreaStack, LinePath } from "@visx/shape";
-import { curveMonotoneX, curveStepAfter } from "@visx/curve";
+import { curveLinear, curveMonotoneX, curveStepAfter } from "@visx/curve";
 import {
   TooltipWithBounds,
   useTooltip,
@@ -800,7 +800,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         mode === "values"
                           ? curveMonotoneX
                           : mode === "probabilities"
-                          ? curveMonotoneX
+                          ? curveLinear
                           : curveStepAfter
                       }
                     >

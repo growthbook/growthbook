@@ -808,11 +808,16 @@ def get_bandit_result(
                 and bandit_result.ci
                 and bandit_result.users_by_period
                 and bandit_result.bandit_weights
+                and bandit_result.ci_unadjusted
             ):
                 single_variation_results = [
-                    SingleVariationResult(n, mn, ci)
-                    for n, mn, ci in zip(
-                        b.variation_counts, b.variation_means, bandit_result.ci
+                    SingleVariationResult(n, mn, ci, mn_unadjusted, ci_unadjusted)
+                    for n, mn, ci, mn_unadjusted, ci_unadjusted in zip(
+                        b.variation_counts,
+                        b.posterior_mean,
+                        bandit_result.ci,
+                        b.posterior_mean_unadjusted,
+                        bandit_result.ci_unadjusted,
                     )
                 ]
                 return BanditResult(
@@ -875,11 +880,16 @@ def get_bandit_result(
                 bandit_result.bandit_update_message == "successfully updated"
                 and bandit_result.ci
                 and bandit_result.bandit_weights
+                and bandit_result.ci_unadjusted
             ):
                 single_variation_results = [
-                    SingleVariationResult(n, mn, ci)
-                    for n, mn, ci in zip(
-                        b.variation_counts, b.variation_means, bandit_result.ci
+                    SingleVariationResult(n, mn, ci, mn_un, ci_un)
+                    for n, mn, ci, mn_un, ci_un in zip(
+                        b.variation_counts,
+                        b.posterior_mean,
+                        bandit_result.ci,
+                        b.posterior_mean_unadjusted,
+                        bandit_result.ci_unadjusted,
                     )
                 ]
                 return BanditResult(

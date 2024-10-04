@@ -138,6 +138,10 @@ class RegressionAdjustedStatistic(Statistic):
         return self.post_statistic.mean
 
     @property
+    def unadjusted_variances(self):
+        return self.post_statistic.variance
+
+    @property
     def variance(self):
         if self.n <= 1:
             return 0

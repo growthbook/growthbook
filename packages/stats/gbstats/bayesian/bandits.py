@@ -30,24 +30,12 @@ class BanditConfig(BayesianConfig):
 
 
 @dataclass
-class BanditResponsePrevious:
-    users: Optional[List[float]]
-    users_by_period: Optional[List[List[int]]]
-    user_percentages_by_period: Optional[List[List[float]]]
-    cr: Optional[List[float]]
-    ci: Optional[List[List[float]]]
-    bandit_weights: Optional[List[float]]
-    best_arm_probabilities: Optional[List[float]]
-    additional_reward: Optional[float]
-    seed: int
-    bandit_update_message: Optional[str]
-
-
-@dataclass
 class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
     ci: Optional[List[List[float]]]
+    cr_unadjusted: Optional[List[float]]
+    ci_unadjusted: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     seed: int
@@ -67,6 +55,7 @@ class Bandits(ABC):
         self.current_weights = current_weights
         self.config = config
         self.inverse = self.config.inverse
+        self.cuped_indicator = False
 
     @staticmethod
     def construct_mean(sums: np.ndarray, counts: np.ndarray) -> np.ndarray:
@@ -182,6 +171,14 @@ class Bandits(ABC):
             + self.data_precision * self.variation_means
         )
 
+    @property
+    def posterior_mean_unadjusted(self) -> np.ndarray:
+        return self.posterior_mean
+
+    @property
+    def posterior_variance_unadjusted(self) -> np.ndarray:
+        return self.posterior_variance
+
     # number of Monte Carlo samples to perform when sampling to estimate weights for the SDK
     @property
     def n_samples(self):
@@ -216,12 +213,21 @@ class Bandits(ABC):
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.posterior_mean, np.sqrt(self.posterior_variance))
         ]
+        credible_intervals_unadjusted = [
+            gaussian_credible_interval(mn, s, self.config.alpha)
+            for mn, s in zip(
+                self.posterior_mean_unadjusted,
+                np.sqrt(self.posterior_variance_unadjusted),
+            )
+        ]
         min_n = 100 * self.num_variations
         enough_data = sum(self.variation_counts) >= min_n
         return BanditResponse(
             users=self.variation_counts.tolist(),
-            cr=self.variation_means.tolist(),
+            cr=self.posterior_mean.tolist(),
             ci=credible_intervals,
+            cr_unadjusted=self.posterior_mean_unadjusted.tolist(),
+            ci_unadjusted=credible_intervals_unadjusted,
             bandit_weights=p.tolist() if enough_data else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             seed=seed,
@@ -383,6 +389,7 @@ class BanditsCuped(Bandits):
         self.current_weights = current_weights
         self.config = config
         self.inverse = self.config.inverse
+        self.cuped_indicator = True
 
     @property
     def variation_covariances(self) -> np.ndarray:
@@ -411,6 +418,20 @@ class BanditsCuped(Bandits):
     @property
     def variation_means(self) -> np.ndarray:
         return self.variation_means_post - self.theta * self.variation_means_pre
+
+    @property
+    def posterior_mean_unadjusted(self) -> np.ndarray:
+        return self.variation_means_post
+
+    @property
+    def posterior_variance_unadjusted(self) -> np.ndarray:
+        v = np.zeros((self.num_variations,))
+        positive_n = self.variation_counts > 0
+        v[positive_n] = (
+            self.variation_variances_post[positive_n]
+            / self.variation_counts[positive_n]
+        )
+        return v
 
     @property
     def variation_variances(self) -> np.ndarray:

@@ -31,7 +31,7 @@ const RefreshBanditButton: FC<{
   const [reweight, setReweight] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const { mutateSnapshot } = useSnapshot();
+  const { setSnapshotType, mutateSnapshot } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
 
@@ -124,6 +124,7 @@ const RefreshBanditButton: FC<{
                 clearTimeout(timer);
                 throw e;
               }
+              setSnapshotType("standard");
               mutateSnapshot();
             }}
           >
