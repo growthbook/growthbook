@@ -275,7 +275,7 @@ class BanditsPrevious(ABC):
         if self.config.top_two:
             p = self.top_two_weights(y, self.inverse)
         else:
-            p = best_arm_probabilities
+            p = best_arm_probabilities.copy()
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
