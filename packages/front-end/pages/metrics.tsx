@@ -47,8 +47,8 @@ export interface MetricTableItem {
   archived: boolean;
   canEdit: boolean;
   canDuplicate: boolean;
+  onArchive: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
-  onArchive?: (desiredState: boolean) => Promise<void>;
   onEdit?: () => void;
 }
 
@@ -135,6 +135,8 @@ export function useCombinedMetrics({
               archived: archivedState,
             }),
           });
+
+          mutateDefinitions();
 
           if (afterArchive) {
             afterArchive(m.id, archivedState);
@@ -240,15 +242,6 @@ const MetricsPage = (): React.ReactElement => {
     [showArchived, recentlyArchived, tagsFilter.tags]
   );
 
-  const editMetricsPermissions: {
-    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
-  } = {};
-  filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = {
-      canDuplicate: permissionsUtil.canCreateMetric(m),
-      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
-    };
-  });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
     defaultSortField: "name",
@@ -493,7 +486,7 @@ const MetricsPage = (): React.ReactElement => {
 
             if (
               metric.onDuplicate &&
-              editMetricsPermissions[metric.id].canDuplicate &&
+              metric.canDuplicate &&
               envAllowsCreatingMetrics()
             ) {
               moreMenuLinks.push(
@@ -510,19 +503,13 @@ const MetricsPage = (): React.ReactElement => {
               );
             }
 
-            if (
-              !metric.managedBy &&
-              metric.onArchive &&
-              editMetricsPermissions[metric.id].canUpdate
-            ) {
+            if (!metric.managedBy && metric.canEdit) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
                   onClick={async (e) => {
                     e.preventDefault();
-                    metric.onArchive &&
-                      (await metric.onArchive(!metric.archived));
-                    mutateDefinitions({});
+                    await metric.onArchive(!metric.archived);
                   }}
                 >
                   <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}

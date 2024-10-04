@@ -245,13 +245,12 @@ export default function DataSourceMetrics({
                               <FaRegCopy /> Duplicate
                             </button>
                           ) : null}
-                          {!metric.managedBy && metric.onArchive ? (
+                          {!metric.managedBy && metric.canEdit ? (
                             <button
                               className="btn dropdown-item py-2"
                               color=""
                               onClick={async () => {
                                 await metric.onArchive?.(!metric.archived);
-                                mutateDefinitions();
                               }}
                             >
                               <FaArchive />{" "}
