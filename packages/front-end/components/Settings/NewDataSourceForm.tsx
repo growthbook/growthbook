@@ -38,6 +38,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Callout from "@/components/Radix/Callout";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -678,9 +679,9 @@ const NewDataSourceForm: FC<{
   } else if (step === "done") {
     stepContents = (
       <div>
-        <div className="alert alert-success mb-3">
-          <strong>Connection successful!</strong>
-        </div>
+        <Callout status="success" mb="3">
+          Connection successful!
+        </Callout>
 
         {creatingResources ? (
           <div>
@@ -703,8 +704,7 @@ const NewDataSourceForm: FC<{
         ) : (
           <div>
             <p>
-              All done! Now you&apos;re ready to create metrics and start
-              experimenting.
+              Now you&apos;re ready to create metrics and start experimenting.
             </p>
           </div>
         )}
