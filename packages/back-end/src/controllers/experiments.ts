@@ -93,7 +93,6 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import {
-  SnapshotType,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   SnapshotType,

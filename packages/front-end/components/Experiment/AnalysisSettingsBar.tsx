@@ -266,11 +266,11 @@ export default function AnalysisSettingsBar({
             <div className="col-auto text-right mb-0">
               <div className="uppercase-title text-muted">Analysis type</div>
               <div>
-                {snapshot?.type === "ad-hoc" ? (
+                {snapshot?.type === "exploratory" ? (
                   <Tooltip
                     body={
                       <div className="text-left">
-                        <p>This is an exploratory ad-hoc analysis.</p>
+                        <p>This is an exploratory analysis.</p>
                         <p>
                           Ad-hoc analyses do not cause bandit variation weights
                           to change.
@@ -278,13 +278,13 @@ export default function AnalysisSettingsBar({
                       </div>
                     }
                   >
-                    <FaMagnifyingGlassChart /> Ad-hoc
+                    <FaMagnifyingGlassChart /> Exploratory
                   </Tooltip>
                 ) : snapshot?.type === "standard" ? (
                   <Tooltip
                     body={
                       <div className="text-left">
-                        <p>This is a standard (scheduled) analysis.</p>
+                        <p>This is a standard analysis.</p>
                         <p>
                           Bandit variation weights may have changed in response
                           to this analysis.
@@ -294,8 +294,6 @@ export default function AnalysisSettingsBar({
                   >
                     <RiCalendarScheduleLine /> Standard
                   </Tooltip>
-                ) : snapshot?.type === "manual" ? (
-                  <>Manual</>
                 ) : (
                   <>{snapshot?.type || `unknown`}</>
                 )}

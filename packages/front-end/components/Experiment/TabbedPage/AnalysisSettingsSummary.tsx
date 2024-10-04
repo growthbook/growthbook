@@ -342,7 +342,7 @@ export default function AnalysisSettingsSummary({
                       setVariationFilter?.([]);
                     }
                     setDifferenceType("relative");
-                    setSnapshotType("ad-hoc");
+                    setSnapshotType("exploratory");
                   }}
                   onSubmit={async () => {
                     await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
@@ -386,7 +386,7 @@ export default function AnalysisSettingsSummary({
                       setVariationFilter?.([]);
                     }
                     setDifferenceType("relative");
-                    setSnapshotType("ad-hoc");
+                    setSnapshotType("exploratory");
                   }}
                 />
               )}
