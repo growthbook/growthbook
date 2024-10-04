@@ -6,6 +6,7 @@ import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -30,7 +31,8 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-interface MetricTableItem {
+
+export interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
   name: string;
@@ -43,42 +45,35 @@ interface MetricTableItem {
   dateUpdated: Date | null;
   dateCreated: Date | null;
   archived: boolean;
+  canEdit: boolean;
+  canDuplicate: boolean;
   onDuplicate?: () => void;
   onArchive?: (desiredState: boolean) => Promise<void>;
+  onEdit?: () => void;
 }
 
-const MetricsPage = (): React.ReactElement => {
-  const [modalData, setModalData] = useState<{
-    current: Partial<MetricInterface>;
-    edit: boolean;
-    duplicate: boolean;
-  } | null>(null);
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
-
+export function useCombinedMetrics({
+  duplicateMetric,
+  editMetric,
+  duplicateFactMetric,
+  editFactMetric,
+  afterArchive,
+}: {
+  duplicateMetric?: (m: MetricInterface) => void;
+  editMetric?: (m: MetricInterface) => void;
+  duplicateFactMetric?: (m: FactMetricInterface) => void;
+  editFactMetric?: (m: FactMetricInterface) => void;
+  afterArchive?: (id: string, archived: boolean) => void;
+}): MetricTableItem[] {
   const {
-    getDatasourceById,
-    mutateDefinitions,
     _metricsIncludingArchived: inlineMetrics,
     _factMetricsIncludingArchived: factMetrics,
-    project,
-    ready,
+    mutateDefinitions,
   } = useDefinitions();
-  const router = useRouter();
-
-  const { getUserDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
+
   const { apiCall } = useAuth();
-
-  const tagsFilter = useTagsFilter("metrics");
-
-  const [showArchived, setShowArchived] = useState(false);
-  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
-    new Set()
-  );
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
@@ -95,6 +90,8 @@ const MetricsPage = (): React.ReactElement => {
         tags: m.tags || [],
         type: m.type,
         isRatio: !!m.denominator,
+        canDuplicate: permissionsUtil.canCreateMetric(m),
+        canEdit: permissionsUtil.canUpdateMetric(m, {}),
         onArchive: async (desiredState) => {
           const newStatus = desiredState ? "archived" : "active";
           await apiCall(`/metric/${m.id}`, {
@@ -103,24 +100,15 @@ const MetricsPage = (): React.ReactElement => {
               status: newStatus,
             }),
           });
-          if (newStatus === "archived") {
-            setRecentlyArchived((set) => new Set([...set, m.id]));
-          } else {
-            setRecentlyArchived(
-              (set) => new Set([...set].filter((id) => id !== m.id))
-            );
+
+          mutateDefinitions();
+
+          if (afterArchive) {
+            afterArchive(m.id, desiredState);
           }
         },
-        onDuplicate: () => {
-          setModalData({
-            current: {
-              ...m,
-              name: m.name + " (copy)",
-            },
-            edit: false,
-            duplicate: true,
-          });
-        },
+        onDuplicate: duplicateMetric ? () => duplicateMetric(m) : undefined,
+        onEdit: editMetric ? () => editMetric(m) : undefined,
       };
       return item;
     }),
@@ -138,6 +126,8 @@ const MetricsPage = (): React.ReactElement => {
         tags: m.tags || [],
         isRatio: m.metricType === "ratio",
         type: m.metricType,
+        canDuplicate: permissionsUtil.canCreateFactMetric(m),
+        canEdit: permissionsUtil.canUpdateFactMetric(m, {}),
         onArchive: async (archivedState) => {
           await apiCall(`/fact-metrics/${m.id}`, {
             method: "PUT",
@@ -145,18 +135,79 @@ const MetricsPage = (): React.ReactElement => {
               archived: archivedState,
             }),
           });
-          if (archivedState) {
-            setRecentlyArchived((set) => new Set([...set, m.id]));
-          } else {
-            setRecentlyArchived(
-              (set) => new Set([...set].filter((id) => id !== m.id))
-            );
+
+          if (afterArchive) {
+            afterArchive(m.id, archivedState);
           }
         },
+        onDuplicate: duplicateFactMetric
+          ? () => duplicateFactMetric(m)
+          : undefined,
+        onEdit: editFactMetric ? () => editFactMetric(m) : undefined,
       };
       return item;
     }),
   ];
+
+  return combinedMetrics;
+}
+
+const MetricsPage = (): React.ReactElement => {
+  const [modalData, setModalData] = useState<{
+    current: Partial<MetricInterface>;
+    edit: boolean;
+    duplicate: boolean;
+  } | null>(null);
+  const [
+    showAutoGenerateMetricsModal,
+    setShowAutoGenerateMetricsModal,
+  ] = useState(false);
+
+  const {
+    getDatasourceById,
+    mutateDefinitions,
+    project,
+    ready,
+  } = useDefinitions();
+  const router = useRouter();
+
+  const { getUserDisplay } = useUser();
+
+  const permissionsUtil = usePermissionsUtil();
+
+  const tagsFilter = useTagsFilter("metrics");
+
+  const [showArchived, setShowArchived] = useState(false);
+  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
+    new Set()
+  );
+
+  const combinedMetrics = useCombinedMetrics({
+    duplicateMetric: (m) => {
+      setModalData({
+        current: {
+          ...m,
+          name: m.name + " (copy)",
+        },
+        edit: false,
+        duplicate: true,
+      });
+    },
+    editMetric: (m) => {
+      setModalData({
+        current: m,
+        edit: true,
+        duplicate: false,
+      });
+    },
+    afterArchive: (id, archived) => {
+      if (archived) {
+        setRecentlyArchived((set) => new Set([...set, id]));
+      } else {
+        setRecentlyArchived((set) => new Set([...set].filter((i) => i !== id)));
+      }
+    },
+  });
 
   const metrics = useAddComputedFields(
     combinedMetrics,
