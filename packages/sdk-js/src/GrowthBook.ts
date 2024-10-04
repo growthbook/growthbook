@@ -65,6 +65,7 @@ const isBrowser =
 
 const SDK_VERSION = loadSDKVersion();
 
+/** Main GrowthBook class */
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AppFeatures extends Record<string, any> = Record<string, any>
@@ -121,6 +122,7 @@ export class GrowthBook<
     this._trackedExperiments = new Set();
     this._completedChangeIds = new Set();
     this._trackedFeatures = {};
+    /** Enable the debug log */
     this.debug = !!context.debug;
     this._subscriptions = new Set();
     this._rtQueue = [];
@@ -211,6 +213,12 @@ export class GrowthBook<
     this._render();
   }
 
+  /** Synchronous initialization of GrowthBook
+   *
+   * Alternative to {@link init}
+   * NOTE: This method has several requirements. See the documentation for more details.
+   * @see https://docs.growthbook.io/lib/js#synchronous-init
+   */
   public initSync(options: InitSyncOptions): GrowthBook {
     this._initialized = true;
 
@@ -252,6 +260,20 @@ export class GrowthBook<
     return this;
   }
 
+  /** Async initialization of GrowthBook:
+   * - Downloads features and experiments
+   * - Starts running visual and URL redirect experiments
+   *
+   * @example Init with streaming
+   * ```typescript
+   * gb.init({ streaming: true });
+   * ```
+   *
+   * @example Init with a  timeout
+   * ```typescript
+   * gb.init({ timeout: 5000 });
+   * ```
+   */
   public async init(options?: InitOptions): Promise<InitResponse> {
     this._initialized = true;
     options = options || {};
@@ -319,10 +341,15 @@ export class GrowthBook<
       await this.setPayload(res.data);
     }
   }
-
+  /** Get API and Client Key info
+   * @returns [ApiHost, ClientKey]
+   */
   public getApiInfo(): [ApiHost, ClientKey] {
     return [this.getApiHosts().apiHost, this.getClientKey()];
   }
+  /** Get API Host info
+   * @returns {apiHost, streamingHost, apiRequestHeaders, streamingHostRequestHeaders}
+   */
   public getApiHosts(): {
     apiHost: string;
     streamingHost: string;
@@ -489,7 +516,10 @@ export class GrowthBook<
     }
     return data;
   }
-
+  /** Set or update attributes
+   *
+   * NOTE: This will override any existing attributes. Use {@link updateAttributes} to merge new attributes with existing ones.
+   */
   public async setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
     if (this._ctx.stickyBucketService) {
@@ -503,7 +533,14 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
-  public async updateAttributes(attributes: Attributes) {
+  /** Update attributes
+   *
+   * @example Set a new URL
+   * ```typescript
+   * gb.updateAttributes({ url: "https://example.com" });
+   * ```
+   */
+  public async updateAttributes(attributes: Attributes): Promise<void> {
     return this.setAttributes({ ...this._ctx.attributes, ...attributes });
   }
 
@@ -548,32 +585,35 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes() {
+  public getAttributes(): Attributes {
     return { ...this._ctx.attributes, ...this._attributeOverrides };
   }
 
-  public getForcedVariations() {
+  public getForcedVariations(): Record<string, number> {
     return this._ctx.forcedVariations || {};
   }
 
-  public getForcedFeatures() {
+  public getForcedFeatures(): Map<string, unknown> {
     // eslint-disable-next-line
     return this._forcedFeatureValues || new Map<string, any>();
   }
 
-  public getStickyBucketAssignmentDocs() {
+  public getStickyBucketAssignmentDocs(): Record<
+    string,
+    StickyAssignmentsDocument
+  > {
     return this._ctx.stickyBucketAssignmentDocs || {};
   }
 
-  public getUrl() {
+  public getUrl(): string {
     return this._ctx.url || "";
   }
 
-  public getFeatures() {
+  public getFeatures(): Record<string, FeatureDefinition> {
     return this._ctx.features || {};
   }
 
-  public getExperiments() {
+  public getExperiments(): AutoExperiment[] {
     return this._ctx.experiments || [];
   }
 
@@ -603,7 +643,10 @@ export class GrowthBook<
     }
   }
 
-  public getAllResults() {
+  public getAllResults(): Map<
+    string,
+    { experiment: Experiment<unknown>; result: Result<unknown> }
+  > {
     return new Map(this._assigned);
   }
 
@@ -655,7 +698,9 @@ export class GrowthBook<
     return result;
   }
 
-  public triggerExperiment(key: string) {
+  public triggerExperiment(
+    key: string
+  ): Result<AutoExperimentVariation>[] | null {
     this._triggeredExpKeys.add(key);
     if (!this._ctx.experiments) return null;
     const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
@@ -663,7 +708,7 @@ export class GrowthBook<
       .map((exp) => {
         return this._runAutoExperiment(exp);
       })
-      .filter((res) => res !== null);
+      .filter((res): res is Result<AutoExperimentVariation> => res !== null);
   }
 
   public triggerAutoExperiments() {
@@ -948,6 +993,11 @@ export class GrowthBook<
     return this.evalFeature(id);
   }
 
+  /**
+   * Evaluates a feature, returning the value, reason why the value was returned (source), and other details.
+   * @param id The feature ID to evaluate
+   * @returns {FeatureResult} The result of the feature evaluation
+   */
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
