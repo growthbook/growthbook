@@ -398,10 +398,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </TempMessage>
             )}
           </div>
-          <div>
+          <div style={{ marginRight: "4rem" }}>
             <Button
-              style={{ marginRight: "4rem" }}
-              color={"primary"}
               disabled={!ctaEnabled}
               onClick={async () => {
                 if (!ctaEnabled) return;

@@ -1,43 +1,28 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { CSSProperties, ReactNode } from "react";
+import { ReactNode } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import Link from "next/link";
+import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
-import styles from "./RadixOverrides.module.scss";
 
-type Overwrite<T, NewT> = Omit<T, keyof NewT> & NewT;
-
-export type Color = "primary" | "danger";
+export type Color = "violet" | "red";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md";
 
-export type Props = Overwrite<
-  ButtonProps,
-  {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onClick?: (e: any) => void;
-    href?: string;
-    color?: Color | ButtonProps["color"];
-    variant?: Variant;
-    size?: Size;
-    disabled?: boolean;
-    loading?: boolean;
-    children: ReactNode;
-  }
->;
-
-export function getRadixColor(
-  color: Color | ButtonProps["color"]
-): ButtonProps["color"] {
-  switch (color) {
-    case "primary":
-      return "violet";
-    case "danger":
-      return "red";
-    default:
-      return color;
-  }
-}
+export type Props = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onClick?: (e: any) => void;
+  href?: string;
+  color?: Color;
+  variant?: Variant;
+  size?: Size;
+  disabled?: boolean;
+  loading?: boolean;
+  icon?: ReactNode;
+  iconPosition?: "left" | "right";
+  children: string | string[];
+} & MarginProps &
+  Pick<ButtonProps, "title" | "type" | "aria-label">;
 
 export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
   switch (size) {
@@ -53,31 +38,16 @@ export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
 export default function Button({
   onClick,
   href,
-  color = "primary",
+  color = "violet",
   variant = "solid",
   size = "md",
   disabled,
   loading,
+  icon,
+  iconPosition = "left",
   children,
   ...otherProps
 }: Props) {
-  const radixSize = getRadixSize(size);
-  let style: CSSProperties = {};
-  if (variant === "ghost") {
-    // hack to make ghost buttons have proper margins / padding
-    style = {
-      margin: 0,
-      height: "var(--base-button-height)",
-      paddingTop: 0,
-      paddingBottom: 0,
-      paddingLeft: `var(--space-${parseInt(radixSize as string) + 1})`,
-      paddingRight: `var(--space-${parseInt(radixSize as string) + 1})`,
-    };
-  }
-  if (otherProps.style) {
-    style = Object.assign(style, otherProps.style);
-  }
-
   return (
     <ConditionalWrapper
       condition={!!href}
@@ -85,16 +55,16 @@ export default function Button({
     >
       <RadixButton
         {...otherProps}
-        className={styles.button}
         onClick={onClick}
-        color={getRadixColor(color)}
+        color={color}
         variant={variant}
-        size={radixSize}
+        size={getRadixSize(size)}
         disabled={disabled}
         loading={loading}
-        style={style}
       >
+        {icon && iconPosition === "left" ? icon : null}
         <Text weight="medium">{children}</Text>
+        {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     </ConditionalWrapper>
   );

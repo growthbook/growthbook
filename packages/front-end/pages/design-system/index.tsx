@@ -1,5 +1,6 @@
 import { Flex } from "@radix-ui/themes";
-import { useState } from "react";
+import React, { useState } from "react";
+import { FaDownload } from "react-icons/fa";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import Badge from "@/components/Radix/Badge";
@@ -64,24 +65,25 @@ export default function DesignSystemPage() {
           <Button size={size} aria-label="Aria">
             Aria
           </Button>
-          <Button size={size} color="danger">
+          <Button size={size} color="red">
             Danger
           </Button>
           <Button size={size} variant="soft">
             Primary soft
           </Button>
-          <Button size={size} color="danger" variant="outline">
+          <Button size={size} color="red" variant="outline">
             Danger outline
           </Button>
           <Button size={size} variant="ghost">
             Primary ghost
           </Button>
+          <Button icon={<FaDownload />}>Download</Button>
         </Flex>
         <Flex direction="row" gap="3" className="my-3">
           <Button size={size} loading disabled>
             Primary loading
           </Button>
-          <Button size={size} loading color="danger" disabled>
+          <Button size={size} loading color="red" disabled>
             Danger loading
           </Button>
           <Button size={size} loading disabled>

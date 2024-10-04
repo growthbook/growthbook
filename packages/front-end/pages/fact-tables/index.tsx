@@ -242,9 +242,8 @@ export default function FactTablesPage() {
             }
           >
             <Button
-              color="teal"
               variant="outline"
-              className="mr-2"
+              mr="2"
               onClick={(e) => {
                 e.preventDefault();
                 if (!canCreate) return;

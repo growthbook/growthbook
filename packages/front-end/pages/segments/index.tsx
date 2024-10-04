@@ -210,7 +210,6 @@ const SegmentPage: FC = () => {
         {hasCreatePermission && canStoreSegmentsInMongo && (
           <div className="col-auto">
             <Button
-              color="primary"
               onClick={() => {
                 setSegmentForm({});
               }}

@@ -84,7 +84,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
             </p>
             <div className="d-flex">
               <Button
-                className="mr-2"
+                mr="2"
                 variant="outline"
                 onClick={() => window.open(docUrl("eventWebhooks"), "_blank")}
               >

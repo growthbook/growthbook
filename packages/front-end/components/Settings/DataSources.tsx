@@ -63,17 +63,18 @@ const DataSources: FC = () => {
       {!hasFileConfig() &&
         !setupEventTracker &&
         permissionsUtil.canViewCreateDataSourceModal(project) && (
-          <Button
-            className="float-right mb-3"
-            disabled={currentProjectIsDemo}
-            title={buttonTitle}
-            onClick={(e) => {
-              e.preventDefault();
-              setNewModalOpen(true);
-            }}
-          >
-            Add Data Source
-          </Button>
+          <div className="float-right">
+            <Button
+              disabled={currentProjectIsDemo}
+              title={buttonTitle}
+              onClick={(e) => {
+                e.preventDefault();
+                setNewModalOpen(true);
+              }}
+            >
+              Add Data Source
+            </Button>
+          </div>
         )}
 
       {filteredDatasources.length > 0 ? (

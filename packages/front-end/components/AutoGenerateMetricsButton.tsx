@@ -33,10 +33,9 @@ export default function AutoGenerateMetricsButton({
       {showButton ? (
         <Button
           size={size}
-          color="cyan"
           variant="outline"
           onClick={() => setShowAutoGenerateMetricsModal(true)}
-          className="mr-2"
+          mr="2"
         >
           Discover Metrics
         </Button>

@@ -379,7 +379,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 {canCreateAttributes && (
                   <div className="ml-auto">
                     <Button
-                      className="btn btn-primary"
                       onClick={(e) => {
                         e.preventDefault();
                         setModalData("");

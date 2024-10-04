@@ -123,7 +123,7 @@ const MemberList: FC<{
           <div className="flex-1" />
           <div>
             {canInviteMembers && (
-              <Button className="mb-1" onClick={onInvite}>
+              <Button mb="1" onClick={onInvite}>
                 Invite Member
               </Button>
             )}

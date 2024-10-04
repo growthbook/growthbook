@@ -75,11 +75,9 @@ export const EventsPage: FC<EventsPageProps> = ({
           <Button
             onClick={performDownload}
             disabled={isDownloading || !shouldShowExportButton}
-            className="ml-3"
+            ml="3"
+            icon={<FaDownload />}
           >
-            <span className="mr-1">
-              <FaDownload />
-            </span>{" "}
             Export All
           </Button>
         </div>

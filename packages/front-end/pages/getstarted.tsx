@@ -416,7 +416,7 @@ const GetStartedPage = (): React.ReactElement => {
           </div>
           <div className="col-auto pl-0">
             {canUseSetupFlow && (
-              <Button href="/setup" className="mt-2 mb-4">
+              <Button href="/setup" mt="2" mb="4">
                 Launch Setup Flow
               </Button>
             )}
