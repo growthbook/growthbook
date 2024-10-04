@@ -62,6 +62,7 @@ import {
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   FactMetricData,
+  BanditMetricData,
   MetricAnalysisParams,
   MetricAnalysisQueryResponse,
   MetricAnalysisQueryResponseRow,
@@ -2557,7 +2558,6 @@ export default abstract class SqlIntegration
         ${
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
-        ${banditDates?.length ? "m.bandit_period AS bandit_period," : ""}
         COUNT(*) AS users,
         ${metricData.map((data) => {
           return `
@@ -2656,7 +2656,6 @@ export default abstract class SqlIntegration
       GROUP BY
         m.variation
         , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
-        ${banditDates?.length ? ", m.bandit_period" : ""}
     `,
       this.getFormatDialect()
     );
@@ -3031,7 +3030,7 @@ export default abstract class SqlIntegration
               [
                 {
                   valueCol: "value",
-                  outputCol: "cap_value",
+                  outputCol: "value_cap",
                   percentile: metric.cappingSettings.value ?? 1,
                   ignoreZeros: metric.cappingSettings.ignoreZeros ?? false,
                 },
@@ -3094,7 +3093,7 @@ export default abstract class SqlIntegration
                   [
                     {
                       valueCol: "value",
-                      outputCol: "cap_value",
+                      outputCol: "value_cap",
                       percentile: denominator.cappingSettings.value ?? 1,
                       ignoreZeros:
                         denominator.cappingSettings.ignoreZeros ?? false,
@@ -3142,14 +3141,22 @@ export default abstract class SqlIntegration
     banditDates?.length
       ? this.getBanditStatisticsCTE({
           baseIdType,
-          capCoalesceMetric,
-          isPercentileCapped,
-          capCoalesceDenominator,
-          ratioMetric,
-          denominatorIsPercentileCapped,
-          regressionAdjusted,
-          capCoalesceCovariate,
+          factMetrics: false,
+          metricData: [
+            {
+              alias: "",
+              ratioMetric,
+              regressionAdjusted,
+              isPercentileCapped,
+              capCoalesceMetric,
+              capCoalesceCovariate,
+              capCoalesceDenominator,
+            },
+          ],
+          hasRegressionAdjustment: regressionAdjusted,
+          hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
+          denominatorIsPercentileCapped,
         })
       : `
   -- One row per variation/dimension with aggregations
@@ -3162,7 +3169,7 @@ export default abstract class SqlIntegration
     COUNT(*) AS users,
     ${
       isPercentileCapped
-        ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
+        ? "MAX(COALESCE(cap.value_cap, 0)) as main_cap_value,"
         : ""
     }
     SUM(${capCoalesceMetric}) AS main_sum,
@@ -3191,7 +3198,7 @@ export default abstract class SqlIntegration
         ? `,
       ${
         denominatorIsPercentileCapped
-          ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
+          ? "MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value,"
           : ""
       }
       SUM(${capCoalesceDenominator}) AS denominator_sum,
@@ -3253,24 +3260,21 @@ export default abstract class SqlIntegration
 
   getBanditStatisticsCTE({
     baseIdType,
-    capCoalesceMetric,
-    isPercentileCapped,
-    capCoalesceDenominator,
-    ratioMetric,
-    denominatorIsPercentileCapped,
-    regressionAdjusted,
-    capCoalesceCovariate,
+    factMetrics,
+    metricData,
+    hasRegressionAdjustment,
+    hasCapping,
     ignoreNulls,
+    denominatorIsPercentileCapped,
   }: {
     baseIdType: string;
-    capCoalesceMetric: string;
-    isPercentileCapped: boolean;
-    capCoalesceDenominator: string;
-    ratioMetric: boolean;
-    denominatorIsPercentileCapped: boolean;
-    regressionAdjusted: boolean;
-    capCoalesceCovariate: string;
-    ignoreNulls: boolean;
+    factMetrics: boolean;
+    metricData: BanditMetricData[];
+    hasRegressionAdjustment: boolean;
+    hasCapping: boolean;
+    // legacy metric settings
+    ignoreNulls?: boolean;
+    denominatorIsPercentileCapped?: boolean;
   }): string {
     // todo percentile capped
     return `-- One row per variation/dimension with aggregations
@@ -3280,40 +3284,49 @@ export default abstract class SqlIntegration
       , m.dimension AS dimension
       , m.bandit_period AS bandit_period
       , COUNT(*) AS users
-      ${
-        isPercentileCapped
-          ? ", MAX(COALESCE(cap.cap_value, 0)) as main_cap_value"
-          : ""
-      }
-      , SUM(${capCoalesceMetric}) AS main_sum
-      , SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
-      ${
-        ratioMetric
-          ? `
+      ${metricData.map((data) => {
+        const alias = data.alias + (factMetrics ? "_" : "");
+        return `
         ${
-          denominatorIsPercentileCapped
-            ? ", MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value"
+          data.isPercentileCapped
+            ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
             : ""
         }
-        , SUM(${capCoalesceDenominator}) AS denominator_sum
-        , SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares
-        , SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
-      `
-          : ""
-      }
-      ${
-        regressionAdjusted
-          ? `
-        , SUM(${capCoalesceCovariate}) AS covariate_sum
-        , SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares
-        , SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
+        , SUM(${data.capCoalesceMetric}) AS ${alias}main_sum
+        , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${alias}main_sum_squares
+        ${
+          data.ratioMetric
+            ? `
+          ${
+            (factMetrics && data.isPercentileCapped) ||
+            denominatorIsPercentileCapped
+              ? `, MAX(COALESCE(capd.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
+              : ""
+          }
+          , SUM(${data.capCoalesceDenominator}) AS ${alias}denominator_sum
+          , SUM(POWER(${
+            data.capCoalesceDenominator
+          }, 2)) AS ${alias}denominator_sum_squares
+          , SUM(${data.capCoalesceDenominator} * ${
+                data.capCoalesceMetric
+              }) AS ${alias}main_denominator_sum_product
         `
-          : ""
-      }
+            : ""
+        }
+        ${
+          data.regressionAdjusted
+            ? `
+          , SUM(${data.capCoalesceCovariate}) AS ${alias}covariate_sum
+          , SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${alias}covariate_sum_squares
+          , SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${alias}main_covariate_sum_product
+          `
+            : ""
+        }`;
+      })}
     FROM
       __userMetricAgg m
     ${
-      ratioMetric
+      !factMetrics && metricData[0]?.ratioMetric
         ? `LEFT JOIN __userDenominatorAgg d ON (
             d.${baseIdType} = m.${baseIdType}
           )
@@ -3325,15 +3338,15 @@ export default abstract class SqlIntegration
         : ""
     }
     ${
-      regressionAdjusted
+      hasRegressionAdjustment
         ? `
         LEFT JOIN __userCovariateMetric c
         ON (c.${baseIdType} = m.${baseIdType})
         `
         : ""
     }
-    ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
-    ${ignoreNulls ? `WHERE m.value != 0` : ""}
+    ${hasCapping ? `CROSS JOIN __capValue cap` : ""}
+    ${!factMetrics && ignoreNulls ? `WHERE m.value != 0` : ""}
     GROUP BY
       m.variation
       , m.bandit_period
@@ -3353,20 +3366,24 @@ export default abstract class SqlIntegration
       bps.bandit_period
       , bps.dimension
       , SUM(bps.users) / MAX(dt.total_users) AS weight
+      ${metricData.map((data) => {
+        const alias = data.alias + (factMetrics ? "_" : "");
+        return `
       ${
-        regressionAdjusted
+        data.regressionAdjusted
           ? `
           , (
-              SUM(bps.covariate_sum_squares) - 
-              POWER(SUM(bps.covariate_sum), 2) / SUM(bps.users)
+              SUM(bps.${alias}covariate_sum_squares) - 
+              POWER(SUM(bps.${alias}covariate_sum), 2) / SUM(bps.users)
             ) / (SUM(bps.users) - 1) AS period_pre_variance
           , (
-              SUM(main_covariate_sum_product) - 
-              SUM(bps.covariate_sum) * SUM(bps.main_sum) / SUM(bps.users)
+              SUM(bps.${alias}main_covariate_sum_product) - 
+              SUM(bps.${alias}covariate_sum) * SUM(bps.${alias}main_sum) / SUM(bps.users)
             ) / (SUM(bps.users) - 1) AS period_covariance
         `
           : ""
-      }
+      }`;
+      })}
     FROM 
       __banditPeriodStatistics bps
     LEFT JOIN
@@ -3377,13 +3394,24 @@ export default abstract class SqlIntegration
       , bps.dimension
   )
   ${
-    regressionAdjusted
+    hasRegressionAdjustment
       ? `
       , __theta AS (
       SELECT
         dimension
-        , SUM(POWER(weight, 2) * period_covariance) / 
-          SUM(POWER(weight, 2) * period_pre_variance) AS theta
+      ${metricData.map((data) => {
+        const alias = data.alias + (factMetrics ? "_" : "");
+        return `
+      ${
+        data.regressionAdjusted
+          ? `
+
+          , SUM(POWER(weight, 2) * ${alias}period_covariance) / 
+          SUM(POWER(weight, 2) * ${alias}period_pre_variance) AS ${alias}theta
+        `
+          : ""
+      }`;
+      })}
       FROM
         __banditPeriodWeights
       GROUP BY
@@ -3396,47 +3424,62 @@ export default abstract class SqlIntegration
     bps.variation
     , bps.dimension
     , SUM(bps.users) AS users
-    , SUM(bpw.weight * bps.main_sum / bps.users) * SUM(bps.users) AS main_sum
+    ${metricData.map((data) => {
+      const alias = data.alias + (factMetrics ? "_" : "");
+      return `
+    , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
     , SUM(bps.users) * (SUM(
-      POWER(bpw.weight, 2) * ((bps.main_sum_squares - POWER(bps.main_sum, 2) / bps.users) / (bps.users - 1)) / bps.users
-    ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.main_sum / bps.users), 2)) as main_sum_squares
+      POWER(bpw.weight, 2) * ((
+        bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
+      ) / (bps.users - 1)) / bps.users
+    ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
     ${
-      ratioMetric
+      data.ratioMetric
         ? `
-      , SUM(bpw.weight * bps.denominator_sum / bps.users) * SUM(bps.users) AS denominator_sum
+      , SUM(bpw.weight * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
       , SUM(bps.users) * (SUM(
-        POWER(bpw.weight, 2) * ((bps.denominator_sum_squares - POWER(bps.denominator_sum, 2) / bps.users) / (bps.users - 1)) / bps.users
-      ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.denominator_sum / bps.users), 2)) as denominator_sum_squares
+        POWER(bpw.weight, 2) * (
+          (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1)
+        ) / bps.users
+      ) * (SUM(bps.users) - 1) + POWER(
+        SUM(bpw.weight * bps.${alias}denominator_sum / bps.users), 2)
+      ) AS ${alias}denominator_sum_squares
       , SUM(bps.users) * (
           (SUM(bps.users) - 1) * SUM(
-            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (bps.main_denominator_sum_product - bps.main_sum * bps.denominator_sum / bps.users)
+            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
+              bps.${alias}main_denominator_sum_product - bps.${alias}main_sum * bps.${alias}denominator_sum / bps.users
+            )
           ) +
           (
-            SUM(bpw.weight * bps.main_sum / bps.users) * SUM(bpw.weight * bps.denominator_sum / bps.users)
+            SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}denominator_sum / bps.users)
           )
-        ) AS main_denominator_sum_product`
+        ) AS ${alias}main_denominator_sum_product`
         : ""
     }
-    -- TODO CUPED
     ${
-      regressionAdjusted
+      data.regressionAdjusted
         ? `
-      , SUM(bpw.weight * bps.covariate_sum / bps.users) * SUM(bps.users) AS covariate_sum
+      , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS covariate_sum
       , SUM(bps.users) * (SUM(
-        POWER(bpw.weight, 2) * ((bps.covariate_sum_squares - POWER(bps.covariate_sum, 2) / bps.users) / (bps.users - 1)) / bps.users
-      ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.covariate_sum / bps.users), 2)) as covariate_sum_squares
+        POWER(bpw.weight, 2) * (
+          (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1)
+        ) / bps.users
+      ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
       , SUM(bps.users) * (
           (SUM(bps.users) - 1) * SUM(
-            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (bps.main_covariate_sum_product - bps.main_sum * bps.covariate_sum / bps.users)
+            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
+              bps.${alias}main_covariate_sum_product - bps.${alias}main_sum * bps.${alias}covariate_sum / bps.users
+            )
           ) +
           (
-            SUM(bpw.weight * bps.main_sum / bps.users) * SUM(bpw.weight * bps.covariate_sum / bps.users)
+            SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
           )
-        ) AS main_covariate_sum_product
-      , MAX(t.theta) AS theta
+        ) AS ${alias}main_covariate_sum_product
+      , MAX(t.${alias}theta) AS ${alias}theta
         `
         : ""
-    }
+    }`;
+    })}
   FROM 
     __banditPeriodStatistics bps
   LEFT JOIN
@@ -3446,7 +3489,7 @@ export default abstract class SqlIntegration
       AND bps.dimension = bpw.dimension
     )
   ${
-    regressionAdjusted
+    hasRegressionAdjustment
       ? `
     LEFT JOIN
       __theta t
@@ -3516,7 +3559,7 @@ export default abstract class SqlIntegration
     valueCol: string,
     metric: ExperimentMetricInterface,
     capTablePrefix: string = "c",
-    capValueCol: string = "cap_value"
+    capValueCol: string = "value_cap"
   ): string {
     if (
       metric?.cappingSettings.type === "absolute" &&
