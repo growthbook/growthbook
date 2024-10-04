@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 import * as opentelemetry from "@opentelemetry/sdk-node";
+import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { diag, DiagConsoleLogger } from "@opentelemetry/api";
 import {
   getNodeAutoInstrumentations,
@@ -36,8 +39,14 @@ const metricReader = new PeriodicExportingMetricReader({
 });
 
 const sdk = new opentelemetry.NodeSDK({
-  instrumentations: getNodeAutoInstrumentations(),
+  instrumentations: [
+    ...getNodeAutoInstrumentations(),
+    ...(process.env.GROWTHBOOK_OTEL_ENABLE_LOGS_COLLECTION
+      ? [new PinoInstrumentation()]
+      : []),
+  ],
   resourceDetectors: getResourceDetectors(),
+  logRecordProcessor: new BatchLogRecordProcessor(new OTLPLogExporter()),
   metricReader,
   resource: new Resource({
     [SemanticResourceAttributes.SERVICE_NAME]: "growthbook",

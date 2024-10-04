@@ -6,8 +6,8 @@ import {
   FaExclamationCircle,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import { Callout, Link } from "@radix-ui/themes";
-import { PiArrowRight, PiInfo, PiPaperPlaneTiltFill } from "react-icons/pi";
+import { Link } from "@radix-ui/themes";
+import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
 import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
@@ -24,6 +24,7 @@ import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConne
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import Callout from "@/components/Radix/Callout";
 import styles from "./InitialSetup.module.scss";
 
 interface Props {
@@ -120,19 +121,11 @@ const VerifyConnectionPage = ({
           <DocLink docSection={docs}>
             View documentation <PiArrowRight />
           </DocLink>
-          <Callout.Root className="mt-3">
-            <Callout.Icon>
-              <PiInfo />
-            </Callout.Icon>
-            <Callout.Text>
-              <>
-                Each environment requires its own SDK connection. Add more
-                environments via <b>SDK Configuration {">"} Environments</b>.
-                Then, create the SDK connection for each environment.
-              </>
-            </Callout.Text>
-          </Callout.Root>
-
+          <Callout status="info" mt="3">
+            Each environment requires its own SDK connection. Add more
+            environments via <b>SDK Configuration {">"} Environments</b>. Then,
+            create the SDK connection for each environment.
+          </Callout>
           <div className="mt-4 mb-3">
             <h4
               className="cursor-pointer"

@@ -127,6 +127,9 @@ export interface SnapshotSettingsVariation {
   weight: number;
 }
 
+export type SnapshotType = "standard" | "exploratory";
+export type SnapshotTriggeredBy = "schedule" | "manual";
+
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
@@ -167,6 +170,8 @@ export interface ExperimentSnapshotInterface {
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
+  type?: SnapshotType;
+  triggeredBy?: SnapshotTriggeredBy;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
