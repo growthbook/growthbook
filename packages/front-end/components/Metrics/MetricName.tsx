@@ -4,6 +4,8 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { VscListTree } from "react-icons/vsc";
+import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -101,10 +103,37 @@ export default function MetricName({
   showOfficialLabel?: boolean;
   showDescription?: boolean;
 }) {
-  const { getExperimentMetricById } = useDefinitions();
+  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = getExperimentMetricById(id);
 
-  if (!metric) return <>{id}</>;
+  if (!metric) {
+    // check if this is a metric group:
+    const metricGroup = getMetricGroupById(id);
+    if (!metricGroup) {
+      return <>{id}</>;
+    }
+    return (
+      <>
+        <VscListTree className="mr-1" />
+        {metricGroup.name} ({metricGroup.metrics.length} metrics)
+        {showDescription && metricGroup.description ? (
+          <span className="text-muted">
+            {" "}
+            -{" "}
+            {metricGroup?.description.length > 50
+              ? metricGroup?.description.substring(0, 50) + "..."
+              : metricGroup?.description}
+          </span>
+        ) : null}
+        <span
+          className="ml-1 small text-muted position-relative"
+          style={{ top: 2 }}
+        >
+          GROUP
+        </span>
+      </>
+    );
+  }
 
   return (
     <>

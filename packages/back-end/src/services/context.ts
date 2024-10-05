@@ -30,6 +30,7 @@ import { DataSourceInterface } from "back-end/types/datasource";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
+import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -45,6 +46,7 @@ export class ReqContextClass {
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
+    metricGroups: MetricGroupModel;
     segments: SegmentModel;
   };
   private initModels() {
@@ -53,6 +55,7 @@ export class ReqContextClass {
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
+      metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
     };
   }
