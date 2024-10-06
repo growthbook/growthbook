@@ -63,12 +63,7 @@ export default function SDKConnectionsList() {
         </div>
         {connections.length > 0 && canCreateSDKConnections ? (
           <div className="col-auto ml-auto">
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
+            <Button onClick={() => setModalOpen(true)}>
               Add SDK Connection
             </Button>
           </div>

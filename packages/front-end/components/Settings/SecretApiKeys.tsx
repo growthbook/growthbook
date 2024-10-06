@@ -85,8 +85,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         )}
         {canCreateKeys && (
           <Button
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setModalApiKeyType("admin");
               setOpen(true);
             }}

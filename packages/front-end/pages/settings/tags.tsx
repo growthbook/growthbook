@@ -131,14 +131,7 @@ const TagsPage: FC = () => {
         <></>
       )}
       {permissionsUtil.canCreateAndUpdateTag() ? (
-        <Button
-          onClick={(e) => {
-            e.preventDefault();
-            setModalOpen({});
-          }}
-        >
-          Add Tag
-        </Button>
+        <Button onClick={() => setModalOpen({})}>Add Tag</Button>
       ) : null}
     </div>
   );

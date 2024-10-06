@@ -59,10 +59,7 @@ const TeamPage: FC = () => {
             <div className="col-auto">
               <Button
                 disabled={!hasTeamsFeature}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalOpen({});
-                }}
+                onClick={() => setModalOpen({})}
               >
                 Create Team
               </Button>

@@ -70,14 +70,7 @@ const EnvironmentsPage: FC = () => {
         </div>
         {canCreate && (
           <div className="col-auto ml-auto">
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen({});
-              }}
-            >
-              Add Environment
-            </Button>
+            <Button onClick={() => setModalOpen({})}>Add Environment</Button>
           </div>
         )}
       </div>

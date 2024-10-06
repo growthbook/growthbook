@@ -186,10 +186,7 @@ export default function SdkWebhooks({
           >
             <Button
               disabled={disableWebhookCreate}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!disableWebhookCreate) setCreateWebhookModalOpen(true);
-              }}
+              onClick={() => setCreateWebhookModalOpen(true)}
             >
               Add Webhook
             </Button>

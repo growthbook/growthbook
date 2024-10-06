@@ -378,12 +378,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <h1>Targeting Attributes</h1>
                 {canCreateAttributes && (
                   <div className="ml-auto">
-                    <Button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setModalData("");
-                      }}
-                    >
+                    <Button onClick={() => setModalData("")}>
                       Add Attribute
                     </Button>
                   </div>

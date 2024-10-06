@@ -244,8 +244,7 @@ export default function FactTablesPage() {
             <Button
               variant="outline"
               mr="2"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 if (!canCreate) return;
                 setDiscoverFactOpen(true);
               }}
@@ -266,8 +265,7 @@ export default function FactTablesPage() {
             }
           >
             <Button
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 if (!canCreate) return;
                 setCreateFactOpen(true);
               }}

@@ -307,8 +307,7 @@ const MetricsPage = (): React.ReactElement => {
                 size="sm"
               />
               <Button
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   setModalData({
                     current: {},
                     edit: false,

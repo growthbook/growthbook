@@ -67,10 +67,7 @@ const DataSources: FC = () => {
             <Button
               disabled={currentProjectIsDemo}
               title={buttonTitle}
-              onClick={(e) => {
-                e.preventDefault();
-                setNewModalOpen(true);
-              }}
+              onClick={() => setNewModalOpen(true)}
             >
               Add Data Source
             </Button>

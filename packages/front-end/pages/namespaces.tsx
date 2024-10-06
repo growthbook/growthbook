@@ -64,14 +64,7 @@ const NamespacesPage: FC = () => {
         </div>
         {canCreate ? (
           <div className="col-auto ml-auto">
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              Add Namespace
-            </Button>
+            <Button onClick={() => setModalOpen(true)}>Add Namespace</Button>
           </div>
         ) : null}
       </div>

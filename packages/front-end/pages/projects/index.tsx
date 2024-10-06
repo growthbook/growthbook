@@ -51,10 +51,7 @@ const ProjectsPage: FC = () => {
           >
             <Button
               disabled={!canCreateProjects}
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen({});
-              }}
+              onClick={() => setModalOpen({})}
             >
               Create Project
             </Button>
