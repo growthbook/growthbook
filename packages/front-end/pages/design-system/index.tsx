@@ -57,6 +57,7 @@ export default function DesignSystemPage() {
               { label: "extra sm", value: "xs" },
               { label: "small", value: "sm" },
               { label: "medium", value: "md" },
+              { label: "large", value: "lg" },
             ]}
             sort={false}
             onChange={(v: Size) => setSize(v)}
@@ -79,7 +80,9 @@ export default function DesignSystemPage() {
           <Button size={size} variant="ghost">
             Primary ghost
           </Button>
-          <Button icon={<FaDownload />}>Download</Button>
+          <Button size={size} icon={<FaDownload />}>
+            Download
+          </Button>
         </Flex>
         <Flex direction="row" gap="3" className="my-3">
           <Button

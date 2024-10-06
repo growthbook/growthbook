@@ -7,7 +7,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 
 export type Color = "violet" | "red";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
-export type Size = "xs" | "sm" | "md";
+export type Size = "xs" | "sm" | "md" | "lg";
 
 export type Props = {
   onClick?: (() => Promise<void>) | (() => void);
@@ -24,7 +24,7 @@ export type Props = {
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
-export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
+export function getRadixSize(size: Size): Responsive<"1" | "2" | "3" | "4"> {
   switch (size) {
     case "xs":
       return "1";
@@ -32,6 +32,8 @@ export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
       return "2";
     case "md":
       return "3";
+    case "lg":
+      return "4";
   }
 }
 
