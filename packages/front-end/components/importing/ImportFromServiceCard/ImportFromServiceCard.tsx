@@ -1,5 +1,5 @@
 import React, { FC, PropsWithChildren } from "react";
-import Button from "@/components/Radix/Button";
+import LinkButton from "@/components/Radix/LinkButton";
 
 type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;
@@ -42,7 +42,9 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
         </div>
 
         <div>
-          <Button href={`importing/${path}`}>Import from {service}</Button>
+          <LinkButton href={`importing/${path}`}>
+            Import from {service}
+          </LinkButton>
         </div>
       </div>
     </div>

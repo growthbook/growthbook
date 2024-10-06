@@ -9,6 +9,7 @@ import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 import RoleList from "@/components/Teams/Roles/RoleList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -92,7 +93,9 @@ const TeamPage: FC = () => {
             <div style={{ flex: 1 }} />
             <div className="col-auto">
               {hasCustomRolesFeature ? (
-                <Button href="/settings/role/new">Create Custom Role</Button>
+                <LinkButton href="/settings/role/new">
+                  Create Custom Role
+                </LinkButton>
               ) : null}
             </div>
           </div>

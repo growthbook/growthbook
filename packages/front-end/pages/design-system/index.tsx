@@ -8,6 +8,7 @@ import Badge from "@/components/Radix/Badge";
 import Button, { Size } from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
+import LinkButton from "@/components/Radix/LinkButton";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -120,6 +121,21 @@ export default function DesignSystemPage() {
               <HelperText status="error">{buttonLoadError}</HelperText>
             )}
           </div>
+        </Flex>
+        <b>LinkButton</b>
+        <Flex direction="row" gap="3" className="my-3">
+          <LinkButton size={size} variant="ghost" href="https://growthbook.io">
+            A button link
+          </LinkButton>
+          <LinkButton
+            size={size}
+            disabled
+            variant="ghost"
+            color="red"
+            href="https://growthbook.io"
+          >
+            A disabled link
+          </LinkButton>
         </Flex>
       </div>
 

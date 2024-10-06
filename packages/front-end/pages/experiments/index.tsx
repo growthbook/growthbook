@@ -36,6 +36,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -307,13 +308,9 @@ const ExperimentsPage = (): React.ReactElement => {
             <div style={{ flex: 1 }} />
             {settings.powerCalculatorEnabled && (
               <div className="col-auto">
-                <Button
-                  type="button"
-                  variant="outline"
-                  href="/power-calculator"
-                >
+                <LinkButton variant="outline" href="/power-calculator">
                   Power Calculator
-                </Button>
+                </LinkButton>
               </div>
             )}
             {canAdd && (
