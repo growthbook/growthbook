@@ -1,5 +1,5 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import Link from "next/link";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
@@ -10,14 +10,14 @@ export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md";
 
 export type Props = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onClick?: (e: any) => void;
+  onClick?: (() => Promise<void>) | (() => void);
   href?: string;
   color?: Color;
   variant?: Variant;
   size?: Size;
   disabled?: boolean;
   loading?: boolean;
+  setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
   children: string | string[];
@@ -42,12 +42,16 @@ export default function Button({
   variant = "solid",
   size = "md",
   disabled,
-  loading,
+  loading: _externalLoading,
+  setError,
   icon,
   iconPosition = "left",
   children,
   ...otherProps
 }: Props) {
+  const [_internalLoading, setLoading] = useState(false);
+  const loading = _externalLoading || _internalLoading;
+
   return (
     <ConditionalWrapper
       condition={!!href}
@@ -55,7 +59,22 @@ export default function Button({
     >
       <RadixButton
         {...otherProps}
-        onClick={onClick}
+        onClick={
+          onClick
+            ? async (e) => {
+                e.preventDefault();
+                if (loading) return;
+                setLoading(true);
+                setError?.(null);
+                try {
+                  await onClick();
+                } catch (error) {
+                  setError?.(error.message);
+                }
+                setLoading(false);
+              }
+            : undefined
+        }
         color={color}
         variant={variant}
         size={getRadixSize(size)}

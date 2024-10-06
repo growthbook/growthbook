@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaDownload } from "react-icons/fa";
+import { BsArrowRepeat } from "react-icons/bs";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import Badge from "@/components/Radix/Badge";
@@ -11,6 +12,7 @@ import SelectField from "@/components/Forms/SelectField";
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
   const [size, setSize] = useState<Size>("md");
+  const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
 
   return (
     <div className="pagecontents container-fluid">
@@ -80,18 +82,41 @@ export default function DesignSystemPage() {
           <Button icon={<FaDownload />}>Download</Button>
         </Flex>
         <Flex direction="row" gap="3" className="my-3">
-          <Button size={size} loading disabled>
-            Primary loading
+          <Button
+            size={size}
+            icon={<BsArrowRepeat />}
+            onClick={async () =>
+              await new Promise((resolve) => setTimeout(resolve, 1000))
+            }
+          >
+            Click to load...
           </Button>
-          <Button size={size} loading color="red" disabled>
-            Danger loading
-          </Button>
-          <Button size={size} loading disabled>
-            PD loading
-          </Button>
-          <Button size={size} loading variant="ghost">
-            PG loading
-          </Button>
+          <div>
+            <Button
+              size={size}
+              color="red"
+              variant="outline"
+              mb="2"
+              icon={<BsArrowRepeat />}
+              onClick={async () =>
+                await new Promise((resolve, reject) =>
+                  setTimeout(() => {
+                    if (Math.random() < 0.5) {
+                      resolve();
+                    } else {
+                      reject(new Error("Something went wrong."));
+                    }
+                  }, 1000)
+                )
+              }
+              setError={setButtonLoadError}
+            >
+              This might fail...
+            </Button>
+            {!!buttonLoadError && (
+              <HelperText status="error">{buttonLoadError}</HelperText>
+            )}
+          </div>
         </Flex>
       </div>
 
