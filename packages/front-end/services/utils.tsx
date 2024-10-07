@@ -98,6 +98,13 @@ export function distributeWeights(
   return newWeights;
 }
 
+export function percentToDecimalForNumber(
+  val: number,
+  precision: number = 4
+): number {
+  return parseFloat((val / 100).toFixed(precision));
+}
+
 export function percentToDecimal(val: string, precision: number = 4): number {
   return parseFloat((parseFloat(val) / 100).toFixed(precision));
 }
