@@ -9,10 +9,10 @@ export type Props = {
   href: string;
 } & Omit<ButtonProps, "onClick" | "loading" | "setError">;
 
-export default function LinkButton({ href, children, ...otherProps }: Props) {
+export default function LinkButton({ href, ...otherProps }: Props) {
   return (
     <Link href={href}>
-      <Button {...otherProps}>{children}</Button>
+      <Button {...otherProps} />
     </Link>
   );
 }
