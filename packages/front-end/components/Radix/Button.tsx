@@ -44,6 +44,7 @@ export default function Button({
   setError,
   icon,
   iconPosition = "left",
+  type = "button",
   children,
   ...otherProps
 }: Props) {
@@ -74,6 +75,7 @@ export default function Button({
       size={getRadixSize(size)}
       disabled={disabled}
       loading={loading}
+      type={type}
     >
       {icon && iconPosition === "left" ? icon : null}
       <Text weight="medium">{children}</Text>
