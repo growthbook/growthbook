@@ -25,7 +25,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { GBSequential } from "@/components/Icons";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -90,6 +90,9 @@ const AnalysisForm: FC<{
     project: project ?? undefined,
   });
 
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
@@ -149,6 +152,7 @@ const AnalysisForm: FC<{
         orgSettings
       ),
       statsEngine: experiment.statsEngine,
+      regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??
@@ -549,14 +553,54 @@ const AnalysisForm: FC<{
           />
         )}
         <StatsEngineSelect
+          label={
+            isBandit ? (
+              <>
+                <div>Statistics Engine</div>
+                <div className="small text-muted">
+                  Only <strong>Bayesian</strong> is available for Bandit
+                  Experiments.
+                </div>
+              </>
+            ) : undefined
+          }
           value={form.watch("statsEngine")}
           onChange={(v) => {
             form.setValue("statsEngine", v);
           }}
           parentSettings={scopedSettings}
-          allowUndefined={true}
+          allowUndefined={!isBandit}
           disabled={isBandit}
         />
+        {isBandit && (
+          <SelectField
+            label={
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                <GBCuped /> Use Regression Adjustment (CUPED)
+              </PremiumTooltip>
+            }
+            style={{ width: 200 }}
+            labelClassName="font-weight-bold"
+            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+            onChange={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v === "on");
+            }}
+            options={[
+              {
+                label: "On",
+                value: "on",
+              },
+              {
+                label: "Off",
+                value: "off",
+              },
+            ]}
+            disabled={
+              !hasRegressionAdjustmentFeature ||
+              (isBandit && experiment.status !== "draft")
+            }
+          />
+        )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" && (
           <div className="d-flex flex-row no-gutters align-items-top">
