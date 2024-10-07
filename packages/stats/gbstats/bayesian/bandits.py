@@ -220,7 +220,7 @@ class Bandits(ABC):
         enough_data = sum(self.variation_counts) >= min_n
         return BanditResponse(
             users=self.variation_counts.tolist(),
-            cr=self.posterior_mean.tolist(),
+            cr=(self.posterior_mean + self.addback).tolist(),
             ci=credible_intervals,
             bandit_weights=p.tolist() if enough_data else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
