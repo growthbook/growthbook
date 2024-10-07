@@ -46,7 +46,7 @@ The main goal of an A/A test is to ensure your experimentation system is set up 
 In a clearly broken A/A test, you might see 3-4 Metrics all statistically significant with > 99%+ or < 1%
 chance to win. This is a clear sign that something is wrong with the experimentation set up.
 
-However, there are often cases where only one or two Metrics are significant, and maybe only just across your significance thresholds. This is a bit more complicated, and understanding what this means requires a bit of background on how uncertainty in experiments works.
+However, there are often cases where only one or two Metrics are significant, and maybe only just across your significance thresholds. Often this is not a problem and can be a false positive, especially if you added many metrics to your A/A test. Understanding why this is requires a bit of background on statistical significance and false positives in experiments.
 
 #### Understanding significance and false positives rate
 
