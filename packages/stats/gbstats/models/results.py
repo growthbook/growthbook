@@ -12,8 +12,6 @@ class SingleVariationResult:
     users: Optional[float]
     cr: Optional[float]
     ci: Optional[List[float]]
-    cr_unadjusted: Optional[float]
-    ci_unadjusted: Optional[List[float]]
 
 
 @dataclass

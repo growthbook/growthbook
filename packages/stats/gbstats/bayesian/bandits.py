@@ -34,8 +34,6 @@ class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
     ci: Optional[List[List[float]]]
-    cr_unadjusted: Optional[List[float]]
-    ci_unadjusted: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     seed: int
@@ -181,8 +179,13 @@ class Bandits(ABC):
 
     # number of Monte Carlo samples to perform when sampling to estimate weights for the SDK
     @property
-    def n_samples(self):
+    def n_samples(self) -> int:
         return int(1e4)
+
+    # scalar to add to the mean for leaderboard plots.  For non-cuped metrics, is 0.
+    @property
+    def addback(self) -> float:
+        return 0
 
     # function that computes thompson sampling variation weights
     def compute_result(self) -> BanditResponse:
@@ -210,15 +213,8 @@ class Bandits(ABC):
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
         credible_intervals = [
-            gaussian_credible_interval(mn, s, self.config.alpha)
+            gaussian_credible_interval(mn + self.addback, s, self.config.alpha)
             for mn, s in zip(self.posterior_mean, np.sqrt(self.posterior_variance))
-        ]
-        credible_intervals_unadjusted = [
-            gaussian_credible_interval(mn, s, self.config.alpha)
-            for mn, s in zip(
-                self.posterior_mean_unadjusted,
-                np.sqrt(self.posterior_variance_unadjusted),
-            )
         ]
         min_n = 100 * self.num_variations
         enough_data = sum(self.variation_counts) >= min_n
@@ -226,8 +222,6 @@ class Bandits(ABC):
             users=self.variation_counts.tolist(),
             cr=self.posterior_mean.tolist(),
             ci=credible_intervals,
-            cr_unadjusted=self.posterior_mean_unadjusted.tolist(),
-            ci_unadjusted=credible_intervals_unadjusted,
             bandit_weights=p.tolist() if enough_data else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             seed=seed,
@@ -275,15 +269,15 @@ class Bandits(ABC):
         return final_counts / sum(final_counts)
 
     @staticmethod
-    def sum_from_moments(n, mn):
+    def sum_from_moments(n, mn) -> float:
         return n * mn
 
     @staticmethod
-    def sum_squares_from_moments(n, mn, v):
+    def sum_squares_from_moments(n, mn, v) -> float:
         return (n - 1) * v + n * mn**2
 
     @staticmethod
-    def cross_product_from_moments(n, mn_x, mn_y, cov_x_y):
+    def cross_product_from_moments(n, mn_x, mn_y, cov_x_y) -> float:
         return (n - 1) * cov_x_y + n * mn_x * mn_y
 
     @property
@@ -414,6 +408,17 @@ class BanditsCuped(Bandits):
     @property
     def theta(self) -> float:
         return self.stats[0].theta
+
+    # for cuped, when producing intervals for the leaderboard, add back in the pooled baseline mean
+    @property
+    def addback(self) -> float:
+        total_n = sum(self.variation_counts)
+        if total_n:
+            return float(
+                np.sum(self.variation_counts * self.variation_means_pre) / total_n
+            )
+        else:
+            return 0
 
     @property
     def variation_means(self) -> np.ndarray:

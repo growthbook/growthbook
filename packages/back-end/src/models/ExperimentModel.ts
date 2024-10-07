@@ -65,8 +65,6 @@ const banditResultObject = {
       users: Number,
       cr: Number,
       ci: [Number],
-      cr_unadjusted: Number,
-      ci_unadjusted: [Number],
     },
   ],
   currentWeights: [Number],
