@@ -1149,7 +1149,6 @@ main.main.report {
 
     .step-number {
       display: inline-block;
-      color: colors.$highlight-purple;
       text-align: center;
       margin: 0 4px;
       background-color: rgba(colors.$highlight-purple, 0.15);
@@ -1158,9 +1157,6 @@ main.main.report {
       line-height: 24px;
     }
     &.active {
-      a {
-        color: colors.$highlight-purple;
-      }
       .step-number {
         background-color: colors.$highlight-purple;
         color: colors.$white;
@@ -1168,8 +1164,8 @@ main.main.report {
     }
     &.completed {
       .step-number {
-        background-color: colors.$highlight-purple;
-        color: colors.$white;
+        background-color: var(--step-completed-background);
+        color: var(--step-completed-color);
       }
     }
   }
@@ -1185,6 +1181,9 @@ main.main.report {
         width: 100%;
         border-bottom: 1px dashed colors.$purple-tint;
         height: 1px;
+        &.completed {
+          border-style: solid;
+        }
       }
       &:last-of-type {
         width: auto !important;
