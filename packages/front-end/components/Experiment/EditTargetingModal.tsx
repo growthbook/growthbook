@@ -8,7 +8,6 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { MdInfoOutline } from "react-icons/md";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -21,7 +20,6 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import ConditionInput from "@/components//Features/ConditionInput";
@@ -33,6 +31,7 @@ import SavedGroupTargetingField, {
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
+import RadioGroup, { RadioOptions } from "@/components/Radix/RadioGroup";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -332,7 +331,7 @@ function ChangeTypeSelector({
 }) {
   const { namespaces } = useOrgSettings();
 
-  const options = [
+  const options: RadioOptions = [
     { label: "Start a New Phase", value: "phase" },
     {
       label: "Saved Group, Attribute, and Prerequisite Targeting",
@@ -346,43 +345,23 @@ function ChangeTypeSelector({
     { label: "Traffic Percent", value: "traffic" },
     { label: "Variation Weights", value: "weights" },
     {
-      label: (
-        <Tooltip body="Warning: When making multiple changes at the same time, it can be difficult to control for the impact of each change. The risk of introducing experimental bias increases. Proceed with caution.">
-          Advanced: multiple changes at once{" "}
-          <MdInfoOutline className="text-warning-orange" />
-        </Tooltip>
-      ),
+      label: "Advanced: multiple changes at once",
       value: "advanced",
+      error: `When making multiple changes at the same time, it can be difficult to control for the impact of each change. 
+              The risk of introducing experimental bias increases. Proceed with caution.`,
+      errorLevel: "warning",
     },
   ];
 
   return (
-    <div className="form-group">
-      <label>What do you want to change?</label>
+    <div>
+      <h5>What do you want to change?</h5>
       <div className="ml-2">
-        {options
-          .filter((o) => !o.disabled)
-          .map((o) => (
-            <div key={o.value} className="mb-2">
-              <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="radio"
-                  name="changeType"
-                  id={`changeType-${o.value}`}
-                  value={o.value}
-                  checked={changeType === o.value}
-                  onChange={() => setChangeType(o.value as ChangeType)}
-                />
-                <label
-                  className="form-check-label cursor-pointer text-dark font-weight-bold hover-underline"
-                  htmlFor={`changeType-${o.value}`}
-                >
-                  {o.label}
-                </label>
-              </div>
-            </div>
-          ))}
+        <RadioGroup
+          value={changeType || ""}
+          setValue={(v: ChangeType) => setChangeType(v)}
+          options={options.filter((o) => !o.disabled)}
+        />
       </div>
     </div>
   );

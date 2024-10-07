@@ -5,6 +5,7 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
+import RadioGroup from "@/components/Radix/RadioGroup";
 import Badge from "@/components/Radix/Badge";
 import Button, { Size } from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
@@ -16,6 +17,7 @@ export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
+  const [radioSelected, setRadioSelected] = useState("k1");
 
   return (
     <div className="pagecontents container-fluid">
@@ -213,6 +215,7 @@ export default function DesignSystemPage() {
           />
         </Flex>
       </div>
+
       <div className="appbox p-3">
         <h3>HelperText</h3>
         <Flex direction="column" gap="3">
@@ -220,6 +223,59 @@ export default function DesignSystemPage() {
           <HelperText status="warning">This is a warning message</HelperText>
           <HelperText status="error">This is an error message</HelperText>
           <HelperText status="success">This is a success message</HelperText>
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Radio Group</h3>
+        <Flex direction="column" gap="3">
+          <RadioGroup
+            value={radioSelected}
+            setValue={(v) => {
+              setRadioSelected(v);
+            }}
+            options={[
+              {
+                value: "k1",
+                label: "Radio 1",
+              },
+              {
+                value: "k2",
+                label: "Radio 2",
+              },
+              {
+                value: "k3",
+                label: "Radio 3, with description",
+                description: "This is a description",
+              },
+              {
+                value: "k4",
+                label: "Radio 4, with error",
+                error: "This is an error",
+                errorLevel: "error",
+              },
+              {
+                value: "k5",
+                label: "Radio 5, with warning",
+                error: "This is a warning",
+                errorLevel: "warning",
+              },
+              {
+                value: "k6",
+                label: "Radio 6, disabled",
+                description: "This is a description",
+                disabled: true,
+              },
+              {
+                value: "k7",
+                label: "Radio 7, disabled with error",
+                description: "This is a description",
+                disabled: true,
+                error: "This is an error",
+                errorLevel: "error",
+              },
+            ]}
+          />
         </Flex>
       </div>
     </div>
