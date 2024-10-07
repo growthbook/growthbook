@@ -7,7 +7,7 @@ export type Size = "xs" | "sm" | "md" | "lg";
 
 export type Props = {
   href: string;
-} & ButtonProps;
+} & Omit<ButtonProps, "onClick" | "loading" | "setError">;
 
 export default function LinkButton({ href, children, ...otherProps }: Props) {
   return (
