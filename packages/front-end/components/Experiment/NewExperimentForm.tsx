@@ -53,6 +53,8 @@ import { useUser } from "@/services/UserContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { GBCuped } from "@/components/Icons";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -258,14 +260,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
+      regressionAdjustmentEnabled:
+        scopedSettings.regressionAdjustmentEnabled.value,
       banditScheduleValue: scopedSettings.banditScheduleValue.value,
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
     },
   });
-
-  useEffect(() => {}, [form]);
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -384,6 +386,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const type = form.watch("type");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+
+  useEffect(() => {
+    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
+      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
+    }
+  }, [form, exposureQueries, exposureQueryId]);
 
   let header = isNewExperiment
     ? `Create ${
@@ -696,6 +708,49 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 settings={scopedSettings}
               />
             </FormProvider>
+
+            <div className="mt-4">
+              <StatsEngineSelect
+                label={
+                  <>
+                    <div>Statistics Engine</div>
+                    <div className="small text-muted">
+                      Only <strong>Bayesian</strong> is available for Bandit
+                      Experiments.
+                    </div>
+                  </>
+                }
+                value={"bayesian"}
+                parentSettings={scopedSettings}
+                allowUndefined={false}
+                disabled={true}
+              />
+
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    <GBCuped /> Use Regression Adjustment (CUPED)
+                  </PremiumTooltip>
+                }
+                style={{ width: 200 }}
+                labelClassName="font-weight-bold"
+                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("regressionAdjustmentEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                disabled={!hasRegressionAdjustmentFeature}
+              />
+            </div>
           </div>
         </Page>
       )}

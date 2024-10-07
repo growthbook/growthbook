@@ -96,6 +96,7 @@ export default function FeatureVariationsInput({
           type="number"
           style={{ width: 100 }}
           min={2}
+          value={variations.length}
           onChange={(e) => {
             const n = parseInt(e?.target?.value || "2");
             const newValues: SortableVariation[] = [];

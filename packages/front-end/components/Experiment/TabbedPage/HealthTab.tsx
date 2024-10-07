@@ -62,6 +62,8 @@ export default function HealthTab({
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
     phase,
@@ -94,6 +96,7 @@ export default function HealthTab({
   // If org has the health tab turned to off and has no data, prompt set up if the
   // datasource and exposure query are present
   if (
+    !isBandit &&
     !runHealthTrafficQuery &&
     !snapshot?.health?.traffic.dimension?.dim_exposure_date
   ) {
@@ -199,6 +202,13 @@ export default function HealthTab({
         </div>
       );
     }
+    if (isBandit && experiment.status === "draft") {
+      return (
+        <div className="alert alert-info mt-3">
+          Start the experiment to see health data.
+        </div>
+      );
+    }
     return (
       <div className="alert alert-info mt-3">
         Please return to the results page and run a query to see health data.
@@ -228,7 +238,7 @@ export default function HealthTab({
       <IssueTags issues={healthIssues} />
       <TrafficCard traffic={traffic} variations={variations} />
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
-        {experiment.type !== "multi-armed-bandit" ? (
+        {!isBandit ? (
           <SRMCard
             traffic={traffic}
             variations={variations}
@@ -250,9 +260,7 @@ export default function HealthTab({
 
       <div className="row">
         <div
-          className={
-            experiment.type !== "multi-armed-bandit" ? "col-8" : "col-12"
-          }
+          className={!isBandit ? "col-8" : "col-12"}
           id="multipleExposures"
           style={{ scrollMarginTop: "100px" }}
         >

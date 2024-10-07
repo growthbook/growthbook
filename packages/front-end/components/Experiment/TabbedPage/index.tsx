@@ -405,7 +405,7 @@ export default function TabbedPage({
           className={
             // todo: standardize explore & results tabs across experiment types
             (!isBandit && tab === "results") || (isBandit && tab === "explore")
-              ? "d-block"
+              ? "d-block pt-2"
               : "d-none d-print-block"
           }
         >
@@ -434,7 +434,9 @@ export default function TabbedPage({
             setMetricFilter={setMetricFilter}
           />
         </div>
-        <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
+        <div
+          className={tab === "health" ? "d-block pt-2" : "d-none d-print-block"}
+        >
           <HealthTab
             experiment={experiment}
             onHealthNotify={handleIncrementHealthNotifications}

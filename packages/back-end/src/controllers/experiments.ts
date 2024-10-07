@@ -617,6 +617,7 @@ export async function postExperiments(
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
     statsEngine: data.statsEngine,
     type: data.type ?? "standard",
     banditScheduleValue: data.banditScheduleValue ?? 1,
