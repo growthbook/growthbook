@@ -9,6 +9,8 @@ import {
 
 export type Status = "info" | "warning" | "error" | "success";
 
+export type RadixColor = TextProps["color"];
+
 export function getRadixColor(status: Status): TextProps["color"] {
   switch (status) {
     case "info":
