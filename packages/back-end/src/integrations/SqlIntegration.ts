@@ -3263,8 +3263,7 @@ export default abstract class SqlIntegration
   GROUP BY
     m.variation
     , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
-    ${banditDates?.length ? ", m.bandit_period" : ""}
-`
+  `
   }`,
       this.getFormatDialect()
     );
@@ -3288,7 +3287,6 @@ export default abstract class SqlIntegration
     ignoreNulls?: boolean;
     denominatorIsPercentileCapped?: boolean;
   }): string {
-    // todo percentile capped
     return `-- One row per variation/dimension with aggregations
   , __banditPeriodStatistics AS (
     SELECT
