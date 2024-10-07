@@ -162,6 +162,11 @@ const BreakDownResults: FC<{
             (s) => s.metric === metricId
           );
         }
+        const resultGroup = getMetricResultGroup(
+          metricId,
+          goalMetrics,
+          secondaryMetrics
+        );
 
         const rows: ExperimentTableRow[] = results.map((d) => ({
           label: d.name,
@@ -170,18 +175,12 @@ const BreakDownResults: FC<{
             return variation.metrics[metricId];
           }),
           metricSnapshotSettings,
-          resultGroup: getMetricResultGroup(
-            metricId,
-            goalMetrics,
-            secondaryMetrics
-          ),
+          resultGroup,
           metricOverrideFields: overrideFields,
         }));
         return {
           metric: newMetric,
-          isGuardrail:
-            !goalMetrics.includes(metricId) &&
-            !secondaryMetrics.includes(metricId),
+          isGuardrail: resultGroup === "guardrail",
           rows: rows,
         };
       })
