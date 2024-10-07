@@ -148,6 +148,8 @@ export default function DesignSystemPage() {
             ]}
           />
         </Flex>
+      </div>
+      <div className="appbox p-3">
         <h3>HelperText</h3>
         <Flex direction="column" gap="3">
           <HelperText status="info">This is an info message</HelperText>

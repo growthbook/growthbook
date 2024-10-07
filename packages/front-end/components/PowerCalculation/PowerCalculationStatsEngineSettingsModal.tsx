@@ -23,9 +23,12 @@ export default function PowerCalculationStatsEngineSettingsModal({
     orgSettings.sequentialTestingTuningParameter ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const [currentParams, setCurrentParams] = useState(params);
-  const [currentEngine, setCurrentEngine] = useState<StatsEngineWithSequential>(
-    params.type
-  );
+  const currentEngine =
+    currentParams.type === "bayesian"
+      ? "bayesian"
+      : currentParams.sequentialTesting
+      ? "sequential"
+      : "frequentist";
 
   return (
     <Modal
@@ -81,7 +84,6 @@ export default function PowerCalculationStatsEngineSettingsModal({
             },
           ]}
           setValue={(type: StatsEngineWithSequential) => {
-            setCurrentEngine(type);
             setCurrentParams({
               type: type === "sequential" ? "frequentist" : type,
               sequentialTesting:
