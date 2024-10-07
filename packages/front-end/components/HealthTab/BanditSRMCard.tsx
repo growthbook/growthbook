@@ -123,6 +123,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
                   srm={srm ?? Infinity}
                   users={users}
                   showWhenHealthy
+                  isBandit={true}
                 />
               </>
             )}

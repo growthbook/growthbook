@@ -276,6 +276,7 @@ const CompactResults: FC<{
                 variations={variations}
                 linkToHealthTab
                 setTab={setTab}
+                isBandit={isBandit}
               />
             )}
             <MultipleExposureWarning

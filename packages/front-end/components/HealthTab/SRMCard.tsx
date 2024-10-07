@@ -141,6 +141,7 @@ export default function SRMCard({
                     variations={variations}
                     users={traffic.overall.variationUnits}
                     showWhenHealthy
+                    isBandit={false}
                   />
                 )}
                 {overallHealth === "Not enough traffic" && (
@@ -163,6 +164,7 @@ export default function SRMCard({
             exposureQuery={exposureQuery}
             healthTabConfigParams={healthTabConfigParams}
             canConfigHealthTab={canConfigHealthTab}
+            isBandit={false}
           />
         </div>
       </div>

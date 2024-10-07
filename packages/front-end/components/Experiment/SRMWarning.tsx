@@ -56,6 +56,7 @@ const SRMWarning: FC<{
   showWhenHealthy?: boolean;
   type?: "simple" | "with_modal";
   setTab?: (tab: ExperimentTab) => void;
+  isBandit?: boolean;
 }> = ({
   srm,
   linkToHealthTab,
@@ -64,6 +65,7 @@ const SRMWarning: FC<{
   users,
   showWhenHealthy = false,
   type = "with_modal",
+  isBandit,
 }) => {
   const [open, setOpen] = useState(false);
   const { settings } = useUser();
@@ -178,11 +180,13 @@ const SRMWarning: FC<{
           <b>
             No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
             {srmThreshold}.{" "}
-            <LearnMore
-              type={type}
-              setOpen={setOpen}
-              body={NOT_ENOUGH_EVIDENCE_MESSAGE}
-            />
+            {!isBandit && (
+              <LearnMore
+                type={type}
+                setOpen={setOpen}
+                body={NOT_ENOUGH_EVIDENCE_MESSAGE}
+              />
+            )}
           </b>
         </div>
       ) : (
