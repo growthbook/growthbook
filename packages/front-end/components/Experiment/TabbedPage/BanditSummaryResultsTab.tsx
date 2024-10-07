@@ -10,6 +10,7 @@ import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
+import { GBCuped } from "@/components/Icons";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -84,6 +85,17 @@ export default function BanditSummaryResultsTab({
                   : null}
               </div>
               <div className="flex-1" />
+              {experiment.regressionAdjustmentEnabled && (
+                <div
+                  className="d-inline-block text-muted text-right mr-1 user-select-none mr-4"
+                  style={{ maxWidth: 130, fontSize: "0.8em" }}
+                >
+                  <span className="font-weight-bold">
+                    <GBCuped size={13} /> CUPED:
+                  </span>{" "}
+                  <span className="">Enabled</span>
+                </div>
+              )}
               {isCurrentPhase && (
                 <div className="d-flex align-items-center">
                   <BanditUpdateStatus experiment={experiment} mutate={mutate} />

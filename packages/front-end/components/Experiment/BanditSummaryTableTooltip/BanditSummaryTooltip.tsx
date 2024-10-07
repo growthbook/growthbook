@@ -7,6 +7,7 @@ import { isFactMetric } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { RxInfoCircled } from "react-icons/rx";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
@@ -14,6 +15,7 @@ import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummary
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { GBCuped } from "@/components/Icons";
 
 export const TOOLTIP_WIDTH = 350;
 export const TOOLTIP_HEIGHT = 300; // Used for over/under layout calculation. Actual height may vary.
@@ -39,6 +41,7 @@ export interface TooltipData {
   stats: SnapshotMetric;
   status: "won" | "";
   currentEvent: BanditEvent;
+  regressionAdjustmentEnabled: boolean;
   metric: MetricInterface;
   layoutX: LayoutX;
   yAlign: YAlign;
@@ -272,6 +275,14 @@ export default function BanditSummaryTooltip({
                 {ciRangeText}
               </div>
             </div>
+            {data.regressionAdjustmentEnabled && (
+              <Tooltip body="Credible intervals have been adjusted using CUPED and are scaled to represent variation means. They are not actual credible intervals for variation means.">
+                <div className="mt-1 text-muted">
+                  <GBCuped size={13} /> CUPED affects results{" "}
+                  <HiOutlineExclamationCircle />
+                </div>
+              </Tooltip>
+            )}
           </div>
 
           <div className="mt-3 mb-2 results">

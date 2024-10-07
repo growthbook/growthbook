@@ -181,7 +181,7 @@ export default function ResultsTab({
           <BsLightbulb className="mr-2" />
           These are bandit results. Bandits are better than regular experiments
           at directing traffic to the best variation but they can suffer from
-          bias. Learn more (link).
+          bias.
           {/*todo: docs*/}
         </div>
       ) : null}

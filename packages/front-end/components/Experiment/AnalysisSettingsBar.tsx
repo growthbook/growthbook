@@ -17,7 +17,7 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
-import { RiCalendarScheduleLine } from "react-icons/ri";
+import { RiBarChartFill } from "react-icons/ri";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -292,7 +292,7 @@ export default function AnalysisSettingsBar({
                       </div>
                     }
                   >
-                    <RiCalendarScheduleLine /> Standard
+                    <RiBarChartFill /> Standard
                   </Tooltip>
                 ) : (
                   <>{snapshot?.type || `unknown`}</>

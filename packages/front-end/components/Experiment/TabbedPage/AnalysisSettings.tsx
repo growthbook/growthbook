@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { GBCuped } from "@/components/Icons";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -105,10 +106,24 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
             <div>{assignmentQuery ? assignmentQuery.name : <em>none</em>}</div>
           </div>
 
-          <div className="col-4">
-            <div className="h5">Stats Engine</div>
-            <div>{upperFirst(statsEngine)}</div>
-          </div>
+          {!isBandit && (
+            <div className="col-4">
+              <div className="h5">Stats Engine</div>
+              <div>{upperFirst(statsEngine)}</div>
+            </div>
+          )}
+          {isBandit && (
+            <div className="col-4">
+              <div className="h5">
+                <GBCuped size={15} /> CUPED
+              </div>
+              <div>
+                {experiment.regressionAdjustmentEnabled
+                  ? "Enabled"
+                  : "Disabled"}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="row mt-4">

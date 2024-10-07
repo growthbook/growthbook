@@ -189,6 +189,7 @@ export default function BanditSummaryTable({
     variations,
     currentEvent,
     probabilities,
+    regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
   });
 
   if (!results) {

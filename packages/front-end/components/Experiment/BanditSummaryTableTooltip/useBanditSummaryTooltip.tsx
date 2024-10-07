@@ -18,11 +18,13 @@ export function useBanditSummaryTooltip({
   variations,
   currentEvent,
   probabilities,
+  regressionAdjustmentEnabled,
 }: {
   metric: MetricInterface | null;
   variations: { id: string; index: number; name: string }[];
   currentEvent: BanditEvent;
   probabilities: number[];
+  regressionAdjustmentEnabled?: boolean;
 }) {
   const {
     showTooltip,
@@ -150,6 +152,7 @@ export function useBanditSummaryTooltip({
         metric,
         layoutX,
         yAlign,
+        regressionAdjustmentEnabled,
       } as TooltipData,
     });
     setHoveredVariationRow(variationRow);
