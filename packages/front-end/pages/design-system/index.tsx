@@ -2,6 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaDownload } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
+import { PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import Badge from "@/components/Radix/Badge";
@@ -9,6 +10,7 @@ import Button, { Size } from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LinkButton from "@/components/Radix/LinkButton";
+import Avatar from "@/components/Radix/Avatar";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -24,6 +26,22 @@ export default function DesignSystemPage() {
       </p>
 
       <h2>Components</h2>
+
+      <div className="appbox p-3">
+        <h3>Avatar</h3>
+        <Flex direction="row" gap="3">
+          <Avatar>BF</Avatar>
+          <Avatar color="green">
+            <PiInfoFill size={25} />
+          </Avatar>
+          <Avatar size="lg" radius="small">
+            <img src="https://app.growthbook.io/logo/growth-book-logomark-white.svg" />
+          </Avatar>
+          <Avatar color="orange" variant="soft" size="sm">
+            sm
+          </Avatar>
+        </Flex>
+      </div>
 
       <div className="appbox p-3">
         <h3>Badge</h3>
