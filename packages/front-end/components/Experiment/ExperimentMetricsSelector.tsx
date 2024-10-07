@@ -13,6 +13,7 @@ export interface Props {
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
   noPercentileGoalMetrics?: boolean;
+  disabled?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -28,6 +29,7 @@ export default function ExperimentMetricsSelector({
   autoFocus = false,
   forceSingleGoalMetric = false,
   noPercentileGoalMetrics = false,
+  disabled,
 }: Props) {
   return (
     <>
@@ -54,6 +56,7 @@ export default function ExperimentMetricsSelector({
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
             noPercentile={noPercentileGoalMetrics}
+            disabled={disabled}
           />
         </div>
       )}
@@ -76,6 +79,7 @@ export default function ExperimentMetricsSelector({
             exposureQueryId={exposureQueryId}
             project={project}
             includeFacts={true}
+            disabled={disabled}
           />
         </div>
       )}
@@ -97,6 +101,7 @@ export default function ExperimentMetricsSelector({
             exposureQueryId={exposureQueryId}
             project={project}
             includeFacts={true}
+            disabled={disabled}
           />
         </div>
       )}

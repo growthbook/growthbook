@@ -160,6 +160,31 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
             </div>
           </div>
         </div>
+
+        {isBandit && (
+          <div className="row mt-4">
+            <div className="col-4">
+              <div className="h5">Exploratory Stage</div>
+              <div>
+                {experiment.banditBurnInValue ?? 1}{" "}
+                {(experiment.banditBurnInUnit ?? "days") === "days"
+                  ? "day"
+                  : "hour"}
+                {experiment.banditBurnInValue ?? 1 !== 1 ? "s" : ""}
+              </div>
+            </div>
+
+            <div className="col-4">
+              <div className="h5">Update Cadence</div>
+              <div>
+                Every {experiment.banditScheduleValue ?? 1}{" "}
+                {(experiment.banditScheduleUnit ?? "days") === "days"
+                  ? "days"
+                  : "hours"}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

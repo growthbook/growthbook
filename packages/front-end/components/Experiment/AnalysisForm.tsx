@@ -211,6 +211,7 @@ const AnalysisForm: FC<{
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
 
   const type = form.watch("type");
+  const isBandit = type === "multi-armed-bandit";
   // todo: bandits: prevent switching to draft draft while running?
 
   if (upgradeModal) {
@@ -289,7 +290,7 @@ const AnalysisForm: FC<{
       cta="Save"
     >
       <div className="mx-2">
-        {type === "multi-armed-bandit" && (
+        {isBandit && (
           <FormProvider {...form}>
             <BanditSettings
               page="experiment-settings"
@@ -303,6 +304,7 @@ const AnalysisForm: FC<{
           label="Data Source"
           labelClassName="font-weight-bold"
           value={datasource?.id || ""}
+          disabled={isBandit && experiment.status !== "draft"}
           onChange={(newDatasource) => {
             form.setValue("datasource", newDatasource);
 
@@ -362,9 +364,7 @@ const AnalysisForm: FC<{
               label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
           className="portal-overflow-ellipsis"
-          initialOption={
-            experiment.type !== "multi-armed-bandit" ? "Manual" : undefined
-          }
+          initialOption={!isBandit ? "Manual" : undefined}
           helpText={
             <>
               <strong className="text-danger">Warning:</strong> Changing this
@@ -378,6 +378,7 @@ const AnalysisForm: FC<{
             labelClassName="font-weight-bold"
             value={form.watch("exposureQueryId")}
             onChange={(v) => form.setValue("exposureQueryId", v)}
+            disabled={isBandit && experiment.status !== "draft"}
             initialOption="Choose..."
             required
             options={exposureQueries.map((q) => {
@@ -413,7 +414,9 @@ const AnalysisForm: FC<{
                 <code>experiment_id</code> column in your data source.
               </>
             }
-            disabled={!canRunExperiment}
+            disabled={
+              !canRunExperiment || (isBandit && experiment.status !== "draft")
+            }
           />
         )}
         {editVariationIds && (
@@ -443,7 +446,7 @@ const AnalysisForm: FC<{
             </small>
           </div>
         )}
-        {!!phaseObj && editDates && (
+        {!!phaseObj && editDates && !isBandit && (
           <div className="row">
             <div className="col">
               <Field
@@ -467,7 +470,7 @@ const AnalysisForm: FC<{
             )}
           </div>
         )}
-        {!!datasource && type !== "multi-armed-bandit" && (
+        {!!datasource && !isBandit && (
           <MetricSelector
             datasource={form.watch("datasource")}
             exposureQueryId={exposureQueryId}
@@ -486,7 +489,7 @@ const AnalysisForm: FC<{
             helpText="Users must convert on this metric before being included"
           />
         )}
-        {datasourceProperties?.experimentSegments && (
+        {datasourceProperties?.experimentSegments && !isBandit && (
           <SelectField
             label="Segment"
             labelClassName="font-weight-bold"
@@ -502,52 +505,49 @@ const AnalysisForm: FC<{
             helpText="Only users in this segment will be included"
           />
         )}
-        {datasourceProperties?.separateExperimentResultQueries &&
-          type !== "multi-armed-bandit" && (
-            <SelectField
-              label="Metric Conversion Windows"
-              labelClassName="font-weight-bold"
-              value={form.watch("skipPartialData")}
-              onChange={(value) => form.setValue("skipPartialData", value)}
-              options={[
-                {
-                  label: "Include In-Progress Conversions",
-                  value: "loose",
-                },
-                {
-                  label: "Exclude In-Progress Conversions",
-                  value: "strict",
-                },
-              ]}
-              helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-            />
-          )}
-        {datasourceProperties?.separateExperimentResultQueries &&
-          type !== "multi-armed-bandit" && (
-            <SelectField
-              label={
-                <AttributionModelTooltip>
-                  <strong>Conversion Window Override</strong>{" "}
-                  <FaQuestionCircle />
-                </AttributionModelTooltip>
-              }
-              value={form.watch("attributionModel")}
-              onChange={(value) => {
-                const model = value as AttributionModel;
-                form.setValue("attributionModel", model);
-              }}
-              options={[
-                {
-                  label: "Respect Conversion Windows",
-                  value: "firstExposure",
-                },
-                {
-                  label: "Ignore Conversion Windows",
-                  value: "experimentDuration",
-                },
-              ]}
-            />
-          )}
+        {datasourceProperties?.separateExperimentResultQueries && !isBandit && (
+          <SelectField
+            label="Metric Conversion Windows"
+            labelClassName="font-weight-bold"
+            value={form.watch("skipPartialData")}
+            onChange={(value) => form.setValue("skipPartialData", value)}
+            options={[
+              {
+                label: "Include In-Progress Conversions",
+                value: "loose",
+              },
+              {
+                label: "Exclude In-Progress Conversions",
+                value: "strict",
+              },
+            ]}
+            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+          />
+        )}
+        {datasourceProperties?.separateExperimentResultQueries && !isBandit && (
+          <SelectField
+            label={
+              <AttributionModelTooltip>
+                <strong>Conversion Window Override</strong> <FaQuestionCircle />
+              </AttributionModelTooltip>
+            }
+            value={form.watch("attributionModel")}
+            onChange={(value) => {
+              const model = value as AttributionModel;
+              form.setValue("attributionModel", model);
+            }}
+            options={[
+              {
+                label: "Respect Conversion Windows",
+                value: "firstExposure",
+              },
+              {
+                label: "Ignore Conversion Windows",
+                value: "experimentDuration",
+              },
+            ]}
+          />
+        )}
         <StatsEngineSelect
           value={form.watch("statsEngine")}
           onChange={(v) => {
@@ -555,7 +555,7 @@ const AnalysisForm: FC<{
           }}
           parentSettings={scopedSettings}
           allowUndefined={true}
-          disabled={type === "multi-armed-bandit"}
+          disabled={isBandit}
         />
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" && (
@@ -638,7 +638,7 @@ const AnalysisForm: FC<{
             </div>
           </div>
         )}
-        {datasourceProperties?.queryLanguage === "sql" && (
+        {datasourceProperties?.queryLanguage === "sql" && !isBandit && (
           <div className="row">
             <div className="col">
               <Field
@@ -686,17 +686,15 @@ const AnalysisForm: FC<{
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)
               }
-              setGuardrailMetrics={
-                type !== "multi-armed-bandit"
-                  ? (guardrailMetrics) =>
-                      form.setValue("guardrailMetrics", guardrailMetrics)
-                  : undefined
+              setGuardrailMetrics={(guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
               }
-              forceSingleGoalMetric={type === "multi-armed-bandit"}
-              noPercentileGoalMetrics={type === "multi-armed-bandit"}
+              forceSingleGoalMetric={isBandit}
+              noPercentileGoalMetrics={isBandit}
+              disabled={isBandit && experiment.status !== "draft"}
             />
 
-            {hasMetrics && type !== "multi-armed-bandit" && (
+            {hasMetrics && !isBandit && (
               <div className="form-group mb-2">
                 <PremiumTooltip commercialFeature="override-metrics">
                   Metric Overrides (optional)

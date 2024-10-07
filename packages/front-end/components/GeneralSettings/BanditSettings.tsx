@@ -78,6 +78,69 @@ export default function BanditSettings({
                 "font-weight-bold": page === "experiment-settings",
               })}
             >
+              Exploratory Stage
+            </label>
+            <div className="small text-muted mb-2">
+              Period before variation weights update:
+            </div>
+            <div className="row align-items-center">
+              <div className="col-auto">
+                <Field
+                  {...form.register("banditBurnInValue", {
+                    valueAsNumber: true,
+                    validate: (v) => {
+                      return !(v < 0);
+                    },
+                  })}
+                  type="number"
+                  min={0}
+                  max={999}
+                  step={1}
+                  style={{ width: 70 }}
+                  disabled={!hasBandits}
+                />
+              </div>
+              <div className="col-auto">
+                <SelectField
+                  value={form.watch("banditBurnInUnit")}
+                  onChange={(value) => {
+                    form.setValue(
+                      "banditBurnInUnit",
+                      value as "hours" | "days"
+                    );
+                  }}
+                  sort={false}
+                  options={[
+                    {
+                      label: "Hour(s)",
+                      value: "hours",
+                    },
+                    {
+                      label: "Day(s)",
+                      value: "days",
+                    },
+                  ]}
+                  disabled={!hasBandits}
+                />
+              </div>
+            </div>
+            {page === "experiment-settings" && (
+              <div className="text-muted small mt-1">
+                Default:{" "}
+                <strong>
+                  {settings?.banditBurnInValue?.value ?? 1}{" "}
+                  {settings?.banditBurnInUnit?.value ?? "days"}
+                </strong>
+              </div>
+            )}
+          </div>
+
+          <div className="col-6 pr-0">
+            <label
+              className={clsx("mb-0", {
+                "font-weight-bold": page === "experiment-settings",
+              })}
+            >
               Update Cadence
             </label>
             <div className="small text-muted mb-2">
@@ -112,11 +175,11 @@ export default function BanditSettings({
                   sort={false}
                   options={[
                     {
-                      label: "Hours",
+                      label: "Hour(s)",
                       value: "hours",
                     },
                     {
-                      label: "Days",
+                      label: "Day(s)",
                       value: "days",
                     },
                   ]}
@@ -136,69 +199,6 @@ export default function BanditSettings({
             {scheduleWarning ? (
               <div className="text-warning-orange mt-2">{scheduleWarning}</div>
             ) : null}
-          </div>
-
-          <div className="col-6 pr-0">
-            <label
-              className={clsx("mb-0", {
-                "font-weight-bold": page === "experiment-settings",
-              })}
-            >
-              Exploratory Stage
-            </label>
-            <div className="small text-muted mb-2">
-              How long to wait before updating variation weights:
-            </div>
-            <div className="row align-items-center">
-              <div className="col-auto">
-                <Field
-                  {...form.register("banditBurnInValue", {
-                    valueAsNumber: true,
-                    validate: (v) => {
-                      return !(v < 0);
-                    },
-                  })}
-                  type="number"
-                  min={0}
-                  max={999}
-                  step={1}
-                  style={{ width: 70 }}
-                  disabled={!hasBandits}
-                />
-              </div>
-              <div className="col-auto">
-                <SelectField
-                  value={form.watch("banditBurnInUnit")}
-                  onChange={(value) => {
-                    form.setValue(
-                      "banditBurnInUnit",
-                      value as "hours" | "days"
-                    );
-                  }}
-                  sort={false}
-                  options={[
-                    {
-                      label: "Hours",
-                      value: "hours",
-                    },
-                    {
-                      label: "Days",
-                      value: "days",
-                    },
-                  ]}
-                  disabled={!hasBandits}
-                />
-              </div>
-            </div>
-            {page === "experiment-settings" && (
-              <div className="text-muted small mt-1">
-                Default:{" "}
-                <strong>
-                  {settings?.banditBurnInValue?.value ?? 1}{" "}
-                  {settings?.banditBurnInUnit?.value ?? "days"}
-                </strong>
-              </div>
-            )}
           </div>
         </div>
       </div>

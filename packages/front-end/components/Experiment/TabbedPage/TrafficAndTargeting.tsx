@@ -37,6 +37,8 @@ export default function TrafficAndTargeting({
       phase.namespace.name
     : "";
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   return (
     <>
       {phase ? (
@@ -45,7 +47,8 @@ export default function TrafficAndTargeting({
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
               <h4 className="m-0">Traffic Allocation</h4>
               <div className="flex-1" />
-              {editTargeting ? (
+              {editTargeting &&
+              !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
                   <span className="text-purple">Edit</span>
                 </button>
@@ -121,7 +124,8 @@ export default function TrafficAndTargeting({
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
               <h4 className="m-0">Targeting</h4>
               <div className="flex-1" />
-              {editTargeting ? (
+              {editTargeting &&
+              !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
                   <span className="text-purple">Edit</span>
                 </button>

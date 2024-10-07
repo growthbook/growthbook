@@ -3117,11 +3117,14 @@ td.disabled {
   border-color: colors.$danger !important;
 }
 
-.gb-select--is-disabled {
-  .gb-select__control {
+.gb-select--is-disabled,
+.gb-multi-select--is-disabled {
+  .gb-select__control,
+  .gb-multi-select__control {
     background-color: var(--disabled-background) !important;
   }
-  .gb-select__single-value {
+  .gb-select__single-value,
+  .gb-multi-select__single-value {
     color: var(--text-color-muted) !important;
   }
 }

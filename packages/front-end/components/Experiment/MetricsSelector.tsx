@@ -89,6 +89,7 @@ const MetricsSelector: FC<{
   includeFacts?: boolean;
   forceSingleMetric?: boolean;
   noPercentile?: boolean;
+  disabled?: boolean;
 }> = ({
   datasource,
   project,
@@ -99,6 +100,7 @@ const MetricsSelector: FC<{
   includeFacts,
   forceSingleMetric = false,
   noPercentile = false,
+  disabled,
 }) => {
   const {
     metrics,
@@ -209,6 +211,7 @@ const MetricsSelector: FC<{
           // fail silently
         }
       }}
+      disabled={disabled}
     />
   ) : (
     <SelectField
@@ -231,6 +234,7 @@ const MetricsSelector: FC<{
           label
         );
       }}
+      disabled={disabled}
     />
   );
 
@@ -246,7 +250,7 @@ const MetricsSelector: FC<{
       {selector}
       <div className="d-flex align-items-center justify-content-end">
         <div>
-          {!forceSingleMetric && filteredOptions.length > 0 && (
+          {!forceSingleMetric && filteredOptions.length > 0 && !disabled && (
             <div className="metric-from-tag text-muted form-inline mt-2">
               <span style={{ fontSize: "0.82rem" }}>
                 Select metric by tag:{" "}

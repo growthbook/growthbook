@@ -261,23 +261,21 @@ export default function AnalysisSettingsSummary({
       )}
       <div className="row align-items-center text-muted">
         <div className="col-auto">
-          {
-            // {!(isBandit && experiment.status === "running") &&
-            canEditAnalysisSettings ? (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAnalysisModal(true);
-                }}
-              >
-                <span className="text-dark">Analysis Settings</span>
-                <GBEdit className="ml-2" />
-              </a>
-            ) : (
-              <span>Analysis Settings</span>
-            )
-          }
+          {!(isBandit && experiment.status === "running") &&
+          canEditAnalysisSettings ? (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setAnalysisModal(true);
+              }}
+            >
+              <span className="text-dark">Analysis Settings</span>
+              <GBEdit className="ml-2" />
+            </a>
+          ) : (
+            <span>Analysis Settings</span>
+          )}
         </div>
         {items.map((item, i) => (
           <Tooltip
