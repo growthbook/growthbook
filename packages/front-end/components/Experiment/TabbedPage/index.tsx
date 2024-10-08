@@ -11,6 +11,7 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { FaChartBar } from "react-icons/fa";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -39,7 +40,6 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
-import {FaChartBar} from "react-icons/fa";
 
 const experimentTabs = ["overview", "results", "explore", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
