@@ -4,10 +4,9 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiShuffle } from "react-icons/pi";
+import { PiCaretDown, PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FaCaretDown } from "react-icons/fa";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -305,7 +304,7 @@ const ExperimentsPage = (): React.ReactElement => {
       className="py-0"
       caret={false}
       toggle={
-        <Button icon={<FaCaretDown />} iconPosition="right">
+        <Button icon={<PiCaretDown />} iconPosition="right">
           Add Experiment
         </Button>
       }
