@@ -213,14 +213,15 @@ class Bandits(ABC):
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
         credible_intervals = [
-            gaussian_credible_interval(mn + self.addback, s, self.config.alpha)
-            for mn, s in zip(self.posterior_mean, np.sqrt(self.posterior_variance))
+            gaussian_credible_interval(mn, s, self.config.alpha)
+            for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
         min_n = 100 * self.num_variations
         enough_data = sum(self.variation_counts) >= min_n
+
         return BanditResponse(
             users=self.variation_counts.tolist(),
-            cr=(self.posterior_mean + self.addback).tolist(),
+            cr=(self.variation_means).tolist(),
             ci=credible_intervals,
             bandit_weights=p.tolist() if enough_data else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
@@ -415,14 +416,20 @@ class BanditsCuped(Bandits):
         total_n = sum(self.variation_counts)
         if total_n:
             return float(
-                np.sum(self.variation_counts * self.variation_means_pre) / total_n
+                self.theta
+                * np.sum(self.variation_counts * self.variation_means_pre)
+                / total_n
             )
         else:
             return 0
 
     @property
     def variation_means(self) -> np.ndarray:
-        return self.variation_means_post - self.theta * self.variation_means_pre
+        return (
+            self.variation_means_post
+            - self.theta * self.variation_means_pre
+            + self.addback
+        )
 
     @property
     def posterior_mean_unadjusted(self) -> np.ndarray:
