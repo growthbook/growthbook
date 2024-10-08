@@ -7,8 +7,6 @@ import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -17,6 +15,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useCombinedMetrics } from "@/pages/metrics";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -39,24 +38,22 @@ export default function DataSourceMetrics({
     edit: boolean;
     duplicate: boolean;
   } | null>(null);
-  const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
 
-  const { data, mutate } = useApi<{
-    metrics: MetricInterface[];
-  }>(`/datasource/${dataSource.id}/metrics`);
-
-  const metrics: MetricInterface[] | undefined = data?.metrics;
-
-  const editMetricsPermissions: {
-    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
-  } = {};
-  metrics?.forEach((m) => {
-    editMetricsPermissions[m.id] = {
-      canDuplicate: permissionsUtil.canCreateMetric(m),
-      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
-    };
+  const combinedMetrics = useCombinedMetrics({
+    duplicateMetric: (metric) => {
+      setModalData({
+        current: {
+          ...metric,
+          managedBy: "",
+          name: metric.name + " (copy)",
+        },
+        edit: false,
+        duplicate: true,
+      });
+    },
   });
+  const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
 
   // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
   const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetric(
@@ -70,7 +67,7 @@ export default function DataSourceMetrics({
           source="datasource-detail-page"
           datasource={dataSource}
           setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-          mutate={mutate}
+          mutate={mutateDefinitions}
         />
       )}
       {modalData ? (
@@ -79,7 +76,6 @@ export default function DataSourceMetrics({
           onClose={() => setModalData(null)}
           onSuccess={() => {
             mutateDefinitions();
-            mutate();
           }}
           source="datasource-detail"
         />
@@ -148,161 +144,122 @@ export default function DataSourceMetrics({
               {metrics.map((metric) => {
                 return (
                   <div key={metric.id} className="card p-3 mb-3 bg-light">
-                    <Link href={getMetricLink(metric.id)}>
-                      <div
-                        className="d-flex flex-row align-items-center justify-content-between"
-                        role="button"
-                      >
-                        <div className="pr-3">
-                          <div className="mr-5 w-100">
-                            <h4
-                              className={
-                                metric.status === "archived" ? "text-muted" : ""
-                              }
-                            >
+                    <div className="d-flex flex-row align-items-center justify-content-between">
+                      <div className="pr-3">
+                        <div className="mr-5 w-100">
+                          <h4 className={metric.archived ? "text-muted" : ""}>
+                            <Link href={getMetricLink(metric.id)}>
                               {metric.name}
-                            </h4>
-                            <div className="d-flex flex-row align-items-center">
-                              <div className="pr-3">
-                                <strong
-                                  className={
-                                    metric.status === "archived"
-                                      ? "text-muted"
-                                      : ""
-                                  }
-                                >
-                                  Type:{" "}
-                                </strong>
-                                <code
-                                  className={
-                                    metric.status === "archived"
-                                      ? "text-muted"
-                                      : ""
-                                  }
-                                >
-                                  {metric.type}
-                                </code>
-                              </div>
-                              <div
-                                className={clsx(
-                                  {
-                                    "text-muted": metric.status === "archived",
-                                  },
-                                  "pr-3"
-                                )}
+                            </Link>
+                          </h4>
+                          <div className="d-flex flex-row align-items-center">
+                            <div className="pr-3">
+                              <strong
+                                className={metric.archived ? "text-muted" : ""}
                               >
-                                <strong>Owner: </strong>
-                                {metric.owner}
-                              </div>
-                              <div
-                                className={clsx(
-                                  {
-                                    "text-muted": metric.status === "archived",
-                                  },
-                                  "pr-3"
-                                )}
+                                Type:{" "}
+                              </strong>
+                              <code
+                                className={metric.archived ? "text-muted" : ""}
                               >
-                                <strong>Projects: </strong>
-                                {!metric?.projects?.length ? (
-                                  <ProjectBadges
-                                    resourceType="metric"
-                                    className="badge-ellipsis align-middle"
-                                  />
-                                ) : (
-                                  <ProjectBadges
-                                    resourceType="metric"
-                                    projectIds={metric.projects}
-                                    className={clsx(
-                                      {
-                                        "text-muted":
-                                          metric.status === "archived",
-                                      },
-                                      "badge-ellipsis align-middle"
-                                    )}
-                                  />
-                                )}
-                              </div>
-                              {metric.managedBy !== "config" && (
-                                <div
-                                  title={datetime(metric.dateUpdated || "")}
+                                {metric.type}
+                              </code>
+                            </div>
+                            <div
+                              className={clsx(
+                                {
+                                  "text-muted": metric.archived,
+                                },
+                                "pr-3"
+                              )}
+                            >
+                              <strong>Owner: </strong>
+                              {metric.owner}
+                            </div>
+                            <div
+                              className={clsx(
+                                {
+                                  "text-muted": metric.archived,
+                                },
+                                "pr-3"
+                              )}
+                            >
+                              <strong>Projects: </strong>
+                              {!metric?.projects?.length ? (
+                                <ProjectBadges
+                                  resourceType="metric"
+                                  className="badge-ellipsis align-middle"
+                                />
+                              ) : (
+                                <ProjectBadges
+                                  resourceType="metric"
+                                  projectIds={metric.projects}
                                   className={clsx(
                                     {
-                                      "text-muted":
-                                        metric.status === "archived",
+                                      "text-muted": metric.archived,
                                     },
-                                    "d-none d-md-table-cell"
+                                    "badge-ellipsis align-middle"
                                   )}
-                                >
-                                  <strong>Last Updated: </strong>
-                                  {ago(metric.dateUpdated || "")}
-                                </div>
+                                />
                               )}
                             </div>
+                            {metric.managedBy !== "config" && (
+                              <div
+                                title={datetime(metric.dateUpdated || "")}
+                                className={clsx(
+                                  {
+                                    "text-muted": metric.archived,
+                                  },
+                                  "d-none d-md-table-cell"
+                                )}
+                              >
+                                <strong>Last Updated: </strong>
+                                {ago(metric.dateUpdated || "")}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <div className="d-flex flex-row align-items-center">
-                          <div className="text-muted px-2">
-                            {metric.status === "archived" ? (
-                              <Tooltip
-                                body={"Archived"}
-                                innerClassName="p-2"
-                                tipMinWidth="auto"
-                              >
-                                <FaArchive />
-                              </Tooltip>
-                            ) : null}
-                          </div>
-                          <MoreMenu className="px-2">
-                            {editMetricsPermissions[metric.id].canDuplicate ? (
-                              <button
-                                className="btn dropdown-item py-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  setModalData({
-                                    current: {
-                                      ...metric,
-                                      managedBy: "",
-                                      name: metric.name + " (copy)",
-                                    },
-                                    edit: false,
-                                    duplicate: true,
-                                  });
-                                }}
-                              >
-                                <FaRegCopy /> Duplicate
-                              </button>
-                            ) : null}
-                            {!metric.managedBy &&
-                            editMetricsPermissions[metric.id].canUpdate ? (
-                              <button
-                                className="btn dropdown-item py-2"
-                                color=""
-                                onClick={async () => {
-                                  const newStatus =
-                                    metric.status === "archived"
-                                      ? "active"
-                                      : "archived";
-                                  await apiCall(`/metric/${metric.id}`, {
-                                    method: "PUT",
-                                    body: JSON.stringify({
-                                      status: newStatus,
-                                    }),
-                                  });
-                                  mutateDefinitions({});
-                                  mutate();
-                                }}
-                              >
-                                <FaArchive />{" "}
-                                {metric.status === "archived"
-                                  ? "Unarchive"
-                                  : "Archive"}
-                              </button>
-                            ) : null}
-                          </MoreMenu>
                         </div>
                       </div>
-                    </Link>
+                      <div className="d-flex flex-row align-items-center">
+                        <div className="text-muted px-2">
+                          {metric.archived ? (
+                            <Tooltip
+                              body={"Archived"}
+                              innerClassName="p-2"
+                              tipMinWidth="auto"
+                            >
+                              <FaArchive />
+                            </Tooltip>
+                          ) : null}
+                        </div>
+                        <MoreMenu className="px-2">
+                          {metric.onDuplicate ? (
+                            <button
+                              className="btn dropdown-item py-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                metric.onDuplicate?.();
+                              }}
+                            >
+                              <FaRegCopy /> Duplicate
+                            </button>
+                          ) : null}
+                          {!metric.managedBy && metric.onArchive ? (
+                            <button
+                              className="btn dropdown-item py-2"
+                              color=""
+                              onClick={async () => {
+                                await metric.onArchive?.(!metric.archived);
+                              }}
+                            >
+                              <FaArchive />{" "}
+                              {metric.archived ? "Unarchive" : "Archive"}
+                            </button>
+                          ) : null}
+                        </MoreMenu>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
