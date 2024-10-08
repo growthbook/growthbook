@@ -187,6 +187,28 @@ export interface ExperimentAggregateUnitsQueryParams
   useUnitsTable: boolean;
 }
 
+export interface ExperimentPipelineCreateUnitsTableParams {
+  tableName: string;
+  dimensions: string[];
+}
+
+export interface ExperimentPipelineCreateMetricsTableParams {
+  tableName: string;
+  dimensions: string[];
+  metrics: string[];
+}
+
+
+export interface ExperimentPipelineDeleteMetricsTableParams {
+  tableName: string;
+  lookbackDate: string;
+}
+
+export interface ExperimentPipelineReplaceUnitsTableParams extends ExperimentBaseQueryParams {
+  tableName: string;
+  lookbackDate: Date;
+}
+
 export type DimensionSlicesQueryParams = {
   exposureQueryId: string;
   dimensions: ExperimentDimension[];

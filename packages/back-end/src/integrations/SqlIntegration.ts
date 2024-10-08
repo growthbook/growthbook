@@ -74,6 +74,11 @@ import {
   TestQueryParams,
   ColumnTopValuesParams,
   ColumnTopValuesResponse,
+  ExperimentPipelineCreateUnitParams,
+  ExperimentPipelineCreateUnitsTableParams,
+  ExperimentPipelineCreateMetricsTableParams,
+  ExperimentPipelineDeleteMetricsTableParams,
+  ExperimentPipelineReplaceUnitsTableParams,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -4650,4 +4655,251 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
+
+  // Pipeline queries
+  getExperimentPipelineCreateUnitsTableQuery(params: ExperimentPipelineCreateUnitsTableParams): string {
+    return format(
+      `
+      CREATE TABLE IF NOT EXISTS ${params.tableName} (
+        id VARCHAR
+        , variation VARCHAR
+        ${params.dimensions.map((d) => `, ${d} VARCHAR`).join("\n")}
+        , first_exposure_timestamp TIMESTAMP
+      )
+      `
+      , 
+      this.getFormatDialect()
+    )
+  }
+
+  getExperimentPipelineCreateMetricsTableQuery(params: ExperimentPipelineCreateMetricsTableParams): string {
+    return format(
+      `
+      CREATE TABLE IF NOT EXISTS ${params.tableName} (
+        id VARCHAR
+        , variation VARCHAR
+        ${params.dimensions.map((d) => `, dim_${d} VARCHAR`).join("\n")}
+        , first_exposure_timestamp TIMESTAMP
+        , dt DATE
+        ${params.metrics.map((m) => `, ${m} NUMBER`).join("\n")}
+      )
+      ` // partition on dt
+      , 
+      this.getFormatDialect()
+    )
+  }
+
+  getExperimentPipelineDeleteMetricsTableQuery(params: ExperimentPipelineDeleteMetricsTableParams): string {
+    return format(
+      `
+          
+    DELETE 
+    FROM ${params.tableName}
+    WHERE dt >= ${this.dateTrunc(params.lookbackDate)}
+      `
+      , 
+      this.getFormatDialect()
+    )
+  }
+
+  getExperimentPipelineReplaceUnitsTableQuery(params: ExperimentPipelineReplaceUnitsTableParams): string {
+    const {
+      settings,
+      segment,
+      activationMetric: activationMetricDoc,
+      factTableMap,
+    } = params;
+
+    const activationMetric = this.processActivationMetric(
+      activationMetricDoc,
+      settings
+    );
+
+    const { experimentDimensions, unitDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      activationMetric
+    );
+
+    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+
+    // Get any required identity join queries
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
+      [
+        [exposureQuery.userIdType],
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
+        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+        segment ? [segment.userIdType || "user_id"] : [],
+      ],
+      settings.startDate,
+      settings.endDate,
+      exposureQuery.userIdType,
+      settings.experimentId
+    );
+
+    // Get date range for experiment
+    const startDate: Date = settings.startDate;
+    const endDate: Date = this.getExperimentEndDate(settings, 0);
+
+    const timestampColumn = "e.timestamp";
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
+    const overrideConversionWindows =
+      settings.attributionModel === "experimentDuration";
+
+    return format(` WITH
+    ${idJoinSQL}
+    __existingData AS (
+        SELECT * FROM GROWTHBOOK_PIPELINE.GROWTHBOOK_PIPELINE.exp_12345_units
+        WHERE first_exposure_timestamp < ${this.dateTrunc(this.addHours(this.formatDateTimeString(params.runDate), -params.runLookbackHours))}
+      ),
+    __rawExperiment AS (
+      ${compileSqlTemplate(exposureQuery.query, {
+        startDate: params.lookbackDate,
+        endDate: settings.endDate,
+        experimentId: settings.experimentId,
+      })}
+    ),
+    __experimentExposures AS (
+      -- Viewed Experiment
+      SELECT
+        e.${baseIdType} as ${baseIdType}
+        , ${this.castToString("e.variation_id")} as variation
+        , ${timestampDateTimeColumn} as timestamp
+        ${experimentDimensions
+          .map((d) => `, e.${d.id} AS dim_${d.id}`)
+          .join("\n")}
+      FROM
+          __rawExperiment e
+      WHERE
+          e.experiment_id = '${settings.experimentId}'
+          AND ${timestampColumn} >= ${this.toTimestamp(startDate)}
+          ${
+            endDate
+              ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
+              : ""
+          }
+          ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
+      
+      UNION ALL
+
+    )
+    ${
+      activationMetric
+        ? `, __activationMetric as (${this.getMetricCTE({
+            metric: activationMetric,
+            baseIdType,
+            idJoinMap,
+            startDate: this.getMetricStart(
+              settings.startDate,
+              activationMetric.windowSettings.delayHours || 0,
+              0
+            ),
+            endDate: this.getMetricEnd(
+              [activationMetric],
+              settings.endDate,
+              overrideConversionWindows
+            ),
+            experimentId: settings.experimentId,
+            factTableMap,
+          })})
+        `
+        : ""
+    }
+    ${
+      segment
+        ? `, __segment as (${this.getSegmentCTE(
+            segment,
+            baseIdType,
+            idJoinMap,
+            factTableMap,
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate,
+              experimentId: settings.experimentId,
+            }
+          )})`
+        : ""
+    }
+    ${unitDimensions
+      .map(
+        (d) =>
+          `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
+            d.dimension,
+            baseIdType,
+            idJoinMap
+          )})`
+      )
+      .join("\n")}
+    , __experimentUnits AS (
+      -- One row per user
+      SELECT
+        e.${baseIdType} AS ${baseIdType}
+        , ${this.ifElse(
+          "count(distinct e.variation) > 1",
+          "'__multiple__'",
+          "max(e.variation)"
+        )} AS variation
+        , MIN(${timestampColumn}) AS first_exposure_timestamp
+        ${unitDimensions
+          .map(
+            (d) => `
+          , ${this.getDimensionColumn(baseIdType, d)} AS dim_unit_${
+              d.dimension.id
+            }`
+          )
+          .join("\n")}
+        ${experimentDimensions
+          .map(
+            (d) => `
+          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+          )
+          .join("\n")}
+        ${
+          activationMetric
+            ? `, MIN(${this.ifElse(
+                this.getConversionWindowClause(
+                  "e.timestamp",
+                  "a.timestamp",
+                  activationMetric,
+                  settings.endDate,
+                  false,
+                  overrideConversionWindows
+                ),
+                "a.timestamp",
+                "NULL"
+              )}) AS first_activation_timestamp
+            `
+            : ""
+        }
+      FROM
+        __experimentExposures e
+        ${
+          segment
+            ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+            : ""
+        }
+        ${unitDimensions
+          .map(
+            (d) => `
+            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+            )
+          `
+          )
+          .join("\n")}
+        ${
+          activationMetric
+            ? `LEFT JOIN __activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
+            : ""
+        }
+      ${segment ? `WHERE s.date <= e.timestamp` : ""}
+      GROUP BY
+        e.${baseIdType}`
+      , 
+      this.getFormatDialect()
+    )
+  }
+
+  // TODO deal with inprogress conversions
 }
