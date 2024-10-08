@@ -230,15 +230,13 @@ const DataSources: FC = () => {
 
       {newModalOpen && (
         <NewDataSourceForm
-          existing={false}
-          data={{
-            name: "My Datasource",
-            settings:
-              useSetupEventTracker && setupEventTracker
-                ? { schemaFormat: setupEventTracker as SchemaFormat }
-                : {},
-            projects: project ? [project] : [],
-          }}
+          initial={
+            useSetupEventTracker && setupEventTracker
+              ? {
+                  settings: { schemaFormat: setupEventTracker as SchemaFormat },
+                }
+              : undefined
+          }
           source="datasource-list"
           onSuccess={async (id) => {
             await mutateDefinitions({});

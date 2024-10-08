@@ -109,13 +109,16 @@ export const postFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  data.columns = await runRefreshColumnsQuery(
-    context,
-    datasource,
-    data as FactTableInterface
-  );
-  if (!data.columns.length) {
-    throw new Error("SQL did not return any rows");
+  if (!data.columns?.length) {
+    data.columns = await runRefreshColumnsQuery(
+      context,
+      datasource,
+      data as FactTableInterface
+    );
+
+    if (!data.columns.length) {
+      throw new Error("SQL did not return any rows");
+    }
   }
 
   const factTable = await createFactTable(context, data);
@@ -262,9 +265,9 @@ export const putColumn = async (
     context.permissions.throwPermissionError();
   }
 
-  const col = factTable.columns.find((c) => c.name === req.params.column);
+  const col = factTable.columns.find((c) => c.column === req.params.column);
   if (!col) {
-    throw new Error("Could not find column with that name");
+    throw new Error("Could not find column");
   }
 
   const updatedCol = { ...col, ...data };
