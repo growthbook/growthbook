@@ -30,6 +30,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import Button from "@/components/Radix/Button";
 
 const NUM_PER_PAGE = 20;
 
@@ -248,17 +249,13 @@ const ExperimentsPage = (): React.ReactElement => {
             <div style={{ flex: 1 }} />
             {canAdd && (
               <div className="col-auto">
-                <button
-                  className="btn btn-primary float-right"
+                <Button
                   onClick={() => {
                     setOpenNewExperimentModal(true);
                   }}
                 >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
                   Add Experiment
-                </button>
+                </Button>
               </div>
             )}
           </div>

@@ -1,13 +1,13 @@
-import { PiInfo, PiPaperPlaneTiltFill } from "react-icons/pi";
+import { PiPaperPlaneTiltFill } from "react-icons/pi";
 import { useState } from "react";
 import { SchemaFormat } from "back-end/types/datasource";
-import { Callout } from "@radix-ui/themes";
 import clsx from "clsx";
 import DataSourceLogo, {
   eventTrackerMapping,
 } from "@/components/DataSources/DataSourceLogo";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/components/Radix/Callout";
 import styles from "./InitialSetup.module.scss";
 
 interface Props {
@@ -29,10 +29,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
           defaultRole="analyst"
         />
       )}
-      <div
-        className={clsx(styles.setupPage, "mt-5")}
-        style={{ padding: "0px 57px" }}
-      >
+      <div className="mt-5" style={{ padding: "0px 57px" }}>
         <div className="d-flex mb-3">
           <h3 className="mb-0 align-self-center">Select your Event Tracker</h3>
 
@@ -49,16 +46,11 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
             </button>
           </div>
         </div>
-        <Callout.Root>
-          <Callout.Icon>
-            <PiInfo />
-          </Callout.Icon>
-          <Callout.Text>
-            To analyze experiment results, connect an event tracker and data
-            source. If using GrowthBook to manage feature flags only, feel free
-            to skip this step.
-          </Callout.Text>
-        </Callout.Root>
+        <Callout status="info">
+          To analyze experiment results, connect an event tracker and data
+          source. If using GrowthBook to manage feature flags only, feel free to
+          skip this step.
+        </Callout>
         <div className="row mt-3 mb-5">
           <div className="col-auto">
             <div

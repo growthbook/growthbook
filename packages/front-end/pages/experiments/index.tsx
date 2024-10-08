@@ -31,6 +31,8 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
+import LinkButton from "@/components/Radix/LinkButton";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
@@ -299,10 +301,12 @@ const ExperimentsPage = (): React.ReactElement => {
   const addExperimentDropdownButton = (
     <Dropdown
       uuid="add-experiment"
-      toggleClosedClassName="btn btn-primary"
-      toggleOpenClassName="btn btn-primary-darkened"
       className="py-0"
-      toggle="Add Experiment"
+      toggle={
+        <Button>
+          Add Experiment
+        </Button>
+      }
     >
       <div style={{ width: 220 }}>
         <div
@@ -331,13 +335,11 @@ const ExperimentsPage = (): React.ReactElement => {
             </div>
             <div style={{ flex: 1 }} />
             {settings.powerCalculatorEnabled && (
-              <Link
-                className="btn btn-outline-primary float-right"
-                type="button"
-                href="/power-calculator"
-              >
-                Power Calculator
-              </Link>
+              <div className="col-auto">
+                <LinkButton variant="outline" href="/power-calculator">
+                  Power Calculator
+                </LinkButton>
+              </div>
             )}
             {canAdd && (
               <div className="col-auto">{addExperimentDropdownButton}</div>

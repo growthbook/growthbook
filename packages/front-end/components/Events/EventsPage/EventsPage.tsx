@@ -13,6 +13,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
+import Button from "@/components/Radix/Button";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -71,16 +72,14 @@ export const EventsPage: FC<EventsPageProps> = ({
               : "Exporting events is available to Enterprise customers"}
           </PremiumTooltip>
 
-          <button
+          <Button
             onClick={performDownload}
             disabled={isDownloading || !shouldShowExportButton}
-            className="btn btn-primary ml-3"
+            ml="3"
+            icon={<FaDownload />}
           >
-            <span className="mr-1">
-              <FaDownload />
-            </span>{" "}
             Export All
-          </button>
+          </Button>
         </div>
       </div>
 

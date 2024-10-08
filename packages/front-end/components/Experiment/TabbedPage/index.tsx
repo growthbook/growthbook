@@ -11,7 +11,6 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -32,6 +31,7 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
+import Button from "@/components/Radix/Button";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -39,6 +39,7 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
+import {FaChartBar} from "react-icons/fa";
 
 const experimentTabs = ["overview", "results", "explore", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
@@ -377,15 +378,13 @@ export default function TabbedPage({
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
-              <button
-                className="btn btn-lg btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTabAndScroll("results");
-                }}
+              <Button
+                onClick={() => setTabAndScroll("results")}
+                size="lg"
+                icon={<FaChartBar />}
               >
-                <PiChartBarHorizontalFill /> View Results
-              </button>
+                View Results
+              </Button>
             </div>
           )}
         </div>

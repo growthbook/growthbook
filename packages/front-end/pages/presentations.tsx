@@ -12,6 +12,7 @@ import Modal from "@/components/Modal";
 import CopyToClipboard from "@/components/CopyToClipboard";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
@@ -245,14 +246,13 @@ const PresentationPage = (): React.ReactElement => {
         <div className=" mb-3">
           <div className="share-list mb-3">{presList}</div>
           {canCreatePresentation && (
-            <button
-              className="btn btn-primary"
+            <Button
               onClick={() => {
                 setOpenNewPresentationModal(true);
               }}
             >
               New Presentation
-            </button>
+            </Button>
           )}
         </div>
       </div>

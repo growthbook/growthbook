@@ -22,6 +22,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
+import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -225,11 +226,11 @@ const DateResults: FC<{
 
           return {
             metric,
-            resultGroup: goalMetrics.includes(metricId)
-              ? "goal"
-              : secondaryMetrics.includes(metricId)
-              ? "secondary"
-              : "guardrail",
+            resultGroup: getMetricResultGroup(
+              metric,
+              goalMetrics,
+              secondaryMetrics
+            ),
             datapoints,
           };
         })

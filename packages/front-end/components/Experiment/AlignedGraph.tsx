@@ -72,6 +72,7 @@ const AlignedGraph: FC<Props> = ({
   onMouseLeave,
   onClick,
 }) => {
+  id = id.replaceAll("%20", "_").replace(/[\W]+/g, "_");
   const metricDisplayCurrency = useCurrency();
   const { getFactTableById } = useDefinitions();
   const metricFormatterOptions = { currency: metricDisplayCurrency };

@@ -26,7 +26,7 @@ import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
 import { useEnvironments } from "@/services/features";
-import Badge from "@/components/Badge";
+import Badge from "@/components/Radix/Badge";
 import ProjectBadges from "@/components/ProjectBadges";
 import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -179,10 +179,10 @@ export default function SDKConnectionPage() {
             <div>
               {showAllEnvironmentProjects && (
                 <Badge
-                  content={`All env projects (${envProjects.length})`}
                   key="All env projects"
-                  className="badge-muted-info border-info"
-                  skipMargin={true}
+                  color="teal"
+                  variant="solid"
+                  label={`All env projects (${envProjects.length})`}
                 />
               )}
               <div

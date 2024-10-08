@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
@@ -31,6 +31,7 @@ import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import HelperText from "@/components/Radix/HelperText";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -56,6 +57,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasCommercialFeature,
   } = useUser();
   const [saveMsg, setSaveMsg] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [cronString, setCronString] = useState("");
   const [
@@ -396,6 +398,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       >
         <div className="container-fluid pagecontents d-flex">
           <div className="flex-grow-1 mr-4">
+            {submitError && (
+              <div className="float-right mt-2">
+                <HelperText status="error">{submitError}</HelperText>
+              </div>
+            )}
             {saveMsg && (
               <TempMessage
                 className="mb-0 py-2"
@@ -407,15 +414,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </TempMessage>
             )}
           </div>
-          <div>
+          <div style={{ marginRight: "4rem" }}>
             <Button
-              style={{ marginRight: "4rem" }}
-              color={"primary"}
               disabled={!ctaEnabled}
               onClick={async () => {
+                setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
               }}
+              setError={setSubmitError}
             >
               Save
             </Button>
