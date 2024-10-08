@@ -6,7 +6,6 @@ import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { SchemaFormat } from "back-end/types/datasource";
 import ProjectBadges from "@/components/ProjectBadges";
-import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -14,7 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
 import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -26,8 +25,6 @@ const DataSources: FC = () => {
   const { organization } = useUser();
   const { apiCall } = useAuth();
   const { setupEventTracker } = organization;
-
-  console.log({ setupEventTracker });
 
   const router = useRouter();
 
@@ -63,6 +60,20 @@ const DataSources: FC = () => {
 
   return (
     <div>
+      {!hasFileConfig() &&
+        !setupEventTracker &&
+        permissionsUtil.canViewCreateDataSourceModal(project) && (
+          <div className="float-right">
+            <Button
+              disabled={currentProjectIsDemo}
+              title={buttonTitle}
+              onClick={() => setNewModalOpen(true)}
+            >
+              Add Data Source
+            </Button>
+          </div>
+        )}
+
       {filteredDatasources.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
@@ -216,25 +227,6 @@ const DataSources: FC = () => {
           )}
         </div>
       )}
-
-      {!hasFileConfig() &&
-        !setupEventTracker &&
-        permissionsUtil.canViewCreateDataSourceModal(project) && (
-          <button
-            className="btn btn-primary"
-            disabled={currentProjectIsDemo}
-            title={buttonTitle}
-            onClick={(e) => {
-              e.preventDefault();
-              setNewModalOpen(true);
-            }}
-          >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBAddCircle />
-            </span>
-            Add Data Source
-          </button>
-        )}
 
       {newModalOpen && (
         <NewDataSourceForm

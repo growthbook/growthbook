@@ -104,6 +104,7 @@ export default function DataSourceMetrics({
                   setShowAutoGenerateMetricsModal
                 }
                 datasource={dataSource}
+                size="sm"
               />
               <button
                 className="btn btn-outline-primary font-weight-bold text-nowrap"
