@@ -368,7 +368,7 @@ export default function ExperimentHeader({
                     Edit targeting & traffic
                   </button>
                 )}
-                {canRunExperiment && (
+                {canRunExperiment && !isBandit && (
                   <button
                     className="dropdown-item"
                     onClick={() => setStatusModal(true)}
@@ -376,7 +376,7 @@ export default function ExperimentHeader({
                     Edit status
                   </button>
                 )}
-                {editPhases && (
+                {editPhases && !isBandit && (
                   <button
                     className="dropdown-item"
                     onClick={() => editPhases()}
@@ -619,6 +619,7 @@ export function ConvertBanditExperiment({
       body="Experiments can only be converted while in draft mode"
       shouldDisplay={experiment.status !== "draft"}
       usePortal={true}
+      tipPosition="left"
     >
       <ConfirmButton
         modalHeader={`Convert to ${

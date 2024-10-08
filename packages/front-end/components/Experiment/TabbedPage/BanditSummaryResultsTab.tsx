@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -30,8 +30,13 @@ export default function BanditSummaryResultsTab({
     `banditSummaryResultsChartType__${experiment.id}`,
     "line"
   );
+  const numPhases = experiment.phases.length;
   const [phase, setPhase] = useState<number>(experiment.phases.length - 1);
   const isCurrentPhase = phase === experiment.phases.length - 1;
+
+  useEffect(() => {
+    setPhase(numPhases - 1);
+  }, [numPhases, setPhase]);
 
   const mid = experiment.goalMetrics[0];
   const { getMetricById } = useDefinitions();
