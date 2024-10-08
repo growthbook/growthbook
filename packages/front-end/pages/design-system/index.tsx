@@ -255,13 +255,13 @@ export default function DesignSystemPage() {
               renderOnSelect: <Field label="Another field" />,
             },
             {
-              value: "k4",
+              value: "k5",
               label: "Radio 4, with error",
               error: "This is an error",
               errorLevel: "error",
             },
             {
-              value: "k5",
+              value: "k6",
               label: "Radio 5, with warning",
               error:
                 "When making multiple changes at the same time, it can be difficult to control for the impact of each change." +
@@ -269,13 +269,13 @@ export default function DesignSystemPage() {
               errorLevel: "warning",
             },
             {
-              value: "k6",
+              value: "k7",
               label: "Radio 6, disabled",
               description: "This is a description",
               disabled: true,
             },
             {
-              value: "k7",
+              value: "k8",
               label: "Radio 7, disabled with error",
               description: "This is a description",
               disabled: true,

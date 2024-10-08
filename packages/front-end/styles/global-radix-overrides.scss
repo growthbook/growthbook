@@ -23,6 +23,24 @@
 }
 
 // Checkbox
+.rt-CheckboxItem {
+  cursor: pointer;
+  &.disabled {
+    cursor: not-allowed;
+  }
+  &:hover:not(.disabled) {
+    .main-text {
+      color: var(--gray-11);
+    }
+    .rt-BaseCheckboxRoot {
+      &:not([data-state="checked"]) {
+        &::before {
+          background: var(--violet-a3);
+        }
+      }
+    }
+  }
+}
 
 // Radio
 .rt-RadioGroupItem {
