@@ -3459,27 +3459,40 @@ export default abstract class SqlIntegration
     , '${data.id}' as ${alias}id
     , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
     , SUM(bps.users) * (SUM(
-      POWER(bpw.weight, 2) * ((
+      ${this.ifElse(
+        "bps.users <= 1",
+        "0",
+        `POWER(bpw.weight, 2) * ((
         bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
       ) / (bps.users - 1)) / bps.users
-    ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
+    `
+      )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
     ${
       data.ratioMetric
         ? `
       , SUM(bpw.weight * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
       , SUM(bps.users) * (SUM(
-        POWER(bpw.weight, 2) * (
+      ${this.ifElse(
+        "bps.users <= 1",
+        "0",
+        `POWER(bpw.weight, 2) * ((
           (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1)
         ) / bps.users
-      ) * (SUM(bps.users) - 1) + POWER(
+      `
+      )}) * (SUM(bps.users) - 1) + POWER(
         SUM(bpw.weight * bps.${alias}denominator_sum / bps.users), 2)
       ) AS ${alias}denominator_sum_squares
       , SUM(bps.users) * (
           (SUM(bps.users) - 1) * SUM(
+            ${this.ifElse(
+              "bps.users <= 1",
+              "0",
+              `
             POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
               bps.${alias}main_denominator_sum_product - bps.${alias}main_sum * bps.${alias}denominator_sum / bps.users
             )
-          ) +
+          `
+            )}) +
           (
             SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}denominator_sum / bps.users)
           )
@@ -3491,16 +3504,25 @@ export default abstract class SqlIntegration
         ? `
       , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
       , SUM(bps.users) * (SUM(
-        POWER(bpw.weight, 2) * (
+      ${this.ifElse(
+        "bps.users <= 1",
+        "0",
+        `POWER(bpw.weight, 2) * ((
           (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1)
         ) / bps.users
-      ) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
+      `
+      )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
       , SUM(bps.users) * (
           (SUM(bps.users) - 1) * SUM(
+            ${this.ifElse(
+              "bps.users <= 1",
+              "0",
+              `
             POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
               bps.${alias}main_covariate_sum_product - bps.${alias}main_sum * bps.${alias}covariate_sum / bps.users
             )
-          ) +
+          `
+            )}) +
           (
             SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
           )
