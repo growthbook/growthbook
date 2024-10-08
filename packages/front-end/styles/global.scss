@@ -1158,8 +1158,8 @@ main.main.report {
     }
     &.active {
       .step-number {
-        background-color: colors.$highlight-purple;
-        color: colors.$white;
+        background-color: var(--step-color);
+        color: var(--text-color-on-bright);
       }
     }
     &.completed {
@@ -1179,11 +1179,11 @@ main.main.report {
         content: "";
         display: inline-block;
         width: 100%;
-        border-bottom: 1px dashed colors.$purple-tint;
+        border-bottom: 1px dashed var(--step-color);
         height: 1px;
-        &.completed {
-          border-style: solid;
-        }
+      }
+      &.completed:not(:last-of-type)::after {
+        border-bottom: 1px solid var(--step-color);
       }
       &:last-of-type {
         width: auto !important;

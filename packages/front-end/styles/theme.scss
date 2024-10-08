@@ -119,6 +119,7 @@
 
   --step-completed-background: #218358;
   --step-completed-color: #fbfefc;
+  --step-color: #6550b9;
 }
 
 @mixin dark-theme {
@@ -243,6 +244,7 @@
 
   --step-completed-background: #3dd68c;
   --step-completed-color: #0e1512;
+  --step-color: #baa7ff;
 }
 
 .theme--light,
