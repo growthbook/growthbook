@@ -424,7 +424,7 @@ export default function FeaturesHeader({
             size="max"
             closeCta="Close"
           >
-            <HistoryTable type="feature" id={feature.id} />
+            <HistoryTable type="feature" id={feature.id} showComment={true} />
           </Modal>
         )}
         {duplicateModal && (

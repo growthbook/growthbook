@@ -5,9 +5,11 @@ import ValueDisplay from "./ValueDisplay";
 export default function ForceSummary({
   value,
   feature,
+  isDefault = false,
 }: {
   value: string;
   feature: FeatureInterface;
+  isDefault?: boolean;
 }) {
   return (
     <>
@@ -16,7 +18,11 @@ export default function ForceSummary({
           <strong>SERVE</strong>
         </div>
         <div className="col">
-          <ValueDisplay value={value} type={feature.valueType} />
+          <ValueDisplay
+            value={value}
+            type={feature.valueType}
+            defaultVal={isDefault ? "" : feature.defaultValue}
+          />
         </div>
       </div>
       <ValidateValue value={value} feature={feature} />

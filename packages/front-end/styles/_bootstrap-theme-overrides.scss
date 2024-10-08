@@ -395,3 +395,18 @@ pre {
 // endregion d2h differ
 
 // endregion Diff Viewer
+
+.c-json-view {
+  background-color: var(--surface-background-color-alt) !important;
+  padding: 0px 0px 0px 50px !important;
+}
+
+.c-line-add {
+  background-color: var(--diff-added-background) !important;
+}
+.c-line-del {
+  background-color: var(--diff-removed-background) !important;
+}
+.c-json-outter {
+  color: var(--surface-background-color-alt) !important;
+}

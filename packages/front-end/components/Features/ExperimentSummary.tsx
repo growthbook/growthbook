@@ -161,7 +161,11 @@ export default function ExperimentSummary({
                 {j}.
               </td>
               <td>
-                <ValueDisplay value={r.value} type={type} />
+                <ValueDisplay
+                  value={r.value}
+                  type={type}
+                  defaultVal={feature.defaultValue}
+                />
                 <ValidateValue value={r.value} feature={feature} />
               </td>
               <td>{r?.name}</td>

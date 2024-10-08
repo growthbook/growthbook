@@ -75,6 +75,7 @@ function EventDetails({
         <JsonDiff
           defaultVal={JSON.stringify(json.pre, nestedJSONReplacer)}
           value={JSON.stringify(json.post, nestedJSONReplacer)}
+          fullStyle={{ maxHeight: 400, overflowY: "auto", maxWidth: "100%" }}
         />
       </div>
     );
@@ -100,6 +101,7 @@ export function HistoryTableRow({
   setOpen,
   showName = false,
   showType = false,
+  showComment = false,
   itemName = "",
   url = "",
 }: {
@@ -108,6 +110,7 @@ export function HistoryTableRow({
   setOpen: (open: boolean) => void;
   showName?: boolean;
   showType?: boolean;
+  showComment?: boolean;
   itemName?: string;
   url?: string;
 }) {
@@ -142,6 +145,12 @@ export function HistoryTableRow({
         {showName && (
           <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
         )}
+        {showComment && (
+          <td>
+            {" "}
+            {event.details && JSON.parse(event.details!).context.comment}
+          </td>
+        )}
         <td>{userDisplay}</td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
@@ -167,8 +176,15 @@ const HistoryTable: FC<{
   type: "experiment" | "metric" | "feature" | "savedGroup";
   showName?: boolean;
   showType?: boolean;
+  showComment?: boolean;
   id?: string;
-}> = ({ id, type, showName = false, showType = false }) => {
+}> = ({
+  id,
+  type,
+  showName = false,
+  showType = false,
+  showComment = false,
+}) => {
   const apiPath = id ? `/history/${type}/${id}` : `/history/${type}`;
   const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(apiPath);
 
@@ -223,6 +239,7 @@ const HistoryTable: FC<{
             <th>Date</th>
             {showType && <th>Type</th>}
             {showName && <th>Name</th>}
+            {showComment && <th>Comment</th>}
             <th>User</th>
             <th>Event</th>
             <th></th>
@@ -235,6 +252,7 @@ const HistoryTable: FC<{
               key={event.id}
               showName={showName}
               showType={showType}
+              showComment={showComment}
               open={open === event.id}
               setOpen={(open) => {
                 setOpen(open ? event.id : "");
