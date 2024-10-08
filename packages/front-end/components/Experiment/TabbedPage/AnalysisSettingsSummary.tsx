@@ -86,8 +86,6 @@ export default function AnalysisSettingsSummary({
     {}
   );
 
-  // todo: reinstate?
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;

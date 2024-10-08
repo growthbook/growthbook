@@ -22,24 +22,36 @@ type MetricOption = {
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
+  noPercentileGoalMetrics?: boolean;
+  isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
+  noPercentileGoalMetrics = false,
+  isSingular = false,
 }: MetricsSelectorTooltipProps) => {
-  // todo: check if we need more filters or language change for bandits
   return (
     <Tooltip
       body={
         <>
-          You can only select metrics that fit all criteria below:
+          You can only select {isSingular ? "a single metric" : "metrics"} that
+          fit{isSingular ? "s" : ""} all criteria below:
           <ul>
-            <li>are from the same Data Source as the experiment</li>
             <li>
-              either share an Identifier Type with the Experiment Assignment
-              Table or can be joined to it by a Join Table
+              {isSingular ? "is" : "are"} from the same Data Source as the
+              experiment
             </li>
-            {onlyBinomial ? <li>are a binomial metric</li> : null}
+            <li>
+              either share{isSingular ? "s" : ""} an Identifier Type with the
+              Experiment Assignment Table or can be joined to it by a Join Table
+            </li>
+            {onlyBinomial ? (
+              <li>{isSingular ? "is" : "are"} a binomial metric</li>
+            ) : null}
+            {noPercentileGoalMetrics ? (
+              <li>{isSingular ? "does" : "do"} not use percentile capping</li>
+            ) : null}
           </ul>
         </>
       }

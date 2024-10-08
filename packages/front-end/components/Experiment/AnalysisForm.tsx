@@ -164,7 +164,6 @@ const AnalysisForm: FC<{
         experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
       banditBurnInUnit:
         experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
-      // todo: way to set `phases.0.variationWeights.${i}` to equal weights
     },
   });
 
@@ -216,7 +215,6 @@ const AnalysisForm: FC<{
 
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
-  // todo: bandits: prevent switching to draft draft while running?
 
   if (upgradeModal) {
     return (
@@ -282,6 +280,12 @@ const AnalysisForm: FC<{
           }
           if ((body.goalMetrics?.length ?? 0) !== 1) {
             throw new Error("You must select 1 decision metric");
+          }
+          const phaseId = (body.phases?.length ?? 0) - 1;
+          if (body.phases?.[phaseId] && body.variations) {
+            body.phases[phaseId].variationWeights = body.variations.map(
+              () => 1 / (body?.variations?.length || 2)
+            );
           }
         }
 

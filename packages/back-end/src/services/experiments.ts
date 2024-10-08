@@ -784,8 +784,7 @@ export function updateExperimentBanditSettings({
       // apply the latest weights (SDK level)
       changes.phases[phase].variationWeights = banditResult.updatedWeights;
     } else {
-      // ignore (revert) the weight changes (for graphing)
-      // todo: is this correct? do we need to alter currentWeights too?
+      // ignore (revert) the weight changes
       banditResult.updatedWeights = changes.phases[phase].variationWeights;
     }
 

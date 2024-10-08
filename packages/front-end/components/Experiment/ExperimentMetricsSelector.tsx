@@ -44,7 +44,10 @@ export default function ExperimentMetricsSelector({
                 ? "The primary metrics you are trying to improve with this experiment. "
                 : "Choose the goal metric that will be used to update variation weights. "}
             </span>
-            <MetricsSelectorTooltip />
+            <MetricsSelectorTooltip
+              isSingular={true}
+              noPercentileGoalMetrics={noPercentileGoalMetrics}
+            />
           </div>
           <MetricsSelector
             selected={goalMetrics}
