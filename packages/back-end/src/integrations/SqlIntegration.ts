@@ -3476,7 +3476,7 @@ export default abstract class SqlIntegration
         "bps.users <= 1",
         "0",
         `POWER(bpw.weight, 2) * ((
-          (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1)
+          (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1))
         ) / bps.users
       `
       )}) * (SUM(bps.users) - 1) + POWER(
@@ -3508,7 +3508,7 @@ export default abstract class SqlIntegration
         "bps.users <= 1",
         "0",
         `POWER(bpw.weight, 2) * ((
-          (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1)
+          (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1))
         ) / bps.users
       `
       )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
