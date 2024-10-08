@@ -46,6 +46,13 @@ export interface ResponseCompat {
  * Responsible for reading and writing documents which describe sticky bucket assignments.
  */
 export abstract class StickyBucketService {
+  protected prefix: string;
+
+  constructor(opts?: { prefix?: string }) {
+    opts = opts || {};
+    this.prefix = opts.prefix || "";
+  }
+
   abstract getAssignments(
     attributeName: string,
     attributeValue: string
@@ -76,10 +83,18 @@ export abstract class StickyBucketService {
     });
     return docs;
   }
+
+  /**
+   * Get the key to store/retrieve a sticky bucket assignment.
+   *
+   * @returns {string} The key to use for the given attribute name and value.
+   */
+  getKey(attributeName: string, attributeValue: string) {
+    return `${this.prefix}${attributeName}||${attributeValue}`;
+  }
 }
 
 export class LocalStorageStickyBucketService extends StickyBucketService {
-  private prefix: string;
   private localStorage: LocalStorageCompat | undefined;
   constructor(opts?: { prefix?: string; localStorage?: LocalStorageCompat }) {
     opts = opts || {};
@@ -92,11 +107,11 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
     }
   }
   async getAssignments(attributeName: string, attributeValue: string) {
-    const key = `${attributeName}||${attributeValue}`;
+    const key = this.getKey(attributeName, attributeValue);
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.localStorage) return doc;
     try {
-      const raw = (await this.localStorage.getItem(this.prefix + key)) || "{}";
+      const raw = (await this.localStorage.getItem(key)) || "{}";
       const data = JSON.parse(raw);
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -107,10 +122,10 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
     return doc;
   }
   async saveAssignments(doc: StickyAssignmentsDocument) {
-    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.localStorage) return;
     try {
-      await this.localStorage.setItem(this.prefix + key, JSON.stringify(doc));
+      await this.localStorage.setItem(key, JSON.stringify(doc));
     } catch (e) {
       // Ignore localStorage errors
     }
@@ -125,7 +140,6 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
    *  - writing a cookie name & value must be manually encoded via encodeURIComponent() or similar
    *  - all cookie bodies are JSON encoded strings and are manually encoded/decoded
    */
-  private prefix: string;
   private req: RequestCompat;
   private res: ResponseCompat;
   private cookieAttributes: CookieAttributes;
@@ -147,11 +161,11 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     this.cookieAttributes = cookieAttributes;
   }
   async getAssignments(attributeName: string, attributeValue: string) {
-    const key = `${attributeName}||${attributeValue}`;
+    const key = this.getKey(attributeName, attributeValue);
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.req) return doc;
     try {
-      const raw = this.req.cookies[this.prefix + key] || "{}";
+      const raw = this.req.cookies[key] || "{}";
       const data = JSON.parse(raw);
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -162,11 +176,11 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     return doc;
   }
   async saveAssignments(doc: StickyAssignmentsDocument) {
-    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.res) return;
     const str = JSON.stringify(doc);
     this.res.cookie(
-      encodeURIComponent(this.prefix + key),
+      encodeURIComponent(key),
       encodeURIComponent(str),
       this.cookieAttributes
     );
@@ -181,7 +195,6 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
    *  - writing a cookie name & value is automatically encoded via encodeURIComponent() or similar
    *  - all cookie bodies are JSON encoded strings and are manually encoded/decoded
    */
-  private prefix: string;
   private jsCookie: JsCookiesCompat;
   private cookieAttributes: CookieAttributes;
   constructor({
@@ -199,11 +212,11 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
     this.cookieAttributes = cookieAttributes;
   }
   async getAssignments(attributeName: string, attributeValue: string) {
-    const key = `${attributeName}||${attributeValue}`;
+    const key = this.getKey(attributeName, attributeValue);
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.jsCookie) return doc;
     try {
-      const raw = this.jsCookie.get(this.prefix + key);
+      const raw = this.jsCookie.get(key);
       const data = JSON.parse(raw || "{}");
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -214,10 +227,10 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
     return doc;
   }
   async saveAssignments(doc: StickyAssignmentsDocument) {
-    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.jsCookie) return;
     const str = JSON.stringify(doc);
-    this.jsCookie.set(this.prefix + key, str, this.cookieAttributes);
+    this.jsCookie.set(key, str, this.cookieAttributes);
   }
 }
 
@@ -233,8 +246,10 @@ export class RedisStickyBucketService extends StickyBucketService {
     attributes: Record<string, string>
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
     const docs: Record<StickyAttributeKey, StickyAssignmentsDocument> = {};
-    const keys = Object.entries(attributes).map(
-      ([attributeName, attributeValue]) => `${attributeName}||${attributeValue}`
+    const keys = Object.entries(
+      attributes
+    ).map(([attributeName, attributeValue]) =>
+      this.getKey(attributeName, attributeValue)
     );
     if (!this.redis) return docs;
     await this.redis.mget(...keys).then((values) => {
@@ -259,7 +274,7 @@ export class RedisStickyBucketService extends StickyBucketService {
   }
 
   async saveAssignments(doc: StickyAssignmentsDocument) {
-    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.redis) return;
     await this.redis.set(key, JSON.stringify(doc));
   }

@@ -904,4 +904,16 @@ describe("sticky-buckets", () => {
 
     localStorage.clear();
   });
+
+  describe("getKey", () => {
+    it("returns the correct key", async () => {
+      const sbs = new LocalStorageStickyBucketService();
+      expect(sbs.getKey("foo", "bar")).toBe("gbStickyBuckets__foo||bar");
+    });
+
+    it("returns the correct key when a prefix is provided", async () => {
+      const sbs = new LocalStorageStickyBucketService({ prefix: "test_" });
+      expect(sbs.getKey("foo", "bar")).toBe("test_foo||bar");
+    });
+  });
 });
