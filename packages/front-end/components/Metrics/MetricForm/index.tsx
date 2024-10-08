@@ -16,6 +16,7 @@ import {
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
+import Link from "next/link";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -42,12 +43,12 @@ import { GBCuped } from "@/components/Icons";
 import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/components/Radix/RadioGroup";
+import Callout from "@/components/Radix/Callout";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -67,7 +68,7 @@ export type MetricFormProps = {
   cta?: string;
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
-  allowFactMetrics?: boolean;
+  switchToFact?: () => void;
 };
 
 export function usesValueColumn(sql: string) {
@@ -205,7 +206,7 @@ const MetricForm: FC<MetricFormProps> = ({
   cta = "Save",
   onSuccess,
   secondaryCTA,
-  allowFactMetrics,
+  switchToFact,
 }) => {
   const {
     datasources,
@@ -223,8 +224,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
-
-  const [factMetric, setFactMetric] = useState(false);
 
   const currentDatasource = current?.datasource
     ? getDatasourceById(current?.datasource)
@@ -601,19 +600,6 @@ const MetricForm: FC<MetricFormProps> = ({
     form.watch("projects") || []
   );
 
-  // If creating a Fact Metric instead
-  if (allowFactMetrics && factMetric) {
-    return (
-      <FactMetricModal
-        close={onClose}
-        goBack={() => {
-          setFactMetric(false);
-        }}
-        source={source}
-      />
-    );
-  }
-
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -669,20 +655,26 @@ const MetricForm: FC<MetricFormProps> = ({
             <div className="alert alert-warning">
               You are creating a metric under the demo datasource project.
             </div>
-          ) : allowFactMetrics && factTables.length > 0 ? (
-            <div className="alert border badge-purple text-center">
-              Want to use Fact Tables to create your metric instead?{" "}
+          ) : switchToFact && factTables.length > 0 ? (
+            <Callout status="info" mb="3">
+              You are creating a legacy SQL metric.{" "}
               <a
                 href="#"
-                className="ml-2 btn btn-primary btn-sm"
                 onClick={(e) => {
                   e.preventDefault();
-                  setFactMetric(true);
+                  switchToFact();
                 }}
               >
-                Use Fact Tables <FaArrowRight />
+                Switch to use Fact Tables <FaArrowRight />
               </a>
-            </div>
+            </Callout>
+          ) : switchToFact ? (
+            <Callout status="info" mb="3">
+              Use Fact Tables to save time and improve query performance.{" "}
+              <Link href="/fact-tables">
+                Learn More <FaArrowRight />
+              </Link>
+            </Callout>
           ) : null}
           <div className="form-group">
             <label>Metric Name</label>

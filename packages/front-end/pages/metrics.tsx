@@ -31,6 +31,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
+import NewMetricModal from "@/components/FactTables/NewMetricModal";
 
 export interface MetricTableItem {
   id: string;
@@ -311,14 +312,16 @@ const MetricsPage = (): React.ReactElement => {
   if (!filteredMetrics.length) {
     return (
       <div className="container p-4">
-        {modalData && (
+        {modalData && (modalData.duplicate || modalData.edit) && (
           <MetricForm
             {...modalData}
             onClose={closeModal}
             onSuccess={onSuccess}
             source="blank-state"
-            allowFactMetrics={!modalData.duplicate && !modalData.edit}
           />
+        )}
+        {modalData && !modalData.duplicate && !modalData.edit && (
+          <NewMetricModal close={closeModal} source="blank-state" />
         )}
         {showAutoGenerateMetricsModal && (
           <AutoGenerateMetricsModal
@@ -385,14 +388,16 @@ const MetricsPage = (): React.ReactElement => {
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
-      {modalData && (
+      {modalData && (modalData.duplicate || modalData.edit) && (
         <MetricForm
           {...modalData}
           onClose={closeModal}
           onSuccess={onSuccess}
-          source="metrics-list"
-          allowFactMetrics={!modalData.duplicate && !modalData.edit}
+          source="blank-state"
         />
+      )}
+      {modalData && !modalData.duplicate && !modalData.edit && (
+        <NewMetricModal close={closeModal} source="blank-state" />
       )}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal

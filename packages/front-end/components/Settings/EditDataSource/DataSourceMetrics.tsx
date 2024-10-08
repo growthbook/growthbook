@@ -16,6 +16,7 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useCombinedMetrics } from "@/pages/metrics";
+import NewMetricModal from "@/components/FactTables/NewMetricModal";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -70,7 +71,7 @@ export default function DataSourceMetrics({
           mutate={mutateDefinitions}
         />
       )}
-      {modalData ? (
+      {modalData && (modalData.duplicate || modalData.edit) ? (
         <MetricForm
           {...modalData}
           onClose={() => setModalData(null)}
@@ -78,6 +79,12 @@ export default function DataSourceMetrics({
             mutateDefinitions();
           }}
           source="datasource-detail"
+        />
+      ) : modalData ? (
+        <NewMetricModal
+          close={() => setModalData(null)}
+          source="datasource-detail"
+          datasource={dataSource.id}
         />
       ) : null}
       <div className="d-flex flex-row align-items-center justify-content-between">
