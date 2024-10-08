@@ -4,7 +4,11 @@ import "@radix-ui/themes/styles.css";
 import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import {
+  Context,
+  GrowthBook,
+  GrowthBookProvider,
+} from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -37,7 +41,7 @@ type ModAppProps = AppProps & {
   };
 };
 
-export const growthbook = new GrowthBook<AppFeatures>({
+const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",
   clientKey:
     process.env.NODE_ENV === "production"
@@ -45,14 +49,14 @@ export const growthbook = new GrowthBook<AppFeatures>({
       : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
   subscribeToChanges: true,
-  realtimeKey: isTelemetryEnabled() ? "key_prod_cb40dfcb0eb98e44" : "",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.variationId,
     });
   },
-});
+};
+export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
 function App({
   Component,
@@ -82,6 +86,9 @@ function App({
 
   useEffect(() => {
     if (!ready) return;
+    if (isTelemetryEnabled()) {
+      gbContext.realtimeKey = "key_prod_cb40dfcb0eb98e44";
+    }
     track("App Load");
   }, [ready]);
 
@@ -90,10 +97,15 @@ function App({
     growthbook.loadFeatures().catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    growthbook.setURL(window.location.href);
     track("page-load", {
       pathName: router.pathname,
     });
-  }, [router.pathname]);
+  }, [ready, router.pathname]);
 
   const renderPreAuth = () => {
     if (preAuthTopNav) {
