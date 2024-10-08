@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/react";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
-  telemetry: "enable",
+  telemetry: "disable",
   cloud: false,
   isMultiOrg: false,
   allowSelfOrgCreation: false,

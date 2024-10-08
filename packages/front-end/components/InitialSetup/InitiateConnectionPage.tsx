@@ -1,7 +1,7 @@
-import { RadioGroup } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import { SdkFormValues } from "@/pages/setup";
+import RadioGroup from "@/components/Radix/RadioGroup";
 
 interface Props {
   connection: string | null;
@@ -29,15 +29,16 @@ const InitiateConnectionPage = ({ connection, form }: Props) => {
         <h4>
           Which environment do you want to set up first for your app or website?
         </h4>
-        <RadioGroup.Root
+        <RadioGroup
           value={form.watch("environment")}
-          onValueChange={(val) => form.setValue("environment", val)}
+          setValue={(val) => form.setValue("environment", val)}
           disabled={!!connection}
-        >
-          <RadioGroup.Item value="dev">Dev</RadioGroup.Item>
-          <RadioGroup.Item value="staging">Staging</RadioGroup.Item>
-          <RadioGroup.Item value="production">Production</RadioGroup.Item>
-        </RadioGroup.Root>
+          options={[
+            { value: "dev", label: "Dev" },
+            { value: "staging", label: "Staging" },
+            { value: "production", label: "Production" },
+          ]}
+        />
       </div>
     </div>
   );

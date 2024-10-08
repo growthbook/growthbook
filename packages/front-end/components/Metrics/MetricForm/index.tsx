@@ -22,7 +22,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { getMetricFormatter } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
-import RadioSelector from "@/components/Forms/RadioSelector";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -48,6 +47,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadioGroup from "@/components/Radix/RadioGroup";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -275,28 +275,25 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const metricTypeOptions = [
     {
-      key: "binomial",
-      display: "Binomial",
-      description: "Percent of users who do something",
-      sub: "click, view, download, bounce, etc.",
+      value: "binomial",
+      label: "Binomial",
+      description: "Percent of users who do something (click, view, etc.)",
     },
     {
-      key: "count",
-      display: "Count",
-      description: "Number of actions per user",
-      sub: "clicks, views, downloads, etc.",
+      value: "count",
+      label: "Count",
+      description: "Number of actions per user (clicks, views, etc.)",
     },
     {
-      key: "duration",
-      display: "Duration",
-      description: "How long something takes",
-      sub: "time on site, loading speed, etc.",
+      value: "duration",
+      label: "Duration",
+      description:
+        "How long something takes (time on site, loading speed, etc.)",
     },
     {
-      key: "revenue",
-      display: "Revenue",
-      description: `How much money a user pays (in ${displayCurrency})`,
-      sub: "revenue per visitor, average order value, etc.",
+      value: "revenue",
+      label: "Revenue",
+      description: `How much money a user pays in ${displayCurrency} (revenue per visitor, average order value, etc.)`,
     },
   ];
 
@@ -772,10 +769,9 @@ const MetricForm: FC<MetricFormProps> = ({
               source === "datasource-detail"
             }
           />
-          <div className="form-group">
+          <div>
             <label>Metric Type</label>
-            <RadioSelector
-              name="type"
+            <RadioGroup
               value={value.type}
               setValue={(val: MetricType) => {
                 form.setValue("type", val);
