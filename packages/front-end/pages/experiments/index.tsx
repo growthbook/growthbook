@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FaCaretDown } from "react-icons/fa";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -302,8 +303,9 @@ const ExperimentsPage = (): React.ReactElement => {
     <Dropdown
       uuid="add-experiment"
       className="py-0"
+      caret={false}
       toggle={
-        <Button>
+        <Button icon={<FaCaretDown />} iconPosition="right">
           Add Experiment
         </Button>
       }
