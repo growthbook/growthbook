@@ -1,7 +1,7 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { ReactElement } from "react";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
-import {ReactElement} from "react";
 
 export type RadioOptions = {
   value: string;
@@ -64,7 +64,9 @@ export default function RadioGroup({
                   >
                     <Text color={disabled ? "gray" : undefined}>
                       <Flex direction="column" gap="1">
-                        <Text weight="bold" className="main-text">{label || value}</Text>
+                        <Text weight="bold" className="main-text">
+                          {label || value}
+                        </Text>
                         {description && (
                           <Text weight="regular">{description}</Text>
                         )}
