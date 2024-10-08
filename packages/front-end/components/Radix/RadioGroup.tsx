@@ -62,7 +62,7 @@ export default function RadioGroup({
                     disabled={disabled}
                     className={disabled ? "disabled" : undefined}
                   >
-                    <Text color={disabled ? "gray" : undefined}>
+                    <Text className={disabled ? "rt-TextDisabled" : undefined}>
                       <Flex direction="column" gap="1">
                         <Text weight="bold" className="main-text">
                           {label || value}

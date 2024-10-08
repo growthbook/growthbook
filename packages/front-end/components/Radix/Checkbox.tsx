@@ -29,8 +29,10 @@ export default function Checkbox({
     <Text
       as="label"
       size="2"
-      color={disabled ? "gray" : undefined}
-      className={clsx("rt-CheckboxItem", { disabled })}
+      className={clsx("rt-CheckboxItem", {
+        "rt-TextDisabled": disabled,
+        disabled: disabled,
+      })}
       {...containerProps}
     >
       <Flex gap="2">
