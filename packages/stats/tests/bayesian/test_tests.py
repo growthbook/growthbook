@@ -12,11 +12,7 @@ from gbstats.bayesian.tests import (
     GaussianPrior,
     EffectBayesianConfig,
 )
-from gbstats.bayesian.bandits_previous import (
-    BanditsSampleMeanPrevious,
-    BanditsCupedPrevious,
-    BanditsRatioPrevious,
-)
+
 from gbstats.models.statistics import (
     ProportionStatistic,
     SampleMeanStatistic,
