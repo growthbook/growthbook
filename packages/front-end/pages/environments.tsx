@@ -5,18 +5,18 @@ import { BsXCircle } from "react-icons/bs";
 import { BiHide, BiShow } from "react-icons/bi";
 import { ImBlocked } from "react-icons/im";
 import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
+import OldButton from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -70,15 +70,7 @@ const EnvironmentsPage: FC = () => {
         </div>
         {canCreate && (
           <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen({});
-              }}
-            >
-              <GBAddCircle /> Add Environment
-            </button>
+            <Button onClick={() => setModalOpen({})}>Add Environment</Button>
           </div>
         )}
       </div>
@@ -215,7 +207,7 @@ const EnvironmentsPage: FC = () => {
                       {canEdit ? (
                         <>
                           {i > 0 && (
-                            <Button
+                            <OldButton
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
@@ -232,10 +224,10 @@ const EnvironmentsPage: FC = () => {
                               }}
                             >
                               Move up
-                            </Button>
+                            </OldButton>
                           )}
                           {i < environments.length - 1 && (
-                            <Button
+                            <OldButton
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
@@ -252,7 +244,7 @@ const EnvironmentsPage: FC = () => {
                               }}
                             >
                               Move down
-                            </Button>
+                            </OldButton>
                           )}
                         </>
                       ) : null}

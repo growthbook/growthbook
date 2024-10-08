@@ -46,7 +46,7 @@ const DataSourcesPage: FC = () => {
           </Button>
         )}
       </div>
-      <p>
+      <p className="mb-0">
         GrowthBook connects to your your raw data to analyze experiments and
         show you results.{" "}
         <DocLink

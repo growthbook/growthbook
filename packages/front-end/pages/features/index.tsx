@@ -46,6 +46,7 @@ import Tabs from "@/components/Tabs/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -631,21 +632,16 @@ export default function FeaturesPage() {
           permissionsUtil.canViewFeatureModal(project) &&
           canCreateFeatures && (
             <div className="col-auto">
-              <button
-                className="btn btn-primary float-right"
+              <Button
                 onClick={() => {
                   setModalOpen(true);
                   track("Viewed Feature Modal", {
                     source: "feature-list",
                   });
                 }}
-                type="button"
               >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
                 Add Feature
-              </button>
+              </Button>
             </div>
           )}
       </div>
