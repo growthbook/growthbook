@@ -638,10 +638,12 @@ export function determineNextBanditSchedule(
 
 export function resetExperimentBanditSettings({
   experiment,
+  metricMap,
   changes,
   settings,
 }: {
   experiment: ExperimentInterface;
+  metricMap?: Map<string, ExperimentMetricInterface>;
   changes?: Changeset;
   settings: ScopedSettings;
 }): Changeset {
@@ -650,10 +652,24 @@ export function resetExperimentBanditSettings({
   const phase = changes.phases.length - 1;
 
   // 1 goal metric
-  // todo: force datasource (no manual)
-  // todo: force non-quantile
-  const goalMetric = changes.goalMetrics?.[0] || experiment.goalMetrics?.[0];
+  let goalMetric: string | undefined =
+    changes.goalMetrics?.[0] || experiment.goalMetrics?.[0];
   changes.goalMetrics = goalMetric ? [goalMetric] : [];
+
+  // No empty datasource allowed. If empty, remove the metric to block starting.
+  const dataSource = changes.datasource || experiment.datasource;
+  if (!dataSource) {
+    goalMetric = undefined;
+    changes.goalMetrics = [];
+  }
+
+  // No quantile metrics allowed (only need to check for endpoints that change metrics)
+  if (goalMetric && metricMap) {
+    const metric = metricMap.get(goalMetric);
+    if (metric && metric?.cappingSettings?.type === "percentile") {
+      changes.goalMetrics = [];
+    }
+  }
 
   // Scrub invalid settings:
   // stats engine

@@ -795,10 +795,11 @@ export async function postExperiment(
   const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
     (m) => !oldMetricIds.includes(m)
   );
+  const metricMap = await getMetricMap(context);
+
   if (newMetricIds.length) {
-    const map = await getMetricMap(context);
     for (let i = 0; i < newMetricIds.length; i++) {
-      const metric = map.get(newMetricIds[i]);
+      const metric = metricMap.get(newMetricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
         if (datasourceId && metric.datasource !== datasourceId) {
@@ -929,6 +930,7 @@ export async function postExperiment(
   ) {
     changes = resetExperimentBanditSettings({
       experiment,
+      metricMap,
       changes,
       settings,
     });
