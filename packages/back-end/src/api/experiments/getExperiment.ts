@@ -1,8 +1,8 @@
-import { GetExperimentResponse } from "../../../types/openapi";
-import { getExperimentById } from "../../models/ExperimentModel";
-import { toExperimentApiInterface } from "../../services/experiments";
-import { createApiRequestHandler } from "../../util/handler";
-import { getExperimentValidator } from "../../validators/openapi";
+import { GetExperimentResponse } from "back-end/types/openapi";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExperimentValidator } from "back-end/src/validators/openapi";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
   async (req): Promise<GetExperimentResponse> => {

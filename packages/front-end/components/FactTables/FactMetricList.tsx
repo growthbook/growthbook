@@ -17,6 +17,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Toggle from "@/components/Forms/Toggle";
+import RecommendedFactMetricsModal, {
+  getRecommendedFactMetrics,
+} from "@/components/FactTables/RecommendedFactMetricsModal";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -76,6 +79,12 @@ export default function FactMetricList({ factTable }: Props) {
     projects: factTable.projects,
   });
 
+  const recommendedMetrics = getRecommendedFactMetrics(factTable, metrics);
+  const [
+    showRecommendedMetricsModal,
+    setShowRecommendedMetricsModal,
+  ] = useState(false);
+
   return (
     <>
       {editMetric && (
@@ -99,6 +108,31 @@ export default function FactMetricList({ factTable }: Props) {
           duplicate
           source="fact-table-duplicate"
         />
+      )}
+      {showRecommendedMetricsModal && (
+        <RecommendedFactMetricsModal
+          factTable={factTable}
+          metrics={recommendedMetrics}
+          close={() => setShowRecommendedMetricsModal(false)}
+        />
+      )}
+
+      {recommendedMetrics.length > 0 && canCreateMetrics && (
+        <div className="alert alert-info mt-3">
+          There {recommendedMetrics.length === 1 ? "is" : "are"}{" "}
+          <strong>{recommendedMetrics.length}</strong> metric
+          {recommendedMetrics.length === 1 ? "" : "s"} we recommend creating for
+          this fact table.{" "}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowRecommendedMetricsModal(true);
+            }}
+          >
+            View Recommendation{recommendedMetrics.length === 1 ? "" : "s"}
+          </a>
+        </div>
       )}
 
       <div className="row align-items-center">

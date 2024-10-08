@@ -1,7 +1,7 @@
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { z } from "zod";
-import { ApiProject } from "../../types/openapi";
-import { statsEngines } from "../util/constants";
+import { ApiProject } from "back-end/types/openapi";
+import { statsEngines } from "back-end/src/util/constants";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 
 export const statsEnginesValidator = z.enum(statsEngines);

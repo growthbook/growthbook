@@ -9,7 +9,10 @@ import {
 } from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { quantileMetricType } from "shared/experiments";
+import {
+  getColumnRefWhereClause,
+  quantileMetricType,
+} from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -150,13 +153,9 @@ function ColumnRefSQL({
 
   const name = colData?.name;
 
-  const where: string[] = [];
-  columnRef.filters.forEach((filterId) => {
-    const filter = factTable.filters.find((f) => f.id === filterId);
-    if (!filter) return;
-
-    where.push(`\`${filter.name}\``);
-  });
+  const where = getColumnRefWhereClause(factTable, columnRef, (s) =>
+    s.replace(/'/g, "''")
+  );
 
   const column =
     id === "$$count"
@@ -777,12 +776,12 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-      <div className="row align-items-center ml-1">
+      <div className="row align-items-center">
         <ControlledTabs
           orientation="horizontal"
           className="col"
           buttonsClassName="mb-0"
-          buttonsWrapperClassName="ml-2 border-bottom-0 mb-n2 p-1 large"
+          buttonsWrapperClassName="border-bottom-0 large shiftdown-1"
           defaultTab="analysis"
           newStyle={false}
           showActiveCount={false}
@@ -802,7 +801,11 @@ export default function FactMetricPage() {
             lazy={true}
           >
             {datasource ? (
-              <MetricAnalysis factMetric={factMetric} datasource={datasource} />
+              <MetricAnalysis
+                factMetric={factMetric}
+                datasource={datasource}
+                className="tabbed-content"
+              />
             ) : null}
           </Tab>
           <Tab

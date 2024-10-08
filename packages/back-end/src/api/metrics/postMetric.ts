@@ -1,13 +1,13 @@
-import { PostMetricResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { postMetricValidator } from "../../validators/openapi";
+import { PostMetricResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postMetricValidator } from "back-end/src/validators/openapi";
 import {
   createMetric,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   toMetricApiInterface,
-} from "../../services/experiments";
-import { getDataSourceById } from "../../models/DataSourceModel";
+} from "back-end/src/services/experiments";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const postMetric = createApiRequestHandler(postMetricValidator)(
   async (req): Promise<PostMetricResponse> => {

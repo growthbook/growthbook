@@ -1,7 +1,7 @@
 import Agenda from "agenda";
-import { trackJob } from "../services/otel";
-import { getAgendaInstance } from "../services/queueing";
-import { logger } from "../util/logger";
+import { trackJob } from "back-end/src/services/otel";
+import { getAgendaInstance } from "back-end/src/services/queueing";
+import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";
 
 // Delete old agenda jobs that finished over one week ago and are not going to be repeated

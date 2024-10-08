@@ -31,6 +31,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -372,19 +373,21 @@ export default function TabbedPage({
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
-              <button
-                className="btn btn-lg btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTabAndScroll("results");
-                }}
+              <Button
+                onClick={() => setTabAndScroll("results")}
+                size="lg"
+                icon={<FaChartBar />}
               >
-                <FaChartBar /> View Results
-              </button>
+                View Results
+              </Button>
             </div>
           )}
         </div>
-        <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
+        <div
+          className={
+            tab === "results" ? "d-block pt-3" : "d-none d-print-block"
+          }
+        >
           {/* TODO: Update ResultsTab props to include redirest and pipe through to StartExperimentBanner */}
           <ResultsTab
             experiment={experiment}

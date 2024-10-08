@@ -1,21 +1,21 @@
 import { KnownBlock } from "@slack/web-api";
 import formatNumber from "number-format.js";
-import { logger } from "../../../util/logger";
-import { cancellableFetch } from "../../../util/http.util";
+import { logger } from "back-end/src/util/logger";
+import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "../../notification-events";
-import { EventInterface } from "../../../../types/event";
-import { getEvent } from "../../../models/EventModel";
-import { SlackIntegrationInterface } from "../../../../types/slack-integration";
-import { APP_ORIGIN } from "../../../util/secrets";
+} from "back-end/src/events/notification-events";
+import { EventInterface } from "back-end/types/event";
+import { getEvent } from "back-end/src/models/EventModel";
+import { SlackIntegrationInterface } from "back-end/types/slack-integration";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
-} from "../utils";
-import { ExperimentWarningNotificationPayload } from "../../../validators/experiment-warnings";
-import { ExperimentInfoSignificancePayload } from "../../../validators/experiment-info";
+} from "back-end/src/events/handlers/utils";
+import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
+import { ExperimentInfoSignificancePayload } from "back-end/src/validators/experiment-info";
 
 // region Filtering
 

@@ -1,12 +1,12 @@
-import { PutSdkConnectionResponse } from "../../../types/openapi";
+import { PutSdkConnectionResponse } from "back-end/types/openapi";
 import {
   findSDKConnectionById,
   toApiSDKConnectionInterface,
   editSDKConnection,
-} from "../../models/SdkConnectionModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { putSdkConnectionValidator } from "../../validators/openapi";
-import { auditDetailsUpdate } from "../../services/audit";
+} from "back-end/src/models/SdkConnectionModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { putSdkConnectionValidator } from "back-end/src/validators/openapi";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(

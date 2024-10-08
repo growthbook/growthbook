@@ -1,8 +1,8 @@
 import request from "supertest";
-import { updateOrganization } from "../../src/models/OrganizationModel";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { setupApp } from "./api.setup";
 
-jest.mock("../../src/models/OrganizationModel", () => ({
+jest.mock("back-end/src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
 }));
 

@@ -1,9 +1,9 @@
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
-import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
-import { getFactTableMap } from "../models/FactTableModel";
-import { Context } from "../models/BaseModel";
-import { SegmentInterface } from "../../types/segment";
+import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { Context } from "back-end/src/models/BaseModel";
+import { SegmentInterface } from "back-end/types/segment";
 import { getIntegrationFromDatasourceId } from "./datasource";
 
 export async function createMetricAnalysis(

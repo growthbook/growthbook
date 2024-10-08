@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   zodNotificationEventNamesEnum,
   zodNotificationEventResources,
-} from "../events/base-types";
+} from "back-end/src/events/base-types";
 
 const eventUserLoggedIn = z
   .object({

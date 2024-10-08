@@ -6,7 +6,7 @@ import {
   replaceCountStar,
   determineColumnTypes,
   getHost,
-} from "../../src/util/sql";
+} from "back-end/src/util/sql";
 
 describe("backend", () => {
   describe("compileSqlTemplate", () => {
