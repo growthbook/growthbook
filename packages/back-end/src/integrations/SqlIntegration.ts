@@ -3388,7 +3388,7 @@ export default abstract class SqlIntegration
           , ${this.ifElse(
             `(SUM(bps.users) - 1) <= 0`,
             "0",
-            `
+            `(
               SUM(bps.${alias}covariate_sum_squares) - 
               POWER(SUM(bps.${alias}covariate_sum), 2) / SUM(bps.users)
             ) / (SUM(bps.users) - 1)`
@@ -3430,7 +3430,7 @@ export default abstract class SqlIntegration
           ? `
 
           , ${this.ifElse(
-            `${alias}period_pre_variance <= 0`,
+            `SUM(POWER(weight, 2) * ${alias}period_pre_variance) <= 0`,
             "0",
             `SUM(POWER(weight, 2) * ${alias}period_covariance) / 
           SUM(POWER(weight, 2) * ${alias}period_pre_variance)`
