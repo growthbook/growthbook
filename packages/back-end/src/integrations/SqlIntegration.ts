@@ -3385,14 +3385,22 @@ export default abstract class SqlIntegration
       ${
         data.regressionAdjusted
           ? `
-          , (
+          , ${this.ifElse(
+            `(SUM(bps.users) - 1) <= 0`,
+            "0",
+            `
               SUM(bps.${alias}covariate_sum_squares) - 
               POWER(SUM(bps.${alias}covariate_sum), 2) / SUM(bps.users)
-            ) / (SUM(bps.users) - 1) AS ${alias}period_pre_variance
-          , (
+            ) / (SUM(bps.users) - 1)`
+          )} AS ${alias}period_pre_variance
+          , ${this.ifElse(
+            `(SUM(bps.users) - 1) <= 0`,
+            "0",
+            `(
               SUM(bps.${alias}main_covariate_sum_product) - 
               SUM(bps.${alias}covariate_sum) * SUM(bps.${alias}main_sum) / SUM(bps.users)
-            ) / (SUM(bps.users) - 1) AS ${alias}period_covariance
+            ) / (SUM(bps.users) - 1)`
+          )} AS ${alias}period_covariance
         `
           : ""
       }`;
@@ -3421,8 +3429,12 @@ export default abstract class SqlIntegration
         data.regressionAdjusted
           ? `
 
-          , SUM(POWER(weight, 2) * ${alias}period_covariance) / 
-          SUM(POWER(weight, 2) * ${alias}period_pre_variance) AS ${alias}theta
+          , ${this.ifElse(
+            `${alias}period_pre_variance <= 0`,
+            "0",
+            `SUM(POWER(weight, 2) * ${alias}period_covariance) / 
+          SUM(POWER(weight, 2) * ${alias}period_pre_variance)`
+          )} AS ${alias}theta
         `
           : ""
       }`;
