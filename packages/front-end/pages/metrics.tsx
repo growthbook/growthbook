@@ -47,7 +47,7 @@ export interface MetricTableItem {
   archived: boolean;
   canEdit: boolean;
   canDuplicate: boolean;
-  onArchive: (desiredState: boolean) => Promise<void>;
+  onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
 }
@@ -77,6 +77,9 @@ export function useCombinedMetrics({
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
+      const canDuplicate = permissionsUtil.canCreateMetric(m);
+      const canEdit = permissionsUtil.canUpdateMetric(m, {});
+
       const item: MetricTableItem = {
         id: m.id,
         managedBy: m.managedBy || "",
@@ -90,29 +93,37 @@ export function useCombinedMetrics({
         tags: m.tags || [],
         type: m.type,
         isRatio: !!m.denominator,
-        canDuplicate: permissionsUtil.canCreateMetric(m),
-        canEdit: permissionsUtil.canUpdateMetric(m, {}),
-        onArchive: async (desiredState) => {
-          const newStatus = desiredState ? "archived" : "active";
-          await apiCall(`/metric/${m.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              status: newStatus,
-            }),
-          });
+        canDuplicate,
+        canEdit,
+        onArchive: canEdit
+          ? async (desiredState) => {
+              const newStatus = desiredState ? "archived" : "active";
+              await apiCall(`/metric/${m.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  status: newStatus,
+                }),
+              });
 
-          mutateDefinitions();
+              mutateDefinitions();
 
-          if (afterArchive) {
-            afterArchive(m.id, desiredState);
-          }
-        },
-        onDuplicate: duplicateMetric ? () => duplicateMetric(m) : undefined,
-        onEdit: editMetric ? () => editMetric(m) : undefined,
+              if (afterArchive) {
+                afterArchive(m.id, desiredState);
+              }
+            }
+          : undefined,
+        onDuplicate:
+          canDuplicate && duplicateMetric
+            ? () => duplicateMetric(m)
+            : undefined,
+        onEdit: canEdit && editMetric ? () => editMetric(m) : undefined,
       };
       return item;
     }),
     ...factMetrics.map((m) => {
+      const canDuplicate = permissionsUtil.canCreateFactMetric(m);
+      const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
+
       const item: MetricTableItem = {
         id: m.id,
         managedBy: m.managedBy || "",
@@ -126,26 +137,29 @@ export function useCombinedMetrics({
         tags: m.tags || [],
         isRatio: m.metricType === "ratio",
         type: m.metricType,
-        canDuplicate: permissionsUtil.canCreateFactMetric(m),
-        canEdit: permissionsUtil.canUpdateFactMetric(m, {}),
-        onArchive: async (archivedState) => {
-          await apiCall(`/fact-metrics/${m.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              archived: archivedState,
-            }),
-          });
+        canDuplicate,
+        canEdit,
+        onArchive: canEdit
+          ? async (archivedState) => {
+              await apiCall(`/fact-metrics/${m.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  archived: archivedState,
+                }),
+              });
 
-          mutateDefinitions();
+              mutateDefinitions();
 
-          if (afterArchive) {
-            afterArchive(m.id, archivedState);
-          }
-        },
-        onDuplicate: duplicateFactMetric
-          ? () => duplicateFactMetric(m)
+              if (afterArchive) {
+                afterArchive(m.id, archivedState);
+              }
+            }
           : undefined,
-        onEdit: editFactMetric ? () => editFactMetric(m) : undefined,
+        onDuplicate:
+          canDuplicate && duplicateFactMetric
+            ? () => duplicateFactMetric(m)
+            : undefined,
+        onEdit: canEdit && editFactMetric ? () => editFactMetric(m) : undefined,
       };
       return item;
     }),
@@ -484,11 +498,7 @@ const MetricsPage = (): React.ReactElement => {
           {items.map((metric) => {
             const moreMenuLinks: ReactElement[] = [];
 
-            if (
-              metric.onDuplicate &&
-              metric.canDuplicate &&
-              envAllowsCreatingMetrics()
-            ) {
+            if (metric.onDuplicate && envAllowsCreatingMetrics()) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -503,13 +513,13 @@ const MetricsPage = (): React.ReactElement => {
               );
             }
 
-            if (!metric.managedBy && metric.canEdit) {
+            if (!metric.managedBy && metric.onArchive) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
                   onClick={async (e) => {
                     e.preventDefault();
-                    await metric.onArchive(!metric.archived);
+                    await metric.onArchive?.(!metric.archived);
                   }}
                 >
                   <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}

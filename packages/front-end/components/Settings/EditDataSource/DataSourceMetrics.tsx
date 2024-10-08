@@ -233,7 +233,7 @@ export default function DataSourceMetrics({
                           ) : null}
                         </div>
                         <MoreMenu className="px-2">
-                          {metric.canDuplicate && metric.onDuplicate ? (
+                          {metric.onDuplicate ? (
                             <button
                               className="btn dropdown-item py-2"
                               onClick={(e) => {
@@ -245,7 +245,7 @@ export default function DataSourceMetrics({
                               <FaRegCopy /> Duplicate
                             </button>
                           ) : null}
-                          {!metric.managedBy && metric.canEdit ? (
+                          {!metric.managedBy && metric.onArchive ? (
                             <button
                               className="btn dropdown-item py-2"
                               color=""
