@@ -35,7 +35,7 @@ export default function RadioGroup({
   return (
     <Flex {...containerProps}>
       <Flex direction={"column"}>
-        <Text as="label" size="2" color={disabled ? "gray" : undefined}>
+        <Text size="2" color={disabled ? "gray" : undefined}>
           <RadixRadioGroup.Root
             value={value}
             onValueChange={(val) => setValue(val)}
