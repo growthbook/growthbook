@@ -11,6 +11,7 @@ import {
   getAffectedEnvsForExperiment,
   includeExperimentInPayload,
 } from "shared/util";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -30,8 +31,11 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { AppFeatures } from "@/types/app-features";
 
 const ExperimentPage = (): ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;
@@ -237,7 +241,9 @@ const ExperimentPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Standard Experiments",
+            display: growthbook.isOn("bandits")
+              ? "Standard Experiments"
+              : "Experiments",
             href: `/experiments`,
           },
           { display: experiment.name },

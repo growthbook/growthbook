@@ -17,6 +17,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { FaRegCircleCheck } from "react-icons/fa6";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -55,6 +56,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { GBCuped } from "@/components/Icons";
+import { AppFeatures } from "@/types/app-features";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -139,6 +141,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   inline,
   isNewExperiment,
 }) => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const { organization, hasCommercialFeature } = useUser();
 
   const router = useRouter();
@@ -431,76 +435,81 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
           )}
 
-          <div className="bg-highlight rounded py-4 px-4 mb-4">
-            <ButtonSelectField
-              buttonType="card"
-              value={form.watch("type") || ""}
-              setValue={(v) => form.setValue("type", v as ExperimentType)}
-              options={[
-                {
-                  label: (
-                    <div
-                      className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                      style={{ minHeight: 120 }}
-                    >
-                      <div className="h4">
-                        {form.watch("type") === "standard" && (
-                          <FaRegCircleCheck
-                            size={18}
-                            className="check text-success mr-2"
-                          />
-                        )}
-                        Standard Experiment
-                      </div>
-                      <div className="small">
-                        Variation weights are constant throughout the experiment
-                      </div>
-                    </div>
-                  ),
-                  value: "standard",
-                },
-                {
-                  label: (
-                    <div
-                      className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                      style={{ minHeight: 120 }}
-                    >
-                      <div className="h4">
-                        <PremiumTooltip
-                          commercialFeature="multi-armed-bandits"
-                          body={
-                            !usingStickyBucketing && hasStickyBucketFeature ? (
-                              <div>
-                                Enable Sticky Bucketing in your organization
-                                settings to run a Multi-Armed Bandit experiment.
-                              </div>
-                            ) : null
-                          }
-                          usePortal={true}
-                        >
-                          {form.watch("type") === "multi-armed-bandit" && (
+          {growthbook.isOn("bandits") && (
+            <div className="bg-highlight rounded py-4 px-4 mb-4">
+              <ButtonSelectField
+                buttonType="card"
+                value={form.watch("type") || ""}
+                setValue={(v) => form.setValue("type", v as ExperimentType)}
+                options={[
+                  {
+                    label: (
+                      <div
+                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                        style={{ minHeight: 120 }}
+                      >
+                        <div className="h4">
+                          {form.watch("type") === "standard" && (
                             <FaRegCircleCheck
                               size={18}
                               className="check text-success mr-2"
                             />
                           )}
-                          Bandit Experiment
-                        </PremiumTooltip>
+                          Standard Experiment
+                        </div>
+                        <div className="small">
+                          Variation weights are constant throughout the
+                          experiment
+                        </div>
                       </div>
+                    ),
+                    value: "standard",
+                  },
+                  {
+                    label: (
+                      <div
+                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                        style={{ minHeight: 120 }}
+                      >
+                        <div className="h4">
+                          <PremiumTooltip
+                            commercialFeature="multi-armed-bandits"
+                            body={
+                              !usingStickyBucketing &&
+                              hasStickyBucketFeature ? (
+                                <div>
+                                  Enable Sticky Bucketing in your organization
+                                  settings to run a Multi-Armed Bandit
+                                  experiment.
+                                </div>
+                              ) : null
+                            }
+                            usePortal={true}
+                          >
+                            {form.watch("type") === "multi-armed-bandit" && (
+                              <FaRegCircleCheck
+                                size={18}
+                                className="check text-success mr-2"
+                              />
+                            )}
+                            Bandit Experiment
+                          </PremiumTooltip>
+                        </div>
 
-                      <div className="small">
-                        Variations with better results receive more traffic
-                        during the experiment
+                        <div className="small">
+                          Variations with better results receive more traffic
+                          during the experiment
+                        </div>
                       </div>
-                    </div>
-                  ),
-                  value: "multi-armed-bandit",
-                  disabled:
-                    !hasMultiArmedBanditFeature || !usingStickyBucketing,
-                },
-              ]}
-            />
-          </div>
+                    ),
+                    value: "multi-armed-bandit",
+                    disabled:
+                      !hasMultiArmedBanditFeature || !usingStickyBucketing,
+                  },
+                ]}
+              />
+            </div>
+          )}
 
           <Field
             label="Experiment Name"

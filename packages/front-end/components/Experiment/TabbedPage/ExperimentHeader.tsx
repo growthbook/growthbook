@@ -17,6 +17,7 @@ import clsx from "clsx";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -38,6 +39,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
+import { AppFeatures } from "@/types/app-features";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
@@ -105,6 +107,8 @@ export default function ExperimentHeader({
   healthNotificationCount,
   verifiedConnections,
 }: Props) {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -384,7 +388,7 @@ export default function ExperimentHeader({
                     Edit phases
                   </button>
                 )}
-                {canRunExperiment && (
+                {canRunExperiment && growthbook.isOn("bandits") && (
                   <ConvertBanditExperiment
                     experiment={experiment}
                     mutate={mutate}
