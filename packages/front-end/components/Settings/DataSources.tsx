@@ -63,7 +63,7 @@ const DataSources: FC = () => {
       {!hasFileConfig() &&
         !setupEventTracker &&
         permissionsUtil.canViewCreateDataSourceModal(project) && (
-          <div className="float-right">
+          <div className="float-right mb-3">
             <Button
               disabled={currentProjectIsDemo}
               title={buttonTitle}
