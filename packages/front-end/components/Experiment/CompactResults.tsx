@@ -304,7 +304,7 @@ const CompactResults: FC<{
           labelHeader={
             experimentType !== "multi-armed-bandit"
               ? "Goal Metrics"
-              : "Goal Metric"
+              : "Decision Metric"
           }
           editMetrics={
             experimentType !== "multi-armed-bandit" ? editMetrics : undefined
