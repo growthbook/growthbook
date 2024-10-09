@@ -509,13 +509,15 @@ def process_analysis(
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
-    drop_other = (metric.statistic_type not in ["quantile_event", "quantile_unit"]) or (
-        metric.keep_theta and metric.statistic_type == "mean_ra"
-    )
+    keep_other = True
+    if metric.statistic_type in ["quantile_event", "quantile_unit"]:
+        keep_other = False
+    if metric.keep_theta and metric.statistic_type == "mean_ra":
+        keep_other = False
     reduced = reduce_dimensionality(
         df=df,
         max=max_dimensions,
-        keep_other=not drop_other,
+        keep_other=keep_other,
     )
 
     # Run the analysis for each variation and dimension

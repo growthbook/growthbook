@@ -125,7 +125,7 @@ class RegressionAdjustedStatistic(Statistic):
 
     @property
     def mean(self) -> float:
-        theta = 0 if self.theta is None else self.theta
+        theta = self.theta if self.theta else 0
         return self.post_statistic.mean - theta * self.pre_statistic.mean
 
     @property
@@ -146,7 +146,7 @@ class RegressionAdjustedStatistic(Statistic):
     def variance(self) -> float:
         if self.n <= 1:
             return 0
-        theta = 0 if self.theta is None else self.theta
+        theta = self.theta if self.theta else 0
         return (
             self.post_statistic.variance
             + pow(theta, 2) * self.pre_statistic.variance

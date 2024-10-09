@@ -425,7 +425,7 @@ class BanditsCuped(Bandits):
 
     @property
     def theta(self) -> float:
-        return 0 if self.stats[0].theta is None else self.stats[0].theta
+        return self.stats[0].theta if self.stats[0].theta else 0
 
     # for cuped, when producing intervals for the leaderboard, add back in the pooled baseline mean
     @property
