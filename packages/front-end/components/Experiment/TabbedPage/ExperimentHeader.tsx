@@ -378,14 +378,15 @@ export default function ExperimentHeader({
                     Edit targeting & traffic
                   </button>
                 )}
-                {canRunExperiment && !isBandit && (
-                  <button
-                    className="dropdown-item"
-                    onClick={() => setStatusModal(true)}
-                  >
-                    Edit status
-                  </button>
-                )}
+                {canRunExperiment &&
+                  !(isBandit && experiment.status === "running") && (
+                    <button
+                      className="dropdown-item"
+                      onClick={() => setStatusModal(true)}
+                    >
+                      Edit status
+                    </button>
+                  )}
                 {editPhases && !isBandit && (
                   <button
                     className="dropdown-item"

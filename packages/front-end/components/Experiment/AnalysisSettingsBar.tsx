@@ -314,6 +314,7 @@ export default function AnalysisSettingsBar({
           {showMoreMenu && (
             <div className="col-auto">
               <ResultMoreMenu
+                experiment={experiment}
                 id={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {

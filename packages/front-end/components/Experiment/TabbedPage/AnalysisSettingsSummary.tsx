@@ -411,7 +411,10 @@ export default function AnalysisSettingsSummary({
                 display={null}
                 status={status}
                 icon={
-                  <span className="position-relative pr-2 mr-2">
+                  <span
+                    className="position-relative pr-2"
+                    style={{ marginRight: 6 }}
+                  >
                     <span className="text-main">
                       <FaDatabase />
                     </span>
@@ -431,6 +434,7 @@ export default function AnalysisSettingsSummary({
 
         <div className="col-auto px-0">
           <ResultMoreMenu
+            experiment={experiment}
             id={snapshot?.id || ""}
             datasource={datasource}
             forceRefresh={
