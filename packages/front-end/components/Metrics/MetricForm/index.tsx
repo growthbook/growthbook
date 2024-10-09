@@ -215,6 +215,7 @@ const MetricForm: FC<MetricFormProps> = ({
     projects,
     project,
     factTables,
+    mutateDefinitions,
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
@@ -534,6 +535,8 @@ const MetricForm: FC<MetricFormProps> = ({
         body,
       });
     }
+
+    mutateDefinitions();
 
     track("Submit Metric Form", {
       type: value.type,

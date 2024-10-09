@@ -75,9 +75,6 @@ export default function DataSourceMetrics({
         <MetricForm
           {...modalData}
           onClose={() => setModalData(null)}
-          onSuccess={() => {
-            mutateDefinitions();
-          }}
           source="datasource-detail"
         />
       ) : modalData ? (

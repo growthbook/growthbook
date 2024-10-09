@@ -305,9 +305,6 @@ const MetricsPage = (): React.ReactElement => {
   const closeModal = () => {
     setModalData(null);
   };
-  const onSuccess = () => {
-    mutateDefinitions();
-  };
 
   if (!filteredMetrics.length) {
     return (
@@ -316,7 +313,6 @@ const MetricsPage = (): React.ReactElement => {
           <MetricForm
             {...modalData}
             onClose={closeModal}
-            onSuccess={onSuccess}
             source="blank-state"
           />
         )}
@@ -389,12 +385,7 @@ const MetricsPage = (): React.ReactElement => {
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       {modalData && (modalData.duplicate || modalData.edit) && (
-        <MetricForm
-          {...modalData}
-          onClose={closeModal}
-          onSuccess={onSuccess}
-          source="blank-state"
-        />
+        <MetricForm {...modalData} onClose={closeModal} source="blank-state" />
       )}
       {modalData && !modalData.duplicate && !modalData.edit && (
         <NewMetricModal close={closeModal} source="blank-state" />
