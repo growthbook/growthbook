@@ -143,14 +143,14 @@ class TestSequentialTTest(TestCase):
             post_statistic=stat_a_post,
             pre_statistic=stat_a_pre,
             post_pre_sum_of_products=1,
-            theta=0,
+            theta=None,
         )
         stat_b_ra = RegressionAdjustedStatistic(
             n=3461,
             post_statistic=stat_b_post,
             pre_statistic=stat_b_pre,
             post_pre_sum_of_products=1,
-            theta=0,
+            theta=None,
         )
         result_dict = asdict(
             SequentialTwoSidedTTest(stat_a_ra, stat_b_ra).compute_result()

@@ -74,6 +74,7 @@ def weighted_mean(
     return mn
 
 
+# Remove when upgrading to Python 3.10
 def isinstance_union(obj, union):
     if hasattr(union, "__args__"):
         return any(isinstance(obj, arg) for arg in union.__args__)

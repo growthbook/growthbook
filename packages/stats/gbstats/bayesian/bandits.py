@@ -7,6 +7,7 @@ import random
 from pydantic.dataclasses import dataclass
 from scipy.stats import chi2  # type: ignore
 
+from gbstats.models.results import BanditResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -38,6 +39,22 @@ class BanditResponse:
     best_arm_probabilities: Optional[List[float]]
     seed: int
     bandit_update_message: Optional[str]
+
+
+def get_error_bandit_result(
+    error: str, reweight: bool, current_weights: List[float]
+) -> BanditResult:
+    return BanditResult(
+        singleVariationResults=None,
+        currentWeights=current_weights,
+        updatedWeights=current_weights,
+        srm=1,
+        bestArmProbabilities=None,
+        seed=0,
+        updateMessage="not updated",
+        error=error,
+        reweight=reweight,
+    )
 
 
 class Bandits(ABC):
@@ -408,7 +425,7 @@ class BanditsCuped(Bandits):
 
     @property
     def theta(self) -> float:
-        return self.stats[0].theta
+        return self.stats[0].theta if self.stats[0].theta else 0
 
     # for cuped, when producing intervals for the leaderboard, add back in the pooled baseline mean
     @property

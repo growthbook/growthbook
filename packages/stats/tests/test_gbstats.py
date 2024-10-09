@@ -441,7 +441,7 @@ class TestVariationStatisticBuilder(TestCase):
                 pre_statistic=expected_baseline_pre_stat,
                 post_pre_sum_of_products=expected_baseline_pre_post_sum_product,
                 n=expected_baseline_n,
-                theta=0,
+                theta=None,
             ),
         )
 
