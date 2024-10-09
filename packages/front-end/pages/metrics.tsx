@@ -1,12 +1,10 @@
 import React, { ReactElement, useCallback, useState } from "react";
-import { FaArchive, FaRegCopy } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
+import { FaArchive } from "react-icons/fa";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
 import TagsFilter, {
@@ -17,7 +15,6 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import MetricForm from "@/components/Metrics/MetricForm";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
@@ -31,7 +28,10 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
-import NewMetricModal from "@/components/FactTables/NewMetricModal";
+import {
+  MetricModalState,
+  MetricModal,
+} from "@/components/FactTables/NewMetricModal";
 
 export interface MetricTableItem {
   id: string;
@@ -54,16 +54,10 @@ export interface MetricTableItem {
 }
 
 export function useCombinedMetrics({
-  duplicateMetric,
-  editMetric,
-  duplicateFactMetric,
-  editFactMetric,
+  setMetricModalProps,
   afterArchive,
 }: {
-  duplicateMetric?: (m: MetricInterface) => void;
-  editMetric?: (m: MetricInterface) => void;
-  duplicateFactMetric?: (m: FactMetricInterface) => void;
-  editFactMetric?: (m: FactMetricInterface) => void;
+  setMetricModalProps?: (props: MetricModalState) => void;
   afterArchive?: (id: string, archived: boolean) => void;
 }): MetricTableItem[] {
   const {
@@ -114,10 +108,24 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && duplicateMetric
-            ? () => duplicateMetric(m)
+          canDuplicate && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "duplicate",
+                  currentMetric: {
+                    ...m,
+                    name: m.name + " (copy)",
+                  },
+                })
             : undefined,
-        onEdit: canEdit && editMetric ? () => editMetric(m) : undefined,
+        onEdit:
+          canEdit && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "edit",
+                  currentMetric: m,
+                })
+            : undefined,
       };
       return item;
     }),
@@ -157,10 +165,24 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && duplicateFactMetric
-            ? () => duplicateFactMetric(m)
+          canDuplicate && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "duplicate",
+                  currentFactMetric: {
+                    ...m,
+                    name: m.name + " (copy)",
+                  },
+                })
             : undefined,
-        onEdit: canEdit && editFactMetric ? () => editFactMetric(m) : undefined,
+        onEdit:
+          canEdit && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "edit",
+                  currentFactMetric: m,
+                })
+            : undefined,
       };
       return item;
     }),
@@ -170,11 +192,8 @@ export function useCombinedMetrics({
 }
 
 const MetricsPage = (): React.ReactElement => {
-  const [modalData, setModalData] = useState<{
-    current: Partial<MetricInterface>;
-    edit: boolean;
-    duplicate: boolean;
-  } | null>(null);
+  const [modalData, setModalData] = useState<MetricModalState | null>(null);
+
   const [
     showAutoGenerateMetricsModal,
     setShowAutoGenerateMetricsModal,
@@ -200,23 +219,7 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const combinedMetrics = useCombinedMetrics({
-    duplicateMetric: (m) => {
-      setModalData({
-        current: {
-          ...m,
-          name: m.name + " (copy)",
-        },
-        edit: false,
-        duplicate: true,
-      });
-    },
-    editMetric: (m) => {
-      setModalData({
-        current: m,
-        edit: true,
-        duplicate: false,
-      });
-    },
+    setMetricModalProps: setModalData,
     afterArchive: (id, archived) => {
       if (archived) {
         setRecentlyArchived((set) => new Set([...set, id]));
@@ -309,16 +312,9 @@ const MetricsPage = (): React.ReactElement => {
   if (!filteredMetrics.length) {
     return (
       <div className="container p-4">
-        {modalData && (modalData.duplicate || modalData.edit) && (
-          <MetricForm
-            {...modalData}
-            onClose={closeModal}
-            source="blank-state"
-          />
-        )}
-        {modalData && !modalData.duplicate && !modalData.edit && (
-          <NewMetricModal close={closeModal} source="blank-state" />
-        )}
+        {modalData ? (
+          <MetricModal {...modalData} close={closeModal} source="blank-state" />
+        ) : null}
         {showAutoGenerateMetricsModal && (
           <AutoGenerateMetricsModal
             source="metrics-index-page"
@@ -363,15 +359,7 @@ const MetricsPage = (): React.ReactElement => {
                 }
                 size="md"
               />
-              <Button
-                onClick={() => {
-                  setModalData({
-                    current: {},
-                    edit: false,
-                    duplicate: false,
-                  });
-                }}
-              >
+              <Button onClick={() => setModalData({ mode: "new" })}>
                 Add your first Metric
               </Button>
             </>
@@ -384,12 +372,9 @@ const MetricsPage = (): React.ReactElement => {
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
-      {modalData && (modalData.duplicate || modalData.edit) && (
-        <MetricForm {...modalData} onClose={closeModal} source="blank-state" />
-      )}
-      {modalData && !modalData.duplicate && !modalData.edit && (
-        <NewMetricModal close={closeModal} source="blank-state" />
-      )}
+      {modalData ? (
+        <MetricModal {...modalData} close={closeModal} source="blank-state" />
+      ) : null}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal
           source="metric-index-page"
@@ -420,15 +405,7 @@ const MetricsPage = (): React.ReactElement => {
                   setShowAutoGenerateMetricsModal
                 }
               />
-              <Button
-                onClick={() => {
-                  setModalData({
-                    current: {},
-                    edit: false,
-                    duplicate: false,
-                  });
-                }}
-              >
+              <Button onClick={() => setModalData({ mode: "new" })}>
                 Add Metric
               </Button>
             </div>
@@ -493,12 +470,25 @@ const MetricsPage = (): React.ReactElement => {
                 <button
                   className="btn dropdown-item py-2"
                   onClick={(e) => {
-                    e.stopPropagation();
                     e.preventDefault();
                     metric.onDuplicate && metric.onDuplicate();
                   }}
                 >
-                  <FaRegCopy /> Duplicate
+                  Duplicate
+                </button>
+              );
+            }
+
+            if (!metric.managedBy && !metric.archived && metric.onEdit) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    metric.onEdit?.();
+                  }}
+                >
+                  Edit
                 </button>
               );
             }
@@ -512,7 +502,7 @@ const MetricsPage = (): React.ReactElement => {
                     await metric.onArchive?.(!metric.archived);
                   }}
                 >
-                  <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}
+                  {metric.archived ? "Unarchive" : "Archive"}
                 </button>
               );
             }
