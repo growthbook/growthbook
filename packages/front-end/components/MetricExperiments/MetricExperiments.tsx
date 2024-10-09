@@ -193,6 +193,7 @@ function MetricExperimentResultTab({ experimentsWithSnapshot, metric }: Props) {
             rowResults={{
               enoughData: true,
               directionalStatus: e.directionalStatus ?? "losing",
+              hasScaledImpact: true,
             }}
             statsEngine={e.statsEngine}
             differenceType="relative"

@@ -19,7 +19,10 @@ interface Props
   > {
   metric: ExperimentMetricInterface;
   stats: SnapshotMetric;
-  rowResults: Pick<RowResults, "directionalStatus" | "enoughData">;
+  rowResults: Pick<
+    RowResults,
+    "directionalStatus" | "enoughData" | "hasScaledImpact"
+  >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
   differenceType: DifferenceType;
@@ -54,6 +57,9 @@ export default function ChangeColumn({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
+  if (!rowResults.hasScaledImpact && differenceType === "scaled") {
+    return null;
+  }
   return (
     <>
       {metric && rowResults.enoughData ? (

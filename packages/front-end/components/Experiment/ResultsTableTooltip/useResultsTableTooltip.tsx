@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { ExperimentReportVariationWithIndex } from "back-end/types/report";
-import { StatsEngine, PValueCorrection } from "back-end/types/stats";
+import {
+  StatsEngine,
+  PValueCorrection,
+  DifferenceType,
+} from "back-end/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 import {
   LayoutX,
@@ -19,6 +23,7 @@ export function useResultsTableTooltip({
   rowsResults,
   dimension,
   statsEngine,
+  differenceType,
   pValueCorrection,
   noTooltip,
 }: {
@@ -27,6 +32,7 @@ export function useResultsTableTooltip({
   rowsResults: (RowResults | "query error" | null)[][];
   dimension?: string;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
   pValueCorrection?: PValueCorrection;
   noTooltip?: boolean;
 }) {
@@ -155,6 +161,7 @@ export function useResultsTableTooltip({
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
+    if (!rowResults.hasScaledImpact && differenceType === "scaled") return;
 
     showTooltip({
       tooltipData: {

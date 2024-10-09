@@ -26,7 +26,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -132,7 +132,7 @@ export default function ResultsTable({
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getFactTableById } = useDefinitions();
+  const { getFactTableById, getMetricById } = useDefinitions();
 
   const {
     metricDefaults,
@@ -229,10 +229,15 @@ export default function ResultsTable({
           users: 0,
         };
 
+        const denominator =
+          !isFactMetric(row.metric) && row.metric.denominator
+            ? getMetricById(row.metric.denominator) ?? undefined
+            : undefined;
         const rowResults = getRowResults({
           stats,
           baseline,
           metric: row.metric,
+          denominator,
           metricDefaults,
           isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
@@ -269,6 +274,7 @@ export default function ResultsTable({
     displayCurrency,
     queryStatusData,
     getFactTableById,
+    getMetricById,
   ]);
 
   const {
@@ -290,6 +296,7 @@ export default function ResultsTable({
     dimension,
     statsEngine,
     pValueCorrection,
+    differenceType,
     noTooltip,
   });
 
@@ -615,6 +622,10 @@ export default function ResultsTable({
                         return null;
                       }
                     }
+
+                    const hideScaledImpact =
+                      !rowResults.hasScaledImpact &&
+                      differenceType === "scaled";
                     const isHovered =
                       hoveredMetricRow === i && hoveredVariationRow === j;
 
@@ -708,6 +719,7 @@ export default function ResultsTable({
                               showGuardrailWarning={
                                 row.resultGroup === "guardrail"
                               }
+                              hideScaledImpact={hideScaledImpact}
                               className={clsx(
                                 "results-ctw",
                                 resultsHighlightClassname
@@ -734,6 +746,7 @@ export default function ResultsTable({
                               showGuardrailWarning={
                                 row.resultGroup === "guardrail"
                               }
+                              hideScaledImpact={hideScaledImpact}
                               className={clsx(
                                 "results-pval",
                                 resultsHighlightClassname
@@ -759,6 +772,7 @@ export default function ResultsTable({
                                   ? "significant"
                                   : "gradient"
                               }
+                              disabled={hideScaledImpact}
                               significant={rowResults.significant}
                               baseline={baseline}
                               domain={domain}
