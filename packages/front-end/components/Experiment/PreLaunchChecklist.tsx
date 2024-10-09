@@ -20,6 +20,7 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -73,6 +74,8 @@ export function PreLaunchChecklist({
   const usingStickyBucketing =
     orgStickyBucketing && !experiment.disableStickyBucketing;
 
+  const [analysisModal, setAnalysisModal] = useState(false);
+
   //Merge the GB checklist items with org's custom checklist items
   const checklist: CheckListItem[] = useMemo(() => {
     function isChecklistItemComplete(
@@ -116,13 +119,7 @@ export function PreLaunchChecklist({
         <>
           Add at least one{" "}
           {openSetupTab && !hasLinkedChanges ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                openSetupTab();
-              }}
-            >
+            <a className="a" role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
           ) : (
@@ -134,6 +131,29 @@ export function PreLaunchChecklist({
       status: hasLinkedChanges ? "complete" : "incomplete",
       type: "auto",
     });
+
+    if (experiment.type === "multi-armed-bandit") {
+      items.push({
+        display: (
+          <>
+            {canEditExperiment ? (
+              <a
+                className="a"
+                role="button"
+                onClick={() => setAnalysisModal(true)}
+              >
+                Choose
+              </a>
+            ) : (
+              "Choose"
+            )}{" "}
+            a Decision Metric and update cadence.
+          </>
+        ),
+        status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
+        type: "auto",
+      });
+    }
 
     // No unpublished feature flags
     if (linkedFeatures.length > 0) {
@@ -152,13 +172,7 @@ export function PreLaunchChecklist({
           <>
             Publish and enable all{" "}
             {openSetupTab ? (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  openSetupTab();
-                }}
-              >
+              <a className="a" role="button" onClick={openSetupTab}>
                 Linked Feature
               </a>
             ) : (
@@ -180,13 +194,7 @@ export function PreLaunchChecklist({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  openSetupTab();
-                }}
-              >
+              <a className="a" role="button" onClick={openSetupTab}>
                 Visual Editor
               </a>
             ) : (
@@ -207,9 +215,9 @@ export function PreLaunchChecklist({
         <>
           {editTargeting ? (
             <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
+              className="a"
+              role="button"
+              onClick={() => {
                 editTargeting();
                 track("Edit targeting", { source: "experiment-start-banner" });
               }}
@@ -311,10 +319,12 @@ export function PreLaunchChecklist({
     experiment.tags?.length,
     experiment.variations,
     experiment.type,
+    experiment.goalMetrics,
     linkedFeatures,
     openSetupTab,
     visualChangesets,
     usingStickyBucketing,
+    canEditExperiment,
   ]);
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
@@ -375,6 +385,18 @@ export function PreLaunchChecklist({
           goToNextStep={() => {
             setShowSdkForm(false);
           }}
+        />
+      )}
+
+      {analysisModal && (
+        <AnalysisForm
+          cancel={() => setAnalysisModal(false)}
+          experiment={experiment}
+          mutate={mutateExperiment}
+          phase={experiment.phases.length - 1}
+          editDates={true}
+          editVariationIds={false}
+          editMetrics={true}
         />
       )}
 
@@ -478,11 +500,9 @@ export function PreLaunchChecklist({
               <Link href="/sdks">Manage SDK Connections</Link>
             ) : (
               <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSdkForm(true);
-                }}
+                className="a"
+                role="button"
+                onClick={() => setShowSdkForm(true)}
               >
                 Add SDK Connection
               </a>

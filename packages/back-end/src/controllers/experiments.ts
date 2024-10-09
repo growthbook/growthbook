@@ -561,6 +561,8 @@ export async function postExperiments(
     }
   }
 
+  const experimentType = data.type ?? "standard";
+
   const obj: Omit<ExperimentInterface, "id"> = {
     organization: data.organization,
     archived: false,
@@ -611,6 +613,7 @@ export async function postExperiments(
     ideaSource: data.ideaSource || "",
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
+      experimentType === "multi-armed-bandit" ? false :
       data.sequentialTestingEnabled ??
       !!org?.settings?.sequentialTestingEnabled,
     sequentialTestingTuningParameter:
@@ -618,13 +621,17 @@ export async function postExperiments(
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
-    statsEngine: data.statsEngine,
-    type: data.type ?? "standard",
+    statsEngine: experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
+    type: experimentType,
     banditScheduleValue: data.banditScheduleValue ?? 1,
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
   };
+
+  const { settings } = getScopedSettings({
+    organization: org,
+  });
 
   try {
     validateVariationIds(obj.variations);
@@ -642,6 +649,13 @@ export async function postExperiments(
           existingId: existing.id,
         });
       }
+    }
+
+    if (experimentType === "multi-armed-bandit") {
+      Object.assign(obj, resetExperimentBanditSettings({
+        experiment: obj,
+        settings,
+      }));
     }
 
     const experiment = await createExperiment({

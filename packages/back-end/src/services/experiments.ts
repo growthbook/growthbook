@@ -642,7 +642,7 @@ export function resetExperimentBanditSettings({
   changes,
   settings,
 }: {
-  experiment: ExperimentInterface;
+  experiment: ExperimentInterface |  Omit<ExperimentInterface, "id">;
   metricMap?: Map<string, ExperimentMetricInterface>;
   changes?: Changeset;
   settings: ScopedSettings;

@@ -5,10 +5,10 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {ExperimentInterfaceStringDates, ExperimentType} from "back-end/types/experiment";
 import {
   getMatchingRules,
   includeExperimentInPayload,
@@ -62,6 +62,12 @@ import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
 import FallbackAttributeSelector from "./FallbackAttributeSelector";
+import ButtonSelectField from "@/components/Forms/ButtonSelectField";
+import {FaRegCircleCheck} from "react-icons/fa6";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {useGrowthBook} from "@growthbook/growthbook-react";
+import {AppFeatures} from "@/types/app-features";
+import {useUser} from "@/services/UserContext";
 
 export interface Props {
   close: () => void;
@@ -86,6 +92,9 @@ export default function RuleModal({
   setVersion,
   revisions,
 }: Props) {
+  const growthbook = useGrowthBook<AppFeatures>();
+  const { hasCommercialFeature } = useUser();
+
   const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -148,6 +157,12 @@ export default function RuleModal({
     defaultValues,
   });
   const { apiCall } = useAuth();
+
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
+  const usingStickyBucketing = !!settings.useStickyBucketing;
 
   const type = form.watch("type");
 
@@ -374,7 +389,7 @@ export default function RuleModal({
               name: values.name,
               hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
               owner: "",
-              status: values.autoStart ? "running" : "draft",
+              status: values.experimentType === "multi-armed-bandit" ? "draft" : values.autoStart ? "running" : "draft",
               tags: feature.tags || [],
               trackingKey: values.trackingKey || feature.id,
               description: values.description,
@@ -407,6 +422,7 @@ export default function RuleModal({
                   variationWeights: values.values.map((v) => v.weight),
                 },
               ],
+              type: values.experimentType,
             };
             const res = await apiCall<
               | { experiment: ExperimentInterfaceStringDates }
@@ -705,7 +721,85 @@ export default function RuleModal({
       )}
 
       {type === "experiment-ref-new" && (
-        <Field label="Experiment Name" {...form.register("name")} required />
+        <>
+          {growthbook.isOn("bandits") && (
+            <div className="bg-highlight rounded py-3 px-3 mb-4">
+              <ButtonSelectField
+                buttonType="card"
+                value={form.watch("experimentType") || ""}
+                setValue={(v) => form.setValue("experimentType", v as ExperimentType)}
+                options={[
+                  {
+                    label: (
+                      <div
+                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                        style={{ minHeight: 90 }}
+                      >
+                        <div className="h4">
+                          {form.watch("experimentType") === "standard" && (
+                            <FaRegCircleCheck
+                              size={18}
+                              className="check text-success mr-2"
+                            />
+                          )}
+                          Standard Experiment
+                        </div>
+                        <div className="small">
+                          Variation weights are constant throughout the
+                          experiment
+                        </div>
+                      </div>
+                    ),
+                    value: "standard",
+                  },
+                  {
+                    label: (
+                      <div
+                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                        style={{ minHeight: 90 }}
+                      >
+                        <div className="h4">
+                          <PremiumTooltip
+                            commercialFeature="multi-armed-bandits"
+                            body={
+                              !usingStickyBucketing &&
+                              hasStickyBucketFeature ? (
+                                <div>
+                                  Enable Sticky Bucketing in your organization
+                                  settings to run a Multi-Armed Bandit
+                                  experiment.
+                                </div>
+                              ) : null
+                            }
+                            usePortal={true}
+                          >
+                            {form.watch("experimentType") === "multi-armed-bandit" && (
+                              <FaRegCircleCheck
+                                size={18}
+                                className="check text-success mr-2"
+                              />
+                            )}
+                            Bandit Experiment
+                          </PremiumTooltip>
+                        </div>
+
+                        <div className="small">
+                          Variations with better results receive more traffic
+                          during the experiment
+                        </div>
+                      </div>
+                    ),
+                    value: "multi-armed-bandit",
+                    disabled:
+                      !hasMultiArmedBanditFeature || !usingStickyBucketing,
+                  },
+                ]}
+              />
+            </div>
+          )}
+
+          <Field label="Experiment Name" {...form.register("name")} required />
+        </>
       )}
 
       {type !== "experiment-ref" && (
@@ -865,29 +959,6 @@ export default function RuleModal({
 
       {(type === "experiment" || type === "experiment-ref-new") && (
         <div>
-          <FeatureVariationsInput
-            defaultValue={getFeatureDefaultValue(feature)}
-            valueType={feature.valueType}
-            coverage={form.watch("coverage") || 0}
-            setCoverage={(coverage) => form.setValue("coverage", coverage)}
-            setWeight={(i, weight) =>
-              form.setValue(`values.${i}.weight`, weight)
-            }
-            variations={
-              form
-                .watch("values")
-                .map((v: ExperimentValue & { id?: string }) => {
-                  return {
-                    value: v.value || "",
-                    name: v.name,
-                    weight: v.weight,
-                    id: v.id || generateVariationId(),
-                  };
-                }) || []
-            }
-            setVariations={(variations) => form.setValue("values", variations)}
-            feature={feature}
-          />
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector
               form={form}
@@ -896,9 +967,35 @@ export default function RuleModal({
               formPrefix=""
             />
           )}
+          <div className="mb-4">
+            <FeatureVariationsInput
+              defaultValue={getFeatureDefaultValue(feature)}
+              valueType={feature.valueType}
+              coverage={form.watch("coverage") || 0}
+              setCoverage={(coverage) => form.setValue("coverage", coverage)}
+              setWeight={(i, weight) =>
+                form.setValue(`values.${i}.weight`, weight)
+              }
+              variations={
+                form
+                  .watch("values")
+                  .map((v: ExperimentValue & { id?: string }) => {
+                    return {
+                      value: v.value || "",
+                      name: v.name,
+                      weight: v.weight,
+                      id: v.id || generateVariationId(),
+                    };
+                  }) || []
+              }
+              setVariations={(variations) => form.setValue("values", variations)}
+              feature={feature}
+              simple={form.watch("experimentType") === "multi-armed-bandit"}
+            />
+          </div>
         </div>
       )}
-      {type === "experiment-ref-new" && (
+      {type === "experiment-ref-new" && form.watch("experimentType") !== "multi-armed-bandit" && (
         <div className="mb-3">
           <Toggle
             value={form.watch("autoStart")}

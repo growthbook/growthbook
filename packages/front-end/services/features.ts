@@ -521,6 +521,7 @@ export function getDefaultRuleValue({
   if (ruleType === "experiment-ref-new") {
     return {
       type: "experiment-ref-new",
+      experimentType: "standard",
       description: "",
       name: "",
       autoStart: true,
