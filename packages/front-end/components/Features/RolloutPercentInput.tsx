@@ -24,8 +24,6 @@ export default function RolloutPercentInput({
       <div className="row align-items-center">
         <div className="col">
           <Slider
-            name="RadixSlider"
-            defaultValue={[50]}
             value={[value]}
             min={0}
             max={1}

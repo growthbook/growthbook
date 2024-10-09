@@ -93,8 +93,6 @@ export default function FeatureVariationsInput({
             <div className="row align-items-center pb-3">
               <div className="col">
                 <Slider
-                  name="RadixSlider"
-                  defaultValue={[50]}
                   value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
                   min={0}
                   max={100}
