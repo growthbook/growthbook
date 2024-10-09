@@ -383,7 +383,10 @@ export function getMetricSettingsForStatsEngine(
         ? "binomial"
         : "count",
     }),
-    ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
+    ...(regressionAdjusted && {
+      covariate_metric_type: mainMetricType,
+      keep_theta: !!settings.banditSettings,
+    }),
     ...(!!quantileMetric && isFactMetric(metric)
       ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
       : {}),

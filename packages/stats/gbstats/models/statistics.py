@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Union, List
+from typing import Optional, Union, List
 
 import numpy as np
 import scipy.stats
@@ -17,7 +17,7 @@ class Statistic(ABC):
         pass
 
     @property
-    def stddev(self) -> float:
+    def stddev(self):
         return 0 if self.variance <= 0 else np.sqrt(self.variance)
 
     @property
@@ -121,14 +121,15 @@ class RegressionAdjustedStatistic(Statistic):
     post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     post_pre_sum_of_products: float
-    theta: float
+    theta: Optional[float]
 
     @property
     def mean(self) -> float:
-        return self.post_statistic.mean - self.theta * self.pre_statistic.mean
+        theta = 0 if self.theta is None else self.theta
+        return self.post_statistic.mean - theta * self.pre_statistic.mean
 
     @property
-    def sum(self):
+    def sum(self) -> None:
         raise NotImplementedError(
             "Regression Adjusted Statistic does not have a unique `sum` property"
         )
@@ -145,10 +146,11 @@ class RegressionAdjustedStatistic(Statistic):
     def variance(self) -> float:
         if self.n <= 1:
             return 0
+        theta = 0 if self.theta is None else self.theta
         return (
             self.post_statistic.variance
-            + pow(self.theta, 2) * self.pre_statistic.variance
-            - 2 * self.theta * self.covariance
+            + pow(theta, 2) * self.pre_statistic.variance
+            - 2 * theta * self.covariance
         )
 
     @property

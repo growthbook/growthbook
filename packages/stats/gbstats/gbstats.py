@@ -18,7 +18,7 @@ from gbstats.bayesian.bandits import (
     BanditsRatio,
     BanditsCuped,
     BanditConfig,
-    getErrorBanditResult,
+    get_error_bandit_result,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -203,7 +203,6 @@ def get_configured_test(
         "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
-        "recompute_theta": metric.statistic_type == "mean_ra",
     }
 
     if analysis.stats_engine == "frequentist":
@@ -455,7 +454,9 @@ def variation_statistic_from_metric_row(
         post_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
         n = row[f"{prefix}_users"]
         # Theta will be overriden with correct value later for A/B tests, needs to be passed in for bandits
-        theta = row[f"{prefix}_theta"] if f"{prefix}_theta" in row.index else 0
+        theta = None
+        if metric.keep_theta:
+            theta = row[f"{prefix}_theta"] if f"{prefix}_theta" in row.index else 0
         return RegressionAdjustedStatistic(
             post_statistic=post_statistic,
             pre_statistic=pre_statistic,
@@ -508,11 +509,13 @@ def process_analysis(
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
+    drop_other = (metric.statistic_type not in ["quantile_event", "quantile_unit"]) or (
+        metric.keep_theta and metric.statistic_type == "mean_ra"
+    )
     reduced = reduce_dimensionality(
         df=df,
         max=max_dimensions,
-        keep_other=metric.statistic_type
-        not in ["bandit_ra", "quantile_event", "quantile_unit"],
+        keep_other=not drop_other,
     )
 
     # Run the analysis for each variation and dimension
@@ -644,7 +647,7 @@ def get_bandit_result(
     b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "All")
     if b:
         if any(value is None for value in b.stats):
-            return getErrorBanditResult(
+            return get_error_bandit_result(
                 error="not all statistics are instance of type BanditStatistic",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
@@ -678,12 +681,12 @@ def get_bandit_result(
                 reweight=bandit_settings.reweight,
             )
         else:
-            return getErrorBanditResult(
+            return get_error_bandit_result(
                 error="bandit result computation failed",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
-    return getErrorBanditResult(
+    return get_error_bandit_result(
         error="no data froms sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
@@ -762,16 +765,10 @@ def process_experiment_results(
                         )
                 else:
                     if d.bandit_settings:
-                        bandit_result = BanditResult(
-                            singleVariationResults=None,
-                            currentWeights=d.bandit_settings.current_weights,
-                            updatedWeights=d.bandit_settings.current_weights,
-                            srm=0,
-                            bestArmProbabilities=None,
-                            seed=0,
-                            updateMessage="not updated",
+                        bandit_result = get_error_bandit_result(
                             error="no rows",
                             reweight=d.bandit_settings.reweight,
+                            current_weights=d.bandit_settings.current_weights,
                         )
     return results, bandit_result
 

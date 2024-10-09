@@ -41,7 +41,7 @@ class BanditResponse:
     bandit_update_message: Optional[str]
 
 
-def getErrorBanditResult(
+def get_error_bandit_result(
     error: str, reweight: bool, current_weights: List[float]
 ) -> BanditResult:
     return BanditResult(
