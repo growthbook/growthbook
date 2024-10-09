@@ -11,18 +11,34 @@ export interface Props {
 }
 
 export default function NewMetricModal({ close, source, datasource }: Props) {
-  const { factTables, project } = useDefinitions();
+  const { factMetrics, metrics, factTables, project } = useDefinitions();
+
+  const filteredFactMetrics = factMetrics
+    .filter((f) => !datasource || f.datasource === datasource)
+    .filter((f) => isProjectListValidForProject(f.projects, project));
+
+  const filteredMetrics = metrics
+    .filter((f) => !datasource || f.datasource === datasource)
+    .filter((f) => isProjectListValidForProject(f.projects, project));
 
   const filteredFactTables = factTables
     .filter((f) => !datasource || f.datasource === datasource)
     .filter((f) => isProjectListValidForProject(f.projects, project));
 
-  const hasFactTables = filteredFactTables.length > 0;
+  // Determine the most appropriate default type based on what the org has already created
+  // - If there are no fact tables yet, always default to legacy
+  // - If there are more legacy metrics than fact metrics, default to legacy
+  // - Otherwise, default to fact
+  // TODO: add an org setting to explicitly override this default
+  let defaultType: "fact" | "legacy" = "fact";
+  if (filteredFactTables.length === 0) {
+    defaultType = "legacy";
+  } else if (filteredMetrics.length > filteredFactMetrics.length) {
+    defaultType = "legacy";
+  }
 
   // What type of metric we're creating - fact or non-fact
-  const [type, setType] = useState<"fact" | "legacy">(
-    hasFactTables ? "fact" : "legacy"
-  );
+  const [type, setType] = useState(defaultType);
 
   if (type === "fact") {
     return (
