@@ -1,6 +1,5 @@
-import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
-import { FaArchive, FaChevronRight, FaPlus, FaRegCopy } from "react-icons/fa";
+import { FaArchive, FaChevronRight, FaPlus } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
@@ -9,13 +8,16 @@ import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricForm from "@/components/Metrics/MetricForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useCombinedMetrics } from "@/pages/metrics";
+import {
+  MetricModal,
+  MetricModalState,
+} from "@/components/FactTables/NewMetricModal";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -33,25 +35,11 @@ export default function DataSourceMetrics({
     setShowAutoGenerateMetricsModal,
   ] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
-  const [modalData, setModalData] = useState<{
-    current: Partial<MetricInterface>;
-    edit: boolean;
-    duplicate: boolean;
-  } | null>(null);
+  const [modalData, setModalData] = useState<MetricModalState | null>(null);
   const { mutateDefinitions } = useDefinitions();
 
   const combinedMetrics = useCombinedMetrics({
-    duplicateMetric: (metric) => {
-      setModalData({
-        current: {
-          ...metric,
-          managedBy: "",
-          name: metric.name + " (copy)",
-        },
-        edit: false,
-        duplicate: true,
-      });
-    },
+    setMetricModalProps: setModalData,
   });
   const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
 
@@ -71,13 +59,11 @@ export default function DataSourceMetrics({
         />
       )}
       {modalData ? (
-        <MetricForm
+        <MetricModal
           {...modalData}
-          onClose={() => setModalData(null)}
-          onSuccess={() => {
-            mutateDefinitions();
-          }}
+          close={() => setModalData(null)}
           source="datasource-detail"
+          datasource={dataSource.id}
         />
       ) : null}
       <div className="d-flex flex-row align-items-center justify-content-between">
@@ -108,16 +94,7 @@ export default function DataSourceMetrics({
               />
               <button
                 className="btn btn-outline-primary font-weight-bold text-nowrap"
-                onClick={() =>
-                  setModalData({
-                    current: {
-                      datasource: dataSource.id,
-                      projects: dataSource.projects || [],
-                    },
-                    edit: false,
-                    duplicate: false,
-                  })
-                }
+                onClick={() => setModalData({ mode: "new" })}
               >
                 <FaPlus className="mr-1" /> Add
               </button>
@@ -238,12 +215,24 @@ export default function DataSourceMetrics({
                             <button
                               className="btn dropdown-item py-2"
                               onClick={(e) => {
-                                e.stopPropagation();
                                 e.preventDefault();
                                 metric.onDuplicate?.();
                               }}
                             >
-                              <FaRegCopy /> Duplicate
+                              Duplicate
+                            </button>
+                          ) : null}
+                          {!metric.managedBy &&
+                          !metric.archived &&
+                          metric.onEdit ? (
+                            <button
+                              className="btn dropdown-item py-2"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                metric.onEdit?.();
+                              }}
+                            >
+                              Edit
                             </button>
                           ) : null}
                           {!metric.managedBy && metric.onArchive ? (
@@ -254,7 +243,6 @@ export default function DataSourceMetrics({
                                 await metric.onArchive?.(!metric.archived);
                               }}
                             >
-                              <FaArchive />{" "}
                               {metric.archived ? "Unarchive" : "Archive"}
                             </button>
                           ) : null}
@@ -267,8 +255,8 @@ export default function DataSourceMetrics({
             </div>
           ) : (
             <div className="alert alert-info">
-              No metrics have been defined from this data source. Click the{" "}
-              <strong>Add</strong> button to create your first.
+              No metrics have been defined yet from this data source. Click the{" "}
+              <strong>Add</strong> button to create your first one.
             </div>
           )}
         </div>
