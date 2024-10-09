@@ -17,7 +17,7 @@ class Statistic(ABC):
         pass
 
     @property
-    def stddev(self):
+    def stddev(self) -> float:
         return 0 if self.variance <= 0 else np.sqrt(self.variance)
 
     @property
@@ -124,7 +124,7 @@ class RegressionAdjustedStatistic(Statistic):
     theta: float
 
     @property
-    def mean(self):
+    def mean(self) -> float:
         return self.post_statistic.mean - self.theta * self.pre_statistic.mean
 
     @property
@@ -134,15 +134,15 @@ class RegressionAdjustedStatistic(Statistic):
         )
 
     @property
-    def unadjusted_mean(self):
+    def unadjusted_mean(self) -> float:
         return self.post_statistic.mean
 
     @property
-    def unadjusted_variances(self):
+    def unadjusted_variances(self) -> float:
         return self.post_statistic.variance
 
     @property
-    def variance(self):
+    def variance(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -152,7 +152,7 @@ class RegressionAdjustedStatistic(Statistic):
         )
 
     @property
-    def covariance(self):
+    def covariance(self) -> float:
         if self.n <= 1:
             return 0
         return (

@@ -17,6 +17,7 @@ class BaseConfig:
     difference_type: DifferenceType = "relative"
     traffic_percentage: float = 1
     phase_length_days: float = 1
+    recompute_theta: bool = True
     total_users: Optional[int] = None
 
 
@@ -50,7 +51,7 @@ class BaseABTest(ABC):
         if (
             isinstance(self.stat_b, RegressionAdjustedStatistic)
             and isinstance(self.stat_a, RegressionAdjustedStatistic)
-            and self.stat_a.theta == 0
+            and config.recompute_theta
         ):
             theta = compute_theta(self.stat_a, self.stat_b)
             if theta == 0:
