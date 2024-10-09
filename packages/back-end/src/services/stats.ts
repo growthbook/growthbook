@@ -190,7 +190,7 @@ export function getBanditSettingsForStatsEngine(
     variations,
     settings.baselineVariationIndex ?? 0
   );
-  const analysisData: BanditSettingsForStatsEngine = {
+  return {
     reweight: banditSettings.reweight,
     var_names: sortedVariations.map((v) => v.name),
     var_ids: sortedVariations.map((v) => v.id),
@@ -203,7 +203,6 @@ export function getBanditSettingsForStatsEngine(
       total_users: hw.totalUsers,
     })),
   };
-  return (analysisData as unknown) as BanditSettingsForStatsEngine;
 }
 
 async function runStatsEngine(
