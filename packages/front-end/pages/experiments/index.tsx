@@ -35,6 +35,8 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -305,27 +307,21 @@ const ExperimentsPage = (): React.ReactElement => {
             </div>
             <div style={{ flex: 1 }} />
             {settings.powerCalculatorEnabled && (
-              <Link
-                className="btn btn-outline-primary float-right"
-                type="button"
-                href="/power-calculator"
-              >
-                Power Calculator
-              </Link>
+              <div className="col-auto">
+                <LinkButton variant="outline" href="/power-calculator">
+                  Power Calculator
+                </LinkButton>
+              </div>
             )}
             {canAdd && (
               <div className="col-auto">
-                <button
-                  className="btn btn-primary float-right"
+                <Button
                   onClick={() => {
                     setOpenNewExperimentModal(true);
                   }}
                 >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
                   Add Experiment
-                </button>
+                </Button>
               </div>
             )}
           </div>

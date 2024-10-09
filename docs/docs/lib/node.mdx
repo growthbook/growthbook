@@ -279,7 +279,7 @@ tracks.forEach(({experiment, result}) => {
 
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
 
-- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured.
+- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `maxAge: {ms}` into the constructor's `cookieAttributes`.
 
 - `RedisStickyBucketService` — For NodeJS Redis-based bucket persistence. Requires an `ioredis` Redis client instance to be passed in.
 

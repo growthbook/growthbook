@@ -31,6 +31,18 @@ import {
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import UsersTable from "./UsersTable";
 
+export function getMetricResultGroup(
+  metricId,
+  goalMetrics: string[],
+  secondaryMetrics: string[]
+): "goal" | "secondary" | "guardrail" {
+  return goalMetrics.includes(metricId)
+    ? "goal"
+    : secondaryMetrics.includes(metricId)
+    ? "secondary"
+    : "guardrail";
+}
+
 type TableDef = {
   metric: ExperimentMetricInterface;
   isGuardrail: boolean;
@@ -140,27 +152,36 @@ const BreakDownResults: FC<{
         const ret = sortAndFilterMetricsByTags([metric], metricFilter);
         if (ret.length === 0) return;
 
-        const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+        const { newMetric, overrideFields } = applyMetricOverrides(
+          metric,
+          metricOverrides
+        );
         let metricSnapshotSettings: MetricSnapshotSettings | undefined;
         if (settingsForSnapshotMetrics) {
           metricSnapshotSettings = settingsForSnapshotMetrics.find(
             (s) => s.metric === metricId
           );
         }
+        const resultGroup = getMetricResultGroup(
+          metricId,
+          goalMetrics,
+          secondaryMetrics
+        );
 
+        const rows: ExperimentTableRow[] = results.map((d) => ({
+          label: d.name,
+          metric: newMetric,
+          variations: d.variations.map((variation) => {
+            return variation.metrics[metricId];
+          }),
+          metricSnapshotSettings,
+          resultGroup,
+          metricOverrideFields: overrideFields,
+        }));
         return {
           metric: newMetric,
-          isGuardrail:
-            !goalMetrics.includes(metricId) &&
-            !secondaryMetrics.includes(metricId),
-          rows: results.map((d) => ({
-            label: d.name,
-            metric: newMetric,
-            variations: d.variations.map((variation) => {
-              return variation.metrics[metricId];
-            }),
-            metricSnapshotSettings,
-          })) as ExperimentTableRow[],
+          isGuardrail: resultGroup === "guardrail",
+          rows: rows,
         };
       })
       .filter((table) => table?.metric) as TableDef[];

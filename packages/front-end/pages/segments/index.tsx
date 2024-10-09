@@ -7,12 +7,11 @@ import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
 import { hasFileConfig, storeSegmentsInMongo } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -211,15 +210,11 @@ const SegmentPage: FC = () => {
         {hasCreatePermission && canStoreSegmentsInMongo && (
           <div className="col-auto">
             <Button
-              color="primary"
-              onClick={async () => {
+              onClick={() => {
                 setSegmentForm({});
               }}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>{" "}
-              New Segment
+              Add Segment
             </Button>
           </div>
         )}
