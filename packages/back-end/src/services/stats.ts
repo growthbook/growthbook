@@ -96,6 +96,7 @@ export interface MetricSettingsForStatsEngine {
   main_metric_type: "count" | "binomial" | "quantile";
   denominator_metric_type?: "count" | "binomial" | "quantile";
   covariate_metric_type?: "count" | "binomial" | "quantile";
+  keep_theta?: boolean;
   quantile_value?: number;
   prior_proper?: boolean;
   prior_mean?: number;
