@@ -46,8 +46,11 @@ export default function HelperText({
 }) {
   return (
     <Text color={getRadixColor(status)}>
-      <Flex align="center" gap="1">
-        <RadixStatusIcon status={status} /> {children}
+      <Flex gap="1">
+        <div style={{ flex: "0 0 auto" }}>
+          <RadixStatusIcon status={status} />
+        </div>
+        {children}
       </Flex>
     </Text>
   );

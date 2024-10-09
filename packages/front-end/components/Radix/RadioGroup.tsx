@@ -1,5 +1,6 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { ReactElement } from "react";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 
 export type RadioOptions = {
@@ -8,6 +9,7 @@ export type RadioOptions = {
   description?: string;
   error?: string;
   errorLevel?: "error" | "warning";
+  renderOnSelect?: ReactElement;
   disabled?: boolean;
 }[];
 
@@ -50,6 +52,7 @@ export default function RadioGroup({
                 disabled,
                 error,
                 errorLevel = "error",
+                renderOnSelect,
               }) => {
                 const selected = value == selectedValue;
                 return (
@@ -57,16 +60,20 @@ export default function RadioGroup({
                     key={value}
                     value={value}
                     disabled={disabled}
+                    className={disabled ? "disabled" : undefined}
                   >
-                    <Text color={disabled ? "gray" : undefined}>
+                    <Text className={disabled ? "rt-TextDisabled" : undefined}>
                       <Flex direction="column" gap="1">
-                        <Text weight="bold">{label || value}</Text>
+                        <Text weight="bold" className="main-text">
+                          {label || value}
+                        </Text>
                         {description && (
                           <Text weight="regular">{description}</Text>
                         )}
                         {error && selected ? (
                           <HelperText status={errorLevel}>{error}</HelperText>
                         ) : null}
+                        {renderOnSelect && selected ? renderOnSelect : null}
                       </Flex>
                     </Text>
                   </RadixRadioGroup.Item>
