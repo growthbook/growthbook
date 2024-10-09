@@ -217,7 +217,7 @@ const RefreshBanditButton: FC<{
             {error}
           </div>
         </>
-      ) : (
+      ) : generatedSnapshot ? (
         <div className="d-flex align-items-center mx-2 mt-2 mb-1">
           <div className="text-success">
             <FaRegCircleCheck className="mr-1" />
@@ -235,7 +235,7 @@ const RefreshBanditButton: FC<{
             />
           ) : null}
         </div>
-      )}
+      ) : null}
     </>
   );
 };
