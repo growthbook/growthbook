@@ -56,7 +56,7 @@ const navlinks: SidebarLinkProps[] = [
         path: /^(experiment)/,
       },
       {
-        name: "Bandit Experiments",
+        name: "Bandits",
         href: "/bandits",
         path: /^(bandit)/,
       },

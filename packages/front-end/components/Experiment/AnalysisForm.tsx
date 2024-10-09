@@ -271,7 +271,7 @@ const AnalysisForm: FC<{
           body.type === "multi-armed-bandit" &&
           !hasCommercialFeature("multi-armed-bandits")
         ) {
-          throw new Error("Multi-armed bandits are a premium feature");
+          throw new Error("Bandits are a premium feature");
         }
         if (body.type === "multi-armed-bandit") {
           body.statsEngine = "bayesian";

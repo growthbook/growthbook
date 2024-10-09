@@ -321,7 +321,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         data.type === "multi-armed-bandit" &&
         !hasCommercialFeature("multi-armed-bandits")
       ) {
-        throw new Error("Multi-armed bandits are a premium feature");
+        throw new Error("Bandits are a premium feature");
       }
       if (data.type === "multi-armed-bandit") {
         data.statsEngine = "bayesian";
@@ -479,8 +479,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                               hasStickyBucketFeature ? (
                                 <div>
                                   Enable Sticky Bucketing in your organization
-                                  settings to run a Multi-Armed Bandit
-                                  experiment.
+                                  settings to run a Bandit.
                                 </div>
                               ) : null
                             }
@@ -492,7 +491,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                 className="check text-success mr-2"
                               />
                             )}
-                            Bandit Experiment
+                            Bandit
                           </PremiumTooltip>
                         </div>
 

@@ -66,8 +66,8 @@ export default function BanditSummaryResultsTab({
         experiment.status === "running" &&
         experiment.banditStage === "explore" ? (
           <div className="alert bg-light border mx-3">
-            This bandit experiment is still in its <strong>Exploratory</strong>{" "}
-            stage. Please wait a little while longer.
+            This Bandit is still in its <strong>Exploratory</strong> stage.
+            Please wait a little while longer.
           </div>
         ) : null}
         {isCurrentPhase &&

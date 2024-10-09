@@ -244,7 +244,7 @@ const ExperimentsPage = (): React.ReactElement => {
         <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">
-              <h1>Bandit Experiments</h1>
+              <h1>Bandits</h1>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
@@ -263,7 +263,7 @@ const ExperimentsPage = (): React.ReactElement => {
           {!hasExperiments ? (
             <div className="box py-4 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Quickly Find the Winner with Multi-Armed Bandits</h1>
+                <h1>Quickly Find the Winner with Bandits</h1>
                 <p style={{ fontSize: "17px" }}>
                   Turbocharge your experiments by driving traffic to the best
                   variants.

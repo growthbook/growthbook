@@ -634,7 +634,7 @@ export function ConvertBanditExperiment({
     >
       <ConfirmButton
         modalHeader={`Convert to ${
-          isBandit ? "Standard Experiment" : "Bandit Experiment"
+          isBandit ? "Standard Experiment" : "Bandit"
         }`}
         disabled={experiment.status !== "draft"}
         size="lg"
@@ -642,10 +642,7 @@ export function ConvertBanditExperiment({
           <div>
             <p>
               Are you sure you want to convert this experiment to a{" "}
-              <strong>
-                {isBandit ? "Standard Experiment" : "Bandit Experiment"}
-              </strong>
-              ?
+              <strong>{isBandit ? "Standard Experiment" : "Bandit"}</strong>?
             </p>
             {!isBandit && experiment.goalMetrics.length > 0 && (
               <div className="alert alert-warning">
@@ -735,7 +732,7 @@ export function ConvertBanditExperiment({
         >
           Convert to
           <br />
-          {isBandit ? "Standard Experiment" : "Bandit Experiment"}
+          {isBandit ? "Standard Experiment" : "Bandit"}
         </button>
       </ConfirmButton>
     </Tooltip>

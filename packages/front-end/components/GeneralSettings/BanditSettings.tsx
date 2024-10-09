@@ -57,16 +57,13 @@ export default function BanditSettings({
           <>
             <PremiumTooltip
               commercialFeature="multi-armed-bandits"
-              premiumText="Multi-Armed Bandits are a Pro feature"
+              premiumText="Bandits are a Pro feature"
             >
-              <div className="d-inline-block h5 mb-0">
-                Multi-Armed Bandit Defaults
-              </div>
+              <div className="d-inline-block h5 mb-0">Bandit Defaults</div>
             </PremiumTooltip>
             <p className="mt-2">
-              These are organizational default values for configuring
-              multi-armed bandit experiments. You can always change these values
-              on a per-experiment basis.
+              These are organizational default values for configuring Bandits.
+              You can always change these values on a per-experiment basis.
             </p>
           </>
         )}

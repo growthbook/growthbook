@@ -205,7 +205,7 @@ export default function ExperimentImpactTab({
                     Experiment
                     <Tooltip
                       className="ml-1"
-                      body={"Does not include Bandit Experiments"}
+                      body={"Does not include Bandits"}
                     />
                   </th>
                   <th>Date Ended</th>

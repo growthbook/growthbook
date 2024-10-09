@@ -253,7 +253,7 @@ const BanditExperimentPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Bandit Experiments",
+            display: "Bandits",
             href: `/bandits`,
           },
           { display: experiment.name },

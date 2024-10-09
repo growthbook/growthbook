@@ -776,8 +776,7 @@ export default function RuleModal({
                               hasStickyBucketFeature ? (
                                 <div>
                                   Enable Sticky Bucketing in your organization
-                                  settings to run a Multi-Armed Bandit
-                                  experiment.
+                                  settings to run a Bandit.
                                 </div>
                               ) : null
                             }
@@ -790,7 +789,7 @@ export default function RuleModal({
                                 className="check text-success mr-2"
                               />
                             )}
-                            Bandit Experiment
+                            Bandit
                           </PremiumTooltip>
                         </div>
 

@@ -214,8 +214,7 @@ export default function ReleaseChangesForm({
           {form.watch("newPhase") && isBandit && (
             <div className="alert alert-warning text-danger mt-2">
               <FaExclamationCircle className="mr-2" />
-              This Bandit experiment will restart. Variation weights will reset{" "}
-              (
+              This Bandit will restart. Variation weights will reset (
               {experiment.variations
                 .map((_, i) =>
                   i < 3
