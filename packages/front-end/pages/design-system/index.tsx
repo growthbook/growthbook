@@ -12,6 +12,7 @@ import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LinkButton from "@/components/Radix/LinkButton";
 import Avatar from "@/components/Radix/Avatar";
+import Field from "@/components/Forms/Field";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -228,55 +229,61 @@ export default function DesignSystemPage() {
 
       <div className="appbox p-3">
         <h3>Radio Group</h3>
-        <Flex direction="column" gap="3">
-          <RadioGroup
-            value={radioSelected}
-            setValue={(v) => {
-              setRadioSelected(v);
-            }}
-            options={[
-              {
-                value: "k1",
-                label: "Radio 1",
-              },
-              {
-                value: "k2",
-                label: "Radio 2",
-              },
-              {
-                value: "k3",
-                label: "Radio 3, with description",
-                description: "This is a description",
-              },
-              {
-                value: "k4",
-                label: "Radio 4, with error",
-                error: "This is an error",
-                errorLevel: "error",
-              },
-              {
-                value: "k5",
-                label: "Radio 5, with warning",
-                error: "This is a warning",
-                errorLevel: "warning",
-              },
-              {
-                value: "k6",
-                label: "Radio 6, disabled",
-                description: "This is a description",
-                disabled: true,
-              },
-              {
-                value: "k7",
-                label: "Radio 7, disabled with error",
-                description: "This is a description",
-                disabled: true,
-                error: "This is an error",
-                errorLevel: "error",
-              },
-            ]}
-          />
-        </Flex>
+        <RadioGroup
+          value={radioSelected}
+          setValue={(v) => {
+            setRadioSelected(v);
+          }}
+          options={[
+            {
+              value: "k1",
+              label: "Radio 1",
+            },
+            {
+              value: "k2",
+              label: "Radio 2",
+            },
+            {
+              value: "k3",
+              label: "Radio 3, with description",
+              description: "This is a description",
+            },
+            {
+              value: "k4",
+              label: "Progressive disclosure",
+              description: "Click to render element",
+              renderOnSelect: <Field label="Another field" />,
+            },
+            {
+              value: "k5",
+              label: "Radio 4, with error",
+              error: "This is an error",
+              errorLevel: "error",
+            },
+            {
+              value: "k6",
+              label: "Radio 5, with warning",
+              error:
+                "When making multiple changes at the same time, it can be difficult to control for the impact of each change." +
+                "              The risk of introducing experimental bias increases. Proceed with caution.",
+              errorLevel: "warning",
+            },
+            {
+              value: "k7",
+              label: "Radio 6, disabled",
+              description: "This is a description",
+              disabled: true,
+            },
+            {
+              value: "k8",
+              label: "Radio 7, disabled with error",
+              description: "This is a description",
+              disabled: true,
+              error: "This is an error",
+              errorLevel: "error",
+            },
+          ]}
+        />
       </div>
     </div>
   );
