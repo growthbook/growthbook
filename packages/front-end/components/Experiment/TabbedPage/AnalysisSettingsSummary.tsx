@@ -411,7 +411,7 @@ export default function AnalysisSettingsSummary({
                 display={null}
                 status={status}
                 icon={
-                  <span className="position-relative pr-2">
+                  <span className="position-relative pr-2 mr-2">
                     <span className="text-main">
                       <FaDatabase />
                     </span>
