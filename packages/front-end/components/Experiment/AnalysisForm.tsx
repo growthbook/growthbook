@@ -606,86 +606,88 @@ const AnalysisForm: FC<{
           />
         )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
-          "frequentist" && !isBandit && (
-          <div className="d-flex flex-row no-gutters align-items-top">
-            <div className="col-5">
-              <SelectField
-                label={
-                  <PremiumTooltip commercialFeature="sequential-testing">
-                    <GBSequential /> Use Sequential Testing
-                  </PremiumTooltip>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
-                onChange={(v) => {
-                  form.setValue("sequentialTestingEnabled", v === "on");
-                }}
-                options={[
-                  {
-                    label: "On",
-                    value: "on",
-                  },
-                  {
-                    label: "Off",
-                    value: "off",
-                  },
-                ]}
-                helpText="Only applicable to frequentist analyses"
-                disabled={
-                  !hasSequentialTestingFeature || usingSequentialTestingDefault
-                }
-              />
-            </div>
-            <div
-              className="col-3 pl-4"
-              style={{
-                opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
-              }}
-            >
-              <Field
-                label="Tuning parameter"
-                type="number"
-                containerClassName="mb-0"
-                min="0"
-                disabled={
-                  usingSequentialTestingDefault ||
-                  !hasSequentialTestingFeature ||
-                  hasFileConfig()
-                }
-                helpText={
-                  <>
-                    <span className="ml-2">
-                      (
-                      {orgSettings.sequentialTestingTuningParameter ??
-                        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                      is default)
-                    </span>
-                  </>
-                }
-                {...form.register("sequentialTestingTuningParameter", {
-                  valueAsNumber: true,
-                  validate: (v) => {
-                    return !((v ?? 0) <= 0);
-                  },
-                })}
-              />
-            </div>
-            <div className="col align-self-center">
-              <label className="ml-5">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={usingSequentialTestingDefault}
-                  disabled={!hasSequentialTestingFeature}
-                  onChange={(e) =>
-                    setSequentialTestingToDefault(e.target.checked)
+          "frequentist" &&
+          !isBandit && (
+            <div className="d-flex flex-row no-gutters align-items-top">
+              <div className="col-5">
+                <SelectField
+                  label={
+                    <PremiumTooltip commercialFeature="sequential-testing">
+                      <GBSequential /> Use Sequential Testing
+                    </PremiumTooltip>
+                  }
+                  labelClassName="font-weight-bold"
+                  value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+                  onChange={(v) => {
+                    form.setValue("sequentialTestingEnabled", v === "on");
+                  }}
+                  options={[
+                    {
+                      label: "On",
+                      value: "on",
+                    },
+                    {
+                      label: "Off",
+                      value: "off",
+                    },
+                  ]}
+                  helpText="Only applicable to frequentist analyses"
+                  disabled={
+                    !hasSequentialTestingFeature ||
+                    usingSequentialTestingDefault
                   }
                 />
-                Reset to Organization Default
-              </label>
+              </div>
+              <div
+                className="col-3 pl-4"
+                style={{
+                  opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+                }}
+              >
+                <Field
+                  label="Tuning parameter"
+                  type="number"
+                  containerClassName="mb-0"
+                  min="0"
+                  disabled={
+                    usingSequentialTestingDefault ||
+                    !hasSequentialTestingFeature ||
+                    hasFileConfig()
+                  }
+                  helpText={
+                    <>
+                      <span className="ml-2">
+                        (
+                        {orgSettings.sequentialTestingTuningParameter ??
+                          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                        is default)
+                      </span>
+                    </>
+                  }
+                  {...form.register("sequentialTestingTuningParameter", {
+                    valueAsNumber: true,
+                    validate: (v) => {
+                      return !((v ?? 0) <= 0);
+                    },
+                  })}
+                />
+              </div>
+              <div className="col align-self-center">
+                <label className="ml-5">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={usingSequentialTestingDefault}
+                    disabled={!hasSequentialTestingFeature}
+                    onChange={(e) =>
+                      setSequentialTestingToDefault(e.target.checked)
+                    }
+                  />
+                  Reset to Organization Default
+                </label>
+              </div>
             </div>
-          </div>
-        )}
+          )}
         {datasourceProperties?.queryLanguage === "sql" && !isBandit && (
           <div className="row">
             <div className="col">

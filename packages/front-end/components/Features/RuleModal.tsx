@@ -8,7 +8,10 @@ import {
 import React, { useMemo, useState } from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
-import {ExperimentInterfaceStringDates, ExperimentType} from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentType,
+} from "back-end/types/experiment";
 import {
   getMatchingRules,
   includeExperimentInPayload,
@@ -22,6 +25,8 @@ import {
 import Link from "next/link";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FaRegCircleCheck } from "react-icons/fa6";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -54,6 +59,10 @@ import Toggle from "@/components/Forms/Toggle";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import ButtonSelectField from "@/components/Forms/ButtonSelectField";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { AppFeatures } from "@/types/app-features";
+import { useUser } from "@/services/UserContext";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -62,12 +71,6 @@ import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
 import FallbackAttributeSelector from "./FallbackAttributeSelector";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import {FaRegCircleCheck} from "react-icons/fa6";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import {useGrowthBook} from "@growthbook/growthbook-react";
-import {AppFeatures} from "@/types/app-features";
-import {useUser} from "@/services/UserContext";
 
 export interface Props {
   close: () => void;
@@ -389,7 +392,12 @@ export default function RuleModal({
               name: values.name,
               hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
               owner: "",
-              status: values.experimentType === "multi-armed-bandit" ? "draft" : values.autoStart ? "running" : "draft",
+              status:
+                values.experimentType === "multi-armed-bandit"
+                  ? "draft"
+                  : values.autoStart
+                  ? "running"
+                  : "draft",
               tags: feature.tags || [],
               trackingKey: values.trackingKey || feature.id,
               description: values.description,
@@ -727,7 +735,9 @@ export default function RuleModal({
               <ButtonSelectField
                 buttonType="card"
                 value={form.watch("experimentType") || ""}
-                setValue={(v) => form.setValue("experimentType", v as ExperimentType)}
+                setValue={(v) =>
+                  form.setValue("experimentType", v as ExperimentType)
+                }
                 options={[
                   {
                     label: (
@@ -773,7 +783,8 @@ export default function RuleModal({
                             }
                             usePortal={true}
                           >
-                            {form.watch("experimentType") === "multi-armed-bandit" && (
+                            {form.watch("experimentType") ===
+                              "multi-armed-bandit" && (
                               <FaRegCircleCheck
                                 size={18}
                                 className="check text-success mr-2"
@@ -988,44 +999,47 @@ export default function RuleModal({
                     };
                   }) || []
               }
-              setVariations={(variations) => form.setValue("values", variations)}
+              setVariations={(variations) =>
+                form.setValue("values", variations)
+              }
               feature={feature}
               simple={form.watch("experimentType") === "multi-armed-bandit"}
             />
           </div>
         </div>
       )}
-      {type === "experiment-ref-new" && form.watch("experimentType") !== "multi-armed-bandit" && (
-        <div className="mb-3">
-          <Toggle
-            value={form.watch("autoStart")}
-            setValue={(v) => form.setValue("autoStart", v)}
-            id="auto-start-new-experiment"
-          />{" "}
-          <label htmlFor="auto-start-new-experiment" className="text-dark">
-            Start Experiment Immediately
-          </label>
-          <div>
-            <small className="form-text text-muted">
-              If On, the experiment will start serving traffic as soon as the
-              feature is published. Leave Off if you want to make additional
-              changes before starting.
-            </small>
-          </div>
-          {!form.watch("autoStart") && (
+      {type === "experiment-ref-new" &&
+        form.watch("experimentType") !== "multi-armed-bandit" && (
+          <div className="mb-3">
+            <Toggle
+              value={form.watch("autoStart")}
+              setValue={(v) => form.setValue("autoStart", v)}
+              id="auto-start-new-experiment"
+            />{" "}
+            <label htmlFor="auto-start-new-experiment" className="text-dark">
+              Start Experiment Immediately
+            </label>
             <div>
-              <hr />
-              <ScheduleInputs
-                defaultValue={defaultValues.scheduleRules || []}
-                onChange={(value) => form.setValue("scheduleRules", value)}
-                scheduleToggleEnabled={scheduleToggleEnabled}
-                setScheduleToggleEnabled={setScheduleToggleEnabled}
-                setShowUpgradeModal={setShowUpgradeModal}
-              />
+              <small className="form-text text-muted">
+                If On, the experiment will start serving traffic as soon as the
+                feature is published. Leave Off if you want to make additional
+                changes before starting.
+              </small>
             </div>
-          )}
-        </div>
-      )}
+            {!form.watch("autoStart") && (
+              <div>
+                <hr />
+                <ScheduleInputs
+                  defaultValue={defaultValues.scheduleRules || []}
+                  onChange={(value) => form.setValue("scheduleRules", value)}
+                  scheduleToggleEnabled={scheduleToggleEnabled}
+                  setScheduleToggleEnabled={setScheduleToggleEnabled}
+                  setShowUpgradeModal={setShowUpgradeModal}
+                />
+              </div>
+            )}
+          </div>
+        )}
     </Modal>
   );
 }
