@@ -304,6 +304,7 @@ export default function ExperimentGraph({
         </div>
         <div className="pt-2">
           <MoreMenu>
+            <div className="p-2 px-3">Download data as CSV...</div>
             <a
               href="#"
               className="dropdown-item"
@@ -312,7 +313,7 @@ export default function ExperimentGraph({
                 downloadCSV("all");
               }}
             >
-              Download CSV of totals
+              Totals
             </a>
             <a
               href="#"
@@ -322,7 +323,7 @@ export default function ExperimentGraph({
                 downloadCSV("projects");
               }}
             >
-              Download CSV by projects
+              By Projects
             </a>
             <a
               href="#"
@@ -332,7 +333,7 @@ export default function ExperimentGraph({
                 downloadCSV("status");
               }}
             >
-              Download CSV by status
+              By Status
             </a>
             <a
               href="#"
@@ -342,7 +343,7 @@ export default function ExperimentGraph({
                 downloadCSV("results");
               }}
             >
-              Download CSV by results
+              By Results
             </a>
           </MoreMenu>
         </div>
