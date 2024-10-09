@@ -63,6 +63,7 @@ export default function DataSourceMetrics({
           {...modalData}
           close={() => setModalData(null)}
           source="datasource-detail"
+          datasource={dataSource.id}
         />
       ) : null}
       <div className="d-flex flex-row align-items-center justify-content-between">

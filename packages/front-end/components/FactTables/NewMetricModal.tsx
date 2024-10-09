@@ -62,7 +62,13 @@ export function MetricModal({
 }
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
-  const { factMetrics, metrics, factTables, project } = useDefinitions();
+  const {
+    factMetrics,
+    metrics,
+    factTables,
+    project,
+    getDatasourceById,
+  } = useDefinitions();
 
   const filteredFactMetrics = factMetrics
     .filter((f) => !datasource || f.datasource === datasource)
@@ -103,10 +109,15 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
       />
     );
   } else {
+    const defaultProjects =
+      (datasource ? getDatasourceById(datasource)?.projects : null) ??
+      (project ? [project] : []);
+
     return (
       <MetricForm
         current={{
           datasource: datasource,
+          projects: defaultProjects,
         }}
         edit={false}
         source={source}
