@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -10,11 +11,13 @@ export interface Props {
 }
 
 export default function NewMetricModal({ close, source, datasource }: Props) {
-  const { factTables } = useDefinitions();
+  const { factTables, project } = useDefinitions();
 
-  const hasFactTables = datasource
-    ? factTables.some((f) => f.datasource === datasource)
-    : factTables.length > 0;
+  const filteredFactTables = factTables
+    .filter((f) => !datasource || f.datasource === datasource)
+    .filter((f) => isProjectListValidForProject(f.projects, project));
+
+  const hasFactTables = filteredFactTables.length > 0;
 
   // What type of metric we're creating - fact or non-fact
   const [type, setType] = useState<"fact" | "legacy">(

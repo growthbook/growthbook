@@ -652,9 +652,9 @@ const MetricForm: FC<MetricFormProps> = ({
           }}
         >
           {isExclusivelyForDemoDatasourceProject ? (
-            <div className="alert alert-warning">
+            <Callout status="warning">
               You are creating a metric under the demo datasource project.
-            </div>
+            </Callout>
           ) : switchToFact && factTables.length > 0 ? (
             <Callout status="info" mb="3">
               You are creating a legacy SQL metric.{" "}
@@ -670,7 +670,8 @@ const MetricForm: FC<MetricFormProps> = ({
             </Callout>
           ) : switchToFact ? (
             <Callout status="info" mb="3">
-              Use Fact Tables to save time and improve query performance.{" "}
+              Switch to Fact Tables for an easier and faster way to create
+              metrics.{" "}
               <Link href="/fact-tables">
                 Learn More <FaArrowRight />
               </Link>
