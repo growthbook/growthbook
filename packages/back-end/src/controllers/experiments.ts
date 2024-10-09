@@ -613,15 +613,17 @@ export async function postExperiments(
     ideaSource: data.ideaSource || "",
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
-      experimentType === "multi-armed-bandit" ? false :
-      data.sequentialTestingEnabled ??
-      !!org?.settings?.sequentialTestingEnabled,
+      experimentType === "multi-armed-bandit"
+        ? false
+        : data.sequentialTestingEnabled ??
+          !!org?.settings?.sequentialTestingEnabled,
     sequentialTestingTuningParameter:
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
-    statsEngine: experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
+    statsEngine:
+      experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
     type: experimentType,
     banditScheduleValue: data.banditScheduleValue ?? 1,
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
@@ -652,10 +654,13 @@ export async function postExperiments(
     }
 
     if (experimentType === "multi-armed-bandit") {
-      Object.assign(obj, resetExperimentBanditSettings({
-        experiment: obj,
-        settings,
-      }));
+      Object.assign(
+        obj,
+        resetExperimentBanditSettings({
+          experiment: obj,
+          settings,
+        })
+      );
     }
 
     const experiment = await createExperiment({
@@ -1289,11 +1294,14 @@ export async function postExperimentStatus(
       }
 
       // validate goal metric
-      let metric: MetricInterface | null = null;
       if (!experiment?.goalMetrics?.[0]) {
-        throw new Error("Missing goal metric");
+        res.status(403).json({
+          status: 403,
+          message: "Missing goal metric",
+        });
+        return;
       }
-      metric = await getMetricById(context, experiment.goalMetrics[0]);
+      const metric = await getMetricById(context, experiment.goalMetrics[0]);
       if (!metric) {
         res.status(403).json({
           status: 403,
