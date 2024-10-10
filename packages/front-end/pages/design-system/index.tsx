@@ -2,6 +2,13 @@ import { Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
+import {
+  Dropdown,
+  DropdownGroup,
+  DropdownMenuItem,
+  DropdownSeparator,
+  DropdownSubMenu,
+} from "@/components/Radix/Dropdown";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -69,6 +76,27 @@ export default function DesignSystemPage() {
             disabled
           />
         </Flex>
+      </div>
+      <div className="appbox p-3">
+        <h3>Dropdown</h3>
+        <Dropdown label={"test"}>
+          <DropdownSubMenu trigger="Item 1">
+            <DropdownMenuItem>Item 1.1</DropdownMenuItem>
+          </DropdownSubMenu>
+          <DropdownMenuItem
+            onClick={function (): void {
+              alert("Item 2");
+            }}
+          >
+            Item 2
+          </DropdownMenuItem>
+          <DropdownSeparator />
+          <DropdownGroup title="test">
+            <DropdownMenuItem>Item 3</DropdownMenuItem>
+            <DropdownMenuItem> Item 4</DropdownMenuItem>
+            <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
+          </DropdownGroup>
+        </Dropdown>
       </div>
     </div>
   );
