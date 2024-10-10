@@ -186,7 +186,7 @@ export default function FeatureModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="feature-create-or-duplicate"
       open
       size="lg"
       inline={inline}

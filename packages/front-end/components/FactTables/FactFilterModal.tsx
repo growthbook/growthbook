@@ -72,7 +72,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="fact-table-filter-form"
       open={true}
       close={close}
       cta={"Save"}

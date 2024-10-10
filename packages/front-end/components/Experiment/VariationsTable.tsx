@@ -30,6 +30,7 @@ const ScreenshotCarousel: FC<{
 
   return (
     <Carousel
+      trackingEventModalType="variations-table-carousel"
       deleteImage={
         !canEditExperiment
           ? undefined

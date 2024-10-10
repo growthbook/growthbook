@@ -152,7 +152,7 @@ const OpenVisualEditorLink: FC<{
 
       {showEditorUrlDialog && openSettings && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="visual-editor-configure-url"
           open
           header="Visual Editor Target URL"
           close={() => setShowEditorUrlDialog(false)}
@@ -169,7 +169,7 @@ const OpenVisualEditorLink: FC<{
 
       {showExtensionDialog && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="visual-editor-install-devtools"
           open
           header="GrowthBook DevTools Extension"
           close={() => setShowExtensionDialog(false)}

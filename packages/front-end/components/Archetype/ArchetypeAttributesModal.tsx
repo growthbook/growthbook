@@ -62,7 +62,7 @@ const ArchetypeAttributesModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="archetype-attributes"
       open={true}
       autoCloseOnSubmit={false}
       close={close}

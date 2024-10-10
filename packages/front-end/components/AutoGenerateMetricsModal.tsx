@@ -275,7 +275,13 @@ export default function AutoGenerateMetricsModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="auto-generate-metrics"
+      trackingEventModalSource={source}
+      allowlistedTrackingEventProps={{
+        type: selectedDatasource?.type,
+        dataSourceId: selectedDatasource?.id,
+        schema: selectedDatasource?.settings?.schemaFormat,
+      }}
       size="lg"
       open={true}
       header="Discover Metrics"

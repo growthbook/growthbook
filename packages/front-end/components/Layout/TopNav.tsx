@@ -394,7 +394,7 @@ const TopNav: FC<{
       </Head>
       {editUserOpen && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="edit-user-profile"
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
           header="Edit Profile"

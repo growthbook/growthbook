@@ -89,7 +89,7 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="experiment-new-phase"
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
       close={close}
       open={true}
