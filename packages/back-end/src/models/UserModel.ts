@@ -218,6 +218,7 @@ export async function getAllUserEmailsAcrossAllOrgs(): Promise<string[]> {
         localField: "id",
         foreignField: "members.id",
         as: "orgs",
+        pipeline: [{ $project: { _id: 0, members: 1 } }],
       },
     },
     {
@@ -225,7 +226,10 @@ export async function getAllUserEmailsAcrossAllOrgs(): Promise<string[]> {
         "orgs.0": { $exists: true },
       },
     },
-  ]);
+    {
+      $project: { email: 1 },
+    },
+  ]).allowDiskUse(true);
 
   return users.map((u) => u.email);
 }
