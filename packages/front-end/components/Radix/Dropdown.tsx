@@ -1,44 +1,27 @@
 // radix dropdown wrapper
-import { DropdownMenu as RadixDropdownMenu, Button } from "@radix-ui/themes";
+import { DropdownMenu as RadixDropdownMenu } from "@radix-ui/themes";
 // import colors from radix-ui themes
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-type AllowedChildren = React.ReactElement<
-  | typeof DropdownSubMenu
-  | typeof DropdownMenuItem
-  | typeof DropdownSeparator
-  | React.ReactNode
->;
+type AllowedChildren = React.ReactNode;
 
 type Props = {
-  label: string;
+  trigger: React.ReactNode;
   disabled?: boolean;
   errorLevel?: "error" | "warning";
   description?: string;
-  children: AllowedChildren[] | AllowedChildren;
-  variant?: "primary" | "secondary";
+  children: AllowedChildren;
 } & MarginProps;
-export function Dropdown({
-  label,
-  children,
-  variant,
-  ...containerProps
-}: Props) {
-  const variantRadix = variant === "primary" ? "soft" : "outline";
+export function Dropdown({ trigger, children, ...containerProps }: Props) {
   return (
     <RadixDropdownMenu.Root {...containerProps}>
-      <RadixDropdownMenu.Trigger>
-        <Button variant={variantRadix} size="1">
-          {label}
-          <RadixDropdownMenu.TriggerIcon />
-        </Button>
-      </RadixDropdownMenu.Trigger>
+      <RadixDropdownMenu.Trigger>{trigger}</RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content>{children}</RadixDropdownMenu.Content>
     </RadixDropdownMenu.Root>
   );
 }
 
 type DropdownContentProps = {
-  children: AllowedChildren[] | AllowedChildren;
+  children: AllowedChildren;
   trigger: string | React.ReactNode;
 };
 export function DropdownSubMenu({
@@ -54,7 +37,7 @@ export function DropdownSubMenu({
   );
 }
 type DropdownItemProps = {
-  children: React.ReactNode;
+  children: AllowedChildren;
   disabled?: boolean;
   onClick?: () => void;
   color?: "red" | "default";
@@ -82,31 +65,14 @@ export function DropdownMenuItem({
     </RadixDropdownMenu.Item>
   );
 }
+export function DropdownMenuLabel({
+  children,
+}: {
+  children: AllowedChildren;
+}): JSX.Element {
+  return <RadixDropdownMenu.Label>{children}</RadixDropdownMenu.Label>;
+}
 
-export function DropdownSeparator() {
+export function DropdownMenuSeparator() {
   return <RadixDropdownMenu.Separator />;
-}
-
-type DropdownGroupProps = {
-  title?: string;
-  children: AllowedChildren[] | AllowedChildren;
-};
-//if light mode gray-1 else gray-9 for dark mode
-const backgroundColor = "var(--gray-1)";
-export function DropdownGroup({ children }: DropdownGroupProps) {
-  return (
-    <div
-      style={{
-        borderRadius: "var(--border-radius4)",
-        padding: "var(--space2)",
-        backgroundColor: backgroundColor,
-        marginBottom: "5px",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-export function DropdownCompnentItem() {
-  return <RadixDropdownMenu.Item>{children}</RadixDropdownMenu.Item>;
 }

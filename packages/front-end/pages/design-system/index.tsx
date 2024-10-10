@@ -1,12 +1,12 @@
-import { Flex } from "@radix-ui/themes";
+import { Button, Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import {
   Dropdown,
-  DropdownGroup,
   DropdownMenuItem,
-  DropdownSeparator,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/components/Radix/Dropdown";
 
@@ -79,7 +79,8 @@ export default function DesignSystemPage() {
       </div>
       <div className="appbox p-3">
         <h3>Dropdown</h3>
-        <Dropdown label={"test"}>
+        <Dropdown trigger={<Button variant="outline">Dropdown Trigger</Button>}>
+          <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
           <DropdownSubMenu trigger="Item 1">
             <DropdownMenuItem>Item 1.1</DropdownMenuItem>
           </DropdownSubMenu>
@@ -90,12 +91,10 @@ export default function DesignSystemPage() {
           >
             Item 2
           </DropdownMenuItem>
-          <DropdownSeparator />
-          <DropdownGroup title="test">
-            <DropdownMenuItem>Item 3</DropdownMenuItem>
-            <DropdownMenuItem> Item 4</DropdownMenuItem>
-            <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
-          </DropdownGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>Item 3</DropdownMenuItem>
+          <DropdownMenuItem> Item 4</DropdownMenuItem>
+          <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
         </Dropdown>
       </div>
     </div>
