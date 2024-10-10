@@ -14,6 +14,7 @@ import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
+  GBBandit,
   GBDatabase,
   GBExperiment,
   GBPremiumBadge,
@@ -50,10 +51,9 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Bandits",
     href: "/bandits",
-    Icon: GBExperiment,
+    Icon: GBBandit,
     path: /^bandit/,
-    filter: ({ gb }) =>
-      !!gb?.isOn("bandits"),
+    filter: ({ gb }) => !!gb?.isOn("bandits"),
   },
   {
     name: "Metrics and Data",

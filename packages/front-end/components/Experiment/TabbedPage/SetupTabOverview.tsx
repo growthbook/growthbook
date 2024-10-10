@@ -41,6 +41,8 @@ export default function SetupTabOverview({
     permissionsUtil.canViewExperimentModal(experiment.project) &&
     !disableEditing;
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   return (
     <div>
       <h2>Overview</h2>
@@ -76,24 +78,26 @@ export default function SetupTabOverview({
         />
       </div>
 
-      <div className="box px-4 py-3">
-        <MarkdownInlineEdit
-          value={experiment.hypothesis ?? ""}
-          save={async (hypothesis) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ hypothesis }),
-            });
-            mutate();
-          }}
-          canCreate={canEditExperiment}
-          canEdit={canEditExperiment}
-          label="hypothesis"
-          header="Hypothesis"
-          headerClassName="h4"
-          containerClassName="mb-1"
-        />
-      </div>
+      {!isBandit && (
+        <div className="box px-4 py-3">
+          <MarkdownInlineEdit
+            value={experiment.hypothesis ?? ""}
+            save={async (hypothesis) => {
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({ hypothesis }),
+              });
+              mutate();
+            }}
+            canCreate={canEditExperiment}
+            canEdit={canEditExperiment}
+            label="hypothesis"
+            header="Hypothesis"
+            headerClassName="h4"
+            containerClassName="mb-1"
+          />
+        </div>
+      )}
     </div>
   );
 }

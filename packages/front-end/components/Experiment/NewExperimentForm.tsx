@@ -402,10 +402,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   }, [form, exposureQueries, exposureQueryId]);
 
   let header = isNewExperiment
-    ? `Create ${form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"}`
+    ? `Create ${
+        form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
+      }`
     : "Create Experiment Analysis";
   if (source === "duplicate") {
-    header = `Duplicate ${form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"}`;
+    header = `Duplicate ${
+      form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
+    }`;
   }
 
   return (
@@ -509,7 +513,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
 
           <Field
-            label={type === "multi-armed-bandit" ? "Bandit Name" : "Experiment Name"}
+            label={
+              type === "multi-armed-bandit" ? "Bandit Name" : "Experiment Name"
+            }
             required
             minLength={2}
             {...form.register("name")}
@@ -550,21 +556,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           />
 
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={2}
-            maxRows={6}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-            {...form.register("hypothesis")}
-          />
+          {type !== "multi-armed-bandit" && (
+            <Field
+              label="Hypothesis"
+              textarea
+              minRows={2}
+              maxRows={6}
+              placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+              {...form.register("hypothesis")}
+            />
+          )}
           {includeDescription && (
             <Field
               label="Description"
               textarea
               minRows={2}
               maxRows={6}
-              placeholder={type === "multi-armed-bandit" ? "Purpose of the Bandit" : "Purpose of the Experiment"}
+              placeholder={
+                type === "multi-armed-bandit"
+                  ? "Purpose of the Bandit"
+                  : "Purpose of the Experiment"
+              }
               {...form.register("description")}
             />
           )}
