@@ -1,4 +1,5 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
+import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import {
@@ -6,6 +7,7 @@ import {
   distributeWeights,
   getEqualWeights,
   percentToDecimal,
+  percentToDecimalForNumber,
 } from "@/services/utils";
 import {
   generateVariationId,
@@ -90,20 +92,18 @@ export default function FeatureVariationsInput({
             </label>
             <div className="row align-items-center pb-3">
               <div className="col">
-                <input
-                  value={isNaN(coverage) ? 0 : decimalToPercent(coverage)}
-                  onChange={(e) => {
-                    let decimal = percentToDecimal(e.target.value);
+                <Slider
+                  value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
+                  min={0}
+                  max={100}
+                  step={1}
+                  disabled={!!disableCoverage}
+                  onValueChange={(e) => {
+                    let decimal = percentToDecimalForNumber(e[0]);
                     if (decimal > 1) decimal = 1;
                     if (decimal < 0) decimal = 0;
                     setCoverage(decimal);
                   }}
-                  min="0"
-                  max="100"
-                  step="1"
-                  type="range"
-                  className="w-100"
-                  disabled={!!disableCoverage}
                 />
               </div>
               <div
