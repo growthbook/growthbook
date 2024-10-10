@@ -13,7 +13,13 @@ import SelectField from "@/components/Forms/SelectField";
 import LinkButton from "@/components/Radix/LinkButton";
 import Avatar from "@/components/Radix/Avatar";
 import Field from "@/components/Forms/Field";
-
+import {
+  Dropdown,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/components/Radix/Dropdown";
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
   const [size, setSize] = useState<Size>("md");
@@ -225,6 +231,27 @@ export default function DesignSystemPage() {
           <HelperText status="error">This is an error message</HelperText>
           <HelperText status="success">This is a success message</HelperText>
         </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Dropdown</h3>
+        <Dropdown trigger={<Button variant="outline">Dropdown Trigger</Button>}>
+          <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
+          <DropdownSubMenu trigger="Item 1">
+            <DropdownMenuItem>Item 1.1</DropdownMenuItem>
+          </DropdownSubMenu>
+          <DropdownMenuItem
+            onClick={function (): void {
+              alert("Item 2");
+            }}
+          >
+            Item 2
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>Item 3</DropdownMenuItem>
+          <DropdownMenuItem> Item 4</DropdownMenuItem>
+          <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
+        </Dropdown>
       </div>
 
       <div className="appbox p-3">
