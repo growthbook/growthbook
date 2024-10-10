@@ -43,6 +43,8 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotTriggeredBy,
+  SnapshotType,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import {
@@ -580,6 +582,8 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export async function createSnapshot({
   experiment,
   context,
+  type,
+  triggeredBy,
   phaseIndex,
   useCache = false,
   defaultAnalysisSettings,
@@ -590,6 +594,8 @@ export async function createSnapshot({
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
+  type: SnapshotType;
+  triggeredBy: SnapshotTriggeredBy;
   phaseIndex: number;
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -621,6 +627,8 @@ export async function createSnapshot({
     queries: [],
     dimension: dimension || null,
     settings: snapshotSettings,
+    type: type,
+    triggeredBy: triggeredBy,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
@@ -770,7 +778,6 @@ async function getSnapshotAnalyses(
           organization: organization.id,
           id: snapshot.id,
           analysis,
-          context,
         })
       );
 
@@ -837,12 +844,11 @@ export async function createSnapshotAnalyses(
   );
 
   // parses results and writes to mongo
-  await writeSnapshotAnalyses(results, analysisParamsMap, context);
+  await writeSnapshotAnalyses(results, analysisParamsMap);
 }
 
 export async function createSnapshotAnalysis(
-  params: SnapshotAnalysisParams,
-  context: Context
+  params: SnapshotAnalysisParams
 ): Promise<void> {
   const {
     snapshot,
@@ -874,7 +880,6 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
-    context,
   });
 
   // Format data correctly
@@ -899,7 +904,6 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
-    context,
   });
 }
 

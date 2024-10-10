@@ -1,5 +1,6 @@
 import { Flex, Text, Checkbox as RadixCheckbox } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import clsx from "clsx";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 
 export type Props = {
@@ -28,7 +29,10 @@ export default function Checkbox({
     <Text
       as="label"
       size="2"
-      color={disabled ? "gray" : undefined}
+      className={clsx("rt-CheckboxItem", {
+        "rt-TextDisabled": disabled,
+        disabled: disabled,
+      })}
       {...containerProps}
     >
       <Flex gap="2">
@@ -39,7 +43,9 @@ export default function Checkbox({
           color={checkboxColor}
         />
         <Flex direction="column" gap="1">
-          <Text weight="bold">{label}</Text>
+          <Text weight="bold" className="main-text">
+            {label}
+          </Text>
           {description && <Text>{description}</Text>}
           {error && <HelperText status={errorLevel}>{error}</HelperText>}
         </Flex>

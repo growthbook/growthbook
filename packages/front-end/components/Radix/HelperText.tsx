@@ -9,6 +9,8 @@ import {
 
 export type Status = "info" | "warning" | "error" | "success";
 
+export type RadixColor = TextProps["color"];
+
 export function getRadixColor(status: Status): TextProps["color"] {
   switch (status) {
     case "info":
@@ -44,8 +46,11 @@ export default function HelperText({
 }) {
   return (
     <Text color={getRadixColor(status)}>
-      <Flex align="center" gap="1">
-        <RadixStatusIcon status={status} /> {children}
+      <Flex gap="1">
+        <div style={{ flex: "0 0 auto" }}>
+          <RadixStatusIcon status={status} />
+        </div>
+        {children}
       </Flex>
     </Text>
   );

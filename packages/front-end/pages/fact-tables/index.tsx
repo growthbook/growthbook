@@ -6,7 +6,6 @@ import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
-import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
@@ -23,6 +22,7 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AutoGenerateFactTableModal from "@/components/AutoGenerateFactTablesModal";
 import Toggle from "@/components/Forms/Toggle";
+import Button from "@/components/Radix/Button";
 
 export default function FactTablesPage() {
   const {
@@ -241,10 +241,10 @@ export default function FactTablesPage() {
                 : ""
             }
           >
-            <button
-              className="btn btn-outline-info mr-2"
-              onClick={(e) => {
-                e.preventDefault();
+            <Button
+              variant="outline"
+              mr="2"
+              onClick={() => {
                 if (!canCreate) return;
                 setDiscoverFactOpen(true);
               }}
@@ -252,8 +252,8 @@ export default function FactTablesPage() {
                 !canCreate || !dataSourcesThatSupportAutoFactTables.length
               }
             >
-              <strong>Auto-generate Fact Tables...</strong>
-            </button>
+              Auto-generate Fact Tables
+            </Button>
           </Tooltip>
           <Tooltip
             body={
@@ -264,17 +264,15 @@ export default function FactTablesPage() {
                 : ""
             }
           >
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
+            <Button
+              onClick={() => {
                 if (!canCreate) return;
                 setCreateFactOpen(true);
               }}
               disabled={!canCreate}
             >
-              <GBAddCircle /> Add Fact Table
-            </button>
+              Add Fact Table
+            </Button>
           </Tooltip>
         </div>
       </div>

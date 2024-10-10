@@ -1,13 +1,13 @@
 import React, { ReactElement, useCallback, useState } from "react";
-import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
+import { FaArchive, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import SortedTags from "@/components/Tags/SortedTags";
-import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
 import TagsFilter, {
   filterByTags,
@@ -30,7 +30,9 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-interface MetricTableItem {
+import Button from "@/components/Radix/Button";
+
+export interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
   name: string;
@@ -43,8 +45,127 @@ interface MetricTableItem {
   dateUpdated: Date | null;
   dateCreated: Date | null;
   archived: boolean;
-  onDuplicate?: () => void;
+  canEdit: boolean;
+  canDuplicate: boolean;
   onArchive?: (desiredState: boolean) => Promise<void>;
+  onDuplicate?: () => void;
+  onEdit?: () => void;
+}
+
+export function useCombinedMetrics({
+  duplicateMetric,
+  editMetric,
+  duplicateFactMetric,
+  editFactMetric,
+  afterArchive,
+}: {
+  duplicateMetric?: (m: MetricInterface) => void;
+  editMetric?: (m: MetricInterface) => void;
+  duplicateFactMetric?: (m: FactMetricInterface) => void;
+  editFactMetric?: (m: FactMetricInterface) => void;
+  afterArchive?: (id: string, archived: boolean) => void;
+}): MetricTableItem[] {
+  const {
+    _metricsIncludingArchived: inlineMetrics,
+    _factMetricsIncludingArchived: factMetrics,
+    mutateDefinitions,
+  } = useDefinitions();
+
+  const permissionsUtil = usePermissionsUtil();
+
+  const { apiCall } = useAuth();
+
+  const combinedMetrics = [
+    ...inlineMetrics.map((m) => {
+      const canDuplicate = permissionsUtil.canCreateMetric(m);
+      const canEdit = permissionsUtil.canUpdateMetric(m, {});
+
+      const item: MetricTableItem = {
+        id: m.id,
+        managedBy: m.managedBy || "",
+        archived: m.status === "archived",
+        datasource: m.datasource || "",
+        dateUpdated: m.dateUpdated,
+        dateCreated: m.dateCreated,
+        name: m.name,
+        owner: m.owner || "",
+        projects: m.projects || [],
+        tags: m.tags || [],
+        type: m.type,
+        isRatio: !!m.denominator,
+        canDuplicate,
+        canEdit,
+        onArchive: canEdit
+          ? async (desiredState) => {
+              const newStatus = desiredState ? "archived" : "active";
+              await apiCall(`/metric/${m.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  status: newStatus,
+                }),
+              });
+
+              mutateDefinitions();
+
+              if (afterArchive) {
+                afterArchive(m.id, desiredState);
+              }
+            }
+          : undefined,
+        onDuplicate:
+          canDuplicate && duplicateMetric
+            ? () => duplicateMetric(m)
+            : undefined,
+        onEdit: canEdit && editMetric ? () => editMetric(m) : undefined,
+      };
+      return item;
+    }),
+    ...factMetrics.map((m) => {
+      const canDuplicate = permissionsUtil.canCreateFactMetric(m);
+      const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
+
+      const item: MetricTableItem = {
+        id: m.id,
+        managedBy: m.managedBy || "",
+        archived: !!m.archived,
+        datasource: m.datasource,
+        dateUpdated: m.dateUpdated,
+        dateCreated: m.dateCreated,
+        name: m.name,
+        owner: m.owner,
+        projects: m.projects || [],
+        tags: m.tags || [],
+        isRatio: m.metricType === "ratio",
+        type: m.metricType,
+        canDuplicate,
+        canEdit,
+        onArchive: canEdit
+          ? async (archivedState) => {
+              await apiCall(`/fact-metrics/${m.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  archived: archivedState,
+                }),
+              });
+
+              mutateDefinitions();
+
+              if (afterArchive) {
+                afterArchive(m.id, archivedState);
+              }
+            }
+          : undefined,
+        onDuplicate:
+          canDuplicate && duplicateFactMetric
+            ? () => duplicateFactMetric(m)
+            : undefined,
+        onEdit: canEdit && editFactMetric ? () => editFactMetric(m) : undefined,
+      };
+      return item;
+    }),
+  ];
+
+  return combinedMetrics;
 }
 
 const MetricsPage = (): React.ReactElement => {
@@ -61,8 +182,6 @@ const MetricsPage = (): React.ReactElement => {
   const {
     getDatasourceById,
     mutateDefinitions,
-    _metricsIncludingArchived: inlineMetrics,
-    _factMetricsIncludingArchived: factMetrics,
     project,
     ready,
   } = useDefinitions();
@@ -71,7 +190,6 @@ const MetricsPage = (): React.ReactElement => {
   const { getUserDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
 
   const tagsFilter = useTagsFilter("metrics");
 
@@ -80,83 +198,32 @@ const MetricsPage = (): React.ReactElement => {
     new Set()
   );
 
-  const combinedMetrics = [
-    ...inlineMetrics.map((m) => {
-      const item: MetricTableItem = {
-        id: m.id,
-        managedBy: m.managedBy || "",
-        archived: m.status === "archived",
-        datasource: m.datasource || "",
-        dateUpdated: m.dateUpdated,
-        dateCreated: m.dateCreated,
-        name: m.name,
-        owner: m.owner || "",
-        projects: m.projects || [],
-        tags: m.tags || [],
-        type: m.type,
-        isRatio: !!m.denominator,
-        onArchive: async (desiredState) => {
-          const newStatus = desiredState ? "archived" : "active";
-          await apiCall(`/metric/${m.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              status: newStatus,
-            }),
-          });
-          if (newStatus === "archived") {
-            setRecentlyArchived((set) => new Set([...set, m.id]));
-          } else {
-            setRecentlyArchived(
-              (set) => new Set([...set].filter((id) => id !== m.id))
-            );
-          }
+  const combinedMetrics = useCombinedMetrics({
+    duplicateMetric: (m) => {
+      setModalData({
+        current: {
+          ...m,
+          name: m.name + " (copy)",
         },
-        onDuplicate: () => {
-          setModalData({
-            current: {
-              ...m,
-              name: m.name + " (copy)",
-            },
-            edit: false,
-            duplicate: true,
-          });
-        },
-      };
-      return item;
-    }),
-    ...factMetrics.map((m) => {
-      const item: MetricTableItem = {
-        id: m.id,
-        managedBy: m.managedBy || "",
-        archived: !!m.archived,
-        datasource: m.datasource,
-        dateUpdated: m.dateUpdated,
-        dateCreated: m.dateCreated,
-        name: m.name,
-        owner: m.owner,
-        projects: m.projects || [],
-        tags: m.tags || [],
-        isRatio: m.metricType === "ratio",
-        type: m.metricType,
-        onArchive: async (archivedState) => {
-          await apiCall(`/fact-metrics/${m.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              archived: archivedState,
-            }),
-          });
-          if (archivedState) {
-            setRecentlyArchived((set) => new Set([...set, m.id]));
-          } else {
-            setRecentlyArchived(
-              (set) => new Set([...set].filter((id) => id !== m.id))
-            );
-          }
-        },
-      };
-      return item;
-    }),
-  ];
+        edit: false,
+        duplicate: true,
+      });
+    },
+    editMetric: (m) => {
+      setModalData({
+        current: m,
+        edit: true,
+        duplicate: false,
+      });
+    },
+    afterArchive: (id, archived) => {
+      if (archived) {
+        setRecentlyArchived((set) => new Set([...set, id]));
+      } else {
+        setRecentlyArchived((set) => new Set([...set].filter((i) => i !== id)));
+      }
+    },
+  });
 
   const metrics = useAddComputedFields(
     combinedMetrics,
@@ -189,15 +256,6 @@ const MetricsPage = (): React.ReactElement => {
     [showArchived, recentlyArchived, tagsFilter.tags]
   );
 
-  const editMetricsPermissions: {
-    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
-  } = {};
-  filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = {
-      canDuplicate: permissionsUtil.canCreateMetric(m),
-      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
-    };
-  });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
     defaultSortField: "name",
@@ -304,12 +362,10 @@ const MetricsPage = (): React.ReactElement => {
                 setShowAutoGenerateMetricsModal={
                   setShowAutoGenerateMetricsModal
                 }
-                size="lg"
+                size="md"
               />
-              <button
-                className="btn btn-lg btn-success"
-                onClick={(e) => {
-                  e.preventDefault();
+              <Button
+                onClick={() => {
                   setModalData({
                     current: {},
                     edit: false,
@@ -317,8 +373,8 @@ const MetricsPage = (): React.ReactElement => {
                   });
                 }}
               >
-                <FaPlus /> Add your first Metric
-              </button>
+                Add your first Metric
+              </Button>
             </>
           )}
       </div>
@@ -368,21 +424,17 @@ const MetricsPage = (): React.ReactElement => {
                   setShowAutoGenerateMetricsModal
                 }
               />
-              <button
-                className="btn btn-primary float-right"
-                onClick={() =>
+              <Button
+                onClick={() => {
                   setModalData({
                     current: {},
                     edit: false,
                     duplicate: false,
-                  })
-                }
+                  });
+                }}
               >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
                 Add Metric
-              </button>
+              </Button>
             </div>
           )}
       </div>
@@ -440,11 +492,7 @@ const MetricsPage = (): React.ReactElement => {
           {items.map((metric) => {
             const moreMenuLinks: ReactElement[] = [];
 
-            if (
-              metric.onDuplicate &&
-              editMetricsPermissions[metric.id].canDuplicate &&
-              envAllowsCreatingMetrics()
-            ) {
+            if (metric.onDuplicate && envAllowsCreatingMetrics()) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -459,19 +507,13 @@ const MetricsPage = (): React.ReactElement => {
               );
             }
 
-            if (
-              !metric.managedBy &&
-              metric.onArchive &&
-              editMetricsPermissions[metric.id].canUpdate
-            ) {
+            if (!metric.managedBy && metric.onArchive) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
                   onClick={async (e) => {
                     e.preventDefault();
-                    metric.onArchive &&
-                      (await metric.onArchive(!metric.archived));
-                    mutateDefinitions({});
+                    await metric.onArchive?.(!metric.archived);
                   }}
                 >
                   <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}
