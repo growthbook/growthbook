@@ -263,10 +263,9 @@ const ExperimentsPage = (): React.ReactElement => {
           {!hasExperiments ? (
             <div className="box py-4 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Quickly Find the Winner with Bandits</h1>
+                <h1>Adaptively experiment with bandits.</h1>
                 <p style={{ fontSize: "17px" }}>
-                  Turbocharge your experiments by driving traffic to the best
-                  variants.
+                  Bandits automatically guide more traffic to better variants.
                 </p>
               </div>
               <div className="d-flex justify-content-center">
