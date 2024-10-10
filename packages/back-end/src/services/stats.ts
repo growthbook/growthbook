@@ -19,6 +19,7 @@ import {
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
+  BanditResult,
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
 } from "back-end/types/stats";
@@ -43,6 +44,7 @@ import {
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
+  SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "back-end/types/experiment-snapshot";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -64,6 +66,21 @@ export interface AnalysisSettingsForStatsEngine {
   phase_length_days: number;
   alpha: number;
   max_dimensions: number;
+  traffic_percentage: number;
+}
+
+export interface BanditSettingsForStatsEngine {
+  var_names: string[];
+  var_ids: string[];
+  historical_weights?: {
+    date: Date;
+    weights: number[];
+    total_users: number;
+  }[];
+  current_weights: number[];
+  reweight: boolean;
+  decision_metric: string;
+  bandit_weights_seed: number;
 }
 
 export interface MetricSettingsForStatsEngine {
@@ -79,6 +96,7 @@ export interface MetricSettingsForStatsEngine {
   main_metric_type: "count" | "binomial" | "quantile";
   denominator_metric_type?: "count" | "binomial" | "quantile";
   covariate_metric_type?: "count" | "binomial" | "quantile";
+  keep_theta?: boolean;
   quantile_value?: number;
   prior_proper?: boolean;
   prior_mean?: number;
@@ -97,6 +115,7 @@ export interface DataForStatsEngine {
   analyses: AnalysisSettingsForStatsEngine[];
   metrics: Record<string, MetricSettingsForStatsEngine>;
   query_results: QueryResultsForStatsEngine[];
+  bandit_settings?: BanditSettingsForStatsEngine;
 }
 
 export interface ExperimentDataForStatsEngine {
@@ -158,8 +177,33 @@ export function getAnalysisSettingsForStatsEngine(
       settings.dimensions[0]?.substring(0, 8) === "pre:date"
         ? 9999
         : MAX_DIMENSIONS,
+    traffic_percentage: coverage,
   };
   return analysisData;
+}
+
+export function getBanditSettingsForStatsEngine(
+  banditSettings: SnapshotBanditSettings,
+  settings: ExperimentSnapshotAnalysisSettings,
+  variations: ExperimentReportVariation[]
+): BanditSettingsForStatsEngine {
+  const sortedVariations = putBaselineVariationFirst(
+    variations,
+    settings.baselineVariationIndex ?? 0
+  );
+  return {
+    reweight: banditSettings.reweight,
+    var_names: sortedVariations.map((v) => v.name),
+    var_ids: sortedVariations.map((v) => v.id),
+    decision_metric: banditSettings.decisionMetric,
+    bandit_weights_seed: banditSettings.seed,
+    current_weights: banditSettings.currentWeights,
+    historical_weights: banditSettings.historicalWeights.map((hw) => ({
+      date: hw.date,
+      weights: hw.weights,
+      total_users: hw.totalUsers,
+    })),
+  };
 }
 
 async function runStatsEngine(
@@ -222,6 +266,7 @@ function createStatsEngineData(
     coverage,
     analyses,
     queryResults,
+    banditSettings,
   } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
@@ -237,26 +282,37 @@ function createStatsEngineData(
         phaseLengthDays
       )
     ),
+    bandit_settings: banditSettings
+      ? getBanditSettingsForStatsEngine(banditSettings, analyses[0], variations)
+      : undefined,
   };
 }
 
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams
-): Promise<ExperimentMetricAnalysis> {
-  const result = (
+): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
+  const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine([
       { id: params.id, data: createStatsEngineData(params) },
     ])
   )?.[0];
 
-  if (!result) {
+  if (!analysis) {
     throw new Error("Error in stats engine: no rows returned");
   }
-  if (result.error) {
-    logger.error(result.error, "Failed to run stats model: " + result.error);
-    throw new Error("Error in stats engine: " + result.error);
+  if (analysis.error) {
+    let errorMsg = "Failed to run stats model:\n" + analysis.error;
+    logger.error(analysis.error, errorMsg);
+    if (analysis.traceback) {
+      logger.error("Traceback:\n" + analysis.traceback);
+      errorMsg += "\n\n" + analysis.traceback;
+    }
+    throw new Error("Error in stats engine: " + errorMsg);
   }
-  return result.results;
+  return {
+    results: analysis.results,
+    banditResult: analysis.banditResult,
+  };
 }
 
 export async function runSnapshotAnalyses(
@@ -327,7 +383,10 @@ export function getMetricSettingsForStatsEngine(
         ? "binomial"
         : "count",
     }),
-    ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
+    ...(regressionAdjusted && {
+      covariate_metric_type: mainMetricType,
+      keep_theta: !!settings.banditSettings,
+    }),
     ...(!!quantileMetric && isFactMetric(metric)
       ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
       : {}),
@@ -443,13 +502,19 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
-function parseStatsEngineResult(
-  analysisSettings: ExperimentSnapshotAnalysisSettings[],
-  snapshotSettings: ExperimentSnapshotSettings,
-  queryResults: QueryResultsForStatsEngine[],
-  unknownVariations: string[],
-  result: ExperimentMetricAnalysis
-): ExperimentReportResults[] {
+function parseStatsEngineResult({
+  analysisSettings,
+  snapshotSettings,
+  queryResults,
+  unknownVariations,
+  result,
+}: {
+  analysisSettings: ExperimentSnapshotAnalysisSettings[];
+  snapshotSettings: ExperimentSnapshotSettings;
+  queryResults: QueryResultsForStatsEngine[];
+  unknownVariations: string[];
+  result: ExperimentMetricAnalysis;
+}): ExperimentReportResults[] {
   let unknownVariationsCopy = [...unknownVariations];
 
   const experimentReportResults: ExperimentReportResults[] = [];
@@ -545,11 +610,13 @@ export async function writeSnapshotAnalyses(
       analysisObj.error = result.error;
     } else {
       const experimentReportResults: ExperimentReportResults[] = parseStatsEngineResult(
-        analyses,
-        snapshotSettings,
-        queryResults,
-        unknownVariations,
-        result.results
+        {
+          analysisSettings: analyses,
+          snapshotSettings,
+          queryResults,
+          unknownVariations,
+          result: result.results,
+        }
       );
 
       analysisObj.results = experimentReportResults[0]?.dimensions || [];
@@ -582,7 +649,10 @@ export async function analyzeExperimentResults({
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
-}): Promise<ExperimentReportResults[]> {
+}): Promise<{
+  results: ExperimentReportResults[];
+  banditResult?: BanditResult;
+}> {
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
@@ -605,17 +675,20 @@ export async function analyzeExperimentResults({
     analyses: analysisSettings,
     queryResults: queryResults,
     metrics: metricSettings,
+    banditSettings: snapshotSettings.banditSettings,
   };
-  const results = await runSnapshotAnalysis(params);
+  const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
 
-  return parseStatsEngineResult(
+  const results = parseStatsEngineResult({
     analysisSettings,
     snapshotSettings,
     queryResults,
     unknownVariations,
-    results
-  );
+    result: analysis,
+  });
+  return { results, banditResult };
 }
+
 export function analyzeExperimentTraffic({
   rows,
   error,

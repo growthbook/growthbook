@@ -217,7 +217,7 @@ export default function ConfigureReport({
       cta="Save and Run"
     >
       <Field
-        label="Experiment Key"
+        label="Tracking Key"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your experiment assignment table"

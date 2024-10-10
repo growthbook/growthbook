@@ -67,6 +67,18 @@ export type FactMetricData = {
   maxHoursToConvert: number;
 };
 
+export type BanditMetricData = Pick<
+  FactMetricData,
+  | "alias"
+  | "id"
+  | "ratioMetric"
+  | "regressionAdjusted"
+  | "isPercentileCapped"
+  | "capCoalesceMetric"
+  | "capCoalesceDenominator"
+  | "capCoalesceCovariate"
+>;
+
 export interface ExperimentMetricStats {
   metric_type: MetricType;
   count: number;
@@ -362,6 +374,8 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum?: number;
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
+
+  theta?: number; // for bandits only
 
   quantile?: number;
   quantile_n?: number;

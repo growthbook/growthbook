@@ -37,7 +37,7 @@ export default function LinkedChangesContainer({
   const { header, addButtonCopy } = LINKED_CHANGE_CONTAINER_PROPERTIES[type];
 
   return (
-    <div className="appbox p-3 mb-4">
+    <div className="appbox px-4 py-3 mb-4">
       <div className="d-flex mb-2 align-items-center">
         <span
           className="mr-3"
@@ -71,7 +71,7 @@ export default function LinkedChangesContainer({
               <div>
                 {hasFeature ? (
                   <button
-                    className="btn btn-link align-self-center"
+                    className="btn p-0 btn-link link-purple align-self-center"
                     onClick={() => onAddChange()}
                   >
                     <FaPlusCircle className="mr-1" />

@@ -25,11 +25,11 @@ export default function LinkedChange({
   children,
 }: Props) {
   return (
-    <div className="linked-change border bg-light my-3">
+    <div className="linked-change border bg-light my-3 rounded">
       <Collapsible
         trigger={
-          <div className="px-3 py-3 row  text-dark">
-            <div className="col-auto d-flex align-items-center  text-dark">
+          <div className="px-3 py-3 row text-dark">
+            <div className="col-auto d-flex align-items-center text-dark">
               <FaAngleRight className="chevron" />
             </div>
             {changeType === "flag" ? (
@@ -42,7 +42,7 @@ export default function LinkedChange({
                   >
                     {feature?.id || "Feature"}
                   </code>
-                  <span className="badge badge-dark badge-pill ml-3">
+                  <span className="rounded-pill badge-pill badge-gray ml-3">
                     {feature?.valueType}
                   </span>
                   {additionalBadge}
@@ -50,10 +50,11 @@ export default function LinkedChange({
                 <div className="col-auto ml-auto">
                   <Link
                     href={`/features/${feature?.id}`}
-                    className="ml-4"
+                    className="ml-4 link-purple"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    View Feature <FaExternalLinkAlt />
+                    View Feature
+                    <FaExternalLinkAlt className="ml-1" />
                   </Link>
                 </div>
               </>

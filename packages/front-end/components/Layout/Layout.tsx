@@ -9,6 +9,7 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -21,6 +22,7 @@ import {
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { AppFeatures } from "@/types/app-features";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -44,8 +46,21 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Experiments",
     href: "/experiments",
-    path: /^experiment/,
+    path: /^(experiment|bandit)/,
     Icon: GBExperiment,
+    openOnClick: true,
+    subLinks: [
+      {
+        name: "Standard Experiments",
+        href: "/experiments",
+        path: /^(experiment)/,
+      },
+      {
+        name: "Bandits",
+        href: "/bandits",
+        path: /^(bandit)/,
+      },
+    ],
   },
   {
     name: "Metrics and Data",
@@ -294,6 +309,8 @@ const backgroundShade = (color: string) => {
 };
 
 const Layout = (): React.ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
   const { accountPlan, license } = useUser();
@@ -448,9 +465,17 @@ const Layout = (): React.ReactElement => {
                   </a>
                 </li>
                 <ProjectSelector />
-                {navlinks.map((v, i) => (
-                  <SidebarLink {...v} key={i} />
-                ))}
+                {navlinks.map((v, i) => {
+                  // todo: revert after bandits rollout
+                  const v2 = { ...v };
+                  if (
+                    v2.name === "Experiments" &&
+                    !growthbook.isOn("bandits")
+                  ) {
+                    v2.subLinks = undefined;
+                  }
+                  return <SidebarLink {...v2} key={i} />;
+                })}
               </ul>
             </div>
           </div>

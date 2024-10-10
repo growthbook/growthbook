@@ -20,6 +20,7 @@ interface Props
   barType?: "pill" | "violin";
   barFillType?: "gradient" | "significant";
   significant?: boolean;
+  disabled?: boolean;
   graphWidth?: number;
   height?: number;
   className?: string;
@@ -40,6 +41,7 @@ export default function PercentGraph({
   barType: _barType,
   barFillType = "gradient",
   significant,
+  disabled,
   graphWidth,
   height,
   className,
@@ -57,7 +59,7 @@ export default function PercentGraph({
 
   const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
-  const showGraph = metric && enoughData;
+  const showGraph = !disabled && metric && enoughData;
 
   if (significant === undefined) {
     if (barType === "pill") {

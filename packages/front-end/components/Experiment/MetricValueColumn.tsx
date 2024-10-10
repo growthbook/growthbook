@@ -1,5 +1,10 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
+import {
+  CSSProperties,
+  DetailedHTMLProps,
+  ReactElement,
+  TdHTMLAttributes,
+} from "react";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -31,6 +36,7 @@ interface Props
   style?: CSSProperties;
   rowSpan?: number;
   showRatio?: boolean;
+  noDataMessage?: ReactElement | string;
 }
 
 export default function MetricValueColumn({
@@ -41,6 +47,7 @@ export default function MetricValueColumn({
   style,
   rowSpan,
   showRatio = true,
+  noDataMessage = "no data",
   ...otherProps
 }: Props) {
   const displayCurrency = useCurrency();
@@ -114,7 +121,7 @@ export default function MetricValueColumn({
           ) : null}
         </>
       ) : (
-        <em className="text-muted">no data</em>
+        <em className="text-muted">{noDataMessage}</em>
       )}
     </td>
   );

@@ -15,6 +15,15 @@
     border: 1px solid #ffffff;
     box-sizing: border-box;
   }
+  .deltaIndicator {
+    position: absolute;
+    width: 2px;
+    height: 0;
+    margin-left: -1px;
+    background: rgba(96, 48, 183, 0.8);
+    z-index: 1;
+    filter: brightness(1.25);
+  }
   .crosshair {
     position: absolute;
     top: 0;

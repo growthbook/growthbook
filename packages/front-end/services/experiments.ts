@@ -24,6 +24,7 @@ import {
   isBinomialMetric,
   isSuspiciousUplift,
   quantileMetricType,
+  isRatioMetric,
 } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -379,6 +380,7 @@ export type RowResults = {
   hasData: boolean;
   enoughData: boolean;
   enoughDataMeta: EnoughDataMeta;
+  hasScaledImpact: boolean;
   significant: boolean;
   significantUnadjusted: boolean;
   significantReason: string;
@@ -409,6 +411,7 @@ export function getRowResults({
   stats,
   baseline,
   metric,
+  denominator,
   metricDefaults,
   isGuardrail,
   minSampleSize,
@@ -427,6 +430,7 @@ export function getRowResults({
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
   metric: ExperimentMetricInterface;
+  denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
   isGuardrail: boolean;
   minSampleSize: number;
@@ -453,6 +457,8 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
+  const hasScaledImpact =
+    !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
   const hasData = !!stats?.value && !!baseline?.value;
   const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
@@ -624,6 +630,7 @@ export function getRowResults({
     hasData,
     enoughData,
     enoughDataMeta,
+    hasScaledImpact,
     significant,
     significantUnadjusted,
     significantReason,

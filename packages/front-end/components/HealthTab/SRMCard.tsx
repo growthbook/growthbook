@@ -47,7 +47,7 @@ export const srmHealthCheck = ({
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 
-export default function SRMDrawer({
+export default function SRMCard({
   traffic,
   variations,
   totalUsers,
@@ -141,6 +141,7 @@ export default function SRMDrawer({
                     variations={variations}
                     users={traffic.overall.variationUnits}
                     showWhenHealthy
+                    isBandit={false}
                   />
                 )}
                 {overallHealth === "Not enough traffic" && (
@@ -163,6 +164,7 @@ export default function SRMDrawer({
             exposureQuery={exposureQuery}
             healthTabConfigParams={healthTabConfigParams}
             canConfigHealthTab={canConfigHealthTab}
+            isBandit={false}
           />
         </div>
       </div>

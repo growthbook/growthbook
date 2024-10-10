@@ -1,8 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import SRMDrawer from "@/components/HealthTab/SRMDrawer";
-import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
+import SRMCard from "@/components/HealthTab/SRMCard";
+import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/components/Button";
@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -23,20 +24,20 @@ const noExposureQueryMessage =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  onDrawerNotify: () => void;
+  onHealthNotify: () => void;
   onSnapshotUpdate: () => void;
   resetResultsSettings: () => void;
 }
 
 export default function HealthTab({
   experiment,
-  onDrawerNotify,
+  onHealthNotify,
   onSnapshotUpdate,
   resetResultsSettings,
 }: Props) {
   const {
     error,
-    snapshot,
+    dimensionless: snapshot,
     phase,
     mutateSnapshot,
     setAnalysisSettings,
@@ -61,6 +62,8 @@ export default function HealthTab({
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
     phase,
@@ -79,20 +82,21 @@ export default function HealthTab({
     };
   }, [snapshot, onSnapshotUpdate]);
 
-  const handleDrawerNotify = useCallback(
+  const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
       setHealthIssues((prev) => {
         const issueSet: Set<IssueValue> = new Set([...prev, issue]);
         return [...issueSet];
       });
-      onDrawerNotify();
+      onHealthNotify();
     },
-    [onDrawerNotify]
+    [onHealthNotify]
   );
 
   // If org has the health tab turned to off and has no data, prompt set up if the
   // datasource and exposure query are present
   if (
+    !isBandit &&
     !runHealthTrafficQuery &&
     !snapshot?.health?.traffic.dimension?.dim_exposure_date
   ) {
@@ -198,6 +202,13 @@ export default function HealthTab({
         </div>
       );
     }
+    if (isBandit && experiment.status === "draft") {
+      return (
+        <div className="alert alert-info mt-3">
+          Start the experiment to see health data.
+        </div>
+      );
+    }
     return (
       <div className="alert alert-info mt-3">
         Please return to the results page and run a query to see health data.
@@ -226,28 +237,36 @@ export default function HealthTab({
     <div className="mt-4">
       <IssueTags issues={healthIssues} />
       <TrafficCard traffic={traffic} variations={variations} />
-      <div id={"balanceCheck"} style={{ scrollMarginTop: "100px" }}>
-        <SRMDrawer
-          traffic={traffic}
-          variations={variations}
-          totalUsers={totalUsers}
-          onNotify={handleDrawerNotify}
-          dataSource={datasource}
-          exposureQuery={exposureQuery}
-          healthTabConfigParams={healthTabConfigParams}
-          canConfigHealthTab={hasPermissionToConfigHealthTag}
-        />
+      <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+        {!isBandit ? (
+          <SRMCard
+            traffic={traffic}
+            variations={variations}
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            dataSource={datasource}
+            exposureQuery={exposureQuery}
+            healthTabConfigParams={healthTabConfigParams}
+            canConfigHealthTab={hasPermissionToConfigHealthTag}
+          />
+        ) : (
+          <BanditSRMCard
+            experiment={experiment}
+            phase={phaseObj}
+            onNotify={handleHealthNotification}
+          />
+        )}
       </div>
 
       <div className="row">
         <div
-          className="col-8"
+          className={!isBandit ? "col-8" : "col-12"}
           id="multipleExposures"
           style={{ scrollMarginTop: "100px" }}
         >
-          <MultipleExposuresDrawer
+          <MultipleExposuresCard
             totalUsers={totalUsers}
-            onNotify={handleDrawerNotify}
+            onNotify={handleHealthNotification}
           />
         </div>
       </div>

@@ -5,12 +5,13 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import {
   getAffectedEnvsForExperiment,
   includeExperimentInPayload,
 } from "shared/util";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -30,8 +31,11 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { AppFeatures } from "@/types/app-features";
 
 const ExperimentPage = (): ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;
@@ -61,6 +65,12 @@ const ExperimentPage = (): ReactElement => {
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (data?.experiment?.type === "multi-armed-bandit") {
+      router.replace(window.location.href.replace("experiment/", "bandit/"));
+    }
+  }, [data, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -231,7 +241,9 @@ const ExperimentPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Experiments",
+            display: growthbook.isOn("bandits")
+              ? "Standard Experiments"
+              : "Experiments",
             href: `/experiments`,
           },
           { display: experiment.name },

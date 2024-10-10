@@ -13,12 +13,17 @@ import {
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
-import { MetricOverride } from "back-end/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  MetricOverride,
+} from "back-end/types/experiment";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
+import uniqid from "uniqid";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -628,4 +633,79 @@ export function getAllMetricIdsFromExperiment(
         : []),
     ])
   );
+}
+
+// Returns n "equal" decimals rounded to 3 places that add up to 1
+// The sum always adds to 1. In some cases the values are not equal.
+// For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
+export function getEqualWeights(n: number, precision: number = 4): number[] {
+  // The power of 10 we need to manipulate weights to the correct precision
+  const multiplier = Math.pow(10, precision);
+
+  // Naive even weighting with rounding
+  // For n=3, this will result in `0.3333`
+  const w = Math.round(multiplier / n) / multiplier;
+
+  // Determine how far off we are from a sum of 1
+  // For n=3, this will be 0.9999-1 = -0.0001
+  const diff = w * n - 1;
+
+  // How many of the weights do we need to add a correction to?
+  // For n=3, we only have to adjust 1 of the weights to make it sum to 1
+  const numCorrections = Math.round(Math.abs(diff) * multiplier);
+  const delta = (diff < 0 ? 1 : -1) / multiplier;
+
+  return (
+    Array(n)
+      .fill(0)
+      .map((v, i) => +(w + (i < numCorrections ? delta : 0)).toFixed(precision))
+      // Put the larger weights first
+      .sort((a, b) => b - a)
+  );
+}
+
+export async function generateTrackingKey(
+  exp: Partial<ExperimentInterface>,
+  getExperimentByKey?: (
+    key: string
+  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>
+): Promise<string> {
+  // Try to generate a unique tracking key based on the experiment name
+  let n = 1;
+  let found: null | string = null;
+  while (n < 10 && !found) {
+    const key = generate(exp.name || exp.id || "", n);
+    if (!getExperimentByKey || !(await getExperimentByKey(key))) {
+      found = key;
+    }
+    n++;
+  }
+
+  // Fall back to uniqid if couldn't generate
+  return found || uniqid();
+
+  function generate(name: string, n: number): string {
+    let key = ("-" + name)
+      .toLowerCase()
+      // Replace whitespace with hyphen
+      .replace(/\s+/g, "-")
+      // Get rid of all non alpha-numeric characters
+      .replace(/[^a-z0-9\-_]*/g, "")
+      // Remove stopwords
+      .replace(
+        /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
+        "-"
+      )
+      // Collapse duplicate hyphens
+      .replace(/-{2,}/g, "-")
+      // Remove leading and trailing hyphens
+      .replace(/(^-|-$)/g, "");
+
+    // Add number if this is not the first attempt
+    if (n > 1) {
+      key += "-" + n;
+    }
+
+    return key;
+  }
 }

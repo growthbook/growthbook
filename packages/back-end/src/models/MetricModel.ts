@@ -212,7 +212,9 @@ export async function deleteAllMetricsForAProject({
   }
 }
 
-export async function getMetricMap(context: ReqContext | ApiReqContext) {
+export async function getMetricMap(
+  context: ReqContext | ApiReqContext
+): Promise<Map<string, ExperimentMetricInterface>> {
   const metricMap = new Map<string, ExperimentMetricInterface>();
   const allMetrics = await getMetricsByOrganization(context);
   allMetrics.forEach((m) => {

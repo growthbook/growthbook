@@ -7,6 +7,7 @@ export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
+
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -50,7 +51,7 @@ type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
   | FrequentistVariationResponse;
 
-// Keep ExperimentMetricAnalysis and children classes in sync with gbstats
+// Keep below classes in sync with gbstats
 export type ExperimentMetricAnalysis = {
   metric: string;
   analyses: {
@@ -60,8 +61,28 @@ export type ExperimentMetricAnalysis = {
   }[];
 }[];
 
+export type SingleVariationResult = {
+  users?: number;
+  cr?: number;
+  ci?: [number, number];
+};
+
+export type BanditResult = {
+  singleVariationResults?: SingleVariationResult[];
+  currentWeights: number[];
+  updatedWeights: number[];
+  srm: number;
+  bestArmProbabilities?: number[];
+  seed: number;
+  updateMessage?: string;
+  error?: string;
+  reweight?: boolean;
+};
+
 export type MultipleExperimentMetricAnalysis = {
   id: string;
   results: ExperimentMetricAnalysis;
+  banditResult?: BanditResult;
   error?: string;
+  traceback?: string;
 };

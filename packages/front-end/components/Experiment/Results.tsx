@@ -150,7 +150,6 @@ const Results: FC<{
     hasData &&
     snapshot &&
     analysis &&
-    analysis.results?.[0] &&
     !analysis?.settings?.dimensions?.length;
 
   const showBreakDownResults =
@@ -158,17 +157,12 @@ const Results: FC<{
     hasData &&
     snapshot?.dimension &&
     snapshot.dimension.substring(0, 8) !== "pre:date" && // todo: refactor hardcoded dimension
-    analysis &&
-    analysis.results?.[0] &&
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
   const showDateResults =
     !draftMode &&
     hasData &&
-    snapshot?.dimension &&
-    snapshot.dimension.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
-    analysis &&
-    analysis.results?.[0] &&
+    snapshot?.dimension?.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
   if (error) {
@@ -307,6 +301,7 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
+
       {showDateResults ? (
         <DateResults
           goalMetrics={experiment.goalMetrics}
@@ -383,6 +378,7 @@ const Results: FC<{
             setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
             setTab={setTab}
+            experimentType={experiment.type}
           />
         </>
       ) : null}

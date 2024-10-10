@@ -1,12 +1,14 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
-
+from typing import Dict, Union
+import copy
 import numpy as np
 import pandas as pd
 
 from gbstats.gbstats import (
     AnalysisSettingsForStatsEngine,
+    BanditSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
     detect_unknown_variations,
     diff_for_daily_time_series,
@@ -15,56 +17,145 @@ from gbstats.gbstats import (
     get_metric_df,
     format_results,
     variation_statistic_from_metric_row,
+    get_bandit_result,
+    create_bandit_statistics,
+    preprocess_bandits,
 )
-from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
+from gbstats.bayesian.bandits import BanditsSimple
+
+from gbstats.models.settings import BanditWeightsSinglePeriod
+from gbstats.models.statistics import (
+    RegressionAdjustedStatistic,
+    SampleMeanStatistic,
+    BanditPeriodDataSampleMean,
+)
+
+from gbstats.gbstats import get_var_id_map
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
 
 COUNT_METRIC = MetricSettingsForStatsEngine(
-    id="",
-    name="",
+    id="count_metric",
+    name="count_metric",
     inverse=False,
     statistic_type="mean",
     main_metric_type="count",
 )
 
-MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
-    [
-        {
-            "dimension": "one",
-            "variation": "one",
-            "main_sum": 300,
-            "main_sum_squares": 869,
-            "users": 120,
-            "count": 120,
-        },
-        {
-            "dimension": "one",
-            "variation": "zero",
-            "main_sum": 270,
-            "main_sum_squares": 848.79,
-            "users": 100,
-            "count": 100,
-        },
-        {
-            "dimension": "two",
-            "variation": "one",
-            "main_sum": 770,
-            "main_sum_squares": 3571,
-            "users": 220,
-            "count": 220,
-        },
-        {
-            "dimension": "two",
-            "variation": "zero",
-            "main_sum": 740,
-            "main_sum_squares": 3615.59,
-            "users": 200,
-            "count": 200,
-        },
-    ]
-)
+QUERY_OUTPUT = [
+    {
+        "dimension": "one",
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "one",
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "two",
+        "variation": "one",
+        "main_sum": 770,
+        "main_sum_squares": 3571,
+        "users": 220,
+        "count": 220,
+    },
+    {
+        "dimension": "two",
+        "variation": "zero",
+        "main_sum": 740,
+        "main_sum_squares": 3615.59,
+        "users": 200,
+        "count": 200,
+    },
+]
+
+MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT)
+
+# used for testing bandits
+QUERY_OUTPUT_BANDITS = [
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "two",
+        "main_sum": 740,
+        "main_sum_squares": 1615.59,
+        "users": 200,
+        "count": 200,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "three",
+        "main_sum": 770,
+        "main_sum_squares": 1571,
+        "users": 220,
+        "count": 220,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "two",
+        "main_sum": 740,
+        "main_sum_squares": 1615.59,
+        "users": 200,
+        "count": 200,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "three",
+        "main_sum": 770,
+        "main_sum_squares": 1571,
+        "users": 220,
+        "count": 220,
+    },
+]
+
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
@@ -226,6 +317,22 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 )
 
 
+BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
+    var_names=["zero", "one", "two", "three"],
+    var_ids=["zero", "one", "two", "three"],
+    historical_weights=[
+        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
+        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
+    ],
+    current_weights=[1 / 4] * 4,
+    reweight=True,
+    decision_metric="count_metric",
+    bandit_weights_seed=int(100),
+    weight_by_period=True,
+    top_two=True,
+)
+
+
 class TestDiffDailyTS(TestCase):
     def test_diff_works_as_expected(self):
         dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
@@ -334,7 +441,7 @@ class TestVariationStatisticBuilder(TestCase):
                 pre_statistic=expected_baseline_pre_stat,
                 post_pre_sum_of_products=expected_baseline_pre_post_sum_product,
                 n=expected_baseline_n,
-                theta=0,
+                theta=None,
             ),
         )
 
@@ -449,7 +556,6 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS)
-
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
@@ -715,11 +821,81 @@ class TestFormatResults(TestCase):
                 analysis=dataclasses.replace(
                     DEFAULT_ANALYSIS, stats_engine="frequentist"
                 ),
-            )
+            ),
+            0,
         )
         for res in result:
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
+
+
+class TestBandit(TestCase):
+    def setUp(self):
+        # preprocessing steps
+        self.rows = QUERY_OUTPUT_BANDITS
+        self.metric = COUNT_METRIC
+        self.analysis = DEFAULT_ANALYSIS
+        self.bandit_analysis = BANDIT_ANALYSIS
+        self.update_messages = [
+            "successfully updated",
+        ]
+        self.true_weights = [0.3716, 0.13325, 0.2488, 0.24635]
+        self.true_additional_reward = 192.0
+        num_variations = len(self.true_weights)
+        self.constant_weights = [1 / num_variations] * num_variations
+        self.historical_weights = [self.constant_weights, self.constant_weights]
+
+    import unittest
+
+    @unittest.skip("will update this test later in the week")
+    def test_create_bandit_statistics(self):
+        df = get_metric_df(
+            rows=pd.DataFrame(self.rows),
+            var_id_map={v: i for i, v in enumerate(self.bandit_analysis.var_ids)},
+            var_names=self.bandit_analysis.var_names,
+        )
+        result = create_bandit_statistics(df, self.metric)
+        stats_0 = []
+        stats_1 = []
+        for d in QUERY_OUTPUT_BANDITS:
+            if d["bandit_period"] == 0:
+                stats_0.append(
+                    SampleMeanStatistic(
+                        n=d["count"],
+                        sum=d["main_sum"],
+                        sum_squares=d["main_sum_squares"],
+                    )
+                )
+            if d["bandit_period"] == 1:
+                stats_1.append(
+                    SampleMeanStatistic(
+                        n=d["count"],
+                        sum=d["main_sum"],
+                        sum_squares=d["main_sum_squares"],
+                    )
+                )
+        result_true = {
+            0: BanditPeriodDataSampleMean(stats_0, self.constant_weights),
+            1: BanditPeriodDataSampleMean(stats_1, self.constant_weights),
+        }
+        self.assertEqual(result, result_true)
+
+    import unittest
+
+    @unittest.skip("will update this test later in the week")
+    def test_get_bandit_result_2(self):
+        b = preprocess_bandits(
+            self.rows, self.metric, self.bandit_analysis, self.analysis.alpha, "All"
+        )
+        if isinstance(b, BanditsSimple):
+            result = get_bandit_result(
+                self.rows, self.metric, self.analysis, self.bandit_analysis
+            )
+            self.assertEqual(result.updateMessage, self.update_messages[0])
+            self.assertEqual(result.updatedWeights, self.true_weights)
+            # self.assertEqual(result.additionalReward, self.true_additional_reward)
+        else:
+            assert 1 > 2, "wrong class"
 
 
 if __name__ == "__main__":

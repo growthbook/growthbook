@@ -19,6 +19,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
+import clsx from "clsx";
 import {
   ReactSelectProps,
   SingleValue,
@@ -137,7 +138,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   return (
     <Field
       {...fieldProps}
-      customClassName={customClassName}
+      customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
       render={(id, ref) => {
         return (
           <Component

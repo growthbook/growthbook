@@ -50,12 +50,13 @@ const LearnMore = ({
 
 const SRMWarning: FC<{
   srm: number;
-  variations: ExperimentReportVariation[];
+  variations?: ExperimentReportVariation[];
   users: number[];
   linkToHealthTab?: boolean;
   showWhenHealthy?: boolean;
   type?: "simple" | "with_modal";
   setTab?: (tab: ExperimentTab) => void;
+  isBandit?: boolean;
 }> = ({
   srm,
   linkToHealthTab,
@@ -64,6 +65,7 @@ const SRMWarning: FC<{
   users,
   showWhenHealthy = false,
   type = "with_modal",
+  isBandit,
 }) => {
   const [open, setOpen] = useState(false);
   const { settings } = useUser();
@@ -112,20 +114,24 @@ const SRMWarning: FC<{
                 <div className="alert alert-secondary">
                   {NOT_ENOUGH_EVIDENCE_MESSAGE}
                 </div>
-                <VariationUsersTable
-                  variations={variations}
-                  users={users}
-                  srm={srm}
-                />
+                {variations ? (
+                  <VariationUsersTable
+                    variations={variations}
+                    users={users}
+                    srm={srm}
+                  />
+                ) : null}
               </>
             ) : (
               <>
                 <div className="alert alert-secondary">{srmWarningMessage}</div>
-                <VariationUsersTable
-                  variations={variations}
-                  users={users}
-                  srm={srm}
-                />
+                {variations ? (
+                  <VariationUsersTable
+                    variations={variations}
+                    users={users}
+                    srm={srm}
+                  />
+                ) : null}
                 <p>Most common causes:</p>
                 <ul>
                   <li>
@@ -174,11 +180,13 @@ const SRMWarning: FC<{
           <b>
             No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
             {srmThreshold}.{" "}
-            <LearnMore
-              type={type}
-              setOpen={setOpen}
-              body={NOT_ENOUGH_EVIDENCE_MESSAGE}
-            />
+            {!isBandit && (
+              <LearnMore
+                type={type}
+                setOpen={setOpen}
+                body={NOT_ENOUGH_EVIDENCE_MESSAGE}
+              />
+            )}
           </b>
         </div>
       ) : (

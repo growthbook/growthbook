@@ -11,7 +11,8 @@ const DataQualityWarning: FC<{
   variations: ExperimentReportVariation[];
   linkToHealthTab?: boolean;
   setTab?: (tab: ExperimentTab) => void;
-}> = ({ results, variations, linkToHealthTab = false, setTab }) => {
+  isBandit?: boolean;
+}> = ({ results, variations, linkToHealthTab = false, setTab, isBandit }) => {
   if (!results) return null;
   const variationResults = results?.variations || [];
 
@@ -29,6 +30,7 @@ const DataQualityWarning: FC<{
       users={variationResults.map((r) => r.users)}
       linkToHealthTab={linkToHealthTab}
       setTab={setTab}
+      isBandit={isBandit}
     />
   );
 };

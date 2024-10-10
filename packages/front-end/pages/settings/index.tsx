@@ -12,6 +12,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -30,7 +31,9 @@ import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/components/Radix/HelperText";
+import { AppFeatures } from "@/types/app-features";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -49,6 +52,8 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const {
     refreshOrganization,
     settings,
@@ -136,6 +141,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       experimentListMarkdown: settings.experimentListMarkdown || "",
       metricListMarkdown: settings.metricListMarkdown || "",
       metricPageMarkdown: settings.metricPageMarkdown || "",
+      banditScheduleValue: settings.banditScheduleValue ?? 1,
+      banditScheduleUnit: settings.banditScheduleUnit ?? "days",
+      banditBurnInValue: settings.banditBurnInValue ?? 1,
+      banditBurnInUnit: settings.banditBurnInUnit ?? "days",
     },
   });
   const { apiCall } = useAuth();
@@ -348,16 +357,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
               updateCronString={updateCronString}
             />
 
-            <div className="divider border-bottom mb-3 mt-3" />
+            {growthbook.isOn("bandits") && (
+              <>
+                <div className="divider border-bottom mb-3 mt-3" />
+                <BanditSettings page="org-settings" />
+              </>
+            )}
 
+            <div className="divider border-bottom mb-3 mt-3" />
             <MetricsSettings />
 
             <div className="divider border-bottom mb-3 mt-3" />
-
             <FeaturesSettings />
 
             <div className="divider border-bottom mb-3 mt-3" />
-
             <DatasourceSettings />
           </div>
           <div className="my-3 bg-white p-3 border">

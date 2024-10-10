@@ -1,3 +1,4 @@
+import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
@@ -113,6 +114,9 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
 }
 
+export type SnapshotType = "standard" | "exploratory";
+export type SnapshotTriggeredBy = "schedule" | "manual"; // todo: add "report" type?
+
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
@@ -127,8 +131,17 @@ export interface SnapshotSettingsVariation {
   weight: number;
 }
 
-export type SnapshotType = "standard" | "exploratory";
-export type SnapshotTriggeredBy = "schedule" | "manual";
+export interface SnapshotBanditSettings {
+  reweight: boolean;
+  decisionMetric: string;
+  seed: number;
+  currentWeights: number[];
+  historicalWeights: {
+    date: Date;
+    weights: number[];
+    totalUsers: number;
+  }[];
+}
 
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
@@ -154,6 +167,7 @@ export interface ExperimentSnapshotSettings {
   endDate: Date;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
+  banditSettings?: SnapshotBanditSettings;
 }
 
 export interface ExperimentSnapshotInterface {
@@ -180,6 +194,7 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;
 }
@@ -214,9 +229,10 @@ export interface ExperimentMetricAnalysisParams {
   coverage: number;
 
   analyses: ExperimentSnapshotAnalysisSettings[];
+  banditSettings?: SnapshotBanditSettings;
+  metrics: Record<string, MetricSettingsForStatsEngine>;
 
   queryResults: QueryResultsForStatsEngine[];
-  metrics: Record<string, MetricSettingsForStatsEngine>;
 }
 
 export type ExperimentMetricAnalysisContext = {

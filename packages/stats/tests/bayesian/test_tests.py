@@ -12,6 +12,7 @@ from gbstats.bayesian.tests import (
     GaussianPrior,
     EffectBayesianConfig,
 )
+
 from gbstats.models.statistics import (
     ProportionStatistic,
     SampleMeanStatistic,
@@ -52,7 +53,6 @@ class TestBinom(TestCase):
                 risk_type="relative",
             )
         )
-
         result_rounded_dict = round_results_dict(asdict(result))
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 

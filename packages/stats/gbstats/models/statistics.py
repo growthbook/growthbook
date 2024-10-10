@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Optional, Union, List
 
 import numpy as np
 import scipy.stats
 from pydantic.dataclasses import dataclass
+from gbstats.utils import variance_of_ratios
 
 
 @dataclass
@@ -97,15 +98,12 @@ class RatioStatistic(Statistic):
     def variance(self):
         if self.d_statistic.mean == 0 or self.n <= 1:
             return 0
-        return (
-            self.m_statistic.variance / pow(self.d_statistic.mean, 2)
-            - 2
-            * self.covariance
-            * self.m_statistic.mean
-            / pow(self.d_statistic.mean, 3)
-            + pow(self.m_statistic.mean, 2)
-            * self.d_statistic.variance
-            / pow(self.d_statistic.mean, 4)
+        return variance_of_ratios(
+            self.m_statistic.mean,
+            self.m_statistic.variance,
+            self.d_statistic.mean,
+            self.d_statistic.variance,
+            self.covariance,
         )
 
     @property
@@ -123,34 +121,40 @@ class RegressionAdjustedStatistic(Statistic):
     post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     post_pre_sum_of_products: float
-    theta: float
+    theta: Optional[float]
 
     @property
-    def mean(self):
-        return self.post_statistic.mean - self.theta * self.pre_statistic.mean
+    def mean(self) -> float:
+        theta = self.theta if self.theta else 0
+        return self.post_statistic.mean - theta * self.pre_statistic.mean
 
     @property
-    def sum(self):
+    def sum(self) -> None:
         raise NotImplementedError(
             "Regression Adjusted Statistic does not have a unique `sum` property"
         )
 
     @property
-    def unadjusted_mean(self):
+    def unadjusted_mean(self) -> float:
         return self.post_statistic.mean
 
     @property
-    def variance(self):
+    def unadjusted_variances(self) -> float:
+        return self.post_statistic.variance
+
+    @property
+    def variance(self) -> float:
         if self.n <= 1:
             return 0
+        theta = self.theta if self.theta else 0
         return (
             self.post_statistic.variance
-            + pow(self.theta, 2) * self.pre_statistic.variance
-            - 2 * self.theta * self.covariance
+            + pow(theta, 2) * self.pre_statistic.variance
+            - 2 * theta * self.covariance
         )
 
     @property
-    def covariance(self):
+    def covariance(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -298,3 +302,34 @@ TestStatistic = Union[
     QuantileStatistic,
     QuantileClusteredStatistic,
 ]
+
+BanditStatistic = Union[
+    SampleMeanStatistic,
+    RatioStatistic,
+    RegressionAdjustedStatistic,
+]
+
+
+ScaledImpactStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+]
+
+
+@dataclass
+class BanditPeriodDataSampleMean:
+    stats: List[SampleMeanStatistic]
+    weights: List[float]
+
+
+@dataclass
+class BanditPeriodDataRatio:
+    stats: List[RatioStatistic]
+    weights: List[float]
+
+
+@dataclass
+class BanditPeriodDataCuped:
+    stats: List[RegressionAdjustedStatistic]
+    weights: List[float]

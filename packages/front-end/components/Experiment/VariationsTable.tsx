@@ -131,7 +131,8 @@ const VariationsTable: FC<Props> = ({
                   {hasUniqueIDs ? (
                     <code className="small">ID: {v.key}</code>
                   ) : null}
-                  {percentages?.[i] !== undefined ? (
+                  {experiment.type !== "multi-armed-bandit" &&
+                  percentages?.[i] !== undefined ? (
                     <div className="text-right text-muted">
                       Split: {percentages[i].toFixed(0)}%
                     </div>

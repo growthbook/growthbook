@@ -69,14 +69,15 @@ export class ReportQueryRunner extends QueryRunner<
         analysisSettings,
       } = getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
 
-      const res = await analyzeExperimentResults({
+      // todo: bandits? (probably not needed)
+      const { results } = await analyzeExperimentResults({
         variationNames: this.model.args.variations.map((v) => v.name),
         queryData: queryMap,
         metricMap: this.metricMap,
         snapshotSettings,
         analysisSettings: [analysisSettings],
       });
-      return res[0];
+      return results[0];
     }
 
     throw new Error("Unsupported report type");

@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import {
+  SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
@@ -15,6 +16,27 @@ const experimentSnapshotTrafficObject = {
   name: String,
   srm: Number,
   variationUnits: [Number],
+};
+
+const banditResultObject = {
+  _id: false,
+  singleVariationResults: [
+    {
+      _id: false,
+      users: Number,
+      cr: Number,
+      ci: [Number],
+    },
+  ],
+  currentWeights: [Number],
+  updatedWeights: [Number],
+  srm: Number,
+  bestArmProbabilities: [Number],
+  additionalReward: Number,
+  seed: Number,
+  updateMessage: String,
+  error: String,
+  reweight: Boolean,
 };
 
 const experimentSnapshotSchema = new mongoose.Schema({
@@ -87,6 +109,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
+  banditResult: banditResultObject,
   health: {
     _id: false,
     traffic: {
@@ -295,18 +318,23 @@ export async function getLatestSnapshot({
   dimension,
   beforeSnapshot,
   withResults = true,
+  type,
 }: {
   experiment: string;
   phase: number;
   dimension?: string;
   beforeSnapshot?: ExperimentSnapshotDocument;
   withResults?: boolean;
+  type?: SnapshotType;
 }): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     experiment,
     phase,
     dimension: dimension || null,
   };
+  if (type) {
+    query.type = type;
+  }
 
   // First try getting new snapshots that have a `status` field
   let all = await ExperimentSnapshotModel.find(
