@@ -14,7 +14,7 @@ export default function NoScaledImpact({
           className="font-weight-normal main-text"
           style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
         >
-          No scaled impact for this type of metric
+          No scaled impact for this metric type
         </div>
       </div>
     </div>
