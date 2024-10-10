@@ -8,6 +8,7 @@ import { getBuild } from "back-end/src/util/handler";
 import { ApiRequestLocals } from "back-end/types/api";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
+import snapshotsRouter from "./snapshots/snapshots.router";
 import metricsRouter from "./metrics/metrics.router";
 import segmentsRouter from "./segments/segments.router";
 import projectsRouter from "./projects/projects.router";
@@ -81,6 +82,7 @@ router.get("/", (req, res) => {
 router.use("/features", featuresRouter);
 router.get("/feature-keys", getFeatureKeys);
 router.use("/experiments", experimentsRouter);
+router.use("/snapshots", snapshotsRouter);
 router.use("/metrics", metricsRouter);
 router.use("/segments", segmentsRouter);
 router.use("/dimensions", dimensionsRouter);

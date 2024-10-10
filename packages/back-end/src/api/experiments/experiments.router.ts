@@ -5,6 +5,7 @@ import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
 import { updateExperiment } from "./updateExperiment";
 import { postExperiment } from "./postExperiment";
+import { postExperimentSnapshot } from "./postExperimentSnapshot";
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.post("/", postExperiment);
 router.get("/:id", getExperiment);
 router.get("/:id/results", getExperimentResults);
 router.post("/:id", updateExperiment);
+router.post("/:id/snapshot", postExperimentSnapshot);
 
 // VisualChangeset Endpoints
 router.get("/:id/visual-changesets", listVisualChangesets);
