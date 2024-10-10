@@ -944,7 +944,7 @@ function getReleasePlanOptions({
     ];
   } else {
     return [
-      { label: "New Phase, reset experiment", value: "new-phase" },
+      { label: "New Phase, reset Bandit", value: "new-phase" },
       ...(!recommendedRolloutData.disableSamePhase && changeType !== "phase"
         ? [
             {

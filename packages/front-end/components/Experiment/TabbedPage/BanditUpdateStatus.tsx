@@ -134,7 +134,7 @@ export default function BanditUpdateStatus({
 
           <div className="mx-2" style={{ fontSize: "12px" }}>
             <p>
-              The bandit is{" "}
+              The Bandit is{" "}
               {experiment.banditStage ? (
                 <>
                   in the{" "}

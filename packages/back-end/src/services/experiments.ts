@@ -411,7 +411,7 @@ export function getSnapshotSettings({
           seed: Math.floor(Math.random() * 100000),
           currentWeights:
             phase?.banditEvents?.[phase.banditEvents.length - 1]?.banditResult
-              ?.currentWeights ??
+              ?.updatedWeights ??
             phase?.variationWeights ??
             [],
           historicalWeights:
@@ -641,11 +641,13 @@ export function resetExperimentBanditSettings({
   metricMap,
   changes,
   settings,
+  preserveExistingBanditEvents,
 }: {
   experiment: ExperimentInterface | Omit<ExperimentInterface, "id">;
   metricMap?: Map<string, ExperimentMetricInterface>;
   changes?: Changeset;
   settings: ScopedSettings;
+  preserveExistingBanditEvents?: boolean;
 }): Changeset {
   if (!changes) changes = {};
   if (!changes.phases) changes.phases = [...experiment.phases];
@@ -686,24 +688,26 @@ export function resetExperimentBanditSettings({
   changes.metricOverrides = undefined;
 
   // Reset bandit stage
-  changes.banditStage = "explore";
-  changes.banditStageDateStarted = new Date();
+  if (!preserveExistingBanditEvents) {
+    changes.banditStage = "explore";
+    changes.banditStageDateStarted = new Date();
 
-  // Set equal weights
-  const weights = getEqualWeights(experiment.variations.length ?? 0);
-  changes.phases[phase].variationWeights = weights;
+    // Set equal weights
+    const weights = getEqualWeights(experiment.variations.length ?? 0);
+    changes.phases[phase].variationWeights = weights;
 
-  // Log first weight change event
-  changes.phases[phase].banditEvents = [
-    {
-      date: new Date(),
-      banditResult: {
-        currentWeights: weights,
-        updatedWeights: weights,
-        bestArmProbabilities: weights,
+    // Log first weight change event
+    changes.phases[phase].banditEvents = [
+      {
+        date: new Date(),
+        banditResult: {
+          currentWeights: weights,
+          updatedWeights: weights,
+          bestArmProbabilities: weights,
+        },
       },
-    },
-  ];
+    ];
+  }
 
   // Scheduling
   // ensure bandit scheduling exists

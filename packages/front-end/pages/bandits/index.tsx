@@ -254,7 +254,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     setOpenNewExperimentModal(true);
                   }}
                 >
-                  Add Experiment
+                  Add Bandit
                 </Button>
               </div>
             )}
@@ -286,7 +286,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     <span className="h4 pr-2 m-0 d-inline-block align-top">
                       <GBAddCircle />
                     </span>
-                    Add Experiment
+                    Add Bandit
                   </button>
                 )}
               </div>
@@ -364,7 +364,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       setShowMineOnly(value);
                     }}
                   />{" "}
-                  My Experiments Only
+                  My Bandits Only
                 </div>
               </div>
 
@@ -373,7 +373,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <tr>
                     <th></th>
                     <SortableTH field="name" className="w-100">
-                      Experiment
+                      Bandit
                     </SortableTH>
                     {showProjectColumn && (
                       <SortableTH field="projectName">Project</SortableTH>
@@ -397,7 +397,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             type="icon"
                           />
                         </td>
-                        <td data-title="Experiment name:" className="p-0">
+                        <td data-title="Bandit name:" className="p-0">
                           <Link
                             href={`/bandit/${e.id}`}
                             className="d-block p-2"

@@ -752,7 +752,7 @@ export default function RuleModal({
                               className="check text-success mr-2"
                             />
                           )}
-                          Standard Experiment
+                          Experiment
                         </div>
                         <div className="small">
                           Variation weights are constant throughout the
@@ -808,7 +808,11 @@ export default function RuleModal({
             </div>
           )}
 
-          <Field label="Experiment Name" {...form.register("name")} required />
+          <Field
+            label={form.register("experimentType") === "multi-armed-bandit" ? "Bandit Name" : "Experiment Name"}
+            {...form.register("name")}
+            required
+          />
         </>
       )}
 

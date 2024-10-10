@@ -1275,6 +1275,8 @@ export async function postExperimentStatus(
             experiment,
             changes,
             settings,
+            preserveExistingBanditEvents:
+              (phases[lastIndex]?.banditEvents?.length ?? 0) > 0,
           })
         );
       }

@@ -284,7 +284,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
-      throw new Error("Experiment Name must not be empty");
+      throw new Error("Name must not be empty");
     }
 
     // TODO: more validation?
@@ -402,12 +402,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   }, [form, exposureQueries, exposureQueryId]);
 
   let header = isNewExperiment
-    ? `Create ${
-        form.watch("type") === "multi-armed-bandit" ? "Bandit " : ""
-      }Experiment`
+    ? `Create ${form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"}`
     : "Create Experiment Analysis";
   if (source === "duplicate") {
-    header = "Duplicate Experiment";
+    header = `Duplicate ${form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"}`;
   }
 
   return (
@@ -455,7 +453,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                               className="check text-success mr-2"
                             />
                           )}
-                          Standard Experiment
+                          Experiment
                         </div>
                         <div className="small">
                           Variation weights are constant throughout the
@@ -511,7 +509,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
 
           <Field
-            label="Experiment Name"
+            label={type === "multi-armed-bandit" ? "Bandit Name" : "Experiment Name"}
             required
             minLength={2}
             {...form.register("name")}
@@ -566,7 +564,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               textarea
               minRows={2}
               maxRows={6}
-              placeholder="Purpose of the experiment"
+              placeholder={type === "multi-armed-bandit" ? "Purpose of the Bandit" : "Purpose of the Experiment"}
               {...form.register("description")}
             />
           )}

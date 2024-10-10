@@ -332,6 +332,7 @@ export default function ExperimentHeader({
                   <ExperimentActionButtons
                     editResult={editResult}
                     editTargeting={editTargeting}
+                    isBandit={isBandit}
                   />
                 ) : experiment.status === "stopped" && experiment.results ? (
                   <div className="experiment-status-widget border d-flex">
@@ -634,15 +635,17 @@ export function ConvertBanditExperiment({
     >
       <ConfirmButton
         modalHeader={`Convert to ${
-          isBandit ? "Standard Experiment" : "Bandit"
+          isBandit ? "Experiment" : "Bandit"
         }`}
         disabled={experiment.status !== "draft"}
         size="lg"
         confirmationText={
           <div>
             <p>
-              Are you sure you want to convert this experiment to a{" "}
-              <strong>{isBandit ? "Standard Experiment" : "Bandit"}</strong>?
+              Are you sure you want to convert this{" "}
+              {!isBandit ? "Experiment" : "Bandit"}{" "}
+              to a{" "}
+              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
             </p>
             {!isBandit && experiment.goalMetrics.length > 0 && (
               <div className="alert alert-warning">
@@ -730,9 +733,8 @@ export function ConvertBanditExperiment({
           type="button"
           disabled={experiment.status !== "draft"}
         >
-          Convert to
-          <br />
-          {isBandit ? "Standard Experiment" : "Bandit"}
+          Convert to{" "}
+          {isBandit ? "Experiment" : "Bandit"}
         </button>
       </ConfirmButton>
     </Tooltip>
