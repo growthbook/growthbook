@@ -2143,8 +2143,9 @@ export default abstract class SqlIntegration
     return `
         , CASE
           ${periods
+            .sort((a, b) => b.getTime() - a.getTime())
             .map((p) => {
-              return `WHEN first_exposure_timestamp <= ${this.toTimestamp(
+              return `WHEN first_exposure_timestamp >= ${this.toTimestamp(
                 p
               )} THEN ${this.toTimestamp(p)}`;
             })
