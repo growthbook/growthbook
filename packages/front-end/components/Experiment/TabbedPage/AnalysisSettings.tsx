@@ -6,7 +6,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { GBCuped } from "@/components/Icons";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -114,9 +113,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
           )}
           {isBandit && (
             <div className="col-4">
-              <div className="h5">
-                <GBCuped size={15} /> CUPED
-              </div>
+              <div className="h5">CUPED</div>
               <div>
                 {experiment.regressionAdjustmentEnabled
                   ? "Enabled"

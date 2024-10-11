@@ -242,7 +242,9 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
   }>(`/metrics/${metric.id}/experiments`);
-  const metricExperiments = data?.data;
+  const metricExperiments = (data?.data ?? []).filter(
+    (e) => e.type !== "multi-armed-bandit"
+  );
 
   const body = !metricExperiments?.length ? (
     <div className={`mt-2 alert alert-warning`}>

@@ -6,6 +6,9 @@ import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 
 export default function BanditUpdateStatus({
   experiment,
@@ -14,6 +17,9 @@ export default function BanditUpdateStatus({
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
 }) {
+  const { latest } = useSnapshot();
+  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
+
   const phase = experiment.phases?.[experiment.phases.length - 1];
 
   const lastEvent: BanditEvent | undefined =
@@ -165,9 +171,24 @@ export default function BanditUpdateStatus({
           </div>
 
           {error ? (
-            <div className="alert alert-danger mx-2 px-2 py-1">
-              <FaExclamationTriangle className="mr-1" />
-              {error}
+            <div className="alert alert-danger mx-2 px-1 py-1 row align-items-start">
+              <div className="col">
+                <FaExclamationTriangle className="mr-1" />
+                {error}
+              </div>
+              {latest ? (
+                <div className="col-auto">
+                  <ViewAsyncQueriesButton
+                    queries={latest.queries?.map((q) => q.query) ?? []}
+                    error={latest.error}
+                    status={status}
+                    display={null}
+                    color="link link-purple p-0 pt-1"
+                    condensed={true}
+                    hideQueryCount={true}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
 

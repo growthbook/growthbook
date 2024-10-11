@@ -1264,22 +1264,19 @@ export async function postExperimentStatus(
     changes.phases = phases;
 
     if (experiment.type === "multi-armed-bandit") {
-      // reset bandit settings if the current bandit stage is inactive
-      if (
-        experiment.banditStage === "paused" ||
-        experiment.banditStage === undefined
-      ) {
-        Object.assign(
+      // Multiple events (not just the seed 0th event) means this bandit phase was already running somehow.
+      // If multiple events, don't flush.
+      const preserveExistingBanditEvents =
+        (phases[lastIndex]?.banditEvents?.length ?? 0) > 1;
+      Object.assign(
+        changes,
+        resetExperimentBanditSettings({
+          experiment,
           changes,
-          resetExperimentBanditSettings({
-            experiment,
-            changes,
-            settings,
-            preserveExistingBanditEvents:
-              (phases[lastIndex]?.banditEvents?.length ?? 0) > 0,
-          })
-        );
-      }
+          settings,
+          preserveExistingBanditEvents,
+        })
+      );
 
       // validate datasources
       let datasource: DataSourceInterface | null = null;
@@ -1320,18 +1317,38 @@ export async function postExperimentStatus(
       }
     }
   }
+
   // If starting a stopped experiment, clear the phase end date
   else if (
     experiment.status === "stopped" &&
     status === "running" &&
     phases?.length > 0
   ) {
-    const newPhase = { ...phases[lastIndex] };
-    delete newPhase.dateEnded;
-    phases[lastIndex] = newPhase;
+    const clonedPhase = { ...phases[lastIndex] };
+    delete clonedPhase.dateEnded;
+    phases[lastIndex] = clonedPhase;
     changes.phases = phases;
 
     if (experiment.type === "multi-armed-bandit") {
+      // We must create a new phase. No continuing old phases allowed
+      // If we had a previous phase, mark it as ended
+      if (phases.length) {
+        phases[phases.length - 1].dateEnded = new Date();
+      }
+
+      phases.push({
+        condition: clonedPhase.condition,
+        savedGroups: clonedPhase.savedGroups,
+        prerequisites: clonedPhase.prerequisites,
+        coverage: clonedPhase.coverage,
+        dateStarted: new Date(),
+        name: "Main",
+        namespace: clonedPhase.namespace,
+        reason: "",
+        variationWeights: clonedPhase.variationWeights,
+        seed: uuidv4(),
+      });
+
       Object.assign(
         changes,
         resetExperimentBanditSettings({
