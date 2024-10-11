@@ -31,7 +31,7 @@ import { getBuild } from "./util/handler";
 if (SENTRY_DSN) {
   const buildInfo = getBuild();
 
-  Sentry.init({ dsn: SENTRY_DSN, release: `api@${buildInfo.sha}` });
+  Sentry.init({ dsn: SENTRY_DSN, release: buildInfo.sha });
 
   Sentry.setTag("build_date", buildInfo.date);
 }
