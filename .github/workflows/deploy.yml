@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/deploy.yml"
       - "packages/**"
       - "!**.md"
       - "yarn.lock"
