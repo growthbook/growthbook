@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaDownload } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -12,12 +12,14 @@ import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LinkButton from "@/components/Radix/LinkButton";
 import Avatar from "@/components/Radix/Avatar";
+import Field from "@/components/Forms/Field";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
   const [radioSelected, setRadioSelected] = useState("k1");
+  const [sliderVal, setSliderVal] = useState(10);
 
   return (
     <div className="pagecontents container-fluid">
@@ -228,54 +230,96 @@ export default function DesignSystemPage() {
 
       <div className="appbox p-3">
         <h3>Radio Group</h3>
-        <Flex direction="column" gap="3">
-          <RadioGroup
-            value={radioSelected}
-            setValue={(v) => {
-              setRadioSelected(v);
-            }}
-            options={[
-              {
-                value: "k1",
-                label: "Radio 1",
-              },
-              {
-                value: "k2",
-                label: "Radio 2",
-              },
-              {
-                value: "k3",
-                label: "Radio 3, with description",
-                description: "This is a description",
-              },
-              {
-                value: "k4",
-                label: "Radio 4, with error",
-                error: "This is an error",
-                errorLevel: "error",
-              },
-              {
-                value: "k5",
-                label: "Radio 5, with warning",
-                error: "This is a warning",
-                errorLevel: "warning",
-              },
-              {
-                value: "k6",
-                label: "Radio 6, disabled",
-                description: "This is a description",
-                disabled: true,
-              },
-              {
-                value: "k7",
-                label: "Radio 7, disabled with error",
-                description: "This is a description",
-                disabled: true,
-                error: "This is an error",
-                errorLevel: "error",
-              },
-            ]}
-          />
+        <RadioGroup
+          value={radioSelected}
+          setValue={(v) => {
+            setRadioSelected(v);
+          }}
+          options={[
+            {
+              value: "k1",
+              label: "Radio 1",
+            },
+            {
+              value: "k2",
+              label: "Radio 2",
+            },
+            {
+              value: "k3",
+              label: "Radio 3, with description",
+              description: "This is a description",
+            },
+            {
+              value: "k4",
+              label: "Progressive disclosure",
+              description: "Click to render element",
+              renderOnSelect: <Field label="Another field" />,
+            },
+            {
+              value: "k5",
+              label: "Radio 4, with error",
+              error: "This is an error",
+              errorLevel: "error",
+            },
+            {
+              value: "k6",
+              label: "Radio 5, with warning",
+              error:
+                "When making multiple changes at the same time, it can be difficult to control for the impact of each change." +
+                "              The risk of introducing experimental bias increases. Proceed with caution.",
+              errorLevel: "warning",
+            },
+            {
+              value: "k7",
+              label: "Radio 6, disabled",
+              description: "This is a description",
+              disabled: true,
+            },
+            {
+              value: "k8",
+              label: "Radio 7, disabled with error",
+              description: "This is a description",
+              disabled: true,
+              error: "This is an error",
+              errorLevel: "error",
+            },
+          ]}
+        />
+      </div>
+      <div className="appbox p-3">
+        <h3>Slider</h3>
+        <Flex direction="column" gap="3" maxWidth="300px">
+          <div>
+            <label>Slider</label>
+            <Slider
+              value={[sliderVal]}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={(e) => {
+                setSliderVal(e[0]);
+              }}
+            />
+            <span className="col-auto" style={{ fontSize: "1.3em" }}>
+              {sliderVal}%
+            </span>
+          </div>
+          <div>
+            <label>Slider in cyan (high contrast) </label>
+            <Slider defaultValue={[35]} color="cyan" highContrast />
+          </div>
+          <div>
+            <label>Slider with no Radius</label>
+            <Slider defaultValue={[75]} radius="none" />
+          </div>
+          <div>
+            <label>Range Slider with Soft visual style</label>
+            <Slider defaultValue={[25, 75]} variant="soft" />
+          </div>
+          <div>
+            <label>Large Slider Disabled</label>
+            <Slider defaultValue={[25]} size="3" disabled={true} />
+          </div>
         </Flex>
       </div>
     </div>
