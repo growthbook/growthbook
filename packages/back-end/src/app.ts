@@ -26,9 +26,14 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
+import { getBuild } from "./util/handler";
 
 if (SENTRY_DSN) {
-  Sentry.init({ dsn: SENTRY_DSN });
+  const buildInfo = getBuild();
+
+  Sentry.init({ dsn: SENTRY_DSN, release: `api@${buildInfo.sha}` });
+
+  Sentry.setTag("build_date", buildInfo.date);
 }
 
 // Begin Controllers
@@ -88,7 +93,6 @@ const informationSchemasController = wrapController(
 
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
-import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
