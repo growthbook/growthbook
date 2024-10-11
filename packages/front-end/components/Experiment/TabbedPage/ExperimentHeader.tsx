@@ -628,7 +628,7 @@ export function ConvertBanditExperiment({
 
   return (
     <Tooltip
-      body="Can only be converted while in draft mode"
+      body="Can be converted only while in draft mode"
       shouldDisplay={experiment.status !== "draft"}
       usePortal={true}
       tipPosition="left"
