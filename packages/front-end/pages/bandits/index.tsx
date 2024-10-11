@@ -265,7 +265,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <div className="mx-auto" style={{ maxWidth: 650 }}>
                 <h1>Adaptively experiment with bandits.</h1>
                 <p style={{ fontSize: "17px" }}>
-                  Bandits automatically guide more traffic to better variants.
+                  Run adaptive experiments with Bandits.
                 </p>
               </div>
               <div className="d-flex justify-content-center">
