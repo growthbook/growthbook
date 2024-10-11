@@ -92,6 +92,7 @@ jobs:
           environment: 'production'
           sourcemaps: './back-end-dist'
           version: ${{ github.sha }}
+          set_commits: skip
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
