@@ -741,7 +741,10 @@ def process_experiment_results(
                         # when using multi-period data, binomial is no longer iid and variance is wrong
                         if metric_settings_bandit.main_metric_type == "binomial":
                             metric_settings_bandit.main_metric_type = "count"
-                        if metric == d.bandit_settings.decision_metric:
+                        if (
+                            metric == d.bandit_settings.decision_metric
+                            and not d.analyses[0].dimension
+                        ):
                             if bandit_result is not None:
                                 raise ValueError("Bandit weights already computed")
                             bandit_result = get_bandit_result(
