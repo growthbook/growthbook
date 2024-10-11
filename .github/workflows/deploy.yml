@@ -39,8 +39,7 @@ jobs:
           mkdir -p buildinfo
           echo "${GITHUB_SHA}" > buildinfo/SHA
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
-          echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-          echo "sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build, tag, and push image to Docker Hub
         uses: depot/build-push-action@v1
@@ -50,7 +49,7 @@ jobs:
           project: vmp2ssvj9r
           tags: |
             growthbook/growthbook:latest
-            growthbook/growthbook:git-${{ steps.metadata.outputs.sha_short }}
+            growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
 
   # Deploy the back-end for GrowthBook Cloud
@@ -91,7 +90,7 @@ jobs:
         with:
           environment: 'production'
           sourcemaps: './back-end-dist'
-          version: ${{ steps.metadata.outputs.sha }}
+          version: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
