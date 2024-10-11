@@ -11,10 +11,12 @@ import {
   MetricAnalysisPopulationType,
   MetricAnalysisResult,
   MetricAnalysisSettings,
+  MetricAnalysisSource,
 } from "back-end/types/metric-analysis";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import clsx from "clsx";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -132,11 +134,17 @@ function getLookbackSelected(lookbackDays: number): string {
     : `custom`;
 }
 
-function getDesiredSettings(
-  id: string,
-  values: MetricAnalysisFormFields,
-  endOfToday: Date
-): CreateMetricAnalysisProps {
+export function getMetricAnalysisProps({
+  id,
+  values,
+  endOfToday,
+  source,
+}: {
+  id: string;
+  values: MetricAnalysisFormFields;
+  endOfToday: Date;
+  source?: MetricAnalysisSource;
+}): CreateMetricAnalysisProps {
   const todayMinusLookback = new Date(endOfToday);
   todayMinusLookback.setDate(
     todayMinusLookback.getDate() - (values.lookbackDays as number)
@@ -151,6 +159,7 @@ function getDesiredSettings(
     endDate: endOfToday.toISOString().substring(0, 16),
     populationType: values.populationType,
     populationId: values.populationId ?? null,
+    source: source ?? "metric",
   };
 }
 
@@ -212,6 +221,12 @@ interface MetricAnalysisProps {
   datasource: DataSourceInterfaceWithParams;
   outerClassName?: string;
   className?: string;
+  northStarView?: boolean;
+  experiments?: ExperimentInterfaceStringDates[];
+  externalHover?: {
+    hoverDate: number | null;
+    onHoverCallback: (ret: { d: number | null }) => void;
+  };
 }
 
 const MetricAnalysis: FC<MetricAnalysisProps> = ({
@@ -219,6 +234,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   datasource,
   outerClassName,
   className,
+  northStarView,
+  experiments,
+  externalHover,
 }) => {
   const permissionsUtil = usePermissionsUtil();
 
@@ -236,17 +254,21 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
     "day"
   );
 
-  const [hoverDate, setHoverDate] = useState<number | null>(null);
-  const onHoverCallback = (ret: { d: number | null }) => {
-    setHoverDate(ret.d);
+  const [uniqueHoverDate, setUniqueHoverDate] = useState<number | null>(null);
+  const onUniqueHoverCallback = (ret: { d: number | null }) => {
+    setUniqueHoverDate(ret.d);
   };
+
+  const { hoverDate, onHoverCallback } = externalHover
+    ? externalHover
+    : { hoverDate: uniqueHoverDate, onHoverCallback: onUniqueHoverCallback };
+
   const [error, setError] = useState<string | null>(null);
 
   const endOfToday = new Date();
   // use end of day to allow query caching to work within local working day
   endOfToday.setHours(23, 59, 59, 999);
 
-  // TODO fetching too much
   const { data, mutate } = useApi<{
     metricAnalysis: MetricAnalysisInterface | null;
   }>(`/metric-analysis/metric/${factMetric.id}`);
@@ -297,11 +319,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const canRunMetricQuery =
     datasource && permissionsUtil.canRunMetricQueries(datasource);
 
-  const desiredSettings = getDesiredSettings(
-    factMetric.id,
-    getValues(),
-    endOfToday
-  );
+  const desiredSettings = getMetricAnalysisProps({
+    id: factMetric.id,
+    values: getValues(),
+    endOfToday,
+  });
   const matchedSettings =
     metricAnalysis && settingsMatch(metricAnalysis.settings, desiredSettings);
 
@@ -446,11 +468,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     onSubmit={async (e) => {
                       e.preventDefault();
                       setError(null);
-                      const data = getDesiredSettings(
-                        factMetric.id,
-                        getValues(),
-                        endOfToday
-                      );
+                      const data = getMetricAnalysisProps({
+                        id: factMetric.id,
+                        values: getValues(),
+                        endOfToday,
+                      });
                       try {
                         track("MetricAnalysis_Update", {
                           type: factMetric.metricType,
@@ -489,11 +511,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   try {
                     setError(null);
                     const data: CreateMetricAnalysisProps = {
-                      ...getDesiredSettings(
-                        factMetric.id,
-                        getValues(),
-                        endOfToday
-                      ),
+                      ...getMetricAnalysisProps({
+                        id: factMetric.id,
+                        values: getValues(),
+                        endOfToday,
+                      }),
                       force: true,
                     };
                     track("MetricAnalysis_ForceUpdate", {
@@ -549,7 +571,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   </div>
                 ) : (
                   <>
-                    {metricAnalysis?.result && (
+                    {metricAnalysis?.result && !northStarView && (
                       <MetricAnalysisOverview
                         name={factMetric.name}
                         metricType={factMetric.metricType}
@@ -572,7 +594,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                             </h4>
                           </div>
 
-                          {factMetric.metricType != "proportion" && (
+                          {factMetric.metricType !== "proportion" && (
                             <>
                               <div className="row mt-4 mb-1">
                                 <div className="col">
@@ -666,6 +688,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                     c: d.units,
                                   };
                                 })}
+                                showStdDev={!northStarView}
+                                experiments={experiments}
                                 smoothBy={smoothByAvg}
                                 formatter={formatter}
                                 onHover={onHoverCallback}
@@ -674,7 +698,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                             </>
                           )}
 
-                          {factMetric.metricType !== "ratio" ? (
+                          {factMetric.metricType !== "ratio" &&
+                          !(
+                            northStarView &&
+                            factMetric.metricType !== "proportion"
+                          ) ? (
                             <>
                               <div className="row mt-4 mb-1">
                                 <div className="col">
@@ -759,6 +787,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                     den: d.denominator,
                                   };
                                 })}
+                                showStdDev={!northStarView}
+                                experiments={experiments}
                                 smoothBy={smoothBySum}
                                 formatter={formatter}
                                 onHover={onHoverCallback}
@@ -770,7 +800,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       )}
                     {metricAnalysis?.result?.histogram &&
                       metricAnalysis.result.histogram.length > 0 &&
-                      factMetric.metricType !== "proportion" && (
+                      factMetric.metricType !== "proportion" &&
+                      !northStarView && (
                         <div className="mt-5 mb-2">
                           <h4 className="align-bottom">
                             Histogram of Metric Value by{" "}
