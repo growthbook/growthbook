@@ -1,6 +1,5 @@
 import React, { ReactElement, useCallback, useState } from "react";
 import { FaArchive } from "react-icons/fa";
-import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
@@ -32,6 +31,7 @@ import {
   MetricModalState,
   MetricModal,
 } from "@/components/FactTables/NewMetricModal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 export interface MetricTableItem {
   id: string;
@@ -51,6 +51,7 @@ export interface MetricTableItem {
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
+  onDelete?: () => Promise<void>;
 }
 
 export function useCombinedMetrics({
@@ -74,6 +75,7 @@ export function useCombinedMetrics({
     ...inlineMetrics.map((m) => {
       const canDuplicate = permissionsUtil.canCreateMetric(m);
       const canEdit = permissionsUtil.canUpdateMetric(m, {});
+      const canDelete = permissionsUtil.canDeleteMetric(m);
 
       const item: MetricTableItem = {
         id: m.id,
@@ -126,12 +128,22 @@ export function useCombinedMetrics({
                   currentMetric: m,
                 })
             : undefined,
+        onDelete: canDelete
+          ? async () => {
+              await apiCall(`/metric/${m.id}`, {
+                method: "DELETE",
+              });
+
+              mutateDefinitions();
+            }
+          : undefined,
       };
       return item;
     }),
     ...factMetrics.map((m) => {
       const canDuplicate = permissionsUtil.canCreateFactMetric(m);
       const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
+      const canDelete = permissionsUtil.canDeleteFactMetric(m);
 
       const item: MetricTableItem = {
         id: m.id,
@@ -183,6 +195,15 @@ export function useCombinedMetrics({
                   currentFactMetric: m,
                 })
             : undefined,
+        onDelete: canDelete
+          ? async () => {
+              await apiCall(`/fact-metrics/${m.id}`, {
+                method: "DELETE",
+              });
+
+              mutateDefinitions();
+            }
+          : undefined,
       };
       return item;
     }),
@@ -205,8 +226,6 @@ const MetricsPage = (): React.ReactElement => {
     project,
     ready,
   } = useDefinitions();
-  const router = useRouter();
-
   const { getUserDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
@@ -433,7 +452,7 @@ const MetricsPage = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={items} />
         </div>
       </div>
-      <table className="table appbox gbtable table-hover">
+      <table className="table appbox gbtable">
         <thead>
           <tr>
             <SortableTH field="name" className="col-3">
@@ -507,14 +526,25 @@ const MetricsPage = (): React.ReactElement => {
               );
             }
 
+            if (!metric.managedBy && metric.onDelete) {
+              moreMenuLinks.push(
+                <DeleteButton
+                  className="dropdown-item text-danger"
+                  onClick={async () => {
+                    await metric.onDelete?.();
+                  }}
+                  displayName="Metric"
+                  useIcon={false}
+                  text="Delete"
+                  canDelete={true}
+                  disabled={false}
+                />
+              );
+            }
+
             return (
               <tr
                 key={metric.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push(getMetricLink(metric.id));
-                }}
-                style={{ cursor: "pointer" }}
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
@@ -581,13 +611,7 @@ const MetricsPage = (): React.ReactElement => {
                     </Tooltip>
                   )}
                 </td>
-                <td
-                  style={{ cursor: "initial" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                >
+                <td>
                   <MoreMenu>
                     {moreMenuLinks.map((menuItem, i) => (
                       <div key={`${menuItem}-${i}`} className="d-inline">

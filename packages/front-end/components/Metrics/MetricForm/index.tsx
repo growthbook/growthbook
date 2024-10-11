@@ -673,8 +673,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </Callout>
           ) : switchToFact ? (
             <Callout status="info" mb="3">
-              Switch to Fact Tables for an easier and faster way to create
-              metrics.{" "}
+              Use Fact Tables for an easier and faster way to create metrics.{" "}
               <Link href="/fact-tables">
                 Learn More <FaArrowRight />
               </Link>
