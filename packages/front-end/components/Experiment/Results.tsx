@@ -176,6 +176,8 @@ const Results: FC<{
     experiment.secondaryMetrics.length > 0 ||
     experiment.guardrailMetrics.length > 0;
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   return (
     <>
       {!draftMode ? (
@@ -339,6 +341,7 @@ const Results: FC<{
           differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
+          isBandit={isBandit}
         />
       ) : showCompactResults ? (
         <>
