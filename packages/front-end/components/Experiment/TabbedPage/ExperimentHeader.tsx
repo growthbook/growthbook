@@ -318,6 +318,7 @@ export default function ExperimentHeader({
                   status={experiment.status}
                   subStatus={
                     experiment.type === "multi-armed-bandit" &&
+                    experiment.status === "running" &&
                     experiment.banditStage === "explore"
                       ? "exploratory"
                       : undefined

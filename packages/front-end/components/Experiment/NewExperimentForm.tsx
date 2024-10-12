@@ -437,7 +437,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
           )}
 
-          {growthbook.isOn("bandits") && (
+          {growthbook.isOn("bandits") && source !== "duplicate" && (
             <div className="bg-highlight rounded py-4 px-4 mb-4">
               <ButtonSelectField
                 buttonType="card"
