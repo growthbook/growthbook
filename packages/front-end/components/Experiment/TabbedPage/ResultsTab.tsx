@@ -179,9 +179,8 @@ export default function ResultsTab({
       {experiment.type === "multi-armed-bandit" && hasResults ? (
         <div className="alert alert-info mt-4">
           <BsLightbulb className="mr-2" />
-          These are bandit results. Bandits are better than regular experiments
-          at directing traffic to the best variation but they can suffer from
-          bias.
+          Bandits are better than experiments at directing traffic to the best
+          variation but they can produce biased results.
           {/*todo: docs*/}
         </div>
       ) : null}
