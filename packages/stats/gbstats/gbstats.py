@@ -646,7 +646,7 @@ def get_bandit_result(
     bandit_settings: BanditSettingsForStatsEngine,
 ) -> BanditResult:
     single_variation_results = None
-    b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "All")
+    b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "")
     if b:
         if any(value is None for value in b.stats):
             return get_error_bandit_result(

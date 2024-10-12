@@ -1358,7 +1358,7 @@ export default abstract class SqlIntegration
   ) {
     const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
-      return this.castToString("'All'");
+      return this.castToString("''");
     } else if (dimension.type === "user") {
       return `COALESCE(MAX(${this.castToString(
         `__dim_unit_${dimension.dimension.id}.value`
@@ -1950,8 +1950,8 @@ export default abstract class SqlIntegration
       dim_values AS (
         SELECT
           1 AS variation
-          , ${this.castToString("'All'")} AS dimension_value
-          , ${this.castToString("'All'")} AS dimension_name
+          , ${this.castToString("''")} AS dimension_value
+          , ${this.castToString("''")} AS dimension_name
           , COUNT(*) AS units
         FROM
           __distinctUnits
@@ -1964,7 +1964,7 @@ export default abstract class SqlIntegration
         SELECT
           SUM(units) AS N
         FROM dim_values
-        WHERE dimension_name = 'All'
+        WHERE dimension_name = ''
       ),
       dim_values_sorted AS (
         SELECT
@@ -1975,7 +1975,7 @@ export default abstract class SqlIntegration
         FROM
           dim_values
         WHERE
-          dimension_name != 'All'
+          dimension_name != ''
       )
       SELECT
         dim_values_sorted.dimension_name AS dimension_name,
@@ -2239,7 +2239,7 @@ export default abstract class SqlIntegration
       );
     }
     const dimension = params.dimensions[0];
-    let dimensionCol = this.castToString("'All'");
+    let dimensionCol = this.castToString("''");
     if (dimension?.type === "experiment") {
       dimensionCol = `dim_exp_${dimension.id}`;
     } else if (dimension?.type === "user") {
@@ -2837,7 +2837,7 @@ export default abstract class SqlIntegration
       );
     }
     const dimension = params.dimensions[0];
-    let dimensionCol = this.castToString("'All'");
+    let dimensionCol = this.castToString("''");
     if (dimension?.type === "experiment") {
       dimensionCol = `dim_exp_${dimension.id}`;
     } else if (dimension?.type === "user") {
