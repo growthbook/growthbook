@@ -43,6 +43,7 @@ import {
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+import HelperText from "@/components/Radix/HelperText";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -287,6 +288,12 @@ const AnalysisForm: FC<{
               () => 1 / (body?.variations?.length || 2)
             );
           }
+          const banditScheduleHours =
+            (body.banditScheduleValue ?? 0) *
+            (body.banditScheduleUnit === "days" ? 24 : 1);
+          if (banditScheduleHours < 0.25 || (body.banditBurnInValue ?? 0) < 0) {
+            throw new Error("Invalid Bandit schedule")
+          }
         }
 
         await apiCall(`/experiment/${experiment.id}`, {
@@ -303,8 +310,14 @@ const AnalysisForm: FC<{
             <BanditSettings
               page="experiment-settings"
               settings={scopedSettings}
+              lockExploratoryStage={experiment.banditStage === "exploit"}
             />
             <hr className="my-3" />
+            {experiment.status === "running" && (
+              <HelperText status="info" mb="4">
+                The following settings cannot be modified because the Bandit is already live
+              </HelperText>
+            )}
           </FormProvider>
         )}
 
@@ -741,7 +754,7 @@ const AnalysisForm: FC<{
               }
               forceSingleGoalMetric={isBandit}
               noPercentileGoalMetrics={isBandit}
-              disabled={isBandit && experiment.status !== "draft"}
+              goalDisabled={isBandit && experiment.status !== "draft"}
             />
 
             {hasMetrics && !isBandit && (

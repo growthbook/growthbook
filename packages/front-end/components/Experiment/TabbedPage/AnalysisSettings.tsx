@@ -182,7 +182,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
                 {(experiment.banditBurnInUnit ?? "days") === "days"
                   ? "day"
                   : "hour"}
-                {experiment.banditBurnInValue ?? 1 !== 1 ? "s" : ""}
+                {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
               </div>
             </div>
 

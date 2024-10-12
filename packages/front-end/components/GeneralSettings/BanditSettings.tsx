@@ -4,16 +4,18 @@ import clsx from "clsx";
 import { ScopedSettings } from "shared/settings";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import { DocLink } from "@/components/DocLink";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import HelperText from "@/components/Radix/HelperText";
 
 export default function BanditSettings({
   page = "org-settings",
   settings,
+  lockExploratoryStage,
 }: {
   page?: "org-settings" | "experiment-settings";
   settings?: ScopedSettings;
+  lockExploratoryStage?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
@@ -23,22 +25,11 @@ export default function BanditSettings({
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
     (form.watch("banditScheduleUnit") === "days" ? 24 : 1);
   const scheduleWarning =
-    scheduleHours < 1 ? (
-      <>
-        Update cadence should be at least 15 minutes longer than it takes to run
-        your data warehouse query.{" "}
-        <DocLink docSection="experimentConfiguration">
-          View Documentation
-        </DocLink>
-      </>
-    ) : scheduleHours > 24 * 3 ? (
-      <>
-        Update cadences longer than 3 days can result in slow learning.{" "}
-        <DocLink docSection="experimentConfiguration">
-          View Documentation
-        </DocLink>
-      </>
-    ) : null;
+    scheduleHours < 1
+      ? "Update cadence should be at least 15 minutes longer than it takes to run your data warehouse query"
+      : scheduleHours > 24 * 3
+      ? "Update cadences longer than 3 days can result in slow learning"
+      : null;
 
   return (
     <div className="row">
@@ -85,16 +76,13 @@ export default function BanditSettings({
                 <Field
                   {...form.register("banditBurnInValue", {
                     valueAsNumber: true,
-                    validate: (v) => {
-                      return !(v < 0);
-                    },
                   })}
                   type="number"
                   min={0}
                   max={999}
                   step={1}
                   style={{ width: 70 }}
-                  disabled={!hasBandits}
+                  disabled={!hasBandits || lockExploratoryStage}
                 />
               </div>
               <div className="col-auto">
@@ -117,7 +105,7 @@ export default function BanditSettings({
                       value: "days",
                     },
                   ]}
-                  disabled={!hasBandits}
+                  disabled={!hasBandits || lockExploratoryStage}
                 />
               </div>
             </div>
@@ -129,6 +117,11 @@ export default function BanditSettings({
                   {settings?.banditBurnInUnit?.value ?? "days"}
                 </strong>
               </div>
+            )}
+            {lockExploratoryStage && page === "experiment-settings" && (
+              <HelperText status="info">
+                Exploratory stage has already ended
+              </HelperText>
             )}
           </div>
 
@@ -148,9 +141,6 @@ export default function BanditSettings({
                 <Field
                   {...form.register("banditScheduleValue", {
                     valueAsNumber: true,
-                    validate: (_) => {
-                      return !(scheduleHours < 0.25);
-                    },
                   })}
                   type="number"
                   min={0}
@@ -194,7 +184,9 @@ export default function BanditSettings({
               </div>
             )}
             {scheduleWarning ? (
-              <div className="text-warning-orange mt-2">{scheduleWarning}</div>
+              <HelperText status="warning" size="sm" mt="1">
+                {scheduleWarning}
+              </HelperText>
             ) : null}
           </div>
         </div>

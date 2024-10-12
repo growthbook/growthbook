@@ -14,6 +14,7 @@ export interface Props {
   forceSingleGoalMetric?: boolean;
   noPercentileGoalMetrics?: boolean;
   disabled?: boolean;
+  goalDisabled?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -30,6 +31,7 @@ export default function ExperimentMetricsSelector({
   forceSingleGoalMetric = false,
   noPercentileGoalMetrics = false,
   disabled,
+  goalDisabled,
 }: Props) {
   return (
     <>
@@ -59,7 +61,7 @@ export default function ExperimentMetricsSelector({
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
             noPercentile={noPercentileGoalMetrics}
-            disabled={disabled}
+            disabled={disabled || goalDisabled}
           />
         </div>
       )}
