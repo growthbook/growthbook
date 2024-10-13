@@ -236,7 +236,9 @@ const Results: FC<{
             No data yet.{" "}
             {snapshot &&
               phaseAgeMinutes >= 120 &&
-              "Make sure your experiment is tracking properly."}
+              `Make sure your ${
+                isBandit ? "Bandit" : "Experiment"
+              } is tracking properly.`}
             {snapshot &&
               phaseAgeMinutes < 120 &&
               (phaseAgeMinutes < 0

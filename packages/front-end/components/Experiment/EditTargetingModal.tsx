@@ -254,7 +254,9 @@ export default function EditTargetingModal({
                 className="btn btn-sm btn-warning d-flex my-1 ml-1 px-1 d-flex align-items-center justify-content-md-center"
                 style={{ height: 35 }}
               >
-                <strong className="mr-2 user-select-none text-dark">Confirm</strong>
+                <strong className="mr-2 user-select-none text-dark">
+                  Confirm
+                </strong>
                 <input
                   id="confirm-changes"
                   type="checkbox"
@@ -276,9 +278,7 @@ export default function EditTargetingModal({
           />
 
           <div className="mt-4">
-            <label>
-              Current targeting and traffic (for reference)
-            </label>
+            <label>Current targeting and traffic (for reference)</label>
             <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
               <TargetingInfo
                 experiment={experiment}

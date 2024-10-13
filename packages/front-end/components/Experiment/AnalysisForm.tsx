@@ -33,6 +33,7 @@ import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import HelperText from "@/components/Radix/HelperText";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -43,7 +44,6 @@ import {
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
-import HelperText from "@/components/Radix/HelperText";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -292,7 +292,7 @@ const AnalysisForm: FC<{
             (body.banditScheduleValue ?? 0) *
             (body.banditScheduleUnit === "days" ? 24 : 1);
           if (banditScheduleHours < 0.25 || (body.banditBurnInValue ?? 0) < 0) {
-            throw new Error("Invalid Bandit schedule")
+            throw new Error("Invalid Bandit schedule");
           }
         }
 
@@ -315,7 +315,8 @@ const AnalysisForm: FC<{
             <hr className="my-3" />
             {experiment.status === "running" && (
               <HelperText status="info" mb="4">
-                The following settings cannot be modified because the Bandit is already live
+                The following settings cannot be modified because the Bandit is
+                already live
               </HelperText>
             )}
           </FormProvider>

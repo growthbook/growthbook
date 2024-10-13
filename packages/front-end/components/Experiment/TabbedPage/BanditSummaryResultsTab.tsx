@@ -11,6 +11,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
+import Callout from "@/components/Radix/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -56,29 +57,31 @@ export default function BanditSummaryResultsTab({
       </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (
-          <div className="alert bg-light border mx-3">
+          <Callout status="info" mx="3" mb="2">
             Your experiment is still in a <strong>draft</strong> state. You must
             start the experiment first before seeing results.
-          </div>
+          </Callout>
         )}
 
         {isCurrentPhase &&
         experiment.status === "running" &&
         experiment.banditStage === "explore" ? (
-          <div className="alert bg-light border mx-3">
+          <Callout status="info" mx="3" mb="2">
             This Bandit is still in its <strong>Exploratory</strong> stage.
-            Please wait a little while longer.
-          </div>
+            Please wait a little while longer before variation weights update.
+          </Callout>
         ) : null}
         {isCurrentPhase &&
         experiment.status === "running" &&
         !phaseObj?.banditEvents?.length ? (
-          <div className="alert alert-info mx-3">No data yet.</div>
+          <Callout status="info" mx="3" mb="2">
+            No data yet.
+          </Callout>
         ) : null}
         {!isCurrentPhase && !phaseObj?.banditEvents?.length ? (
-          <div className="alert alert-info mx-3">
+          <Callout status="info" mx="3" mb="2">
             No data available for this phase.
-          </div>
+          </Callout>
         ) : null}
 
         {showVisualizations && (

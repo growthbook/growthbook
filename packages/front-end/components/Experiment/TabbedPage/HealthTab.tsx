@@ -202,12 +202,21 @@ export default function HealthTab({
         </div>
       );
     }
-    if (isBandit && experiment.status === "draft") {
-      return (
-        <div className="alert alert-info mt-3">
-          Start the experiment to see health data.
-        </div>
-      );
+    if (isBandit) {
+      if (experiment.status === "draft") {
+        return (
+          <div className="alert alert-info mt-3">
+            Start the Bandit to see health data.
+          </div>
+        );
+      } else {
+        return (
+          <div className="alert alert-warning mt-3">
+            This Bandit may not be tracking properly. Please review your
+            implementation details.
+          </div>
+        );
+      }
     }
     return (
       <div className="alert alert-info mt-3">

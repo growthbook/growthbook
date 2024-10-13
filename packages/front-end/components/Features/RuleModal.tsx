@@ -809,7 +809,11 @@ export default function RuleModal({
           )}
 
           <Field
-            label={form.register("experimentType") === "multi-armed-bandit" ? "Bandit Name" : "Experiment Name"}
+            label={
+              form.register("experimentType") === "multi-armed-bandit"
+                ? "Bandit Name"
+                : "Experiment Name"
+            }
             {...form.register("name")}
             required
           />

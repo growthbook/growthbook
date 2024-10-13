@@ -87,7 +87,11 @@ const StopExperimentForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      header={isStopped ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results` : `Stop ${isBandit ? "Bandit" : "Experiment"}`}
+      header={
+        isStopped
+          ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`
+          : `Stop ${isBandit ? "Bandit" : "Experiment"}`
+      }
       close={close}
       open={true}
       submit={submit}
@@ -187,8 +191,8 @@ const StopExperimentForm: FC<{
               </div>
 
               <small className="form-text text-muted">
-                Keep the {isBandit ? "Bandit" : "Experiment"} running until you can implement the changes
-                in code.{" "}
+                Keep the {isBandit ? "Bandit" : "Experiment"} running until you
+                can implement the changes in code.{" "}
                 <DocLink docSection="temporaryRollout">Learn more</DocLink>
               </small>
             </div>

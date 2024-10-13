@@ -6,8 +6,8 @@ import {
   PiWarningFill,
   PiWarningOctagonFill,
 } from "react-icons/pi";
-import {MarginProps} from "@radix-ui/themes/dist/cjs/props/margin.props";
-import {Responsive} from "@radix-ui/themes/dist/cjs/props";
+import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 
 export type Status = "info" | "warning" | "error" | "success";
 export type RadixColor = TextProps["color"];
@@ -44,7 +44,13 @@ function getIconSize(size: Size) {
   }
 }
 
-export function RadixStatusIcon({ status, size }: { status: Status, size: Size }): ReactElement {
+export function RadixStatusIcon({
+  status,
+  size,
+}: {
+  status: Status;
+  size: Size;
+}): ReactElement {
   switch (status) {
     case "info":
       return <PiInfoFill size={getIconSize(size)} />;

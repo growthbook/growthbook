@@ -62,7 +62,7 @@ const ViewAsyncQueriesButton: FC<{
           )}
         >
           <button
-            className={clsx(className, {
+            className={clsx("position-relative", className, {
               disabled: queries.length === 0,
               "d-flex align-items-center": condensed,
             })}
