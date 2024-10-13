@@ -440,6 +440,10 @@ const MetricForm: FC<MetricFormProps> = ({
   const ignoreNullsSupported = capSupported;
   const conversionWindowSupported = capSupported;
 
+  const hasSQLDataSources = datasources.some(
+    (d) => d.properties?.queryLanguage === "sql"
+  );
+
   const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
     selectedDataSource?.properties?.queryLanguage === "javascript";
@@ -671,7 +675,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 Switch to use Fact Tables <FaArrowRight />
               </a>
             </Callout>
-          ) : switchToFact ? (
+          ) : switchToFact && hasSQLDataSources ? (
             <Callout status="info" mb="3">
               Use Fact Tables for an easier and faster way to create metrics.{" "}
               <Link href="/fact-tables">
