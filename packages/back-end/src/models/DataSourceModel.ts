@@ -25,6 +25,7 @@ import { queueCreateInformationSchema } from "back-end/src/jobs/createInformatio
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { logger } from "back-end/src/util/logger";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -194,8 +195,10 @@ export async function createDataSource(
     projects,
   };
 
+  logger.info("testDataSourceConnection");
   await testDataSourceConnection(context, datasource);
 
+  logger.info(`validate for ${settings}`);
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
     context,
@@ -204,15 +207,19 @@ export async function createDataSource(
     true
   );
 
+  logger.info("create datasource");
   const model = (await DataSourceModel.create(
     datasource
   )) as DataSourceDocument;
 
+  logger.info("getSourceIntegrationObject");
   const integration = getSourceIntegrationObject(context, datasource);
+  logger.info("integration=" + integration);
   if (
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
+    logger.info("queueCreateInformationSchema");
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 

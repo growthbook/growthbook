@@ -410,6 +410,23 @@ const NewDataSourceForm: FC<{
           onCancel && onCancel();
         };
 
+  const callCreateInbuiltDatasource = async () => {
+    const res = await apiCall<{
+      datasource: DataSourceInterfaceWithParams;
+    }>(`/datasource/create-inbuilt`, {
+      method: "POST",
+    });
+
+    track("Create Inbuilt Datasource", {
+      source,
+      newDatasourceForm: true,
+    });
+
+    setCreatedDatasource(res.datasource);
+    createResources(res.datasource);
+    setStep("done");
+  };
+
   let stepContents: ReactNode = null;
   if (step === "initial") {
     stepContents = (
@@ -481,6 +498,26 @@ const NewDataSourceForm: FC<{
                 </div>
               </div>
             )}
+          </div>
+        </div>
+        <div>
+          <h4>Or use Growthbook&apos;s Inbuilt Datasource</h4>
+          <div>
+            If you don&apos;t have your own datasource you can use
+            Growthbook&apos;s own warehouse to house your event tracking data
+          </div>
+          <div
+            className={styles.ctaButton}
+            onClick={(e) => {
+              e.preventDefault();
+              callCreateInbuiltDatasource();
+            }}
+          >
+            <h3 className={styles.ctaText}>Use Growthbook&apos;s Warehouse</h3>
+            <p>
+              If you don&apos;t have your own datasource you can use
+              Growthbook&apos;s own warehouse to house your event tracking data
+            </p>
           </div>
         </div>
         {secondaryCTA && (
