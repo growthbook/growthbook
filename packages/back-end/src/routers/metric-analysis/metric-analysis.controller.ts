@@ -61,6 +61,7 @@ export const postMetricAnalysis = async (
     context,
     metricObj,
     metricAnalysisSettings,
+    data.source,
     !data.force
   );
 

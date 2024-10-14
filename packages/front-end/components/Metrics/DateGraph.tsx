@@ -21,7 +21,6 @@ import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import { PartialOn } from "@/types/utils";
 import styles from "./DateGraph.module.scss";
 
 interface Datapoint {
@@ -158,20 +157,13 @@ type ExperimentDisplayData = {
   };
 };
 
-// If status is draft, allow partial values, otherwise require everything.
-export type DraftExperiment = PartialOn<
-  ExperimentInterfaceStringDates,
-  "status",
-  "draft"
->;
-
 interface DateGraphProps {
   type: MetricType;
   smoothBy?: "day" | "week";
   method?: "avg" | "sum";
   dates: Datapoint[];
   showStdDev?: boolean;
-  experiments?: DraftExperiment[];
+  experiments?: ExperimentInterfaceStringDates[];
   height?: number;
   margin?: [number, number, number, number];
   formatter?: (value: number, options?: Intl.NumberFormatOptions) => string;

@@ -9,6 +9,8 @@ export const metricAnalysisPopulationTypeValidator = z.enum([
   "segment",
 ]);
 
+export const metricAnalysisSourceValidator = z.enum(["metric", "northstar"]);
+
 export const metricAnalysisSettingsValidator = z
   .object({
     userIdType: z.string(),
@@ -31,6 +33,7 @@ export const createMetricAnalysisPropsValidator = z
     endDate: z.string(),
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
+    source: metricAnalysisSourceValidator,
     force: z.boolean().optional(),
   })
   .strict();
@@ -81,5 +84,6 @@ export const metricAnalysisInterfaceValidator = z
     result: metricAnalysisResultValidator.optional(),
     settings: metricAnalysisSettingsValidator,
     queries: z.array(queryPointerValidator),
+    source: metricAnalysisSourceValidator.optional(),
   })
   .strict();

@@ -8,6 +8,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { quantileMetricType } from "shared/experiments";
 
 type MetricOption = {
   id: string;
@@ -86,6 +87,7 @@ const MetricsSelector: FC<{
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
+  excludeQuantiles?: boolean;
 }> = ({
   datasource,
   project,
@@ -94,6 +96,7 @@ const MetricsSelector: FC<{
   onChange,
   autoFocus,
   includeFacts,
+  excludeQuantiles
 }) => {
   const {
     metrics,
@@ -114,7 +117,9 @@ const MetricsSelector: FC<{
       userIdTypes: m.userIdTypes || [],
     })),
     ...(includeFacts
-      ? factMetrics.map((m) => ({
+      ? factMetrics
+        .filter((m) => !excludeQuantiles || !quantileMetricType(m))
+        .map((m) => ({
           id: m.id,
           name: m.name,
           description: m.description || "",
