@@ -99,9 +99,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
             onClose={() => {
               setMetricsOpen(false);
             }}
-            onSuccess={() => {
-              mutateDefinitions();
-            }}
           />
         )}
         {importExperimentsOpen && (
