@@ -181,7 +181,7 @@ export default function PrerequisiteModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="feature-prerequisite-form"
       open={true}
       close={close}
       size="lg"

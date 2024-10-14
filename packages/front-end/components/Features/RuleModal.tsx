@@ -287,7 +287,7 @@ export default function RuleModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="feature-rule-form"
       open={true}
       close={close}
       size="lg"

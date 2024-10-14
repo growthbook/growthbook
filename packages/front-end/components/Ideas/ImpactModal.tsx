@@ -41,7 +41,7 @@ const ImpactModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="idea-impact-score"
       header="Impact Score Parameters"
       open={true}
       submit={form.handleSubmit(async (value) => {

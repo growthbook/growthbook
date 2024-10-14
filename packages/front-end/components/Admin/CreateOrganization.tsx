@@ -29,7 +29,8 @@ const CreateOrganization: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="create-organization"
+      trackingEventModalSource="admin"
       submit={handleSubmit}
       open={true}
       header={"Create New Organization"}

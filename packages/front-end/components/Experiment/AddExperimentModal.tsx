@@ -103,7 +103,7 @@ const AddExperimentModal: FC<{
     default:
       return (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="add-experiment-deprecated-flow"
           open
           close={() => onClose()}
           size="lg"

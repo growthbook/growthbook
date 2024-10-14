@@ -101,7 +101,7 @@ const VisualChangesetModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="visual-editor-url-targeting"
       open
       close={close}
       size="lg"

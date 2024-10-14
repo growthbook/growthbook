@@ -15,7 +15,8 @@ const Carousel: FC<{
   deleteImage?: (i: number) => Promise<void>;
   children: ReactNode;
   maxChildHeight?: number;
-}> = ({ children, deleteImage, maxChildHeight }) => {
+  trackingEventModalType: string;
+}> = ({ children, deleteImage, maxChildHeight, trackingEventModalType }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -47,7 +48,7 @@ const Carousel: FC<{
     <div className="carousel slide my-2">
       {modalOpen && currentChild && (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType={trackingEventModalType}
           open={true}
           header={"Screenshot"}
           close={() => setModalOpen(false)}

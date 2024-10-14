@@ -29,7 +29,7 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-experiment-status"
       header={"Change Experiment Status"}
       close={close}
       open={true}
