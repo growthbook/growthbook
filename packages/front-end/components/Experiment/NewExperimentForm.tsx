@@ -718,6 +718,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)
               }
+              setGuardrailMetrics={(guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
+              }
             />
 
             <FormProvider {...form}>

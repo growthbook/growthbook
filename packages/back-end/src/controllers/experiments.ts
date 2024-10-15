@@ -81,7 +81,7 @@ import {
   ExperimentType,
   Variation,
 } from "back-end/types/experiment";
-import { getMetricById, getMetricMap } from "back-end/src/models/MetricModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { IdeaInterface } from "back-end/types/idea";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -1264,6 +1264,8 @@ export async function postExperimentStatus(
     changes.phases = phases;
 
     if (experiment.type === "multi-armed-bandit") {
+      const metricMap = await getMetricMap(context);
+
       // Multiple events (not just the seed 0th event) means this bandit phase was already running somehow.
       // If multiple events, don't flush.
       const preserveExistingBanditEvents =
@@ -1300,7 +1302,7 @@ export async function postExperimentStatus(
         });
         return;
       }
-      const metric = await getMetricById(context, experiment.goalMetrics[0]);
+      const metric = metricMap.get(experiment.goalMetrics[0]);
       if (!metric) {
         res.status(403).json({
           status: 403,
