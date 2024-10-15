@@ -1,6 +1,5 @@
 import clsx from "clsx";
-import { MdCheck } from "react-icons/md";
-import { PiCircleDashed } from "react-icons/pi";
+import { PiCheck, PiCircleDashed } from "react-icons/pi";
 
 type Step = {
   label: string;
@@ -46,7 +45,7 @@ export default function Stepper({
             <a
               key={i}
               role="button"
-              className={clsx("nav-link")}
+              className={"nav-link"}
               onClick={async (e) => {
                 e.preventDefault();
                 setError("");
@@ -63,7 +62,7 @@ export default function Stepper({
                   skipped?.has(i) ? (
                     <PiCircleDashed />
                   ) : (
-                    <MdCheck />
+                    <PiCheck />
                   )
                 ) : (
                   i + 1
