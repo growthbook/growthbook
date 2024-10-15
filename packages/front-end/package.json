@@ -50,6 +50,7 @@
     "fuse.js": "^6.6.2",
     "handlebars": "^4.7.8",
     "js-confetti": "^0.11.0",
+    "js-cookie": "^3.0.5",
     "js-yaml": "^4.1.0",
     "json-stringify-pretty-compact": "^3.0.0",
     "json2csv": "^5.0.7",
