@@ -5,7 +5,6 @@ import {
   Text,
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-export type Variant = "solid" | "soft" | "outline" | "ghost";
 
 type AllowedChildren = string | React.ReactNode;
 
@@ -40,6 +39,7 @@ type DropdownContentProps = {
   children: AllowedChildren;
   trigger: AllowedChildren;
 } & MarginProps;
+
 export function DropdownSubMenu({
   children,
   trigger,
