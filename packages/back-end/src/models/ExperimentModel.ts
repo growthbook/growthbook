@@ -358,13 +358,20 @@ export async function getSampleExperiment(
 }
 
 export async function createExperiment({
-  data,
+  data: rawData,
   context,
 }: {
   data: Partial<ExperimentInterface>;
   context: ReqContext | ApiReqContext;
 }): Promise<ExperimentInterface> {
+  const data: Partial<ExperimentInterface> = {
+    ...rawData,
+    name: rawData.name?.trim(),
+  };
+
   data.organization = context.org.id;
+
+  if (!data.name) throw new Error("Cannot create experiment with empty name!");
 
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name

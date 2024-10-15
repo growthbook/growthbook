@@ -24,6 +24,7 @@ const EditExperimentNameForm: FC<{
       open={true}
       close={cancel}
       size="lg"
+      ctaEnabled={!!form.watch("name").trim()}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",

@@ -243,7 +243,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { apiCall } = useAuth();
 
-  const onSubmit = form.handleSubmit(async (value) => {
+  const onSubmit = form.handleSubmit(async (rawValue) => {
+    const value = { ...rawValue, name: rawValue.name?.trim() };
+
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
