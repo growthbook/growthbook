@@ -12,7 +12,7 @@ import {
 } from "back-end/src/util/secrets";
 
 let s3: AWS.S3;
-export function getS3(): AWS.S3 {
+function getS3(): AWS.S3 {
   if (!s3) {
     AWS.config.update({ region: S3_REGION });
     s3 = new AWS.S3({ signatureVersion: "v4" });

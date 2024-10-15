@@ -20,7 +20,6 @@ import {
 } from "back-end/src/util/secrets";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
-import { updateDataEnrichmentJson } from "back-end/src/jobs/populateDataEnrichmentJson";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
@@ -118,16 +117,6 @@ export async function findSDKConnectionById(
   return context.permissions.canReadMultiProjectResource(connection.projects)
     ? connection
     : null;
-}
-
-export async function findSdkConnectionByIdAcrossOrganizations(id: string) {
-  const doc = await SDKConnectionModel.findOne({
-    id,
-  });
-
-  if (!doc) return null;
-
-  return toInterface(doc);
 }
 
 export async function findSDKConnectionsByOrganization(
@@ -235,7 +224,6 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   }
 
   const doc = await SDKConnectionModel.create(connection);
-  updateDataEnrichmentJson(connection.id);
 
   return toInterface(doc);
 }
@@ -326,18 +314,6 @@ export async function editSDKConnection(
     }
   });
 
-  // We only need to update the data enrichment blob when an sdk's version or language changes
-  let needsDataEnrichmentUpdate = false;
-  const keysRequiringDataEnrichmentUpdate = [
-    "sdkVersion",
-    "languages",
-  ] as const;
-  keysRequiringDataEnrichmentUpdate.forEach((key) => {
-    if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
-      needsDataEnrichmentUpdate = true;
-    }
-  });
-
   const fullChanges = {
     ...otherChanges,
     proxy: newProxy,
@@ -366,9 +342,6 @@ export async function editSDKConnection(
       isUsingProxy
     );
   }
-  if (needsDataEnrichmentUpdate) {
-    updateDataEnrichmentJson(connection.id);
-  }
 
   return { ...connection, ...fullChanges };
 }
@@ -381,7 +354,6 @@ export async function deleteSDKConnectionById(
     organization,
     id,
   });
-  updateDataEnrichmentJson(id);
 }
 
 export async function markSDKConnectionUsed(key: string) {

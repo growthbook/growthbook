@@ -89,6 +89,9 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw
 );
 
+import * as ingestionControllerRaw from "./controllers/ingestion";
+const ingestionController = wrapController(ingestionControllerRaw);
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -782,6 +785,8 @@ app.get("/meta/ai", (req, res) => {
     enabled: !!process.env.OPENAI_API_KEY,
   });
 });
+
+app.get("/ingestion/data-enrichment", ingestionController.getDataEnrichment);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
