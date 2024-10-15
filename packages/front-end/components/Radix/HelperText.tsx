@@ -69,7 +69,7 @@ export default function HelperText({
   size = "md",
   ...otherProps
 }: {
-  children: string;
+  children: string | string[];
   status: Status;
   size?: "sm" | "md";
 } & MarginProps) {

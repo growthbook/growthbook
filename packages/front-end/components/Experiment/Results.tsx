@@ -24,6 +24,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExperimentTab } from "./TabbedPage";
+import Callout from "@/components/Radix/Callout";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -166,7 +167,11 @@ const Results: FC<{
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
   if (error) {
-    return <div className="alert alert-danger m-3">{error.message}</div>;
+    return (
+      <Callout status="error" mx="3" my="4">
+        {error.message}
+      </Callout>
+    );
   }
 
   const datasource = getDatasourceById(experiment.datasource);
@@ -232,7 +237,7 @@ const Results: FC<{
         status !== "running" &&
         hasMetrics &&
         !snapshotLoading && (
-          <div className="alert alert-info m-3">
+          <Callout status="info" mx="3" mb="4">
             No data yet.{" "}
             {snapshot &&
               phaseAgeMinutes >= 120 &&
@@ -253,7 +258,7 @@ const Results: FC<{
               permissionsUtil.canRunExperimentQueries(datasource) &&
               `Click the "Update" button above.`}
             {snapshotLoading && <div> Snapshot loading...</div>}
-          </div>
+          </Callout>
         )}
 
       {snapshot && !snapshot.dimension && (

@@ -100,7 +100,7 @@ const AsyncQueriesModal: FC<{
             {showStats ? <FaAngleDown /> : <FaAngleRight />}
           </a>
           {showStats && data && data.queries && (
-            <div className="bg-light appbox px-3 pt-2">
+            <div className="bg-light appbox px-3 pt-2 mt-2">
               <QueryStatsRow
                 queries={data.queries.filter((q) => q !== null)}
                 showPipelineMode={true}

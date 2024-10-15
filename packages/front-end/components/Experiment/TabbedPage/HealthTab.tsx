@@ -18,6 +18,7 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "./HealthTabOnboardingModal";
+import Callout from "@/components/Radix/Callout";
 
 const noExposureQueryMessage =
   "The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.";
@@ -104,13 +105,14 @@ export default function HealthTab({
     // not show the onboarding flow as there are other problems with this experiment
     if (!datasource || !exposureQuery) {
       return (
-        <div className="alert alert-info mt-3 d-flex">
+        <Callout status="info" mt="3">
           {noExposureQueryMessage}
-        </div>
+        </Callout>
       );
     }
     return (
-      <div className="alert alert-info mt-3 d-flex">
+      <Callout status="info" mt="3">
+      <div className="d-flex">
         {runHealthTrafficQuery === undefined
           ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
           : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
@@ -118,7 +120,7 @@ export default function HealthTab({
           <>
             click the button on the right.
             <Button
-              className="mt-2 mb-2 ml-auto"
+              className="ml-2"
               style={{ width: "200px" }}
               onClick={async () => {
                 track("Health Tab Onboarding Opened", { source: "health-tab" });
@@ -142,86 +144,95 @@ export default function HealthTab({
           "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
         )}
       </div>
+      </Callout>
     );
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return (
+      <Callout status="error" mt="3">
+        {error.message}
+      </Callout>
+    );
   }
 
   if (snapshot?.health?.traffic.error === "TOO_MANY_ROWS") {
     return (
-      <div className="alert alert-danger mt-3">
+      <Callout status="error" mt="3">
+        <div className="mb-2">
         Please update your{" "}
         <Link href={`/datasources/${experiment.datasource}`}>
           Datasource Settings
         </Link>{" "}
         to return fewer dimension slices per dimension or select fewer
-        dimensions to use in traffic breakdowns. For more advice, see the
+        dimensions to use in traffic breakdowns.
+        </div>
+
+        <div>For more advice, see the
         documentation on the Health Tab{" "}
         <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
           here
         </a>
         .
-      </div>
+        </div>
+      </Callout>
     );
   }
 
   if (snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY") {
     return (
-      <div className="alert alert-info mt-3">
+      <Callout status="info" mt="3">
         No data found. It is likely there are no units in your experiment yet.
-      </div>
+      </Callout>
     );
   }
 
   if (snapshot?.health?.traffic.error) {
     return (
-      <div className="alert alert-info mt-3">
+      <Callout status="info" mt="3">
         There was an error running the query for health tab:{" "}
         {snapshot?.health?.traffic.error}.
-      </div>
+      </Callout>
     );
   }
 
   if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
     if (loading) {
       return (
-        <div className="alert alert-info mt-3">
+        <Callout status="info" mt="3">
           <LoadingSpinner /> Snapshot refreshing, health data loading...
-        </div>
+        </Callout>
       );
     }
     if (!datasource || !exposureQuery) {
       return (
-        <div className="alert alert-info mt-3">
+        <Callout status="info" mt="3">
           {noExposureQueryMessage}
-          {
-            " Then, next time you update results, the health tab will be available."
-          }
-        </div>
+          {" "}
+          Then, next time you update results, the health tab will be available.
+        </Callout>
       );
     }
     if (isBandit) {
       if (experiment.status === "draft") {
         return (
-          <div className="alert alert-info mt-3">
+          <Callout status="info" mt="3">
             Start the Bandit to see health data.
-          </div>
+          </Callout>
         );
       } else {
         return (
-          <div className="alert alert-warning mt-3">
+          <Callout status="warning" mt="3">
             This Bandit may not be tracking properly. Please review your
             implementation details.
-          </div>
+          </Callout>
         );
       }
     }
     return (
-      <div className="alert alert-info mt-3">
+      <Callout status="info" mt="3">
         Please return to the results page and run a query to see health data.
-      </div>
+      </Callout>
     );
   }
 
