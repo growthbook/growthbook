@@ -4,7 +4,7 @@
   "private": true,
   "version": "3.2.0",
   "scripts": {
-    "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy metadata",
+    "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
