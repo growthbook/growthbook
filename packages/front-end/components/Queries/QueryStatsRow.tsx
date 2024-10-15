@@ -83,7 +83,7 @@ export default function QueryStatsRow({
         >
           <div className="col-auto mb-2">
             <span className="uppercase-title">
-              Fact Optimized <MdInfoOutline className="text-info"/>
+              Fact Optimized <MdInfoOutline className="text-info" />
             </span>
             :{" "}
             <strong>
@@ -155,9 +155,8 @@ function BooleanQueryStatDisplay({
 
   return (
     <div className="col-auto mb-2">
-      <span className="uppercase-title">
-        {stat}
-      </span>: <strong>{display}</strong>
+      <span className="uppercase-title">{stat}</span>:{" "}
+      <strong>{display}</strong>
     </div>
   );
 }
@@ -186,9 +185,8 @@ export function NumericQueryStatDisplay({
 
   return (
     <div className="col-auto mb-2">
-      <span className="uppercase-title">
-        {stat}
-      </span>: <strong title={sum + ""}>{display}</strong>
+      <span className="uppercase-title">{stat}</span>:{" "}
+      <strong title={sum + ""}>{display}</strong>
     </div>
   );
 }

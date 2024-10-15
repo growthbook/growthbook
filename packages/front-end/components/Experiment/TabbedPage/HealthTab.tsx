@@ -14,11 +14,11 @@ import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
+import Callout from "@/components/Radix/Callout";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "./HealthTabOnboardingModal";
-import Callout from "@/components/Radix/Callout";
 
 const noExposureQueryMessage =
   "The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.";
@@ -112,38 +112,40 @@ export default function HealthTab({
     }
     return (
       <Callout status="info" mt="3">
-      <div className="d-flex">
-        {runHealthTrafficQuery === undefined
-          ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
-          : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
-        {hasPermissionToConfigHealthTag ? (
-          <>
-            click the button on the right.
-            <Button
-              className="ml-2"
-              style={{ width: "200px" }}
-              onClick={async () => {
-                track("Health Tab Onboarding Opened", { source: "health-tab" });
-                setSetupModalOpen(true);
-              }}
-            >
-              Set up Health Tab
-            </Button>
-            {setupModalOpen ? (
-              <HealthTabOnboardingModal
-                open={setupModalOpen}
-                close={() => setSetupModalOpen(false)}
-                dataSource={datasource}
-                exposureQuery={exposureQuery}
-                healthTabOnboardingPurpose={"setup"}
-                healthTabConfigParams={healthTabConfigParams}
-              />
-            ) : null}
-          </>
-        ) : (
-          "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
-        )}
-      </div>
+        <div className="d-flex">
+          {runHealthTrafficQuery === undefined
+            ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
+            : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
+          {hasPermissionToConfigHealthTag ? (
+            <>
+              click the button on the right.
+              <Button
+                className="ml-2"
+                style={{ width: "200px" }}
+                onClick={async () => {
+                  track("Health Tab Onboarding Opened", {
+                    source: "health-tab",
+                  });
+                  setSetupModalOpen(true);
+                }}
+              >
+                Set up Health Tab
+              </Button>
+              {setupModalOpen ? (
+                <HealthTabOnboardingModal
+                  open={setupModalOpen}
+                  close={() => setSetupModalOpen(false)}
+                  dataSource={datasource}
+                  exposureQuery={exposureQuery}
+                  healthTabOnboardingPurpose={"setup"}
+                  healthTabConfigParams={healthTabConfigParams}
+                />
+              ) : null}
+            </>
+          ) : (
+            "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
+          )}
+        </div>
       </Callout>
     );
   }
@@ -160,20 +162,20 @@ export default function HealthTab({
     return (
       <Callout status="error" mt="3">
         <div className="mb-2">
-        Please update your{" "}
-        <Link href={`/datasources/${experiment.datasource}`}>
-          Datasource Settings
-        </Link>{" "}
-        to return fewer dimension slices per dimension or select fewer
-        dimensions to use in traffic breakdowns.
+          Please update your{" "}
+          <Link href={`/datasources/${experiment.datasource}`}>
+            Datasource Settings
+          </Link>{" "}
+          to return fewer dimension slices per dimension or select fewer
+          dimensions to use in traffic breakdowns.
         </div>
 
-        <div>For more advice, see the
-        documentation on the Health Tab{" "}
-        <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
-          here
-        </a>
-        .
+        <div>
+          For more advice, see the documentation on the Health Tab{" "}
+          <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
+            here
+          </a>
+          .
         </div>
       </Callout>
     );
@@ -207,9 +209,8 @@ export default function HealthTab({
     if (!datasource || !exposureQuery) {
       return (
         <Callout status="info" mt="3">
-          {noExposureQueryMessage}
-          {" "}
-          Then, next time you update results, the health tab will be available.
+          {noExposureQueryMessage} Then, next time you update results, the
+          health tab will be available.
         </Callout>
       );
     }

@@ -23,8 +23,8 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { ExperimentTab } from "./TabbedPage";
 import Callout from "@/components/Radix/Callout";
+import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
