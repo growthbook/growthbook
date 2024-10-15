@@ -810,7 +810,7 @@ export default function RuleModal({
 
           <Field
             label={
-              form.register("experimentType") === "multi-armed-bandit"
+              form.watch("experimentType") === "multi-armed-bandit"
                 ? "Bandit Name"
                 : "Experiment Name"
             }
