@@ -9,7 +9,6 @@ export type Size = "xs" | "sm" | "md" | "lg";
 
 export type Props = {
   onClick?: (() => Promise<void>) | (() => void);
-  preventDefault?: boolean;
   color?: Color;
   variant?: Variant;
   size?: Size;
