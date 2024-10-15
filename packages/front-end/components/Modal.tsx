@@ -18,6 +18,7 @@ import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
+  subHeader?: string | ReactNode;
   open: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
@@ -60,6 +61,7 @@ type ModalProps = {
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
+  subHeader = "",
   children,
   close,
   submit,
@@ -141,22 +143,25 @@ const Modal: FC<ModalProps> = ({
       {loading && <LoadingOverlay />}
       {header ? (
         <div className="modal-header">
-          <h5 className="modal-title">
-            {header === "logo" ? (
-              <img
-                alt="GrowthBook"
-                src="/logo/growthbook-logo.png"
-                style={{ height: 40 }}
-              />
-            ) : (
-              header
-            )}
-          </h5>
-          {docSection && (
-            <DocLink docSection={docSection}>
-              <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
-            </DocLink>
-          )}
+          <div>
+            <h4 className="modal-title">
+              {header === "logo" ? (
+                <img
+                  alt="GrowthBook"
+                  src="/logo/growthbook-logo.png"
+                  style={{ height: 40 }}
+                />
+              ) : (
+                header
+              )}
+              {docSection && (
+                <DocLink docSection={docSection}>
+                  <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+                </DocLink>
+              )}
+            </h4>
+            {subHeader ? <div className="mt-1">{subHeader}</div> : null}
+          </div>
           {close && (
             <button
               type="button"

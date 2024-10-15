@@ -110,13 +110,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return null;
     }
     return (
-      <div
-        className={`p-3 ${
-          i < rules.length - 1 ? "border-bottom" : ""
-        } bg-white`}
-        {...props}
-        ref={ref}
-      >
+      <div className={`p-3 border bg-white`} {...props} ref={ref}>
         <div className="d-flex mb-2 align-items-center">
           <div>
             <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
@@ -332,6 +326,7 @@ export function SortableRule(props: SortableProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: active?.id === props.rule.id ? 0.3 : 1,
+    margin: -1,
   };
 
   return (
