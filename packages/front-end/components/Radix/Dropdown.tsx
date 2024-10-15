@@ -4,7 +4,6 @@ import {
   Button,
   Text,
 } from "@radix-ui/themes";
-// import colors from radix-ui themes
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 
@@ -55,6 +54,7 @@ export function DropdownSubMenu({
     </RadixDropdownMenu.Sub>
   );
 }
+
 type DropdownItemProps = {
   children: AllowedChildren;
   disabled?: boolean;
@@ -86,6 +86,7 @@ export function DropdownMenuItem({
     </RadixDropdownMenu.Item>
   );
 }
+
 type DropdownMenuLabelProps = {
   children: AllowedChildren;
 } & MarginProps;
