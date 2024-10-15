@@ -106,7 +106,7 @@ const Redirect = ({
         <a className={styles.redirectUrl} href={originUrl}>
           {originUrl}
         </a>
-        <hr className="mr-5" />
+        <hr />
         <h5>Redirects</h5>
         {experiment.variations.map((v, i) => (
           <div

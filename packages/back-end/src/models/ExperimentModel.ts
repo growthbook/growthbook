@@ -3,10 +3,12 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import {
   Changeset,
   ExperimentInterface,
+  ExperimentType,
   LegacyExperimentInterface,
   Variation,
 } from "back-end/types/experiment";
@@ -14,7 +16,6 @@ import { ReqContext } from "back-end/types/organization";
 import { VisualChange } from "back-end/types/visual-changeset";
 import {
   determineNextDate,
-  generateTrackingKey,
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
@@ -54,6 +55,27 @@ type FilterKeys = ExperimentInterface & { _id: string };
 
 type SortFilter = {
   [key in keyof Partial<FilterKeys>]: 1 | -1;
+};
+
+const banditResultObject = {
+  _id: false,
+  singleVariationResults: [
+    {
+      _id: false,
+      users: Number,
+      cr: Number,
+      ci: [Number],
+    },
+  ],
+  currentWeights: [Number],
+  updatedWeights: [Number],
+  srm: Number,
+  bestArmProbabilities: [Number],
+  additionalReward: Number,
+  seed: Number,
+  updateMessage: String,
+  error: String,
+  reweight: Boolean,
 };
 
 const experimentSchema = new mongoose.Schema({
@@ -186,6 +208,14 @@ const experimentSchema = new mongoose.Schema({
       seed: String,
       variationWeights: [Number],
       groups: [String],
+      banditEvents: [
+        {
+          _id: false,
+          date: Date,
+          banditResult: banditResultObject,
+          snapshotId: String,
+        },
+      ],
     },
   ],
   data: String,
@@ -209,6 +239,13 @@ const experimentSchema = new mongoose.Schema({
       },
     },
   ],
+  type: String,
+  banditStage: String,
+  banditStageDateStarted: Date,
+  banditScheduleValue: Number,
+  banditScheduleUnit: String,
+  banditBurnInValue: Number,
+  banditBurnInUnit: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -273,7 +310,12 @@ export async function getAllExperiments(
   {
     project,
     includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {}
+    type,
+  }: {
+    project?: string;
+    includeArchived?: boolean;
+    type?: ExperimentType;
+  } = {}
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -285,6 +327,12 @@ export async function getAllExperiments(
 
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (type === "multi-armed-bandit") {
+    query.type = "multi-armed-bandit";
+  } else if (type === "standard") {
+    query.type = { $in: ["standard", null] };
   }
 
   return await findExperiments(context, query);
@@ -367,19 +415,10 @@ export async function createExperiment({
   data.organization = context.org.id;
 
   if (!data.trackingKey) {
-    // Try to generate a unique tracking key based on the experiment name
-    let n = 1;
-    let found: null | string = null;
-    while (n < 10 && !found) {
-      const key = generateTrackingKey(data.name || data.id || "", n);
-      if (!(await getExperimentByTrackingKey(context, key))) {
-        found = key;
-      }
-      n++;
-    }
-
-    // Fall back to uniqid if couldn't generate
-    data.trackingKey = found || uniqid();
+    data.trackingKey = await generateTrackingKey(
+      data,
+      async (key: string) => await getExperimentByTrackingKey(context, key)
+    );
   }
 
   const nextUpdate = determineNextDate(

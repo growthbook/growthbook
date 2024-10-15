@@ -1,8 +1,9 @@
 import React, { FC, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
+  ExperimentType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -13,12 +14,15 @@ import {
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
+import { getScopedSettings } from "shared/settings";
+import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import { FaRegCircleCheck } from "react-icons/fa6";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import { getEqualWeights } from "@/services/utils";
 import {
   generateVariationId,
   useAttributeSchema,
@@ -33,7 +37,6 @@ import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -46,6 +49,14 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import Toggle from "@/components/Forms/Toggle";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import { useUser } from "@/services/UserContext";
+import { useExperiments } from "@/hooks/useExperiments";
+import ButtonSelectField from "@/components/Forms/ButtonSelectField";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { GBCuped } from "@/components/Icons";
+import { AppFeatures } from "@/types/app-features";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -123,13 +134,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   onCreate = null,
   isImport,
   fromFeature,
-  includeDescription,
+  includeDescription = true,
   source,
   idea,
   msg,
   inline,
   isNewExperiment,
 }) => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  const { organization, hasCommercialFeature } = useUser();
+
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
@@ -141,11 +156,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const {
     datasources,
     getDatasourceById,
+    getExperimentMetricById,
     refreshTags,
     project,
   } = useDefinitions();
 
   const environments = useEnvironments();
+  const { experiments } = useExperiments();
   const envs = environments.map((e) => e.id);
 
   const [
@@ -154,6 +171,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   ] = useState(false);
 
   const settings = useOrgSettings();
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    experiment: (initialValue ?? undefined) as
+      | ExperimentInterfaceStringDates
+      | undefined,
+  });
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -162,11 +185,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project
   );
 
-  useEffect(() => {
-    track("New Experiment Form", {
-      source,
-    });
-  }, []);
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const usingStickyBucketing =
+    orgStickyBucketing && !initialValue?.disableStickyBucketing;
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -185,6 +210,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue
       ),
       name: initialValue?.name || "",
+      type:
+        (hasStickyBucketFeature &&
+        usingStickyBucketing &&
+        hasMultiArmedBanditFeature
+          ? initialValue?.type
+          : "standard") || "standard",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       hashVersion:
@@ -233,6 +264,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
+      regressionAdjustmentEnabled:
+        scopedSettings.regressionAdjustmentEnabled.value,
+      banditScheduleValue: scopedSettings.banditScheduleValue.value,
+      banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
+      banditBurnInValue: scopedSettings.banditBurnInValue.value,
+      banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
     },
   });
 
@@ -247,7 +284,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
-      throw new Error("Experiment Name must not be empty");
+      throw new Error("Name must not be empty");
     }
 
     // TODO: more validation?
@@ -278,6 +315,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       if (prerequisiteTargetingSdkIssues) {
         throw new Error("Prerequisite targeting issues must be resolved");
       }
+
+      // bandits
+      if (
+        data.type === "multi-armed-bandit" &&
+        !hasCommercialFeature("multi-armed-bandits")
+      ) {
+        throw new Error("Bandits are a premium feature");
+      }
+      if (data.type === "multi-armed-bandit") {
+        data.statsEngine = "bayesian";
+        if (!data.datasource) {
+          throw new Error("You must select a datasource");
+        }
+        if ((data.goalMetrics?.length ?? 0) !== 1) {
+          throw new Error("You must select 1 decision metric");
+        }
+      }
     }
 
     const body = JSON.stringify(data);
@@ -306,7 +360,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "Warning: An experiment with that id already exists. To continue anyway, click 'Save' again."
+        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
       );
     }
 
@@ -333,12 +387,29 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     (e) => e.id === form.getValues("exposureQueryId")
   )?.userIdType;
   const status = form.watch("status");
+  const type = form.watch("type");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
-  let header = isNewExperiment ? "New Experiment" : "New Experiment Analysis";
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+
+  useEffect(() => {
+    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
+      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
+    }
+  }, [form, exposureQueries, exposureQueryId]);
+
+  let header = isNewExperiment
+    ? `Create ${
+        form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
+      }`
+    : "Create Experiment Analysis";
   if (source === "duplicate") {
-    header = "Duplicate Experiment";
+    header = `Duplicate ${
+      form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
+    }`;
   }
 
   return (
@@ -354,7 +425,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       setStep={setStep}
       inline={inline}
     >
-      <Page display="Basic Info">
+      <Page display="Overview">
         <div className="px-2">
           {msg && <div className="alert alert-info">{msg}</div>}
 
@@ -366,34 +437,149 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
           )}
 
+          {growthbook.isOn("bandits") && source !== "duplicate" && (
+            <div className="bg-highlight rounded py-4 px-4 mb-4">
+              <ButtonSelectField
+                buttonType="card"
+                value={form.watch("type") || ""}
+                setValue={(v) => form.setValue("type", v as ExperimentType)}
+                options={[
+                  {
+                    label: (
+                      <div
+                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                        style={{ minHeight: 120 }}
+                      >
+                        <div className="h4">
+                          {form.watch("type") === "standard" && (
+                            <FaRegCircleCheck
+                              size={18}
+                              className="check text-success mr-2"
+                            />
+                          )}
+                          Experiment
+                        </div>
+                        <div className="small">
+                          Variation weights are constant throughout the
+                          experiment
+                        </div>
+                      </div>
+                    ),
+                    value: "standard",
+                  },
+                  {
+                    label: (
+                      <div
+                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                        style={{ minHeight: 120 }}
+                      >
+                        <div className="h4">
+                          <PremiumTooltip
+                            commercialFeature="multi-armed-bandits"
+                            body={
+                              !usingStickyBucketing &&
+                              hasStickyBucketFeature ? (
+                                <div>
+                                  Enable Sticky Bucketing in your organization
+                                  settings to run a Bandit.
+                                </div>
+                              ) : null
+                            }
+                            usePortal={true}
+                          >
+                            {form.watch("type") === "multi-armed-bandit" && (
+                              <FaRegCircleCheck
+                                size={18}
+                                className="check text-success mr-2"
+                              />
+                            )}
+                            Bandit
+                          </PremiumTooltip>
+                        </div>
+
+                        <div className="small">
+                          Variations with better results receive more traffic
+                          during the experiment
+                        </div>
+                      </div>
+                    ),
+                    value: "multi-armed-bandit",
+                    disabled:
+                      !hasMultiArmedBanditFeature || !usingStickyBucketing,
+                  },
+                ]}
+              />
+            </div>
+          )}
+
           <Field
-            label="Name"
+            label={
+              type === "multi-armed-bandit" ? "Bandit Name" : "Experiment Name"
+            }
             required
             minLength={2}
             {...form.register("name")}
-          />
-          {!isImport && !fromFeature && datasource && !isNewExperiment && (
-            <Field
-              label="Experiment Id"
-              {...form.register("trackingKey")}
-              helpText={
-                supportsSQL ? (
-                  <>
-                    Unique identifier for this experiment, used to track
-                    impressions and analyze results. Will match against the{" "}
-                    <code>experiment_id</code> column in your data source.
-                  </>
-                ) : (
-                  <>
-                    Unique identifier for this experiment, used to track
-                    impressions and analyze results. Must match the experiment
-                    id in your tracking callback.
-                  </>
-                )
+            onChange={async (e) => {
+              const val = e?.target?.value ?? form.watch("name");
+              if (!val) {
+                form.setValue("trackingKey", "");
+                return;
               }
+              const trackingKey = await generateTrackingKey(
+                { name: val },
+                async (key: string) =>
+                  (experiments.find((exp) => exp.trackingKey === key) as
+                    | ExperimentInterfaceStringDates
+                    | undefined) ?? null
+              );
+              form.setValue("trackingKey", trackingKey);
+            }}
+          />
+
+          <Field
+            label="Tracking Key"
+            {...form.register("trackingKey")}
+            helpText={
+              supportsSQL ? (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Will match against the{" "}
+                  <code>experiment_id</code> column in your data source.
+                </>
+              ) : (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Must match the experiment id
+                  in your tracking callback.
+                </>
+              )
+            }
+          />
+
+          {type !== "multi-armed-bandit" && (
+            <Field
+              label="Hypothesis"
+              textarea
+              minRows={2}
+              maxRows={6}
+              placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+              {...form.register("hypothesis")}
             />
           )}
-
+          {includeDescription && (
+            <Field
+              label="Description"
+              textarea
+              minRows={2}
+              maxRows={6}
+              placeholder={
+                type === "multi-armed-bandit"
+                  ? "Purpose of the Bandit"
+                  : "Purpose of the Experiment"
+              }
+              {...form.register("description")}
+            />
+          )}
           <div className="form-group">
             <label>Tags</label>
             <TagsInput
@@ -401,22 +587,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               onChange={(tags) => form.setValue("tags", tags)}
             />
           </div>
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={2}
-            maxRows={6}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-            {...form.register("hypothesis")}
-          />
-          {includeDescription && (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description") ?? ""}
-                setValue={(val) => form.setValue("description", val)}
-              />
-            </div>
+          {isNewExperiment && (
+            <Field
+              type="hidden"
+              value={
+                !hasStickyBucketFeature || !usingStickyBucketing
+                  ? "standard"
+                  : form.watch("type") ?? "standard"
+              }
+            />
           )}
           {!isNewExperiment && (
             <SelectField
@@ -431,6 +610,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 form.setValue("status", status);
               }}
               value={form.watch("status") ?? ""}
+              sort={false}
             />
           )}
           {status !== "draft" && (
@@ -450,7 +630,150 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </div>
       </Page>
 
-      <Page display="Variation Assignment">
+      {!!isNewExperiment && type === "multi-armed-bandit" && (
+        <Page display="Bandit Settings">
+          <div className="mx-2">
+            <SelectField
+              label="Data Source"
+              labelClassName="font-weight-bold"
+              value={form.watch("datasource") ?? ""}
+              onChange={(newDatasource) => {
+                form.setValue("datasource", newDatasource);
+
+                // If unsetting the datasource, leave all the other settings alone
+                // That way, it will be restored if the user switches back to the previous value
+                if (!newDatasource) {
+                  return;
+                }
+
+                const isValidMetric = (id: string) =>
+                  getExperimentMetricById(id)?.datasource === newDatasource;
+
+                // Filter the selected metrics to only valid ones
+                const goals = form.watch("goalMetrics") ?? [];
+                form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
+                form.setValue(
+                  "secondaryMetrics",
+                  secondaryMetrics.filter(isValidMetric)
+                );
+
+                // const guardrails = form.watch("guardrailMetrics") ?? [];
+                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
+              }}
+              options={datasources.map((d) => {
+                const isDefaultDataSource = d.id === settings.defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  }${isDefaultDataSource ? " (default)" : ""}`,
+                };
+              })}
+              className="portal-overflow-ellipsis"
+            />
+
+            {datasource?.properties?.exposureQueries && (
+              <SelectField
+                label="Experiment Assignment Table"
+                labelClassName="font-weight-bold"
+                value={form.watch("exposureQueryId") ?? ""}
+                onChange={(v) => form.setValue("exposureQueryId", v)}
+                required
+                options={exposureQueries.map((q) => {
+                  return {
+                    label: q.name,
+                    value: q.id,
+                  };
+                })}
+                helpText={
+                  <>
+                    <div>
+                      Should correspond to the Identifier Type used to randomize
+                      units for this experiment
+                    </div>
+                    {userIdType ? (
+                      <>
+                        Identifier Type: <code>{userIdType}</code>
+                      </>
+                    ) : null}
+                  </>
+                }
+              />
+            )}
+
+            <ExperimentMetricsSelector
+              datasource={datasource?.id}
+              exposureQueryId={exposureQueryId}
+              project={project}
+              forceSingleGoalMetric={true}
+              noPercentileGoalMetrics={true}
+              goalMetrics={form.watch("goalMetrics") ?? []}
+              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+              setGoalMetrics={(goalMetrics) =>
+                form.setValue("goalMetrics", goalMetrics)
+              }
+              setSecondaryMetrics={(secondaryMetrics) =>
+                form.setValue("secondaryMetrics", secondaryMetrics)
+              }
+            />
+
+            <FormProvider {...form}>
+              <BanditSettings
+                page="experiment-settings"
+                settings={scopedSettings}
+              />
+            </FormProvider>
+
+            <div className="mt-4">
+              <StatsEngineSelect
+                label={
+                  <>
+                    <div>Statistics Engine</div>
+                    <div className="small text-muted">
+                      Only <strong>Bayesian</strong> is available for Bandit
+                      Experiments.
+                    </div>
+                  </>
+                }
+                value={"bayesian"}
+                parentSettings={scopedSettings}
+                allowUndefined={false}
+                disabled={true}
+              />
+
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    <GBCuped /> Use Regression Adjustment (CUPED)
+                  </PremiumTooltip>
+                }
+                style={{ width: 200 }}
+                labelClassName="font-weight-bold"
+                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("regressionAdjustmentEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                disabled={!hasRegressionAdjustmentFeature}
+              />
+            </div>
+          </div>
+        </Page>
+      )}
+
+      <Page display="Targeting">
         <div className="px-2">
           {isNewExperiment && (
             <div className="alert alert-info mb-4">
@@ -537,7 +860,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
           )}
           <FeatureVariationsInput
-            valueType={"string"}
+            simple={type === "multi-armed-bandit" && !initialValue?.variations}
+            valueType="string"
             coverage={form.watch("phases.0.coverage")}
             setCoverage={(coverage) =>
               form.setValue("phases.0.coverage", coverage)
@@ -582,9 +906,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 : "This is just for documentation purposes and has no effect on the analysis."
             }
             showPreview={!!isNewExperiment}
+            disableCustomSplit={type === "multi-armed-bandit"}
           />
         </div>
       </Page>
+
       {!isNewExperiment && (
         <Page display={"Analysis Settings"}>
           <div className="px-2" style={{ minHeight: 350 }}>

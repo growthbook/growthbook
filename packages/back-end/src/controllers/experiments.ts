@@ -10,8 +10,8 @@ import {
   isDefined,
 } from "shared/util";
 import {
-  getAllMetricSettingsForSnapshot,
   getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -23,7 +23,6 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
-  SnapshotAnalysisParams,
   createManualSnapshot,
   createSnapshot,
   createSnapshotAnalyses,
@@ -31,6 +30,9 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
+  resetExperimentBanditSettings,
+  SnapshotAnalysisParams,
+  updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
@@ -76,9 +78,10 @@ import {
   ExperimentPhase,
   ExperimentStatus,
   ExperimentTargetingData,
+  ExperimentType,
   Variation,
 } from "back-end/types/experiment";
-import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getMetricById, getMetricMap } from "back-end/src/models/MetricModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { IdeaInterface } from "back-end/types/idea";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -119,6 +122,7 @@ export async function getExperiments(
     {
       project?: string;
       includeArchived?: boolean;
+      type?: ExperimentType;
     }
   >,
   res: Response
@@ -130,10 +134,12 @@ export async function getExperiments(
   }
 
   const includeArchived = !!req.query?.includeArchived;
+  const type: ExperimentType | undefined = req.query?.type || undefined;
 
   const experiments = await getAllExperiments(context, {
     project,
     includeArchived,
+    type,
   });
 
   const hasArchived = includeArchived
@@ -316,13 +322,21 @@ export async function getExperiment(
   });
 }
 
-async function _getSnapshot(
-  context: ReqContext | ApiReqContext,
-  experiment: string,
-  phase?: string,
-  dimension?: string,
-  withResults: boolean = true
-) {
+async function _getSnapshot({
+  context,
+  experiment,
+  phase,
+  dimension,
+  withResults = true,
+  type,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: string;
+  phase?: string;
+  dimension?: string;
+  withResults?: boolean;
+  type?: SnapshotType;
+}) {
   const experimentObj = await getExperimentById(context, experiment);
 
   if (!experimentObj) {
@@ -343,34 +357,74 @@ async function _getSnapshot(
     phase: parseInt(phase),
     dimension,
     withResults,
+    type,
   });
 }
 
 export async function getSnapshotWithDimension(
-  req: AuthRequest<null, { id: string; phase: string; dimension: string }>,
+  req: AuthRequest<
+    null,
+    { id: string; phase: string; dimension: string },
+    { type?: SnapshotType }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
-  const snapshot = await _getSnapshot(context, id, phase, dimension);
+  const type = req.query?.type || undefined;
 
-  const latest = await _getSnapshot(context, id, phase, dimension, false);
+  const snapshot = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    dimension,
+    type,
+  });
+  const latest = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    dimension,
+    withResults: false,
+    type,
+  });
+  const dimensionless =
+    snapshot?.dimension === ""
+      ? snapshot
+      : await _getSnapshot({
+          context,
+          experiment: id,
+          phase,
+          type,
+        });
 
   res.status(200).json({
     status: 200,
     snapshot,
     latest,
+    dimensionless,
   });
 }
 export async function getSnapshot(
-  req: AuthRequest<null, { id: string; phase: string }>,
+  req: AuthRequest<
+    null,
+    { id: string; phase: string },
+    { type?: SnapshotType }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const snapshot = await _getSnapshot(context, id, phase);
+  const type = req.query?.type || undefined;
 
-  const latest = await _getSnapshot(context, id, phase, undefined, false);
+  const snapshot = await _getSnapshot({ context, experiment: id, phase, type });
+  const latest = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    withResults: false,
+    type,
+  });
 
   res.status(200).json({
     status: 200,
@@ -507,6 +561,8 @@ export async function postExperiments(
     }
   }
 
+  const experimentType = data.type ?? "standard";
+
   const obj: Omit<ExperimentInterface, "id"> = {
     organization: data.organization,
     archived: false,
@@ -557,14 +613,27 @@ export async function postExperiments(
     ideaSource: data.ideaSource || "",
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
-      data.sequentialTestingEnabled ??
-      !!org?.settings?.sequentialTestingEnabled,
+      experimentType === "multi-armed-bandit"
+        ? false
+        : data.sequentialTestingEnabled ??
+          !!org?.settings?.sequentialTestingEnabled,
     sequentialTestingTuningParameter:
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    statsEngine: data.statsEngine,
+    regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
+    statsEngine:
+      experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
+    type: experimentType,
+    banditScheduleValue: data.banditScheduleValue ?? 1,
+    banditScheduleUnit: data.banditScheduleUnit ?? "days",
+    banditBurnInValue: data.banditBurnInValue ?? 1,
+    banditBurnInUnit: data.banditBurnInUnit ?? "days",
   };
+
+  const { settings } = getScopedSettings({
+    organization: org,
+  });
 
   try {
     validateVariationIds(obj.variations);
@@ -582,6 +651,16 @@ export async function postExperiments(
           existingId: existing.id,
         });
       }
+    }
+
+    if (experimentType === "multi-armed-bandit") {
+      Object.assign(
+        obj,
+        resetExperimentBanditSettings({
+          experiment: obj,
+          settings,
+        })
+      );
     }
 
     const experiment = await createExperiment({
@@ -712,7 +791,15 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
+  let datasourceId = experiment.datasource;
+
   if (data.datasource) {
+    datasourceId = data.datasource;
     const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
@@ -727,16 +814,14 @@ export async function postExperiment(
   const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
     (m) => !oldMetricIds.includes(m)
   );
+  const metricMap = await getMetricMap(context);
+
   if (newMetricIds.length) {
-    const map = await getMetricMap(context);
     for (let i = 0; i < newMetricIds.length; i++) {
-      const metric = map.get(newMetricIds[i]);
+      const metric = metricMap.get(newMetricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
-        if (
-          experiment.datasource &&
-          metric.datasource !== experiment.datasource
-        ) {
+        if (datasourceId && metric.datasource !== datasourceId) {
           res.status(400).json({
             status: 400,
             message:
@@ -801,9 +886,14 @@ export async function postExperiment(
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
     "statsEngine",
+    "type",
+    "banditStage",
+    "banditScheduleValue",
+    "banditScheduleUnit",
+    "banditBurnInValue",
+    "banditBurnInUnit",
   ];
-  const existing: ExperimentInterface = experiment;
-  const changes: Changeset = {};
+  let changes: Changeset = {};
 
   keys.forEach((key) => {
     if (!(key in data)) {
@@ -811,7 +901,7 @@ export async function postExperiment(
     }
 
     // Do a deep comparison for arrays, shallow for everything else
-    let hasChanges = data[key] !== existing[key];
+    let hasChanges = data[key] !== experiment[key];
     if (
       key === "goalMetrics" ||
       key === "secondaryMetrics" ||
@@ -819,7 +909,8 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "variations"
     ) {
-      hasChanges = JSON.stringify(data[key]) !== JSON.stringify(existing[key]);
+      hasChanges =
+        JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
     }
 
     if (hasChanges) {
@@ -848,6 +939,22 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
+  // Clean up some vars for multi-armed bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a MAB before, and is/will be a MAB:
+  if (
+    experiment.status === "draft" &&
+    experiment.banditStage === undefined &&
+    ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
+      data.type === "multi-armed-bandit")
+  ) {
+    changes = resetExperimentBanditSettings({
+      experiment,
+      metricMap,
+      changes,
+      settings,
+    });
+  }
+
   // Only some fields affect production SDK payloads
   const needsRunExperimentsPermission = ([
     "phases",
@@ -859,6 +966,13 @@ export async function postExperiment(
     "status",
     "releasedVariationId",
     "excludeFromPayload",
+    "type",
+    "banditStage",
+    "banditStageDateStarted",
+    "banditScheduleValue",
+    "banditScheduleUnit",
+    "banditBurnInValue",
+    "banditBurnInUnit",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const envs = getAffectedEnvsForExperiment({
@@ -1104,6 +1218,11 @@ export async function postExperimentStatus(
     context.permissions.throwPermissionError();
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
@@ -1117,41 +1236,128 @@ export async function postExperimentStatus(
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
   if (
     experiment.status === "running" &&
     status === "stopped" &&
     phases?.length > 0 &&
-    !phases[phases.length - 1].dateEnded
+    !phases[lastIndex].dateEnded
   ) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
+    phases[lastIndex] = {
+      ...phases[lastIndex],
       reason,
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
     };
     changes.phases = phases;
   }
-  // If starting an experiment from draft, use the current date as the phase start date
+  // Starting an experiment from draft
   else if (
     experiment.status === "draft" &&
     status === "running" &&
     phases?.length > 0
   ) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
+    // use the current date as the phase start date
+    phases[lastIndex] = {
+      ...phases[lastIndex],
       dateStarted: new Date(),
     };
     changes.phases = phases;
+
+    if (experiment.type === "multi-armed-bandit") {
+      // Multiple events (not just the seed 0th event) means this bandit phase was already running somehow.
+      // If multiple events, don't flush.
+      const preserveExistingBanditEvents =
+        (phases[lastIndex]?.banditEvents?.length ?? 0) > 1;
+      Object.assign(
+        changes,
+        resetExperimentBanditSettings({
+          experiment,
+          changes,
+          settings,
+          preserveExistingBanditEvents,
+        })
+      );
+
+      // validate datasources
+      let datasource: DataSourceInterface | null = null;
+      if (!experiment.datasource) {
+        throw new Error("Missing datasource");
+      }
+      datasource = await getDataSourceById(context, experiment.datasource);
+      if (!datasource) {
+        res.status(403).json({
+          status: 403,
+          message: "Invalid datasource: " + experiment.datasource,
+        });
+        return;
+      }
+
+      // validate goal metric
+      if (!experiment?.goalMetrics?.[0]) {
+        res.status(403).json({
+          status: 403,
+          message: "Missing goal metric",
+        });
+        return;
+      }
+      const metric = await getMetricById(context, experiment.goalMetrics[0]);
+      if (!metric) {
+        res.status(403).json({
+          status: 403,
+          message: "Invalid metric: " + experiment.goalMetrics[0],
+        });
+        return;
+      }
+      if (metric.cappingSettings.type === "percentile") {
+        res.status(403).json({
+          status: 403,
+          message: "Goal metric must not use percentile capping",
+        });
+        return;
+      }
+    }
   }
+
   // If starting a stopped experiment, clear the phase end date
   else if (
     experiment.status === "stopped" &&
     status === "running" &&
     phases?.length > 0
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- we don't want the dateEnded
-    const { dateEnded: _, ...newPhase } = phases[phases.length - 1];
-    phases[phases.length - 1] = newPhase;
+    const clonedPhase = { ...phases[lastIndex] };
+    delete clonedPhase.dateEnded;
+    phases[lastIndex] = clonedPhase;
     changes.phases = phases;
+
+    if (experiment.type === "multi-armed-bandit") {
+      // We must create a new phase. No continuing old phases allowed
+      // If we had a previous phase, mark it as ended
+      if (phases.length) {
+        phases[phases.length - 1].dateEnded = new Date();
+      }
+
+      phases.push({
+        condition: clonedPhase.condition,
+        savedGroups: clonedPhase.savedGroups,
+        prerequisites: clonedPhase.prerequisites,
+        coverage: clonedPhase.coverage,
+        dateStarted: new Date(),
+        name: "Main",
+        namespace: clonedPhase.namespace,
+        reason: "",
+        variationWeights: clonedPhase.variationWeights,
+        seed: uuidv4(),
+      });
+
+      Object.assign(
+        changes,
+        resetExperimentBanditSettings({
+          experiment,
+          changes,
+          settings,
+        })
+      );
+    }
   }
 
   changes.status = status;
@@ -1255,6 +1461,11 @@ export async function postExperimentStop(
   changes.analysis = analysis;
   changes.releasedVariationId = releasedVariationId;
   changes.excludeFromPayload = !!excludeFromPayload;
+  if (experiment.type == "multi-armed-bandit") {
+    // pause bandit stage
+    changes.banditStage = "paused";
+    changes.banditStageDateStarted = new Date();
+  }
 
   try {
     const updated = await updateExperiment({
@@ -1335,6 +1546,9 @@ export async function deleteExperimentPhase(
 
   if (!changes.phases.length) {
     changes.status = "draft";
+    if (experiment.type === "multi-armed-bandit") {
+      changes.banditStage = "paused";
+    }
   }
   const updated = await updateExperiment({
     context,
@@ -1381,6 +1595,11 @@ export async function putExperimentPhase(
     throw new Error("You do not have access to this experiment");
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   if (!experiment.phases?.[i]) {
     throw new Error("Invalid phase");
   }
@@ -1413,6 +1632,18 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
+
+  if (experiment.type === "multi-armed-bandit") {
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+      })
+    );
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
@@ -1472,6 +1703,11 @@ export async function postExperimentTargeting(
     return;
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
@@ -1521,6 +1757,17 @@ export async function postExperimentTargeting(
     });
   }
   changes.phases = phases;
+
+  if (experiment.type === "multi-armed-bandit") {
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+      })
+    );
+  }
 
   changes.hashAttribute = hashAttribute;
   changes.fallbackAttribute = fallbackAttribute;
@@ -1817,6 +2064,8 @@ async function createExperimentSnapshot({
   dimension,
   phase,
   useCache = true,
+  type,
+  reweight,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1824,7 +2073,20 @@ async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
-}) {
+  type?: SnapshotType;
+  reweight?: boolean;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentResultsQueryRunner;
+}> {
+  const snapshotType =
+    type ??
+    getSnapshotType({
+      experiment,
+      dimension,
+      phaseIndex: phase,
+    });
+
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
@@ -1874,12 +2136,6 @@ async function createExperimentSnapshot({
     dimension
   );
 
-  const snapshotType = getSnapshotType({
-    experiment,
-    dimension,
-    phaseIndex: phase,
-  });
-
   const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({
@@ -1894,12 +2150,13 @@ async function createExperimentSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
+    reweight,
     type: snapshotType,
     triggeredBy: "manual",
   });
   const snapshot = queryRunner.model;
 
-  return snapshot;
+  return { snapshot, queryRunner };
 }
 
 export async function postSnapshot(
@@ -2018,13 +2275,15 @@ export async function postSnapshot(
   req.setTimeout(30 * 60 * 1000);
 
   try {
-    const snapshot = await createExperimentSnapshot({
+    const { snapshot } = await createExperimentSnapshot({
       context,
       experiment,
       datasource,
       dimension,
       phase,
       useCache,
+      type:
+        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
     });
 
     await req.audit({
@@ -2117,6 +2376,112 @@ export async function postSnapshotAnalysis(
     res.status(400).json({
       status: 400,
       message: e.message,
+    });
+  }
+}
+
+export async function postBanditSnapshot(
+  req: AuthRequest<
+    {
+      reweight?: boolean;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { reweight } = req.body;
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const phase = experiment.phases.length - 1;
+  if (!experiment.phases[phase]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
+  if (!experiment.datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+  let snapshot: ExperimentSnapshotInterface | undefined = undefined;
+
+  try {
+    const { queryRunner } = await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      dimension: "",
+      phase,
+      useCache: false,
+      type: "standard",
+      reweight,
+    });
+
+    await queryRunner.waitForResults();
+    snapshot = queryRunner.model;
+
+    if (!snapshot?.banditResult) {
+      return res.status(400).json({
+        status: 400,
+        message: "Unable to update bandit.",
+        snapshot,
+      });
+    }
+
+    const changes = updateExperimentBanditSettings({
+      experiment,
+      snapshot,
+      reweight,
+    });
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.refresh",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate({
+        phase,
+        dimension: "",
+        useCache: false,
+        manual: false,
+      }),
+    });
+    return res.status(200).json({
+      status: 200,
+      snapshot,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e?.message || e,
+      snapshot,
     });
   }
 }

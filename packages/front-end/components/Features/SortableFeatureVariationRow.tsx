@@ -8,10 +8,12 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import clsx from "clsx";
+import { Slider } from "@radix-ui/themes";
 import {
   decimalToPercent,
   distributeWeights,
   percentToDecimal,
+  percentToDecimalForNumber,
   rebalance,
 } from "@/services/utils";
 import {
@@ -137,18 +139,21 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
           <div className="row align-items-center">
             {customSplit ? (
               <div className="col d-flex flex-row">
-                <input
-                  value={decimalToPercent(weights[i] ?? 0)}
-                  onChange={(e) => {
-                    rebalanceAndUpdate(i, percentToDecimal(e.target.value));
-                  }}
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  type="range"
-                  className="w-100 mr-3"
-                  disabled={!setWeight}
-                />
+                <div
+                  className="mr-3 d-flex align-items-center"
+                  style={{ width: 120 }}
+                >
+                  <Slider
+                    value={[decimalToPercent(weights[i] ?? 0)]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    disabled={!setWeight}
+                    onValueChange={(e) => {
+                      rebalanceAndUpdate(i, percentToDecimalForNumber(e[0]));
+                    }}
+                  />
+                </div>
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
                     value={decimalToPercent(weights[i] ?? 0)}
