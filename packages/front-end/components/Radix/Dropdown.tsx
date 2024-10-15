@@ -1,38 +1,57 @@
 // radix dropdown wrapper
-import { DropdownMenu as RadixDropdownMenu } from "@radix-ui/themes";
+import {
+  DropdownMenu as RadixDropdownMenu,
+  Button,
+  Text,
+} from "@radix-ui/themes";
 // import colors from radix-ui themes
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-type AllowedChildren = React.ReactNode;
+export type Variant = "solid" | "soft" | "outline" | "ghost";
 
-type Props = {
+type AllowedChildren = string | React.ReactNode;
+
+type DropdownProps = {
   trigger: React.ReactNode;
-  disabled?: boolean;
-  errorLevel?: "error" | "warning";
-  description?: string;
   children: AllowedChildren;
 } & MarginProps;
-export function Dropdown({ trigger, children, ...containerProps }: Props) {
+
+export function Dropdown({ trigger, children, ...props }: DropdownProps) {
+  let triggerComponent = (
+    <RadixDropdownMenu.Trigger>{trigger}</RadixDropdownMenu.Trigger>
+  );
+
+  if (typeof trigger === "string") {
+    triggerComponent = (
+      <RadixDropdownMenu.Trigger>
+        <Button {...props}>{trigger}</Button>
+      </RadixDropdownMenu.Trigger>
+    );
+  }
   return (
-    <RadixDropdownMenu.Root {...containerProps}>
-      <RadixDropdownMenu.Trigger>{trigger}</RadixDropdownMenu.Trigger>
-      <RadixDropdownMenu.Content>{children}</RadixDropdownMenu.Content>
+    <RadixDropdownMenu.Root {...props}>
+      {triggerComponent}
+      <RadixDropdownMenu.Content variant="soft">
+        {children}
+      </RadixDropdownMenu.Content>
     </RadixDropdownMenu.Root>
   );
 }
 
 type DropdownContentProps = {
   children: AllowedChildren;
-  trigger: string | React.ReactNode;
-};
+  trigger: AllowedChildren;
+} & MarginProps;
 export function DropdownSubMenu({
   children,
   trigger,
   ...props
-}: DropdownContentProps & MarginProps) {
+}: DropdownContentProps) {
   return (
-    <RadixDropdownMenu.Sub {...props}>
+    <RadixDropdownMenu.Sub>
       <RadixDropdownMenu.SubTrigger>{trigger}</RadixDropdownMenu.SubTrigger>
-      <RadixDropdownMenu.SubContent>{children}</RadixDropdownMenu.SubContent>
+      <RadixDropdownMenu.SubContent {...props}>
+        {children}
+      </RadixDropdownMenu.SubContent>
     </RadixDropdownMenu.Sub>
   );
 }
@@ -42,7 +61,7 @@ type DropdownItemProps = {
   onClick?: () => void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
-};
+} & MarginProps;
 
 export function DropdownMenuItem({
   children,
@@ -50,7 +69,8 @@ export function DropdownMenuItem({
   shortcut,
   color,
   onClick,
-}: DropdownItemProps & MarginProps) {
+  ...props
+}: DropdownItemProps) {
   if (color === "default") {
     color = undefined;
   }
@@ -60,17 +80,25 @@ export function DropdownMenuItem({
       onSelect={onClick}
       color={color}
       shortcut={shortcut}
+      {...props}
     >
       {children}
     </RadixDropdownMenu.Item>
   );
 }
+type DropdownMenuLabelProps = {
+  children: AllowedChildren;
+} & MarginProps;
+
 export function DropdownMenuLabel({
   children,
-}: {
-  children: AllowedChildren;
-}): JSX.Element {
-  return <RadixDropdownMenu.Label>{children}</RadixDropdownMenu.Label>;
+  ...props
+}: DropdownMenuLabelProps): JSX.Element {
+  return (
+    <RadixDropdownMenu.Label {...props}>
+      <Text color="gray">{children}</Text>
+    </RadixDropdownMenu.Label>
+  );
 }
 
 export function DropdownMenuSeparator() {

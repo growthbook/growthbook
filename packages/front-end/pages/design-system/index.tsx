@@ -235,7 +235,7 @@ export default function DesignSystemPage() {
 
       <div className="appbox p-3">
         <h3>Dropdown</h3>
-        <Dropdown trigger={<Button variant="outline">Dropdown Trigger</Button>}>
+        <Dropdown trigger="Dropdown button">
           <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
           <DropdownSubMenu trigger="Item 1">
             <DropdownMenuItem>Item 1.1</DropdownMenuItem>
