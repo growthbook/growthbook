@@ -8,7 +8,6 @@ import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { MetricInterface } from "back-end/types/metric";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -29,7 +28,7 @@ interface Props
   significant: boolean;
   showAxis?: boolean;
   axisOnly?: boolean;
-  metricForFormatting?: ExperimentMetricInterface | MetricInterface | null;
+  metricForFormatting?: ExperimentMetricInterface | null;
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
