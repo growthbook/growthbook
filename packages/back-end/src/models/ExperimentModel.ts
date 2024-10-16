@@ -414,6 +414,8 @@ export async function createExperiment({
 }): Promise<ExperimentInterface> {
   data.organization = context.org.id;
 
+  if (!data.name) throw new Error("Cannot create experiment with empty name!");
+
   if (!data.trackingKey) {
     data.trackingKey = await generateTrackingKey(
       data,
@@ -469,8 +471,13 @@ export async function updateExperiment({
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   // TODO: are there some changes where we don't want to update the dateUpdated?
-  const allChanges = { ...changes };
+  const allChanges = {
+    ...changes,
+  };
   allChanges.dateUpdated = new Date();
+
+  if (allChanges.name === "")
+    throw new Error("Cannot set empty name for experiment!");
 
   await ExperimentModel.updateOne(
     {

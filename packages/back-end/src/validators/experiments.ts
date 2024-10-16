@@ -48,7 +48,7 @@ export const experimentPhase = z
   .object({
     dateStarted: z.date(),
     dateEnded: z.date().optional(),
-    name: z.string(),
+    name: z.string().min(1),
     reason: z.string(),
     coverage: z.number(),
     condition: z.string(),
