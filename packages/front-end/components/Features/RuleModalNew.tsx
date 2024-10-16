@@ -17,11 +17,7 @@ import {
   includeExperimentInPayload,
   isFeatureCyclic,
 } from "shared/util";
-import {
-  FaBell,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-} from "react-icons/fa";
+import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -63,6 +59,8 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
+import RadioCards from "@/components/Radix/RadioCards";
+import RadioGroup from "@/components/Radix/RadioGroup";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -90,7 +88,7 @@ export default function RuleModalNew({
   i,
   mutate,
   environment,
-  defaultType = "force",
+  defaultType = "",
   version,
   setVersion,
   revisions,
@@ -155,6 +153,13 @@ export default function RuleModalNew({
       (scheduleRule) => scheduleRule.timestamp !== null
     )
   );
+
+  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
+    !defaultType
+  );
+  const [overviewRuleType, setOverviewRuleType] = useState<
+    "force" | "rollout" | "experiment" | "bandit" | ""
+  >("");
 
   const form = useForm<FeatureRule | NewExperimentRefRule>({
     defaultValues,
@@ -560,487 +565,585 @@ export default function RuleModalNew({
         }
       })}
     >
-      <div className="form-group mt-3">
-        <label>Rule Type</label>
-        {!rules[i] ? (
-          <SelectField
-            readOnly={!!rules[i]}
-            value={type}
-            sort={false}
-            onChange={(v) => {
-              changeRuleType(v);
-            }}
-            options={ruleTypeOptions}
-          />
-        ) : (
-          <div className="border rounded py-2 px-3">
-            {ruleTypeOptions.find((r) => r.value === type)?.label || type}
-            <Field type={"hidden"} {...form.register("type")} />
-          </div>
-        )}
-      </div>
-
-      {showNewExperimentRuleMessage && (
-        <div className="appbox p-3 bg-light">
-          <h4 className="text-purple">
-            <FaBell /> We&apos;ve changed how Experiment rules work!
-          </h4>
-          <div className="mb-1">
-            You can now choose to either link to an existing Experiment or
-            create a new one from scratch.
-          </div>
-          <div className="mb-2">
-            Targeting and assignment logic is now controlled by the Experiment
-            instead of the Feature rule.
-          </div>
-          <div className="small text-muted">
-            <strong>Note:</strong> This only affects new Experiment rules;
-            existing ones will continue to behave how they used to.
-          </div>
-        </div>
-      )}
-
-      {type === "experiment-ref" && (
-        <div>
-          {experimentOptions.length > 0 ? (
-            <SelectField
-              label="Experiment"
-              initialOption="Choose One..."
-              options={experimentOptions}
-              readOnly={!!rules[i]}
-              disabled={!!rules[i]}
-              required
-              sort={false}
-              value={experimentId || ""}
-              onChange={(experimentId) => {
-                const exp = experimentsMap.get(experimentId);
-                if (exp) {
-                  const controlValue = getFeatureDefaultValue(feature);
-                  const variationValue = getDefaultVariationValue(controlValue);
-                  form.setValue("experimentId", experimentId);
-                  form.setValue(
-                    "variations",
-                    exp.variations.map((v, i) => ({
-                      variationId: v.id,
-                      value: i ? variationValue : controlValue,
-                    }))
-                  );
-                }
-              }}
-              formatOptionLabel={({ value, label }) => {
-                const exp = experimentsMap.get(value);
-                if (exp) {
-                  return (
-                    <div className="d-flex flex-wrap">
-                      <div className="flex">
-                        <strong>{exp.name}</strong>
-                      </div>
-                      <div className="ml-4 text-muted">
-                        Created: {date(exp.dateCreated)}
-                      </div>
-                      <div className="ml-auto">
-                        <StatusIndicator
-                          archived={exp.archived}
-                          status={exp.status}
-                        />
-                      </div>
-                    </div>
-                  );
-                }
-                return label;
-              }}
-            />
-          ) : !rules[i] ? (
-            <div className="alert alert-warning">
-              <div className="d-flex align-items-center">
-                {experiments.length > 0
-                  ? `You don't have any elegible experiments yet.`
-                  : `You don't have any existing experiments yet.`}{" "}
-                <button
-                  type="button"
-                  className="btn btn-primary ml-auto"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    changeRuleType("experiment-ref-new");
-                  }}
-                >
-                  Create New Experiment
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="alert alert-danger">
-              Could not find this experiment. Has it been deleted?
-            </div>
-          )}
-
-          {selectedExperiment && rules[i] && (
-            <div className="appbox px-3 pt-3 bg-light">
-              {!canEditTargeting && (
-                <div className="alert alert-info">
-                  <Link
-                    href={`/experiment/${selectedExperiment.id}#overview`}
-                    className="alert-link"
-                  >
-                    View the Experiment
-                    <FaExternalLinkAlt />
-                  </Link>{" "}
-                  to make changes to assignment or targeting conditions.
-                </div>
-              )}
-              <TargetingInfo
-                experiment={selectedExperiment}
-                editTargeting={
-                  canEditTargeting
-                    ? () => {
-                        setShowTargetingModal(true);
-                      }
-                    : null
-                }
-              />
-            </div>
-          )}
-          {selectedExperiment && (
-            <div className="form-group">
-              <label>Variation Values</label>
-              <div className="mb-3 bg-light border p-3">
-                {selectedExperiment.variations.map((v, i) => (
-                  <FeatureValueField
-                    key={v.id}
-                    label={v.name}
-                    id={v.id}
-                    value={form.watch(`variations.${i}.value`) || ""}
-                    setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-                    valueType={feature.valueType}
-                    feature={feature}
-                    renderJSONInline={false}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {type === "experiment-ref-new" && (
+      {newRuleOverviewPage ? (
         <>
-          {growthbook.isOn("bandits") && (
-            <div className="bg-highlight rounded py-3 px-3 mb-4">
-              <ButtonSelectField
-                buttonType="card"
-                value={form.watch("experimentType") || ""}
-                setValue={(v) =>
-                  form.setValue("experimentType", v as ExperimentType)
-                }
-                options={[
-                  {
-                    label: (
-                      <div
-                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                        style={{ minHeight: 90 }}
-                      >
-                        <div className="h4">
-                          {form.watch("experimentType") === "standard" && (
-                            <FaRegCircleCheck
-                              size={18}
-                              className="check text-success mr-2"
-                            />
-                          )}
-                          Experiment
-                        </div>
-                        <div className="small">
-                          Variation weights are constant throughout the
-                          experiment
-                        </div>
-                      </div>
-                    ),
-                    value: "standard",
-                  },
-                  {
-                    label: (
-                      <div
-                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                        style={{ minHeight: 90 }}
-                      >
-                        <div className="h4">
+          <div className="bg-highlight rounded p-3 mb-3">
+            <h5>Select implementation</h5>
+            <RadioCards
+              mt="4"
+              width="100%"
+              options={[
+                {
+                  value: "force",
+                  label: "Force value",
+                  description:
+                    "Target groups of users and give them all the same value",
+                },
+                {
+                  value: "rollout",
+                  label: "Percentage rollout",
+                  description:
+                    "Release to small percent of users while monitoring logs",
+                },
+                {
+                  value: "experiment",
+                  label: "Add Experiment",
+                  description:
+                    "Measure the impact of this feature on your key metrics",
+                },
+                ...(growthbook.isOn("bandits")
+                  ? [
+                      {
+                        value: "bandit",
+                        disabled: !hasMultiArmedBanditFeature,
+                        label: (
                           <PremiumTooltip
                             commercialFeature="multi-armed-bandits"
-                            body={
-                              !usingStickyBucketing &&
-                              hasStickyBucketFeature ? (
-                                <div>
-                                  Enable Sticky Bucketing in your organization
-                                  settings to run a Bandit.
-                                </div>
-                              ) : null
-                            }
                             usePortal={true}
                           >
-                            {form.watch("experimentType") ===
-                              "multi-armed-bandit" && (
-                              <FaRegCircleCheck
-                                size={18}
-                                className="check text-success mr-2"
-                              />
-                            )}
-                            Bandit
+                            Add Bandit
                           </PremiumTooltip>
-                        </div>
-
-                        <div className="small">
-                          Variations with better results receive more traffic
-                          during the experiment
-                        </div>
-                      </div>
-                    ),
-                    value: "multi-armed-bandit",
-                    disabled:
-                      !hasMultiArmedBanditFeature || !usingStickyBucketing,
+                        ),
+                        description:
+                          "Find a winner among many variations on one goal metric",
+                      },
+                    ]
+                  : []),
+              ]}
+              value={overviewRuleType}
+              setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
+                setOverviewRuleType(v);
+                if (v === "force") {
+                  form.setValue("type", "force");
+                } else if (v === "rollout") {
+                  form.setValue("type", "rollout");
+                } else {
+                  form.setValue("type", undefined);
+                }
+              }}
+            />
+          </div>
+          {overviewRuleType === "experiment" && (
+            <>
+              <h5>Add Experiment</h5>
+              <RadioGroup
+                options={[
+                  {
+                    value: "experiment-ref",
+                    label: "Add existing Experiment",
+                  },
+                  {
+                    value: "experiment-ref-new",
+                    label: "Create new Experiment",
                   },
                 ]}
+                value={type}
+                setValue={(v) => form.setValue("type", v)}
               />
-            </div>
+              <Field type="hidden" name="experimentType" value="standard" />
+            </>
           )}
-
-          <Field
-            label={
-              form.watch("experimentType") === "multi-armed-bandit"
-                ? "Bandit Name"
-                : "Experiment Name"
-            }
-            {...form.register("name")}
-            required
-          />
+          {overviewRuleType === "bandit" && (
+            <>
+              <h5>Add Bandit</h5>
+              <RadioGroup
+                options={[
+                  {
+                    value: "experiment-ref",
+                    label: "Add existing Bandit",
+                  },
+                  {
+                    value: "experiment-ref-new",
+                    label: "Create new Bandit",
+                  },
+                ]}
+                value={type}
+                setValue={(v) => form.setValue("type", v)}
+              />
+              <Field type="hidden" name="experimentType" value="bandit" />
+            </>
+          )}
         </>
-      )}
-
-      {type !== "experiment-ref" && (
-        <Field
-          label="Description"
-          textarea
-          minRows={1}
-          {...form.register("description")}
-          placeholder="Short human-readable description of the rule"
-        />
-      )}
-      {type === "force" && (
-        <FeatureValueField
-          label="Value to Force"
-          id="value"
-          value={form.watch("value")}
-          setValue={(v) => form.setValue("value", v)}
-          valueType={feature.valueType}
-          feature={feature}
-          renderJSONInline={true}
-        />
-      )}
-
-      {type === "rollout" && (
-        <div>
-          <FeatureValueField
-            label="Value to roll out"
-            id="value"
-            value={form.watch("value")}
-            setValue={(v) => form.setValue("value", v)}
-            valueType={feature.valueType}
-            feature={feature}
-            renderJSONInline={true}
-          />
-          <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
-            <RolloutPercentInput
-              value={form.watch("coverage") || 0}
-              setValue={(coverage) => {
-                form.setValue("coverage", coverage);
-              }}
-              className="mb-1"
-            />
-            <SelectField
-              label="Assign value based on attribute"
-              options={attributeSchema
-                .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
-              value={form.watch("hashAttribute")}
-              onChange={(v) => {
-                form.setValue("hashAttribute", v);
-              }}
-              helpText={"The globally unique tracking key for the experiment"}
-            />
-          </div>
-        </div>
-      )}
-
-      {(type !== "experiment-ref" && type !== "experiment-ref-new") ||
-      rule?.scheduleRules?.length ? (
-        <ScheduleInputs
-          defaultValue={defaultValues.scheduleRules || []}
-          onChange={(value) => form.setValue("scheduleRules", value)}
-          scheduleToggleEnabled={scheduleToggleEnabled}
-          setScheduleToggleEnabled={setScheduleToggleEnabled}
-          setShowUpgradeModal={setShowUpgradeModal}
-          title="Add scheduling to automatically enable/disable this rule"
-        />
-      ) : null}
-
-      {(type === "experiment" || type === "experiment-ref-new") && (
+      ) : (
         <>
-          <div className="mt-4 mb-4">
-            <Field
-              label="Tracking Key"
-              {...form.register(`trackingKey`)}
-              placeholder={feature.id}
-              helpText="Unique identifier for this experiment, used to track impressions and analyze results"
-            />
-            <div className="d-flex" style={{ gap: "2rem" }}>
+          <div className="form-group mt-3">
+            <label>Rule Type</label>
+            {!rules[i] ? (
               <SelectField
-                label="Assign value based on attribute"
-                containerClassName="flex-1"
-                options={attributeSchema
-                  .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
-                value={form.watch("hashAttribute")}
+                readOnly={!!rules[i]}
+                value={type}
+                sort={false}
                 onChange={(v) => {
-                  form.setValue("hashAttribute", v);
+                  changeRuleType(v);
                 }}
-                helpText={
-                  "Will be hashed together with the Tracking Key to determine which variation to assign"
-                }
+                options={ruleTypeOptions}
               />
-              <FallbackAttributeSelector
-                form={form}
-                attributeSchema={attributeSchema}
-              />
-            </div>
-          </div>
-          {hasSDKWithNoBucketingV2 && (
-            <HashVersionSelector
-              value={(form.watch("hashVersion") || 1) as 1 | 2}
-              onChange={(v) => form.setValue("hashVersion", v)}
-              project={feature.project}
-            />
-          )}
-          <hr />
-        </>
-      )}
-
-      {!(
-        type === "experiment" ||
-        type === "experiment-ref" ||
-        type === "experiment-ref-new"
-      ) && <hr />}
-
-      {type !== "experiment-ref" && (
-        <div className="mt-4">
-          <SavedGroupTargetingField
-            value={form.watch("savedGroups") || []}
-            setValue={(savedGroups) =>
-              form.setValue("savedGroups", savedGroups)
-            }
-            project={feature.project || ""}
-          />
-          <hr />
-          <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(value) => form.setValue("condition", value)}
-            key={conditionKey}
-            project={feature.project || ""}
-          />
-          <hr />
-          <PrerequisiteTargetingField
-            value={form.watch("prerequisites") || []}
-            setValue={(prerequisites) =>
-              form.setValue("prerequisites", prerequisites)
-            }
-            feature={feature}
-            revisions={revisions}
-            version={version}
-            environments={[environment]}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-          />
-          {(type === "experiment" || type === "experiment-ref-new") && <hr />}
-        </div>
-      )}
-      {isCyclic && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle /> A prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
-        </div>
-      )}
-
-      {(type === "experiment" || type === "experiment-ref-new") && (
-        <div>
-          {namespaces && namespaces.length > 0 && (
-            <NamespaceSelector
-              form={form}
-              trackingKey={form.watch("trackingKey") || feature.id}
-              featureId={feature.id}
-              formPrefix=""
-            />
-          )}
-          <div className="mb-4">
-            <FeatureVariationsInput
-              defaultValue={getFeatureDefaultValue(feature)}
-              valueType={feature.valueType}
-              coverage={form.watch("coverage") || 0}
-              setCoverage={(coverage) => form.setValue("coverage", coverage)}
-              setWeight={(i, weight) =>
-                form.setValue(`values.${i}.weight`, weight)
-              }
-              variations={
-                form
-                  .watch("values")
-                  .map((v: ExperimentValue & { id?: string }) => {
-                    return {
-                      value: v.value || "",
-                      name: v.name,
-                      weight: v.weight,
-                      id: v.id || generateVariationId(),
-                    };
-                  }) || []
-              }
-              setVariations={(variations) =>
-                form.setValue("values", variations)
-              }
-              feature={feature}
-              simple={form.watch("experimentType") === "multi-armed-bandit"}
-            />
-          </div>
-        </div>
-      )}
-      {type === "experiment-ref-new" &&
-        form.watch("experimentType") !== "multi-armed-bandit" && (
-          <div className="mb-3">
-            <Toggle
-              value={form.watch("autoStart")}
-              setValue={(v) => form.setValue("autoStart", v)}
-              id="auto-start-new-experiment"
-            />{" "}
-            <label htmlFor="auto-start-new-experiment" className="text-dark">
-              Start Experiment Immediately
-            </label>
-            <div>
-              <small className="form-text text-muted">
-                If On, the experiment will start serving traffic as soon as the
-                feature is published. Leave Off if you want to make additional
-                changes before starting.
-              </small>
-            </div>
-            {!form.watch("autoStart") && (
-              <div>
-                <hr />
-                <ScheduleInputs
-                  defaultValue={defaultValues.scheduleRules || []}
-                  onChange={(value) => form.setValue("scheduleRules", value)}
-                  scheduleToggleEnabled={scheduleToggleEnabled}
-                  setScheduleToggleEnabled={setScheduleToggleEnabled}
-                  setShowUpgradeModal={setShowUpgradeModal}
-                />
+            ) : (
+              <div className="border rounded py-2 px-3">
+                {ruleTypeOptions.find((r) => r.value === type)?.label || type}
+                <Field type={"hidden"} {...form.register("type")} />
               </div>
             )}
           </div>
-        )}
+
+          {type === "experiment-ref" && (
+            <div>
+              {experimentOptions.length > 0 ? (
+                <SelectField
+                  label="Experiment"
+                  initialOption="Choose One..."
+                  options={experimentOptions}
+                  readOnly={!!rules[i]}
+                  disabled={!!rules[i]}
+                  required
+                  sort={false}
+                  value={experimentId || ""}
+                  onChange={(experimentId) => {
+                    const exp = experimentsMap.get(experimentId);
+                    if (exp) {
+                      const controlValue = getFeatureDefaultValue(feature);
+                      const variationValue = getDefaultVariationValue(
+                        controlValue
+                      );
+                      form.setValue("experimentId", experimentId);
+                      form.setValue(
+                        "variations",
+                        exp.variations.map((v, i) => ({
+                          variationId: v.id,
+                          value: i ? variationValue : controlValue,
+                        }))
+                      );
+                    }
+                  }}
+                  formatOptionLabel={({ value, label }) => {
+                    const exp = experimentsMap.get(value);
+                    if (exp) {
+                      return (
+                        <div className="d-flex flex-wrap">
+                          <div className="flex">
+                            <strong>{exp.name}</strong>
+                          </div>
+                          <div className="ml-4 text-muted">
+                            Created: {date(exp.dateCreated)}
+                          </div>
+                          <div className="ml-auto">
+                            <StatusIndicator
+                              archived={exp.archived}
+                              status={exp.status}
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
+                    return label;
+                  }}
+                />
+              ) : !rules[i] ? (
+                <div className="alert alert-warning">
+                  <div className="d-flex align-items-center">
+                    {experiments.length > 0
+                      ? `You don't have any elegible experiments yet.`
+                      : `You don't have any existing experiments yet.`}{" "}
+                    <button
+                      type="button"
+                      className="btn btn-primary ml-auto"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        changeRuleType("experiment-ref-new");
+                      }}
+                    >
+                      Create New Experiment
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="alert alert-danger">
+                  Could not find this experiment. Has it been deleted?
+                </div>
+              )}
+
+              {selectedExperiment && rules[i] && (
+                <div className="appbox px-3 pt-3 bg-light">
+                  {!canEditTargeting && (
+                    <div className="alert alert-info">
+                      <Link
+                        href={`/experiment/${selectedExperiment.id}#overview`}
+                        className="alert-link"
+                      >
+                        View the Experiment
+                        <FaExternalLinkAlt />
+                      </Link>{" "}
+                      to make changes to assignment or targeting conditions.
+                    </div>
+                  )}
+                  <TargetingInfo
+                    experiment={selectedExperiment}
+                    editTargeting={
+                      canEditTargeting
+                        ? () => {
+                            setShowTargetingModal(true);
+                          }
+                        : null
+                    }
+                  />
+                </div>
+              )}
+              {selectedExperiment && (
+                <div className="form-group">
+                  <label>Variation Values</label>
+                  <div className="mb-3 bg-light border p-3">
+                    {selectedExperiment.variations.map((v, i) => (
+                      <FeatureValueField
+                        key={v.id}
+                        label={v.name}
+                        id={v.id}
+                        value={form.watch(`variations.${i}.value`) || ""}
+                        setValue={(v) =>
+                          form.setValue(`variations.${i}.value`, v)
+                        }
+                        valueType={feature.valueType}
+                        feature={feature}
+                        renderJSONInline={false}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {type === "experiment-ref-new" && (
+            <>
+              {growthbook.isOn("bandits") && (
+                <div className="bg-highlight rounded py-3 px-3 mb-4">
+                  <ButtonSelectField
+                    buttonType="card"
+                    value={form.watch("experimentType") || ""}
+                    setValue={(v) =>
+                      form.setValue("experimentType", v as ExperimentType)
+                    }
+                    options={[
+                      {
+                        label: (
+                          <div
+                            className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                            style={{ minHeight: 90 }}
+                          >
+                            <div className="h4">
+                              {form.watch("experimentType") === "standard" && (
+                                <FaRegCircleCheck
+                                  size={18}
+                                  className="check text-success mr-2"
+                                />
+                              )}
+                              Experiment
+                            </div>
+                            <div className="small">
+                              Variation weights are constant throughout the
+                              experiment
+                            </div>
+                          </div>
+                        ),
+                        value: "standard",
+                      },
+                      {
+                        label: (
+                          <div
+                            className="mx-3 d-flex flex-column align-items-center justify-content-center"
+                            style={{ minHeight: 90 }}
+                          >
+                            <div className="h4">
+                              <PremiumTooltip
+                                commercialFeature="multi-armed-bandits"
+                                body={
+                                  !usingStickyBucketing &&
+                                  hasStickyBucketFeature ? (
+                                    <div>
+                                      Enable Sticky Bucketing in your
+                                      organization settings to run a Bandit.
+                                    </div>
+                                  ) : null
+                                }
+                                usePortal={true}
+                              >
+                                {form.watch("experimentType") ===
+                                  "multi-armed-bandit" && (
+                                  <FaRegCircleCheck
+                                    size={18}
+                                    className="check text-success mr-2"
+                                  />
+                                )}
+                                Bandit
+                              </PremiumTooltip>
+                            </div>
+
+                            <div className="small">
+                              Variations with better results receive more
+                              traffic during the experiment
+                            </div>
+                          </div>
+                        ),
+                        value: "multi-armed-bandit",
+                        disabled:
+                          !hasMultiArmedBanditFeature || !usingStickyBucketing,
+                      },
+                    ]}
+                  />
+                </div>
+              )}
+
+              <Field
+                label={
+                  form.watch("experimentType") === "multi-armed-bandit"
+                    ? "Bandit Name"
+                    : "Experiment Name"
+                }
+                {...form.register("name")}
+                required
+              />
+            </>
+          )}
+
+          {type !== "experiment-ref" && (
+            <Field
+              label="Description"
+              textarea
+              minRows={1}
+              {...form.register("description")}
+              placeholder="Short human-readable description of the rule"
+            />
+          )}
+          {type === "force" && (
+            <FeatureValueField
+              label="Value to Force"
+              id="value"
+              value={form.watch("value")}
+              setValue={(v) => form.setValue("value", v)}
+              valueType={feature.valueType}
+              feature={feature}
+              renderJSONInline={true}
+            />
+          )}
+
+          {type === "rollout" && (
+            <div>
+              <FeatureValueField
+                label="Value to roll out"
+                id="value"
+                value={form.watch("value")}
+                setValue={(v) => form.setValue("value", v)}
+                valueType={feature.valueType}
+                feature={feature}
+                renderJSONInline={true}
+              />
+              <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
+                <RolloutPercentInput
+                  value={form.watch("coverage") || 0}
+                  setValue={(coverage) => {
+                    form.setValue("coverage", coverage);
+                  }}
+                  className="mb-1"
+                />
+                <SelectField
+                  label="Assign value based on attribute"
+                  options={attributeSchema
+                    .filter((s) => !hasHashAttributes || s.hashAttribute)
+                    .map((s) => ({ label: s.property, value: s.property }))}
+                  value={form.watch("hashAttribute")}
+                  onChange={(v) => {
+                    form.setValue("hashAttribute", v);
+                  }}
+                  helpText={
+                    "The globally unique tracking key for the experiment"
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          {(type !== "experiment-ref" && type !== "experiment-ref-new") ||
+          rule?.scheduleRules?.length ? (
+            <ScheduleInputs
+              defaultValue={defaultValues.scheduleRules || []}
+              onChange={(value) => form.setValue("scheduleRules", value)}
+              scheduleToggleEnabled={scheduleToggleEnabled}
+              setScheduleToggleEnabled={setScheduleToggleEnabled}
+              setShowUpgradeModal={setShowUpgradeModal}
+              title="Add scheduling to automatically enable/disable this rule"
+            />
+          ) : null}
+
+          {(type === "experiment" || type === "experiment-ref-new") && (
+            <>
+              <div className="mt-4 mb-4">
+                <Field
+                  label="Tracking Key"
+                  {...form.register(`trackingKey`)}
+                  placeholder={feature.id}
+                  helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+                />
+                <div className="d-flex" style={{ gap: "2rem" }}>
+                  <SelectField
+                    label="Assign value based on attribute"
+                    containerClassName="flex-1"
+                    options={attributeSchema
+                      .filter((s) => !hasHashAttributes || s.hashAttribute)
+                      .map((s) => ({ label: s.property, value: s.property }))}
+                    value={form.watch("hashAttribute")}
+                    onChange={(v) => {
+                      form.setValue("hashAttribute", v);
+                    }}
+                    helpText={
+                      "Will be hashed together with the Tracking Key to determine which variation to assign"
+                    }
+                  />
+                  <FallbackAttributeSelector
+                    form={form}
+                    attributeSchema={attributeSchema}
+                  />
+                </div>
+              </div>
+              {hasSDKWithNoBucketingV2 && (
+                <HashVersionSelector
+                  value={(form.watch("hashVersion") || 1) as 1 | 2}
+                  onChange={(v) => form.setValue("hashVersion", v)}
+                  project={feature.project}
+                />
+              )}
+              <hr />
+            </>
+          )}
+
+          {!(
+            type === "experiment" ||
+            type === "experiment-ref" ||
+            type === "experiment-ref-new"
+          ) && <hr />}
+
+          {type !== "experiment-ref" && (
+            <div className="mt-4">
+              <SavedGroupTargetingField
+                value={form.watch("savedGroups") || []}
+                setValue={(savedGroups) =>
+                  form.setValue("savedGroups", savedGroups)
+                }
+                project={feature.project || ""}
+              />
+              <hr />
+              <ConditionInput
+                defaultValue={form.watch("condition") || ""}
+                onChange={(value) => form.setValue("condition", value)}
+                key={conditionKey}
+                project={feature.project || ""}
+              />
+              <hr />
+              <PrerequisiteTargetingField
+                value={form.watch("prerequisites") || []}
+                setValue={(prerequisites) =>
+                  form.setValue("prerequisites", prerequisites)
+                }
+                feature={feature}
+                revisions={revisions}
+                version={version}
+                environments={[environment]}
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
+              />
+              {(type === "experiment" || type === "experiment-ref-new") && (
+                <hr />
+              )}
+            </div>
+          )}
+          {isCyclic && (
+            <div className="alert alert-danger">
+              <FaExclamationTriangle /> A prerequisite (
+              <code>{cyclicFeatureId}</code>) creates a circular dependency.
+              Remove this prerequisite to continue.
+            </div>
+          )}
+
+          {(type === "experiment" || type === "experiment-ref-new") && (
+            <div>
+              {namespaces && namespaces.length > 0 && (
+                <NamespaceSelector
+                  form={form}
+                  trackingKey={form.watch("trackingKey") || feature.id}
+                  featureId={feature.id}
+                  formPrefix=""
+                />
+              )}
+              <div className="mb-4">
+                <FeatureVariationsInput
+                  defaultValue={getFeatureDefaultValue(feature)}
+                  valueType={feature.valueType}
+                  coverage={form.watch("coverage") || 0}
+                  setCoverage={(coverage) =>
+                    form.setValue("coverage", coverage)
+                  }
+                  setWeight={(i, weight) =>
+                    form.setValue(`values.${i}.weight`, weight)
+                  }
+                  variations={
+                    form
+                      .watch("values")
+                      .map((v: ExperimentValue & { id?: string }) => {
+                        return {
+                          value: v.value || "",
+                          name: v.name,
+                          weight: v.weight,
+                          id: v.id || generateVariationId(),
+                        };
+                      }) || []
+                  }
+                  setVariations={(variations) =>
+                    form.setValue("values", variations)
+                  }
+                  feature={feature}
+                  simple={form.watch("experimentType") === "multi-armed-bandit"}
+                />
+              </div>
+            </div>
+          )}
+          {type === "experiment-ref-new" &&
+            form.watch("experimentType") !== "multi-armed-bandit" && (
+              <div className="mb-3">
+                <Toggle
+                  value={form.watch("autoStart")}
+                  setValue={(v) => form.setValue("autoStart", v)}
+                  id="auto-start-new-experiment"
+                />{" "}
+                <label
+                  htmlFor="auto-start-new-experiment"
+                  className="text-dark"
+                >
+                  Start Experiment Immediately
+                </label>
+                <div>
+                  <small className="form-text text-muted">
+                    If On, the experiment will start serving traffic as soon as
+                    the feature is published. Leave Off if you want to make
+                    additional changes before starting.
+                  </small>
+                </div>
+                {!form.watch("autoStart") && (
+                  <div>
+                    <hr />
+                    <ScheduleInputs
+                      defaultValue={defaultValues.scheduleRules || []}
+                      onChange={(value) =>
+                        form.setValue("scheduleRules", value)
+                      }
+                      scheduleToggleEnabled={scheduleToggleEnabled}
+                      setScheduleToggleEnabled={setScheduleToggleEnabled}
+                      setShowUpgradeModal={setShowUpgradeModal}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+        </>
+      )}
     </Modal>
   );
 }

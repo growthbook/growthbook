@@ -29,8 +29,8 @@ export default function RadioCards({
   ...containerProps
 }: Props) {
   return (
-    <Flex {...containerProps} width={width}>
-      <Text size="2" color={disabled ? "gray" : undefined}>
+    <Flex {...containerProps}>
+      <Text size="2" color={disabled ? "gray" : undefined} style={{ width }}>
         <RadixRadioCards.Root
           value={value}
           onValueChange={(val) => setValue(val)}

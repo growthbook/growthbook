@@ -1083,7 +1083,6 @@ export default function FeaturesOverview({
                                   setRuleModal({
                                     environment: env,
                                     i: getRules(feature, env).length,
-                                    defaultType: "force",
                                   });
                                   track("Viewed Rule Modal", {
                                     source: "add-rule",
