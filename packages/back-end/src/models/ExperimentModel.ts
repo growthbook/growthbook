@@ -437,8 +437,14 @@ export async function updateExperiment({
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   // TODO: are there some changes where we don't want to update the dateUpdated?
-  const allChanges = { ...changes };
+  const allChanges = {
+    ...changes,
+    ...(changes.name ? { name: changes.name.trim() } : {}),
+  };
   allChanges.dateUpdated = new Date();
+
+  if (allChanges.name === "")
+    throw new Error("Cannot set empty name for experiment!");
 
   await ExperimentModel.updateOne(
     {

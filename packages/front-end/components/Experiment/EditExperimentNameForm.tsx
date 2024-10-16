@@ -24,7 +24,6 @@ const EditExperimentNameForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      ctaEnabled={!!form.watch("name").trim()}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -34,7 +33,10 @@ const EditExperimentNameForm: FC<{
       })}
       cta="Save"
     >
-      <Field label="Name" {...form.register("name")} />
+      <Field
+        label="Name"
+        {...form.register("name", { setValueAs: (s) => s?.trim() })}
+      />
     </Modal>
   );
 };

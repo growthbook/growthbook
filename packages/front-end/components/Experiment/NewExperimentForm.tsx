@@ -372,7 +372,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             label="Name"
             required
             minLength={2}
-            {...form.register("name")}
+            {...form.register("name", { setValueAs: (s) => s?.trim() })}
           />
           {!isImport && !fromFeature && datasource && !isNewExperiment && (
             <Field
