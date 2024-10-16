@@ -24,6 +24,7 @@ import {
   inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
+  dataWarehouseUrl,
 } from "./env";
 
 export type TrackEventProps = Record<string, unknown>;
@@ -45,6 +46,21 @@ export interface TrackSnapshotProps {
   dimension_id: string;
   error?: string;
 }
+
+const TEST_SDK_ID = "test-gb";
+
+const dataWareHouseTrack = (event: string, properties: TrackEventProps) => {
+  if (!dataWarehouseUrl) return;
+
+  void fetch(`${dataWarehouseUrl}?sdkId=${TEST_SDK_ID}`, {
+    method: "POST",
+    body: JSON.stringify({ event, properties }),
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  });
+};
 
 let jitsu: JitsuClient;
 export default function track(
@@ -88,6 +104,8 @@ export default function track(
     user_id: isCloud() ? id : "",
     org: isCloud() ? org : "",
   };
+
+  dataWareHouseTrack(event, trackProps);
 
   if (inTelemetryDebugMode()) {
     console.log("Telemetry Event - ", event, trackProps);
@@ -196,7 +214,10 @@ function getTrackingPropsFromReport(
 
 export function parseSnapshotDimension(
   dimension: string
-): { type: string; id: string } {
+): {
+  type: string;
+  id: string;
+} {
   if (!dimension) {
     return { type: "none", id: "" };
   }
