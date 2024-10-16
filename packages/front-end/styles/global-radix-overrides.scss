@@ -68,7 +68,7 @@
     background: var(--violet-a3);
   }
   & > * {
-    pointer-events: initial !important;
+    pointer-events: auto !important;
   }
 }
 
