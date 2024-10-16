@@ -683,8 +683,13 @@ def get_bandit_result(
                 reweight=bandit_settings.reweight,
             )
         else:
+            error_message = (
+                bandit_result.bandit_update_message
+                if bandit_result.bandit_update_message
+                else "unknown error in get_bandit_result"
+            )
             return get_error_bandit_result(
-                error="bandit result computation failed",
+                error=error_message,
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
