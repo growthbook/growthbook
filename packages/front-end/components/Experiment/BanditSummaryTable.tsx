@@ -3,7 +3,7 @@ import { CSSTransition } from "react-transition-group";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import clsx from "clsx";
-import { MetricInterface } from "back-end/types/metric";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
@@ -18,7 +18,7 @@ const ROW_HEIGHT_CONDENSED = 34;
 
 export type BanditSummaryTableProps = {
   experiment: ExperimentInterfaceStringDates;
-  metric: MetricInterface | null;
+  metric: ExperimentMetricInterface | null;
   phase: number;
   isTabActive: boolean;
 };
