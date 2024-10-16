@@ -174,6 +174,17 @@ const AthenaForm: FC<{
           onChange={onParamChange}
         />
       </div>
+      <div className="form-group col-md-12">
+        <Field
+          name="resultReuseMaxAgeInMinutes"
+          type="number"
+          label="Reuse Query Results Within Past (minutes)"
+          helpText="A value of 0 or an empty field will disable reuse of query results"
+          value={params.resultReuseMaxAgeInMinutes || ""}
+          onChange={onParamChange}
+          min={0}
+        />
+      </div>
     </div>
   );
 };
