@@ -11,5 +11,5 @@ export interface AthenaConnectionParams {
   bucketUri: string;
   workGroup?: string;
   catalog?: string;
-  resultReuseMaxAgeInMinutes?: number;
+  resultReuseMaxAgeInMinutes?: string;
 }

@@ -178,7 +178,7 @@ const AthenaForm: FC<{
         <Field
           name="resultReuseMaxAgeInMinutes"
           type="number"
-          label="Reuse Query Results Within Past (minutes)"
+          label="Reuse query results within past X minutes (optional)"
           helpText="A value of 0 or an empty field will disable reuse of query results"
           value={params.resultReuseMaxAgeInMinutes || ""}
           onChange={onParamChange}
