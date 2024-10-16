@@ -2,6 +2,8 @@
   background-color: var(--surface-background-color);
   max-height: 520px;
   overflow-y: auto;
+  border: 1px solid var(--border-color-300);
+  border-radius: 0 7px 7px 7px;
 
   .attrHeader {
     background-color: var(--surface-background-color);

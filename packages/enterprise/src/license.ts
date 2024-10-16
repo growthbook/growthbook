@@ -42,6 +42,7 @@ export type CommercialFeature =
   | "audit-logging"
   | "visual-editor"
   | "archetypes"
+  | "simulate-features"
   | "cloud-proxy"
   | "hash-secure-attributes"
   | "livechat"
@@ -208,6 +209,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-metric-queries",
     "visual-editor",
     "archetypes",
+    "simulate-features",
     "cloud-proxy",
     "hash-secure-attributes",
     "json-validation",

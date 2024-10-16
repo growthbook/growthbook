@@ -40,7 +40,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^features/,
+    path: /^(features)/,
   },
   {
     name: "Experiments",
@@ -116,7 +116,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
+    path: /^(attributes|namespaces|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -144,6 +144,11 @@ const navlinks: SidebarLinkProps[] = [
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,
+      },
+      {
+        name: "Archetypes",
+        href: "/archetypes",
+        path: /^archetypes/,
       },
     ],
   },
