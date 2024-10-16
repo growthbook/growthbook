@@ -40,8 +40,8 @@ export default function BanditSummaryResultsTab({
   }, [numPhases, setPhase]);
 
   const mid = experiment.goalMetrics[0];
-  const { getMetricById } = useDefinitions();
-  const metric = getMetricById(mid);
+  const { getExperimentMetricById } = useDefinitions();
+  const metric = getExperimentMetricById(mid);
   const phaseObj = experiment.phases[phase];
 
   const showVisualizations = (phaseObj?.banditEvents?.length ?? 0) > 0;

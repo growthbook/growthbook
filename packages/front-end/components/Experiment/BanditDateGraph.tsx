@@ -16,7 +16,7 @@ import {
 import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { MetricInterface } from "back-end/types/metric";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
@@ -49,7 +49,7 @@ export interface BanditDateGraphDataPoint {
 }
 export interface BanditDateGraphProps {
   experiment: ExperimentInterfaceStringDates;
-  metric: MetricInterface | null;
+  metric: ExperimentMetricInterface | null;
   phase: number;
   label?: string;
   mode: "values" | "probabilities" | "weights";
@@ -84,7 +84,7 @@ const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
   mode: "values" | "probabilities" | "weights",
-  metric: MetricInterface | null,
+  metric: ExperimentMetricInterface | null,
   getFactTableById: any,
   metricFormatterOptions: any,
   showVariations: boolean[]
