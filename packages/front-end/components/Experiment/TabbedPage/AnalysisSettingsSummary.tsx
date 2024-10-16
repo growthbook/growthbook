@@ -77,6 +77,7 @@ export default function AnalysisSettingsSummary({
     dimension,
     mutateSnapshot,
     setAnalysisSettings,
+    setSnapshotType,
     phase,
   } = useSnapshot();
 
@@ -84,6 +85,8 @@ export default function AnalysisSettingsSummary({
     experiment,
     {}
   );
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
@@ -167,7 +170,7 @@ export default function AnalysisSettingsSummary({
     items.push({
       value: experiment.trackingKey,
       icon: <FaFlask className="mr-1" />,
-      tooltip: "Experiment Key",
+      tooltip: "Tracking Key",
     });
   }
   if (segment) {
@@ -201,7 +204,10 @@ export default function AnalysisSettingsSummary({
                 ))}
               </ul>
             ) : (
-              <em>none</em>
+              <>
+                {" "}
+                <em>none</em>
+              </>
             )}
           </div>
           <div className="mb-2 text-left">
@@ -213,11 +219,14 @@ export default function AnalysisSettingsSummary({
                 ))}
               </ul>
             ) : (
-              <em>none</em>
+              <>
+                {" "}
+                <em>none</em>
+              </>
             )}
           </div>
           <div className="text-left">
-            <strong>Guardrails:</strong>{" "}
+            <strong>Guardrails:</strong>
             {guardrails.length > 0 ? (
               <ul className="ml-0 pl-3 mb-0">
                 {guardrails.map((m, i) => (
@@ -225,7 +234,10 @@ export default function AnalysisSettingsSummary({
                 ))}
               </ul>
             ) : (
-              <em>none</em>
+              <>
+                {" "}
+                <em>none</em>
+              </>
             )}
           </div>
         </>
@@ -247,7 +259,8 @@ export default function AnalysisSettingsSummary({
       )}
       <div className="row align-items-center text-muted">
         <div className="col-auto">
-          {canEditAnalysisSettings ? (
+          {!(isBandit && experiment.status === "running") &&
+          canEditAnalysisSettings ? (
             <a
               href="#"
               onClick={(e) => {
@@ -311,10 +324,26 @@ export default function AnalysisSettingsSummary({
           numMetrics > 0 && (
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                <RunQueriesButton
+                  cta="Update"
+                  cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                  mutate={mutateSnapshot}
+                  model={latest}
+                  icon="refresh"
+                  color="outline-primary"
+                  resetFilters={async () => {
+                    // todo: remove baseline resetter (here and below) once refactored.
+                    if (baselineRow !== 0) {
+                      setBaselineRow?.(0);
+                      setVariationFilter?.([]);
+                    }
+                    setDifferenceType("relative");
+                    experiment.type === "multi-armed-bandit"
+                      ? setSnapshotType("exploratory")
+                      : setSnapshotType(undefined);
+                  }}
+                  onSubmit={async () => {
+                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                       `/experiment/${experiment.id}/snapshot`,
                       {
                         method: "POST",
@@ -340,24 +369,7 @@ export default function AnalysisSettingsSummary({
                         setRefreshError(e.message);
                       });
                   }}
-                >
-                  <RunQueriesButton
-                    cta="Update"
-                    cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                    mutate={mutateSnapshot}
-                    model={latest}
-                    icon="refresh"
-                    color="outline-primary"
-                    onSubmit={() => {
-                      // todo: remove baseline resetter (here and below) once refactored.
-                      if (baselineRow !== 0) {
-                        setBaselineRow?.(0);
-                        setVariationFilter?.([]);
-                      }
-                      setDifferenceType("relative");
-                    }}
-                  />
-                </form>
+                />
               ) : (
                 <RefreshSnapshotButton
                   mutate={mutateSnapshot}
@@ -366,12 +378,15 @@ export default function AnalysisSettingsSummary({
                   lastAnalysis={analysis}
                   dimension={dimension}
                   setAnalysisSettings={setAnalysisSettings}
-                  onSubmit={() => {
+                  resetFilters={() => {
                     if (baselineRow !== 0) {
                       setBaselineRow?.(0);
                       setVariationFilter?.([]);
                     }
                     setDifferenceType("relative");
+                    experiment.type === "multi-armed-bandit"
+                      ? setSnapshotType("exploratory")
+                      : setSnapshotType(undefined);
                   }}
                 />
               )}
@@ -396,7 +411,10 @@ export default function AnalysisSettingsSummary({
                 display={null}
                 status={status}
                 icon={
-                  <span className="position-relative pr-2">
+                  <span
+                    className="position-relative pr-2"
+                    style={{ marginRight: 6 }}
+                  >
                     <span className="text-main">
                       <FaDatabase />
                     </span>
@@ -416,6 +434,7 @@ export default function AnalysisSettingsSummary({
 
         <div className="col-auto px-0">
           <ResultMoreMenu
+            experiment={experiment}
             id={snapshot?.id || ""}
             datasource={datasource}
             forceRefresh={

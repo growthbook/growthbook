@@ -22,7 +22,7 @@ export default function Callout({
       {...containerProps}
     >
       <RadixCallout.Icon>
-        <RadixStatusIcon status={status} />
+        <RadixStatusIcon status={status} size={"md"} />
       </RadixCallout.Icon>
       <RadixCallout.Text>{children}</RadixCallout.Text>
     </RadixCallout.Root>

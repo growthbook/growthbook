@@ -3,11 +3,13 @@ import Button from "@/components/Radix/Button";
 export interface Props {
   editResult?: () => void;
   editTargeting?: (() => void) | null;
+  isBandit?: boolean;
 }
 
 export default function ExperimentActionButtons({
   editResult,
   editTargeting,
+  isBandit,
 }: Props) {
   return (
     <div>
@@ -23,7 +25,7 @@ export default function ExperimentActionButtons({
         onClick={() => editResult?.()}
         disabled={!editResult}
       >
-        Stop Experiment
+        Stop {isBandit ? "Bandit" : "Experiment"}
       </Button>
     </div>
   );

@@ -73,6 +73,7 @@ const BreakDownResults: FC<{
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  isBandit?: boolean;
 }> = ({
   dimensionId,
   results,
@@ -97,6 +98,7 @@ const BreakDownResults: FC<{
   differenceType,
   metricFilter,
   setMetricFilter,
+  isBandit,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -215,11 +217,13 @@ const BreakDownResults: FC<{
             entered into the experiment, but were not activated.
           </div>
         )}
-        <UsersTable
-          dimensionId={dimensionId}
-          results={results}
-          variations={variations}
-        />
+        {!isBandit && (
+          <UsersTable
+            dimensionId={dimensionId}
+            results={results}
+            variations={variations}
+          />
+        )}
       </div>
 
       <div className="d-flex mx-2">

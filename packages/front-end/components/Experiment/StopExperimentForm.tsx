@@ -20,6 +20,7 @@ const StopExperimentForm: FC<{
   mutate: () => void;
   close: () => void;
 }> = ({ experiment, close, mutate }) => {
+  const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
@@ -86,7 +87,11 @@ const StopExperimentForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      header={isStopped ? "Edit Experiment Results" : "Stop Experiment"}
+      header={
+        isStopped
+          ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`
+          : `Stop ${isBandit ? "Bandit" : "Experiment"}`
+      }
       close={close}
       open={true}
       submit={submit}
@@ -97,7 +102,7 @@ const StopExperimentForm: FC<{
       {!isStopped && (
         <>
           <Field
-            label="Reason for stopping the test"
+            label="Reason for stopping"
             textarea
             {...form.register("reason")}
             placeholder="(optional)"
@@ -186,8 +191,8 @@ const StopExperimentForm: FC<{
               </div>
 
               <small className="form-text text-muted">
-                Keep the experiment running until you can implement the changes
-                in code.{" "}
+                Keep the {isBandit ? "Bandit" : "Experiment"} running until you
+                can implement the changes in code.{" "}
                 <DocLink docSection="temporaryRollout">Learn more</DocLink>
               </small>
             </div>

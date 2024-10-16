@@ -201,7 +201,13 @@ export default function ExperimentImpactTab({
             <table className="table bg-white border">
               <thead className="bg-light">
                 <tr>
-                  <th>Experiment</th>
+                  <th>
+                    Experiment
+                    <Tooltip
+                      className="ml-1"
+                      body={"Does not include Bandits"}
+                    />
+                  </th>
                   <th>Date Ended</th>
                   <th>Status</th>
                   <th>

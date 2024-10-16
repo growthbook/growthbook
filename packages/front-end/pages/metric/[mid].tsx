@@ -300,7 +300,6 @@ const MetricPage: FC = () => {
             setEditModalOpen(false);
           }}
           onSuccess={() => {
-            mutateDefinitions();
             mutate();
           }}
         />

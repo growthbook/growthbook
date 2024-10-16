@@ -22,23 +22,36 @@ type MetricOption = {
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
+  noPercentileGoalMetrics?: boolean;
+  isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
+  noPercentileGoalMetrics = false,
+  isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
     <Tooltip
       body={
         <>
-          You can only select metrics that fit all criteria below:
+          You can only select {isSingular ? "a single metric" : "metrics"} that
+          fit{isSingular ? "s" : ""} all criteria below:
           <ul>
-            <li>are from the same Data Source as the experiment</li>
             <li>
-              either share an Identifier Type with the Experiment Assignment
-              Table or can be joined to it by a Join Table
+              {isSingular ? "is" : "are"} from the same Data Source as the
+              experiment
             </li>
-            {onlyBinomial ? <li>are a binomial metric</li> : null}
+            <li>
+              either share{isSingular ? "s" : ""} an Identifier Type with the
+              Experiment Assignment Table or can be joined to it by a Join Table
+            </li>
+            {onlyBinomial ? (
+              <li>{isSingular ? "is" : "are"} a binomial metric</li>
+            ) : null}
+            {noPercentileGoalMetrics ? (
+              <li>{isSingular ? "does" : "do"} not use percentile capping</li>
+            ) : null}
           </ul>
         </>
       }
@@ -86,6 +99,9 @@ const MetricsSelector: FC<{
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
+  forceSingleMetric?: boolean;
+  noPercentile?: boolean;
+  disabled?: boolean;
 }> = ({
   datasource,
   project,
@@ -94,6 +110,9 @@ const MetricsSelector: FC<{
   onChange,
   autoFocus,
   includeFacts,
+  forceSingleMetric = false,
+  noPercentile = false,
+  disabled,
 }) => {
   const {
     metrics,
@@ -103,35 +122,43 @@ const MetricsSelector: FC<{
   } = useDefinitions();
 
   const options: MetricOption[] = [
-    ...metrics.map((m) => ({
-      id: m.id,
-      name: m.name,
-      description: m.description || "",
-      datasource: m.datasource || "",
-      tags: m.tags || [],
-      projects: m.projects || [],
-      factTables: [],
-      userIdTypes: m.userIdTypes || [],
-    })),
+    ...metrics
+      .filter((m) =>
+        noPercentile ? m.cappingSettings.type !== "percentile" : true
+      )
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        description: m.description || "",
+        datasource: m.datasource || "",
+        tags: m.tags || [],
+        projects: m.projects || [],
+        factTables: [],
+        userIdTypes: m.userIdTypes || [],
+      })),
     ...(includeFacts
-      ? factMetrics.map((m) => ({
-          id: m.id,
-          name: m.name,
-          description: m.description || "",
-          datasource: m.datasource,
-          tags: m.tags || [],
-          projects: m.projects || [],
-          factTables: [
-            m.numerator.factTableId,
-            (m.metricType === "ratio" && m.denominator
-              ? m.denominator.factTableId
-              : "") || "",
-          ],
-          // only focus on numerator user id types
-          userIdTypes:
-            factTables.find((f) => f.id === m.numerator.factTableId)
-              ?.userIdTypes || [],
-        }))
+      ? factMetrics
+          .filter((m) =>
+            noPercentile ? m.cappingSettings.type !== "percentile" : true
+          )
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            description: m.description || "",
+            datasource: m.datasource,
+            tags: m.tags || [],
+            projects: m.projects || [],
+            factTables: [
+              m.numerator.factTableId,
+              (m.metricType === "ratio" && m.denominator
+                ? m.denominator.factTableId
+                : "") || "",
+            ],
+            // only focus on numerator user id types
+            userIdTypes:
+              factTables.find((f) => f.id === m.numerator.factTableId)
+                ?.userIdTypes || [],
+          }))
       : []),
   ];
 
@@ -163,50 +190,79 @@ const MetricsSelector: FC<{
     }
   });
 
-  return (
-    <div>
-      <MultiSelectField
-        value={selected}
-        onChange={onChange}
-        options={filteredOptions.map((m) => {
-          return {
-            value: m.id,
-            label: m.name,
-            tooltip: m.description,
-          };
-        })}
-        placeholder="Select metrics..."
-        autoFocus={autoFocus}
-        formatOptionLabel={({ value, label }, { context }) => {
-          return value ? (
-            <MetricName id={value} showDescription={context !== "value"} />
-          ) : (
-            label
-          );
-        }}
-        onPaste={(e) => {
-          try {
-            const clipboard = e.clipboardData;
-            const data = JSON.parse(clipboard.getData("Text"));
-            if (data.every((d) => d.startsWith("met_"))) {
-              e.preventDefault();
-              e.stopPropagation();
-              onChange(data);
-            }
-          } catch (e) {
-            // fail silently
+  const selector = !forceSingleMetric ? (
+    <MultiSelectField
+      value={selected}
+      onChange={onChange}
+      options={filteredOptions.map((m) => {
+        return {
+          value: m.id,
+          label: m.name,
+          tooltip: m.description,
+        };
+      })}
+      placeholder="Select metrics..."
+      autoFocus={autoFocus}
+      formatOptionLabel={({ value, label }, { context }) => {
+        return value ? (
+          <MetricName id={value} showDescription={context !== "value"} />
+        ) : (
+          label
+        );
+      }}
+      onPaste={(e) => {
+        try {
+          const clipboard = e.clipboardData;
+          const data = JSON.parse(clipboard.getData("Text"));
+          if (data.every((d) => d.startsWith("met_"))) {
+            e.preventDefault();
+            e.stopPropagation();
+            onChange(data);
           }
-        }}
-      />
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+        } catch (e) {
+          // fail silently
+        }
+      }}
+      disabled={disabled}
+    />
+  ) : (
+    <SelectField
+      key={datasource ?? "__no_datasource__"} // forces selector UI to clear when changing datasource
+      value={selected[0]}
+      onChange={(m) => onChange([m])}
+      options={filteredOptions.map((m) => {
+        return {
+          value: m.id,
+          label: m.name,
+          tooltip: m.description,
+        };
+      })}
+      placeholder="Select metric..."
+      autoFocus={autoFocus}
+      formatOptionLabel={({ value, label }, { context }) => {
+        return value ? (
+          <MetricName id={value} showDescription={context !== "value"} />
+        ) : (
+          label
+        );
+      }}
+      disabled={disabled}
+    />
+  );
+
+  return (
+    <div className="position-relative">
+      {!forceSingleMetric && selected.length > 0 && (
+        <div className="position-absolute" style={{ right: 0, top: -25 }}>
+          <Tooltip body="Copy metrics" tipPosition="top" tipMinWidth="90">
+            <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
+          </Tooltip>
+        </div>
+      )}
+      {selector}
+      <div className="d-flex align-items-center justify-content-end">
         <div>
-          {Object.keys(tagCounts).length > 0 && (
+          {!forceSingleMetric && filteredOptions.length > 0 && !disabled && (
             <div className="metric-from-tag text-muted form-inline mt-2">
               <span style={{ fontSize: "0.82rem" }}>
                 Select metric by tag:{" "}
@@ -215,9 +271,10 @@ const MetricsSelector: FC<{
                 </Tooltip>
               </span>
               <SelectField
-                placeholder="..."
-                value="..."
+                value="choose"
+                placeholder="choose"
                 className="ml-3"
+                style={{ minWidth: 100 }}
                 onChange={(v) => {
                   const newValue = new Set(selected);
                   const tag = v;
@@ -242,9 +299,6 @@ const MetricsSelector: FC<{
             </div>
           )}
         </div>
-        {selected.length > 0 && (
-          <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
-        )}
       </div>
     </div>
   );
