@@ -358,17 +358,12 @@ export async function getSampleExperiment(
 }
 
 export async function createExperiment({
-  data: rawData,
+  data,
   context,
 }: {
   data: Partial<ExperimentInterface>;
   context: ReqContext | ApiReqContext;
 }): Promise<ExperimentInterface> {
-  const data: Partial<ExperimentInterface> = {
-    ...rawData,
-    name: rawData.name?.trim(),
-  };
-
   data.organization = context.org.id;
 
   if (!data.name) throw new Error("Cannot create experiment with empty name!");
@@ -439,7 +434,6 @@ export async function updateExperiment({
   // TODO: are there some changes where we don't want to update the dateUpdated?
   const allChanges = {
     ...changes,
-    ...(changes.name ? { name: changes.name.trim() } : {}),
   };
   allChanges.dateUpdated = new Date();
 
