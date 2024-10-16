@@ -9,6 +9,7 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -22,6 +23,7 @@ import {
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { AppFeatures } from "@/types/app-features";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -306,6 +308,11 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const { accountPlan, license } = useUser();
   const { hasPaymentMethod } = useStripeSubscription();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  // app wide a-a tests
+  growthbook?.isOn("gb-ax5-bandit");
+  growthbook?.isOn("gb-ax10-bandit");
 
   const { breadcrumb } = usePageHead();
 
