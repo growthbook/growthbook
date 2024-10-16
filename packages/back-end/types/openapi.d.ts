@@ -285,6 +285,10 @@ export interface paths {
     /** Submit list of code references */
     post: operations["postCodeRefs"];
   };
+  "/ingestion/data-enrichment": {
+    /** Get data to use for enrichment of tracking events */
+    get: operations["getDataEnrichment"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -7196,6 +7200,27 @@ export interface operations {
       };
     };
   };
+  getDataEnrichment: {
+    /** Get data to use for enrichment of tracking events */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkData: {
+              [key: string]: {
+                /** @description The ID of the SdkConnection, repeated for convenience */
+                client_key?: string;
+                /** @description The ID of the Organization which owns this SdkConnection */
+                organization?: string;
+                /** @description The ID of the datasource where tracked events will be stored */
+                datasource?: string;
+              } | undefined;
+            };
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -7305,3 +7330,4 @@ export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetDataEnrichmentResponse = operations["getDataEnrichment"]["responses"]["200"]["content"]["application/json"];

@@ -1,0 +1,13 @@
+type: object
+additionalProperties:
+  type: object
+  properties:
+      client_key:
+        type: string
+        description: The ID of the SdkConnection, repeated for convenience 
+      organization:
+        type: string
+        description: The ID of the Organization which owns this SdkConnection
+      datasource:
+        type: string
+        description: The ID of the datasource where tracked events will be stored
