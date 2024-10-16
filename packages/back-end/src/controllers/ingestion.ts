@@ -1,15 +1,26 @@
+import { z } from "zod";
 import {
   createApiRequestHandler,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
-import { getDataEnrichmentValidator } from "back-end/src/validators/openapi";
-import { GetDataEnrichmentResponse } from "back-end/types/openapi";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
 
-export const getDataEnrichment = createApiRequestHandler(
-  getDataEnrichmentValidator
-)(
+interface GetDataEnrichmentResponse {
+  sdkData: {
+    [key: string]: {
+      client_key: string;
+      organization: string;
+      datasource: string;
+    };
+  };
+}
+
+export const getDataEnrichment = createApiRequestHandler({
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+})(
   async (req): Promise<GetDataEnrichmentResponse> => {
     validateIsSuperUserRequest(req);
     const sdkConnections = await findAllSDKConnectionsAcrossAllOrgs();

@@ -108,9 +108,6 @@ tags:
   - name: code-references
     x-displayName: Code References
     description: Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).
-  - name: ingestion
-    x-displayName: Event Tracking
-    description: For supporting tracking and enriching event data
 paths:
   /features:
     get:
@@ -289,9 +286,6 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
-  /ingestion/data-enrichment:
-    get:
-      $ref: "./paths/getDataEnrichment.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

@@ -501,9 +501,3 @@ export const postCodeRefsValidator = {
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
-
-export const getDataEnrichmentValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-};

@@ -105,9 +105,6 @@ tags:
   - name: code-references
     x-displayName: Code References
     description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
-  - name: ingestion
-    x-displayName: Event Tracking
-    description: For supporting tracking and enriching event data
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
@@ -186,9 +183,6 @@ tags:
   - name: SdkConnection_model
     x-displayName: SdkConnection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
-  - name: SdkData_model
-    x-displayName: SdkData
-    description: <SchemaDefinition schemaRef="#/components/schemas/SdkData" />
   - name: Segment_model
     x-displayName: Segment
     description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
@@ -4363,40 +4357,6 @@ paths:
                     type: array
                     items:
                       type: string
-  /ingestion/data-enrichment:
-    get:
-      tags:
-        - ingestion
-      summary: Get data to use for enrichment of tracking events
-      operationId: getDataEnrichment
-      x-codeSamples:
-        - lang: cURL
-          source: |
-            curl https://api.growthbook.io/api/v1/ingestion/data-enrichment \
-              -u secret_abc123DEF456:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - sdkData
-                properties:
-                  sdkData:
-                    type: object
-                    additionalProperties:
-                      type: object
-                      properties:
-                        client_key:
-                          type: string
-                          description: 'The ID of the SdkConnection, repeated for convenience'
-                        organization:
-                          type: string
-                          description: The ID of the Organization which owns this SdkConnection
-                        datasource:
-                          type: string
-                          description: The ID of the datasource where tracked events will be stored
 components:
   parameters:
     id:
@@ -6417,7 +6377,6 @@ x-tagGroups:
       - fact-tables
       - fact-metrics
       - code-references
-      - ingestion
   - name: Models
     tags:
       - Attribute_model
@@ -6446,7 +6405,6 @@ x-tagGroups:
       - Project_model
       - SavedGroup_model
       - SdkConnection_model
-      - SdkData_model
       - Segment_model
       - VisualChange_model
       - VisualChangeset_model
