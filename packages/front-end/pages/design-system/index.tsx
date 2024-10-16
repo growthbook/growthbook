@@ -13,12 +13,18 @@ import SelectField from "@/components/Forms/SelectField";
 import LinkButton from "@/components/Radix/LinkButton";
 import Avatar from "@/components/Radix/Avatar";
 import Field from "@/components/Forms/Field";
+import RadioCards from "@/components/Radix/RadioCards";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
   const [radioSelected, setRadioSelected] = useState("k1");
+  const [radioCardSelected, setRadioCardSelected] = useState("");
+  const [radioCardColumns, setRadioCardColumns] = useState<
+    "1" | "2" | "3" | "4" | "5" | "6"
+  >("1");
   const [sliderVal, setSliderVal] = useState(10);
 
   return (
@@ -88,7 +94,7 @@ export default function DesignSystemPage() {
         </div>
         <Flex direction="row" gap="3" className="my-3">
           <Button size={size}>Primary</Button>
-          <Button size={size} aria-label="Aria">
+          <Button size={size} aria-label="Aria" variant="outline">
             Aria
           </Button>
           <Button size={size} color="red">
@@ -229,6 +235,83 @@ export default function DesignSystemPage() {
       </div>
 
       <div className="appbox p-3">
+        <h3>Radio Card</h3>
+        <div className="mb-2 w-100px">
+          <SelectField
+            label="columns"
+            value={radioCardColumns}
+            options={[
+              { label: "1", value: "1" },
+              { label: "2", value: "2" },
+              { label: "3", value: "3" },
+              { label: "4", value: "4" },
+              { label: "5", value: "5" },
+              { label: "6", value: "6" },
+            ]}
+            sort={false}
+            onChange={(v: "1" | "2" | "3" | "4" | "5" | "6") =>
+              setRadioCardColumns(v)
+            }
+          />
+        </div>
+        <RadioCards
+          columns={radioCardColumns}
+          width={radioCardColumns === "1" ? "400px" : undefined}
+          value={radioCardSelected}
+          setValue={(v) => {
+            setRadioCardSelected(v);
+          }}
+          options={[
+            {
+              value: "k1",
+              label: "Radio Card 1",
+            },
+            {
+              value: "k2",
+              label: "Radio Card 2 with avatar",
+              avatar: <Avatar radius="small">BF</Avatar>,
+            },
+            {
+              value: "k3",
+              label: "Radio Card 3, with description",
+              description: "This is a description",
+              avatar: (
+                <Avatar radius="small">
+                  <img src="https://app.growthbook.io/logo/growth-book-logomark-white.svg" />
+                </Avatar>
+              ),
+            },
+            {
+              value: "k4",
+              label: "Radio Card 4, disabled",
+              description: "This is a description",
+              disabled: true,
+            },
+            {
+              value: "k5",
+              label: "Radio Card 5, long title, long description",
+              description:
+                "This is a description. It is very long. It should wrap around without changing the width of the parent container.",
+            },
+            {
+              value: "k6",
+              label: (
+                <PremiumTooltip
+                  // @ts-expect-error - fake feature that nobody has
+                  commercialFeature="unobtanium"
+                  body="This is an expensive popup message"
+                  usePortal={true}
+                >
+                  Premium Card 6
+                </PremiumTooltip>
+              ),
+              description: "You can't afford this",
+            },
+          ]}
+        />
+      </div>
+
+      <div className="appbox p-3">
         <h3>Radio Group</h3>
         <RadioGroup
           value={radioSelected}
@@ -286,6 +369,7 @@ export default function DesignSystemPage() {
           ]}
         />
       </div>
+
       <div className="appbox p-3">
         <h3>Slider</h3>
         <Flex direction="column" gap="3" maxWidth="300px">

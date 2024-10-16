@@ -62,6 +62,16 @@
   }
 }
 
+// RadioCards
+.rt-RadioCardsItem {
+  &:hover:not(.disabled) {
+    background: var(--violet-a3);
+  }
+  & > * {
+    pointer-events: auto !important;
+  }
+}
+
 // Slider
 .rt-SliderThumb::before,
 .rt-SliderThumb::after {
