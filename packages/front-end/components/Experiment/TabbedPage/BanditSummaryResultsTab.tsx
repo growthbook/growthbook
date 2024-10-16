@@ -24,6 +24,8 @@ export default function BanditSummaryResultsTab({
   mutate,
   isTabActive,
 }: Props) {
+  const { getExperimentMetricById } = useDefinitions();
+
   const [chartMode, setChartMode] = useLocalStorage<
     "values" | "probabilities" | "weights"
   >(`banditSummaryResultsChartMode__${experiment.id}`, "values");
@@ -39,9 +41,17 @@ export default function BanditSummaryResultsTab({
     setPhase(numPhases - 1);
   }, [numPhases, setPhase]);
 
-  const mid = experiment.goalMetrics[0];
-  const { getExperimentMetricById } = useDefinitions();
-  const metric = getExperimentMetricById(mid);
+  const mid = experiment?.goalMetrics?.[0];
+  const metric = getExperimentMetricById(mid ?? "");
+
+  if (!metric) {
+    return (
+      <Callout status="warning" mx="3" mb="2">
+        No metric was set for this Bandit.
+      </Callout>
+    );
+  }
+
   const phaseObj = experiment.phases[phase];
 
   const showVisualizations = (phaseObj?.banditEvents?.length ?? 0) > 0;
