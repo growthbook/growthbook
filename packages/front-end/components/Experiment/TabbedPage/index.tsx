@@ -388,18 +388,20 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        <div
-          className={
-            // todo: standardize explore & results tabs across experiment types
-            isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
-          }
-        >
-          <BanditSummaryResultsTab
-            experiment={experiment}
-            mutate={mutate}
-            isTabActive={tab === "results"}
-          />
-        </div>
+        {isBandit ? (
+          <div
+            className={
+              // todo: standardize explore & results tabs across experiment types
+              isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
+            }
+          >
+            <BanditSummaryResultsTab
+              experiment={experiment}
+              mutate={mutate}
+              isTabActive={tab === "results"}
+            />
+          </div>
+        ) : null}
         <div
           className={
             // todo: standardize explore & results tabs across experiment types
