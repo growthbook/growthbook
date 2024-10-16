@@ -33,7 +33,10 @@ const EditExperimentNameForm: FC<{
       })}
       cta="Save"
     >
-      <Field label="Name" {...form.register("name")} />
+      <Field
+        label="Name"
+        {...form.register("name", { setValueAs: (s) => s?.trim() })}
+      />
     </Modal>
   );
 };
