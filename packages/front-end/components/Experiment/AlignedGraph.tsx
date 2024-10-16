@@ -7,6 +7,7 @@ import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,7 +29,7 @@ interface Props
   significant: boolean;
   showAxis?: boolean;
   axisOnly?: boolean;
-  metricForFormatting?: MetricInterface | null;
+  metricForFormatting?: ExperimentMetricInterface | MetricInterface | null;
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
