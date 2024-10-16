@@ -401,7 +401,7 @@ export default function TabbedPage({
               isTabActive={tab === "results"}
             />
           </div>
-        ): null}
+        ) : null}
         <div
           className={
             // todo: standardize explore & results tabs across experiment types
