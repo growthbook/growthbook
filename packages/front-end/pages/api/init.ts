@@ -9,6 +9,7 @@ export interface EnvironmentInitValue {
   isMultiOrg?: boolean;
   allowSelfOrgCreation: boolean;
   showMultiOrgSelfSelector: boolean;
+  dataWarehouseUrl?: string;
   appOrigin: string;
   apiHost: string;
   s3domain: string;
@@ -41,6 +42,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
+    DATAWAREHOUSE_URL,
     ALLOW_SELF_ORG_CREATION,
     SHOW_MULTI_ORG_SELF_SELECTOR,
     DISABLE_TELEMETRY,
@@ -99,6 +101,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
+    ...(DATAWAREHOUSE_URL ? { dataWarehouseUrl: DATAWAREHOUSE_URL } : {}),
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION),
     showMultiOrgSelfSelector: stringToBoolean(
       SHOW_MULTI_ORG_SELF_SELECTOR,
