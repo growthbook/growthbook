@@ -88,6 +88,11 @@ export async function runAthenaQuery(
       },
       OutputLocation: bucketUri,
     },
+    ResultReuseConfiguration: {
+      ResultReuseByAgeConfiguration: {
+        Enabled: true,
+      },
+    },
     WorkGroup: workGroup || "primary",
   });
 
