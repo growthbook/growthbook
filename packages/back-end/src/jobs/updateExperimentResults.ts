@@ -162,8 +162,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     let reweight =
       experiment.type === "multi-armed-bandit" &&
       experiment.banditStage === "exploit";
+
     if (experiment.type === "multi-armed-bandit" && !reweight) {
-      // Quick check to see if we're about to enter "explore" stage and will need to reweight
+      // Quick check to see if we're about to enter "exploit" stage and will need to reweight
       const tempChanges = updateExperimentBanditSettings({
         experiment,
         isScheduled: true,
