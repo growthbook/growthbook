@@ -89,9 +89,6 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw
 );
 
-import * as ingestionControllerRaw from "./controllers/ingestion";
-const ingestionController = wrapController(ingestionControllerRaw);
-
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -338,8 +335,6 @@ else {
 app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
-
-app.get("/ingestion/data-enrichment", ingestionController.getDataEnrichment);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
