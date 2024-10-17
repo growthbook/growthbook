@@ -318,7 +318,7 @@ utm_medium as medium,
 utm_campaign as campaign,
 utm_content as content,
 utm_term as term
-FROM test_enriched_events 
+FROM events
 WHERE
 event_name = 'Experiment Viewed'
 AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
@@ -356,7 +356,7 @@ utm_medium as medium,
 utm_campaign as campaign,
 utm_content as content,
 utm_term as term
-FROM test_enriched_events 
+FROM events
 WHERE
 event_name = 'Experiment Viewed'
 AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
@@ -370,7 +370,7 @@ AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
   const newDatasource = await createDataSource(
     context,
     "Growthbook Inbuilt Datasource",
-    "clickhouse",
+    "growthbook_clickhouse",
     params,
     datasourceSettings
   );

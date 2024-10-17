@@ -56,41 +56,26 @@ export async function createClickhouseUser(
     .update(password)
     .digest("hex");
 
-  const viewName = `events_${orgId}`;
+  const database = orgId;
+  const viewName = `${database}.events`;
 
-  logger.info(`Creating Clickhouse user ${user} and password ${password}`);
+  logger.info(`creating Clickhouse database ${database}`);
+  await client.command({
+    query: `CREATE DATABASE ${database}`,
+  });
+
+  logger.info(`Creating Clickhouse user ${user}`);
   await client.command({
     query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}'`,
   });
 
   logger.info(`Creating Clickhouse view ${viewName}`);
   await client.command({
-    query: `CREATE MATERIALIZED VIEW ${viewName} ENGINE = MergeTree() ORDER BY organization DEFINER=CURRENT_USER SQL SECURITY DEFINER AS SELECT * FROM ${eventsTableName} WHERE organization = '${orgId}'`,
-  });
-
-  // Materialized views only show rows that have been added since the view was created
-  // We probably don't need to do this for real, but during testing we need to populate it with existing data
-  logger.info(`Populating view with existing data`);
-  await client.command({
-    query: `INSERT INTO ${viewName} SELECT * FROM ${eventsTableName} WHERE organization = '${orgId}'`,
+    query: `CREATE VIEW ${viewName} DEFINER=CURRENT_USER SQL SECURITY DEFINER AS SELECT * FROM ${eventsTableName} WHERE organization = '${orgId}'`,
   });
 
   logger.info(`Granting select permissions on ${viewName} to ${user}`);
   await client.command({ query: `GRANT SELECT ON ${viewName} TO ${user}` });
-
-  // The above permission is good enough for the user to use the materialized view going forward.  Alternatively we can create a row policy
-  // and grant select on the main table.  They can read off the main table, but the row policy will restrict them to only seeing their org's data.
-  logger.info("Creating row policy");
-  await client.command({
-    query: `CREATE ROW POLICY IF NOT EXISTS ${viewName}_policy ON ${eventsTableName} FOR SELECT USING organization = '${orgId}' TO '${user}'`,
-  });
-
-  logger.info(
-    `Granting select permissions on main table to ${user} which should be safe because of the row policy`
-  );
-  await client.command({
-    query: `GRANT SELECT ON ${eventsTableName} TO ${user}`,
-  });
 
   logger.info(`Clickhouse user ${user} created`);
 
@@ -103,7 +88,7 @@ export async function createClickhouseUser(
     url: url,
     user: user,
     password: password,
-    database: CLICKHOUSE_DATABASE,
+    database: database,
   };
 
   return params;
