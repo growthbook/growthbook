@@ -32,7 +32,7 @@ import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
-import RuleModalNew from "@/components/Features/RuleModalNew";
+import RuleModal from "@/components/Features/RuleModal/index";
 import ForceSummary from "@/components/Features/ForceSummary";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -1156,7 +1156,7 @@ export default function FeaturesOverview({
           />
         )}
         {ruleModal !== null && (
-          <RuleModalNew
+          <RuleModal
             feature={feature}
             close={() => setRuleModal(null)}
             i={ruleModal.i}

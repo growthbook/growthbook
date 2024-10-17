@@ -14,6 +14,7 @@ import { DocSection } from "@/components/DocLink";
 
 type Props = {
   header: string;
+  subHeader?: string | ReactNode;
   submitColor?: string;
   cta?: string;
   ctaEnabled?: boolean;
