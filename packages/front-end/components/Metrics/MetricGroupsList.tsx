@@ -63,14 +63,14 @@ const MetricGroupsList: FC = () => {
             </div>
           </div>
         </div>
-        <div className="alert alert-info-gb-purple mt-2 p-3 p-4 text-center">
+        <div className="alert alert-premium mt-2 p-3 p-4 text-center">
           <GBPremiumBadge
             className="text-premium"
             shouldDisplay={true}
             prependsText={true}
           />
           <span className="ml-2 text-premium font-weight-bold">
-            Metric groups is a premium as part of our enterprise plan
+            Metric groups are a premium part of our Enterprise plan
           </span>
         </div>
       </div>
@@ -164,17 +164,17 @@ const MetricGroupsList: FC = () => {
                       <MoreMenu>
                         {canEdit ? (
                           <>
-                            <div
+                            <button
                               className="dropdown-item"
                               onClick={(e) => {
                                 e.preventDefault();
                                 setEditModal(mg);
                               }}
                             >
-                              <a href="#">Edit</a>
-                            </div>
+                              Edit
+                            </button>
                             {mg.archived ? (
-                              <div
+                              <button
                                 className="dropdown-item"
                                 onClick={async (e) => {
                                   e.preventDefault();
@@ -182,18 +182,18 @@ const MetricGroupsList: FC = () => {
                                   mutateDefinitions();
                                 }}
                               >
-                                <a href="#">Unarchive</a>
-                              </div>
+                                Unarchive
+                              </button>
                             ) : (
-                              <div
+                              <button
                                 className="dropdown-item"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setArchiveModal(mg);
                                 }}
                               >
-                                <a href="#">Archive</a>
-                              </div>
+                                Archive
+                              </button>
                             )}
                           </>
                         ) : null}
@@ -210,11 +210,11 @@ const MetricGroupsList: FC = () => {
                               mutateDefinitions();
                             }}
                             additionalMessage={
-                              <div className="alert alert-info px-2 py-1">
-                                <FaExclamationTriangle /> Metric groups are used
-                                by reference, which means if you delete this
-                                group, all experiments using it will be
-                                affected.
+                              <div className="alert alert-warning">
+                                <FaExclamationTriangle className="mr-2" />
+                                Metric groups are used by reference, which means
+                                if you delete this group, all experiments using
+                                it will be affected.
                               </div>
                             }
                           />

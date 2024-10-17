@@ -3,12 +3,9 @@ import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
-import { useUser } from "@/services/UserContext";
-import { GBPremiumBadge } from "@/components/Icons";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 const MetricsPage = (): React.ReactElement => {
-  const { hasCommercialFeature } = useUser();
-  const hasGroupsFeature = hasCommercialFeature("metric-groups");
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       <Tabs defaultTab="metrics" newStyle={true}>
@@ -19,7 +16,9 @@ const MetricsPage = (): React.ReactElement => {
           anchor="metricgroups"
           id="metricgroups"
           display={
-            <>{!hasGroupsFeature ? <GBPremiumBadge /> : ""} Metric Groups</>
+            <PremiumTooltip commercialFeature="metric-groups">
+              Metric Groups
+            </PremiumTooltip>
           }
           padding={false}
           lazy
