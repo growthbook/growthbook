@@ -14,7 +14,11 @@ import {
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+  getMetricLink,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -103,11 +107,7 @@ const CompactResults: FC<{
   noStickyHeader,
   noTooltip,
 }) => {
-  const {
-    getExperimentMetricById,
-    getMetricGroupById,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
   const [totalUsers, variationUsers] = useMemo(() => {
@@ -126,24 +126,18 @@ const CompactResults: FC<{
     expandedSecondaries,
     expandedGuardrails,
   } = useMemo(() => {
-    function getAndExpandMetricGroups(metricArray: string[]) {
-      const expandedMetrics: string[] = [];
-      metricArray.forEach((metricId) => {
-        const metricGroup = getMetricGroupById(metricId);
-        if (metricGroup) {
-          expandedMetrics.push(...metricGroup.metrics);
-        } else {
-          expandedMetrics.push(metricId);
-        }
-      });
-      return expandedMetrics;
-    }
-    const expandedGoals = getAndExpandMetricGroups(goalMetrics);
-    const expandedSecondaries = getAndExpandMetricGroups(secondaryMetrics);
-    const expandedGuardrails = getAndExpandMetricGroups(guardrailMetrics);
+    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedSecondaries = expandMetricGroups(
+      secondaryMetrics,
+      metricGroups
+    );
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      metricGroups
+    );
 
     return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, secondaryMetrics, guardrailMetrics, getMetricGroupById]);
+  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();

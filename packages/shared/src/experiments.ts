@@ -29,6 +29,10 @@ export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
 }
 
+export function isMetricGroupId(id: string): boolean {
+  return !!id.match(/^mg_/);
+}
+
 export function isFactMetric(
   m: ExperimentMetricInterface
 ): m is FactMetricInterface {

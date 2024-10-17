@@ -12,7 +12,10 @@ import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import clsx from "clsx";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
@@ -60,6 +63,7 @@ export default function AnalysisSettingsSummary({
     getDatasourceById,
     getSegmentById,
     getExperimentMetricById,
+    metricGroups,
   } = useDefinitions();
   const orgSettings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -126,20 +130,26 @@ export default function AnalysisSettingsSummary({
   );
 
   const goals: string[] = [];
-  experiment.goalMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) goals.push(name);
-  });
+  expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) goals.push(name);
+    }
+  );
   const secondary: string[] = [];
-  experiment.secondaryMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) secondary.push(name);
-  });
+  expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) secondary.push(name);
+    }
+  );
   const guardrails: string[] = [];
-  experiment.guardrailMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) guardrails.push(name);
-  });
+  expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) guardrails.push(name);
+    }
+  );
 
   const numMetrics = goals.length + secondary.length + guardrails.length;
 
