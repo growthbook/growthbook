@@ -276,7 +276,7 @@ export async function postInbuiltDataSource(
 ) {
   const context = getContextFromReq(req);
   const params = await createClickhouseUser(context);
-  const datasourceSettings = {
+  const datasourceSettings: DataSourceSettings = {
     userIdTypes: [
       {
         userIdType: "anonymous_id",
@@ -289,14 +289,35 @@ export async function postInbuiltDataSource(
       exposure: [
         {
           id: "anonymous_id",
-          dimensions: [],
+          dimensions: [
+            "country",
+            "city",
+            "browser",
+            "os",
+            "device_type",
+            "source",
+            "medium",
+            "campaign",
+            "content",
+            "term",
+          ],
           name: "Anonymous Id Experiments",
           query: `         
 SELECT 
 device_id as anonymous_id,
 timestamp,
 simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
-simpleJSONExtractString(properties_json, 'variation_id') as variation_id
+simpleJSONExtractString(properties_json, 'variation_id') as variation_id,
+geo_country as country,
+geo_city as city,
+ua_browser as browser,
+ua_os as os,
+ua_device_type as device_type,
+utm_source as source,
+utm_medium as medium,
+utm_campaign as campaign,
+utm_content as content,
+utm_term as term
 FROM test_enriched_events 
 WHERE
 event_name = 'Experiment Viewed'
@@ -306,14 +327,35 @@ AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
         },
         {
           id: "user_id",
-          dimensions: [],
+          dimensions: [
+            "country",
+            "city",
+            "browser",
+            "os",
+            "device_type",
+            "source",
+            "medium",
+            "campaign",
+            "content",
+            "term",
+          ],
           name: "Logged in User Id Experiments",
           query: `         
 SELECT 
 user_id,
 timestamp,
 simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
-simpleJSONExtractString(properties_json, 'variation_id') as variation_id
+simpleJSONExtractString(properties_json, 'variation_id') as variation_id,
+geo_country as country,
+geo_city as city,
+ua_browser as browser,
+ua_os as os,
+ua_device_type as device_type,
+utm_source as source,
+utm_medium as medium,
+utm_campaign as campaign,
+utm_content as content,
+utm_term as term
 FROM test_enriched_events 
 WHERE
 event_name = 'Experiment Viewed'
