@@ -41,7 +41,10 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
@@ -150,6 +153,56 @@ function QuantileSelector({
   );
 }
 
+function getNumericColumnOptions({
+  factTable,
+  includeCount = true,
+  includeCountDistinct = false,
+}: {
+  factTable: FactTableInterface | null;
+  includeCount?: boolean;
+  includeCountDistinct?: boolean;
+}): SingleValue[] | GroupedValue[] {
+  const columnOptions: SingleValue[] = (factTable?.columns || [])
+    .filter(
+      (col) =>
+        !col.deleted &&
+        col.column !== "timestamp" &&
+        !factTable?.userIdTypes?.includes(col.column)
+    )
+    .filter((col) => col.datatype === "number")
+    .map((col) => ({
+      label: col.name,
+      value: col.column,
+    }));
+
+  const specialColumnOptions: SingleValue[] = [];
+  if (includeCountDistinct) {
+    specialColumnOptions.push({
+      label: `Unique Users`,
+      value: "$$distinctUsers",
+    });
+  }
+  if (includeCount) {
+    specialColumnOptions.push({
+      label: "Count of Rows",
+      value: "$$count",
+    });
+  }
+
+  return specialColumnOptions.length > 0
+    ? [
+        {
+          label: "Special",
+          options: specialColumnOptions,
+        },
+        {
+          label: "Columns",
+          options: columnOptions,
+        },
+      ]
+    : columnOptions;
+}
+
 function ColumnRefSelector({
   value,
   setValue,
@@ -174,32 +227,11 @@ function ColumnRefSelector({
   let factTable = getFactTableById(value.factTableId);
   if (factTable?.datasource !== datasource) factTable = null;
 
-  const columnOptions: SingleValue[] = (factTable?.columns || [])
-    .filter(
-      (col) =>
-        !col.deleted &&
-        col.column !== "timestamp" &&
-        !factTable?.userIdTypes?.includes(col.column)
-    )
-    .filter((col) => col.datatype === "number")
-    .map((col) => ({
-      label: col.name,
-      value: col.column,
-    }));
-
-  const specialColumnOptions: SingleValue[] = [];
-  if (includeCountDistinct && aggregationType === "unit") {
-    specialColumnOptions.push({
-      label: `Unique Users`,
-      value: "$$distinctUsers",
-    });
-  }
-  if (aggregationType === "unit") {
-    specialColumnOptions.push({
-      label: "Count of Rows",
-      value: "$$count",
-    });
-  }
+  const columnOptions = getNumericColumnOptions({
+    factTable,
+    includeCountDistinct: includeCountDistinct && aggregationType === "unit",
+    includeCount: aggregationType === "unit",
+  });
 
   const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
     .filter((col) =>
@@ -366,20 +398,7 @@ function ColumnRefSelector({
               formatGroupLabel={({ label }) => (
                 <div className="pt-2 pb-1 border-bottom">{label}</div>
               )}
-              options={
-                specialColumnOptions.length > 0
-                  ? [
-                      {
-                        label: "Special",
-                        options: specialColumnOptions,
-                      },
-                      {
-                        label: "Columns",
-                        options: columnOptions,
-                      },
-                    ]
-                  : columnOptions
-              }
+              options={columnOptions}
               placeholder="Value..."
               required
             />
@@ -615,9 +634,16 @@ export default function FactMetricModal({
   const hasQuantileMetricCommercialFeature =
     quantileMetricFlag && hasCommercialFeature("quantile-metrics");
 
-  const numeratorFactTable = getFactTableById(
-    form.watch("numerator.factTableId")
-  );
+  const numerator = form.watch("numerator");
+  const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
+  const denominator = form.watch("denominator");
+
+  const supportsAggregatedFilter =
+    type === "proportion" ||
+    (type === "ratio" &&
+      numerator.column === "$$distinctUsers" &&
+      !form.watch("cappingSettings").type);
+
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
   const canUseEventQuantile = numeratorFactTable?.columns?.some(
@@ -660,6 +686,21 @@ export default function FactMetricModal({
           values.numerator.column !== "$$distinctUsers"
         ) {
           values.numerator.column = "$$distinctUsers";
+        }
+
+        if (values.numerator.aggregateFilterColumn) {
+          if (values.metricType === "ratio") {
+            if (values.numerator.aggregateFilterColumn !== "$$distinctUsers") {
+              throw new Error(
+                "Can only specify a User Threshold if using Unique Users in the numerator"
+              );
+            }
+            if (values.cappingSettings?.type) {
+              throw new Error(
+                "Cannot specify both Capping and a User Threshold"
+              );
+            }
+          }
         }
 
         if (!selectedDataSource) throw new Error("Must select a data source");
@@ -839,10 +880,7 @@ export default function FactMetricModal({
               // When switching to ratio, reset the denominator value
               if (type === "ratio" && !form.watch("denominator")) {
                 form.setValue("denominator", {
-                  factTableId:
-                    form.watch("numerator").factTableId ||
-                    initialFactTable ||
-                    "",
+                  factTableId: numerator.factTableId || initialFactTable || "",
                   column: "$$count",
                   filters: [],
                 });
@@ -895,7 +933,7 @@ export default function FactMetricModal({
           {type === "proportion" ? (
             <div>
               <ColumnRefSelector
-                value={form.watch("numerator")}
+                value={numerator}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
@@ -909,7 +947,7 @@ export default function FactMetricModal({
             <div>
               <label>Per-User Value</label>
               <ColumnRefSelector
-                value={form.watch("numerator")}
+                value={numerator}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 includeColumn={true}
                 datasource={selectedDataSource.id}
@@ -933,15 +971,12 @@ export default function FactMetricModal({
                   }
                   setValue={(unit) => {
                     // Event-level quantiles must select a numeric column
-                    if (
-                      !unit &&
-                      form.watch("numerator")?.column?.startsWith("$$")
-                    ) {
+                    if (!unit && numerator?.column?.startsWith("$$")) {
                       const column = numeratorFactTable?.columns?.find(
                         (c) => c.datatype === "number"
                       );
                       form.setValue("numerator", {
-                        ...form.watch("numerator"),
+                        ...numerator,
                         column: column?.column || "",
                       });
                     }
@@ -965,7 +1000,7 @@ export default function FactMetricModal({
                   : "Event Value"}
               </label>
               <ColumnRefSelector
-                value={form.watch("numerator")}
+                value={numerator}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 includeColumn={true}
                 aggregationType={quantileSettings.type}
@@ -1021,7 +1056,7 @@ export default function FactMetricModal({
               <div className="form-group">
                 <label>Numerator</label>
                 <ColumnRefSelector
-                  value={form.watch("numerator")}
+                  value={numerator}
                   setValue={(numerator) =>
                     form.setValue("numerator", numerator)
                   }
@@ -1035,7 +1070,7 @@ export default function FactMetricModal({
                 <label>Denominator</label>
                 <ColumnRefSelector
                   value={
-                    form.watch("denominator") || {
+                    denominator || {
                       column: "$$count",
                       factTableId: "",
                       filters: [],
@@ -1095,12 +1130,62 @@ export default function FactMetricModal({
             >
               <Tab id="query" display="Query Settings">
                 <MetricDelayHours form={form} />
-                {type !== "quantile" ? (
+                {type !== "quantile" && type !== "proportion" ? (
                   <MetricCappingSettingsForm
                     form={form}
                     datasourceType={selectedDataSource.type}
                     metricType={type}
                   />
+                ) : null}
+
+                {supportsAggregatedFilter ? (
+                  <div className="form-group">
+                    <label>
+                      {type === "ratio" ? "Numerator " : ""}User Threshold
+                    </label>
+                    <div className="row">
+                      <div className="col">
+                        <SelectField
+                          value={numerator.aggregateFilterColumn || ""}
+                          onChange={(v) =>
+                            form.setValue("numerator", {
+                              ...numerator,
+                              aggregateFilterColumn: v,
+                            })
+                          }
+                          options={getNumericColumnOptions({
+                            factTable: numeratorFactTable,
+                            includeCount: true,
+                            includeCountDistinct: false,
+                          })}
+                          initialOption="None"
+                          helpText={
+                            "Only include users who meet a specific threshold."
+                          }
+                        />
+                      </div>
+                      {numerator.aggregateFilterColumn && (
+                        <div className="col">
+                          <Field
+                            value={numerator.aggregateFilter || ""}
+                            onChange={(v) =>
+                              form.setValue("numerator", {
+                                ...numerator,
+                                aggregateFilter: v.target.value,
+                              })
+                            }
+                            required
+                            helpText={
+                              <>
+                                Simple comparison operators only. For example,{" "}
+                                <code>&gt;= 3</code> or <code>&lt; 10</code>
+                              </>
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : null}
 
                 <MetricPriorSettingsForm
