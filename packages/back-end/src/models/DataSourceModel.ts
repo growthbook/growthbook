@@ -25,6 +25,7 @@ import { queueCreateInformationSchema } from "back-end/src/jobs/createInformatio
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { logger } from "back-end/src/util/logger";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -213,6 +214,7 @@ export async function createDataSource(
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
+    logger.info("queueCreateInformationSchema");
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 

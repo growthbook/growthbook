@@ -410,6 +410,26 @@ const NewDataSourceForm: FC<{
           onCancel && onCancel();
         };
 
+  const callCreateInbuiltDatasource = async () => {
+    const res = await apiCall<{
+      datasource: DataSourceInterfaceWithParams;
+    }>(`/datasource/create-inbuilt`, {
+      method: "POST",
+    });
+
+    track("Create Inbuilt Datasource", {
+      source,
+      newDatasourceForm: true,
+    });
+
+    setCreatedDatasource(res.datasource);
+    createResources(res.datasource);
+    setStep("done");
+  };
+
+  // TODO: Make this a feature flag
+  const showInbuiltDatasource = true;
+
   let stepContents: ReactNode = null;
   if (step === "initial") {
     stepContents = (
@@ -427,7 +447,11 @@ const NewDataSourceForm: FC<{
             <div
               className={clsx(
                 styles.ctaContainer,
-                !showImportSampleData && "w-50"
+                showImportSampleData && showInbuiltDatasource
+                  ? "w-25"
+                  : showImportSampleData || showInbuiltDatasource
+                  ? "w-33"
+                  : "w-50"
               )}
               onClick={() => setStep("eventTracker")}
             >
@@ -444,7 +468,11 @@ const NewDataSourceForm: FC<{
             <div
               className={clsx(
                 styles.ctaContainer,
-                !showImportSampleData && "w-50"
+                showImportSampleData && showInbuiltDatasource
+                  ? "w-25"
+                  : showImportSampleData || showInbuiltDatasource
+                  ? "w-33"
+                  : "w-50"
               )}
               onClick={(e) => {
                 e.preventDefault();
@@ -467,7 +495,14 @@ const NewDataSourceForm: FC<{
             </div>
             {showImportSampleData && (
               <div
-                className={styles.ctaContainer}
+                className={clsx(
+                  styles.ctaContainer,
+                  showImportSampleData && showInbuiltDatasource
+                    ? "w-25"
+                    : showImportSampleData || showInbuiltDatasource
+                    ? "w-33"
+                    : "w-50"
+                )}
                 onClick={(e) => {
                   e.preventDefault();
                   router.push("/demo-datasource-project");
@@ -477,6 +512,33 @@ const NewDataSourceForm: FC<{
                   <h3 className={styles.ctaText}>Use Sample Dataset</h3>
                   <p className="mb-0 text-dark">
                     Explore GrowthBook with a pre-loaded sample dataset.
+                  </p>
+                </div>
+              </div>
+            )}
+            {showInbuiltDatasource && (
+              <div
+                className={clsx(
+                  styles.ctaContainer,
+                  showImportSampleData && showInbuiltDatasource
+                    ? "w-25"
+                    : showImportSampleData || showInbuiltDatasource
+                    ? "w-33"
+                    : "w-50"
+                )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  callCreateInbuiltDatasource();
+                }}
+              >
+                <div className={styles.ctaButton}>
+                  <h3 className={styles.ctaText}>
+                    Use Growthbook&apos;s Warehouse
+                  </h3>
+                  <p>
+                    If you don&apos;t have your own datasource you can use
+                    Growthbook&apos;s own warehouse to house your event tracking
+                    data
                   </p>
                 </div>
               </div>

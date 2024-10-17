@@ -64,6 +64,8 @@ function getIntegrationObj(
   datasource: DataSourceInterface
 ): SourceIntegrationInterface {
   switch (datasource.type) {
+    case "growthbook_clickhouse":
+      return new ClickHouse(context, datasource);
     case "athena":
       return new Athena(context, datasource);
     case "redshift":
