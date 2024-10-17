@@ -619,8 +619,9 @@ function getPreviewSQL({
       ? `\n  -- All of the Fact Table's identifier types are supported`
       : "";
 
-  const numeratorName = "`" + (numeratorFactTable?.name || "___") + "`";
-  const denominatorName = "`" + (denominatorFactTable?.name || "___") + "`";
+  const numeratorName = "`" + (numeratorFactTable?.name || "Fact Table") + "`";
+  const denominatorName =
+    "`" + (denominatorFactTable?.name || "Fact Table") + "`";
 
   const numeratorCol =
     numerator.column === "$$count"
@@ -684,7 +685,7 @@ function getPreviewSQL({
 
   let HAVING =
     havingParts.length > 0
-      ? `\nHAVING\n${indentLines(havingParts.join("\nAND"))}`
+      ? `\nHAVING\n${indentLines(havingParts.join("\nAND "))}`
       : "";
 
   if (type === "quantile") {
@@ -1662,7 +1663,13 @@ export default function FactMetricModal({
             </>
           )}
         </div>
-        <div className="bg-light px-3 py-4 flex-1 border-left">
+        <div
+          className="bg-light px-3 py-4 flex-1 border-left d-none d-md-block"
+          style={{
+            width: "50%",
+            maxWidth: "600px",
+          }}
+        >
           <h3>Live SQL Preview</h3>
           <p>
             <em>
@@ -1706,6 +1713,7 @@ export default function FactMetricModal({
               <Code
                 language="sql"
                 code={experimentSQL}
+                className="bg-light"
                 filename="Experiment SQL"
               />
             </div>
