@@ -157,10 +157,12 @@ function getNumericColumnOptions({
   factTable,
   includeCount = true,
   includeCountDistinct = false,
+  showColumnsAsSums = false,
 }: {
   factTable: FactTableInterface | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
+  showColumnsAsSums?: boolean;
 }): SingleValue[] | GroupedValue[] {
   const columnOptions: SingleValue[] = (factTable?.columns || [])
     .filter(
@@ -171,7 +173,7 @@ function getNumericColumnOptions({
     )
     .filter((col) => col.datatype === "number")
     .map((col) => ({
-      label: col.name,
+      label: showColumnsAsSums ? `SUM(${col.name})` : col.name,
       value: col.column,
     }));
 
@@ -212,6 +214,7 @@ function ColumnRefSelector({
   datasource,
   disableFactTableSelector,
   extraField,
+  supportsAggregatedFilter,
 }: {
   setValue: (ref: ColumnRef) => void;
   value: ColumnRef;
@@ -221,6 +224,7 @@ function ColumnRefSelector({
   datasource: string;
   disableFactTableSelector?: boolean;
   extraField?: ReactElement;
+  supportsAggregatedFilter?: boolean;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
@@ -356,10 +360,8 @@ function ColumnRefSelector({
             <MultiSelectField
               label={
                 <>
-                  {inlineFilterFields.length > 0
-                    ? "Additional Filters"
-                    : "Included Rows"}{" "}
-                  <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
+                  Included Rows{" "}
+                  <Tooltip body="Filter individual rows.  Only rows that satisfy ALL selected filters will be included" />
                 </>
               }
               value={value.filters}
@@ -368,7 +370,7 @@ function ColumnRefSelector({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder={inlineFilterFields.length > 0 ? "None" : "All Rows"}
+              placeholder={"All Rows"}
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);
@@ -424,6 +426,59 @@ function ColumnRefSelector({
               />
             </div>
           )}
+        {supportsAggregatedFilter && factTable && (
+          <div className="col-auto d-flex align-items-center">
+            <div>
+              <SelectField
+                label={
+                  <>
+                    Included Users{" "}
+                    <Tooltip
+                      body={
+                        <>
+                          Filter after grouping by user id. Simple comparison
+                          operators only. For example, <code>&gt;= 3</code> or{" "}
+                          <code>&lt; 10</code>
+                        </>
+                      }
+                    />
+                  </>
+                }
+                value={value.aggregateFilterColumn || ""}
+                onChange={(v) =>
+                  setValue({
+                    ...value,
+                    aggregateFilterColumn: v,
+                  })
+                }
+                options={getNumericColumnOptions({
+                  factTable: factTable,
+                  includeCount: true,
+                  includeCountDistinct: false,
+                  showColumnsAsSums: true,
+                })}
+                initialOption="All Users"
+              />
+            </div>
+            {value.aggregateFilterColumn && (
+              <div className="ml-1">
+                <Field
+                  label={<>&nbsp;</>}
+                  value={value.aggregateFilter || ""}
+                  onChange={(v) =>
+                    setValue({
+                      ...value,
+                      aggregateFilter: v.target.value,
+                    })
+                  }
+                  placeholder=">= 10"
+                  style={{ maxWidth: 120 }}
+                  required
+                />
+              </div>
+            )}
+          </div>
+        )}
         {extraField && <div className="col-auto">{extraField}</div>}
       </div>
     </div>
@@ -638,12 +693,6 @@ export default function FactMetricModal({
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
   const denominator = form.watch("denominator");
 
-  const supportsAggregatedFilter =
-    type === "proportion" ||
-    (type === "ratio" &&
-      numerator.column === "$$distinctUsers" &&
-      !form.watch("cappingSettings").type);
-
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
   const canUseEventQuantile = numeratorFactTable?.columns?.some(
@@ -688,13 +737,13 @@ export default function FactMetricModal({
           values.numerator.column = "$$distinctUsers";
         }
 
-        if (values.numerator.aggregateFilterColumn) {
-          if (values.metricType === "ratio") {
-            if (values.numerator.aggregateFilterColumn !== "$$distinctUsers") {
-              throw new Error(
-                "Can only specify a User Threshold if using Unique Users in the numerator"
-              );
-            }
+        if (
+          values.numerator.aggregateFilterColumn &&
+          values.metricType === "ratio"
+        ) {
+          if (values.numerator.aggregateFilterColumn !== "$$distinctUsers") {
+            values.numerator.aggregateFilterColumn = "";
+          } else {
             if (values.cappingSettings?.type) {
               throw new Error(
                 "Cannot specify both Capping and a User Threshold"
@@ -937,10 +986,11 @@ export default function FactMetricModal({
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
+                supportsAggregatedFilter={true}
               />
               <div className="alert alert-info">
-                The final metric value will be the percent of users in the
-                experiment with at least 1 matching row.
+                The final metric value will be the percent of all users in the
+                experiment who match the above criteria.
               </div>
             </div>
           ) : type === "mean" ? (
@@ -1064,6 +1114,9 @@ export default function FactMetricModal({
                   includeCountDistinct={true}
                   datasource={selectedDataSource.id}
                   disableFactTableSelector={!!initialFactTable}
+                  supportsAggregatedFilter={
+                    numerator.column === "$$distinctUsers"
+                  }
                 />
               </div>
               <div className="form-group">
@@ -1136,56 +1189,6 @@ export default function FactMetricModal({
                     datasourceType={selectedDataSource.type}
                     metricType={type}
                   />
-                ) : null}
-
-                {supportsAggregatedFilter ? (
-                  <div className="form-group">
-                    <label>
-                      {type === "ratio" ? "Numerator " : ""}User Threshold
-                    </label>
-                    <div className="row">
-                      <div className="col">
-                        <SelectField
-                          value={numerator.aggregateFilterColumn || ""}
-                          onChange={(v) =>
-                            form.setValue("numerator", {
-                              ...numerator,
-                              aggregateFilterColumn: v,
-                            })
-                          }
-                          options={getNumericColumnOptions({
-                            factTable: numeratorFactTable,
-                            includeCount: true,
-                            includeCountDistinct: false,
-                          })}
-                          initialOption="None"
-                          helpText={
-                            "Only include users who meet a specific threshold."
-                          }
-                        />
-                      </div>
-                      {numerator.aggregateFilterColumn && (
-                        <div className="col">
-                          <Field
-                            value={numerator.aggregateFilter || ""}
-                            onChange={(v) =>
-                              form.setValue("numerator", {
-                                ...numerator,
-                                aggregateFilter: v.target.value,
-                              })
-                            }
-                            required
-                            helpText={
-                              <>
-                                Simple comparison operators only. For example,{" "}
-                                <code>&gt;= 3</code> or <code>&lt; 10</code>
-                              </>
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 ) : null}
 
                 <MetricPriorSettingsForm
