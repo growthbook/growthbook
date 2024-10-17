@@ -148,7 +148,7 @@ export default function ResultsMetricFilter({
               ) : null}
               <div className="flex-1" />
               <button
-                className={"btn btn-sm btn-primary"}
+                className="btn btn-sm btn-primary"
                 onClick={(e) => {
                   e.preventDefault();
                   setMetricFilter(_metricFilter);

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { FaTimes } from "react-icons/fa";
+import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { ReactElement, useEffect, useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
@@ -10,6 +10,9 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
 } from "shared/constants";
 import {
   CreateFactMetricProps,
@@ -18,9 +21,17 @@ import {
   UpdateFactMetricProps,
   MetricQuantileSettings,
   FactMetricType,
+  FactTableInterface,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { canInlineFilterColumn } from "shared/experiments";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -38,7 +49,7 @@ import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBArrowLeft, GBCuped } from "@/components/Icons";
+import { GBCuped } from "@/components/Icons";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
@@ -47,6 +58,8 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHours";
 import { AppFeatures } from "@/types/app-features";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
+import Checkbox from "@/components/Radix/Checkbox";
+import Callout from "@/components/Radix/Callout";
 
 export interface Props {
   close?: () => void;
@@ -55,9 +68,17 @@ export interface Props {
   duplicate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
-  goBack?: () => void;
+  switchToLegacy?: () => void;
   source: string;
+  datasource?: string;
 }
+
+type InlineFilterField = {
+  label: string;
+  key: string;
+  options: string[];
+  error?: string;
+};
 
 function QuantileSelector({
   value,
@@ -180,6 +201,49 @@ function ColumnRefSelector({
     });
   }
 
+  const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
+    .filter((col) =>
+      canInlineFilterColumn(factTable as FactTableInterface, col)
+    )
+    .filter((col) => {
+      // Always show fields for certain columns
+      if (col.alwaysInlineFilter) return true;
+
+      // If there is an existing inline filter, show the field
+      // This could happen if the column was previously inline filtered
+      if (value.inlineFilters?.[col.column]?.some((v) => !!v)) return true;
+
+      // Otherwise, don't prompt for this column
+      return false;
+    })
+    .map((col) => {
+      const options = new Set(col.topValues || []);
+
+      // Add any custom values that have been entered
+      if (value.inlineFilters?.[col.column]) {
+        value.inlineFilters[col.column].forEach((v) => options.add(v));
+      }
+
+      return {
+        label: col.name || col.column,
+        key: col.column,
+        options: [...options],
+      };
+    });
+
+  // Additional prompt fields referencing columns that are not eligible for prompting
+  Object.entries(value.inlineFilters || {}).forEach(([k, v]) => {
+    if (!v.some((v) => !!v)) return;
+    if (!inlineFilterFields.some((f) => f.key === k)) {
+      inlineFilterFields.push({
+        label: k,
+        key: k,
+        options: v,
+        error: "This column is no longer available for filtering",
+      });
+    }
+  });
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-center">
@@ -220,12 +284,49 @@ function ColumnRefSelector({
             required
           />
         </div>
+        {inlineFilterFields.map(({ label, key, options, error }) => (
+          <div className="col-auto" key={key}>
+            <MultiSelectField
+              label={
+                <>
+                  {label}{" "}
+                  {error ? (
+                    <Tooltip body={error}>
+                      <FaTriangleExclamation className="text-danger" />
+                    </Tooltip>
+                  ) : (
+                    <Tooltip body="If selecting multiple values, only one needs to match for a row to be included." />
+                  )}
+                </>
+              }
+              value={value.inlineFilters?.[key] || []}
+              onChange={(v) =>
+                setValue({
+                  ...value,
+                  inlineFilters: { ...value.inlineFilters, [key]: v },
+                })
+              }
+              options={options.map((o) => ({
+                label: o,
+                value: o,
+              }))}
+              initialOption="Any"
+              formatOptionLabel={({ value, label }) =>
+                value ? label : <em className="text-muted">{label}</em>
+              }
+              creatable
+              sort={false}
+            />
+          </div>
+        ))}
         {factTable && factTable.filters.length > 0 ? (
           <div className="col-auto">
             <MultiSelectField
               label={
                 <>
-                  Included Rows{" "}
+                  {inlineFilterFields.length > 0
+                    ? "Additional Filters"
+                    : "Included Rows"}{" "}
                   <Tooltip body="Only rows that satisfy ALL selected filters will be included" />
                 </>
               }
@@ -235,7 +336,7 @@ function ColumnRefSelector({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder="All Rows"
+              placeholder={inlineFilterFields.length > 0 ? "None" : "All Rows"}
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);
@@ -310,6 +411,88 @@ function ColumnRefSelector({
   );
 }
 
+export function getDefaultFactMetricProps({
+  metricDefaults,
+  existing,
+  settings,
+  project,
+  datasources,
+  initialFactTable,
+}: {
+  metricDefaults: MetricDefaults;
+  settings: OrganizationSettings;
+  project?: string;
+  datasources: DataSourceInterfaceWithParams[];
+  existing?: Partial<FactMetricInterface>;
+  initialFactTable?: FactTableInterface;
+}): CreateFactMetricProps {
+  return {
+    name: existing?.name || "",
+    owner: existing?.owner || "",
+    description: existing?.description || "",
+    tags: existing?.tags || [],
+    metricType: existing?.metricType || "proportion",
+    numerator: existing?.numerator || {
+      factTableId: initialFactTable?.id || "",
+      column: "$$count",
+      filters: [],
+    },
+    projects: existing?.projects || [],
+    denominator: existing?.denominator || null,
+    datasource:
+      existing?.datasource ||
+      getNewExperimentDatasourceDefaults(
+        datasources,
+        settings,
+        project,
+        initialFactTable ? { datasource: initialFactTable?.datasource } : {}
+      ).datasource,
+    inverse: existing?.inverse || false,
+    cappingSettings: existing?.cappingSettings || {
+      type: "",
+      value: 0,
+    },
+    quantileSettings: existing?.quantileSettings || null,
+    windowSettings: existing?.windowSettings || {
+      type: DEFAULT_FACT_METRIC_WINDOW,
+      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      windowUnit: "days",
+      windowValue: 3,
+    },
+    winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
+    loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
+    minPercentChange:
+      existing?.minPercentChange ??
+      metricDefaults.minPercentageChange ??
+      DEFAULT_MIN_PERCENT_CHANGE,
+    maxPercentChange:
+      existing?.maxPercentChange ??
+      metricDefaults.maxPercentageChange ??
+      DEFAULT_MAX_PERCENT_CHANGE,
+    minSampleSize:
+      existing?.minSampleSize ??
+      metricDefaults.minimumSampleSize ??
+      DEFAULT_MIN_SAMPLE_SIZE,
+    regressionAdjustmentOverride:
+      existing?.regressionAdjustmentOverride || false,
+    regressionAdjustmentEnabled:
+      existing?.regressionAdjustmentEnabled ||
+      DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+    regressionAdjustmentDays:
+      existing?.regressionAdjustmentDays ??
+      settings.regressionAdjustmentDays ??
+      DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+    priorSettings:
+      existing?.priorSettings ||
+      (metricDefaults.priorSettings ?? {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      }),
+  };
+}
+
 export default function FactMetricModal({
   close,
   initialFactTable,
@@ -317,8 +500,9 @@ export default function FactMetricModal({
   duplicate = false,
   showAdvancedSettings,
   onSave,
-  goBack,
+  switchToLegacy,
   source,
+  datasource,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -340,71 +524,29 @@ export default function FactMetricModal({
 
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
-    .filter((d) => d.properties?.queryLanguage === "sql");
+    .filter((d) => d.properties?.queryLanguage === "sql")
+    .filter((d) => !datasource || d.id === datasource);
+
+  const defaultValues = getDefaultFactMetricProps({
+    datasources,
+    metricDefaults,
+    existing,
+    settings,
+    project,
+    initialFactTable: initialFactTable
+      ? getFactTableById(initialFactTable) || undefined
+      : undefined,
+  });
+
+  // Multiple percent values by 100 for the UI
+  // These are corrected in the submit method later
+  defaultValues.winRisk = defaultValues.winRisk * 100;
+  defaultValues.loseRisk = defaultValues.loseRisk * 100;
+  defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
+  defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
 
   const form = useForm<CreateFactMetricProps>({
-    defaultValues: {
-      name: existing?.name || "",
-      description: existing?.description || "",
-      tags: existing?.tags || [],
-      metricType: existing?.metricType || "proportion",
-      numerator: existing?.numerator || {
-        factTableId: initialFactTable || "",
-        column: "$$count",
-        filters: [],
-      },
-      projects: existing?.projects || [],
-      denominator: existing?.denominator || null,
-      datasource:
-        existing?.datasource ||
-        getNewExperimentDatasourceDefaults(
-          datasources,
-          settings,
-          project,
-          initialFactTable
-            ? { datasource: getFactTableById(initialFactTable)?.datasource }
-            : {}
-        ).datasource,
-      inverse: existing?.inverse || false,
-      cappingSettings: existing?.cappingSettings || {
-        type: "",
-        value: 0,
-      },
-      quantileSettings: existing?.quantileSettings || null,
-      windowSettings: existing?.windowSettings || {
-        type: DEFAULT_FACT_METRIC_WINDOW,
-        delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-        windowUnit: "days",
-        windowValue: 3,
-      },
-      winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
-      loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
-      minPercentChange:
-        (existing?.minPercentChange || metricDefaults.minPercentageChange) *
-        100,
-      maxPercentChange:
-        (existing?.maxPercentChange || metricDefaults.maxPercentageChange) *
-        100,
-      minSampleSize:
-        existing?.minSampleSize || metricDefaults.minimumSampleSize,
-      regressionAdjustmentOverride:
-        existing?.regressionAdjustmentOverride || false,
-      regressionAdjustmentEnabled:
-        existing?.regressionAdjustmentEnabled ||
-        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      regressionAdjustmentDays:
-        existing?.regressionAdjustmentDays ||
-        (settings.regressionAdjustmentDays ??
-          DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
-      priorSettings:
-        existing?.priorSettings ||
-        (metricDefaults.priorSettings ?? {
-          override: false,
-          proper: false,
-          mean: 0,
-          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-        }),
-    },
+    defaultValues,
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
@@ -588,18 +730,19 @@ export default function FactMetricModal({
       })}
       size="lg"
     >
-      {goBack && (
-        <div className="mb-3">
+      {switchToLegacy && (
+        <Callout status="info" mb="3">
+          You are creating a Fact Table Metric.{" "}
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              goBack();
+              switchToLegacy();
             }}
           >
-            <GBArrowLeft /> Go Back
+            Switch to legacy SQL <FaArrowRight />
           </a>
-        </div>
+        </Callout>
       )}
       <Field
         label="Metric Name"
@@ -976,23 +1119,14 @@ export default function FactMetricModal({
                 <div className="px-3 py-2 pb-0 mb-2 border rounded">
                   {regressionAdjustmentAvailableForMetric ? (
                     <>
-                      <div className="form-group mb-0 mr-0 form-inline">
-                        <div className="form-inline my-1">
-                          <input
-                            type="checkbox"
-                            className="form-check-input"
-                            {...form.register("regressionAdjustmentOverride")}
-                            id={"toggle-regressionAdjustmentOverride"}
-                            disabled={!hasRegressionAdjustmentFeature}
-                          />
-                          <label
-                            className="mr-1 cursor-pointer"
-                            htmlFor="toggle-regressionAdjustmentOverride"
-                          >
-                            Override organization-level settings
-                          </label>
-                        </div>
-                      </div>
+                      <Checkbox
+                        label="Override organization-level settings"
+                        value={form.watch("regressionAdjustmentOverride")}
+                        setValue={(v) =>
+                          form.setValue("regressionAdjustmentOverride", v)
+                        }
+                        disabled={!hasRegressionAdjustmentFeature}
+                      />
                       <div
                         style={{
                           display: form.watch("regressionAdjustmentOverride")

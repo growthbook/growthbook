@@ -1,35 +1,32 @@
+import Button from "@/components/Radix/Button";
+
 export interface Props {
   editResult?: () => void;
   editTargeting?: (() => void) | null;
+  isBandit?: boolean;
 }
 
 export default function ExperimentActionButtons({
   editResult,
   editTargeting,
+  isBandit,
 }: Props) {
   return (
     <div>
-      <button
-        className="btn btn-primary mr-2"
+      <Button
+        mr="2"
         disabled={!editTargeting}
-        onClick={() => {
-          editTargeting && editTargeting();
-        }}
+        onClick={() => editTargeting?.()}
       >
         Make Changes
-      </button>
-      <button
-        className="btn btn-outline-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          if (editResult) {
-            editResult();
-          }
-        }}
+      </Button>
+      <Button
+        variant="outline"
+        onClick={() => editResult?.()}
         disabled={!editResult}
       >
-        Stop Experiment
-      </button>
+        Stop {isBandit ? "Bandit" : "Experiment"}
+      </Button>
     </div>
   );
 }

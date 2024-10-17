@@ -65,6 +65,7 @@ export type CommercialFeature =
   | "experiment-impact"
   | "metric-populations"
   | "large-saved-groups"
+  | "multi-armed-bandits"
   | "metric-groups";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -169,6 +170,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multiple-sdk-webhooks",
     "quantile-metrics",
     "metric-populations",
+    "multi-armed-bandits",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -191,6 +193,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multiple-sdk-webhooks",
     "quantile-metrics",
     "metric-populations",
+    "multi-armed-bandits",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -228,6 +231,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "experiment-impact",
     "metric-populations",
     "large-saved-groups",
+    "multi-armed-bandits",
     "metric-groups",
   ]),
 };

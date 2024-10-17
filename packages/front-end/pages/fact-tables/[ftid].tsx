@@ -344,7 +344,7 @@ export default function FactTablePage() {
       </div>
 
       <h3>Metrics</h3>
-      <div className="mb-4">
+      <div className="mb-5">
         <div className="mb-1">
           Metrics are built on top of Columns and Filters. These are what you
           use as Goals and Guardrails in experiments. This page only shows

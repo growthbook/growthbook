@@ -1,3 +1,5 @@
+import { Slider } from "@radix-ui/themes";
+
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -21,16 +23,14 @@ export default function RolloutPercentInput({
       <label>{label}</label>
       <div className="row align-items-center">
         <div className="col">
-          <input
-            value={value}
-            onChange={(e) => {
-              setValue(parseFloat(e.target.value));
+          <Slider
+            value={[value]}
+            min={0}
+            max={1}
+            step={0.01}
+            onValueChange={(e) => {
+              setValue(e[0]);
             }}
-            min="0"
-            max="1"
-            step="0.01"
-            type="range"
-            className="w-100"
           />
         </div>
         <div className="col-auto" style={{ fontSize: "1.3em", width: "4em" }}>

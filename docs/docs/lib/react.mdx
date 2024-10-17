@@ -523,9 +523,9 @@ Sticky bucketing ensures that users see the same experiment variant, even when u
 - `LocalStorageStickyBucketService` —
   For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
 
-- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured.
+- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`.
 
-- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured.
+- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `maxAge: {ms}` into the constructor's `cookieAttributes`.
 
 - `RedisStickyBucketService` — For NodeJS Redis-based bucket persistence. Requires an `ioredis` Redis client instance to be passed in.
 

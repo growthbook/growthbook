@@ -19,6 +19,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
+import clsx from "clsx";
 import {
   ReactSelectProps,
   SingleValue,
@@ -137,7 +138,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   return (
     <Field
       {...fieldProps}
-      customClassName={customClassName}
+      customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
       render={(id, ref) => {
         return (
           <Component
@@ -171,6 +172,25 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     DropdownIndicator: () => null,
                     IndicatorSeparator: () => null,
                   }
+                : creatable
+                ? {
+                    MenuList: (props) => {
+                      return (
+                        <>
+                          <div
+                            className="px-2 py-1"
+                            style={{
+                              fontWeight: 500,
+                              fontSize: "85%",
+                            }}
+                          >
+                            <strong>Select an option or create one</strong>
+                          </div>
+                          <components.MenuList {...props} />
+                        </>
+                      );
+                    },
+                  }
                 : {}),
             }}
             {...(creatable && noMenu
@@ -187,6 +207,28 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
             value={selected}
+            {...(creatable
+              ? {
+                  formatCreateLabel: (input: string) => {
+                    return (
+                      <span>
+                        <span className="text-muted">Create</span>{" "}
+                        <span
+                          className="badge bg-purple-light-2"
+                          style={{
+                            fontWeight: 600,
+                            padding: "3px 6px",
+                            lineHeight: "1.5",
+                            borderRadius: "2px",
+                          }}
+                        >
+                          {input}
+                        </span>
+                      </span>
+                    );
+                  },
+                }
+              : {})}
             placeholder={initialOption ?? placeholder}
             isOptionDisabled={isOptionDisabled}
             {...{ ...ReactSelectProps, ...mergeStyles }}

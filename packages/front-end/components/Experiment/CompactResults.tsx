@@ -5,7 +5,11 @@ import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import {
+  ExperimentStatus,
+  ExperimentType,
+  MetricOverride,
+} from "back-end/types/experiment";
 import {
   DifferenceType,
   PValueCorrection,
@@ -76,6 +80,7 @@ const CompactResults: FC<{
   mainTableOnly?: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
+  experimentType?: ExperimentType;
 }> = ({
   editMetrics,
   variations,
@@ -106,6 +111,7 @@ const CompactResults: FC<{
   mainTableOnly,
   noStickyHeader,
   noTooltip,
+  experimentType,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -258,11 +264,13 @@ const CompactResults: FC<{
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
 
+  const isBandit = experimentType === "multi-armed-bandit";
+
   return (
     <>
       {!mainTableOnly && (
         <>
-          {status !== "draft" && totalUsers > 0 && (
+          {!isBandit && status !== "draft" && totalUsers > 0 && (
             <div className="users">
               <Collapsible
                 trigger={
@@ -286,12 +294,15 @@ const CompactResults: FC<{
           )}
 
           <div className="mx-3">
-            <DataQualityWarning
-              results={results}
-              variations={variations}
-              linkToHealthTab
-              setTab={setTab}
-            />
+            {experimentType !== "multi-armed-bandit" && (
+              <DataQualityWarning
+                results={results}
+                variations={variations}
+                linkToHealthTab
+                setTab={setTab}
+                isBandit={isBandit}
+              />
+            )}
             <MultipleExposureWarning
               users={users}
               multipleExposures={multipleExposures}
@@ -314,8 +325,14 @@ const CompactResults: FC<{
           id={id}
           hasRisk={hasRisk(rows)}
           tableRowAxis="metric"
-          labelHeader="Goal Metrics"
-          editMetrics={editMetrics}
+          labelHeader={
+            experimentType !== "multi-armed-bandit"
+              ? "Goal Metrics"
+              : "Decision Metric"
+          }
+          editMetrics={
+            experimentType !== "multi-armed-bandit" ? editMetrics : undefined
+          }
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
@@ -324,8 +341,14 @@ const CompactResults: FC<{
             regressionAdjustmentEnabled,
             statsEngine
           )}
-          metricFilter={metricFilter}
-          setMetricFilter={setMetricFilter}
+          metricFilter={
+            experimentType !== "multi-armed-bandit" ? metricFilter : undefined
+          }
+          setMetricFilter={
+            experimentType !== "multi-armed-bandit"
+              ? setMetricFilter
+              : undefined
+          }
           metricTags={allMetricTags}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -413,7 +436,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
-    row: ExperimentTableRow,
+    row?: ExperimentTableRow,
     maxRows?: number
   ) {
     const metricLink = (

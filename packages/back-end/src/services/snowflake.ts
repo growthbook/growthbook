@@ -16,7 +16,7 @@ function getProxySettings(): ProxyOptions {
 
   const parsed = new URL(uri);
   return {
-    proxyProtocol: parsed.protocol,
+    proxyProtocol: parsed.protocol.replace(":", ""),
     proxyHost: parsed.hostname,
     proxyPort: (parsed.port ? parseInt(parsed.port) : 0) || undefined,
     proxyUser: parsed.username || undefined,

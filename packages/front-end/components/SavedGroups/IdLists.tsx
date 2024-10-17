@@ -14,8 +14,7 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
+import Button from "@/components/Radix/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -129,12 +128,11 @@ export default function IdLists({ groups, mutate }: Props) {
           {canCreate ? (
             <div className="col-auto">
               <Button
-                color="primary"
                 onClick={async () => {
                   setSavedGroupForm({});
                 }}
               >
-                <GBAddCircle /> Add ID List
+                Add ID List
               </Button>
             </div>
           ) : null}

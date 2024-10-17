@@ -16,7 +16,7 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
-import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
+import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMCard";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
 import { HealthStatus } from "./StatusBadge";
@@ -30,6 +30,7 @@ interface Props {
   variations: ExperimentReportVariation[];
   healthTabConfigParams: HealthTabConfigParams;
   canConfigHealthTab: boolean;
+  isBandit?: boolean;
 }
 
 type DimensionWithIssues = {
@@ -88,6 +89,7 @@ export const DimensionIssues = ({
   exposureQuery,
   healthTabConfigParams,
   canConfigHealthTab,
+  isBandit,
 }: Props) => {
   const { settings } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
@@ -212,6 +214,7 @@ export const DimensionIssues = ({
                             users={d.variationUnits}
                             showWhenHealthy
                             type="simple"
+                            isBandit={isBandit}
                           />
                         )}
                         {d.health === "Not enough traffic" && (

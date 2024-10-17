@@ -105,12 +105,13 @@ export const namespaceValue = z
 
 export type NamespaceValue = z.infer<typeof namespaceValue>;
 
-/**
- * @deprecated
- */
+export const experimentType = ["standard", "multi-armed-bandit"] as const;
+export type ExperimentType = typeof experimentType[number];
+
 const experimentRule = baseRule
   .extend({
     type: z.literal("experiment"),
+    experimentType: z.enum(experimentType).optional(),
     trackingKey: z.string(),
     hashAttribute: z.string(),
     fallbackAttribute: z.string().optional(),

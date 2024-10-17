@@ -17,6 +17,7 @@ import { FormatDialect } from "back-end/src/util/sql";
 import { TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricQuantileSettings,
@@ -65,6 +66,18 @@ export type FactMetricData = {
   metricEnd: Date | null;
   maxHoursToConvert: number;
 };
+
+export type BanditMetricData = Pick<
+  FactMetricData,
+  | "alias"
+  | "id"
+  | "ratioMetric"
+  | "regressionAdjusted"
+  | "isPercentileCapped"
+  | "capCoalesceMetric"
+  | "capCoalesceDenominator"
+  | "capCoalesceCovariate"
+>;
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;
@@ -144,6 +157,16 @@ export type TestQueryParams = {
   templateVariables?: TemplateVariables;
   testDays?: number;
   limit?: number;
+};
+
+export type ColumnTopValuesParams = {
+  factTable: Pick<FactTableInterface, "sql" | "eventName">;
+  column: ColumnInterface;
+  limit?: number;
+};
+export type ColumnTopValuesResponseRow = {
+  value: string;
+  count: number;
 };
 
 interface ExperimentBaseQueryParams {
@@ -352,6 +375,8 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
 
+  theta?: number; // for bandits only
+
   quantile?: number;
   quantile_n?: number;
   quantile_lower?: number;
@@ -396,6 +421,9 @@ export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
+export type ColumnTopValuesResponse = QueryResponse<
+  ColumnTopValuesResponseRow[]
+>;
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -561,6 +589,8 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<PastExperimentQueryResponse>;
+  runColumnTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  getColumnTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
     schema?: string

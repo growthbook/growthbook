@@ -206,6 +206,10 @@ pre {
 
 // region Drop down
 
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+}
 .dropdown-menu {
   background-color: var(--surface-background-color);
   color: var(--text-color-main);
