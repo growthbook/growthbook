@@ -75,6 +75,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
           editDates={true}
           editVariationIds={false}
           editMetrics={true}
+          source={"analysis-settings"}
         />
       )}
 

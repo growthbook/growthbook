@@ -10,7 +10,8 @@ const EditTagsForm: FC<{
   save: (tags: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
-}> = ({ tags = [], save, cancel, mutate }) => {
+  source?: string;
+}> = ({ tags = [], save, cancel, mutate, source }) => {
   const { refreshTags } = useDefinitions();
 
   const form = useForm({
@@ -21,7 +22,8 @@ const EditTagsForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-tags-form"
+      trackingEventModalSource={source}
       header={"Edit Tags"}
       open={true}
       close={cancel}

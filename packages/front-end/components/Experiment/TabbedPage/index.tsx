@@ -194,7 +194,7 @@ export default function TabbedPage({
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-
+  const trackSource = "tabbed-page";
   return (
     <div>
       {editNameOpen && (
@@ -242,6 +242,7 @@ export default function TabbedPage({
             await openVisualEditor(vc, apiCall);
           }}
           cta="Open Visual Editor"
+          source={trackSource}
         />
       )}
       {urlRedirectModal && (
@@ -251,6 +252,7 @@ export default function TabbedPage({
           mutate={mutate}
           close={() => setUrlRedirectModal(false)}
           cta="Add Redirect"
+          source={trackSource}
         />
       )}
       {statusModal && (
@@ -258,6 +260,7 @@ export default function TabbedPage({
           experiment={experiment}
           close={() => setStatusModal(false)}
           mutate={mutate}
+          source={trackSource}
         />
       )}
       {featureModal && (
@@ -265,6 +268,7 @@ export default function TabbedPage({
           experiment={experiment}
           close={() => setFeatureModal(false)}
           mutate={mutate}
+          source={trackSource}
         />
       )}
       {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}

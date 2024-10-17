@@ -14,6 +14,7 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
   editTargeting: (() => void) | null;
+  source?: string;
 }
 
 export default function EditPhasesModal({
@@ -21,6 +22,7 @@ export default function EditPhasesModal({
   experiment,
   mutateExperiment,
   editTargeting,
+  source,
 }: Props) {
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
@@ -53,6 +55,7 @@ export default function EditPhasesModal({
   if (editPhase !== null) {
     return (
       <EditPhaseModal
+        source="edit-phases-modal"
         close={() => {
           if (isDraft && !isMultiPhase) {
             close();
@@ -73,7 +76,8 @@ export default function EditPhasesModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-phases-modal"
+      trackingEventModalSource={source}
       open={true}
       header="Edit Phases"
       close={close}

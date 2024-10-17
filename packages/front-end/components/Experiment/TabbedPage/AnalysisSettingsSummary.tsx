@@ -255,6 +255,7 @@ export default function AnalysisSettingsSummary({
           editDates={true}
           editVariationIds={false}
           editMetrics={true}
+          source={"analysis-settings-summary"}
         />
       )}
       <div className="row align-items-center text-muted">

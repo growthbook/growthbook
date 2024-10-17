@@ -12,9 +12,15 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
+  source?: string;
 }
 
-export default function EditStatusModal({ experiment, close, mutate }: Props) {
+export default function EditStatusModal({
+  experiment,
+  close,
+  mutate,
+  source,
+}: Props) {
   const form = useForm({
     defaultValues: {
       status: experiment.status,
@@ -29,7 +35,8 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-status-modal"
+      trackingEventModalSource={source}
       header={"Change Experiment Status"}
       close={close}
       open={true}

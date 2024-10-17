@@ -317,6 +317,7 @@ export default function FactMetricPage() {
           }}
           cancel={() => setEditTagsModal(false)}
           mutate={mutateDefinitions}
+          source="fmid"
         />
       )}
       <PageHead

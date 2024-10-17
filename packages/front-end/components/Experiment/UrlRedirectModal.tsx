@@ -99,7 +99,8 @@ const UrlRedirectModal: FC<{
   mutate: () => void;
   close: () => void;
   cta?: string;
-}> = ({ mode, experiment, urlRedirect, mutate, close, cta }) => {
+  source?: string;
+}> = ({ mode, experiment, urlRedirect, mutate, close, cta, source }) => {
   const { apiCall } = useAuth();
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -174,7 +175,8 @@ const UrlRedirectModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="url-redirect-modal"
+      trackingEventModalSource={source}
       autoCloseOnSubmit={false}
       open
       disabledMessage={

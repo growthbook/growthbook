@@ -22,7 +22,8 @@ const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-}> = ({ experiment, close, mutate }) => {
+  source?: string;
+}> = ({ experiment, close, mutate, source }) => {
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -89,7 +90,8 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="new-phase-form"
+      trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
       close={close}
       open={true}

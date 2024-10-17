@@ -69,6 +69,7 @@ export type NewExperimentFormProps = {
   isImport?: boolean;
   fromFeature?: boolean;
   includeDescription?: boolean;
+  duplicate?: boolean;
   source: string;
   idea?: string;
   msg?: string;
@@ -135,6 +136,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   isImport,
   fromFeature,
   includeDescription = true,
+  duplicate,
   source,
   idea,
   msg,
@@ -150,7 +152,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
   );
-
+  //const [trackingProps, setTrackingProps] = useState({});
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
   const {
@@ -343,7 +345,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (allowDuplicateTrackingKey) {
       params.allowDuplicateTrackingKey = true;
     }
-    if (source === "duplicate" && initialValue?.id) {
+    if (duplicate && initialValue?.id) {
       params.originalId = initialValue.id;
     }
 
@@ -366,6 +368,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       );
     }
 
+    // TODO remove if data correlates
     track("Create Experiment", {
       source,
       numTags: data.tags?.length || 0,
@@ -403,12 +406,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
+  // TODO with PagedModal tracking
+  // useEffect(() => {
+  //   const values = form.getValues();
+  //   setTrackingProps({
+  //     numTags: values.tags?.length || 0,
+  //     numMetrics:
+  //       (values.goalMetrics?.length || 0) +
+  //       (values.secondaryMetrics?.length || 0),
+  //     numVariations: values.variations?.length || 0,
+  //   });
+  // }, [form]);
+
   let header = isNewExperiment
     ? `Create ${
         form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
       }`
     : "Create Experiment Analysis";
-  if (source === "duplicate") {
+  if (duplicate) {
     header = `Duplicate ${
       form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
     }`;
@@ -439,7 +454,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
           )}
 
-          {growthbook.isOn("bandits") && source !== "duplicate" && (
+          {growthbook.isOn("bandits") && !duplicate && (
             <div className="bg-highlight rounded py-4 px-4 mb-4">
               <ButtonSelectField
                 buttonType="card"

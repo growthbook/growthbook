@@ -397,6 +397,7 @@ export function PreLaunchChecklist({
           editDates={true}
           editVariationIds={false}
           editMetrics={true}
+          source={"pre-launch-checklist"}
         />
       )}
 

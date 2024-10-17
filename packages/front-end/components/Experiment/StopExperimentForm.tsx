@@ -19,7 +19,8 @@ const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-}> = ({ experiment, close, mutate }) => {
+  source?: string;
+}> = ({ experiment, close, mutate, source }) => {
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
@@ -86,7 +87,8 @@ const StopExperimentForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="stop-experiment-form"
+      trackingEventModalSource={source}
       header={
         isStopped
           ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`

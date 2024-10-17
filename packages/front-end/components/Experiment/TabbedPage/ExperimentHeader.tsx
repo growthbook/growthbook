@@ -208,7 +208,12 @@ export default function ExperimentHeader({
         )}
         {showStartExperiment && experiment.status === "draft" && (
           <Modal
-            trackingEventModalType=""
+            trackingEventModalType="start-experiment"
+            trackingEventModalSource={
+              checklistIncomplete || !verifiedConnections.length
+                ? "incomplete-checklist"
+                : "complete-checklist"
+            }
             open={true}
             size="md"
             closeCta={

@@ -301,7 +301,8 @@ const Modal: FC<ModalProps> = ({
     if (open) {
       sendTrackingEvent("modal-open");
     }
-  }, [open, sendTrackingEvent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const modalHtml = (
     <div
