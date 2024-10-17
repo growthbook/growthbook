@@ -75,6 +75,8 @@ export const columnRefValidator = z
     column: z.string(),
     inlineFilters: z.record(z.string().array()).optional(),
     filters: z.array(z.string()),
+    aggregateFilter: z.string().optional(),
+    aggregateFilterColumn: z.string().optional(),
   })
   .strict();
 

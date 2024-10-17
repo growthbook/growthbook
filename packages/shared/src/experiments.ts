@@ -59,7 +59,8 @@ export function canInlineFilterColumn(
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
   columnRef: ColumnRef,
-  escapeStringLiteral: (s: string) => string
+  escapeStringLiteral: (s: string) => string,
+  showSourceComment = false
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
@@ -87,11 +88,49 @@ export function getColumnRefWhereClause(
   filterIds.forEach((filterId) => {
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (filter) {
-      where.add(filter.value);
+      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
+      where.add(comment + filter.value);
     }
   });
 
   return [...where];
+}
+
+export function getAggregateFilters({
+  columnRef,
+  column,
+  ignoreInvalid = false,
+}: {
+  columnRef: Pick<
+    ColumnRef,
+    "aggregateFilter" | "aggregateFilterColumn" | "column"
+  > | null;
+  column: string;
+  ignoreInvalid?: boolean;
+}) {
+  if (!columnRef?.aggregateFilter) return [];
+  if (!columnRef.aggregateFilterColumn) return [];
+
+  // Only support distinctUsers for now
+  if (columnRef.column !== "$$distinctUsers") return [];
+
+  const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");
+
+  const filters: string[] = [];
+  parts.forEach((part) => {
+    if (!part) return;
+
+    // i.e. ">10" or "!=5.1"
+    const match = part.match(/^(=|!=|<>|<|<=|>|>=)(\d+(\.\d+)?)$/);
+    if (match) {
+      const [, operator, value] = match;
+      filters.push(`${column} ${operator} ${value}`);
+    } else if (!ignoreInvalid) {
+      throw new Error(`Invalid aggregate filter: ${part}`);
+    }
+  });
+
+  return filters;
 }
 
 export function getMetricTemplateVariables(
