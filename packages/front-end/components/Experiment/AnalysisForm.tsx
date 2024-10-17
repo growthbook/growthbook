@@ -53,11 +53,13 @@ const AnalysisForm: FC<{
   editVariationIds?: boolean;
   editDates?: boolean;
   editMetrics?: boolean;
+  source?: string;
 }> = ({
   experiment,
   cancel,
   mutate,
   phase,
+  source,
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
@@ -234,7 +236,8 @@ const AnalysisForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="analysis-form"
+      trackingEventModalSource={source}
       header={"Experiment Settings"}
       open={true}
       close={cancel}

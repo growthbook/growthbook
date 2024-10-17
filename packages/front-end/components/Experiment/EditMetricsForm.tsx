@@ -127,7 +127,8 @@ const EditMetricsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
-}> = ({ experiment, cancel, mutate }) => {
+  source?: string;
+}> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
     false
@@ -171,7 +172,8 @@ const EditMetricsForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-metrics-form"
+      trackingEventModalSource={source}
       autoFocusSelector=""
       header="Edit Metrics"
       size="lg"
