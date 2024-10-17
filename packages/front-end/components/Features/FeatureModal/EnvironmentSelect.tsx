@@ -20,45 +20,47 @@ const EnvironmentSelect: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
   return (
-    // <div className="form-group">
-    <Container p="5" style={{ background: "#FAF8FF" }}>
-      <Text as="label" weight="bold">
-        Enabled Environments
-      </Text>
-      <CheckboxGroup.Root name="enabled-environments" mt="3">
-        <Text
-          as="label"
-          className={"rt-CheckboxItem"}
-          size="2"
-          onClick={() => {
-            environments.forEach((env) => {
-              setValue(env, true);
-            });
-          }}
-        >
-          <Flex gap="2" mb="2">
-            <RadixCheckbox checked={"indeterminate"} color={"violet"} />
-            <Flex direction="column" gap="1">
-              <Text weight="bold" className="main-text">
-                Select All
-              </Text>
-            </Flex>
-          </Flex>
+    <div className="form-group">
+      <Container p="5" style={{ background: "#FAF8FF" }}>
+        <Text as="label" weight="bold">
+          Enabled Environments
         </Text>
-        {environments.map((env) => (
-          <Checkbox
-            disabled={!permissionsUtil.canPublishFeature({ project }, [env.id])}
-            disabledMessage="You don't have permission to create features in this environment."
-            value={environmentSettings[env.id].enabled}
-            setValue={(enabled) => setValue(env, enabled)}
-            label={env.id}
-            key={env.id}
-            weight="regular"
-          />
-        ))}
-      </CheckboxGroup.Root>
-    </Container>
-    // </div>
+        <CheckboxGroup.Root name="enabled-environments" mt="3">
+          <Text
+            as="label"
+            className={"rt-CheckboxItem"}
+            size="2"
+            onClick={() => {
+              environments.forEach((env) => {
+                setValue(env, true);
+              });
+            }}
+          >
+            <Flex gap="2" mb="2">
+              <RadixCheckbox checked={"indeterminate"} color={"violet"} />
+              <Flex direction="column" gap="1">
+                <Text weight="bold" className="main-text">
+                  Select All
+                </Text>
+              </Flex>
+            </Flex>
+          </Text>
+          {environments.map((env) => (
+            <Checkbox
+              disabled={
+                !permissionsUtil.canPublishFeature({ project }, [env.id])
+              }
+              disabledMessage="You don't have permission to create features in this environment."
+              value={environmentSettings[env.id].enabled}
+              setValue={(enabled) => setValue(env, enabled)}
+              label={env.id}
+              key={env.id}
+              weight="regular"
+            />
+          ))}
+        </CheckboxGroup.Root>
+      </Container>
+    </div>
   );
 };
 
