@@ -276,12 +276,61 @@ export async function postInbuiltDataSource(
 ) {
   const context = getContextFromReq(req);
   const params = await createClickhouseUser(context);
+  const datasourceSettings = {
+    userIdTypes: [
+      {
+        userIdType: "anonymous_id",
+      },
+      {
+        userIdType: "user_id",
+      },
+    ],
+    queries: {
+      exposure: [
+        {
+          id: "anonymous_id",
+          dimensions: [],
+          name: "Anonymous Id Experiments",
+          query: `         
+SELECT 
+device_id as anonymous_id,
+timestamp,
+simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
+simpleJSONExtractString(properties_json, 'variation_id') as variation_id
+FROM test_enriched_events 
+WHERE
+event_name = 'Experiment Viewed'
+AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+              `,
+          userIdType: "anonymous_id",
+        },
+        {
+          id: "user_id",
+          dimensions: [],
+          name: "Logged in User Id Experiments",
+          query: `         
+SELECT 
+user_id,
+timestamp,
+simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
+simpleJSONExtractString(properties_json, 'variation_id') as variation_id
+FROM test_enriched_events 
+WHERE
+event_name = 'Experiment Viewed'
+AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+              `,
+          userIdType: "user_id",
+        },
+      ],
+    },
+  };
+
   const newDatasource = await createDataSource(
     context,
     "Growthbook Inbuilt Datasource",
     "clickhouse",
     params,
-    {}
+    datasourceSettings
   );
   res.status(200).json({
     status: 200,

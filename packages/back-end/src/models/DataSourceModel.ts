@@ -195,10 +195,8 @@ export async function createDataSource(
     projects,
   };
 
-  logger.info("testDataSourceConnection");
   await testDataSourceConnection(context, datasource);
 
-  logger.info(`validate for ${settings}`);
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
     context,
@@ -207,14 +205,11 @@ export async function createDataSource(
     true
   );
 
-  logger.info("create datasource");
   const model = (await DataSourceModel.create(
     datasource
   )) as DataSourceDocument;
 
-  logger.info("getSourceIntegrationObject");
   const integration = getSourceIntegrationObject(context, datasource);
-  logger.info("integration=" + integration);
   if (
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema

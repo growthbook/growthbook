@@ -35,6 +35,7 @@ function generatePassword(length: number = 16): string {
 export async function createClickhouseUser(
   context: ReqContext
 ): Promise<DataSourceParams> {
+  const eventsTableName = "test_enriched_events";
   const client = createClickhouseClient({
     host: CLICKHOUSE_HOST,
     username: CLICKHOUSE_ADMIN_USER,
@@ -64,14 +65,14 @@ export async function createClickhouseUser(
 
   logger.info(`Creating Clickhouse view ${viewName}`);
   await client.command({
-    query: `CREATE MATERIALIZED VIEW ${viewName} ENGINE = MergeTree() ORDER BY org_id  DEFINER=CURRENT_USER SQL SECURITY DEFINER AS SELECT * FROM test_kafka_events WHERE org_id = '${orgId}'`,
+    query: `CREATE MATERIALIZED VIEW ${viewName} ENGINE = MergeTree() ORDER BY organization DEFINER=CURRENT_USER SQL SECURITY DEFINER AS SELECT * FROM ${eventsTableName} WHERE organization = '${orgId}'`,
   });
 
   // Materialized views only show rows that have been added since the view was created
   // We probably don't need to do this for real, but during testing we need to populate it with existing data
   logger.info(`Populating view with existing data`);
   await client.command({
-    query: `INSERT INTO ${viewName} SELECT * FROM test_kafka_events WHERE org_id = '${orgId}'`,
+    query: `INSERT INTO ${viewName} SELECT * FROM ${eventsTableName} WHERE organization = '${orgId}'`,
   });
 
   logger.info(`Granting select permissions on ${viewName} to ${user}`);
@@ -81,20 +82,21 @@ export async function createClickhouseUser(
   // and grant select on the main table.  They can read off the main table, but the row policy will restrict them to only seeing their org's data.
   logger.info("Creating row policy");
   await client.command({
-    query: `CREATE ROW POLICY IF NOT EXISTS ${viewName}_policy ON test_kafka_events FOR SELECT USING org_id = '${orgId}' TO '${user}'`,
+    query: `CREATE ROW POLICY IF NOT EXISTS ${viewName}_policy ON ${eventsTableName} FOR SELECT USING organization = '${orgId}' TO '${user}'`,
   });
 
   logger.info(
     `Granting select permissions on main table to ${user} which should be safe because of the row policy`
   );
   await client.command({
-    query: `GRANT SELECT ON test_kafka_events TO ${user}`,
+    query: `GRANT SELECT ON ${eventsTableName} TO ${user}`,
   });
 
   logger.info(`Clickhouse user ${user} created`);
 
-  const url = CLICKHOUSE_HOST.replace("https://", "").split(":")[0];
-  const port = parseInt(CLICKHOUSE_HOST.split(":")[1]);
+  const parts = CLICKHOUSE_HOST.split(":");
+  const port = parseInt(CLICKHOUSE_HOST.split(":").pop() || "9000");
+  const url = parts.join(":");
 
   const params = {
     port: port,
