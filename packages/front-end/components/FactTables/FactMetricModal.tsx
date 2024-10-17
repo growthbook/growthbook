@@ -1,5 +1,10 @@
 import { useForm } from "react-hook-form";
-import { FaArrowRight, FaTimes } from "react-icons/fa";
+import {
+  FaAngleDown,
+  FaAngleRight,
+  FaArrowRight,
+  FaTimes,
+} from "react-icons/fa";
 import { ReactElement, useEffect, useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
@@ -22,6 +27,8 @@ import {
   MetricQuantileSettings,
   FactMetricType,
   FactTableInterface,
+  MetricWindowSettings,
+  ColumnInterface,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
@@ -30,7 +37,11 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  getAggregateFilters,
+  getColumnRefWhereClause,
+} from "shared/experiments";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber } from "@/services/metrics";
@@ -63,6 +74,8 @@ import { AppFeatures } from "@/types/app-features";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import Checkbox from "@/components/Radix/Checkbox";
 import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 export interface Props {
   close?: () => void;
@@ -153,6 +166,19 @@ function QuantileSelector({
   );
 }
 
+function getNumericColumns(
+  factTable: FactTableInterface | null
+): ColumnInterface[] {
+  if (!factTable) return [];
+  return factTable.columns.filter(
+    (col) =>
+      col.datatype === "number" &&
+      !col.deleted &&
+      col.column !== "timestamp" &&
+      !factTable.userIdTypes.includes(col.column)
+  );
+}
+
 function getNumericColumnOptions({
   factTable,
   includeCount = true,
@@ -164,18 +190,12 @@ function getNumericColumnOptions({
   includeCountDistinct?: boolean;
   showColumnsAsSums?: boolean;
 }): SingleValue[] | GroupedValue[] {
-  const columnOptions: SingleValue[] = (factTable?.columns || [])
-    .filter(
-      (col) =>
-        !col.deleted &&
-        col.column !== "timestamp" &&
-        !factTable?.userIdTypes?.includes(col.column)
-    )
-    .filter((col) => col.datatype === "number")
-    .map((col) => ({
+  const columnOptions: SingleValue[] = getNumericColumns(factTable).map(
+    (col) => ({
       label: showColumnsAsSums ? `SUM(${col.name})` : col.name,
       value: col.column,
-    }));
+    })
+  );
 
   const specialColumnOptions: SingleValue[] = [];
   if (includeCountDistinct) {
@@ -281,9 +301,9 @@ function ColumnRefSelector({
   });
 
   return (
-    <div className="appbox px-3 pt-3 bg-light">
-      <div className="row align-items-center">
-        <div className="col-auto">
+    <div className="">
+      <div className="d-flex flex-column">
+        <div>
           <SelectField
             label={"Fact Table"}
             disabled={disableFactTableSelector}
@@ -321,7 +341,7 @@ function ColumnRefSelector({
           />
         </div>
         {inlineFilterFields.map(({ label, key, options, error }) => (
-          <div className="col-auto" key={key}>
+          <div key={key}>
             <MultiSelectField
               label={
                 <>
@@ -356,11 +376,11 @@ function ColumnRefSelector({
           </div>
         ))}
         {factTable && factTable.filters.length > 0 ? (
-          <div className="col-auto">
+          <div>
             <MultiSelectField
               label={
                 <>
-                  Included Rows{" "}
+                  Row Filter{" "}
                   <Tooltip body="Filter individual rows.  Only rows that satisfy ALL selected filters will be included" />
                 </>
               }
@@ -391,7 +411,7 @@ function ColumnRefSelector({
           </div>
         ) : null}
         {includeColumn && (
-          <div className="col-auto">
+          <div>
             <SelectField
               label="Value"
               value={value.column}
@@ -409,11 +429,11 @@ function ColumnRefSelector({
         {includeColumn &&
           !value.column.startsWith("$$") &&
           aggregationType === "unit" && (
-            <div className="col-auto">
+            <div>
               <SelectField
                 label={
                   <>
-                    Aggregation{" "}
+                    Per-User Aggregation{" "}
                     <Tooltip body="Only SUM is supported today, but more aggregation types may be added in the future." />
                   </>
                 }
@@ -427,12 +447,12 @@ function ColumnRefSelector({
             </div>
           )}
         {supportsAggregatedFilter && factTable && (
-          <div className="col-auto d-flex align-items-center">
+          <div className="d-flex align-items-center">
             <div>
               <SelectField
                 label={
                   <>
-                    Included Users{" "}
+                    User Filter{" "}
                     <Tooltip
                       body={
                         <>
@@ -479,7 +499,7 @@ function ColumnRefSelector({
             )}
           </div>
         )}
-        {extraField && <div className="col-auto">{extraField}</div>}
+        {extraField && <div>{extraField}</div>}
       </div>
     </div>
   );
@@ -567,6 +587,234 @@ export function getDefaultFactMetricProps({
   };
 }
 
+function indentLines(str: string, spaces: number = 2) {
+  return str
+    .split("\n")
+    .map((line) => `${" ".repeat(spaces)}${line}`)
+    .join("\n");
+}
+
+function getPreviewSQL({
+  type,
+  quantileSettings,
+  windowSettings,
+  numerator,
+  denominator,
+  numeratorFactTable,
+  denominatorFactTable,
+}: {
+  type: FactMetricType;
+  quantileSettings: MetricQuantileSettings;
+  windowSettings: MetricWindowSettings;
+  numerator: ColumnRef;
+  denominator: ColumnRef | null;
+  numeratorFactTable: FactTableInterface | null;
+  denominatorFactTable: FactTableInterface | null;
+}): { sql: string; denominatorSQL?: string; experimentSQL: string } {
+  const identifier =
+    "`" + (numeratorFactTable?.userIdTypes?.[0] || "user_id") + "`";
+
+  const identifierComment =
+    (numeratorFactTable?.userIdTypes?.length || 0) > 1
+      ? `\n  -- All of the Fact Table's identifier types are supported`
+      : "";
+
+  const numeratorName = "`" + (numeratorFactTable?.name || "___") + "`";
+  const denominatorName = "`" + (denominatorFactTable?.name || "___") + "`";
+
+  const numeratorCol =
+    numerator.column === "$$count"
+      ? "COUNT(*)"
+      : numerator.column === "$$distinctUsers"
+      ? "1"
+      : `SUM(${numerator.column})`;
+
+  const whereParts = numeratorFactTable
+    ? getColumnRefWhereClause(
+        numeratorFactTable,
+        numerator,
+        (s) => s.replace(/'/g, "''"),
+        true
+      )
+    : [];
+
+  let WHERE =
+    whereParts.length > 0
+      ? `\nWHERE\n${indentLines(whereParts.join(" AND\n"))}`
+      : "";
+
+  if (
+    type === "quantile" &&
+    quantileSettings.type === "event" &&
+    quantileSettings.ignoreZeros
+  ) {
+    if (WHERE.length) {
+      WHERE += " AND\n  value > 0";
+    } else {
+      WHERE = `WHERE value > 0`;
+    }
+  }
+
+  const denominatorWhereParts =
+    denominatorFactTable && denominator
+      ? getColumnRefWhereClause(
+          denominatorFactTable,
+          denominator,
+          (s) => s.replace(/'/g, "''"),
+          true
+        )
+      : [];
+  const DENOMINATOR_WHERE =
+    denominatorWhereParts.length > 0
+      ? `\nWHERE\n${indentLines(denominatorWhereParts.join(" AND\n"))}`
+      : "";
+
+  const havingParts = getAggregateFilters({
+    columnRef: {
+      // Column is often set incorrectly for proportion metrics and changed later during submit
+      ...numerator,
+      column: type === "proportion" ? "$$distinctUsers" : numerator.column,
+    },
+    column:
+      numerator.aggregateFilterColumn === "$$count"
+        ? `COUNT(*)`
+        : `SUM(${numerator.aggregateFilterColumn})`,
+    ignoreInvalid: true,
+  });
+
+  let HAVING =
+    havingParts.length > 0
+      ? `\nHAVING\n${indentLines(havingParts.join("\nAND"))}`
+      : "";
+
+  if (type === "quantile") {
+    HAVING = "";
+    if (quantileSettings.type === "unit" && quantileSettings.ignoreZeros) {
+      HAVING = `\nHAVING ${numeratorCol} > 0`;
+    }
+  }
+
+  const denominatorCol =
+    denominator?.column === "$$count"
+      ? "COUNT(*)"
+      : denominator?.column === "$$distinctUsers"
+      ? "1"
+      : `SUM(${denominator?.column})`;
+
+  const conversionWindowWHERE =
+    windowSettings.type === "conversion"
+      ? `\n    AND m.timestamp <= u.timestamp + '${windowSettings.windowValue} ${windowSettings.windowUnit}'`
+      : windowSettings.type === "lookback"
+      ? `\n    AND m.timestamp > '${new Date(
+          Date.now() -
+            windowSettings.windowValue *
+              60 *
+              60 *
+              1000 *
+              (windowSettings.windowUnit === "days"
+                ? 24
+                : windowSettings.windowUnit === "weeks"
+                ? 24 * 7
+                : 1)
+        )
+          .toISOString()
+          .substring(0, 19)
+          .replace("T", " ")}'`
+      : "";
+
+  const experimentSQL = `
+SELECT
+  u.variation as variation,
+  ${
+    type !== "quantile"
+      ? `SUM(m.value) as numerator,
+  COUNT(*) as denominator,\n  `
+      : ""
+  }${
+    type === "quantile"
+      ? `PERCENTILE(COALESCE(m.value,0), ${quantileSettings.quantile})`
+      : `numerator / denominator`
+  } as value
+FROM
+  \`Experiment Users\` u
+  LEFT JOIN metric m ON (
+    m.user = u.user
+    AND m.timestamp > u.timestamp${conversionWindowWHERE}
+  )
+GROUP BY u.variation`.trim();
+
+  switch (type) {
+    case "proportion":
+      return {
+        sql: `
+SELECT${identifierComment}
+  ${identifier} AS user,
+  -- Proportion metrics always count unique users
+  1 AS value
+FROM
+  ${numeratorName}${WHERE}
+GROUP BY user${HAVING}
+`.trim(),
+
+        experimentSQL,
+      };
+    case "mean":
+      return {
+        sql: `
+SELECT${identifierComment}
+  ${identifier} AS user,
+  ${numeratorCol} AS value
+FROM
+  ${numeratorName}${WHERE}
+GROUP BY user
+`.trim(),
+        experimentSQL,
+      };
+    case "ratio":
+      return {
+        sql: `
+SELECT${identifierComment}
+  ${identifier} AS user,
+  ${numeratorCol} AS value
+FROM
+  ${numeratorName}${WHERE}
+GROUP BY user${HAVING}
+`.trim(),
+        denominatorSQL: `
+SELECT${identifierComment}
+  ${identifier} AS user,
+  ${denominatorCol} AS value
+FROM
+  ${denominatorName}${DENOMINATOR_WHERE}
+GROUP BY user
+`.trim(),
+        experimentSQL,
+      };
+    case "quantile":
+      // TODO: handle event vs user level quantiles
+      return {
+        sql:
+          quantileSettings.type === "unit"
+            ? `
+SELECT${identifierComment}
+  ${identifier} AS user,
+  ${numeratorCol} AS value
+FROM
+  ${numeratorName}${WHERE}
+GROUP BY user${HAVING}
+`.trim()
+            : `
+SELECT${identifierComment}
+  ${identifier} AS user,
+  \`${numerator.column}\` AS value
+FROM
+  ${numeratorName}${WHERE}
+`.trim(),
+        experimentSQL,
+      };
+  }
+}
+
 export default function FactMetricModal({
   close,
   initialFactTable,
@@ -628,6 +876,8 @@ export default function FactMetricModal({
   const [advancedOpen, setAdvancedOpen] = useState(
     showAdvancedSettings || false
   );
+
+  const [experimentSQLOpen, setExperimentSQLOpen] = useState(false);
 
   const type = form.watch("metricType");
 
@@ -695,9 +945,17 @@ export default function FactMetricModal({
 
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
-  const canUseEventQuantile = numeratorFactTable?.columns?.some(
-    (c) => c.datatype === "number"
-  );
+  const canUseEventQuantile = getNumericColumns(numeratorFactTable).length > 0;
+
+  const { sql, experimentSQL, denominatorSQL } = getPreviewSQL({
+    type,
+    quantileSettings,
+    windowSettings: form.watch("windowSettings"),
+    numerator,
+    denominator,
+    numeratorFactTable,
+    denominatorFactTable: getFactTableById(denominator?.factTableId || ""),
+  });
 
   return (
     <Modal
@@ -706,6 +964,7 @@ export default function FactMetricModal({
       header={
         existing && !duplicate ? "Edit Metric" : "Create Fact Table Metric"
       }
+      bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(async (values) => {
         if (values.denominator && !values.denominator.factTableId) {
@@ -818,581 +1077,669 @@ export default function FactMetricModal({
           onSave && onSave();
         }
       })}
-      size="lg"
+      size="max"
     >
-      {switchToLegacy && (
-        <Callout status="info" mb="3">
-          You are creating a Fact Table Metric.{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              switchToLegacy();
-            }}
-          >
-            Switch to legacy SQL <FaArrowRight />
-          </a>
-        </Callout>
-      )}
-      <Field
-        label="Metric Name"
-        {...form.register("name")}
-        autoFocus
-        required
-      />
-      {!existing && !initialFactTable && (
-        <SelectField
-          label="Data Source"
-          value={form.watch("datasource")}
-          onChange={(v) => {
-            form.setValue("datasource", v);
-            form.setValue("numerator", {
-              factTableId: "",
-              column: "",
-              filters: [],
-            });
-            form.setValue("denominator", {
-              factTableId: "",
-              column: "",
-              filters: [],
-            });
-          }}
-          options={validDatasources.map((d) => {
-            const defaultDatasource = d.id === settings.defaultDataSource;
-            return {
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""} ${
-                defaultDatasource ? " (default)" : ""
-              }`,
-            };
-          })}
-          className="portal-overflow-ellipsis"
-          name="datasource"
-          placeholder="Select..."
-        />
-      )}
-      {selectedDataSource && (
-        <>
-          <ButtonSelectField
-            label={
-              <>
-                Type of Metric{" "}
-                <Tooltip
-                  body={
-                    <div>
-                      <div className="mb-2">
-                        <strong>Proportion</strong> metrics calculate a simple
-                        conversion rate - the proportion of users in your
-                        experiment who are in a specific fact table.
-                      </div>
-                      <div className="mb-2">
-                        <strong>Mean</strong> metrics calculate the average
-                        value of a numeric column in a fact table.
-                      </div>
-                      {quantileMetricFlag ? (
-                        <div className="mb-2">
-                          <strong>Quantile</strong> metrics calculate the value
-                          at a specific percentile of a numeric column in a fact
-                          table.
-                          {!quantileMetricsAvailableForDatasource
-                            ? " Quantile metrics are not available for MySQL data sources."
-                            : ""}
-                        </div>
-                      ) : null}
-                      <div>
-                        <strong>Ratio</strong> metrics allow you to calculate a
-                        complex value by dividing two different numeric columns
-                        in your fact tables.
-                      </div>
-                    </div>
-                  }
-                />
-              </>
-            }
-            value={type}
-            setValue={(type) => {
-              if (
-                type === "quantile" &&
-                (!quantileMetricsAvailableForDatasource ||
-                  !hasQuantileMetricCommercialFeature)
-              ) {
-                return;
-              }
-              form.setValue("metricType", type as FactMetricType);
-
-              if (type === "quantile") {
-                form.setValue("quantileSettings", quantileSettings);
-                // capping off for quantile metrics
-                form.setValue("cappingSettings.type", "");
-              }
-
-              // When switching to ratio, reset the denominator value
-              if (type === "ratio" && !form.watch("denominator")) {
-                form.setValue("denominator", {
-                  factTableId: numerator.factTableId || initialFactTable || "",
-                  column: "$$count",
+      <div className="d-flex">
+        <div className="px-3 py-4 flex-1">
+          <h3>Enter Details</h3>
+          {switchToLegacy && (
+            <Callout status="info" mb="3">
+              You are creating a Fact Table Metric.{" "}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  switchToLegacy();
+                }}
+              >
+                Switch to legacy SQL <FaArrowRight />
+              </a>
+            </Callout>
+          )}
+          <Field
+            label="Metric Name"
+            {...form.register("name")}
+            autoFocus
+            required
+          />
+          {!existing && !initialFactTable && (
+            <SelectField
+              label="Data Source"
+              value={form.watch("datasource")}
+              onChange={(v) => {
+                form.setValue("datasource", v);
+                form.setValue("numerator", {
+                  factTableId: "",
+                  column: "",
                   filters: [],
                 });
-              }
-
-              // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
-              if (
-                type === "ratio" &&
-                form.watch("cappingSettings.type") === "absolute"
-              ) {
-                form.setValue("cappingSettings.type", "");
-              }
-            }}
-            options={[
-              {
-                value: "proportion",
-                label: "Proportion",
-              },
-              {
-                value: "mean",
-                label: "Mean",
-              },
-              ...(quantileMetricFlag
-                ? [
-                    {
-                      value: "quantile",
-                      label: (
-                        <>
-                          <PremiumTooltip
-                            commercialFeature="quantile-metrics"
-                            body={
-                              !quantileMetricsAvailableForDatasource
-                                ? "Quantile metrics are not available for MySQL data sources"
-                                : ""
-                            }
-                          >
-                            Quantile
-                          </PremiumTooltip>
-                        </>
-                      ),
-                    },
-                  ]
-                : []),
-              {
-                value: "ratio",
-                label: "Ratio",
-              },
-            ]}
-          />
-          {type === "proportion" ? (
-            <div>
-              <ColumnRefSelector
-                value={numerator}
-                setValue={(numerator) => form.setValue("numerator", numerator)}
-                datasource={selectedDataSource.id}
-                disableFactTableSelector={!!initialFactTable}
-                supportsAggregatedFilter={true}
-              />
-              <div className="alert alert-info">
-                The final metric value will be the percent of all users in the
-                experiment who match the above criteria.
-              </div>
-            </div>
-          ) : type === "mean" ? (
-            <div>
-              <label>Per-User Value</label>
-              <ColumnRefSelector
-                value={numerator}
-                setValue={(numerator) => form.setValue("numerator", numerator)}
-                includeColumn={true}
-                datasource={selectedDataSource.id}
-                disableFactTableSelector={!!initialFactTable}
-              />
-              <div className="alert alert-info">
-                The final metric value will be the average per-user value for
-                all users in the experiment. Any user without a matching row
-                will have a value of <code>0</code> and will still contribute to
-                this average.
-              </div>
-            </div>
-          ) : type === "quantile" ? (
-            <div>
-              <div className="form-group">
-                <Toggle
-                  id="quantileTypeSelector"
-                  label="Aggregate by User First"
-                  value={
-                    !canUseEventQuantile || quantileSettings.type !== "event"
+                form.setValue("denominator", {
+                  factTableId: "",
+                  column: "",
+                  filters: [],
+                });
+              }}
+              options={validDatasources.map((d) => {
+                const defaultDatasource = d.id === settings.defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  } ${defaultDatasource ? " (default)" : ""}`,
+                };
+              })}
+              className="portal-overflow-ellipsis"
+              name="datasource"
+              placeholder="Select..."
+            />
+          )}
+          {selectedDataSource && (
+            <>
+              <ButtonSelectField
+                label={
+                  <>
+                    Type of Metric{" "}
+                    <Tooltip
+                      body={
+                        <div>
+                          <div className="mb-2">
+                            <strong>Proportion</strong> metrics calculate a
+                            simple conversion rate - the proportion of users in
+                            your experiment who are in a specific fact table.
+                          </div>
+                          <div className="mb-2">
+                            <strong>Mean</strong> metrics calculate the average
+                            value of a numeric column in a fact table.
+                          </div>
+                          {quantileMetricFlag ? (
+                            <div className="mb-2">
+                              <strong>Quantile</strong> metrics calculate the
+                              value at a specific percentile of a numeric column
+                              in a fact table.
+                              {!quantileMetricsAvailableForDatasource
+                                ? " Quantile metrics are not available for MySQL data sources."
+                                : ""}
+                            </div>
+                          ) : null}
+                          <div>
+                            <strong>Ratio</strong> metrics allow you to
+                            calculate a complex value by dividing two different
+                            numeric columns in your fact tables.
+                          </div>
+                        </div>
+                      }
+                    />
+                  </>
+                }
+                value={type}
+                setValue={(type) => {
+                  if (
+                    type === "quantile" &&
+                    (!quantileMetricsAvailableForDatasource ||
+                      !hasQuantileMetricCommercialFeature)
+                  ) {
+                    return;
                   }
-                  setValue={(unit) => {
-                    // Event-level quantiles must select a numeric column
-                    if (!unit && numerator?.column?.startsWith("$$")) {
-                      const column = numeratorFactTable?.columns?.find(
-                        (c) => c.datatype === "number"
-                      );
+                  form.setValue("metricType", type as FactMetricType);
+
+                  if (type === "quantile") {
+                    form.setValue("quantileSettings", quantileSettings);
+                    // capping off for quantile metrics
+                    form.setValue("cappingSettings.type", "");
+
+                    if (
+                      quantileSettings.type === "event" &&
+                      numerator.column.startsWith("$$")
+                    ) {
+                      const column = getNumericColumns(numeratorFactTable)[0];
                       form.setValue("numerator", {
                         ...numerator,
                         column: column?.column || "",
                       });
                     }
-                    form.setValue("quantileSettings", {
-                      ...quantileSettings,
-                      type: unit ? "unit" : "event",
+                  }
+
+                  // When switching to ratio, reset the denominator value
+                  if (type === "ratio" && !form.watch("denominator")) {
+                    form.setValue("denominator", {
+                      factTableId:
+                        numerator.factTableId || initialFactTable || "",
+                      column: "$$count",
+                      filters: [],
+                    });
+                  }
+
+                  // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
+                  if (
+                    type === "ratio" &&
+                    form.watch("cappingSettings.type") === "absolute"
+                  ) {
+                    form.setValue("cappingSettings.type", "");
+                  }
+                }}
+                options={[
+                  {
+                    value: "proportion",
+                    label: "Proportion",
+                  },
+                  {
+                    value: "mean",
+                    label: "Mean",
+                  },
+                  ...(quantileMetricFlag
+                    ? [
+                        {
+                          value: "quantile",
+                          label: (
+                            <>
+                              <PremiumTooltip
+                                commercialFeature="quantile-metrics"
+                                body={
+                                  !quantileMetricsAvailableForDatasource
+                                    ? "Quantile metrics are not available for MySQL data sources"
+                                    : ""
+                                }
+                              >
+                                Quantile
+                              </PremiumTooltip>
+                            </>
+                          ),
+                        },
+                      ]
+                    : []),
+                  {
+                    value: "ratio",
+                    label: "Ratio",
+                  },
+                ]}
+              />
+              {type === "proportion" ? (
+                <div>
+                  <ColumnRefSelector
+                    value={numerator}
+                    setValue={(numerator) =>
+                      form.setValue("numerator", numerator)
+                    }
+                    datasource={selectedDataSource.id}
+                    disableFactTableSelector={!!initialFactTable}
+                    supportsAggregatedFilter={true}
+                  />
+                </div>
+              ) : type === "mean" ? (
+                <div>
+                  <ColumnRefSelector
+                    value={numerator}
+                    setValue={(numerator) =>
+                      form.setValue("numerator", numerator)
+                    }
+                    includeColumn={true}
+                    datasource={selectedDataSource.id}
+                    disableFactTableSelector={!!initialFactTable}
+                  />
+                </div>
+              ) : type === "quantile" ? (
+                <div>
+                  <div className="form-group">
+                    <Toggle
+                      id="quantileTypeSelector"
+                      label="Aggregate by User First"
+                      value={
+                        !canUseEventQuantile ||
+                        quantileSettings.type !== "event"
+                      }
+                      setValue={(unit) => {
+                        // Event-level quantiles must select a numeric column
+                        if (!unit && numerator?.column?.startsWith("$$")) {
+                          const column = getNumericColumns(
+                            numeratorFactTable
+                          )[0];
+                          form.setValue("numerator", {
+                            ...numerator,
+                            column: column?.column || "",
+                          });
+                        }
+                        form.setValue("quantileSettings", {
+                          ...quantileSettings,
+                          type: unit ? "unit" : "event",
+                        });
+                      }}
+                      disabled={!canUseEventQuantile}
+                    />
+                    <label
+                      htmlFor="quantileTypeSelector"
+                      className="ml-2 cursor-pointer"
+                    >
+                      Aggregate by Experiment User before taking quantile?
+                    </label>
+                  </div>
+                  <ColumnRefSelector
+                    value={numerator}
+                    setValue={(numerator) =>
+                      form.setValue("numerator", numerator)
+                    }
+                    includeColumn={true}
+                    aggregationType={quantileSettings.type}
+                    datasource={selectedDataSource.id}
+                    disableFactTableSelector={!!initialFactTable}
+                    extraField={
+                      form
+                        .watch("numerator")
+                        ?.column?.startsWith("$$") ? undefined : (
+                        <div className="form-group">
+                          <label htmlFor="quantileIgnoreZeros">
+                            Ignore Zeros{" "}
+                            <Tooltip
+                              body={`If the ${
+                                quantileSettings.type === "unit"
+                                  ? "per-user"
+                                  : "rows"
+                              } value is zero (or null), exclude it from the quantile calculation`}
+                            />
+                          </label>
+                          <div style={{ padding: "6px 0" }}>
+                            <Toggle
+                              id="quantileIgnoreZeros"
+                              value={quantileSettings.ignoreZeros}
+                              setValue={(ignoreZeros) =>
+                                form.setValue("quantileSettings", {
+                                  ...quantileSettings,
+                                  ignoreZeros,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      )
+                    }
+                  />
+                  <QuantileSelector
+                    value={quantileSettings}
+                    setValue={(quantileSettings) =>
+                      form.setValue("quantileSettings", quantileSettings)
+                    }
+                  />
+                </div>
+              ) : type === "ratio" ? (
+                <>
+                  <div className="form-group">
+                    <label>Numerator</label>
+                    <div className="appbox p-3 bg-light">
+                      <ColumnRefSelector
+                        value={numerator}
+                        setValue={(numerator) =>
+                          form.setValue("numerator", numerator)
+                        }
+                        includeColumn={true}
+                        includeCountDistinct={true}
+                        datasource={selectedDataSource.id}
+                        disableFactTableSelector={!!initialFactTable}
+                        supportsAggregatedFilter={
+                          numerator.column === "$$distinctUsers"
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Denominator</label>
+                    <div className="appbox p-3 bg-light">
+                      <ColumnRefSelector
+                        value={
+                          denominator || {
+                            column: "$$count",
+                            factTableId: "",
+                            filters: [],
+                          }
+                        }
+                        setValue={(denominator) =>
+                          form.setValue("denominator", denominator)
+                        }
+                        includeColumn={true}
+                        includeCountDistinct={true}
+                        datasource={selectedDataSource.id}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p>Select a metric type above</p>
+              )}
+
+              <MetricWindowSettingsForm form={form} />
+
+              {!advancedOpen && (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAdvancedOpen(true);
+                    track("View Advanced Fact Metric Settings", {
+                      source,
                     });
                   }}
-                  disabled={!canUseEventQuantile}
-                />
-                <label
-                  htmlFor="quantileTypeSelector"
-                  className="ml-2 cursor-pointer"
                 >
-                  Aggregate by Experiment User before taking quantile?
-                </label>
-              </div>
-              <label>
-                {quantileSettings.type === "unit"
-                  ? "Per-User Value"
-                  : "Event Value"}
-              </label>
-              <ColumnRefSelector
-                value={numerator}
-                setValue={(numerator) => form.setValue("numerator", numerator)}
-                includeColumn={true}
-                aggregationType={quantileSettings.type}
-                datasource={selectedDataSource.id}
-                disableFactTableSelector={!!initialFactTable}
-                extraField={
-                  form
-                    .watch("numerator")
-                    ?.column?.startsWith("$$") ? undefined : (
-                    <div className="form-group">
-                      <label htmlFor="quantileIgnoreZeros">
-                        Ignore Zeros{" "}
-                        <Tooltip
-                          body={`If the ${
-                            quantileSettings.type === "unit"
-                              ? "per-user"
-                              : "rows"
-                          } value is zero (or null), exclude it from the quantile calculation`}
-                        />
-                      </label>
-                      <div style={{ padding: "6px 0" }}>
-                        <Toggle
-                          id="quantileIgnoreZeros"
-                          value={quantileSettings.ignoreZeros}
-                          setValue={(ignoreZeros) =>
-                            form.setValue("quantileSettings", {
-                              ...quantileSettings,
-                              ignoreZeros,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  )
-                }
-              />
-              <QuantileSelector
-                value={quantileSettings}
-                setValue={(quantileSettings) =>
-                  form.setValue("quantileSettings", quantileSettings)
-                }
-              />
-              <div className="alert alert-info">
-                The final metric value will be the selected quantile
-                {quantileSettings.type === "unit"
-                  ? " of all aggregated experiment user values"
-                  : " of all rows that are matched to experiment users"}
-                {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
-              </div>
-            </div>
-          ) : type === "ratio" ? (
-            <>
-              <div className="form-group">
-                <label>Numerator</label>
-                <ColumnRefSelector
-                  value={numerator}
-                  setValue={(numerator) =>
-                    form.setValue("numerator", numerator)
-                  }
-                  includeColumn={true}
-                  includeCountDistinct={true}
-                  datasource={selectedDataSource.id}
-                  disableFactTableSelector={!!initialFactTable}
-                  supportsAggregatedFilter={
-                    numerator.column === "$$distinctUsers"
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <label>Denominator</label>
-                <ColumnRefSelector
-                  value={
-                    denominator || {
-                      column: "$$count",
-                      factTableId: "",
-                      filters: [],
-                    }
-                  }
-                  setValue={(denominator) =>
-                    form.setValue("denominator", denominator)
-                  }
-                  includeColumn={true}
-                  includeCountDistinct={true}
-                  datasource={selectedDataSource.id}
-                />
-              </div>
-              <div className="alert alert-info">
-                The final metric value will be the Numerator divided by the
-                Denominator. We use the Delta Method to provide an accurate
-                estimation of variance.
-              </div>
-            </>
-          ) : (
-            <p>Select a metric type above</p>
-          )}
-
-          <MetricWindowSettingsForm form={form} />
-
-          {!advancedOpen && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setAdvancedOpen(true);
-                track("View Advanced Fact Metric Settings", {
-                  source,
-                });
-              }}
-            >
-              Show Advanced Settings
-            </a>
-          )}
-          {advancedOpen && (
-            <Tabs
-              navExtra={
-                <div className="ml-auto">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAdvancedOpen(false);
-                    }}
-                    style={{ verticalAlign: "middle" }}
-                    title="Hide advanced settings"
-                  >
-                    <FaTimes /> Hide
-                  </a>
-                </div>
-              }
-            >
-              <Tab id="query" display="Query Settings">
-                <MetricDelayHours form={form} />
-                {type !== "quantile" && type !== "proportion" ? (
-                  <MetricCappingSettingsForm
-                    form={form}
-                    datasourceType={selectedDataSource.type}
-                    metricType={type}
-                  />
-                ) : null}
-
-                <MetricPriorSettingsForm
-                  priorSettings={form.watch("priorSettings")}
-                  setPriorSettings={(priorSettings) =>
-                    form.setValue("priorSettings", priorSettings)
-                  }
-                  metricDefaults={metricDefaults}
-                />
-
-                <PremiumTooltip commercialFeature="regression-adjustment">
-                  <label className="mb-1">
-                    <GBCuped /> Regression Adjustment (CUPED)
-                  </label>
-                </PremiumTooltip>
-                <div className="px-3 py-2 pb-0 mb-2 border rounded">
-                  {regressionAdjustmentAvailableForMetric ? (
-                    <>
-                      <Checkbox
-                        label="Override organization-level settings"
-                        value={form.watch("regressionAdjustmentOverride")}
-                        setValue={(v) =>
-                          form.setValue("regressionAdjustmentOverride", v)
-                        }
-                        disabled={!hasRegressionAdjustmentFeature}
-                      />
-                      <div
-                        style={{
-                          display: form.watch("regressionAdjustmentOverride")
-                            ? "block"
-                            : "none",
+                  Show Advanced Settings
+                </a>
+              )}
+              {advancedOpen && (
+                <Tabs
+                  navExtra={
+                    <div className="ml-auto">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setAdvancedOpen(false);
                         }}
+                        style={{ verticalAlign: "middle" }}
+                        title="Hide advanced settings"
                       >
-                        <div className="d-flex my-2 border-bottom"></div>
-                        <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                          <label
-                            className="mr-1"
-                            htmlFor="toggle-regressionAdjustmentEnabled"
-                          >
-                            Apply regression adjustment for this metric
-                          </label>
-                          <Toggle
-                            id={"toggle-regressionAdjustmentEnabled"}
-                            value={!!form.watch("regressionAdjustmentEnabled")}
-                            setValue={(value) => {
-                              form.setValue(
-                                "regressionAdjustmentEnabled",
-                                value
-                              );
-                            }}
-                            disabled={!hasRegressionAdjustmentFeature}
-                          />
-                          <small className="form-text text-muted">
-                            (organization default:{" "}
-                            {settings.regressionAdjustmentEnabled
-                              ? "On"
-                              : "Off"}
-                            )
-                          </small>
-                        </div>
-                        <div
-                          className="form-group mt-3 mb-1 mr-2"
-                          style={{
-                            opacity: form.watch("regressionAdjustmentEnabled")
-                              ? "1"
-                              : "0.5",
-                          }}
-                        >
-                          <Field
-                            label="Pre-exposure lookback period (days)"
-                            type="number"
-                            style={{
-                              borderColor: regressionAdjustmentDaysHighlightColor,
-                              backgroundColor: regressionAdjustmentDaysHighlightColor
-                                ? regressionAdjustmentDaysHighlightColor + "15"
-                                : "",
-                            }}
-                            className="ml-2"
-                            containerClassName="mb-0 form-inline"
-                            inputGroupClassName="d-inline-flex w-150px"
-                            append="days"
-                            min="0"
-                            max="100"
-                            disabled={!hasRegressionAdjustmentFeature}
-                            helpText={
-                              <>
-                                <span className="ml-2">
-                                  (organization default:{" "}
-                                  {settings.regressionAdjustmentDays ??
-                                    DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
-                                  )
-                                </span>
-                              </>
+                        <FaTimes /> Hide
+                      </a>
+                    </div>
+                  }
+                >
+                  <Tab id="query" display="Query Settings">
+                    <MetricDelayHours form={form} />
+                    {type !== "quantile" && type !== "proportion" ? (
+                      <MetricCappingSettingsForm
+                        form={form}
+                        datasourceType={selectedDataSource.type}
+                        metricType={type}
+                      />
+                    ) : null}
+
+                    <MetricPriorSettingsForm
+                      priorSettings={form.watch("priorSettings")}
+                      setPriorSettings={(priorSettings) =>
+                        form.setValue("priorSettings", priorSettings)
+                      }
+                      metricDefaults={metricDefaults}
+                    />
+
+                    <PremiumTooltip commercialFeature="regression-adjustment">
+                      <label className="mb-1">
+                        <GBCuped /> Regression Adjustment (CUPED)
+                      </label>
+                    </PremiumTooltip>
+                    <div className="px-3 py-2 pb-0 mb-2 border rounded">
+                      {regressionAdjustmentAvailableForMetric ? (
+                        <>
+                          <Checkbox
+                            label="Override organization-level settings"
+                            value={form.watch("regressionAdjustmentOverride")}
+                            setValue={(v) =>
+                              form.setValue("regressionAdjustmentOverride", v)
                             }
-                            {...form.register("regressionAdjustmentDays", {
-                              valueAsNumber: true,
-                              validate: (v) => {
-                                v = v || 0;
-                                return !(v <= 0 || v > 100);
-                              },
-                            })}
+                            disabled={!hasRegressionAdjustmentFeature}
                           />
-                          {regressionAdjustmentDaysWarningMsg && (
-                            <small
+                          <div
+                            style={{
+                              display: form.watch(
+                                "regressionAdjustmentOverride"
+                              )
+                                ? "block"
+                                : "none",
+                            }}
+                          >
+                            <div className="d-flex my-2 border-bottom"></div>
+                            <div className="form-group mt-3 mb-0 mr-2 form-inline">
+                              <label
+                                className="mr-1"
+                                htmlFor="toggle-regressionAdjustmentEnabled"
+                              >
+                                Apply regression adjustment for this metric
+                              </label>
+                              <Toggle
+                                id={"toggle-regressionAdjustmentEnabled"}
+                                value={
+                                  !!form.watch("regressionAdjustmentEnabled")
+                                }
+                                setValue={(value) => {
+                                  form.setValue(
+                                    "regressionAdjustmentEnabled",
+                                    value
+                                  );
+                                }}
+                                disabled={!hasRegressionAdjustmentFeature}
+                              />
+                              <small className="form-text text-muted">
+                                (organization default:{" "}
+                                {settings.regressionAdjustmentEnabled
+                                  ? "On"
+                                  : "Off"}
+                                )
+                              </small>
+                            </div>
+                            <div
+                              className="form-group mt-3 mb-1 mr-2"
                               style={{
-                                color: regressionAdjustmentDaysHighlightColor,
+                                opacity: form.watch(
+                                  "regressionAdjustmentEnabled"
+                                )
+                                  ? "1"
+                                  : "0.5",
                               }}
                             >
-                              {regressionAdjustmentDaysWarningMsg}
-                            </small>
-                          )}
+                              <Field
+                                label="Pre-exposure lookback period (days)"
+                                type="number"
+                                style={{
+                                  borderColor: regressionAdjustmentDaysHighlightColor,
+                                  backgroundColor: regressionAdjustmentDaysHighlightColor
+                                    ? regressionAdjustmentDaysHighlightColor +
+                                      "15"
+                                    : "",
+                                }}
+                                className="ml-2"
+                                containerClassName="mb-0 form-inline"
+                                inputGroupClassName="d-inline-flex w-150px"
+                                append="days"
+                                min="0"
+                                max="100"
+                                disabled={!hasRegressionAdjustmentFeature}
+                                helpText={
+                                  <>
+                                    <span className="ml-2">
+                                      (organization default:{" "}
+                                      {settings.regressionAdjustmentDays ??
+                                        DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
+                                      )
+                                    </span>
+                                  </>
+                                }
+                                {...form.register("regressionAdjustmentDays", {
+                                  valueAsNumber: true,
+                                  validate: (v) => {
+                                    v = v || 0;
+                                    return !(v <= 0 || v > 100);
+                                  },
+                                })}
+                              />
+                              {regressionAdjustmentDaysWarningMsg && (
+                                <small
+                                  style={{
+                                    color: regressionAdjustmentDaysHighlightColor,
+                                  }}
+                                >
+                                  {regressionAdjustmentDaysWarningMsg}
+                                </small>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-muted">
+                          <FaTimes className="text-danger" />{" "}
+                          {regressionAdjustmentAvailableForMetricReason}
                         </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-muted">
-                      <FaTimes className="text-danger" />{" "}
-                      {regressionAdjustmentAvailableForMetricReason}
+                      )}
                     </div>
-                  )}
-                </div>
-              </Tab>
-              <Tab id="display" display="Display Settings">
-                <SelectField
-                  label="What is the goal?"
-                  value={form.watch("inverse") ? "1" : "0"}
-                  onChange={(v) => {
-                    form.setValue("inverse", v === "1");
-                  }}
-                  options={[
-                    {
-                      value: "0",
-                      label: `Increase the metric value`,
-                    },
-                    {
-                      value: "1",
-                      label: `Decrease the metric value`,
-                    },
-                  ]}
-                  helpText="Some metrics like 'page load time' you actually want to decrease instead of increase"
-                />
-                <div className="form-group">
-                  <label>Minimum Sample Size</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    {...form.register("minSampleSize", { valueAsNumber: true })}
-                  />
-                  <small className="text-muted">
-                    The{" "}
-                    {type === "proportion"
-                      ? "number of conversions"
-                      : type === "quantile"
-                      ? `number of ${
-                          quantileSettings.type === "unit" ? "users" : "events"
-                        }`
-                      : `total value`}{" "}
-                    required in an experiment variation before showing results
-                    (default{" "}
-                    {type === "proportion"
-                      ? metricDefaults.minimumSampleSize
-                      : formatNumber(metricDefaults.minimumSampleSize)}
-                    )
-                  </small>
-                </div>
-                <Field
-                  label="Max Percent Change"
-                  type="number"
-                  step="any"
-                  append="%"
-                  {...form.register("maxPercentChange", {
-                    valueAsNumber: true,
-                  })}
-                  helpText={`An experiment that changes the metric by more than this percent will
+                  </Tab>
+                  <Tab id="display" display="Display Settings">
+                    <SelectField
+                      label="What is the goal?"
+                      value={form.watch("inverse") ? "1" : "0"}
+                      onChange={(v) => {
+                        form.setValue("inverse", v === "1");
+                      }}
+                      options={[
+                        {
+                          value: "0",
+                          label: `Increase the metric value`,
+                        },
+                        {
+                          value: "1",
+                          label: `Decrease the metric value`,
+                        },
+                      ]}
+                      helpText="Some metrics like 'page load time' you actually want to decrease instead of increase"
+                    />
+                    <div className="form-group">
+                      <label>Minimum Sample Size</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        {...form.register("minSampleSize", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                      <small className="text-muted">
+                        The{" "}
+                        {type === "proportion"
+                          ? "number of conversions"
+                          : type === "quantile"
+                          ? `number of ${
+                              quantileSettings.type === "unit"
+                                ? "users"
+                                : "events"
+                            }`
+                          : `total value`}{" "}
+                        required in an experiment variation before showing
+                        results (default{" "}
+                        {type === "proportion"
+                          ? metricDefaults.minimumSampleSize
+                          : formatNumber(metricDefaults.minimumSampleSize)}
+                        )
+                      </small>
+                    </div>
+                    <Field
+                      label="Max Percent Change"
+                      type="number"
+                      step="any"
+                      append="%"
+                      {...form.register("maxPercentChange", {
+                        valueAsNumber: true,
+                      })}
+                      helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               metricDefaults.maxPercentageChange * 100
             })`}
-                />
-                <Field
-                  label="Min Percent Change"
-                  type="number"
-                  step="any"
-                  append="%"
-                  {...form.register("minPercentChange", {
-                    valueAsNumber: true,
-                  })}
-                  helpText={`An experiment that changes the metric by less than this percent will be
+                    />
+                    <Field
+                      label="Min Percent Change"
+                      type="number"
+                      step="any"
+                      append="%"
+                      {...form.register("minPercentChange", {
+                        valueAsNumber: true,
+                      })}
+                      helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
             })`}
-                />
+                    />
 
-                <RiskThresholds
-                  winRisk={form.watch("winRisk")}
-                  loseRisk={form.watch("loseRisk")}
-                  winRiskRegisterField={form.register("winRisk")}
-                  loseRiskRegisterField={form.register("loseRisk")}
-                  riskError={riskError}
-                />
-              </Tab>
-            </Tabs>
+                    <RiskThresholds
+                      winRisk={form.watch("winRisk")}
+                      loseRisk={form.watch("loseRisk")}
+                      winRiskRegisterField={form.register("winRisk")}
+                      loseRiskRegisterField={form.register("loseRisk")}
+                      riskError={riskError}
+                    />
+                  </Tab>
+                </Tabs>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+        <div className="bg-light px-3 py-4 flex-1 border-left">
+          <h3>Live SQL Preview</h3>
+          <p>
+            <em>
+              This is highly simplified and for illustrative purposes only.
+            </em>
+          </p>
+          <div className="mb-3">
+            <strong>
+              Metric Value{" "}
+              {type !== "quantile" || quantileSettings.type === "unit"
+                ? `(per user)`
+                : ""}
+            </strong>
+            <Code
+              language="sql"
+              code={sql}
+              className="bg-light"
+              filename={denominatorSQL ? "Numerator" : undefined}
+            />
+            {denominatorSQL ? (
+              <Code
+                language="sql"
+                code={denominatorSQL}
+                className="bg-light"
+                filename={"Denominator"}
+              />
+            ) : null}
+          </div>
+
+          <Button
+            onClick={() => setExperimentSQLOpen(!experimentSQLOpen)}
+            variant="ghost"
+            size="sm"
+            icon={experimentSQLOpen ? <FaAngleDown /> : <FaAngleRight />}
+            iconPosition="right"
+          >
+            Show experiment query example
+          </Button>
+          {experimentSQLOpen ? (
+            <div>
+              <Code
+                language="sql"
+                code={experimentSQL}
+                filename="Experiment SQL"
+              />
+            </div>
+          ) : null}
+
+          {type ? null : type === "proportion" ? (
+            <Callout status="info">
+              The final metric value will be the percent of all users in the
+              experiment who have at least 1 matching row.
+            </Callout>
+          ) : type === "mean" ? (
+            <Callout status="info">
+              The final metric value will be the average per-user value for all
+              users in the experiment. Any user without a matching row will have
+              a value of <code>0</code> and will still contribute to this
+              average.
+            </Callout>
+          ) : type === "quantile" ? (
+            <Callout status="info">
+              The final metric value will be the selected quantile
+              {quantileSettings.type === "unit"
+                ? " of all aggregated experiment user values"
+                : " of all rows that are matched to experiment users"}
+              {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
+            </Callout>
+          ) : type === "ratio" ? (
+            <Callout status="info">
+              The final metric value will be the Numerator divided by the
+              Denominator. We use the Delta Method to provide an accurate
+              estimation of variance.
+            </Callout>
+          ) : null}
+        </div>
+      </div>
     </Modal>
   );
 }

@@ -59,7 +59,8 @@ export function canInlineFilterColumn(
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
   columnRef: ColumnRef,
-  escapeStringLiteral: (s: string) => string
+  escapeStringLiteral: (s: string) => string,
+  showSourceComment = false
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
@@ -87,7 +88,8 @@ export function getColumnRefWhereClause(
   filterIds.forEach((filterId) => {
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (filter) {
-      where.add(filter.value);
+      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
+      where.add(comment + filter.value);
     }
   });
 
