@@ -427,6 +427,9 @@ const NewDataSourceForm: FC<{
     setStep("done");
   };
 
+  // TODO: Make this a feature flag
+  const showInbuiltDatasource = true;
+
   let stepContents: ReactNode = null;
   if (step === "initial") {
     stepContents = (
@@ -444,7 +447,11 @@ const NewDataSourceForm: FC<{
             <div
               className={clsx(
                 styles.ctaContainer,
-                !showImportSampleData && "w-50"
+                showImportSampleData && showInbuiltDatasource
+                  ? "w-25"
+                  : showImportSampleData || showInbuiltDatasource
+                  ? "w-33"
+                  : "w-50"
               )}
               onClick={() => setStep("eventTracker")}
             >
@@ -461,7 +468,11 @@ const NewDataSourceForm: FC<{
             <div
               className={clsx(
                 styles.ctaContainer,
-                !showImportSampleData && "w-50"
+                showImportSampleData && showInbuiltDatasource
+                  ? "w-25"
+                  : showImportSampleData || showInbuiltDatasource
+                  ? "w-33"
+                  : "w-50"
               )}
               onClick={(e) => {
                 e.preventDefault();
@@ -484,7 +495,14 @@ const NewDataSourceForm: FC<{
             </div>
             {showImportSampleData && (
               <div
-                className={styles.ctaContainer}
+                className={clsx(
+                  styles.ctaContainer,
+                  showImportSampleData && showInbuiltDatasource
+                    ? "w-25"
+                    : showImportSampleData || showInbuiltDatasource
+                    ? "w-33"
+                    : "w-50"
+                )}
                 onClick={(e) => {
                   e.preventDefault();
                   router.push("/demo-datasource-project");
@@ -498,26 +516,33 @@ const NewDataSourceForm: FC<{
                 </div>
               </div>
             )}
-          </div>
-        </div>
-        <div>
-          <h4>Or use Growthbook&apos;s Inbuilt Datasource</h4>
-          <div>
-            If you don&apos;t have your own datasource you can use
-            Growthbook&apos;s own warehouse to house your event tracking data
-          </div>
-          <div
-            className={styles.ctaButton}
-            onClick={(e) => {
-              e.preventDefault();
-              callCreateInbuiltDatasource();
-            }}
-          >
-            <h3 className={styles.ctaText}>Use Growthbook&apos;s Warehouse</h3>
-            <p>
-              If you don&apos;t have your own datasource you can use
-              Growthbook&apos;s own warehouse to house your event tracking data
-            </p>
+            {showInbuiltDatasource && (
+              <div
+                className={clsx(
+                  styles.ctaContainer,
+                  showImportSampleData && showInbuiltDatasource
+                    ? "w-25"
+                    : showImportSampleData || showInbuiltDatasource
+                    ? "w-33"
+                    : "w-50"
+                )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  callCreateInbuiltDatasource();
+                }}
+              >
+                <div className={styles.ctaButton}>
+                  <h3 className={styles.ctaText}>
+                    Use Growthbook&apos;s Warehouse
+                  </h3>
+                  <p>
+                    If you don&apos;t have your own datasource you can use
+                    Growthbook&apos;s own warehouse to house your event tracking
+                    data
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         {secondaryCTA && (
