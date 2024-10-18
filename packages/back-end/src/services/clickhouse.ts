@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
+import generator from "generate-password";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -10,28 +11,6 @@ import {
 import { DataSourceParams } from "back-end/types/datasource";
 import { ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
-
-function generatePassword(length: number = 16): string {
-  const uppercaseChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const specialChars = "!@#$%^&*()_+[]{}|;:,.<>?";
-  const numericChars = "0123456789";
-  const allChars =
-    "abcdefghijklmnopqrstuvwxyz" + uppercaseChars + numericChars + specialChars;
-
-  let password = "";
-  password += uppercaseChars[Math.floor(Math.random() * uppercaseChars.length)];
-  password += specialChars[Math.floor(Math.random() * specialChars.length)];
-  password += numericChars[Math.floor(Math.random() * numericChars.length)];
-
-  for (let i = 3; i < length; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
-  }
-
-  return password
-    .split("")
-    .sort(() => 0.5 - Math.random())
-    .join("");
-}
 
 export async function createClickhouseUser(
   context: ReqContext
@@ -50,7 +29,10 @@ export async function createClickhouseUser(
 
   const orgId = context.org.id;
   const user = orgId;
-  const password = generatePassword();
+  const password = generator.generate({
+    length: 30,
+    numbers: true,
+  });
   const hashedPassword = crypto
     .createHash("sha256")
     .update(password)
