@@ -665,6 +665,13 @@ app.post(
   datasourcesController.fetchBigQueryDatasets
 );
 
+if (IS_CLOUD) {
+  app.post(
+    "/datasource/create-inbuilt",
+    datasourcesController.postInbuiltDataSource
+  );
+}
+
 // Auto Fact Tables
 app.post(
   "/datasource/:datasourceId/tracked-events",
