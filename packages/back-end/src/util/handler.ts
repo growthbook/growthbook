@@ -170,10 +170,14 @@ export function getBuild() {
   return build;
 }
 
-export async function validateIsSuperUserRequest(req: {
+export interface ValidateSuperUserRequest {
   user?: UserInterface;
   organization: OrganizationInterface;
-}) {
+}
+
+export async function validateIsSuperUserRequest(
+  req: ValidateSuperUserRequest
+) {
   if (!IS_MULTI_ORG) {
     throw new Error("This endpoint requires multi-org mode.");
   }
