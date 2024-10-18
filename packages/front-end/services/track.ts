@@ -10,6 +10,7 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
+import { v4 as uuidv4 } from "uuid";
 import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
@@ -24,6 +25,7 @@ import {
   inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
+  dataWarehouseUrl,
 } from "./env";
 
 export type TrackEventProps = Record<string, unknown>;
@@ -45,6 +47,46 @@ export interface TrackSnapshotProps {
   dimension_id: string;
   error?: string;
 }
+
+const TEST_SDK_ID = "sdk_2nq1t1hh2m2azir7m";
+
+interface DataWarehouseTrackedEvent {
+  // Core event data
+  event_name: string;
+  properties_json: string; // JSON-encoded string of event properties
+
+  // UUIDs generated and tracked automatically in the SDK
+  device_id: string;
+  page_id: string;
+  session_id: string;
+
+  // Metadata gathered automatically by SDK
+  sdk_language: string;
+  sdk_version: string;
+  url: string;
+  page_title?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+
+  // User-supplied targeting attributes
+  user_id?: string;
+  user_attributes_json: string; // JSON-encoded string
+}
+
+const dataWareHouseTrack = (event: DataWarehouseTrackedEvent) => {
+  if (!dataWarehouseUrl) return;
+  void fetch(`${dataWarehouseUrl}/track?client_key=${TEST_SDK_ID}`, {
+    method: "POST",
+    body: JSON.stringify(event),
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  });
+};
 
 let jitsu: JitsuClient;
 export default function track(
@@ -90,6 +132,19 @@ export default function track(
     user_id: isCloud() ? id : "",
     org: isCloud() ? org : "",
   };
+
+  dataWareHouseTrack({
+    event_name: event,
+    properties_json: JSON.stringify(trackProps),
+    device_id: uuidv4(),
+    page_id: uuidv4(),
+    session_id: uuidv4(),
+    sdk_language: "javascript",
+    sdk_version: "1.2.0",
+    url: trackProps.url,
+    user_id: id,
+    user_attributes_json: "{}",
+  });
 
   if (inTelemetryDebugMode()) {
     console.log("Telemetry Event - ", event, trackProps);
@@ -198,7 +253,10 @@ function getTrackingPropsFromReport(
 
 export function parseSnapshotDimension(
   dimension: string
-): { type: string; id: string } {
+): {
+  type: string;
+  id: string;
+} {
   if (!dimension) {
     return { type: "none", id: "" };
   }
