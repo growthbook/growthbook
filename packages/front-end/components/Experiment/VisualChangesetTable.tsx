@@ -357,6 +357,7 @@ export const VisualChangesetTable: FC<Props> = ({
           visualChangeset={editingVisualChangeset}
           mutate={mutate}
           close={() => setEditingVisualChangeset(null)}
+          source={"visual-changeset-table"}
         />
       ) : null}
 

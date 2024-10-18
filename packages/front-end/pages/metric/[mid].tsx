@@ -317,6 +317,7 @@ const MetricPage: FC = () => {
               }),
             });
           }}
+          source="mid"
         />
       )}
       {editProjects && (

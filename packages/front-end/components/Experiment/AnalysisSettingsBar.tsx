@@ -118,6 +118,7 @@ export default function AnalysisSettingsBar({
           experiment={experiment}
           mutate={mutateExperiment}
           phase={phase}
+          source={"analysis-settings-bar"}
         />
       )}
 
