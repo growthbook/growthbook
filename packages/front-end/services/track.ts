@@ -48,7 +48,7 @@ export interface TrackSnapshotProps {
   error?: string;
 }
 
-const TEST_SDK_ID = "sdk_2nq1t1hh2m2azir7m";
+const TEST_SDK_ID = "sdk_kkrb1j1im01hrmdf";
 
 interface DataWarehouseTrackedEvent {
   // Core event data
