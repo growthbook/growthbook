@@ -5,6 +5,7 @@ import {
   CLICKHOUSE_ADMIN_USER,
   CLICKHOUSE_ADMIN_PASSWORD,
   CLICKHOUSE_DATABASE,
+  CLICKHOUSE_MAIN_TABLE,
 } from "back-end/src/util/secrets";
 import { DataSourceParams } from "back-end/types/datasource";
 import { ReqContext } from "back-end/types/organization";
@@ -35,7 +36,6 @@ function generatePassword(length: number = 16): string {
 export async function createClickhouseUser(
   context: ReqContext
 ): Promise<DataSourceParams> {
-  const eventsTableName = "test_enriched_events";
   const client = createClickhouseClient({
     host: CLICKHOUSE_HOST,
     username: CLICKHOUSE_ADMIN_USER,
@@ -71,7 +71,7 @@ export async function createClickhouseUser(
 
   logger.info(`Creating Clickhouse view ${viewName}`);
   await client.command({
-    query: `CREATE VIEW ${viewName} DEFINER=CURRENT_USER SQL SECURITY DEFINER AS SELECT * FROM ${eventsTableName} WHERE organization = '${orgId}'`,
+    query: `CREATE VIEW ${viewName} DEFINER=CURRENT_USER SQL SECURITY DEFINER AS SELECT * FROM ${CLICKHOUSE_MAIN_TABLE} WHERE organization = '${orgId}'`,
   });
 
   logger.info(`Granting select permissions on ${viewName} to ${user}`);
@@ -92,4 +92,30 @@ export async function createClickhouseUser(
   };
 
   return params;
+}
+
+export async function deleteClickhouseUser(organization: string) {
+  const client = createClickhouseClient({
+    host: CLICKHOUSE_HOST,
+    username: CLICKHOUSE_ADMIN_USER,
+    password: CLICKHOUSE_ADMIN_PASSWORD,
+    database: CLICKHOUSE_DATABASE,
+    application: "GrowthBook",
+    request_timeout: 3620_000,
+    clickhouse_settings: {
+      max_execution_time: 3600,
+    },
+  });
+
+  logger.info(`Deleting Clickhouse user ${organization}`);
+  await client.command({
+    query: `DROP USER ${organization}`,
+  });
+
+  logger.info(`Deleting Clickhouse database ${organization}`);
+  await client.command({
+    query: `DROP DATABASE ${organization}`,
+  });
+
+  logger.info(`Clickhouse user ${organization} deleted`);
 }

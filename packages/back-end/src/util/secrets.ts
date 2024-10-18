@@ -273,3 +273,4 @@ export const CLICKHOUSE_ADMIN_USER = process.env.CLICKHOUSE_ADMIN_USER || "";
 export const CLICKHOUSE_ADMIN_PASSWORD =
   process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
+export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
