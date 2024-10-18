@@ -6,7 +6,6 @@ import {
 } from "shared/sdk-versioning";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
@@ -99,10 +98,6 @@ const AddLinkedChangeRow = ({
             onClick={() => {
               if (isCTAClickable) {
                 setModal(true);
-                track(`Open ${type} modal`, {
-                  source: "add-linked-changes",
-                  action: "add",
-                });
               }
             }}
           >
@@ -113,10 +108,6 @@ const AddLinkedChangeRow = ({
               className="btn btn-link link-purple p-0"
               onClick={() => {
                 setModal(true);
-                track(`Open ${type} modal`, {
-                  source: "add-linked-changes",
-                  action: "add",
-                });
               }}
             >
               {cta}
