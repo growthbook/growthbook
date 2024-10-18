@@ -1329,7 +1329,8 @@ any {
 
 function shouldHash(attribute: SDKAttribute, operator?: string) {
   return !!(
-    ["secureString", "secureString[]"].includes(attribute.datatype) &&
+    attribute?.datatype &&
+    ["secureString", "secureString[]"].includes(attribute?.datatype ?? "") &&
     (!operator || !["$inGroup", "$notInGroup"].includes(operator))
   );
 }
