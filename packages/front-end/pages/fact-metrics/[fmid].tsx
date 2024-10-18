@@ -8,7 +8,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { quantileMetricType } from "shared/experiments";
+import { getAggregateFilters, quantileMetricType } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -201,6 +201,15 @@ export default function FactMetricPage() {
     ? getDatasourceById(factMetric.datasource)
     : null;
 
+  const userFilters = getAggregateFilters({
+    columnRef: factMetric.numerator,
+    column:
+      factMetric.numerator.aggregateFilterColumn === "$$count"
+        ? `COUNT(*)`
+        : `SUM(${factMetric.numerator.aggregateFilterColumn})`,
+    ignoreInvalid: true,
+  });
+
   const numeratorData: DataListItem[] = [
     {
       label: `Fact Table`,
@@ -248,6 +257,13 @@ export default function FactMetricPage() {
           {
             label: "Per-User Aggregation",
             value: "SUM",
+          },
+        ]
+      : userFilters.length > 0
+      ? [
+          {
+            label: "User Filter",
+            value: userFilters.join(" AND "),
           },
         ]
       : []),
