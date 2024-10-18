@@ -159,6 +159,21 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
 
+    let reweight =
+      experiment.type === "multi-armed-bandit" &&
+      experiment.banditStage === "exploit";
+
+    if (experiment.type === "multi-armed-bandit" && !reweight) {
+      // Quick check to see if we're about to enter "exploit" stage and will need to reweight
+      const tempChanges = updateExperimentBanditSettings({
+        experiment,
+        isScheduled: true,
+      });
+      if (tempChanges.banditStage === "exploit") {
+        reweight = true;
+      }
+    }
+
     const queryRunner = await createSnapshot({
       experiment,
       context,
@@ -173,7 +188,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       useCache: true,
       type: "standard",
       triggeredBy: "schedule",
-      reweight: experiment?.banditStage === "exploit",
+      reweight,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
