@@ -4,12 +4,12 @@ import {
 } from "back-end/types/experiment";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { ReactElement, useEffect, useMemo, useState } from "react";
-import { FaCheck, FaChevronRight } from "react-icons/fa";
+import React, { ReactElement, useEffect, useMemo, useState } from "react";
+import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
-import clsx from "clsx";
+import Collapsible from "react-collapsible";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -19,6 +19,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -53,7 +55,6 @@ export function PreLaunchChecklist({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const [checkListOpen, setCheckListOpen] = useState(true);
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const showEditChecklistLink =
@@ -67,6 +68,13 @@ export function PreLaunchChecklist({
   );
   const { data: sdkConnections } = useSDKConnections();
   const connections = sdkConnections?.connections || [];
+
+  const settings = useOrgSettings();
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const usingStickyBucketing =
+    orgStickyBucketing && !experiment.disableStickyBucketing;
+
+  const [analysisModal, setAnalysisModal] = useState(false);
 
   //Merge the GB checklist items with org's custom checklist items
   const checklist: CheckListItem[] = useMemo(() => {
@@ -111,13 +119,7 @@ export function PreLaunchChecklist({
         <>
           Add at least one{" "}
           {openSetupTab && !hasLinkedChanges ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                openSetupTab();
-              }}
-            >
+            <a className="a" role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
           ) : (
@@ -129,6 +131,29 @@ export function PreLaunchChecklist({
       status: hasLinkedChanges ? "complete" : "incomplete",
       type: "auto",
     });
+
+    if (experiment.type === "multi-armed-bandit") {
+      items.push({
+        display: (
+          <>
+            {canEditExperiment ? (
+              <a
+                className="a"
+                role="button"
+                onClick={() => setAnalysisModal(true)}
+              >
+                Choose
+              </a>
+            ) : (
+              "Choose"
+            )}{" "}
+            a Decision Metric and update cadence.
+          </>
+        ),
+        status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
+        type: "auto",
+      });
+    }
 
     // No unpublished feature flags
     if (linkedFeatures.length > 0) {
@@ -147,13 +172,7 @@ export function PreLaunchChecklist({
           <>
             Publish and enable all{" "}
             {openSetupTab ? (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  openSetupTab();
-                }}
-              >
+              <a className="a" role="button" onClick={openSetupTab}>
                 Linked Feature
               </a>
             ) : (
@@ -175,13 +194,7 @@ export function PreLaunchChecklist({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  openSetupTab();
-                }}
-              >
+              <a className="a" role="button" onClick={openSetupTab}>
                 Visual Editor
               </a>
             ) : (
@@ -202,9 +215,9 @@ export function PreLaunchChecklist({
         <>
           {editTargeting ? (
             <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
+              className="a"
+              role="button"
+              onClick={() => {
                 editTargeting();
                 track("Edit targeting", { source: "experiment-start-banner" });
               }}
@@ -221,6 +234,19 @@ export function PreLaunchChecklist({
       type: "auto",
     });
 
+    if (experiment.type === "multi-armed-bandit") {
+      items.push({
+        type: "auto",
+        status: usingStickyBucketing ? "complete" : "incomplete",
+        display: (
+          <>
+            <Link href="/settings">Enable Sticky Bucketing</Link> for your
+            organization and verify it is implemented properly in your codebase.
+          </>
+        ),
+      });
+    }
+
     items.push({
       type: "manual",
       key: "sdk-connection",
@@ -228,11 +254,11 @@ export function PreLaunchChecklist({
         ? "complete"
         : "incomplete",
       display: (
-        <div>
+        <>
           Verify your app is passing both
           <strong> attributes </strong>
-          and a <strong> trackingCallback </strong>into the GrowthBook SDK
-        </div>
+          and a <strong> trackingCallback </strong>into the GrowthBook SDK.
+        </>
       ),
     });
     items.push({
@@ -244,7 +270,7 @@ export function PreLaunchChecklist({
       display: (
         <>
           Verify your app is tracking events for all of the metrics that you
-          plan to include in the analysis
+          plan to include in the analysis.
         </>
       ),
     });
@@ -292,9 +318,13 @@ export function PreLaunchChecklist({
     experiment.project,
     experiment.tags?.length,
     experiment.variations,
+    experiment.type,
+    experiment.goalMetrics,
     linkedFeatures,
     openSetupTab,
     visualChangesets,
+    usingStickyBucketing,
+    canEditExperiment,
   ]);
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
@@ -357,140 +387,128 @@ export function PreLaunchChecklist({
           }}
         />
       )}
-      <div>
-        <div className="appbox bg-white my-2 p-3">
-          <div className="d-flex flex-row align-items-center justify-content-between">
-            <h4
-              role="button"
-              className="m-0"
-              onClick={(e) => {
-                e.preventDefault();
-                setCheckListOpen(!checkListOpen);
-              }}
-            >
-              Pre-Launch Checklist{" "}
-              {data && checklistItemsRemaining !== null ? (
-                <span
-                  className={`badge ${
-                    checklistItemsRemaining === 0
-                      ? "badge-success"
-                      : "badge-warning"
-                  } mx-2 my-0`}
-                >
-                  {checklistItemsRemaining === 0 ? (
-                    <FaCheck size={10} />
-                  ) : (
-                    checklistItemsRemaining
-                  )}
-                </span>
-              ) : null}
-            </h4>
-            <div className="d-flex align-items-center">
+
+      {analysisModal && (
+        <AnalysisForm
+          cancel={() => setAnalysisModal(false)}
+          experiment={experiment}
+          mutate={mutateExperiment}
+          phase={experiment.phases.length - 1}
+          editDates={true}
+          editVariationIds={false}
+          editMetrics={true}
+        />
+      )}
+
+      <div className="box my-3">
+        <Collapsible
+          open={true}
+          transitionTime={100}
+          trigger={
+            <div className="d-flex flex-row align-items-center justify-content-between text-dark px-4">
+              <h4 className="m-0 py-3">
+                Pre-Launch Checklist{" "}
+                {data && checklistItemsRemaining !== null ? (
+                  <span
+                    className={`badge rounded-circle p-1 ${
+                      checklistItemsRemaining === 0
+                        ? "badge-success"
+                        : "badge-warning"
+                    } mx-2 my-0`}
+                    style={{ minWidth: 22 }}
+                  >
+                    {checklistItemsRemaining === 0 ? (
+                      <FaCheck size={10} />
+                    ) : (
+                      checklistItemsRemaining
+                    )}
+                  </span>
+                ) : null}
+              </h4>
+              <div className="flex-1" />
               {showEditChecklistLink ? (
                 <Link
+                  className="mr-3 link-purple"
                   href={"/settings?editCheckListModal=true"}
-                  style={{ textDecoration: "none" }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <span className="text-purple">Edit</span>
                 </Link>
               ) : null}
-              <button
-                className="btn text-dark"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCheckListOpen(!checkListOpen);
-                }}
-              >
-                <FaChevronRight
-                  size={12}
-                  style={{
-                    transform: `rotate(${checkListOpen ? "90deg" : "0deg"})`,
-                  }}
-                />
-              </button>
+              <FaAngleRight className="chevron" />
             </div>
-          </div>
-          {checkListOpen ? (
-            <div className="row border-top pt-2 mt-2">
-              <div className="col-auto text-left mt-2">
-                {!data ? (
-                  <LoadingSpinner />
-                ) : (
-                  <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
-                    {checklist.map((item, i) => (
-                      <li
-                        key={i}
+          }
+        >
+          <div className="row mx-4 mt-2">
+            {!data ? (
+              <LoadingSpinner />
+            ) : (
+              <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
+                {checklist.map((item, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      listStyleType: "none",
+                      marginLeft: 0,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <div className="d-flex align-items-center">
+                      <Tooltip
+                        body="GrowthBook calculates the completion of this task automatically."
+                        shouldDisplay={item.type === "auto"}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={
+                            !canEditExperiment ||
+                            (item.type === "manual" && updatingChecklist) ||
+                            (item.type === "auto" &&
+                              item.status === "incomplete")
+                          }
+                          className="ml-0 pl-0 mr-2 "
+                          checked={item.status === "complete"}
+                          onChange={async (e) => {
+                            updateTaskStatus(e.target.checked, item.key);
+                          }}
+                        />
+                      </Tooltip>
+                      <span
                         style={{
-                          listStyleType: "none",
-                          marginLeft: 0,
-                          marginBottom: 6,
+                          textDecoration:
+                            item.status === "complete"
+                              ? "line-through"
+                              : "none",
                         }}
                       >
-                        <div className="d-flex align-items-center">
-                          <Tooltip
-                            body="GrowthBook calculates the completion of this task automatically."
-                            shouldDisplay={item.type === "auto"}
-                          >
-                            <input
-                              type="checkbox"
-                              disabled={
-                                !canEditExperiment ||
-                                (item.type === "manual" && updatingChecklist) ||
-                                (item.type === "auto" &&
-                                  item.status === "incomplete")
-                              }
-                              className="ml-0 pl-0 mr-2 "
-                              checked={item.status === "complete"}
-                              onChange={async (e) => {
-                                updateTaskStatus(e.target.checked, item.key);
-                              }}
-                            />
-                          </Tooltip>
-                          <span
-                            style={{
-                              textDecoration:
-                                item.status === "complete"
-                                  ? "line-through"
-                                  : "none",
-                            }}
-                          >
-                            {item.display}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          ) : null}
-          {data && !verifiedConnections.length ? (
-            <div
-              className={clsx(
-                "alert alert-danger",
-                !checkListOpen ? "mt-2 pt-2" : ""
-              )}
-            >
-              <strong>
-                Before you can run an experiment, you need to integrate
-                GrowthBook into your app.{" "}
-              </strong>
-              {connections.length > 0 ? (
-                <Link href="/sdks">Manage SDK Connections</Link>
-              ) : (
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowSdkForm(true);
-                  }}
-                >
-                  Add SDK Connection
-                </a>
-              )}
-            </div>
-          ) : null}
-        </div>
+                        {item.display}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Collapsible>
+        {data && !verifiedConnections.length ? (
+          <div className="alert alert-danger mx-3">
+            <strong>
+              Before you can run an experiment, you need to integrate GrowthBook
+              into your app.{" "}
+            </strong>
+            {connections.length > 0 ? (
+              <Link href="/sdks">Manage SDK Connections</Link>
+            ) : (
+              <a
+                className="a"
+                role="button"
+                onClick={() => setShowSdkForm(true)}
+              >
+                Add SDK Connection
+              </a>
+            )}
+          </div>
+        ) : null}
       </div>
     </>
   );

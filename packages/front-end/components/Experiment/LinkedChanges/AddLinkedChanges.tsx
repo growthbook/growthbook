@@ -110,7 +110,7 @@ const AddLinkedChangeRow = ({
           </b>
           {isCTAClickable ? (
             <div
-              className="btn btn-link p-0"
+              className="btn btn-link link-purple p-0"
               onClick={() => {
                 setModal(true);
                 track(`Open ${type} modal`, {
@@ -185,7 +185,7 @@ export default function AddLinkedChanges({
   const sectionsToRender = possibleSections.filter((s) => sections[s].render);
 
   return (
-    <div className="appbox p-4 my-4">
+    <div className="appbox px-4 py-3 my-4">
       {sectionsToRender.length < possibleSections.length ? (
         <>
           <h4>Add Implementation</h4>

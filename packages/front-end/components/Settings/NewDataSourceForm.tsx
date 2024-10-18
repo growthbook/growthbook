@@ -39,6 +39,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -81,6 +82,10 @@ const NewDataSourceForm: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
   const router = useRouter();
+  const [
+    isCreatingInbuiltDatasource,
+    setIsCreatingInbuiltDatasource,
+  ] = useState(false);
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -412,6 +417,7 @@ const NewDataSourceForm: FC<{
         };
 
   const callCreateInbuiltDatasource = async () => {
+    setIsCreatingInbuiltDatasource(true);
     const res = await apiCall<{
       datasource: DataSourceInterfaceWithParams;
     }>(`/datasource/create-inbuilt`, {
@@ -425,6 +431,8 @@ const NewDataSourceForm: FC<{
 
     setCreatedDatasource(res.datasource);
     createResources(res.datasource);
+    setIsCreatingInbuiltDatasource(false);
+    await mutateDefinitions();
     setStep("done");
   };
 
@@ -535,6 +543,7 @@ const NewDataSourceForm: FC<{
                   callCreateInbuiltDatasource();
                 }}
               >
+                {isCreatingInbuiltDatasource && <LoadingOverlay />}
                 <div className={styles.ctaButton}>
                   <h3 className={styles.ctaText}>
                     Use Growthbook&apos;s Warehouse

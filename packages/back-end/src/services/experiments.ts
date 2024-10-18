@@ -3,30 +3,31 @@ import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import {
-  DEFAULT_STATS_ENGINE,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { getScopedSettings } from "shared/settings";
+import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
-  getSnapshotAnalysis,
+  DRAFT_REVISION_STATUSES,
   generateVariationId,
-  isAnalysisAllowed,
   getMatchingRules,
+  getSnapshotAnalysis,
+  isAnalysisAllowed,
+  isDefined,
   MatchingRule,
   validateCondition,
-  isDefined,
-  DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getEqualWeights,
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
@@ -34,8 +35,9 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import { promiseAllChunks } from "back-end/src/util/promise";
+import { BanditResult } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
 import {
   ExperimentAnalysisParamsContextData,
@@ -46,6 +48,7 @@ import {
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotVariation,
+  SnapshotBanditSettings,
 } from "back-end/types/experiment-snapshot";
 import {
   getMetricById,
@@ -70,6 +73,7 @@ import {
 } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import {
+  Changeset,
   ExperimentInterface,
   ExperimentPhase,
   LinkedFeatureEnvState,
@@ -118,11 +122,11 @@ import { ProjectInterface } from "back-end/types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
+  analyzeExperimentResults,
+  getMetricsAndQueryDataForStatsEngine,
+  getMetricSettingsForStatsEngine,
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-  analyzeExperimentResults,
-  getMetricSettingsForStatsEngine,
-  getMetricsAndQueryDataForStatsEngine,
   runSnapshotAnalyses,
   runSnapshotAnalysis,
   writeSnapshotAnalyses,
@@ -226,31 +230,6 @@ export async function refreshMetric(
   }
 }
 
-export function generateTrackingKey(name: string, n: number): string {
-  let key = ("-" + name)
-    .toLowerCase()
-    // Replace whitespace with hyphen
-    .replace(/\s+/g, "-")
-    // Get rid of all non alpha-numeric characters
-    .replace(/[^a-z0-9\-_]*/g, "")
-    // Remove stopwords
-    .replace(
-      /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
-      "-"
-    )
-    // Collapse duplicate hyphens
-    .replace(/-{2,}/g, "-")
-    // Remove leading and trailing hyphens
-    .replace(/(^-|-$)/g, "");
-
-  // Add number if this is not the first attempt
-  if (n > 1) {
-    key += "-" + n;
-  }
-
-  return key;
-}
-
 export async function getManualSnapshotData(
   experiment: ExperimentInterface,
   snapshotSettings: ExperimentSnapshotSettings,
@@ -300,7 +279,7 @@ export async function getManualSnapshotData(
     });
   });
 
-  const result = await runSnapshotAnalysis({
+  const { results } = await runSnapshotAnalysis({
     id: experiment.id,
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
@@ -313,7 +292,7 @@ export async function getManualSnapshotData(
     queryResults: queryResults,
   });
 
-  result.forEach(({ metric, analyses }) => {
+  results.forEach(({ metric, analyses }) => {
     const res = analyses[0];
     const data = res.dimensions[0];
     if (!data) return;
@@ -392,6 +371,7 @@ export function getSnapshotSettings({
   orgPriorSettings,
   settingsForSnapshotMetrics,
   metricMap,
+  reweight,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -399,6 +379,7 @@ export function getSnapshotSettings({
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  reweight?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -422,6 +403,30 @@ export function getSnapshotSettings({
     )
     .filter(isDefined);
 
+  const banditSettings: SnapshotBanditSettings | undefined =
+    experiment.type === "multi-armed-bandit"
+      ? {
+          reweight: !!reweight,
+          decisionMetric: experiment.goalMetrics?.[0],
+          seed: Math.floor(Math.random() * 100000),
+          currentWeights:
+            phase?.banditEvents?.[phase.banditEvents.length - 1]?.banditResult
+              ?.updatedWeights ??
+            phase?.variationWeights ??
+            [],
+          historicalWeights:
+            phase?.banditEvents?.map((event) => ({
+              date: event.date,
+              weights: event.banditResult.currentWeights,
+              totalUsers:
+                event.banditResult?.singleVariationResults?.reduce(
+                  (sum, cur) => sum + (cur.users ?? 0),
+                  0
+                ) ?? 0,
+            })) ?? [],
+        }
+      : undefined;
+
   return {
     manual: !experiment.datasource,
     activationMetric: experiment.activationMetric || null,
@@ -440,12 +445,13 @@ export function getSnapshotSettings({
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
-    metricSettings: metricSettings,
+    metricSettings,
     variations: experiment.variations.map((v, i) => ({
       id: v.key || i + "",
       weight: phase.variationWeights[i] || 0,
     })),
     coverage: phase.coverage ?? 1,
+    banditSettings,
   };
 }
 
@@ -516,11 +522,10 @@ export async function createManualSnapshot({
         ],
       },
     ],
+    triggeredBy: "manual",
   };
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
-
-  return snapshot;
+  return await createExperimentSnapshotModel({ data, context });
 }
 
 export async function parseDimensionId(
@@ -579,6 +584,244 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
+export function determineNextBanditSchedule(
+  exp: ExperimentInterface
+): Date | undefined {
+  const start = (
+    exp?.banditStageDateStarted ??
+    exp.phases?.[exp.phases.length - 1]?.dateStarted ??
+    new Date()
+  ).getTime();
+
+  if (exp.banditBurnInValue === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditBurnInValue is unset."
+    );
+  }
+  if (exp.banditBurnInUnit === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditBurnInUnit is unset."
+    );
+  }
+  if (exp.banditScheduleValue === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditScheduleValue is unset."
+    );
+  }
+  if (exp.banditScheduleUnit === undefined) {
+    throw new Error(
+      "Cannot schedule next experiment update. banditScheduleUnit is unset."
+    );
+  }
+
+  const standardHoursMultiple = exp.banditScheduleUnit === "days" ? 24 : 1;
+  const standardInterval =
+    exp.banditScheduleValue * standardHoursMultiple * 60 * 60 * 1000;
+  const elapsedTime = Date.now() - start;
+  const intervalsPassed = Math.floor(elapsedTime / standardInterval);
+  const nextStandardRunDate = new Date(
+    start + (intervalsPassed + 1) * standardInterval
+  );
+
+  if (exp.banditStage === "explore") {
+    const burnInHoursMultiple = exp.banditBurnInUnit === "days" ? 24 : 1;
+    const burnInRunDate = new Date(
+      start + exp.banditBurnInValue * burnInHoursMultiple * 60 * 60 * 1000
+    );
+    if (burnInRunDate < nextStandardRunDate) {
+      return burnInRunDate;
+    }
+  }
+
+  return nextStandardRunDate;
+}
+
+export function resetExperimentBanditSettings({
+  experiment,
+  metricMap,
+  changes,
+  settings,
+  preserveExistingBanditEvents,
+}: {
+  experiment: ExperimentInterface | Omit<ExperimentInterface, "id">;
+  metricMap?: Map<string, ExperimentMetricInterface>;
+  changes?: Changeset;
+  settings: ScopedSettings;
+  preserveExistingBanditEvents?: boolean;
+}): Changeset {
+  if (!changes) changes = {};
+  if (!changes.phases) changes.phases = [...experiment.phases];
+  const phase = changes.phases.length - 1;
+
+  // 1 goal metric
+  let goalMetric: string | undefined =
+    changes.goalMetrics?.[0] || experiment.goalMetrics?.[0];
+  changes.goalMetrics = goalMetric ? [goalMetric] : [];
+
+  // No empty datasource allowed. If empty, remove the metric to block starting.
+  const dataSource = changes.datasource || experiment.datasource;
+  if (!dataSource) {
+    goalMetric = undefined;
+    changes.goalMetrics = [];
+  }
+
+  // No quantile metrics allowed (only need to check for endpoints that change metrics)
+  if (goalMetric && metricMap) {
+    const metric = metricMap.get(goalMetric);
+    if (metric && metric?.cappingSettings?.type === "percentile") {
+      changes.goalMetrics = [];
+    }
+  }
+
+  // Scrub invalid settings:
+  // stats engine
+  changes.statsEngine = "bayesian";
+  // activation metric
+  changes.activationMetric = undefined;
+  // segments
+  changes.segment = undefined;
+  // conversion windows
+  changes.attributionModel = "firstExposure";
+  // custom SQL filter
+  changes.queryFilter = undefined;
+  // metric overrides
+  changes.metricOverrides = undefined;
+
+  // Reset bandit stage
+  if (!preserveExistingBanditEvents) {
+    changes.banditStage = "explore";
+    changes.banditStageDateStarted = new Date();
+
+    // Set equal weights
+    const weights = getEqualWeights(experiment.variations.length ?? 0);
+    changes.phases[phase].variationWeights = weights;
+
+    // Log first weight change event
+    changes.phases[phase].banditEvents = [
+      {
+        date: new Date(),
+        banditResult: {
+          currentWeights: weights,
+          updatedWeights: weights,
+          bestArmProbabilities: weights,
+        },
+      },
+    ];
+  }
+
+  // Scheduling
+  // ensure bandit scheduling exists
+  changes.banditScheduleValue =
+    changes.banditScheduleValue ?? settings.banditScheduleValue.value;
+  changes.banditScheduleUnit =
+    changes.banditScheduleUnit ?? settings.banditScheduleUnit.value;
+  changes.banditBurnInValue =
+    changes.banditBurnInValue ?? settings.banditBurnInValue.value;
+  changes.banditBurnInUnit =
+    changes.banditBurnInUnit ?? settings.banditBurnInUnit.value;
+  // schedule
+  changes.nextSnapshotAttempt = determineNextBanditSchedule({
+    ...experiment,
+    ...changes,
+  } as ExperimentInterface);
+
+  return changes;
+}
+
+export function updateExperimentBanditSettings({
+  experiment,
+  changes,
+  snapshot,
+  reweight = false,
+  isScheduled = false,
+}: {
+  experiment: ExperimentInterface;
+  changes?: Changeset;
+  snapshot?: ExperimentSnapshotInterface;
+  reweight?: boolean;
+  isScheduled?: boolean;
+}): Changeset {
+  if (!changes) changes = {};
+  if (!changes.phases) {
+    changes.phases = [...experiment.phases];
+  }
+  const phase = changes.phases.length - 1;
+
+  const banditResult: BanditResult | undefined = snapshot?.banditResult;
+  const snapshotDateCreated =
+    snapshot?.analyses?.[0]?.dateCreated ?? new Date();
+
+  // Check if we need to move from explore to exploit phase:
+  let startNextbanditStage = false;
+  if (experiment.banditStage === "explore") {
+    if (!isScheduled && reweight) {
+      // manual reweights during explore immediately start the exploit phase
+      startNextbanditStage = true;
+    } else {
+      // if we are past the explore period, start the exploit phase
+      const banditStageStartDate =
+        experiment?.banditStageDateStarted ??
+        experiment.phases[phase]?.dateStarted ??
+        new Date();
+      const hoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
+      const exploitInterval =
+        (experiment.banditBurnInValue ?? 0) * hoursMultiple * 60 * 60 * 1000;
+
+      if (
+        snapshotDateCreated.getTime() >
+        banditStageStartDate.getTime() + exploitInterval
+      ) {
+        if (isScheduled) reweight = true;
+        startNextbanditStage = true;
+      }
+    }
+  }
+
+  if (startNextbanditStage) {
+    changes.banditStage = "exploit";
+    changes.banditStageDateStarted = new Date();
+  }
+
+  // Apply the bandit results:
+  if (banditResult) {
+    if (reweight) {
+      // apply the latest weights (SDK level)
+      changes.phases[phase].variationWeights = banditResult.updatedWeights;
+    } else {
+      // ignore (revert) the weight changes
+      banditResult.updatedWeights = changes.phases[phase].variationWeights;
+    }
+
+    // log weight change event
+    if (!changes.phases[phase].banditEvents) {
+      changes.phases[phase].banditEvents = [];
+    }
+    changes.phases[phase].banditEvents?.push({
+      date: snapshotDateCreated,
+      banditResult: { ...banditResult, reweight },
+      snapshotId: snapshot?.id,
+    });
+  } else {
+    logger.error("No bandit results present, skipping bandit event log", {
+      eid: experiment.id,
+      snapshot,
+    });
+  }
+
+  // scheduling
+  if (
+    changes.banditStage === "exploit" ||
+    experiment.banditStage === "exploit"
+  ) {
+    changes.nextSnapshotAttempt = determineNextBanditSchedule({
+      ...experiment,
+      ...changes,
+    } as ExperimentInterface);
+  }
+
+  return changes;
+}
+
 export async function createSnapshot({
   experiment,
   context,
@@ -591,6 +834,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
+  reweight,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -603,6 +847,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  reweight?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -614,6 +859,7 @@ export async function createSnapshot({
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
     metricMap,
+    reweight,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -627,8 +873,8 @@ export async function createSnapshot({
     queries: [],
     dimension: dimension || null,
     settings: snapshotSettings,
-    type: type,
-    triggeredBy: triggeredBy,
+    type,
+    triggeredBy,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
@@ -653,19 +899,28 @@ export async function createSnapshot({
     status: "running",
   };
 
-  const nextUpdate =
-    determineNextDate(organization.settings?.updateSchedule || null) ||
-    undefined;
+  let scheduleNextSnapshot = true;
+  if (experiment.type === "multi-armed-bandit" && type !== "standard") {
+    // explore tab actions should never trigger the next schedule for bandits
+    scheduleNextSnapshot = false;
+  }
 
-  await updateExperiment({
-    context,
-    experiment,
-    changes: {
-      lastSnapshotAttempt: new Date(),
-      nextSnapshotAttempt: nextUpdate,
-      autoSnapshots: nextUpdate !== null,
-    },
-  });
+  if (scheduleNextSnapshot) {
+    const nextUpdate =
+      (experiment.type !== "multi-armed-bandit"
+        ? determineNextDate(organization.settings?.updateSchedule || null)
+        : determineNextBanditSchedule(experiment)) || undefined;
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        lastSnapshotAttempt: new Date(),
+        nextSnapshotAttempt: nextUpdate,
+        autoSnapshots: nextUpdate !== null,
+      },
+    });
+  }
 
   const snapshot = await createExperimentSnapshotModel({ data, context });
 
@@ -889,7 +1144,7 @@ export async function createSnapshotAnalysis(
   );
 
   // Run the analysis
-  const results = await analyzeExperimentResults({
+  const { results } = await analyzeExperimentResults({
     queryData: queryMap,
     snapshotSettings: snapshot.settings,
     analysisSettings: [analysisSettings],

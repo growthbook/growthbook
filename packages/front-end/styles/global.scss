@@ -201,6 +201,19 @@ pre {
   font-weight: 600;
 }
 
+.btn-primary-darkened {
+  @include button-variant(
+    darken(colors.$highlight-purple, 10%),
+    darken(colors.$highlight-purple, 14%),
+    darken(colors.$highlight-purple, 18%),
+    lighten(colors.$highlight-purple, 5%),
+    lighten(colors.$highlight-purple, 10%),
+    darken(colors.$highlight-purple, 30%)
+  );
+  white-space: nowrap;
+  font-weight: 600;
+}
+
 .btn-premium {
   @include button-outline-variant(
     colors.$premium,
@@ -491,6 +504,12 @@ pre {
         }
         border-color: #17a2b888 !important;
       }
+      .flagged-no-scaled-impact {
+        .main-text {
+          color: #17a2b8;
+        }
+        border-color: #17a2b888 !important;
+      }
       .ok {
         color: #55ab95;
         border-color: #55ab9588 !important;
@@ -551,7 +570,8 @@ pre {
   }
 }
 
-.main.experiment {
+.main.experiment,
+.main.bandit {
   .experiment-header {
     margin: -4px -8px 0;
   }
@@ -617,13 +637,15 @@ pre {
   padding: 0 10px;
 }
 
-.experiment-results-wrapper {
+.experiment-results-wrapper,
+.bandit-summary-results-wrapper {
   @media (max-width: 900px) {
     overflow-x: auto;
   }
 }
 
-.experiment-results {
+.experiment-results,
+.bandit-summary-results {
   tbody {
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
@@ -677,6 +699,7 @@ pre {
   }
 }
 .experiment-results,
+.bandit-summary-results,
 .impact-results {
   .value,
   .chance,
@@ -1225,12 +1248,15 @@ main.main.report {
   }
 }
 
+.box,
 .appbox {
   background-color: var(--surface-background-color);
   border: 1px solid var(--border-color-200);
   margin-bottom: 1em;
   border-radius: 5px;
-  overflow-x: auto;
+  &.appbox {
+    overflow-x: auto;
+  }
 
   td {
     vertical-align: middle;
@@ -1367,6 +1393,10 @@ main.main.report {
     color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
+
+    *:last-child {
+      margin-bottom: 0;
+    }
   }
 
   .premium {
@@ -1862,8 +1892,8 @@ main.main.report {
 .table-tiny {
   th,
   td {
-    font-size: 10px;
-    padding: 0.15rem 0.35rem;
+    font-size: 12px;
+    padding: 0.15rem 0.5rem;
   }
 }
 
@@ -1903,6 +1933,10 @@ main.main.report {
 }
 
 .variation {
+  $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
+    colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
+    colors.$variant-7;
+
   &.with-variation-label {
     .label {
       display: inline-flex;
@@ -1916,113 +1950,49 @@ main.main.report {
       border-radius: 20px;
       margin-right: 4px;
     }
+
     .name {
       color: colors.$variant-null;
       margin-right: 4px;
     }
 
-    &.variation0,
-    &.variation4 {
-      .label {
-        border-color: transparentize(colors.$variant-0, 0.35);
-        color: colors.$variant-0;
-      }
-      .name {
-        color: colors.$variant-0;
-      }
-    }
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        .label {
+          border-color: transparentize($color, 0.35);
+          color: $color;
+        }
 
-    &.variation1,
-    &.variation5 {
-      .label {
-        border-color: transparentize(colors.$variant-1, 0.35);
-        color: colors.$variant-1;
+        .name {
+          color: $color;
+        }
       }
-      .name {
-        color: colors.$variant-1;
-      }
-    }
-
-    &.variation2,
-    &.variation6 {
-      .label {
-        border-color: transparentize(colors.$variant-2, 0.35);
-        color: colors.$variant-2;
-      }
-      .name {
-        color: colors.$variant-2;
-      }
-    }
-
-    &.variation3,
-    &.variation7 {
-      .label {
-        border-color: transparentize(colors.$variant-3, 0.35);
-        color: colors.$variant-3;
-      }
-      .name {
-        color: colors.$variant-3;
-      }
-    }
-  }
-
-  &.with-variation-fill {
-    background: colors.$variant-null;
-    &.variation0,
-    &.variation4 {
-      background: colors.$variant-0;
-    }
-    &.variation1,
-    &.variation5 {
-      background: colors.$variant-1;
-    }
-    &.variation2,
-    &.variation6 {
-      background: colors.$variant-2;
-    }
-    &.variation3,
-    &.variation7 {
-      background: colors.$variant-3;
     }
   }
 
   &.with-variation-border-bottom {
     border-bottom: 7px solid colors.$variant-null;
-    &.variation0,
-    &.variation4 {
-      border-bottom: 7px solid colors.$variant-0;
-    }
-    &.variation1,
-    &.variation5 {
-      border-bottom: 7px solid colors.$variant-1;
-    }
-    &.variation2,
-    &.variation6 {
-      border-bottom: 7px solid colors.$variant-2;
-    }
-    &.variation3,
-    &.variation7 {
-      border-bottom: 7px solid colors.$variant-3;
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        border-bottom: 7px solid $color;
+      }
     }
   }
 
   &.with-variation-right-shadow {
     box-shadow: -3px 0 0 colors.$variant-null inset;
-    &.variation0,
-    &.variation4 {
-      box-shadow: -3px 0 0 colors.$variant-0 inset;
-    }
-    &.variation1,
-    &.variation5 {
-      box-shadow: -3px 0 0 colors.$variant-1 inset;
-    }
-    &.variation2,
-    &.variation6 {
-      box-shadow: -3px 0 0 colors.$variant-2 inset;
-    }
-    &.variation3,
-    &.variation7 {
-      box-shadow: -3px 0 0 colors.$variant-3 inset;
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        box-shadow: -3px 0 0 $color inset;
+      }
     }
   }
 }
@@ -2712,6 +2682,9 @@ html {
   }
 }
 .phase-selector {
+  .gb-select__control {
+    background-color: transparent !important;
+  }
   .gb-select__single-value {
     .phase-selector-select-option {
       display: none;
@@ -2721,6 +2694,22 @@ html {
     .phase-selector-with-tooltip {
       display: none;
     }
+  }
+  &.align-right {
+    .gb-select__menu-portal {
+      .gb-select__menu {
+        right: 0;
+      }
+    }
+  }
+}
+.select-unfixed {
+  position: relative;
+  .gb-select__menu-portal {
+    position: absolute !important;
+    top: auto;
+    bottom: 0;
+    left: 0;
   }
 }
 .multiselect-unfixed {
@@ -3134,11 +3123,14 @@ td.disabled {
   border-color: colors.$danger !important;
 }
 
-.gb-select--is-disabled {
-  .gb-select__control {
+.gb-select--is-disabled,
+.gb-multi-select--is-disabled {
+  .gb-select__control,
+  .gb-multi-select__control {
     background-color: var(--disabled-background) !important;
   }
-  .gb-select__single-value {
+  .gb-select__single-value,
+  .gb-multi-select__single-value {
     color: var(--text-color-muted) !important;
   }
 }
@@ -3209,6 +3201,21 @@ input:disabled {
   background: linear-gradient(to top, #c0d6e6, #d5ebf0);
   .btn-link {
     color: #007bff;
+  }
+}
+
+.btn-group-card {
+  .btn {
+    color: var(--text-color-main);
+    box-sizing: border-box;
+    border-color: var(--border-color-100);
+    background-color: var(--surface-background-color);
+    &.active {
+      border-color: var(--text-color-primary);
+    }
+    &:hover {
+      background-color: rgba(154, 110, 248, 0.1);
+    }
   }
 }
 

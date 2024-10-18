@@ -29,9 +29,11 @@ type ModalProps = {
   className?: string;
   submitColor?: string;
   cta?: string | ReactNode;
+  ctaEnabled?: boolean;
   closeCta?: string | ReactNode;
   includeCloseCta?: boolean;
-  ctaEnabled?: boolean;
+  onClickCloseCta?: () => Promise<void> | void;
+  closeCtaClassName?: string;
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
@@ -67,6 +69,8 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  onClickCloseCta,
+  closeCtaClassName = "btn btn-link",
   includeCloseCta = true,
   disabledMessage,
   inline = false,
@@ -226,6 +230,18 @@ const Modal: FC<ModalProps> = ({
               />
             }
           >
+            {close && includeCloseCta ? (
+              <button
+                className={closeCtaClassName}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await onClickCloseCta?.();
+                  close();
+                }}
+              >
+                {isSuccess && successMessage ? "Close" : closeCta}
+              </button>
+            ) : null}
             {secondaryCTA}
             {submit && !isSuccess ? (
               <Tooltip
@@ -244,19 +260,6 @@ const Modal: FC<ModalProps> = ({
                   {cta}
                 </button>
               </Tooltip>
-            ) : (
-              ""
-            )}
-            {close && includeCloseCta ? (
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  close();
-                }}
-              >
-                {isSuccess && successMessage ? "Close" : closeCta}
-              </button>
             ) : null}
             {tertiaryCTA}
           </ConditionalWrapper>

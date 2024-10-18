@@ -232,79 +232,84 @@ export default function ExperimentRefSummary({
         <ForceSummary feature={feature} value={releasedValue.value} />
       ) : (
         <>
-          <strong>SERVE</strong>
-          <table className="table mt-1 mb-3 bg-light gbtable">
-            <tbody>
-              {experiment.variations.map((variation, j) => {
-                const value =
-                  variations.find((v) => v.variationId === variation.id)
-                    ?.value ?? "null";
+          {experiment.type !== "multi-armed-bandit" && (
+            <>
+              <strong>SERVE</strong>
+              <table className="table mt-1 mb-3 bg-light gbtable">
+                <tbody>
+                  {experiment.variations.map((variation, j) => {
+                    const value =
+                      variations.find((v) => v.variationId === variation.id)
+                        ?.value ?? "null";
 
-                const weight = phase.variationWeights?.[j] || 0;
+                    const weight = phase.variationWeights?.[j] || 0;
 
-                return (
-                  <tr key={j}>
-                    <td
-                      className="text-muted position-relative"
-                      style={{ fontSize: "0.9em", width: 25 }}
-                    >
-                      <div
-                        style={{
-                          width: "6px",
-                          position: "absolute",
-                          top: 0,
-                          bottom: 0,
-                          left: 0,
-                          backgroundColor: getVariationColor(j),
-                        }}
-                      />
-                      {j}.
-                    </td>
-                    <td>
-                      <ValueDisplay value={value} type={type} />
-                      <ValidateValue value={value} feature={feature} />
-                    </td>
-                    <td>{variation.name}</td>
-                    <td>
-                      <div className="d-flex">
-                        <div
-                          style={{
-                            width: "4em",
-                            maxWidth: "4em",
-                            margin: "0 0 0 auto",
-                          }}
+                    return (
+                      <tr key={j}>
+                        <td
+                          className="text-muted position-relative"
+                          style={{ fontSize: "0.9em", width: 25 }}
                         >
-                          {percentFormatter.format(weight)}
-                        </div>
-                      </div>
+                          <div
+                            style={{
+                              width: "6px",
+                              position: "absolute",
+                              top: 0,
+                              bottom: 0,
+                              left: 0,
+                              backgroundColor: getVariationColor(j),
+                            }}
+                          />
+                          {j}.
+                        </td>
+                        <td>
+                          <ValueDisplay value={value} type={type} />
+                          <ValidateValue value={value} feature={feature} />
+                        </td>
+                        <td>{variation.name}</td>
+                        <td>
+                          <div className="d-flex">
+                            <div
+                              style={{
+                                width: "4em",
+                                maxWidth: "4em",
+                                margin: "0 0 0 auto",
+                              }}
+                            >
+                              {percentFormatter.format(weight)}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={4}>
+                      <ExperimentSplitVisual
+                        values={experiment.variations.map((variation, j) => {
+                          return {
+                            name: variation.name,
+                            value:
+                              variations.find(
+                                (v) => v.variationId === variation.id
+                              )?.value ?? "null",
+                            weight: phase.variationWeights?.[j] || 0,
+                          };
+                        })}
+                        coverage={effectiveCoverage}
+                        label="Traffic split"
+                        unallocated="Not included (skips this rule)"
+                        type={type}
+                        showValues={false}
+                        stackLeft={true}
+                        showPercentages={true}
+                      />
                     </td>
                   </tr>
-                );
-              })}
-              <tr>
-                <td colSpan={4}>
-                  <ExperimentSplitVisual
-                    values={experiment.variations.map((variation, j) => {
-                      return {
-                        name: variation.name,
-                        value:
-                          variations.find((v) => v.variationId === variation.id)
-                            ?.value ?? "null",
-                        weight: phase.variationWeights?.[j] || 0,
-                      };
-                    })}
-                    coverage={effectiveCoverage}
-                    label="Traffic split"
-                    unallocated="Not included (skips this rule)"
-                    type={type}
-                    showValues={false}
-                    stackLeft={true}
-                    showPercentages={true}
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            </>
+          )}
           <div className="row align-items-center">
             <div className="col-auto">
               <strong>TRACK</strong>

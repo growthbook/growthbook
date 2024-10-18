@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { FaTimes } from "react-icons/fa";
+import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { ReactElement, useEffect, useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
@@ -49,7 +49,7 @@ import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBArrowLeft, GBCuped } from "@/components/Icons";
+import { GBCuped } from "@/components/Icons";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
@@ -59,6 +59,7 @@ import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHou
 import { AppFeatures } from "@/types/app-features";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import Checkbox from "@/components/Radix/Checkbox";
+import Callout from "@/components/Radix/Callout";
 
 export interface Props {
   close?: () => void;
@@ -67,8 +68,9 @@ export interface Props {
   duplicate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
-  goBack?: () => void;
+  switchToLegacy?: () => void;
   source: string;
+  datasource?: string;
 }
 
 type InlineFilterField = {
@@ -498,8 +500,9 @@ export default function FactMetricModal({
   duplicate = false,
   showAdvancedSettings,
   onSave,
-  goBack,
+  switchToLegacy,
   source,
+  datasource,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -521,7 +524,8 @@ export default function FactMetricModal({
 
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
-    .filter((d) => d.properties?.queryLanguage === "sql");
+    .filter((d) => d.properties?.queryLanguage === "sql")
+    .filter((d) => !datasource || d.id === datasource);
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
@@ -726,18 +730,19 @@ export default function FactMetricModal({
       })}
       size="lg"
     >
-      {goBack && (
-        <div className="mb-3">
+      {switchToLegacy && (
+        <Callout status="info" mb="3">
+          You are creating a Fact Table Metric.{" "}
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              goBack();
+              switchToLegacy();
             }}
           >
-            <GBArrowLeft /> Go Back
+            Switch to legacy SQL <FaArrowRight />
           </a>
-        </div>
+        </Callout>
       )}
       <Field
         label="Metric Name"

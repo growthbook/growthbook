@@ -2,17 +2,22 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import { FaHome } from "react-icons/fa";
+import { FaAngleRight, FaExclamationTriangle, FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
-import { FaHeartPulse } from "react-icons/fa6";
+import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  getAffectedEnvsForExperiment,
+} from "shared/util";
 import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
+import Collapsible from "react-collapsible";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -28,10 +33,13 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { formatPercent } from "@/services/metrics";
+import { AppFeatures } from "@/types/app-features";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
@@ -99,13 +107,14 @@ export default function ExperimentHeader({
   healthNotificationCount,
   verifiedConnections,
 }: Props) {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const { scrollY } = useScrollPosition();
-  const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
@@ -148,10 +157,11 @@ export default function ExperimentHeader({
 
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
-  const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
+  const disableHealthTab = isUsingHealthUnsupportDatasource;
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   async function startExperiment() {
-    startCelebration();
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();
@@ -161,19 +171,26 @@ export default function ExperimentHeader({
       }
     }
 
-    await apiCall(`/experiment/${experiment.id}/status`, {
-      method: "POST",
-      body: JSON.stringify({
-        status: "running",
-      }),
-    });
-    await mutate();
-    track("Start experiment", {
-      source: "experiment-start-banner",
-      action: "main CTA",
-    });
-    setTab("results");
-    setShowStartExperiment(false);
+    try {
+      await apiCall(`/experiment/${experiment.id}/status`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: "running",
+        }),
+      });
+      await mutate();
+      startCelebration();
+
+      track("Start experiment", {
+        source: "experiment-start-banner",
+        action: "main CTA",
+      });
+      setTab("results");
+      setShowStartExperiment(false);
+    } catch (e) {
+      setShowStartExperiment(false);
+      throw e;
+    }
   }
 
   return (
@@ -195,22 +212,15 @@ export default function ExperimentHeader({
             open={true}
             size="md"
             closeCta={
-              checklistIncomplete || !verifiedConnections.length ? (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setShowStartExperiment(false)}
-                >
-                  Close
-                </button>
-              ) : (
-                // This is a bit odd, but design requested we use the closeCTA as an override in this case
-                <button
-                  className="btn btn-primary"
-                  onClick={async () => startExperiment()}
-                >
-                  Start Immediately
-                </button>
-              )
+              checklistIncomplete || !verifiedConnections.length
+                ? "Close"
+                : "Start Immediately"
+            }
+            closeCtaClassName="btn btn-primary"
+            onClickCloseCta={
+              checklistIncomplete || !verifiedConnections.length
+                ? () => setShowStartExperiment(false)
+                : async () => startExperiment()
             }
             secondaryCTA={
               checklistIncomplete || !verifiedConnections.length ? (
@@ -304,7 +314,16 @@ export default function ExperimentHeader({
               {experiment.archived ? (
                 <div className="badge badge-secondary">archived</div>
               ) : (
-                <ExperimentStatusIndicator status={experiment.status} />
+                <ExperimentStatusIndicator
+                  status={experiment.status}
+                  subStatus={
+                    experiment.type === "multi-armed-bandit" &&
+                    experiment.status === "running" &&
+                    experiment.banditStage === "explore"
+                      ? "exploratory"
+                      : undefined
+                  }
+                />
               )}
             </div>
 
@@ -314,6 +333,7 @@ export default function ExperimentHeader({
                   <ExperimentActionButtons
                     editResult={editResult}
                     editTargeting={editTargeting}
+                    isBandit={isBandit}
                   />
                 ) : experiment.status === "stopped" && experiment.results ? (
                   <div className="experiment-status-widget border d-flex">
@@ -325,15 +345,25 @@ export default function ExperimentHeader({
                     </div>
                   </div>
                 ) : experiment.status === "draft" ? (
-                  <button
-                    className="btn btn-teal"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowStartExperiment(true);
-                    }}
+                  <Tooltip
+                    shouldDisplay={
+                      isBandit && !experimentHasLinkedChanges(experiment)
+                    }
+                    body="Add at least one Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    Start Experiment <MdRocketLaunch />
-                  </button>
+                    <button
+                      className="btn btn-teal"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowStartExperiment(true);
+                      }}
+                      disabled={
+                        isBandit && !experimentHasLinkedChanges(experiment)
+                      }
+                    >
+                      Start Experiment <MdRocketLaunch />
+                    </button>
+                  </Tooltip>
                 ) : null}
               </div>
             ) : null}
@@ -350,21 +380,28 @@ export default function ExperimentHeader({
                     Edit targeting & traffic
                   </button>
                 )}
-                {canRunExperiment && (
-                  <button
-                    className="dropdown-item"
-                    onClick={() => setStatusModal(true)}
-                  >
-                    Edit status
-                  </button>
-                )}
-                {editPhases && (
+                {canRunExperiment &&
+                  !(isBandit && experiment.status === "running") && (
+                    <button
+                      className="dropdown-item"
+                      onClick={() => setStatusModal(true)}
+                    >
+                      Edit status
+                    </button>
+                  )}
+                {editPhases && !isBandit && (
                   <button
                     className="dropdown-item"
                     onClick={() => editPhases()}
                   >
                     Edit phases
                   </button>
+                )}
+                {canRunExperiment && growthbook.isOn("bandits") && (
+                  <ConvertBanditExperiment
+                    experiment={experiment}
+                    mutate={mutate}
+                  />
                 )}
                 <WatchButton
                   itemType="experiment"
@@ -465,7 +502,7 @@ export default function ExperimentHeader({
                           body: JSON.stringify({ id: experiment.id }),
                         }
                       );
-                      router.push("/experiments");
+                      router.push(isBandit ? "/bandits" : "/experiments");
                     }}
                   />
                 )}
@@ -515,14 +552,23 @@ export default function ExperimentHeader({
                   activeClassName="active-tab"
                   last={false}
                 />
-                {disableHealthTab ? (
-                  <DisabledHealthTabTooltip
-                    reason={
-                      isUsingHealthUnsupportDatasource
-                        ? "UNSUPPORTED_DATASOURCE"
-                        : "DIMENSION_SELECTED"
+                {isBandit && (
+                  <TabButton
+                    active={tab === "explore"}
+                    display={
+                      <>
+                        <FaMagnifyingGlassChart /> Explore
+                      </>
                     }
-                  >
+                    anchor="explore"
+                    onClick={() => setTab("explore")}
+                    newStyle={false}
+                    activeClassName="active-tab"
+                    last={false}
+                  />
+                )}
+                {disableHealthTab ? (
+                  <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
                     <span className="nav-item nav-link text-muted">
                       <FaHeartPulse /> Health
                     </span>
@@ -564,5 +610,130 @@ export default function ExperimentHeader({
         </div>
       </div>
     </>
+  );
+}
+
+export function ConvertBanditExperiment({
+  experiment,
+  mutate,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
+
+  return (
+    <Tooltip
+      body="Can be converted only while in draft mode"
+      shouldDisplay={experiment.status !== "draft"}
+      usePortal={true}
+      tipPosition="left"
+    >
+      <ConfirmButton
+        modalHeader={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
+        disabled={experiment.status !== "draft"}
+        size="lg"
+        confirmationText={
+          <div>
+            <p>
+              Are you sure you want to convert this{" "}
+              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+            </p>
+            {!isBandit && experiment.goalMetrics.length > 0 && (
+              <div className="alert alert-warning">
+                <Collapsible
+                  trigger={
+                    <div>
+                      <FaExclamationTriangle className="mr-2" />
+                      Some of your experiment settings may be altered. More info{" "}
+                      <FaAngleRight className="chevron" />
+                    </div>
+                  }
+                  transitionTime={100}
+                >
+                  <ul className="ml-0 pl-3 mt-3">
+                    <li>
+                      A <strong>single decision metric</strong> will be
+                      automatically assigned. You may change this before running
+                      the experiment.
+                    </li>
+                    <li>
+                      Experiment variations will begin with{" "}
+                      <strong>equal weights</strong> (
+                      {experiment.variations
+                        .map((_, i) =>
+                          i < 3
+                            ? formatPercent(
+                                1 / (experiment.variations.length ?? 2)
+                              )
+                            : i === 3
+                            ? "..."
+                            : null
+                        )
+                        .filter(Boolean)
+                        .join(", ")}
+                      ).
+                    </li>
+                    <li>
+                      The stats engine will be locked to{" "}
+                      <strong>Bayesian</strong>.
+                    </li>
+                    <li>
+                      Any <strong>Activation Metric</strong>,{" "}
+                      <strong>Segments</strong>,{" "}
+                      <strong>Conversion Window overrides</strong>,{" "}
+                      <strong>Custom SQL Filters</strong>, or{" "}
+                      <strong>Metric Overrides</strong> will be removed.
+                    </li>
+                  </ul>
+                </Collapsible>
+              </div>
+            )}
+          </div>
+        }
+        onClick={async () => {
+          if (!isBandit && !hasMultiArmedBanditFeature) return;
+          try {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({
+                type: !isBandit ? "multi-armed-bandit" : "standard",
+              }),
+            });
+            mutate();
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        cta={
+          isBandit ? (
+            "Convert"
+          ) : (
+            <PremiumTooltip
+              body={null}
+              commercialFeature="multi-armed-bandits"
+              usePortal={true}
+            >
+              Convert
+            </PremiumTooltip>
+          )
+        }
+        ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+      >
+        <button
+          className="dropdown-item"
+          type="button"
+          disabled={experiment.status !== "draft"}
+        >
+          Convert to {isBandit ? "Experiment" : "Bandit"}
+        </button>
+      </ConfirmButton>
+    </Tooltip>
   );
 }
