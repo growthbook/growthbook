@@ -124,6 +124,7 @@ export default function FactTablePage() {
           }}
           cancel={() => setEditTagsModal(false)}
           mutate={mutateDefinitions}
+          source="ftid"
         />
       )}
       <PageHead

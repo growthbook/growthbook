@@ -130,6 +130,7 @@ const BanditExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}
           mutate={mutate}
+          source="bid"
         />
       )}
       {stopModalOpen && (
@@ -137,6 +138,7 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="bid"
         />
       )}
       {variationsModalOpen && (
@@ -144,6 +146,7 @@ const BanditExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
           mutate={mutate}
+          source="bid"
         />
       )}
       {duplicateModalOpen && (
@@ -169,7 +172,8 @@ const BanditExperimentPage = (): ReactElement => {
               };
             }),
           }}
-          source="duplicate"
+          duplicate={true}
+          source="duplicate-bid"
         />
       )}
       {tagsModalOpen && (
@@ -183,6 +187,7 @@ const BanditExperimentPage = (): ReactElement => {
           }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
+          source="bid"
         />
       )}
       {projectModalOpen && (
@@ -215,6 +220,7 @@ const BanditExperimentPage = (): ReactElement => {
               </div>
             ) : null
           }
+          source="bid"
         />
       )}
       {phaseModalOpen && (
@@ -222,6 +228,7 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="bid"
         />
       )}
       {editPhaseId !== null && (
@@ -231,6 +238,7 @@ const BanditExperimentPage = (): ReactElement => {
           mutate={mutate}
           i={editPhaseId}
           editTargeting={editTargeting}
+          source="bid"
         />
       )}
       {editPhasesOpen && (
@@ -239,6 +247,7 @@ const BanditExperimentPage = (): ReactElement => {
           mutateExperiment={mutate}
           experiment={experiment}
           editTargeting={editTargeting}
+          source="bid"
         />
       )}
       {targetingModalOpen && (
@@ -247,6 +256,7 @@ const BanditExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          // source="bid"
         />
       )}
 

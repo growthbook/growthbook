@@ -74,6 +74,7 @@ const Redirect = ({
           urlRedirect={urlRedirect}
           mutate={mutate}
           close={() => setEditingRedirect(false)}
+          source={"redirect-linked-changes"}
         />
       ) : null}
       <div className="appbox p-3 mb-0">
