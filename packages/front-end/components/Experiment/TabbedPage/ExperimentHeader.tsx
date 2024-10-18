@@ -333,7 +333,7 @@ export default function ExperimentHeader({
             </div>
 
             {canRunExperiment ? (
-              <div className="ml-2">
+              <div className="ml-2 flex-shrink-0">
                 {experiment.status === "running" ? (
                   <ExperimentActionButtons
                     editResult={editResult}

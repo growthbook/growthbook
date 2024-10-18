@@ -112,6 +112,7 @@ const experimentRule = baseRule
   .extend({
     type: z.literal("experiment"),
     experimentType: z.enum(experimentType).optional(),
+    hypothesis: z.string().optional(),
     trackingKey: z.string(),
     hashAttribute: z.string(),
     fallbackAttribute: z.string().optional(),

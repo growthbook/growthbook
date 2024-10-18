@@ -256,7 +256,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                 Top-level: <span className="text-success">pass</span>.
               </span>{" "}
               <span>
-                Override rules:{" "}
+                Rules:{" "}
                 {skipRulesWithPrerequisites ? (
                   <span className="text-danger">fail</span>
                 ) : (

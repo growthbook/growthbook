@@ -71,7 +71,12 @@ export default function RuleStatusPill({
     return (
       <div className="mr-3">
         <strong>Skip Rule: </strong>
-        <span className="badge badge-secondary">Experiment not running</span>
+        <span className="badge badge-secondary">
+          {linkedExperiment.type === "multi-armed-bandit"
+            ? "Bandit"
+            : "Experiment"}{" "}
+          not running
+        </span>
       </div>
     );
   }

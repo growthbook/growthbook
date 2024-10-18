@@ -55,7 +55,7 @@
     .rt-BaseRadioRoot {
       &:not([data-state="checked"]) {
         &::before {
-          background: var(--violet-a3);
+          background: var(--violet-a2);
         }
       }
     }
@@ -65,7 +65,7 @@
 // RadioCards
 .rt-RadioCardsItem {
   &:hover:not(.disabled) {
-    background: var(--violet-a3);
+    background: var(--violet-a2);
   }
   & > * {
     pointer-events: auto !important;

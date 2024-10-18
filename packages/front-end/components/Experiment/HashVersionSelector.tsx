@@ -1,4 +1,4 @@
-import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
+import { FaQuestionCircle } from "react-icons/fa";
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -6,6 +6,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import HelperText from "@/components/Radix/HelperText";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (
@@ -67,12 +68,11 @@ export default function HashVersionSelector({
       />
 
       {hasSDKWithNoBucketingV2 && (
-        <div className="mt-2 alert alert-warning">
-          <FaExclamationTriangle className="mr-1" />
+        <HelperText status="warning">
           Some of your SDK Connections may not support V2 hashing. While V2
           hashing is preferred, please ensure you are only using it with
           compatible SDKs.
-        </div>
+        </HelperText>
       )}
     </>
   );

@@ -156,7 +156,7 @@ export default function ExperimentSummary({
                     top: 0,
                     bottom: 0,
                     left: 0,
-                    backgroundColor: getVariationColor(j),
+                    backgroundColor: getVariationColor(j, true),
                   }}
                 />
                 {j}.

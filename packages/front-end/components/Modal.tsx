@@ -18,6 +18,7 @@ import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
+  subHeader?: string | ReactNode;
   open: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
@@ -50,6 +51,7 @@ type ModalProps = {
   fullWidthSubmit?: boolean;
   secondaryCTA?: ReactNode;
   tertiaryCTA?: ReactNode;
+  backCTA?: ReactNode;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
@@ -60,6 +62,7 @@ type ModalProps = {
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
+  subHeader = "",
   children,
   close,
   submit,
@@ -86,6 +89,7 @@ const Modal: FC<ModalProps> = ({
   loading: externalLoading,
   secondaryCTA,
   tertiaryCTA,
+  backCTA,
   successMessage,
   bodyClassName = "",
   formRef,
@@ -141,22 +145,25 @@ const Modal: FC<ModalProps> = ({
       {loading && <LoadingOverlay />}
       {header ? (
         <div className="modal-header">
-          <h5 className="modal-title">
-            {header === "logo" ? (
-              <img
-                alt="GrowthBook"
-                src="/logo/growthbook-logo.png"
-                style={{ height: 40 }}
-              />
-            ) : (
-              header
-            )}
-          </h5>
-          {docSection && (
-            <DocLink docSection={docSection}>
-              <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
-            </DocLink>
-          )}
+          <div>
+            <h4 className="modal-title">
+              {header === "logo" ? (
+                <img
+                  alt="GrowthBook"
+                  src="/logo/growthbook-logo.png"
+                  style={{ height: 40 }}
+                />
+              ) : (
+                header
+              )}
+              {docSection && (
+                <DocLink docSection={docSection}>
+                  <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+                </DocLink>
+              )}
+            </h4>
+            {subHeader ? <div className="mt-1">{subHeader}</div> : null}
+          </div>
           {close && (
             <button
               type="button"
@@ -207,10 +214,20 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit || secondaryCTA || (close && includeCloseCta) ? (
+      {submit ||
+      secondaryCTA ||
+      tertiaryCTA ||
+      backCTA ||
+      (close && includeCloseCta) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >
+          {backCTA ? (
+            <>
+              {backCTA}
+              <div className="flex-1" />
+            </>
+          ) : null}
           {error && (
             <div className="alert alert-danger mr-auto">
               {error
