@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Environment,
   NamespaceUsage,
@@ -187,6 +187,11 @@ export function findGaps(
 
 export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
+  const [features, setFeatures] = useState<FeatureInterface[]>([]);
+  const [experiments, setExperiments] = useState<
+    ExperimentInterfaceStringDates[]
+  >([]);
+  const [hasArchived, setHasArchived] = useState(false);
 
   const qs = new URLSearchParams();
   if (withProject) {
@@ -204,13 +209,21 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
     hasArchived: boolean;
   }>(url);
 
+  useEffect(() => {
+    if (data) {
+      setFeatures(data.features);
+      setExperiments(data.linkedExperiments);
+      setHasArchived(data.hasArchived);
+    }
+  }, [data]);
+
   return {
-    features: data?.features || [],
-    experiments: data?.linkedExperiments || [],
+    features,
+    experiments,
     loading: !data,
     error,
     mutate,
-    hasArchived: data?.hasArchived || false,
+    hasArchived,
   };
 }
 
