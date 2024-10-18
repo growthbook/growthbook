@@ -3,7 +3,7 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 
-export function MetricPriorRightRailSectionGroup({
+export default function MetricPriorRightRailSectionGroup({
   metric,
   metricDefaults,
 }: {
