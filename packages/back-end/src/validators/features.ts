@@ -113,7 +113,6 @@ const experimentRule = baseRule
     type: z.literal("experiment"),
     experimentType: z.enum(experimentType).optional(),
     hypothesis: z.string().optional(),
-    tags: z.array(z.string()).optional(),
     trackingKey: z.string(),
     hashAttribute: z.string(),
     fallbackAttribute: z.string().optional(),
@@ -124,9 +123,6 @@ const experimentRule = baseRule
     namespace: namespaceValue.optional(),
     coverage: z.number().optional(),
     values: z.array(experimentValue),
-    // todo:
-    // datasource: z.string().optional(),
-    // exposureQueryId: z.string().optional(),
   })
   .strict();
 
