@@ -146,15 +146,22 @@ export default function ExperimentRefSummary({
     <div>
       {experiment.status === "draft" && (
         <div className="alert alert-warning">
-          This {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"} is in a <strong>draft</strong> state and has not been
-          started yet. This rule will be skipped.
+          This{" "}
+          {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}{" "}
+          is in a <strong>draft</strong> state and has not been started yet.
+          This rule will be skipped.
         </div>
       )}
       {experiment.status === "stopped" && (
         <div className="alert alert-info">
-          This {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"} is stopped and a <strong>Temporary Rollout</strong> is
-          enabled. All users in the {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"} will receive the winning
-          variation. If no longer needed, you can stop it from the {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}{" "}
+          This{" "}
+          {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}{" "}
+          is stopped and a <strong>Temporary Rollout</strong> is enabled. All
+          users in the{" "}
+          {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}{" "}
+          will receive the winning variation. If no longer needed, you can stop
+          it from the{" "}
+          {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}{" "}
           page.
         </div>
       )}
@@ -257,7 +264,7 @@ export default function ExperimentRefSummary({
                               top: 0,
                               bottom: 0,
                               left: 0,
-                              backgroundColor: getVariationColor(j),
+                              backgroundColor: getVariationColor(j, true),
                             }}
                           />
                           {j}.
@@ -320,14 +327,6 @@ export default function ExperimentRefSummary({
               <span className="mr-1 border px-2 py-1 bg-light rounded">
                 {experiment.trackingKey}
               </span>{" "}
-            </div>
-            <div className="col-auto">
-              <Link
-                href={`/experiment/${experiment.id}`}
-                className="btn btn-outline-primary"
-              >
-                View details and results
-              </Link>
             </div>
           </div>
         </>

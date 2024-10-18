@@ -40,7 +40,11 @@ export default function RuleList({
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
-  setRuleModal: (args: { environment: string; i: number, defaultType?: string, }) => void;
+  setRuleModal: (args: {
+    environment: string;
+    i: number;
+    defaultType?: string;
+  }) => void;
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];

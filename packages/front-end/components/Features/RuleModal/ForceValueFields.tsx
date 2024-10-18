@@ -2,7 +2,6 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
-import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
@@ -10,7 +9,6 @@ import { NewExperimentRefRule } from "@/services/features";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import { useIncrementer } from "@/hooks/useIncrementer";
 
 export default function ForceValueFields({
   feature,
@@ -21,6 +19,7 @@ export default function ForceValueFields({
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
+  conditionKey,
   // legacy:
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
@@ -34,14 +33,13 @@ export default function ForceValueFields({
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
+  conditionKey: number;
 
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
   setShowUpgradeModal: (b: boolean) => void;
 }) {
   const form = useFormContext();
-
-  const [conditionKey, forceConditionRender] = useIncrementer();
 
   return (
     <>

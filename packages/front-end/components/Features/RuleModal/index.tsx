@@ -1,29 +1,20 @@
 import { FormProvider, useForm } from "react-hook-form";
 import {
-  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
 import React, { useMemo, useState } from "react";
-import { date } from "shared/dates";
 import uniqId from "uniqid";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentType,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { includeExperimentInPayload, isFeatureCyclic } from "shared/util";
-import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
-import Link from "next/link";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { FaRegCircleCheck } from "react-icons/fa6";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { PiCaretRight } from "react-icons/pi";
 import {
   NewExperimentRefRule,
-  generateVariationId,
   getDefaultRuleValue,
-  getDefaultVariationValue,
   getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
@@ -34,35 +25,18 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import HashVersionSelector, {
-  allConnectionsSupportBucketingV2,
-} from "@/components/Experiment/HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import Field from "@/components/Forms/Field";
+import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
-import Toggle from "@/components/Forms/Toggle";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
-import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/components/Radix/RadioCards";
 import RadioGroup from "@/components/Radix/RadioGroup";
-import ConditionInput from "components/Features/ConditionInput";
-import FeatureValueField from "components/Features/FeatureValueField";
-import NamespaceSelector from "components/Features/NamespaceSelector";
-import ScheduleInputs from "components/Features/ScheduleInputs";
-import FeatureVariationsInput from "components/Features/FeatureVariationsInput";
-import SavedGroupTargetingField from "components/Features/SavedGroupTargetingField";
-import FallbackAttributeSelector from "components/Features/FallbackAttributeSelector";
 import PagedModal from "@/components/Modal/PagedModal";
 import ForceValueFields from "@/components/Features/RuleModal/ForceValueFields";
 import RolloutFields from "@/components/Features/RuleModal/RolloutFields";
@@ -71,7 +45,7 @@ import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRe
 import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
-import {PiCaretRight} from "react-icons/pi";
+import { useIncrementer } from "@/hooks/useIncrementer";
 
 export interface Props {
   close: () => void;
@@ -108,7 +82,7 @@ export default function RuleModal({
 
   const { datasources } = useDefinitions();
 
-  const { experiments, experimentsMap, mutateExperiments } = useExperiments();
+  const { experimentsMap, mutateExperiments } = useExperiments();
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
@@ -124,8 +98,6 @@ export default function RuleModal({
     attributeSchema,
   });
 
-  const [conditionKey, forceConditionRender] = useIncrementer();
-
   const { features } = useFeaturesList();
 
   const defaultValues = {
@@ -139,7 +111,9 @@ export default function RuleModal({
     )
   );
 
-  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(isNewRule);
+  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
+    isNewRule
+  );
   const [
     overviewRadioSelectorRuleType,
     setOverviewRadioSelectorRuleType,
@@ -206,6 +180,8 @@ export default function RuleModal({
     return !isCyclic && !prerequisiteTargetingSdkIssues;
   }, [isCyclic, prerequisiteTargetingSdkIssues]);
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   if (showUpgradeModal) {
     return (
       <UpgradeModal
@@ -267,7 +243,12 @@ export default function RuleModal({
         open={true}
         close={close}
         size="lg"
-        cta={<>Next <PiCaretRight className="position-relative" style={{ top: -1 }} /></>}
+        cta={
+          <>
+            Next{" "}
+            <PiCaretRight className="position-relative" style={{ top: -1 }} />
+          </>
+        }
         ctaEnabled={!!overviewRuleType}
         bodyClassName="px-4"
         header={`New Rule in ${environment}`}
@@ -312,13 +293,13 @@ export default function RuleModal({
                 ? [
                     {
                       value: "bandit",
-                      disabled: !hasMultiArmedBanditFeature || !hasStickyBucketFeature,
+                      disabled:
+                        !hasMultiArmedBanditFeature || !hasStickyBucketFeature,
                       label: (
                         <PremiumTooltip
                           commercialFeature="multi-armed-bandits"
                           body={
-                            !orgStickyBucketing &&
-                            hasStickyBucketFeature ? (
+                            !orgStickyBucketing && hasStickyBucketFeature ? (
                               <div>
                                 Enable Sticky Bucketing in your organization
                                 settings to run a Bandit.
@@ -365,11 +346,7 @@ export default function RuleModal({
               ]}
               value={overviewRuleType}
               setValue={(
-                v:
-                  | "force"
-                  | "rollout"
-                  | "experiment-ref"
-                  | "experiment-ref-new"
+                v: "force" | "rollout" | "experiment-ref" | "experiment-ref-new"
               ) => setOverviewRuleType(v)}
             />
           </>
@@ -390,11 +367,7 @@ export default function RuleModal({
               ]}
               value={overviewRuleType}
               setValue={(
-                v:
-                  | "force"
-                  | "rollout"
-                  | "experiment-ref"
-                  | "experiment-ref-new"
+                v: "force" | "rollout" | "experiment-ref" | "experiment-ref-new"
               ) => setOverviewRuleType(v)}
             />
           </>
@@ -404,15 +377,20 @@ export default function RuleModal({
   }
 
   let headerText = isNewRule ? "Add " : "Edit ";
-  headerText += type === "force" ?
-    `${isNewRule ? "new " : ""}Force Value Rule` :
-    type === "rollout" ?
-      `${isNewRule ? "new " : ""}Percentage Rollout Rule` :
-      ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) && form.watch("experimentType") === "multi-armed-bandit" ?
-        `${type === "experiment-ref-new" ? "new" : "existing"} Bandit as Rule` :
-        ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) && form.watch("experimentType") !== "multi-armed-bandit" ?
-        `${type === "experiment-ref-new" ? "new" : "existing"} Experiment as Rule` :
-          "Override Rule";
+  headerText +=
+    type === "force"
+      ? `${isNewRule ? "new " : ""}Force Value Rule`
+      : type === "rollout"
+      ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
+      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) &&
+        form.watch("experimentType") === "multi-armed-bandit"
+      ? `${type === "experiment-ref-new" ? "new" : "existing"} Bandit as Rule`
+      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) &&
+        form.watch("experimentType") !== "multi-armed-bandit"
+      ? `${
+          type === "experiment-ref-new" ? "new" : "existing"
+        } Experiment as Rule`
+      : "Override Rule";
   headerText += ` in ${environment}`;
 
   return (
@@ -420,16 +398,29 @@ export default function RuleModal({
       <PagedModal
         close={close}
         size="lg"
-        cta={newRuleOverviewPage ? <>Next <PiCaretRight className="position-relative" style={{ top: -1 }} /></> : "Save"}
+        cta={
+          newRuleOverviewPage ? (
+            <>
+              Next{" "}
+              <PiCaretRight className="position-relative" style={{ top: -1 }} />
+            </>
+          ) : (
+            "Save"
+          )
+        }
         ctaEnabled={newRuleOverviewPage ? type !== undefined : canSubmit}
         bodyClassName="px-4"
         header={headerText}
-        subHeader={`You will have a chance to review ${isNewRule ? "new rules" : "changes"} as a draft before publishing.`}
+        subHeader={`You will have a chance to review ${
+          isNewRule ? "new rules" : "changes"
+        } as a draft before publishing.`}
         step={step}
         setStep={setStep}
         hideNav={type !== "experiment-ref-new"}
         backButton={true}
-        onBackFirstStep={isNewRule ? () => setNewRuleOverviewPage(true) : undefined}
+        onBackFirstStep={
+          isNewRule ? () => setNewRuleOverviewPage(true) : undefined
+        }
         submit={form.handleSubmit(async (values) => {
           const ruleAction = i === rules.length ? "add" : "edit";
 
@@ -670,9 +661,7 @@ export default function RuleModal({
               hasDescription: values.description.length > 0,
               error: e.message,
             });
-
             forceConditionRender();
-
             throw e;
           }
         })}
@@ -689,6 +678,7 @@ export default function RuleModal({
             }
             isCyclic={isCyclic}
             cyclicFeatureId={cyclicFeatureId}
+            conditionKey={conditionKey}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             setShowUpgradeModal={setShowUpgradeModal}
@@ -707,35 +697,39 @@ export default function RuleModal({
             }
             isCyclic={isCyclic}
             cyclicFeatureId={cyclicFeatureId}
+            conditionKey={conditionKey}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             setShowUpgradeModal={setShowUpgradeModal}
           />
         )}
 
-        {((type === "experiment-ref" || type === "experiment") && form.watch("experimentType") !== "multi-armed-bandit") && (
-          <ExperimentRefFields
-            feature={feature}
-            environment={environment}
-            i={i}
-            changeRuleType={changeRuleType}
-            canEditTargeting={canEditTargeting}
-            setShowTargetingModal={setShowTargetingModal}
-          />
-        )}
+        {(type === "experiment-ref" || type === "experiment") &&
+          form.watch("experimentType") !== "multi-armed-bandit" && (
+            <ExperimentRefFields
+              feature={feature}
+              environment={environment}
+              i={i}
+              changeRuleType={changeRuleType}
+              canEditTargeting={canEditTargeting}
+              setShowTargetingModal={setShowTargetingModal}
+            />
+          )}
 
-        {((type === "experiment-ref" || type === "experiment") && form.watch("experimentType") === "multi-armed-bandit") && (
-          <BanditRefFields
-            feature={feature}
-            environment={environment}
-            i={i}
-            changeRuleType={changeRuleType}
-            canEditTargeting={canEditTargeting}
-            setShowTargetingModal={setShowTargetingModal}
-          />
-        )}
+        {(type === "experiment-ref" || type === "experiment") &&
+          form.watch("experimentType") === "multi-armed-bandit" && (
+            <BanditRefFields
+              feature={feature}
+              environment={environment}
+              i={i}
+              changeRuleType={changeRuleType}
+              canEditTargeting={canEditTargeting}
+              setShowTargetingModal={setShowTargetingModal}
+            />
+          )}
 
-        {type === "experiment-ref-new" && form.watch("experimentType") !== "multi-armed-bandit"
+        {type === "experiment-ref-new" &&
+        form.watch("experimentType") !== "multi-armed-bandit"
           ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields
@@ -749,6 +743,7 @@ export default function RuleModal({
                   }
                   isCyclic={isCyclic}
                   cyclicFeatureId={cyclicFeatureId}
+                  conditionKey={conditionKey}
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
                   setShowUpgradeModal={setShowUpgradeModal}
@@ -758,27 +753,25 @@ export default function RuleModal({
             ))
           : null}
 
-        {type === "experiment-ref-new" && form.watch("experimentType") === "multi-armed-bandit"
+        {type === "experiment-ref-new" &&
+        form.watch("experimentType") === "multi-armed-bandit"
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
-            <Page display={p} key={i}>
-              <BanditRefNewFields
-                feature={feature}
-                environment={environment}
-                defaultValues={defaultValues}
-                version={version}
-                revisions={revisions}
-                setPrerequisiteTargetingSdkIssues={
-                  setPrerequisiteTargetingSdkIssues
-                }
-                isCyclic={isCyclic}
-                cyclicFeatureId={cyclicFeatureId}
-                scheduleToggleEnabled={scheduleToggleEnabled}
-                setScheduleToggleEnabled={setScheduleToggleEnabled}
-                setShowUpgradeModal={setShowUpgradeModal}
-                step={i}
-              />
-            </Page>
-          ))
+              <Page display={p} key={i}>
+                <BanditRefNewFields
+                  feature={feature}
+                  environment={environment}
+                  version={version}
+                  revisions={revisions}
+                  setPrerequisiteTargetingSdkIssues={
+                    setPrerequisiteTargetingSdkIssues
+                  }
+                  isCyclic={isCyclic}
+                  cyclicFeatureId={cyclicFeatureId}
+                  conditionKey={conditionKey}
+                  step={i}
+                />
+              </Page>
+            ))
           : null}
       </PagedModal>
     </FormProvider>

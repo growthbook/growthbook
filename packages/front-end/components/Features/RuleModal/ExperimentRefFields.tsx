@@ -32,7 +32,7 @@ export default function ExperimentRefFields({
 }) {
   const form = useFormContext();
 
-  const { experiments, experimentsMap, mutateExperiments } = useExperiments();
+  const { experiments, experimentsMap } = useExperiments();
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
@@ -41,12 +41,11 @@ export default function ExperimentRefFields({
   const experimentOptions = experiments
     .filter(
       (e) =>
-        (e.type !== "multi-armed-bandit") && (
-        e.id === experimentId ||
-        (!e.archived &&
-          e.status !== "stopped" &&
-          (e.project || "") === (feature.project || ""))
-        )
+        e.type !== "multi-armed-bandit" &&
+        (e.id === experimentId ||
+          (!e.archived &&
+            e.status !== "stopped" &&
+            (e.project || "") === (feature.project || "")))
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
     .map((e) => ({
@@ -137,8 +136,7 @@ export default function ExperimentRefFields({
                   href={`/experiment/${selectedExperiment.id}#overview`}
                   className="alert-link"
                 >
-                  View the Experiment{" "}
-                  <FaExternalLinkAlt />
+                  View the Experiment <FaExternalLinkAlt />
                 </Link>{" "}
                 to make changes to assignment or targeting conditions.
               </div>

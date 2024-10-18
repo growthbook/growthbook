@@ -32,7 +32,11 @@ interface SortableProps {
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
-  setRuleModal: (args: { environment: string; i: number, defaultType?: string, }) => void;
+  setRuleModal: (args: {
+    environment: string;
+    i: number;
+    defaultType?: string;
+  }) => void;
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];
@@ -131,10 +135,21 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <div className="flex-1 mx-2">
             {linkedExperiment ? (
               <div>
-                {linkedExperiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}:{" "}
-                <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
-                <Link href={`/${linkedExperiment.type === "multi-armed-bandit" ? "bandit" : "experiment"}/${linkedExperiment.id}`}>
-                  View {linkedExperiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}
+                {linkedExperiment.type === "multi-armed-bandit"
+                  ? "Bandit"
+                  : "Experiment"}
+                : <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
+                <Link
+                  href={`/${
+                    linkedExperiment.type === "multi-armed-bandit"
+                      ? "bandit"
+                      : "experiment"
+                  }/${linkedExperiment.id}`}
+                >
+                  View{" "}
+                  {linkedExperiment.type === "multi-armed-bandit"
+                    ? "Bandit"
+                    : "Experiment"}
                   <FaExternalLinkAlt
                     className="small ml-1 position-relative ml-2"
                     style={{ top: "-1px" }}

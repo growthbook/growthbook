@@ -28,7 +28,6 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import Toggle from "@/components/Forms/Toggle";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
-import { useIncrementer } from "@/hooks/useIncrementer";
 
 export default function ExperimentRefNewFields({
   feature,
@@ -39,6 +38,7 @@ export default function ExperimentRefNewFields({
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
+  conditionKey,
   step,
   // legacy:
   scheduleToggleEnabled,
@@ -53,6 +53,7 @@ export default function ExperimentRefNewFields({
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
+  conditionKey: number;
   step: number;
 
   scheduleToggleEnabled: boolean;
@@ -73,17 +74,11 @@ export default function ExperimentRefNewFields({
 
   const { namespaces } = useOrgSettings();
 
-  const [conditionKey] = useIncrementer();
-
   return (
     <>
       {step === 0 ? (
         <>
-          <Field
-            label="Experiment Name"
-            {...form.register("name")}
-            required
-          />
+          <Field label="Experiment Name" {...form.register("name")} required />
 
           <Field
             label="Tracking Key"
@@ -219,41 +214,36 @@ export default function ExperimentRefNewFields({
           <hr />
 
           {form.watch("type") === "experiment-ref-new" && (
-              <div className="mt-4 mb-3">
-                <Toggle
-                  value={form.watch("autoStart")}
-                  setValue={(v) => form.setValue("autoStart", v)}
-                  id="auto-start-new-experiment"
-                />{" "}
-                <label
-                  htmlFor="auto-start-new-experiment"
-                  className="text-dark"
-                >
-                  Start Experiment Immediately
-                </label>
-                <div>
-                  <small className="form-text text-muted">
-                    If On, the Experiment will start serving traffic as soon as
-                    the feature is published. Leave Off if you want to make
-                    additional changes before starting.
-                  </small>
-                </div>
-                {!form.watch("autoStart") && (
-                  <div>
-                    <hr />
-                    <ScheduleInputs
-                      defaultValue={defaultValues.scheduleRules || []}
-                      onChange={(value) =>
-                        form.setValue("scheduleRules", value)
-                      }
-                      scheduleToggleEnabled={scheduleToggleEnabled}
-                      setScheduleToggleEnabled={setScheduleToggleEnabled}
-                      setShowUpgradeModal={setShowUpgradeModal}
-                    />
-                  </div>
-                )}
+            <div className="mt-4 mb-3">
+              <Toggle
+                value={form.watch("autoStart")}
+                setValue={(v) => form.setValue("autoStart", v)}
+                id="auto-start-new-experiment"
+              />{" "}
+              <label htmlFor="auto-start-new-experiment" className="text-dark">
+                Start Experiment Immediately
+              </label>
+              <div>
+                <small className="form-text text-muted">
+                  If On, the Experiment will start serving traffic as soon as
+                  the feature is published. Leave Off if you want to make
+                  additional changes before starting.
+                </small>
               </div>
-            )}
+              {!form.watch("autoStart") && (
+                <div>
+                  <hr />
+                  <ScheduleInputs
+                    defaultValue={defaultValues.scheduleRules || []}
+                    onChange={(value) => form.setValue("scheduleRules", value)}
+                    scheduleToggleEnabled={scheduleToggleEnabled}
+                    setScheduleToggleEnabled={setScheduleToggleEnabled}
+                    setShowUpgradeModal={setShowUpgradeModal}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </>
       ) : null}
     </>

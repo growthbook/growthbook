@@ -1,12 +1,9 @@
 import { useFormContext } from "react-hook-form";
-import {
-  ExperimentValue,
-  FeatureInterface,
-  FeatureRule,
-} from "back-end/types/feature";
-import React, {useEffect} from "react";
+import { ExperimentValue, FeatureInterface } from "back-end/types/feature";
+import React, { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { getScopedSettings } from "shared/dist/settings";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -17,7 +14,6 @@ import HashVersionSelector, {
 import {
   generateVariationId,
   getFeatureDefaultValue,
-  NewExperimentRefRule,
   useAttributeSchema,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -26,44 +22,34 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import { useIncrementer } from "@/hooks/useIncrementer";
-import {useDefinitions} from "@/services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import {GBCuped} from "@/components/Icons";
-import {getScopedSettings} from "shared/dist/settings";
-import {useUser} from "@/services/UserContext";
+import { GBCuped } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
 
 export default function BanditRefNewFields({
   feature,
   environment,
-  defaultValues,
   revisions,
   version,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
+  conditionKey,
   step,
-  // legacy:
-  scheduleToggleEnabled,
-  setScheduleToggleEnabled,
-  setShowUpgradeModal,
 }: {
   feature: FeatureInterface;
   environment: string;
-  defaultValues: FeatureRule | NewExperimentRefRule;
   revisions?: FeatureRevisionInterface[];
   version: number;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
+  conditionKey: number;
   step: number;
-
-  scheduleToggleEnabled: boolean;
-  setScheduleToggleEnabled: (b: boolean) => void;
-  setShowUpgradeModal: (b: boolean) => void;
 }) {
   const form = useFormContext();
 
@@ -76,23 +62,21 @@ export default function BanditRefNewFields({
     datasources,
     getDatasourceById,
     getExperimentMetricById,
-    refreshTags,
     project,
   } = useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
-  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
-  const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
-  const userIdType = exposureQueries.find(
+  const userIdType = exposureQueries?.find(
     (e) => e.id === form.getValues("exposureQueryId")
   )?.userIdType;
 
   useEffect(() => {
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
+    if (!exposureQueries?.find((q) => q.id === exposureQueryId)) {
       form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
     }
   }, [form, exposureQueries, exposureQueryId]);
@@ -111,17 +95,11 @@ export default function BanditRefNewFields({
   const { settings: scopedSettings } = getScopedSettings({ organization });
   const { namespaces } = useOrgSettings();
 
-  const [conditionKey] = useIncrementer();
-
   return (
     <>
       {step === 0 ? (
         <>
-          <Field
-            label="Bandit Name"
-            {...form.register("name")}
-            required
-          />
+          <Field label="Bandit Name" {...form.register("name")} required />
 
           <Field
             label="Tracking Key"
@@ -287,22 +265,22 @@ export default function BanditRefNewFields({
               const isDefaultDataSource = d.id === settings.defaultDataSource;
               return {
                 value: d.id,
-                label: `${d.name}${
-                  d.description ? ` — ${d.description}` : ""
-                }${isDefaultDataSource ? " (default)" : ""}`,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}${
+                  isDefaultDataSource ? " (default)" : ""
+                }`,
               };
             })}
             className="portal-overflow-ellipsis"
           />
 
-          {datasource?.properties?.exposureQueries && (
+          {exposureQueries ? (
             <SelectField
               label="Experiment Assignment Table"
               labelClassName="font-weight-bold"
               value={form.watch("exposureQueryId") ?? ""}
               onChange={(v) => form.setValue("exposureQueryId", v)}
               required
-              options={exposureQueries.map((q) => {
+              options={exposureQueries?.map((q) => {
                 return {
                   label: q.name,
                   value: q.id,
@@ -322,7 +300,7 @@ export default function BanditRefNewFields({
                 </>
               }
             />
-          )}
+          ) : null}
 
           <ExperimentMetricsSelector
             datasource={datasource?.id}
@@ -369,10 +347,10 @@ export default function BanditRefNewFields({
             <SelectField
               label={
                 <PremiumTooltip commercialFeature="regression-adjustment">
-                  <GBCuped/> Use Regression Adjustment (CUPED)
+                  <GBCuped /> Use Regression Adjustment (CUPED)
                 </PremiumTooltip>
               }
-              style={{width: 200}}
+              style={{ width: 200 }}
               labelClassName="font-weight-bold"
               value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
               onChange={(v) => {
@@ -391,7 +369,6 @@ export default function BanditRefNewFields({
               disabled={!hasRegressionAdjustmentFeature}
             />
           </div>
-
         </>
       ) : null}
     </>

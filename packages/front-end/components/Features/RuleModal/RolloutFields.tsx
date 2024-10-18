@@ -8,7 +8,6 @@ import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
 import SelectField from "@/components/Forms/SelectField";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
-import { useIncrementer } from "@/hooks/useIncrementer";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
@@ -22,6 +21,7 @@ export default function RolloutFields({
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
+  conditionKey,
   // legacy:
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
@@ -35,6 +35,7 @@ export default function RolloutFields({
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
+  conditionKey: number;
 
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
@@ -45,8 +46,6 @@ export default function RolloutFields({
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
-  const [conditionKey, forceConditionRender] = useIncrementer();
 
   return (
     <>

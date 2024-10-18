@@ -3,7 +3,6 @@ import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import { getEqualWeights } from "shared/experiments";
-import clsx from "clsx";
 import {
   decimalToPercent,
   distributeWeights,
@@ -100,8 +99,7 @@ export default function FeatureVariationsInput({
           {!hideCoverage && (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
-                {coverageLabel}{" "}
-                <Tooltip body={coverageTooltip} />
+                {coverageLabel} <Tooltip body={coverageTooltip} />
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -169,8 +167,7 @@ export default function FeatureVariationsInput({
           {!hideCoverage && (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
-                {coverageLabel}{" "}
-                <Tooltip body={coverageTooltip} />
+                {coverageLabel} <Tooltip body={coverageTooltip} />
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -284,7 +281,7 @@ export default function FeatureVariationsInput({
                             <a
                               role="button"
                               className="btn btn-link p-0"
-                              onClick={(e) => {
+                              onClick={() => {
                                 const newWeights = distributeWeights(
                                   [...weights, 0],
                                   customSplit

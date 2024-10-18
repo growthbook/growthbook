@@ -84,6 +84,12 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       <tr ref={ref} {...props}>
         {!valueAsId && (
           <td style={{ width: 45 }} className="position-relative pl-3">
+            <div
+              className={styles.colorMarker}
+              style={{
+                backgroundColor: getVariationColor(i, true),
+              }}
+            />
             {i}
           </td>
         )}

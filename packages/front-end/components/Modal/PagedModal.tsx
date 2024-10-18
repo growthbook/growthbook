@@ -8,7 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { MdCheck } from "react-icons/md";
-import {PiArrowLeft, PiCaretRight, PiCircleDashed} from "react-icons/pi";
+import { PiArrowLeft, PiCaretRight, PiCircleDashed } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 
@@ -167,7 +167,16 @@ const PagedModal: FC<Props> = (props) => {
       }
       error={error}
       autoCloseOnSubmit={false}
-      cta={forceCtaText || !nextStep ? cta : <>Next <PiCaretRight className="position-relative" style={{ top: -1 }} /></>}
+      cta={
+        forceCtaText || !nextStep ? (
+          cta
+        ) : (
+          <>
+            Next{" "}
+            <PiCaretRight className="position-relative" style={{ top: -1 }} />
+          </>
+        )
+      }
       ctaEnabled={ctaEnabled}
     >
       {!hideNav ? (
