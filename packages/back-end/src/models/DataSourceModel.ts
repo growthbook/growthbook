@@ -126,7 +126,7 @@ export async function removeProjectFromDatasources(
   );
 }
 
-export async function deleteDatasource(
+export async function deleteDatasourceById(
   datasource: DataSourceInterface,
   organization: string
 ) {
@@ -134,7 +134,7 @@ export async function deleteDatasource(
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   if (datasource.type === "growthbook_clickhouse") {
-    deleteClickhouseUser(organization);
+    deleteClickhouseUser(datasource.id, organization);
   }
   await DataSourceModel.deleteOne({
     id: datasource.id,
