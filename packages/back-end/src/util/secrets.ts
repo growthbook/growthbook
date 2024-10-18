@@ -267,3 +267,10 @@ export const USE_PROXY =
 
 export const SUPERADMIN_DEFAULT_ROLE =
   process.env.SUPERADMIN_DEFAULT_ROLE ?? "readonly";
+
+export const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST || "";
+export const CLICKHOUSE_ADMIN_USER = process.env.CLICKHOUSE_ADMIN_USER || "";
+export const CLICKHOUSE_ADMIN_PASSWORD =
+  process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
+export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
+export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
