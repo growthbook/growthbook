@@ -138,7 +138,7 @@ export default function BanditRefFields({
                   href={`/bandit/${selectedExperiment.id}#overview`}
                   className="alert-link"
                 >
-                  View the Bandit
+                  View the Bandit{" "}
                   <FaExternalLinkAlt />
                 </Link>{" "}
                 to make changes to assignment or targeting conditions.

@@ -32,7 +32,7 @@ interface SortableProps {
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
-  setRuleModal: (args: { environment: string; i: number }) => void;
+  setRuleModal: (args: { environment: string; i: number, defaultType?: string, }) => void;
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];

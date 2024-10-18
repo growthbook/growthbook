@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import {
+import React, {
   ReactElement,
   useState,
   Children,
@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { MdCheck } from "react-icons/md";
-import { PiArrowLeft, PiCircleDashed } from "react-icons/pi";
+import {PiArrowLeft, PiCaretRight, PiCircleDashed} from "react-icons/pi";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 
@@ -16,7 +16,7 @@ type Props = {
   header: string;
   subHeader?: string | ReactNode;
   submitColor?: string;
-  cta?: string;
+  cta?: string | ReactNode;
   ctaEnabled?: boolean;
   forceCtaText?: boolean;
   closeCta?: string;
@@ -167,7 +167,7 @@ const PagedModal: FC<Props> = (props) => {
       }
       error={error}
       autoCloseOnSubmit={false}
-      cta={forceCtaText || !nextStep ? cta : "Next"}
+      cta={forceCtaText || !nextStep ? cta : <>Next <PiCaretRight className="position-relative" style={{ top: -1 }} /></>}
       ctaEnabled={ctaEnabled}
     >
       {!hideNav ? (

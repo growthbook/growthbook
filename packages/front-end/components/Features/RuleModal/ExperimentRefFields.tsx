@@ -137,7 +137,7 @@ export default function ExperimentRefFields({
                   href={`/experiment/${selectedExperiment.id}#overview`}
                   className="alert-link"
                 >
-                  View the Experiment
+                  View the Experiment{" "}
                   <FaExternalLinkAlt />
                 </Link>{" "}
                 to make changes to assignment or targeting conditions.

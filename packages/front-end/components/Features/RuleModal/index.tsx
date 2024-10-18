@@ -71,6 +71,7 @@ import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRe
 import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
+import {PiCaretRight} from "react-icons/pi";
 
 export interface Props {
   close: () => void;
@@ -101,10 +102,9 @@ export default function RuleModal({
   const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  const { namespaces } = useOrgSettings();
-
   const rules = getRules(feature, environment);
   const rule = rules[i];
+  const isNewRule = !rule;
 
   const { datasources } = useDefinitions();
 
@@ -139,16 +139,14 @@ export default function RuleModal({
     )
   );
 
-  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
-    !defaultType
-  );
+  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(isNewRule);
   const [
     overviewRadioSelectorRuleType,
     setOverviewRadioSelectorRuleType,
   ] = useState<"force" | "rollout" | "experiment" | "bandit" | "">("");
   const [overviewRuleType, setOverviewRuleType] = useState<
-    "force" | "rollout" | "experiment-ref" | "experiment-ref-new" | ""
-  >("");
+    "force" | "rollout" | "experiment-ref" | "experiment-ref-new"
+  >("experiment-ref-new");
 
   const [step, setStep] = useState(0);
 
@@ -157,16 +155,12 @@ export default function RuleModal({
   });
   const { apiCall } = useAuth();
 
+  const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits"
   );
-  const usingStickyBucketing = !!settings.useStickyBucketing;
-
   const type = form.watch("type");
-
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
@@ -222,34 +216,6 @@ export default function RuleModal({
     );
   }
 
-  const ruleTypeOptions = [
-    { label: "Forced Value", value: "force" },
-    { label: "Percentage Rollout", value: "rollout" },
-    { label: "New A/B Experiment", value: "experiment-ref-new" },
-    { label: "Existing A/B Experiment", value: "experiment-ref" },
-  ];
-
-  if (type === "experiment") {
-    ruleTypeOptions.push({
-      label: "A/B Experiment",
-      value: "experiment",
-    });
-  }
-
-  const experimentOptions = experiments
-    .filter(
-      (e) =>
-        e.id === experimentId ||
-        (!e.archived &&
-          e.status !== "stopped" &&
-          (e.project || "") === (feature.project || ""))
-    )
-    .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
-    .map((e) => ({
-      label: e.name,
-      value: e.id,
-    }));
-
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
     const existingSavedGroups = form.watch("savedGroups");
@@ -301,7 +267,7 @@ export default function RuleModal({
         open={true}
         close={close}
         size="lg"
-        cta="Next"
+        cta={<>Next <PiCaretRight className="position-relative" style={{ top: -1 }} /></>}
         ctaEnabled={!!overviewRuleType}
         bodyClassName="px-4"
         header={`New Rule in ${environment}`}
@@ -346,10 +312,19 @@ export default function RuleModal({
                 ? [
                     {
                       value: "bandit",
-                      disabled: !hasMultiArmedBanditFeature,
+                      disabled: !hasMultiArmedBanditFeature || !hasStickyBucketFeature,
                       label: (
                         <PremiumTooltip
                           commercialFeature="multi-armed-bandits"
+                          body={
+                            !orgStickyBucketing &&
+                            hasStickyBucketFeature ? (
+                              <div>
+                                Enable Sticky Bucketing in your organization
+                                settings to run a Bandit.
+                              </div>
+                            ) : null
+                          }
                           usePortal={true}
                         >
                           Add Bandit
@@ -369,7 +344,7 @@ export default function RuleModal({
               } else if (v === "rollout") {
                 setOverviewRuleType("rollout");
               } else {
-                setOverviewRuleType("");
+                setOverviewRuleType("experiment-ref-new");
               }
             }}
           />
@@ -395,7 +370,6 @@ export default function RuleModal({
                   | "rollout"
                   | "experiment-ref"
                   | "experiment-ref-new"
-                  | ""
               ) => setOverviewRuleType(v)}
             />
           </>
@@ -421,7 +395,6 @@ export default function RuleModal({
                   | "rollout"
                   | "experiment-ref"
                   | "experiment-ref-new"
-                  | ""
               ) => setOverviewRuleType(v)}
             />
           </>
@@ -430,21 +403,33 @@ export default function RuleModal({
     );
   }
 
+  let headerText = isNewRule ? "Add " : "Edit ";
+  headerText += type === "force" ?
+    `${isNewRule ? "new " : ""}Force Value Rule` :
+    type === "rollout" ?
+      `${isNewRule ? "new " : ""}Percentage Rollout Rule` :
+      ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) && form.watch("experimentType") === "multi-armed-bandit" ?
+        `${type === "experiment-ref-new" ? "new" : "existing"} Bandit as Rule` :
+        ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) && form.watch("experimentType") !== "multi-armed-bandit" ?
+        `${type === "experiment-ref-new" ? "new" : "existing"} Experiment as Rule` :
+          "Override Rule";
+  headerText += ` in ${environment}`;
+
   return (
     <FormProvider {...form}>
       <PagedModal
         close={close}
         size="lg"
-        cta={newRuleOverviewPage ? "Next" : "Save"}
+        cta={newRuleOverviewPage ? <>Next <PiCaretRight className="position-relative" style={{ top: -1 }} /></> : "Save"}
         ctaEnabled={newRuleOverviewPage ? type !== undefined : canSubmit}
         bodyClassName="px-4"
-        header={`${rule ? "Edit Rule" : "New Rule"} in ${environment}`}
-        subHeader="You will have a chance to review new rules as a draft before publishing changes."
+        header={headerText}
+        subHeader={`You will have a chance to review ${isNewRule ? "new rules" : "changes"} as a draft before publishing.`}
         step={step}
         setStep={setStep}
         hideNav={type !== "experiment-ref-new"}
         backButton={true}
-        onBackFirstStep={() => setNewRuleOverviewPage(true)}
+        onBackFirstStep={isNewRule ? () => setNewRuleOverviewPage(true) : undefined}
         submit={form.handleSubmit(async (values) => {
           const ruleAction = i === rules.length ? "add" : "edit";
 
@@ -795,26 +780,6 @@ export default function RuleModal({
             </Page>
           ))
           : null}
-
-        {/*<div className="form-group mt-3">*/}
-        {/*  <label>Rule Type</label>*/}
-        {/*  {!rules[i] ? (*/}
-        {/*    <SelectField*/}
-        {/*      readOnly={!!rules[i]}*/}
-        {/*      value={type}*/}
-        {/*      sort={false}*/}
-        {/*      onChange={(v) => {*/}
-        {/*        changeRuleType(v);*/}
-        {/*      }}*/}
-        {/*      options={ruleTypeOptions}*/}
-        {/*    />*/}
-        {/*  ) : (*/}
-        {/*    <div className="border rounded py-2 px-3">*/}
-        {/*      {ruleTypeOptions.find((r) => r.value === type)?.label || type}*/}
-        {/*      <Field type={"hidden"} {...form.register("type")} />*/}
-        {/*    </div>*/}
-        {/*  )}*/}
-        {/*</div>*/}
       </PagedModal>
     </FormProvider>
   );
