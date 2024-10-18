@@ -136,8 +136,9 @@ export default function track(
   dataWareHouseTrack({
     event_name: event,
     properties_json: JSON.stringify(trackProps),
-    device_id: uuidv4(),
-    page_id: uuidv4(),
+    // TODO: swap these back to uuids after fixing db schema
+    device_id: Math.floor(Math.random() * 2147483647).toString(),
+    page_id: Math.floor(Math.random() * 2147483647).toString(),
     session_id: uuidv4(),
     sdk_language: "javascript",
     sdk_version: "1.2.0",
