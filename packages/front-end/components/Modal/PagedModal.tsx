@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { MdCheck } from "react-icons/md";
-import { PiCircleDashed } from "react-icons/pi";
+import { PiArrowLeft, PiCircleDashed } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 
@@ -30,6 +30,7 @@ type Props = {
   submit: () => Promise<void>;
   children: ReactNode;
   backButton?: boolean;
+  onBackFirstStep?: () => void;
   step: number;
   setStep: (step: number) => void;
   secondaryCTA?: ReactElement;
@@ -38,6 +39,7 @@ type Props = {
   stickyFooter?: boolean;
   onSkip?: () => Promise<void>;
   skipped?: Set<number>;
+  hideNav?: boolean;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -50,17 +52,17 @@ const PagedModal: FC<Props> = (props) => {
     navStyle,
     navFill,
     backButton = false,
+    onBackFirstStep,
     cta,
     ctaEnabled = true,
     forceCtaText,
     inline,
-    secondaryCTA,
     size,
-    // size = "md",
     className,
     bodyClassName,
     onSkip,
     skipped,
+    hideNav,
     ...passThrough
   } = props;
 
@@ -73,10 +75,8 @@ const PagedModal: FC<Props> = (props) => {
     customNext?: () => void;
   }[] = [];
   let content: ReactNode;
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
-  let nextStep: number = null;
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
-  let prevStep: number = null;
+  let nextStep: number | undefined = undefined;
+  let prevStep: number | undefined = undefined;
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
     const { display, enabled, validate, customNext } = child.props;
@@ -90,13 +90,12 @@ const PagedModal: FC<Props> = (props) => {
   });
 
   prevStep = step - 1;
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
-  if (prevStep < 0) prevStep = null;
+  if (prevStep < 0) prevStep = undefined;
 
   async function validateSteps(before?: number) {
     before = before ?? steps.length;
     for (let i = 0; i < before; i++) {
-      if (steps[i].enabled === false) continue;
+      if (!steps[i].enabled) continue;
       if (!steps[i].validate) continue;
       try {
         await steps[i].validate?.();
@@ -135,20 +134,26 @@ const PagedModal: FC<Props> = (props) => {
           setStep(nextStep);
         }
       }}
-      secondaryCTA={
-        secondaryCTA ? (
-          secondaryCTA
-        ) : backButton && prevStep !== null ? (
+      backCTA={
+        backButton && ((prevStep ?? 0) > 0 || onBackFirstStep) ? (
           <button
-            className={`btn btn-outline-primary mr-3`}
+            className={`btn btn-link mr-3`}
             onClick={(e) => {
               e.preventDefault();
-              setStep(prevStep);
+              if (!prevStep && onBackFirstStep) {
+                onBackFirstStep();
+              } else {
+                setStep(prevStep ?? 0);
+              }
             }}
           >
-            back
+            <PiArrowLeft className="mr-1" />
+            Back
           </button>
-        ) : onSkip ? (
+        ) : null
+      }
+      secondaryCTA={
+        onSkip ? (
           <button
             className={`btn btn-link mr-3`}
             onClick={(e) => {
@@ -165,29 +170,65 @@ const PagedModal: FC<Props> = (props) => {
       cta={forceCtaText || !nextStep ? cta : "Next"}
       ctaEnabled={ctaEnabled}
     >
-      <nav
-        className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
-          style === "default" && "paged-modal-default"
-        }`}
-      >
-        {steps.map(({ display, enabled }, i) => {
-          if (navStyleClass === "nav-default") {
-            return (
-              <div
-                className={clsx(
-                  "step d-flex align-items-center justify-content-between",
-                  {
-                    active: step === i,
-                    completed: i < step && !skipped?.has(i),
-                    disabled: !enabled,
-                  }
-                )}
-                key={i}
-              >
+      {!hideNav ? (
+        <nav
+          className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
+            style === "default" && "paged-modal-default"
+          }`}
+        >
+          {steps.map(({ display, enabled }, i) => {
+            if (navStyleClass === "nav-default") {
+              return (
+                <div
+                  className={clsx(
+                    "step d-flex align-items-center justify-content-between",
+                    {
+                      active: step === i,
+                      completed: i < step && !skipped?.has(i),
+                      disabled: !enabled,
+                    }
+                  )}
+                  key={i}
+                >
+                  <a
+                    key={i}
+                    role="button"
+                    className={clsx("nav-link")}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setError("");
+                      try {
+                        await validateSteps(i);
+                        setStep(i);
+                      } catch (e) {
+                        setError(e.message);
+                      }
+                    }}
+                  >
+                    <span className="step-number rounded-circle">
+                      {i < step ? (
+                        skipped?.has(i) ? (
+                          <PiCircleDashed />
+                        ) : (
+                          <MdCheck />
+                        )
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    <span className="step-title"> {display}</span>
+                  </a>
+                </div>
+              );
+            } else {
+              return (
                 <a
                   key={i}
                   role="button"
-                  className={clsx("nav-link")}
+                  className={clsx("w-md-100 nav-item nav-link", {
+                    active: step === i,
+                    disabled: !enabled,
+                  })}
                   onClick={async (e) => {
                     e.preventDefault();
                     setError("");
@@ -199,47 +240,13 @@ const PagedModal: FC<Props> = (props) => {
                     }
                   }}
                 >
-                  <span className="step-number rounded-circle">
-                    {i < step ? (
-                      skipped?.has(i) ? (
-                        <PiCircleDashed />
-                      ) : (
-                        <MdCheck />
-                      )
-                    ) : (
-                      i + 1
-                    )}
-                  </span>
-                  <span className="step-title"> {display}</span>
+                  {i + 1}. {display}
                 </a>
-              </div>
-            );
-          } else {
-            return (
-              <a
-                key={i}
-                role="button"
-                className={clsx("w-md-100 nav-item nav-link", {
-                  active: step === i,
-                  disabled: !enabled,
-                })}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  setError("");
-                  try {
-                    await validateSteps(i);
-                    setStep(i);
-                  } catch (e) {
-                    setError(e.message);
-                  }
-                }}
-              >
-                {i + 1}. {display}
-              </a>
-            );
-          }
-        })}
-      </nav>
+              );
+            }
+          })}
+        </nav>
+      ) : null}
       {content}
     </Modal>
   );

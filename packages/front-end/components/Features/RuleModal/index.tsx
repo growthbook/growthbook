@@ -68,6 +68,9 @@ import ForceValueFields from "@/components/Features/RuleModal/ForceValueFields";
 import RolloutFields from "@/components/Features/RuleModal/RolloutFields";
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
+import Page from "@/components/Modal/Page";
+import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
+import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 
 export interface Props {
   close: () => void;
@@ -429,262 +432,266 @@ export default function RuleModal({
 
   return (
     <FormProvider {...form}>
-    <PagedModal
-      close={close}
-      size="lg"
-      cta={newRuleOverviewPage ? "Next" : "Save"}
-      ctaEnabled={newRuleOverviewPage ? type !== undefined : canSubmit}
-      bodyClassName="px-4"
-      header={`${rule ? "Edit Rule" : "New Rule"} in ${environment}`}
-      subHeader="You will have a chance to review new rules as a draft before publishing changes."
-      step={step}
-      setStep={setStep}
-      submit={form.handleSubmit(async (values) => {
-        const ruleAction = i === rules.length ? "add" : "edit";
+      <PagedModal
+        close={close}
+        size="lg"
+        cta={newRuleOverviewPage ? "Next" : "Save"}
+        ctaEnabled={newRuleOverviewPage ? type !== undefined : canSubmit}
+        bodyClassName="px-4"
+        header={`${rule ? "Edit Rule" : "New Rule"} in ${environment}`}
+        subHeader="You will have a chance to review new rules as a draft before publishing changes."
+        step={step}
+        setStep={setStep}
+        hideNav={type !== "experiment-ref-new"}
+        backButton={true}
+        onBackFirstStep={() => setNewRuleOverviewPage(true)}
+        submit={form.handleSubmit(async (values) => {
+          const ruleAction = i === rules.length ? "add" : "edit";
 
-        // If the user built a schedule, but disabled the toggle, we ignore the schedule
-        if (!scheduleToggleEnabled) {
-          values.scheduleRules = [];
-        }
-
-        // Loop through each scheduleRule and convert the timestamp to an ISOString()
-        if (values.scheduleRules?.length) {
-          values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
-            if (scheduleRule.timestamp === null) {
-              return;
-            }
-            scheduleRule.timestamp = new Date(
-              scheduleRule.timestamp
-            ).toISOString();
-          });
-
-          // We currently only support a start date and end date, and if both are null, set schedule to empty array
-          if (
-            values.scheduleRules[0].timestamp === null &&
-            values.scheduleRules[1].timestamp === null
-          ) {
+          // If the user built a schedule, but disabled the toggle, we ignore the schedule
+          if (!scheduleToggleEnabled) {
             values.scheduleRules = [];
           }
-        }
 
-        try {
-          if (values.type === "experiment-ref-new") {
-            // Apply same validation as we do for legacy experiment rules
-            const newRule = validateFeatureRule(
-              {
-                ...values,
-                type: "experiment",
-              },
-              feature
-            );
-            if (newRule) {
-              form.reset({
-                ...newRule,
-                type: "experiment-ref-new",
+          // Loop through each scheduleRule and convert the timestamp to an ISOString()
+          if (values.scheduleRules?.length) {
+            values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
+              if (scheduleRule.timestamp === null) {
+                return;
+              }
+              scheduleRule.timestamp = new Date(
+                scheduleRule.timestamp
+              ).toISOString();
+            });
+
+            // We currently only support a start date and end date, and if both are null, set schedule to empty array
+            if (
+              values.scheduleRules[0].timestamp === null &&
+              values.scheduleRules[1].timestamp === null
+            ) {
+              values.scheduleRules = [];
+            }
+          }
+
+          try {
+            if (values.type === "experiment-ref-new") {
+              // Apply same validation as we do for legacy experiment rules
+              const newRule = validateFeatureRule(
+                {
+                  ...values,
+                  type: "experiment",
+                },
+                feature
+              );
+              if (newRule) {
+                form.reset({
+                  ...newRule,
+                  type: "experiment-ref-new",
+                  name: values.name,
+                });
+                throw new Error(
+                  "We fixed some errors in the rule. If it looks correct, submit again."
+                );
+              }
+
+              // If we're scheduling this rule, always auto start the experiment so it's not stuck in a 'draft' state
+              if (!values.autoStart && values.scheduleRules?.length) {
+                values.autoStart = true;
+              }
+              // If we're starting the experiment immediately, remove any scheduling rules
+              // When we hide the schedule UI the form values don't update, so this resets it if you get into a weird state
+              else if (values.autoStart && values.scheduleRules?.length) {
+                values.scheduleRules = [];
+              }
+
+              // All looks good, create experiment
+              const exp: Partial<ExperimentInterfaceStringDates> = {
+                archived: false,
+                autoSnapshots: true,
+                ...getNewExperimentDatasourceDefaults(
+                  datasources,
+                  settings,
+                  feature.project || ""
+                ),
+                hashAttribute: values.hashAttribute,
+                fallbackAttribute: values.fallbackAttribute || "",
+                goalMetrics: [],
+                secondaryMetrics: [],
+                guardrailMetrics: [],
+                activationMetric: "",
                 name: values.name,
+                hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
+                owner: "",
+                status:
+                  values.experimentType === "multi-armed-bandit"
+                    ? "draft"
+                    : values.autoStart
+                    ? "running"
+                    : "draft",
+                tags: feature.tags || [],
+                trackingKey: values.trackingKey || feature.id,
+                description: values.description,
+                hypothesis: values.hypothesis,
+                linkedFeatures: [feature.id],
+                attributionModel: settings?.attributionModel || "firstExposure",
+                targetURLRegex: "",
+                ideaSource: "",
+                project: feature.project,
+                variations: values.values.map((v, i) => ({
+                  id: uniqId("var_"),
+                  key: i + "",
+                  name: v.name || (i ? `Variation ${i}` : "Control"),
+                  screenshots: [],
+                })),
+                phases: [
+                  {
+                    condition: values.condition || "",
+                    savedGroups: values.savedGroups || [],
+                    prerequisites: values.prerequisites || [],
+                    coverage: values.coverage ?? 1,
+                    dateStarted: new Date().toISOString().substr(0, 16),
+                    name: "Main",
+                    namespace: values.namespace || {
+                      enabled: false,
+                      name: "",
+                      range: [0, 1],
+                    },
+                    reason: "",
+                    variationWeights: values.values.map((v) => v.weight),
+                  },
+                ],
+                type: values.experimentType,
+              };
+              const res = await apiCall<
+                | { experiment: ExperimentInterfaceStringDates }
+                | { duplicateTrackingKey: true; existingId: string }
+              >(
+                `/experiments${
+                  allowDuplicateTrackingKey
+                    ? "?allowDuplicateTrackingKey=true"
+                    : ""
+                }`,
+                {
+                  method: "POST",
+                  body: JSON.stringify(exp),
+                }
+              );
+
+              if ("duplicateTrackingKey" in res) {
+                setAllowDuplicateTrackingKey(true);
+                throw new Error(
+                  "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
+                );
+              }
+
+              track("Create Experiment", {
+                source: "experiment-ref-new-rule-modal",
+                numTags: feature.tags?.length || 0,
+                numMetrics: 0,
+                numVariations: values.values.length || 0,
               });
+
+              // Experiment created, treat it as an experiment ref rule now
+              values = {
+                type: "experiment-ref",
+                description: "",
+                experimentId: res.experiment.id,
+                id: values.id,
+                condition: "",
+                savedGroups: [],
+                enabled: values.enabled ?? true,
+                variations: values.values.map((v, i) => ({
+                  value: v.value,
+                  variationId: res.experiment.variations[i]?.id || "",
+                })),
+                scheduleRules: values.scheduleRules || [],
+              };
+              mutateExperiments();
+            } else if (values.type === "experiment-ref") {
+              // Validate a proper experiment was chosen and it has a value for every variation id
+              const experimentId = values.experimentId;
+              const exp = experimentsMap.get(experimentId);
+              if (!exp) throw new Error("Must select an experiment");
+
+              const valuesByIndex = values.variations.map((v) => v.value);
+              const valuesByVariationId = new Map(
+                values.variations.map((v) => [v.variationId, v.value])
+              );
+
+              values.variations = exp.variations.map((v, i) => {
+                return {
+                  variationId: v.id,
+                  value:
+                    valuesByVariationId.get(v.id) ?? valuesByIndex[i] ?? "",
+                };
+              });
+
+              delete (values as FeatureRule).condition;
+              delete (values as FeatureRule).savedGroups;
+              delete (values as FeatureRule).prerequisites;
+              // eslint-disable-next-line
+            delete (values as any).value;
+            }
+
+            if (
+              values.scheduleRules &&
+              values.scheduleRules.length === 0 &&
+              !rule?.scheduleRules
+            ) {
+              delete values.scheduleRules;
+            }
+
+            const correctedRule = validateFeatureRule(values, feature);
+            if (correctedRule) {
+              form.reset(correctedRule);
               throw new Error(
                 "We fixed some errors in the rule. If it looks correct, submit again."
               );
             }
 
-            // If we're scheduling this rule, always auto start the experiment so it's not stuck in a 'draft' state
-            if (!values.autoStart && values.scheduleRules?.length) {
-              values.autoStart = true;
-            }
-            // If we're starting the experiment immediately, remove any scheduling rules
-            // When we hide the schedule UI the form values don't update, so this resets it if you get into a weird state
-            else if (values.autoStart && values.scheduleRules?.length) {
-              values.scheduleRules = [];
-            }
+            track("Save Feature Rule", {
+              source: ruleAction,
+              ruleIndex: i,
+              environment,
+              type: values.type,
+              hasCondition: values.condition && values.condition.length > 2,
+              hasSavedGroups: !!values.savedGroups?.length,
+              hasPrerequisites: !!values.prerequisites?.length,
+              hasDescription: values.description.length > 0,
+            });
 
-            // All looks good, create experiment
-            const exp: Partial<ExperimentInterfaceStringDates> = {
-              archived: false,
-              autoSnapshots: true,
-              ...getNewExperimentDatasourceDefaults(
-                datasources,
-                settings,
-                feature.project || ""
-              ),
-              hashAttribute: values.hashAttribute,
-              fallbackAttribute: values.fallbackAttribute || "",
-              goalMetrics: [],
-              secondaryMetrics: [],
-              guardrailMetrics: [],
-              activationMetric: "",
-              name: values.name,
-              hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
-              owner: "",
-              status:
-                values.experimentType === "multi-armed-bandit"
-                  ? "draft"
-                  : values.autoStart
-                  ? "running"
-                  : "draft",
-              tags: feature.tags || [],
-              trackingKey: values.trackingKey || feature.id,
-              description: values.description,
-              hypothesis: "",
-              linkedFeatures: [feature.id],
-              attributionModel: settings?.attributionModel || "firstExposure",
-              targetURLRegex: "",
-              ideaSource: "",
-              project: feature.project,
-              variations: values.values.map((v, i) => ({
-                id: uniqId("var_"),
-                key: i + "",
-                name: v.name || (i ? `Variation ${i}` : "Control"),
-                screenshots: [],
-              })),
-              phases: [
-                {
-                  condition: values.condition || "",
-                  savedGroups: values.savedGroups || [],
-                  prerequisites: values.prerequisites || [],
-                  coverage: values.coverage ?? 1,
-                  dateStarted: new Date().toISOString().substr(0, 16),
-                  name: "Main",
-                  namespace: values.namespace || {
-                    enabled: false,
-                    name: "",
-                    range: [0, 1],
-                  },
-                  reason: "",
-                  variationWeights: values.values.map((v) => v.weight),
-                },
-              ],
-              type: values.experimentType,
-            };
-            const res = await apiCall<
-              | { experiment: ExperimentInterfaceStringDates }
-              | { duplicateTrackingKey: true; existingId: string }
-            >(
-              `/experiments${
-                allowDuplicateTrackingKey
-                  ? "?allowDuplicateTrackingKey=true"
-                  : ""
-              }`,
+            const res = await apiCall<{ version: number }>(
+              `/feature/${feature.id}/${version}/rule`,
               {
-                method: "POST",
-                body: JSON.stringify(exp),
+                method: i === rules.length ? "POST" : "PUT",
+                body: JSON.stringify({
+                  rule: values,
+                  environment,
+                  i,
+                }),
               }
             );
-
-            if ("duplicateTrackingKey" in res) {
-              setAllowDuplicateTrackingKey(true);
-              throw new Error(
-                "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
-              );
-            }
-
-            track("Create Experiment", {
-              source: "experiment-ref-new-rule-modal",
-              numTags: feature.tags?.length || 0,
-              numMetrics: 0,
-              numVariations: values.values.length || 0,
+            await mutate();
+            res.version && setVersion(res.version);
+          } catch (e) {
+            track("Feature Rule Error", {
+              source: ruleAction,
+              ruleIndex: i,
+              environment,
+              type: values.type,
+              hasCondition: values.condition && values.condition.length > 2,
+              hasSavedGroups: !!values.savedGroups?.length,
+              hasPrerequisites: !!values.prerequisites?.length,
+              hasDescription: values.description.length > 0,
+              error: e.message,
             });
 
-            // Experiment created, treat it as an experiment ref rule now
-            values = {
-              type: "experiment-ref",
-              description: "",
-              experimentId: res.experiment.id,
-              id: values.id,
-              condition: "",
-              savedGroups: [],
-              enabled: values.enabled ?? true,
-              variations: values.values.map((v, i) => ({
-                value: v.value,
-                variationId: res.experiment.variations[i]?.id || "",
-              })),
-              scheduleRules: values.scheduleRules || [],
-            };
-            mutateExperiments();
-          } else if (values.type === "experiment-ref") {
-            // Validate a proper experiment was chosen and it has a value for every variation id
-            const experimentId = values.experimentId;
-            const exp = experimentsMap.get(experimentId);
-            if (!exp) throw new Error("Must select an experiment");
+            forceConditionRender();
 
-            const valuesByIndex = values.variations.map((v) => v.value);
-            const valuesByVariationId = new Map(
-              values.variations.map((v) => [v.variationId, v.value])
-            );
-
-            values.variations = exp.variations.map((v, i) => {
-              return {
-                variationId: v.id,
-                value: valuesByVariationId.get(v.id) ?? valuesByIndex[i] ?? "",
-              };
-            });
-
-            delete (values as FeatureRule).condition;
-            delete (values as FeatureRule).savedGroups;
-            delete (values as FeatureRule).prerequisites;
-            // eslint-disable-next-line
-            delete (values as any).value;
+            throw e;
           }
-
-          if (
-            values.scheduleRules &&
-            values.scheduleRules.length === 0 &&
-            !rule?.scheduleRules
-          ) {
-            delete values.scheduleRules;
-          }
-
-          const correctedRule = validateFeatureRule(values, feature);
-          if (correctedRule) {
-            form.reset(correctedRule);
-            throw new Error(
-              "We fixed some errors in the rule. If it looks correct, submit again."
-            );
-          }
-
-          track("Save Feature Rule", {
-            source: ruleAction,
-            ruleIndex: i,
-            environment,
-            type: values.type,
-            hasCondition: values.condition && values.condition.length > 2,
-            hasSavedGroups: !!values.savedGroups?.length,
-            hasPrerequisites: !!values.prerequisites?.length,
-            hasDescription: values.description.length > 0,
-          });
-
-          const res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${version}/rule`,
-            {
-              method: i === rules.length ? "POST" : "PUT",
-              body: JSON.stringify({
-                rule: values,
-                environment,
-                i,
-              }),
-            }
-          );
-          await mutate();
-          res.version && setVersion(res.version);
-        } catch (e) {
-          track("Feature Rule Error", {
-            source: ruleAction,
-            ruleIndex: i,
-            environment,
-            type: values.type,
-            hasCondition: values.condition && values.condition.length > 2,
-            hasSavedGroups: !!values.savedGroups?.length,
-            hasPrerequisites: !!values.prerequisites?.length,
-            hasDescription: values.description.length > 0,
-            error: e.message,
-          });
-
-          forceConditionRender();
-
-          throw e;
-        }
-      })}
-    >
+        })}
+      >
         {type === "force" && (
           <ForceValueFields
             feature={feature}
@@ -721,7 +728,7 @@ export default function RuleModal({
           />
         )}
 
-        {(type === "experiment-ref" || type === "experiment") && (
+        {((type === "experiment-ref" || type === "experiment") && form.watch("experimentType") !== "multi-armed-bandit") && (
           <ExperimentRefFields
             feature={feature}
             environment={environment}
@@ -732,45 +739,83 @@ export default function RuleModal({
           />
         )}
 
-        {type === "experiment-ref-new" && (
-          <ExperimentRefNewFields
+        {((type === "experiment-ref" || type === "experiment") && form.watch("experimentType") === "multi-armed-bandit") && (
+          <BanditRefFields
             feature={feature}
             environment={environment}
-            defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-            isCyclic={isCyclic}
-            cyclicFeatureId={cyclicFeatureId}
-            scheduleToggleEnabled={scheduleToggleEnabled}
-            setScheduleToggleEnabled={setScheduleToggleEnabled}
-            setShowUpgradeModal={setShowUpgradeModal}
+            i={i}
+            changeRuleType={changeRuleType}
+            canEditTargeting={canEditTargeting}
+            setShowTargetingModal={setShowTargetingModal}
           />
         )}
 
-      {/*<div className="form-group mt-3">*/}
-      {/*  <label>Rule Type</label>*/}
-      {/*  {!rules[i] ? (*/}
-      {/*    <SelectField*/}
-      {/*      readOnly={!!rules[i]}*/}
-      {/*      value={type}*/}
-      {/*      sort={false}*/}
-      {/*      onChange={(v) => {*/}
-      {/*        changeRuleType(v);*/}
-      {/*      }}*/}
-      {/*      options={ruleTypeOptions}*/}
-      {/*    />*/}
-      {/*  ) : (*/}
-      {/*    <div className="border rounded py-2 px-3">*/}
-      {/*      {ruleTypeOptions.find((r) => r.value === type)?.label || type}*/}
-      {/*      <Field type={"hidden"} {...form.register("type")} />*/}
-      {/*    </div>*/}
-      {/*  )}*/}
-      {/*</div>*/}
+        {type === "experiment-ref-new" && form.watch("experimentType") !== "multi-armed-bandit"
+          ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
+              <Page display={p} key={i}>
+                <ExperimentRefNewFields
+                  feature={feature}
+                  environment={environment}
+                  defaultValues={defaultValues}
+                  version={version}
+                  revisions={revisions}
+                  setPrerequisiteTargetingSdkIssues={
+                    setPrerequisiteTargetingSdkIssues
+                  }
+                  isCyclic={isCyclic}
+                  cyclicFeatureId={cyclicFeatureId}
+                  scheduleToggleEnabled={scheduleToggleEnabled}
+                  setScheduleToggleEnabled={setScheduleToggleEnabled}
+                  setShowUpgradeModal={setShowUpgradeModal}
+                  step={i}
+                />
+              </Page>
+            ))
+          : null}
 
-    </PagedModal>
+        {type === "experiment-ref-new" && form.watch("experimentType") === "multi-armed-bandit"
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
+            <Page display={p} key={i}>
+              <BanditRefNewFields
+                feature={feature}
+                environment={environment}
+                defaultValues={defaultValues}
+                version={version}
+                revisions={revisions}
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
+                isCyclic={isCyclic}
+                cyclicFeatureId={cyclicFeatureId}
+                scheduleToggleEnabled={scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+                setShowUpgradeModal={setShowUpgradeModal}
+                step={i}
+              />
+            </Page>
+          ))
+          : null}
+
+        {/*<div className="form-group mt-3">*/}
+        {/*  <label>Rule Type</label>*/}
+        {/*  {!rules[i] ? (*/}
+        {/*    <SelectField*/}
+        {/*      readOnly={!!rules[i]}*/}
+        {/*      value={type}*/}
+        {/*      sort={false}*/}
+        {/*      onChange={(v) => {*/}
+        {/*        changeRuleType(v);*/}
+        {/*      }}*/}
+        {/*      options={ruleTypeOptions}*/}
+        {/*    />*/}
+        {/*  ) : (*/}
+        {/*    <div className="border rounded py-2 px-3">*/}
+        {/*      {ruleTypeOptions.find((r) => r.value === type)?.label || type}*/}
+        {/*      <Field type={"hidden"} {...form.register("type")} />*/}
+        {/*    </div>*/}
+        {/*  )}*/}
+        {/*</div>*/}
+      </PagedModal>
     </FormProvider>
   );
 }

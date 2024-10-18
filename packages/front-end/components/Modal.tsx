@@ -51,6 +51,7 @@ type ModalProps = {
   fullWidthSubmit?: boolean;
   secondaryCTA?: ReactNode;
   tertiaryCTA?: ReactNode;
+  backCTA?: ReactNode;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
@@ -88,6 +89,7 @@ const Modal: FC<ModalProps> = ({
   loading: externalLoading,
   secondaryCTA,
   tertiaryCTA,
+  backCTA,
   successMessage,
   bodyClassName = "",
   formRef,
@@ -212,10 +214,20 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit || secondaryCTA || (close && includeCloseCta) ? (
+      {submit ||
+      secondaryCTA ||
+      tertiaryCTA ||
+      backCTA ||
+      (close && includeCloseCta) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >
+          {backCTA ? (
+            <>
+              {backCTA}
+              <div className="flex-1" />
+            </>
+          ) : null}
           {error && (
             <div className="alert alert-danger mr-auto">
               {error

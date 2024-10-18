@@ -116,17 +116,13 @@ export default function FeatureVariationsInput({
       ) : (
         <div className="gbtable">
           {!hideCoverage && (
-            <div
-              className={clsx("pt-3", {
-                "border-bottom pb-3": !hideVariations,
-              })}
-            >
-              <label>
+            <div className="px-3 pt-3 bg-highlight rounded mb-3">
+              <label className="mb-0">
                 Percent of traffic included in this experiment{" "}
                 <Tooltip body={coverageTooltip} />
               </label>
               <div className="row align-items-center pb-3 mx-1">
-                <div className="col">
+                <div className="col pl-0">
                   <Slider
                     value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
                     min={0}
@@ -141,13 +137,12 @@ export default function FeatureVariationsInput({
                     }}
                   />
                 </div>
-                <div
-                  className={`col-auto ${styles.percentInputWrap}`}
-                  style={{ fontSize: "1em" }}
-                >
-                  <div className="form-group mb-0 position-relative">
-                    <input
-                      className={`form-control ${styles.percentInput}`}
+                <div className="col-auto pr-0">
+                  <div
+                    className={`position-relative ${styles.percentInputWrap}`}
+                  >
+                    <Field
+                      style={{ width: 80 }}
                       value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
                       onChange={(e) => {
                         let decimal = percentToDecimal(e.target.value);
@@ -168,7 +163,7 @@ export default function FeatureVariationsInput({
             </div>
           )}
           {!hideVariations && (
-            <table className="table bg-light mb-0">
+            <table className="table mb-0">
               <thead className={`${styles.variationSplitHeader}`}>
                 <tr>
                   <th className="pl-3">Id</th>
@@ -236,11 +231,9 @@ export default function FeatureVariationsInput({
                         <div className="col">
                           {valueType !== "boolean" && setVariations && (
                             <a
-                              className="btn btn-outline-primary"
-                              href="#"
+                              role="button"
+                              className="btn btn-link p-0"
                               onClick={(e) => {
-                                e.preventDefault();
-
                                 const newWeights = distributeWeights(
                                   [...weights, 0],
                                   customSplit
@@ -264,24 +257,19 @@ export default function FeatureVariationsInput({
                                 setVariations(newValues);
                               }}
                             >
-                              <span
-                                className={`h4 pr-2 m-0 d-inline-block align-top`}
-                              >
-                                <GBAddCircle />
-                              </span>
-                              add another variation
+                              <GBAddCircle className="mr-2" />
+                              Add variation
                             </a>
                           )}
                           {valueType === "boolean" && (
                             <>
                               <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                <a className="btn btn-outline-primary disabled">
-                                  <span
-                                    className={`h4 pr-2 m-0 d-inline-block align-top`}
-                                  >
-                                    <GBAddCircle />
-                                  </span>
-                                  add another variation
+                                <a
+                                  role="button"
+                                  className="btn btn-link p-0 disabled"
+                                >
+                                  <GBAddCircle className="mr-2" />
+                                  Add variation
                                 </a>
                               </Tooltip>
                             </>
@@ -308,12 +296,14 @@ export default function FeatureVariationsInput({
 
                 {showPreview && (
                   <tr>
-                    <td colSpan={4} className="pb-2">
-                      <ExperimentSplitVisual
-                        coverage={coverage}
-                        values={variations}
-                        type={valueType}
-                      />
+                    <td colSpan={4} className="px-0 border-0">
+                      <div className="box pt-3 px-3">
+                        <ExperimentSplitVisual
+                          coverage={coverage}
+                          values={variations}
+                          type={valueType}
+                        />
+                      </div>
                     </td>
                   </tr>
                 )}

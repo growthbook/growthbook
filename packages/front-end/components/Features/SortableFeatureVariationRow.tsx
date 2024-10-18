@@ -84,12 +84,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       <tr ref={ref} {...props}>
         {!valueAsId && (
           <td style={{ width: 45 }} className="position-relative pl-3">
-            <div
-              className={styles.colorMarker}
-              style={{
-                backgroundColor: getVariationColor(i),
-              }}
-            />
             {i}
           </td>
         )}
@@ -141,7 +135,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               <div className="col d-flex flex-row">
                 <div
                   className="mr-3 d-flex align-items-center"
-                  style={{ width: 120 }}
+                  style={{ width: 150 }}
                 >
                   <Slider
                     value={[decimalToPercent(weights[i] ?? 0)]}
@@ -156,6 +150,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 </div>
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
+                    style={{ width: 80 }}
                     value={decimalToPercent(weights[i] ?? 0)}
                     onChange={(e) => {
                       // the split now should add to 100% if there are two variations.

@@ -16,7 +16,7 @@ import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 
-export default function ExperimentRefFields({
+export default function BanditRefFields({
   feature,
   environment,
   i,
@@ -42,11 +42,11 @@ export default function ExperimentRefFields({
   const experimentOptions = experiments
     .filter(
       (e) =>
-        (e.type !== "multi-armed-bandit") && (
-        e.id === experimentId ||
-        (!e.archived &&
-          e.status !== "stopped" &&
-          (e.project || "") === (feature.project || ""))
+        e.type === "multi-armed-bandit" && (
+          e.id === experimentId ||
+          (!e.archived && e.status !== "stopped" &&
+          (e.project || "") === (feature.project || "")
+          )
         )
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
@@ -60,7 +60,7 @@ export default function ExperimentRefFields({
       <div>
         {experimentOptions.length > 0 ? (
           <SelectField
-            label="Experiment"
+            label="Bandit"
             initialOption="Choose One..."
             options={experimentOptions}
             readOnly={!!rules[i]}
@@ -110,23 +110,24 @@ export default function ExperimentRefFields({
           <div className="alert alert-warning">
             <div className="d-flex align-items-center">
               {experiments.length > 0
-                ? `You don't have any eligible Experiments yet.`
-                : `You don't have any existing Experiments yet.`}{" "}
+                ? `You don't have any eligible Bandits yet.`
+                : `You don't have any existing Bandits yet.`}{" "}
               <button
                 type="button"
                 className="btn btn-primary ml-auto"
                 onClick={(e) => {
                   e.preventDefault();
                   changeRuleType("experiment-ref-new");
+                  form.setValue("experimentType", "multi-armed-bandit");
                 }}
               >
-                Create New Experiment
+                Create New Bandit
               </button>
             </div>
           </div>
         ) : (
           <div className="alert alert-danger">
-            Could not find this Experiment. Has it been deleted?
+            Could not find this Bandit. Has it been deleted?
           </div>
         )}
 
@@ -135,10 +136,10 @@ export default function ExperimentRefFields({
             {!canEditTargeting && (
               <div className="alert alert-info">
                 <Link
-                  href={`/experiment/${selectedExperiment.id}#overview`}
+                  href={`/bandit/${selectedExperiment.id}#overview`}
                   className="alert-link"
                 >
-                  View the Experiment
+                  View the Bandit
                   <FaExternalLinkAlt />
                 </Link>{" "}
                 to make changes to assignment or targeting conditions.

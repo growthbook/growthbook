@@ -39,7 +39,7 @@ import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import TagsInput from "@/components/Tags/TagsInput";
 
-export default function ExperimentRefNewFields({
+export default function BanditRefNewFields({
   feature,
   environment,
   defaultValues,
