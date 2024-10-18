@@ -718,6 +718,63 @@ interface InitialDatasourceResources {
   }[];
 }
 
+const getClickHouseInitialDatasourceResources = ({
+  table,
+  organization,
+}: {
+  table: string;
+  organization: string;
+}): InitialDatasourceResources => {
+  return {
+    factTables: [
+      {
+        factTable: {
+          name: "Clickhouse Events",
+          description: "",
+          sql: `SELECT
+  timestamp,
+  user_id,
+  event_name,
+  geo_country,
+  geo_city,
+  geo_lat,
+  geo_lon,
+  ua_device_type,
+  ua_browser,
+  ua_os,
+  utm_source,
+  utm_medium,
+  utm_campaign,
+  url_path,
+  session_id
+FROM ${table} WHERE organization = '${organization}'`,
+          columns: generateColumns({
+            timestamp: { datatype: "date" },
+            user_id: { datatype: "string" },
+            event_name: { datatype: "string" },
+            geo_country: { datatype: "string" },
+            geo_city: { datatype: "string" },
+            geo_lat: { datatype: "number" },
+            geo_lon: { datatype: "number" },
+            ua_device_type: { datatype: "string" },
+            ua_browser: { datatype: "string" },
+            ua_os: { datatype: "string" },
+            utm_source: { datatype: "string" },
+            utm_medium: { datatype: "string" },
+            utm_campaign: { datatype: "string" },
+            url_path: { datatype: "string" },
+            session_id: { datatype: "string" },
+          }),
+          userIdTypes: [],
+          eventName: "",
+        },
+        filters: [],
+        metrics: [],
+      },
+    ],
+  };
+};
+
 const getBigQueryWithGa4InitialDatasourceResources = ({
   params,
   userIdTypes: datasourceUserIdTypes,
@@ -977,6 +1034,12 @@ export function getInitialDatasourceResources({
     return getBigQueryWithGa4InitialDatasourceResources({
       params: datasource.params,
       userIdTypes: datasource.settings?.userIdTypes || [],
+    });
+
+  if (datasource.type === "clickhouse")
+    return getClickHouseInitialDatasourceResources({
+      table: "test_enriched_events",
+      organization: datasource.organization,
     });
 
   return {

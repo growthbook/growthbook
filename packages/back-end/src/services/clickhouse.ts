@@ -49,7 +49,7 @@ export async function createClickhouseUser(
   });
 
   const orgId = context.org.id;
-  const user = orgId;
+  const user = orgId + "ter";
   const password = generatePassword();
   const hashedPassword = crypto
     .createHash("sha256")
