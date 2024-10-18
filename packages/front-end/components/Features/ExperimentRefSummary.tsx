@@ -146,15 +146,15 @@ export default function ExperimentRefSummary({
     <div>
       {experiment.status === "draft" && (
         <div className="alert alert-warning">
-          The experiment is in a <strong>draft</strong> state and has not been
+          This {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"} is in a <strong>draft</strong> state and has not been
           started yet. This rule will be skipped.
         </div>
       )}
       {experiment.status === "stopped" && (
         <div className="alert alert-info">
-          This experiment is stopped and a <strong>Temporary Rollout</strong> is
-          enabled. All users in the experiment will receive the winning
-          variation. If no longer needed, you can stop it from the Experiment
+          This {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"} is stopped and a <strong>Temporary Rollout</strong> is
+          enabled. All users in the {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"} will receive the winning
+          variation. If no longer needed, you can stop it from the {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}{" "}
           page.
         </div>
       )}

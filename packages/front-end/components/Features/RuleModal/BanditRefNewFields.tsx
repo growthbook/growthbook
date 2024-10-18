@@ -4,7 +4,7 @@ import {
   FeatureInterface,
   FeatureRule,
 } from "back-end/types/feature";
-import React from "react";
+import React, {useEffect} from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Field from "@/components/Forms/Field";
@@ -27,6 +27,14 @@ import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTarget
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import {useDefinitions} from "@/services/DefinitionsContext";
+import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {GBCuped} from "@/components/Icons";
+import {getScopedSettings} from "shared/dist/settings";
+import {useUser} from "@/services/UserContext";
 
 export default function BanditRefNewFields({
   feature,
@@ -59,6 +67,36 @@ export default function BanditRefNewFields({
 }) {
   const form = useFormContext();
 
+  const { organization, hasCommercialFeature } = useUser();
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+
+  const {
+    datasources,
+    getDatasourceById,
+    getExperimentMetricById,
+    refreshTags,
+    project,
+  } = useDefinitions();
+
+  const datasource = form.watch("datasource")
+    ? getDatasourceById(form.watch("datasource") ?? "")
+    : null;
+  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
+
+  const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueryId = form.getValues("exposureQueryId");
+  const userIdType = exposureQueries.find(
+    (e) => e.id === form.getValues("exposureQueryId")
+  )?.userIdType;
+
+  useEffect(() => {
+    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
+      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
+    }
+  }, [form, exposureQueries, exposureQueryId]);
+
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -69,6 +107,8 @@ export default function BanditRefNewFields({
     feature.project
   );
 
+  const settings = useOrgSettings();
+  const { settings: scopedSettings } = getScopedSettings({ organization });
   const { namespaces } = useOrgSettings();
 
   const [conditionKey] = useIncrementer();
@@ -209,6 +249,149 @@ export default function BanditRefNewFields({
               Remove this prerequisite to continue.
             </div>
           )}
+        </>
+      ) : null}
+
+      {step === 3 ? (
+        <>
+          <SelectField
+            label="Data Source"
+            labelClassName="font-weight-bold"
+            value={form.watch("datasource") ?? ""}
+            onChange={(newDatasource) => {
+              form.setValue("datasource", newDatasource);
+
+              // If unsetting the datasource, leave all the other settings alone
+              // That way, it will be restored if the user switches back to the previous value
+              if (!newDatasource) {
+                return;
+              }
+
+              const isValidMetric = (id: string) =>
+                getExperimentMetricById(id)?.datasource === newDatasource;
+
+              // Filter the selected metrics to only valid ones
+              const goals = form.watch("goalMetrics") ?? [];
+              form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+              const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
+              form.setValue(
+                "secondaryMetrics",
+                secondaryMetrics.filter(isValidMetric)
+              );
+
+              // const guardrails = form.watch("guardrailMetrics") ?? [];
+              // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
+            }}
+            options={datasources.map((d) => {
+              const isDefaultDataSource = d.id === settings.defaultDataSource;
+              return {
+                value: d.id,
+                label: `${d.name}${
+                  d.description ? ` — ${d.description}` : ""
+                }${isDefaultDataSource ? " (default)" : ""}`,
+              };
+            })}
+            className="portal-overflow-ellipsis"
+          />
+
+          {datasource?.properties?.exposureQueries && (
+            <SelectField
+              label="Experiment Assignment Table"
+              labelClassName="font-weight-bold"
+              value={form.watch("exposureQueryId") ?? ""}
+              onChange={(v) => form.setValue("exposureQueryId", v)}
+              required
+              options={exposureQueries.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              })}
+              helpText={
+                <>
+                  <div>
+                    Should correspond to the Identifier Type used to randomize
+                    units for this experiment
+                  </div>
+                  {userIdType ? (
+                    <>
+                      Identifier Type: <code>{userIdType}</code>
+                    </>
+                  ) : null}
+                </>
+              }
+            />
+          )}
+
+          <ExperimentMetricsSelector
+            datasource={datasource?.id}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            forceSingleGoalMetric={true}
+            noPercentileGoalMetrics={true}
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            setGoalMetrics={(goalMetrics) =>
+              form.setValue("goalMetrics", goalMetrics)
+            }
+            setSecondaryMetrics={(secondaryMetrics) =>
+              form.setValue("secondaryMetrics", secondaryMetrics)
+            }
+            setGuardrailMetrics={(guardrailMetrics) =>
+              form.setValue("guardrailMetrics", guardrailMetrics)
+            }
+          />
+
+          <BanditSettings
+            page="experiment-settings"
+            settings={scopedSettings}
+          />
+
+          <div className="mt-4">
+            <StatsEngineSelect
+              label={
+                <>
+                  <div>Statistics Engine</div>
+                  <div className="small text-muted">
+                    Only <strong>Bayesian</strong> is available for Bandit
+                    Experiments.
+                  </div>
+                </>
+              }
+              value={"bayesian"}
+              parentSettings={scopedSettings}
+              allowUndefined={false}
+              disabled={true}
+            />
+
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="regression-adjustment">
+                  <GBCuped/> Use Regression Adjustment (CUPED)
+                </PremiumTooltip>
+              }
+              style={{width: 200}}
+              labelClassName="font-weight-bold"
+              value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("regressionAdjustmentEnabled", v === "on");
+              }}
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              disabled={!hasRegressionAdjustmentFeature}
+            />
+          </div>
+
         </>
       ) : null}
     </>
