@@ -48,7 +48,7 @@ export interface TrackSnapshotProps {
   error?: string;
 }
 
-const TEST_SDK_ID = "test-gb";
+const TEST_SDK_ID = "sdk_2nq1t1hh2m2azir7m";
 
 interface DataWarehouseTrackedEvent {
   // Core event data
@@ -78,7 +78,7 @@ interface DataWarehouseTrackedEvent {
 
 const dataWareHouseTrack = (event: DataWarehouseTrackedEvent) => {
   if (!dataWarehouseUrl) return;
-  void fetch(`${dataWarehouseUrl}?sdkId=${TEST_SDK_ID}`, {
+  void fetch(`${dataWarehouseUrl}/track?client_key=${TEST_SDK_ID}`, {
     method: "POST",
     body: JSON.stringify(event),
     headers: {
@@ -132,8 +132,8 @@ export default function track(
   };
 
   dataWareHouseTrack({
-    event_name: "demo event",
-    properties_json: "{}",
+    event_name: event,
+    properties_json: JSON.stringify(trackProps),
     device_id: uuidv4(),
     page_id: uuidv4(),
     session_id: uuidv4(),
