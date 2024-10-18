@@ -3,7 +3,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import Link from "next/link";
-import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";

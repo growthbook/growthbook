@@ -987,6 +987,7 @@ export default function RuleModal({
           )}
           <div className="mb-4">
             <FeatureVariationsInput
+              simple={form.watch("experimentType") === "multi-armed-bandit"}
               defaultValue={getFeatureDefaultValue(feature)}
               valueType={feature.valueType}
               coverage={form.watch("coverage") || 0}
@@ -1010,7 +1011,6 @@ export default function RuleModal({
                 form.setValue("values", variations)
               }
               feature={feature}
-              simple={form.watch("experimentType") === "multi-armed-bandit"}
             />
           </div>
         </div>

@@ -4,18 +4,10 @@ import {
   FeatureInterface,
   FeatureRule,
 } from "back-end/types/feature";
-import { ExperimentType } from "back-end/types/experiment";
-import { FaRegCircleCheck } from "react-icons/fa6";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { AppFeatures } from "@/types/app-features";
-import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -37,7 +29,6 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import Toggle from "@/components/Forms/Toggle";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import TagsInput from "@/components/Tags/TagsInput";
 
 export default function ExperimentRefNewFields({
   feature,
@@ -80,29 +71,16 @@ export default function ExperimentRefNewFields({
     feature.project
   );
 
-  const { hasCommercialFeature } = useUser();
-  const settings = useOrgSettings();
   const { namespaces } = useOrgSettings();
-  const growthbook = useGrowthBook<AppFeatures>();
 
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
-  const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
-  );
-  const usingStickyBucketing = !!settings.useStickyBucketing;
-
-  const [conditionKey, forceConditionRender] = useIncrementer();
+  const [conditionKey] = useIncrementer();
 
   return (
     <>
       {step === 0 ? (
         <>
           <Field
-            label={
-              form.watch("experimentType") === "multi-armed-bandit"
-                ? "Bandit Name"
-                : "Experiment Name"
-            }
+            label="Experiment Name"
             {...form.register("name")}
             required
           />
@@ -111,7 +89,7 @@ export default function ExperimentRefNewFields({
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature.id}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+            helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
           />
 
           <Field
@@ -127,11 +105,7 @@ export default function ExperimentRefNewFields({
             textarea
             minRows={1}
             {...form.register("description")}
-            placeholder={`Short human-readable description of the ${
-              form.watch("experimentType") === "multi-armed-bandit"
-                ? "Bandit"
-                : "Experiment"
-            }`}
+            placeholder="Short human-readable description of the Experiment"
           />
         </>
       ) : null}
@@ -244,8 +218,7 @@ export default function ExperimentRefNewFields({
           )}
           <hr />
 
-          {form.watch("type") === "experiment-ref-new" &&
-            form.watch("experimentType") !== "multi-armed-bandit" && (
+          {form.watch("type") === "experiment-ref-new" && (
               <div className="mt-4 mb-3">
                 <Toggle
                   value={form.watch("autoStart")}
@@ -260,7 +233,7 @@ export default function ExperimentRefNewFields({
                 </label>
                 <div>
                   <small className="form-text text-muted">
-                    If On, the experiment will start serving traffic as soon as
+                    If On, the Experiment will start serving traffic as soon as
                     the feature is published. Leave Off if you want to make
                     additional changes before starting.
                   </small>

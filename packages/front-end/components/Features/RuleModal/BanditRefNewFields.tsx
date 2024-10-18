@@ -4,18 +4,10 @@ import {
   FeatureInterface,
   FeatureRule,
 } from "back-end/types/feature";
-import { ExperimentType } from "back-end/types/experiment";
-import { FaRegCircleCheck } from "react-icons/fa6";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { AppFeatures } from "@/types/app-features";
-import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -34,10 +26,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import Toggle from "@/components/Forms/Toggle";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import TagsInput from "@/components/Tags/TagsInput";
 
 export default function BanditRefNewFields({
   feature,
@@ -80,29 +69,16 @@ export default function BanditRefNewFields({
     feature.project
   );
 
-  const { hasCommercialFeature } = useUser();
-  const settings = useOrgSettings();
   const { namespaces } = useOrgSettings();
-  const growthbook = useGrowthBook<AppFeatures>();
 
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
-  const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
-  );
-  const usingStickyBucketing = !!settings.useStickyBucketing;
-
-  const [conditionKey, forceConditionRender] = useIncrementer();
+  const [conditionKey] = useIncrementer();
 
   return (
     <>
       {step === 0 ? (
         <>
           <Field
-            label={
-              form.watch("experimentType") === "multi-armed-bandit"
-                ? "Bandit Name"
-                : "Experiment Name"
-            }
+            label="Bandit Name"
             {...form.register("name")}
             required
           />
@@ -111,15 +87,7 @@ export default function BanditRefNewFields({
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature.id}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
-          />
-
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={1}
-            {...form.register("hypothesis")}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+            helpText="Unique identifier for this Bandit, used to track impressions and analyze results"
           />
 
           <Field
@@ -127,11 +95,7 @@ export default function BanditRefNewFields({
             textarea
             minRows={1}
             {...form.register("description")}
-            placeholder={`Short human-readable description of the ${
-              form.watch("experimentType") === "multi-armed-bandit"
-                ? "Bandit"
-                : "Experiment"
-            }`}
+            placeholder="Short human-readable description of the Bandit"
           />
         </>
       ) : null}
@@ -170,7 +134,10 @@ export default function BanditRefNewFields({
           </div>
 
           <FeatureVariationsInput
+            simple={true}
             label="Traffic Percent & Variations"
+            coverageLabel="Traffic included in this Bandit"
+            coverageTooltip="Users not included in the Bandit will skip this rule"
             defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
             coverage={form.watch("coverage") || 0}
@@ -242,45 +209,6 @@ export default function BanditRefNewFields({
               Remove this prerequisite to continue.
             </div>
           )}
-          <hr />
-
-          {form.watch("type") === "experiment-ref-new" &&
-            form.watch("experimentType") !== "multi-armed-bandit" && (
-              <div className="mt-4 mb-3">
-                <Toggle
-                  value={form.watch("autoStart")}
-                  setValue={(v) => form.setValue("autoStart", v)}
-                  id="auto-start-new-experiment"
-                />{" "}
-                <label
-                  htmlFor="auto-start-new-experiment"
-                  className="text-dark"
-                >
-                  Start Experiment Immediately
-                </label>
-                <div>
-                  <small className="form-text text-muted">
-                    If On, the experiment will start serving traffic as soon as
-                    the feature is published. Leave Off if you want to make
-                    additional changes before starting.
-                  </small>
-                </div>
-                {!form.watch("autoStart") && (
-                  <div>
-                    <hr />
-                    <ScheduleInputs
-                      defaultValue={defaultValues.scheduleRules || []}
-                      onChange={(value) =>
-                        form.setValue("scheduleRules", value)
-                      }
-                      scheduleToggleEnabled={scheduleToggleEnabled}
-                      setScheduleToggleEnabled={setScheduleToggleEnabled}
-                      setShowUpgradeModal={setShowUpgradeModal}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
         </>
       ) : null}
     </>

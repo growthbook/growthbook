@@ -33,6 +33,7 @@ export interface Props {
   setVariations?: (variations: SortableVariation[]) => void;
   coverage: number;
   setCoverage: (coverage: number) => void;
+  coverageLabel?: string;
   coverageTooltip?: string;
   valueAsId?: boolean;
   showPreview?: boolean;
@@ -55,7 +56,8 @@ export default function FeatureVariationsInput({
   setCoverage,
   valueType,
   defaultValue = "",
-  coverageTooltip = "Users not included in the experiment will skip this rule.",
+  coverageLabel = "Traffic included in this Experiment",
+  coverageTooltip = "Users not included in the Experiment will skip this rule",
   valueAsId = false,
   showPreview = true,
   hideCoverage = false,
@@ -80,10 +82,10 @@ export default function FeatureVariationsInput({
     });
   };
 
-  const label = simple
-    ? "Number of Variations"
-    : _label
+  const label = _label
     ? _label
+    : simple
+    ? "Traffic Percentage & Variations"
     : setVariations
     ? "Traffic Percentage, Variations, and Weights"
     : hideCoverage || hideVariations
@@ -94,31 +96,80 @@ export default function FeatureVariationsInput({
     <div className="form-group">
       <label>{label}</label>
       {simple ? (
-        <Field
-          type="number"
-          style={{ width: 100 }}
-          min={2}
-          value={variations.length}
-          onChange={(e) => {
-            const n = parseInt(e?.target?.value || "2");
-            const newValues: SortableVariation[] = [];
-            for (let i = 0; i < n; i++) {
-              newValues.push({
-                value: getDefaultVariationValue(defaultValue),
-                name: i === 0 ? "Control" : `Variation ${i}`,
-                weight: 1 / n,
-                id: generateVariationId(),
-              });
-            }
-            setVariations?.(newValues);
-          }}
-        />
+        <>
+          {!hideCoverage && (
+            <div className="px-3 pt-3 bg-highlight rounded mb-3">
+              <label className="mb-0">
+                {coverageLabel}{" "}
+                <Tooltip body={coverageTooltip} />
+              </label>
+              <div className="row align-items-center pb-3 mx-1">
+                <div className="col pl-0">
+                  <Slider
+                    value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    disabled={!!disableCoverage}
+                    onValueChange={(e) => {
+                      let decimal = percentToDecimalForNumber(e[0]);
+                      if (decimal > 1) decimal = 1;
+                      if (decimal < 0) decimal = 0;
+                      setCoverage(decimal);
+                    }}
+                  />
+                </div>
+                <div className="col-auto pr-0">
+                  <div
+                    className={`position-relative ${styles.percentInputWrap}`}
+                  >
+                    <Field
+                      style={{ width: 80 }}
+                      value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
+                      onChange={(e) => {
+                        let decimal = percentToDecimal(e.target.value);
+                        if (decimal > 1) decimal = 1;
+                        if (decimal < 0) decimal = 0;
+                        setCoverage(decimal);
+                      }}
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="1"
+                      disabled={!!disableCoverage}
+                    />
+                    <span>%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <Field
+            label="Number of Variations"
+            type="number"
+            min={2}
+            value={variations.length}
+            onChange={(e) => {
+              const n = parseInt(e?.target?.value || "2");
+              const newValues: SortableVariation[] = [];
+              for (let i = 0; i < n; i++) {
+                newValues.push({
+                  value: getDefaultVariationValue(defaultValue),
+                  name: i === 0 ? "Control" : `Variation ${i}`,
+                  weight: 1 / n,
+                  id: generateVariationId(),
+                });
+              }
+              setVariations?.(newValues);
+            }}
+          />
+        </>
       ) : (
         <div className="gbtable">
           {!hideCoverage && (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
-                Percent of traffic included in this experiment{" "}
+                {coverageLabel}{" "}
                 <Tooltip body={coverageTooltip} />
               </label>
               <div className="row align-items-center pb-3 mx-1">
