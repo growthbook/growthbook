@@ -734,6 +734,7 @@ const getClickHouseInitialDatasourceResources = ({
           sql: `SELECT
   timestamp,
   user_id,
+  user_attributes_json,
   event_name,
   geo_country,
   geo_city,
@@ -751,6 +752,7 @@ FROM ${table} WHERE organization = '${organization}'`,
           columns: generateColumns({
             timestamp: { datatype: "date" },
             user_id: { datatype: "string" },
+            user_attributes_json: { datatype: "string" },
             event_name: { datatype: "string" },
             geo_country: { datatype: "string" },
             geo_city: { datatype: "string" },
@@ -769,7 +771,40 @@ FROM ${table} WHERE organization = '${organization}'`,
           eventName: "",
         },
         filters: [],
-        metrics: [],
+        metrics: [
+          {
+            name: "Page Views per User",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["page_view"],
+              },
+            },
+          },
+          {
+            name: "Pages per Session",
+            metricType: "ratio",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["page_view"],
+              },
+            },
+            denominator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["session_start"],
+              },
+            },
+          },
+        ],
       },
     ],
   };
