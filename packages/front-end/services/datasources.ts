@@ -1036,7 +1036,7 @@ export function getInitialDatasourceResources({
       userIdTypes: datasource.settings?.userIdTypes || [],
     });
 
-  if (datasource.type === "clickhouse")
+  if (datasource.type === "growthbook_clickhouse")
     return getClickHouseInitialDatasourceResources({
       table: "test_enriched_events",
       organization: datasource.organization,

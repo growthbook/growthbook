@@ -102,7 +102,4 @@ export default class ClickHouse extends SqlIntegration {
       );
     return `table_schema IN ('${this.params.database}')`;
   }
-  isAutoGeneratingFactTablesSupported() {
-    return true;
-  }
 }
