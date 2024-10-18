@@ -41,7 +41,8 @@
     "plugin:@typescript-eslint/recommended",
     "plugin:prettier/recommended",
     "plugin:@next/eslint-plugin-next/recommended",
-    "plugin:react-hooks/recommended"
+    "plugin:react-hooks/recommended",
+    "plugin:svelte/recommended"
   ],
   "parserOptions": {
     "ecmaFeatures": {
@@ -173,6 +174,18 @@
         "./packages/back-end/src/scripts/**/*",
         "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
       ]
+    },
+    {
+      "files": [
+        "*.svelte"
+      ],
+      "parser": "svelte-eslint-parser",
+      "parserOptions": {
+        "parser": "@typescript-eslint/parser"
+      },
+      "rules": {
+        "react-hooks/rules-of-hooks": "off"
+      }
     }
   ]
 }
