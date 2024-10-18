@@ -61,7 +61,10 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
   const canUpdateConnectionParams =
-    (d && permissionsUtil.canUpdateDataSourceParams(d) && !hasFileConfig()) ||
+    (d &&
+      permissionsUtil.canUpdateDataSourceParams(d) &&
+      !hasFileConfig() &&
+      d.type != "growthbook_clickhouse") ||
     false;
 
   const canUpdateDataSourceSettings =
