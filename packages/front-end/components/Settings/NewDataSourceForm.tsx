@@ -73,6 +73,7 @@ const NewDataSourceForm: FC<{
   showBackButton = true,
 }) => {
   const {
+    datasources,
     projects: allProjects,
     project,
     mutateDefinitions,
@@ -428,7 +429,10 @@ const NewDataSourceForm: FC<{
   };
 
   // TODO: Make this a feature flag
-  const showInbuiltDatasource = true;
+  // Only show the inbuilt datasource option if the user doesn't have an inbuilt datasource already.
+  const showInbuiltDatasource = !datasources
+    .map((d) => d.type)
+    .find((type) => type === "growthbook_clickhouse");
 
   let stepContents: ReactNode = null;
   if (step === "initial") {

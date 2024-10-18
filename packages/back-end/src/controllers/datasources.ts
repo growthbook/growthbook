@@ -1,6 +1,7 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
+import uniqid from "uniqid";
 import {
   CreateFactTableProps,
   FactTableInterface,
@@ -112,7 +113,7 @@ export async function deleteDataSource(
     );
   }
 
-  await deleteDatasourceById(datasource.id, org.id);
+  await deleteDatasourceById(datasource, org.id);
 
   if (datasource.settings?.informationSchemaId) {
     const informationSchemaId = datasource.settings.informationSchemaId;
@@ -275,7 +276,8 @@ export async function postInbuiltDataSource(
   >
 ) {
   const context = getContextFromReq(req);
-  const params = await createClickhouseUser(context);
+  const new_datasource_id = req.params.id || uniqid("ds_");
+  const params = await createClickhouseUser(context, new_datasource_id);
   const datasourceSettings: DataSourceSettings = {
     userIdTypes: [
       {
@@ -372,7 +374,8 @@ AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
     "Growthbook Inbuilt Datasource",
     "growthbook_clickhouse",
     params,
-    datasourceSettings
+    datasourceSettings,
+    new_datasource_id
   );
   res.status(200).json({
     status: 200,
