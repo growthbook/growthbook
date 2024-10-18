@@ -99,6 +99,7 @@ const MetricsSelector: FC<{
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
+  includeGroups?: boolean;
   forceSingleMetric?: boolean;
   noPercentile?: boolean;
   disabled?: boolean;
@@ -110,12 +111,14 @@ const MetricsSelector: FC<{
   onChange,
   autoFocus,
   includeFacts,
+  includeGroups = true,
   forceSingleMetric = false,
   noPercentile = false,
   disabled,
 }) => {
   const {
     metrics,
+    metricGroups,
     factMetrics,
     factTables,
     getDatasourceById,
@@ -136,6 +139,20 @@ const MetricsSelector: FC<{
         factTables: [],
         userIdTypes: m.userIdTypes || [],
       })),
+    ...(includeGroups
+      ? metricGroups
+          .filter((mg) => !mg.archived)
+          .map((mg) => ({
+            id: mg.id,
+            name: mg.name + " (" + mg.metrics.length + " metrics)",
+            description: mg.description || "",
+            datasource: mg.datasource,
+            tags: mg.tags || [],
+            projects: mg.projects || [],
+            factTables: [],
+            userIdTypes: [],
+          }))
+      : []),
     ...(includeFacts
       ? factMetrics
           .filter((m) =>

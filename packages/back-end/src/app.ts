@@ -116,6 +116,7 @@ import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
+import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 
@@ -445,6 +446,9 @@ app.get(
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
+
+// Metric Groups
+app.use(metricGroupRouter);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);

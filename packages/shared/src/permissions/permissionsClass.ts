@@ -121,6 +121,18 @@ export class Permissions {
     return this.checkGlobalPermission("createSegments");
   };
 
+  public canCreateMetricGroup = (): boolean => {
+    return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canUpdateMetricGroup = (): boolean => {
+    return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canDeleteMetricGroup = (): boolean => {
+    return this.checkGlobalPermission("createMetricGroups");
+  };
+
   public canManageOrgSettings = (): boolean => {
     return this.checkGlobalPermission("organizationSettings");
   };
