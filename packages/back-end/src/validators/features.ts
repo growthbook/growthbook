@@ -111,6 +111,7 @@ export const banditStageType = ["explore", "exploit", "paused"] as const;
 
 const experimentRule = baseRule
   .extend({
+    type: z.literal("experiment"), // refers to RuleType, not experiment.type
     experimentType: z.enum(experimentType).optional(),
     hypothesis: z.string().optional(),
     trackingKey: z.string(),
@@ -132,7 +133,6 @@ const experimentRule = baseRule
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
-    type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),
     banditStageDateStarted: z.date().optional(),
     banditScheduleValue: z.number().optional(),
