@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
+import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
@@ -743,7 +744,7 @@ export function updateExperimentBanditSettings({
 }): Changeset {
   if (!changes) changes = {};
   if (!changes.phases) {
-    changes.phases = [...experiment.phases];
+    changes.phases = cloneDeep<ExperimentPhase[]>(experiment.phases);
   }
   const phase = changes.phases.length - 1;
 
