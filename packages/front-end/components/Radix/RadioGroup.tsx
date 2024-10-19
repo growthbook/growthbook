@@ -68,7 +68,9 @@ export default function RadioGroup({
                           {label || value}
                         </Text>
                         {description ? (
-                          <Text weight="regular" size="1">{description}</Text>
+                          <Text weight="regular" size="1">
+                            {description}
+                          </Text>
                         ) : null}
                         {error && selected ? (
                           <HelperText status={errorLevel}>{error}</HelperText>
