@@ -22,6 +22,14 @@
   }
 }
 
+// Callout
+.rt-CalloutRoot:where(.rt-r-size-1) {
+  padding: var(--space-2) var(--space-3) !important;
+  p:first-of-type {
+    margin-top: 2px;
+  }
+}
+
 // Checkbox
 .rt-CheckboxItem {
   cursor: pointer;
@@ -65,7 +73,7 @@
 // RadioCards
 .rt-RadioCardsItem {
   &:hover:not(.disabled) {
-    background: var(--violet-a2);
+    background: var(--violet-a3);
   }
   & > * {
     pointer-events: auto !important;

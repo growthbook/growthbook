@@ -1,12 +1,11 @@
-import { FaQuestionCircle } from "react-icons/fa";
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
-import HelperText from "@/components/Radix/HelperText";
+import RadioGroup from "@/components/Radix/RadioGroup";
+import Callout from "@/components/Radix/Callout";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (
@@ -43,37 +42,32 @@ export default function HashVersionSelector({
 
   return (
     <>
-      <SelectField
-        label="Hashing Algorithm"
+      <label>Hashing Algorithm</label>
+      <RadioGroup
         options={[
+          {
+            label: "V2 (Preferred)",
+            value: "2",
+            description:
+              "Fixes potential bias issues when using similarly named tracking keys",
+            renderOnSelect: hasSDKWithNoBucketingV2 ? (
+              <Callout status="warning" size="sm">
+                Some of your SDK Connections may not support V2 hashing. Make
+                sure you are only using it with{" "}
+                <HashVersionTooltip>
+                  <span className="underline">compatible SDKs</span>
+                </HashVersionTooltip>
+                .
+              </Callout>
+            ) : undefined,
+          },
           { label: "V1 (Legacy)", value: "1" },
-          { label: "V2", value: "2" },
         ]}
         value={value + ""}
-        onChange={(v) => {
+        setValue={(v) => {
           onChange((parseInt(v) || 2) as 1 | 2);
         }}
-        helpText={
-          <>
-            V2 fixes potential bias issues when using similarly named tracking
-            keys, but is only supported in{" "}
-            <HashVersionTooltip>
-              <span className="text-primary">
-                some SDK versions <FaQuestionCircle />
-              </span>
-            </HashVersionTooltip>
-            .
-          </>
-        }
       />
-
-      {hasSDKWithNoBucketingV2 && (
-        <HelperText status="warning">
-          Some of your SDK Connections may not support V2 hashing. While V2
-          hashing is preferred, please ensure you are only using it with
-          compatible SDKs.
-        </HelperText>
-      )}
     </>
   );
 }

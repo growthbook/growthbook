@@ -268,7 +268,7 @@ export default function RuleModal({
         autoCloseOnSubmit={false}
       >
         <div className="bg-highlight rounded p-3 mb-3">
-          <h5>Select implementation</h5>
+          <h5>Select rule type</h5>
           <RadioCards
             mt="4"
             width="100%"
