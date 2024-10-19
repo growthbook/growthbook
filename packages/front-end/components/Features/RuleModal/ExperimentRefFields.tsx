@@ -14,20 +14,17 @@ import {
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import { useExperiments } from "@/hooks/useExperiments";
+import Callout from "@/components/Radix/Callout";
 
 export default function ExperimentRefFields({
   feature,
   environment,
   i,
   changeRuleType,
-  canEditTargeting,
-  setShowTargetingModal,
 }: {
   feature: FeatureInterface;
   environment: string;
   i: number;
-  canEditTargeting: boolean;
-  setShowTargetingModal: (b: boolean) => void;
   changeRuleType: (v: string) => void;
 }) {
   const form = useFormContext();
@@ -129,34 +126,20 @@ export default function ExperimentRefFields({
         )}
 
         {selectedExperiment && rules[i] && (
-          <div className="appbox px-3 pt-3 bg-light">
-            {!canEditTargeting && (
-              <div className="alert alert-info">
-                <Link
-                  href={`/experiment/${selectedExperiment.id}#overview`}
-                  className="alert-link"
-                >
-                  View the Experiment <FaExternalLinkAlt />
-                </Link>{" "}
-                to make changes to assignment or targeting conditions.
-              </div>
-            )}
-            <TargetingInfo
-              experiment={selectedExperiment}
-              editTargeting={
-                canEditTargeting
-                  ? () => {
-                      setShowTargetingModal(true);
-                    }
-                  : null
-              }
-            />
+          <div className="appbox px-3 pt-3">
+            <Callout status="info" mb="5">
+              <Link href={`/experiment/${selectedExperiment.id}#overview`}>
+                View this Experiment <FaExternalLinkAlt />
+              </Link>{" "}
+              to make changes to assignment or targeting conditions.
+            </Callout>
+            <TargetingInfo experiment={selectedExperiment} />
           </div>
         )}
         {selectedExperiment && (
           <div className="form-group">
             <label>Variation Values</label>
-            <div className="mb-3 bg-light border p-3">
+            <div className="mb-3 box p-3">
               {selectedExperiment.variations.map((v, i) => (
                 <FeatureValueField
                   key={v.id}

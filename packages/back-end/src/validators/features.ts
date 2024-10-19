@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { statsEngines } from "back-end/src/util/constants";
 import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -106,11 +107,10 @@ export const namespaceValue = z
 export type NamespaceValue = z.infer<typeof namespaceValue>;
 
 export const experimentType = ["standard", "multi-armed-bandit"] as const;
-export type ExperimentType = typeof experimentType[number];
+export const banditStageType = ["explore", "exploit", "paused"] as const;
 
 const experimentRule = baseRule
   .extend({
-    type: z.literal("experiment"),
     experimentType: z.enum(experimentType).optional(),
     hypothesis: z.string().optional(),
     trackingKey: z.string(),
@@ -122,7 +122,23 @@ const experimentRule = baseRule
     minBucketVersion: z.number().optional(),
     namespace: namespaceValue.optional(),
     coverage: z.number().optional(),
+    datasource: z.string().optional(),
+    exposureQueryId: z.string().optional(),
+    goalMetrics: z.array(z.string()).optional(),
+    secondaryMetrics: z.array(z.string()).optional(),
+    guardrailMetrics: z.array(z.string()).optional(),
     values: z.array(experimentValue),
+    regressionAdjustmentEnabled: z.boolean().optional(),
+    sequentialTestingEnabled: z.boolean().optional(),
+    sequentialTestingTuningParameter: z.number().optional(),
+    statsEngine: z.enum(statsEngines).optional(),
+    type: z.enum(experimentType).optional(),
+    banditStage: z.enum(banditStageType).optional(),
+    banditStageDateStarted: z.date().optional(),
+    banditScheduleValue: z.number().optional(),
+    banditScheduleUnit: z.enum(["hours", "days"]).optional(),
+    banditBurnInValue: z.number().optional(),
+    banditBurnInUnit: z.enum(["hours", "days"]).optional(),
   })
   .strict();
 

@@ -12,6 +12,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -127,6 +128,7 @@ export default function RuleModal({
   const form = useForm<FeatureRule | NewExperimentRefRule>({
     defaultValues,
   });
+
   const { apiCall } = useAuth();
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -382,11 +384,17 @@ export default function RuleModal({
       ? `${isNewRule ? "new " : ""}Force Value Rule`
       : type === "rollout"
       ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
-      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) &&
-        form.watch("experimentType") === "multi-armed-bandit"
+      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+          type ?? ""
+        ) &&
+        selectedExperiment &&
+        selectedExperiment.type === "multi-armed-bandit"
       ? `${type === "experiment-ref-new" ? "new" : "existing"} Bandit as Rule`
-      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(type) &&
-        form.watch("experimentType") !== "multi-armed-bandit"
+      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+          type ?? ""
+        ) &&
+        selectedExperiment &&
+        selectedExperiment.type !== "multi-armed-bandit"
       ? `${
           type === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
@@ -451,6 +459,12 @@ export default function RuleModal({
 
           try {
             if (values.type === "experiment-ref-new") {
+              // Make sure there's an experiment name
+              if ((values.name?.length ?? 0) < 1) {
+                setStep(0);
+                throw new Error("Name must not be empty");
+              }
+
               // Apply same validation as we do for legacy experiment rules
               const newRule = validateFeatureRule(
                 {
@@ -480,6 +494,16 @@ export default function RuleModal({
                 values.scheduleRules = [];
               }
 
+              if (values.experimentType === "multi-armed-bandit") {
+                values.statsEngine = "bayesian";
+                if (!values.datasource) {
+                  throw new Error("You must select a datasource");
+                }
+                if ((values.goalMetrics?.length ?? 0) !== 1) {
+                  throw new Error("You must select 1 decision metric");
+                }
+              }
+
               // All looks good, create experiment
               const exp: Partial<ExperimentInterfaceStringDates> = {
                 archived: false,
@@ -491,9 +515,11 @@ export default function RuleModal({
                 ),
                 hashAttribute: values.hashAttribute,
                 fallbackAttribute: values.fallbackAttribute || "",
-                goalMetrics: [],
-                secondaryMetrics: [],
-                guardrailMetrics: [],
+                datasource: values.datasource || undefined,
+                exposureQueryId: values.exposureQueryId || "",
+                goalMetrics: values.goalMetrics || [],
+                secondaryMetrics: values.secondaryMetrics || [],
+                guardrailMetrics: values.guardrailMetrics || [],
                 activationMetric: "",
                 name: values.name,
                 hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
@@ -536,8 +562,30 @@ export default function RuleModal({
                     variationWeights: values.values.map((v) => v.weight),
                   },
                 ],
+                sequentialTestingEnabled:
+                  values.experimentType === "multi-armed-bandit"
+                    ? false
+                    : values.sequentialTestingEnabled ??
+                      !!settings?.sequentialTestingEnabled,
+                sequentialTestingTuningParameter:
+                  values.sequentialTestingTuningParameter ??
+                  settings?.sequentialTestingTuningParameter ??
+                  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+                regressionAdjustmentEnabled:
+                  values.regressionAdjustmentEnabled ?? undefined,
+                statsEngine: values.statsEngine ?? undefined,
                 type: values.experimentType,
               };
+
+              if (values.experimentType === "multi-armed-bandit") {
+                Object.assign(exp, {
+                  banditScheduleValue: values.banditScheduleValue ?? 1,
+                  banditScheduleUnit: values.banditScheduleUnit ?? "days",
+                  banditBurnInValue: values.banditBurnInValue ?? 1,
+                  banditBurnInUnit: values.banditBurnInUnit ?? "days",
+                });
+              }
+
               const res = await apiCall<
                 | { experiment: ExperimentInterfaceStringDates }
                 | { duplicateTrackingKey: true; existingId: string }
@@ -705,28 +753,26 @@ export default function RuleModal({
         )}
 
         {(type === "experiment-ref" || type === "experiment") &&
-          form.watch("experimentType") !== "multi-armed-bandit" && (
-            <ExperimentRefFields
-              feature={feature}
-              environment={environment}
-              i={i}
-              changeRuleType={changeRuleType}
-              canEditTargeting={canEditTargeting}
-              setShowTargetingModal={setShowTargetingModal}
-            />
-          )}
+        selectedExperiment &&
+        selectedExperiment.type !== "multi-armed-bandit" ? (
+          <ExperimentRefFields
+            feature={feature}
+            environment={environment}
+            i={i}
+            changeRuleType={changeRuleType}
+          />
+        ) : null}
 
         {(type === "experiment-ref" || type === "experiment") &&
-          form.watch("experimentType") === "multi-armed-bandit" && (
-            <BanditRefFields
-              feature={feature}
-              environment={environment}
-              i={i}
-              changeRuleType={changeRuleType}
-              canEditTargeting={canEditTargeting}
-              setShowTargetingModal={setShowTargetingModal}
-            />
-          )}
+        selectedExperiment &&
+        selectedExperiment.type === "multi-armed-bandit" ? (
+          <BanditRefFields
+            feature={feature}
+            environment={environment}
+            i={i}
+            changeRuleType={changeRuleType}
+          />
+        ) : null}
 
         {type === "experiment-ref-new" &&
         form.watch("experimentType") !== "multi-armed-bandit"
