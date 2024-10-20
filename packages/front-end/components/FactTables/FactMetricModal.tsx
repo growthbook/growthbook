@@ -278,9 +278,9 @@ function ColumnRefSelector({
   });
 
   return (
-    <div className="">
-      <div className="d-flex flex-column">
-        <div>
+    <div className="appbox px-3 pt-3 bg-light">
+      <div className="row align-items-center">
+        <div className="col-auto">
           <SelectField
             label={"Fact Table"}
             disabled={disableFactTableSelector}
@@ -318,7 +318,7 @@ function ColumnRefSelector({
           />
         </div>
         {inlineFilterFields.map(({ label, key, options, error }) => (
-          <div key={key}>
+          <div key={key} className="col-auto">
             <MultiSelectField
               label={
                 <>
@@ -353,7 +353,7 @@ function ColumnRefSelector({
           </div>
         ))}
         {factTable && factTable.filters.length > 0 ? (
-          <div>
+          <div className="col-auto">
             <MultiSelectField
               label={
                 <>
@@ -388,7 +388,7 @@ function ColumnRefSelector({
           </div>
         ) : null}
         {includeColumn && (
-          <div>
+          <div className="col-auto">
             <SelectField
               label="Value"
               value={value.column}
@@ -406,7 +406,7 @@ function ColumnRefSelector({
         {includeColumn &&
           !value.column.startsWith("$$") &&
           aggregationType === "unit" && (
-            <div>
+            <div className="col-auto">
               <SelectField
                 label={
                   <>
@@ -423,7 +423,7 @@ function ColumnRefSelector({
               />
             </div>
           )}
-        {extraField && <div>{extraField}</div>}
+        {extraField && <>{extraField}</>}
       </div>
     </div>
   );
@@ -465,11 +465,11 @@ function getWHERE({
 
   if (windowSettings.type === "lookback") {
     whereParts.push(
-      `-- Lookback Metric Window\ntimestamp > NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}'`
+      `-- Lookback Metric Window\ntimestamp > (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
     );
   } else if (windowSettings.type === "conversion") {
     whereParts.push(
-      `-- Conversion Metric Window\ntimestamp < exposure_date + '${windowSettings.windowValue} ${windowSettings.windowUnit}'`
+      `-- Conversion Metric Window\ntimestamp < (exposure_date + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
     );
   }
   if (
@@ -691,6 +691,8 @@ export default function FactMetricModal({
   const settings = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
+
+  const [showExperimentSQL, setShowExperimentSQL] = useState(false);
 
   const {
     datasources,
@@ -1024,6 +1026,10 @@ export default function FactMetricModal({
                   form.setValue("metricType", type as FactMetricType);
 
                   if (type === "quantile") {
+                    if (!canUseEventQuantile) {
+                      quantileSettings.type = "unit";
+                    }
+
                     form.setValue("quantileSettings", quantileSettings);
                     // capping off for quantile metrics
                     form.setValue("cappingSettings.type", "");
@@ -1096,6 +1102,12 @@ export default function FactMetricModal({
               />
               {type === "proportion" ? (
                 <div>
+                  <p>
+                    <em>
+                      Proportion of experiment users who have matching rows in a
+                      fact table.
+                    </em>
+                  </p>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
@@ -1107,6 +1119,12 @@ export default function FactMetricModal({
                 </div>
               ) : type === "mean" ? (
                 <div>
+                  <p>
+                    <em>
+                      Average value of a numeric column (or count of rows) in a
+                      fact table per experiment user.
+                    </em>
+                  </p>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
@@ -1119,6 +1137,12 @@ export default function FactMetricModal({
                 </div>
               ) : type === "quantile" ? (
                 <div>
+                  <p>
+                    <em>
+                      Specific quantile value (e.g. P90) of a numeric column in
+                      a fact table.
+                    </em>
+                  </p>
                   <div className="form-group">
                     <Toggle
                       id="quantileTypeSelector"
@@ -1162,79 +1186,90 @@ export default function FactMetricModal({
                     datasource={selectedDataSource.id}
                     disableFactTableSelector={!!initialFactTable}
                     extraField={
-                      form
-                        .watch("numerator")
-                        ?.column?.startsWith("$$") ? undefined : (
-                        <div className="form-group">
-                          <label htmlFor="quantileIgnoreZeros">
-                            Ignore Zeros{" "}
-                            <Tooltip
-                              body={`If the ${
-                                quantileSettings.type === "unit"
-                                  ? "per-user"
-                                  : "rows"
-                              } value is zero (or null), exclude it from the quantile calculation`}
-                            />
-                          </label>
-                          <div style={{ padding: "6px 0" }}>
-                            <Toggle
-                              id="quantileIgnoreZeros"
-                              value={quantileSettings.ignoreZeros}
-                              setValue={(ignoreZeros) =>
-                                form.setValue("quantileSettings", {
-                                  ...quantileSettings,
-                                  ignoreZeros,
-                                })
-                              }
-                            />
+                      <>
+                        {form
+                          .watch("numerator")
+                          ?.column?.startsWith("$$") ? undefined : (
+                          <div className="col-auto">
+                            <div className="form-group">
+                              <label htmlFor="quantileIgnoreZeros">
+                                Ignore Zeros{" "}
+                                <Tooltip
+                                  body={`If the ${
+                                    quantileSettings.type === "unit"
+                                      ? "per-user"
+                                      : "rows"
+                                  } value is zero (or null), exclude it from the quantile calculation`}
+                                />
+                              </label>
+                              <div style={{ padding: "6px 0" }}>
+                                <Toggle
+                                  id="quantileIgnoreZeros"
+                                  value={quantileSettings.ignoreZeros}
+                                  setValue={(ignoreZeros) =>
+                                    form.setValue("quantileSettings", {
+                                      ...quantileSettings,
+                                      ignoreZeros,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
                           </div>
+                        )}
+                        <div className="col-auto">
+                          <QuantileSelector
+                            value={quantileSettings}
+                            setValue={(quantileSettings) =>
+                              form.setValue(
+                                "quantileSettings",
+                                quantileSettings
+                              )
+                            }
+                          />
                         </div>
-                      )
-                    }
-                  />
-                  <QuantileSelector
-                    value={quantileSettings}
-                    setValue={(quantileSettings) =>
-                      form.setValue("quantileSettings", quantileSettings)
+                      </>
                     }
                   />
                 </div>
               ) : type === "ratio" ? (
                 <>
+                  <p>
+                    <em>
+                      Complex value calculated by dividing two numeric columns
+                      in fact tables.
+                    </em>
+                  </p>
                   <div className="form-group">
                     <label>Numerator</label>
-                    <div className="appbox p-3 bg-light">
-                      <ColumnRefSelector
-                        value={numerator}
-                        setValue={(numerator) =>
-                          form.setValue("numerator", numerator)
-                        }
-                        includeColumn={true}
-                        includeCountDistinct={true}
-                        datasource={selectedDataSource.id}
-                        disableFactTableSelector={!!initialFactTable}
-                      />
-                    </div>
+                    <ColumnRefSelector
+                      value={numerator}
+                      setValue={(numerator) =>
+                        form.setValue("numerator", numerator)
+                      }
+                      includeColumn={true}
+                      includeCountDistinct={true}
+                      datasource={selectedDataSource.id}
+                      disableFactTableSelector={!!initialFactTable}
+                    />
                   </div>
                   <div className="form-group">
                     <label>Denominator</label>
-                    <div className="appbox p-3 bg-light">
-                      <ColumnRefSelector
-                        value={
-                          denominator || {
-                            column: "$$count",
-                            factTableId: "",
-                            filters: [],
-                          }
+                    <ColumnRefSelector
+                      value={
+                        denominator || {
+                          column: "$$count",
+                          factTableId: "",
+                          filters: [],
                         }
-                        setValue={(denominator) =>
-                          form.setValue("denominator", denominator)
-                        }
-                        includeColumn={true}
-                        includeCountDistinct={true}
-                        datasource={selectedDataSource.id}
-                      />
-                    </div>
+                      }
+                      setValue={(denominator) =>
+                        form.setValue("denominator", denominator)
+                      }
+                      includeColumn={true}
+                      includeCountDistinct={true}
+                      datasource={selectedDataSource.id}
+                    />
                   </div>
                 </>
               ) : (
@@ -1536,8 +1571,29 @@ export default function FactMetricModal({
             ) : null}
           </div>
           <div>
-            <strong>Experiment Results</strong>
-            <Code language="sql" code={experimentSQL} className="bg-light" />
+            <div className="d-flex align-items-center">
+              <strong>Experiment Results</strong>
+              <a
+                href="#"
+                className="ml-2 small"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowExperimentSQL(!showExperimentSQL);
+                }}
+              >
+                {showExperimentSQL ? "hide" : "show"}
+              </a>
+            </div>
+            <div
+              style={{
+                maxHeight: showExperimentSQL ? "500px" : "0",
+                opacity: showExperimentSQL ? "1" : "0",
+                overflow: "hidden",
+                transition: "max-height 0.3s, opacity 0.3s",
+              }}
+            >
+              <Code language="sql" code={experimentSQL} className="bg-light" />
+            </div>
           </div>
 
           {type ? null : type === "proportion" ? (
