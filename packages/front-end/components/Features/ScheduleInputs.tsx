@@ -50,8 +50,7 @@ export default function ScheduleInputs(props: Props) {
         commercialFeature="schedule-feature-flag"
         upgradeMessage="enable feature flag scheduling"
         labelText={
-          props.title ??
-          "Add scheduling to automatically enable/disable an override rule"
+          props.title ?? "Add scheduling to automatically enable/disable a rule"
         }
       />
       <div className="pb-2">

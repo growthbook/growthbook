@@ -435,7 +435,7 @@ export default function RuleModal({
       ? `${
           ruleType === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
-      : "Override Rule";
+      : "Rule";
   headerText += ` in ${environment}`;
 
   return (
