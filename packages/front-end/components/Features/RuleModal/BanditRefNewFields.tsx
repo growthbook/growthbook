@@ -178,12 +178,14 @@ export default function BanditRefNewFields({
           />
 
           {namespaces && namespaces.length > 0 && (
-            <NamespaceSelector
-              form={form}
-              trackingKey={form.watch("trackingKey") || feature.id}
-              featureId={feature.id}
-              formPrefix=""
-            />
+            <div className="mt-4">
+              <NamespaceSelector
+                form={form}
+                trackingKey={form.watch("trackingKey") || feature.id}
+                featureId={feature.id}
+                formPrefix=""
+              />
+            </div>
           )}
         </>
       ) : null}

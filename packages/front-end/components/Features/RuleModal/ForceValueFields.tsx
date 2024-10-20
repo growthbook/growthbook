@@ -20,10 +20,8 @@ export default function ForceValueFields({
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  // legacy:
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
-  setShowUpgradeModal,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -34,10 +32,8 @@ export default function ForceValueFields({
   isCyclic: boolean;
   cyclicFeatureId: string | null;
   conditionKey: number;
-
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
-  setShowUpgradeModal: (b: boolean) => void;
 }) {
   const form = useFormContext();
 
@@ -51,24 +47,25 @@ export default function ForceValueFields({
         placeholder="Short human-readable description of the rule"
       />
 
-      <FeatureValueField
-        label="Value to Force"
-        id="value"
-        value={form.watch("value")}
-        setValue={(v) => form.setValue("value", v)}
-        valueType={feature.valueType}
-        feature={feature}
-        renderJSONInline={true}
-      />
+      <div className="mb-3 pb-1">
+        <FeatureValueField
+          label="Value to Force"
+          id="value"
+          value={form.watch("value")}
+          setValue={(v) => form.setValue("value", v)}
+          valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+        />
+      </div>
 
       <ScheduleInputs
         defaultValue={defaultValues.scheduleRules || []}
         onChange={(value) => form.setValue("scheduleRules", value)}
         scheduleToggleEnabled={scheduleToggleEnabled}
         setScheduleToggleEnabled={setScheduleToggleEnabled}
-        setShowUpgradeModal={setShowUpgradeModal}
-        title="Add scheduling to automatically enable/disable this rule"
       />
+      <hr />
 
       <SavedGroupTargetingField
         value={form.watch("savedGroups") || []}

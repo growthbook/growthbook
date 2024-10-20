@@ -40,10 +40,8 @@ export default function ExperimentRefNewFields({
   cyclicFeatureId,
   conditionKey,
   step,
-  // legacy:
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
-  setShowUpgradeModal,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -55,10 +53,8 @@ export default function ExperimentRefNewFields({
   cyclicFeatureId: string | null;
   conditionKey: number;
   step: number;
-
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
-  setShowUpgradeModal: (b: boolean) => void;
 }) {
   const form = useFormContext();
 
@@ -238,7 +234,6 @@ export default function ExperimentRefNewFields({
                     onChange={(value) => form.setValue("scheduleRules", value)}
                     scheduleToggleEnabled={scheduleToggleEnabled}
                     setScheduleToggleEnabled={setScheduleToggleEnabled}
-                    setShowUpgradeModal={setShowUpgradeModal}
                   />
                 </div>
               )}
