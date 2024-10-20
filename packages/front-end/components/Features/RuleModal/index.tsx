@@ -326,7 +326,7 @@ export default function RuleModal({
               },
               {
                 value: "experiment",
-                label: "Add Experiment",
+                label: "Experiment",
                 description:
                   "Measure the impact of this feature on your key metrics",
               },
@@ -349,7 +349,7 @@ export default function RuleModal({
                           }
                           usePortal={true}
                         >
-                          Add Bandit
+                          Bandit
                         </PremiumTooltip>
                       ),
                       description:
