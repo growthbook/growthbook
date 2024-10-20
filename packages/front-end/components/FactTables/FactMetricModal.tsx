@@ -414,7 +414,7 @@ function ColumnRefSelector({
               <SelectField
                 label={
                   <>
-                    Per-User Aggregation{" "}
+                    Aggregation{" "}
                     <Tooltip body="Only SUM is supported today, but more aggregation types may be added in the future." />
                   </>
                 }
@@ -1203,7 +1203,7 @@ export default function FactMetricModal({
                 </div>
               ) : type === "mean" ? (
                 <div>
-                  <label>Per-user Value</label>
+                  <label>Per-User Value</label>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
