@@ -56,6 +56,7 @@ import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricP
 import Checkbox from "@/components/Radix/Checkbox";
 import Callout from "@/components/Radix/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
+import HelperText from "@/components/Radix/HelperText";
 
 export interface Props {
   close?: () => void;
@@ -765,6 +766,8 @@ export default function FactMetricModal({
 
   const { hasCommercialFeature } = useUser();
 
+  const showSQLPreview = growthbook.isOn("fact-metric-sql-preview");
+
   const [showExperimentSQL, setShowExperimentSQL] = useState(false);
 
   const {
@@ -864,11 +867,11 @@ export default function FactMetricModal({
     ignoreZeros: false,
   };
 
-  const quantileMetricFlag = growthbook && growthbook.isOn("quantile-metrics");
   const quantileMetricsAvailableForDatasource =
-    quantileMetricFlag && selectedDataSource?.properties?.hasQuantileTesting;
-  const hasQuantileMetricCommercialFeature =
-    quantileMetricFlag && hasCommercialFeature("quantile-metrics");
+    selectedDataSource?.properties?.hasQuantileTesting;
+  const hasQuantileMetricCommercialFeature = hasCommercialFeature(
+    "quantile-metrics"
+  );
 
   const numerator = form.watch("numerator");
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
@@ -1008,7 +1011,7 @@ export default function FactMetricModal({
           onSave && onSave();
         }
       })}
-      size="max"
+      size={showSQLPreview ? "max" : "lg"}
     >
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
@@ -1082,16 +1085,14 @@ export default function FactMetricModal({
                             <strong>Mean</strong> metrics calculate the average
                             value of a numeric column in a fact table.
                           </div>
-                          {quantileMetricFlag ? (
-                            <div className="mb-2">
-                              <strong>Quantile</strong> metrics calculate the
-                              value at a specific percentile of a numeric column
-                              in a fact table.
-                              {!quantileMetricsAvailableForDatasource
-                                ? " Quantile metrics are not available for MySQL data sources."
-                                : ""}
-                            </div>
-                          ) : null}
+                          <div className="mb-2">
+                            <strong>Quantile</strong> metrics calculate the
+                            value at a specific percentile of a numeric column
+                            in a fact table.
+                            {!quantileMetricsAvailableForDatasource
+                              ? " Quantile metrics are not available for MySQL data sources."
+                              : ""}
+                          </div>
                           <div>
                             <strong>Ratio</strong> metrics allow you to
                             calculate a complex value by dividing two different
@@ -1161,27 +1162,23 @@ export default function FactMetricModal({
                     value: "mean",
                     label: "Mean",
                   },
-                  ...(quantileMetricFlag
-                    ? [
-                        {
-                          value: "quantile",
-                          label: (
-                            <>
-                              <PremiumTooltip
-                                commercialFeature="quantile-metrics"
-                                body={
-                                  !quantileMetricsAvailableForDatasource
-                                    ? "Quantile metrics are not available for MySQL data sources"
-                                    : ""
-                                }
-                              >
-                                Quantile
-                              </PremiumTooltip>
-                            </>
-                          ),
-                        },
-                      ]
-                    : []),
+                  {
+                    value: "quantile",
+                    label: (
+                      <>
+                        <PremiumTooltip
+                          commercialFeature="quantile-metrics"
+                          body={
+                            !quantileMetricsAvailableForDatasource
+                              ? "Quantile metrics are not available for MySQL data sources"
+                              : ""
+                          }
+                        >
+                          Quantile
+                        </PremiumTooltip>
+                      </>
+                    ),
+                  },
                   {
                     value: "ratio",
                     label: "Ratio",
@@ -1190,12 +1187,6 @@ export default function FactMetricModal({
               />
               {type === "proportion" ? (
                 <div>
-                  <p>
-                    <em>
-                      Proportion of experiment users who have matching rows in a
-                      fact table.
-                    </em>
-                  </p>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
@@ -1205,15 +1196,14 @@ export default function FactMetricModal({
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={true}
                   />
+                  <HelperText status="info">
+                    The final metric value will be the percent of users in the
+                    experiment with at least 1 matching row.
+                  </HelperText>
                 </div>
               ) : type === "mean" ? (
                 <div>
-                  <p>
-                    <em>
-                      Average value of a numeric column (or count of rows) in a
-                      fact table per experiment user.
-                    </em>
-                  </p>
+                  <label>Per-user Value</label>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
@@ -1223,15 +1213,15 @@ export default function FactMetricModal({
                     datasource={selectedDataSource.id}
                     disableFactTableSelector={!!initialFactTable}
                   />
+                  <HelperText status="info">
+                    The final metric value will be the average per-user value
+                    for all users in the experiment. Any user without a matching
+                    row will have a value of 0 and will still contribute to this
+                    average.
+                  </HelperText>
                 </div>
               ) : type === "quantile" ? (
                 <div>
-                  <p>
-                    <em>
-                      Specific quantile value (e.g. P90) of a numeric column in
-                      a fact table.
-                    </em>
-                  </p>
                   <div className="form-group">
                     <Toggle
                       id="quantileTypeSelector"
@@ -1265,6 +1255,11 @@ export default function FactMetricModal({
                       Aggregate by Experiment User before taking quantile?
                     </label>
                   </div>
+                  <label>
+                    {quantileSettings.type === "unit"
+                      ? "Per-User Value"
+                      : "Event Value"}
+                  </label>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
@@ -1320,15 +1315,16 @@ export default function FactMetricModal({
                       </>
                     }
                   />
+                  <HelperText status="info">
+                    The final metric value will be the selected quantile
+                    {quantileSettings.type === "unit"
+                      ? " of all aggregated experiment user values"
+                      : " of all rows that are matched to experiment users"}
+                    {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
+                  </HelperText>
                 </div>
               ) : type === "ratio" ? (
                 <>
-                  <p>
-                    <em>
-                      Complex value calculated by dividing two numeric columns
-                      in fact tables.
-                    </em>
-                  </p>
                   <div className="form-group">
                     <label>Numerator</label>
                     <ColumnRefSelector
@@ -1363,6 +1359,12 @@ export default function FactMetricModal({
                       datasource={selectedDataSource.id}
                     />
                   </div>
+
+                  <HelperText status="info">
+                    The final metric value will be the Numerator divided by the
+                    Denominator. We use the Delta Method to provide an accurate
+                    estimation of variance.
+                  </HelperText>
                 </>
               ) : (
                 <p>Select a metric type above</p>
@@ -1626,96 +1628,102 @@ export default function FactMetricModal({
             </>
           )}
         </div>
-        <div
-          className="bg-light px-3 py-4 flex-1 border-left d-none d-md-block"
-          style={{
-            width: "50%",
-            maxWidth: "600px",
-          }}
-        >
-          <h3>Live SQL Preview</h3>
-          <p>
-            <em>
-              This has been highly simplified for readability. Advanced settings
-              are not reflected.
-            </em>
-          </p>
-          <div className="mb-3">
-            <strong>
-              Metric Value{" "}
-              {type !== "quantile" || quantileSettings.type === "unit"
-                ? `(per user)`
-                : ""}
-            </strong>
-            <Code
-              language="sql"
-              code={sql}
-              className="bg-light"
-              filename={denominatorSQL ? "Numerator" : undefined}
-            />
-            {denominatorSQL ? (
+        {showSQLPreview && (
+          <div
+            className="bg-light px-3 py-4 flex-1 border-left d-none d-md-block"
+            style={{
+              width: "50%",
+              maxWidth: "600px",
+            }}
+          >
+            <h3>Live SQL Preview</h3>
+            <p>
+              <em>
+                This has been highly simplified for readability. Advanced
+                settings are not reflected.
+              </em>
+            </p>
+            <div className="mb-3">
+              <strong>
+                Metric Value{" "}
+                {type !== "quantile" || quantileSettings.type === "unit"
+                  ? `(per user)`
+                  : ""}
+              </strong>
               <Code
                 language="sql"
-                code={denominatorSQL}
+                code={sql}
                 className="bg-light"
-                filename={"Denominator"}
+                filename={denominatorSQL ? "Numerator" : undefined}
               />
-            ) : null}
-          </div>
-          <div>
-            <div className="d-flex align-items-center">
-              <strong>Experiment Results</strong>
-              <a
-                href="#"
-                className="ml-2 small"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowExperimentSQL(!showExperimentSQL);
+              {denominatorSQL ? (
+                <Code
+                  language="sql"
+                  code={denominatorSQL}
+                  className="bg-light"
+                  filename={"Denominator"}
+                />
+              ) : null}
+            </div>
+            <div>
+              <div className="d-flex align-items-center">
+                <strong>Experiment Results</strong>
+                <a
+                  href="#"
+                  className="ml-2 small"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowExperimentSQL(!showExperimentSQL);
+                  }}
+                >
+                  {showExperimentSQL ? "hide" : "show"}
+                </a>
+              </div>
+              <div
+                style={{
+                  maxHeight: showExperimentSQL ? "500px" : "0",
+                  opacity: showExperimentSQL ? "1" : "0",
+                  overflow: "hidden",
+                  transition: "max-height 0.3s, opacity 0.3s",
                 }}
               >
-                {showExperimentSQL ? "hide" : "show"}
-              </a>
+                <Code
+                  language="sql"
+                  code={experimentSQL}
+                  className="bg-light"
+                />
+              </div>
             </div>
-            <div
-              style={{
-                maxHeight: showExperimentSQL ? "500px" : "0",
-                opacity: showExperimentSQL ? "1" : "0",
-                overflow: "hidden",
-                transition: "max-height 0.3s, opacity 0.3s",
-              }}
-            >
-              <Code language="sql" code={experimentSQL} className="bg-light" />
-            </div>
-          </div>
 
-          {type ? null : type === "proportion" ? (
-            <Callout status="info">
-              The final metric value will be the percent of all users in the
-              experiment who have at least 1 matching row.
-            </Callout>
-          ) : type === "mean" ? (
-            <Callout status="info">
-              The final metric value will be the average per-user value for all
-              users in the experiment. Any user without a matching row will have
-              a value of <code>0</code> and will still contribute to this
-              average.
-            </Callout>
-          ) : type === "quantile" ? (
-            <Callout status="info">
-              The final metric value will be the selected quantile
-              {quantileSettings.type === "unit"
-                ? " of all aggregated experiment user values"
-                : " of all rows that are matched to experiment users"}
-              {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
-            </Callout>
-          ) : type === "ratio" ? (
-            <Callout status="info">
-              The final metric value will be the Numerator divided by the
-              Denominator. We use the Delta Method to provide an accurate
-              estimation of variance.
-            </Callout>
-          ) : null}
-        </div>
+            {type ? null : type === "proportion" ? (
+              <Callout status="info">
+                The final metric value will be the percent of all users in the
+                experiment who have at least 1 matching row.
+              </Callout>
+            ) : type === "mean" ? (
+              <Callout status="info">
+                The final metric value will be the average per-user value for
+                all users in the experiment. Any user without a matching row
+                will have a value of <code>0</code> and will still contribute to
+                this average.
+              </Callout>
+            ) : type === "quantile" ? (
+              <Callout status="info">
+                The final metric value will be the selected quantile
+                {quantileSettings.type === "unit"
+                  ? " of all aggregated experiment user values"
+                  : " of all rows that are matched to experiment users"}
+                {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
+              </Callout>
+            ) : type === "ratio" ? (
+              <Callout status="info">
+                The final metric value will be the Numerator divided by the
+                Denominator. We use the Delta Method to provide an accurate
+                estimation of variance.
+              </Callout>
+            ) : null}
+          </div>
+        )}
       </div>
     </Modal>
   );

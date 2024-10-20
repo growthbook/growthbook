@@ -49,7 +49,7 @@ export function MetricWindowSettingsForm({ form }) {
     </>
   );
   return (
-    <div className="mb-3">
+    <div className="mb-3 mt-4">
       <div className="form-group mb-1">
         <SelectField
           label={"Metric Window"}
