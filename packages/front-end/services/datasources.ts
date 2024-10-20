@@ -19,7 +19,7 @@ import {
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
-import { getDefaultFactMetricProps } from "@/components/FactTables/FactMetricModal";
+import { getDefaultFactMetricProps } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 
 function camelToUnderscore(orig) {

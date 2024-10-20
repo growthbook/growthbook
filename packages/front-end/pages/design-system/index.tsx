@@ -1,6 +1,6 @@
 import { Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
-import { FaDownload } from "react-icons/fa";
+import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
@@ -15,6 +15,7 @@ import Avatar from "@/components/Radix/Avatar";
 import Field from "@/components/Forms/Field";
 import RadioCards from "@/components/Radix/RadioCards";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import DataList from "@/components/Radix/DataList";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -222,6 +223,49 @@ export default function DesignSystemPage() {
             disabled
           />
         </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3 className="mb-4">DataList</h3>
+        <DataList
+          header="Header"
+          columns={4}
+          data={[
+            { label: "Label 1", value: "Value 1" },
+            {
+              label: "Label 2",
+              value: "A very long value that will wrap to multiple lines",
+            },
+            {
+              label: "With Tooltip",
+              value: "Value 3",
+              tooltip: "This is a label tooltip",
+            },
+            {
+              label: "Label 4",
+              value: (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                  }}
+                >
+                  Link Value <FaExternalLinkAlt />
+                </a>
+              ),
+            },
+            {
+              label: "Label 5",
+              value: (
+                <>
+                  <em>Other</em> value{" "}
+                  <span className="text-muted">formatting</span>
+                </>
+              ),
+            },
+            { label: "Label 6", value: "Value 6" },
+          ]}
+        />
       </div>
 
       <div className="appbox p-3">
