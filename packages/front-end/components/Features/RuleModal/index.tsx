@@ -13,6 +13,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getScopedSettings } from "shared/settings";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -72,7 +73,7 @@ export default function RuleModal({
   revisions,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -92,6 +93,7 @@ export default function RuleModal({
   const [showTargetingModal, setShowTargetingModal] = useState(false);
 
   const settings = useOrgSettings();
+  const { settings: scopedSettings } = getScopedSettings({ organization });
 
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
@@ -136,10 +138,20 @@ export default function RuleModal({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits"
   );
-  const type = form.watch("type");
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+
+  const ruleType = form.watch("type");
+  const experimentType = selectedExperiment
+    ? selectedExperiment.type === "multi-armed-bandit"
+      ? "bandit"
+      : "experiment"
+    : overviewRadioSelectorRuleType === "bandit"
+    ? "bandit"
+    : overviewRadioSelectorRuleType === "experiment"
+    ? "experiment"
+    : null;
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -259,10 +271,37 @@ export default function RuleModal({
           setNewRuleOverviewPage(false);
           changeRuleType(overviewRuleType);
           // set experiment type:
-          if (overviewRadioSelectorRuleType === "experiment") {
-            form.setValue("experimentType", "standard");
-          } else if (overviewRadioSelectorRuleType === "bandit") {
-            form.setValue("experimentType", "multi-armed-bandit");
+          if (overviewRuleType === "experiment-ref-new") {
+            if (overviewRadioSelectorRuleType === "experiment") {
+              form.setValue("experimentType", "standard");
+              form.setValue("regressionAdjustmentEnabled", undefined);
+              form.setValue("banditScheduleValue", undefined);
+              form.setValue("banditScheduleUnit", undefined);
+              form.setValue("banditBurnInValue", undefined);
+              form.setValue("banditBurnInUnit", undefined);
+            } else if (overviewRadioSelectorRuleType === "bandit") {
+              form.setValue("experimentType", "multi-armed-bandit");
+              form.setValue(
+                "regressionAdjustmentEnabled",
+                scopedSettings.regressionAdjustmentEnabled.value
+              );
+              form.setValue(
+                "banditScheduleValue",
+                scopedSettings.banditScheduleValue.value
+              );
+              form.setValue(
+                "banditScheduleUnit",
+                scopedSettings.banditScheduleUnit.value
+              );
+              form.setValue(
+                "banditBurnInValue",
+                scopedSettings.banditBurnInValue.value
+              );
+              form.setValue(
+                "banditBurnInUnit",
+                scopedSettings.banditScheduleUnit.value
+              );
+            }
           }
         }}
         autoCloseOnSubmit={false}
@@ -380,23 +419,21 @@ export default function RuleModal({
 
   let headerText = isNewRule ? "Add " : "Edit ";
   headerText +=
-    type === "force"
+    ruleType === "force"
       ? `${isNewRule ? "new " : ""}Force Value Rule`
-      : type === "rollout"
+      : ruleType === "rollout"
       ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
       : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-          type ?? ""
-        ) &&
-        selectedExperiment &&
-        selectedExperiment.type === "multi-armed-bandit"
-      ? `${type === "experiment-ref-new" ? "new" : "existing"} Bandit as Rule`
-      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-          type ?? ""
-        ) &&
-        selectedExperiment &&
-        selectedExperiment.type !== "multi-armed-bandit"
+          ruleType ?? ""
+        ) && experimentType === "bandit"
       ? `${
-          type === "experiment-ref-new" ? "new" : "existing"
+          ruleType === "experiment-ref-new" ? "new" : "existing"
+        } Bandit as Rule`
+      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+          ruleType ?? ""
+        ) && experimentType === "experiment"
+      ? `${
+          ruleType === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
       : "Override Rule";
   headerText += ` in ${environment}`;
@@ -416,7 +453,7 @@ export default function RuleModal({
             "Save"
           )
         }
-        ctaEnabled={newRuleOverviewPage ? type !== undefined : canSubmit}
+        ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         bodyClassName="px-4"
         header={headerText}
         subHeader={`You will have a chance to review ${
@@ -424,7 +461,7 @@ export default function RuleModal({
         } as a draft before publishing.`}
         step={step}
         setStep={setStep}
-        hideNav={type !== "experiment-ref-new"}
+        hideNav={ruleType !== "experiment-ref-new"}
         backButton={true}
         onBackFirstStep={
           isNewRule ? () => setNewRuleOverviewPage(true) : undefined
@@ -714,7 +751,7 @@ export default function RuleModal({
           }
         })}
       >
-        {type === "force" && (
+        {ruleType === "force" && (
           <ForceValueFields
             feature={feature}
             environment={environment}
@@ -733,7 +770,7 @@ export default function RuleModal({
           />
         )}
 
-        {type === "rollout" && (
+        {ruleType === "rollout" && (
           <RolloutFields
             feature={feature}
             environment={environment}
@@ -752,9 +789,8 @@ export default function RuleModal({
           />
         )}
 
-        {(type === "experiment-ref" || type === "experiment") &&
-        selectedExperiment &&
-        selectedExperiment.type !== "multi-armed-bandit" ? (
+        {(ruleType === "experiment-ref" || ruleType === "experiment") &&
+        experimentType === "experiment" ? (
           <ExperimentRefFields
             feature={feature}
             environment={environment}
@@ -763,9 +799,8 @@ export default function RuleModal({
           />
         ) : null}
 
-        {(type === "experiment-ref" || type === "experiment") &&
-        selectedExperiment &&
-        selectedExperiment.type === "multi-armed-bandit" ? (
+        {(ruleType === "experiment-ref" || ruleType === "experiment") &&
+        experimentType === "bandit" ? (
           <BanditRefFields
             feature={feature}
             environment={environment}
@@ -774,8 +809,7 @@ export default function RuleModal({
           />
         ) : null}
 
-        {type === "experiment-ref-new" &&
-        form.watch("experimentType") !== "multi-armed-bandit"
+        {ruleType === "experiment-ref-new" && experimentType === "experiment"
           ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields
@@ -799,8 +833,7 @@ export default function RuleModal({
             ))
           : null}
 
-        {type === "experiment-ref-new" &&
-        form.watch("experimentType") === "multi-armed-bandit"
+        {ruleType === "experiment-ref-new" && experimentType === "bandit"
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields

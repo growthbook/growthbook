@@ -3,7 +3,6 @@ import { ExperimentValue, FeatureInterface } from "back-end/types/feature";
 import React, { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { getScopedSettings } from "shared/dist/settings";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -53,7 +52,7 @@ export default function BanditRefNewFields({
 }) {
   const form = useFormContext();
 
-  const { organization, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
@@ -92,7 +91,6 @@ export default function BanditRefNewFields({
   );
 
   const settings = useOrgSettings();
-  const { settings: scopedSettings } = getScopedSettings({ organization });
   const { namespaces } = useOrgSettings();
 
   return (
@@ -322,10 +320,7 @@ export default function BanditRefNewFields({
             }
           />
 
-          <BanditSettings
-            page="experiment-settings"
-            settings={scopedSettings}
-          />
+          <BanditSettings page="experiment-settings" />
 
           <div className="mt-4">
             <StatsEngineSelect
@@ -339,7 +334,6 @@ export default function BanditRefNewFields({
                 </>
               }
               value={"bayesian"}
-              parentSettings={scopedSettings}
               allowUndefined={false}
               disabled={true}
             />
