@@ -520,6 +520,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                               y={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
                               stroke={getVariationColor(i, true)}
                               strokeWidth={2}
+                              strokeDasharray={"2,5"}
                               curve={curveMonotoneX}
                             />
                             <LinePath
@@ -529,7 +530,6 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                               y={(d) => yScale(d.users?.[i] ?? 0)}
                               stroke={getVariationColor(i, true)}
                               strokeWidth={2}
-                              strokeDasharray={"2,5"}
                               curve={curveMonotoneX}
                             />
                             <AreaClosed
