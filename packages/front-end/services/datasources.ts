@@ -1073,7 +1073,7 @@ export function getInitialDatasourceResources({
 
   if (datasource.type === "growthbook_clickhouse")
     return getClickHouseInitialDatasourceResources({
-      table: "test_enriched_events",
+      table: process.env.CLICKHOUSE_MAIN_TABLE || "test_enriched_events",
       organization: datasource.organization,
     });
 
