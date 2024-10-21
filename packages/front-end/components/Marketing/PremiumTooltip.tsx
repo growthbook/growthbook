@@ -61,6 +61,8 @@ export default function PremiumTooltip({
       innerClassName={innerClassName || ""}
       popperStyle={popperStyle}
       usePortal={usePortal}
+      trackingEventTooltipType={"premium-tooltip"}
+      trackingEventTooltipSource={commercialFeature}
       {...otherProps}
     >
       {!hasFeature && (

@@ -5,11 +5,13 @@ import {
   useState,
   useEffect,
   CSSProperties,
+  useCallback,
 } from "react";
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
 import Portal from "@/components/Modal/Portal";
+import track from "@/services/track";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   body: string | JSX.Element;
@@ -22,6 +24,8 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   shouldDisplay?: boolean;
   usePortal?: boolean;
   state?: boolean;
+  trackingEventTooltipType?: string;
+  trackingEventTooltipSource?: string;
 }
 const Tooltip: FC<Props> = ({
   body,
@@ -35,18 +39,35 @@ const Tooltip: FC<Props> = ({
   shouldDisplay = true,
   usePortal = false,
   state,
+  trackingEventTooltipType = "",
+  trackingEventTooltipSource,
   ...otherProps
 }) => {
   const [trigger, setTrigger] = useState(null);
   const [tooltip, setTooltip] = useState(null);
   const [arrow, setArrow] = useState(null);
   const [open, setOpen] = useState(state ?? false);
+  const [allowTrack, setAllowTrack] = useState(true);
 
   useEffect(() => {
     if (state !== undefined) {
       setOpen(state);
     }
   }, [state, setOpen]);
+
+  const setOpenWithCallback = useCallback(
+    (state: boolean) => {
+      if (state && allowTrack && trackingEventTooltipType) {
+        track("tooltip-open", {
+          type: trackingEventTooltipType,
+          source: trackingEventTooltipSource,
+        });
+        setAllowTrack(false);
+      }
+      setOpen(state);
+    },
+    [allowTrack, trackingEventTooltipType, trackingEventTooltipSource]
+  );
 
   const { styles, attributes } = usePopper(trigger, tooltip, {
     modifiers: [
@@ -68,7 +89,7 @@ const Tooltip: FC<Props> = ({
     <span
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
       ref={setTrigger}
-      onMouseEnter={() => setOpen(true)}
+      onMouseEnter={() => setOpenWithCallback(true)}
       onMouseLeave={() => setOpen(false)}
       onPointerLeave={() => setOpen(false)}
       className={`${className}`}
