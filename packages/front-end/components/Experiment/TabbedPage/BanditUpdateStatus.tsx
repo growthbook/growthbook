@@ -142,7 +142,9 @@ export default function BanditUpdateStatus({
           <div className="mx-2" style={{ fontSize: "12px" }}>
             <p>
               The Bandit is{" "}
-              {experiment.banditStage ? (
+              {experiment.banditStage === "paused" ? (
+                "not running"
+              ) : experiment.banditStage ? (
                 <>
                   in the{" "}
                   <strong>
@@ -195,8 +197,12 @@ export default function BanditUpdateStatus({
             </div>
           ) : null}
 
-          <hr className="mx-2" />
-          <RefreshBanditButton mutate={mutate} experiment={experiment} />
+          {experiment.status === "running" && (
+            <>
+              <hr className="mx-2" />
+              <RefreshBanditButton mutate={mutate} experiment={experiment} />
+            </>
+          )}
         </div>
       </Dropdown>
     </div>
