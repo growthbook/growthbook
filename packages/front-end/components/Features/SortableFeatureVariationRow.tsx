@@ -64,6 +64,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     },
     ref
   ) => {
+    let updateTimeout: number | undefined = undefined;
+
     const weights = variations.map((v) => v.weight);
 
     const rebalanceAndUpdate = (
@@ -81,7 +83,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     };
 
     return (
-      <tr ref={ref} {...props}>
+      <tr ref={ref} {...props} key={`v-${variation.id}__${i}`}>
         {!valueAsId && (
           <td style={{ width: 45 }} className="position-relative pl-3">
             <div
@@ -159,20 +161,19 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                     style={{ width: 80 }}
                     value={decimalToPercent(weights[i] ?? 0)}
                     onChange={(e) => {
-                      // the split now should add to 100% if there are two variations.
-                      rebalanceAndUpdate(
-                        i,
-                        e.target.value === ""
-                          ? 0
-                          : percentToDecimal(e.target.value)
-                      );
-                      if (e.target.value === "") {
-                        // I hate this, but not is also the easiest
-                        setTimeout(() => {
-                          e.target.focus();
-                          e.target.select();
-                        }, 100);
+                      setWeight?.(i, percentToDecimal(e.target.value));
+                      if (updateTimeout) {
+                        window.clearTimeout(updateTimeout);
                       }
+                      updateTimeout = window.setTimeout(() => {
+                        // the split now should add to 100% if there are two variations.
+                        rebalanceAndUpdate(
+                          i,
+                          e.target.value === ""
+                            ? 0
+                            : percentToDecimal(e.target.value)
+                        );
+                      }, 1000);
                     }}
                     type="number"
                     min={0}
