@@ -23,6 +23,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   shouldDisplay?: boolean;
   usePortal?: boolean;
   state?: boolean;
+  // must be set for tracking event to fire on hover
   trackingEventTooltipType?: string;
   trackingEventTooltipSource?: string;
 }
@@ -38,7 +39,7 @@ const Tooltip: FC<Props> = ({
   shouldDisplay = true,
   usePortal = false,
   state,
-  trackingEventTooltipType = "",
+  trackingEventTooltipType,
   trackingEventTooltipSource,
   ...otherProps
 }) => {
@@ -55,7 +56,7 @@ const Tooltip: FC<Props> = ({
   }, [state, setOpen]);
 
   useEffect(() => {
-    if (open && !alreadyHovered) {
+    if (open && !alreadyHovered && trackingEventTooltipType) {
       setAlreadyHovered(true);
       track("tooltip-open", {
         type: trackingEventTooltipType,
