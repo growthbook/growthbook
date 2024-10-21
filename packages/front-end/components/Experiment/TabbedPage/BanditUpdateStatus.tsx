@@ -9,6 +9,7 @@ import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function BanditUpdateStatus({
   experiment,
@@ -178,15 +179,17 @@ export default function BanditUpdateStatus({
               </div>
               {latest ? (
                 <div className="col-auto">
-                  <ViewAsyncQueriesButton
-                    queries={latest.queries?.map((q) => q.query) ?? []}
-                    error={latest.error}
-                    status={status}
-                    display={null}
-                    color="link link-purple p-0 pt-1"
-                    condensed={true}
-                    hideQueryCount={true}
-                  />
+                  <Tooltip body="View Queries" popperClassName="text-center">
+                    <ViewAsyncQueriesButton
+                      queries={latest.queries?.map((q) => q.query) ?? []}
+                      error={latest.error}
+                      status={status}
+                      display={null}
+                      color="link link-purple p-0 pt-1"
+                      condensed={true}
+                      hideQueryCount={true}
+                    />
+                  </Tooltip>
                 </div>
               ) : null}
             </div>

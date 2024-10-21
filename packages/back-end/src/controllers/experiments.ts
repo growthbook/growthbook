@@ -27,6 +27,7 @@ import {
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
+  determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
@@ -939,8 +940,8 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // Clean up some vars for multi-armed bandits, but only if safe to do so...
-  // If it's a draft, hasn't been run as a MAB before, and is/will be a MAB:
+  // Clean up some vars for bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
   if (
     experiment.status === "draft" &&
     experiment.banditStage === undefined &&
@@ -953,6 +954,21 @@ export async function postExperiment(
       changes,
       settings,
     });
+  }
+  // If it's already a bandit and..
+  if (experiment.type === "multi-armed-bandit") {
+    // ...the schedule has changed, recompute next run
+    if (
+      changes.banditScheduleUnit !== undefined ||
+      changes.banditScheduleValue !== undefined ||
+      changes.banditBurnInUnit !== undefined ||
+      changes.banditBurnInValue !== undefined
+    ) {
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface);
+    }
   }
 
   // Only some fields affect production SDK payloads
