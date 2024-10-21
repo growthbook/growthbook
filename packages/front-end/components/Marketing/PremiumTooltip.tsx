@@ -61,7 +61,8 @@ export default function PremiumTooltip({
       innerClassName={innerClassName || ""}
       popperStyle={popperStyle}
       usePortal={usePortal}
-      trackingEventTooltipType={"premium-tooltip"}
+      // do not fire track event they have the feature
+      trackingEventTooltipType={hasFeature ? undefined : "premium-tooltip"}
       trackingEventTooltipSource={commercialFeature}
       {...otherProps}
     >
