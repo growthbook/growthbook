@@ -5,7 +5,6 @@ import {
   useState,
   useEffect,
   CSSProperties,
-  useCallback,
 } from "react";
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
@@ -47,7 +46,7 @@ const Tooltip: FC<Props> = ({
   const [tooltip, setTooltip] = useState(null);
   const [arrow, setArrow] = useState(null);
   const [open, setOpen] = useState(state ?? false);
-  const [allowTrack, setAllowTrack] = useState(true);
+  const [alreadyHovered, setAlreadyHovered] = useState(false);
 
   useEffect(() => {
     if (state !== undefined) {
@@ -55,19 +54,16 @@ const Tooltip: FC<Props> = ({
     }
   }, [state, setOpen]);
 
-  const setOpenWithCallback = useCallback(
-    (state: boolean) => {
-      if (state && allowTrack && trackingEventTooltipType) {
-        track("tooltip-open", {
-          type: trackingEventTooltipType,
-          source: trackingEventTooltipSource,
-        });
-        setAllowTrack(false);
-      }
-      setOpen(state);
-    },
-    [allowTrack, trackingEventTooltipType, trackingEventTooltipSource]
-  );
+  useEffect(() => {
+    if (open && !alreadyHovered) {
+      setAlreadyHovered(true);
+      track("tooltip-open", {
+        type: trackingEventTooltipType,
+        source: trackingEventTooltipSource,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, alreadyHovered]);
 
   const { styles, attributes } = usePopper(trigger, tooltip, {
     modifiers: [
@@ -89,7 +85,7 @@ const Tooltip: FC<Props> = ({
     <span
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
       ref={setTrigger}
-      onMouseEnter={() => setOpenWithCallback(true)}
+      onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onPointerLeave={() => setOpen(false)}
       className={`${className}`}
