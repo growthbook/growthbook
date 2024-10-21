@@ -64,7 +64,7 @@ const Tooltip: FC<Props> = ({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, alreadyHovered]);
+  }, [open, alreadyHovered, trackingEventTooltipType]);
 
   const { styles, attributes } = usePopper(trigger, tooltip, {
     modifiers: [
