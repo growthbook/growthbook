@@ -27,6 +27,7 @@ import {
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
+  determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
@@ -939,8 +940,8 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // Clean up some vars for multi-armed bandits, but only if safe to do so...
-  // If it's a draft, hasn't been run as a MAB before, and is/will be a MAB:
+  // Clean up some vars for bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
   if (
     experiment.status === "draft" &&
     experiment.banditStage === undefined &&
@@ -953,6 +954,21 @@ export async function postExperiment(
       changes,
       settings,
     });
+  }
+  // If it's already a bandit and..
+  if (experiment.type === "multi-armed-bandit") {
+    // ...the schedule has changed, recompute next run
+    if (
+      changes.banditScheduleUnit !== undefined ||
+      changes.banditScheduleValue !== undefined ||
+      changes.banditBurnInUnit !== undefined ||
+      changes.banditBurnInValue !== undefined
+    ) {
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface);
+    }
   }
 
   // Only some fields affect production SDK payloads
@@ -1263,6 +1279,7 @@ export async function postExperimentStatus(
     };
     changes.phases = phases;
 
+    // Bandit-specific changes
     if (experiment.type === "multi-armed-bandit") {
       const metricMap = await getMetricMap(context);
 
@@ -1320,10 +1337,11 @@ export async function postExperimentStatus(
     }
   }
 
-  // If starting a stopped experiment, clear the phase end date
+  // If starting or drafting a stopped experiment, clear the phase end date
+  // and perform any needed bandit cleanup
   else if (
     experiment.status === "stopped" &&
-    status === "running" &&
+    (status === "running" || status === "draft") &&
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
@@ -1331,6 +1349,7 @@ export async function postExperimentStatus(
     phases[lastIndex] = clonedPhase;
     changes.phases = phases;
 
+    // Bandit-specific changes
     if (experiment.type === "multi-armed-bandit") {
       // We must create a new phase. No continuing old phases allowed
       // If we had a previous phase, mark it as ended
@@ -1350,6 +1369,10 @@ export async function postExperimentStatus(
         variationWeights: clonedPhase.variationWeights,
         seed: uuidv4(),
       });
+
+      // flush the sticky existing buckets
+      changes.bucketVersion = (experiment.bucketVersion ?? 0) + 1;
+      changes.minBucketVersion = (experiment.bucketVersion ?? 0) + 1;
 
       Object.assign(
         changes,

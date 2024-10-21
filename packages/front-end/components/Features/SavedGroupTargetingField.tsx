@@ -45,6 +45,7 @@ export default function SavedGroupTargetingField({
   if (value.length === 0) {
     return (
       <div>
+        <label>Target by Saved Groups</label>
         <div className="font-italic text-muted mr-3">
           No saved group targeting applied.
         </div>

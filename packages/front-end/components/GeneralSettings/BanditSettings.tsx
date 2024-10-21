@@ -80,7 +80,7 @@ export default function BanditSettings({
                   type="number"
                   min={0}
                   max={999}
-                  step={1}
+                  step={"any"}
                   style={{ width: 70 }}
                   disabled={!hasBandits || lockExploratoryStage}
                 />
@@ -145,7 +145,7 @@ export default function BanditSettings({
                   type="number"
                   min={0}
                   max={999}
-                  step={1}
+                  step={"any"}
                   style={{ width: 70 }}
                   disabled={!hasBandits}
                 />

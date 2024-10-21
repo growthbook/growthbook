@@ -223,9 +223,9 @@ export default function HealthTab({
         );
       } else {
         return (
-          <Callout status="warning" mt="3">
-            This Bandit may not be tracking properly. Please review your
-            implementation details.
+          <Callout status="info" mt="3">
+            No updates yet. Traffic and health results will appear after a
+            successful refresh of the results.
           </Callout>
         );
       }
