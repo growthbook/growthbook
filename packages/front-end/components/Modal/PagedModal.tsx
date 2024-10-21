@@ -135,12 +135,12 @@ const PagedModal: FC<Props> = (props) => {
         }
       }}
       backCTA={
-        backButton && ((prevStep ?? 0) > 0 || onBackFirstStep) ? (
+        backButton && ((prevStep ?? 0) >= 0 || onBackFirstStep) ? (
           <button
             className={`btn btn-link mr-3`}
             onClick={(e) => {
               e.preventDefault();
-              if (!prevStep && onBackFirstStep) {
+              if (step <= 0 && onBackFirstStep) {
                 onBackFirstStep();
               } else {
                 setStep(prevStep ?? 0);
