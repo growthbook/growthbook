@@ -64,7 +64,8 @@ type OverviewRuleType =
   | "force"
   | "rollout"
   | "experiment-ref"
-  | "experiment-ref-new";
+  | "experiment-ref-new"
+  | "";
 
 export default function RuleModal({
   close,
@@ -117,7 +118,7 @@ export default function RuleModal({
     setOverviewRadioSelectorRuleType,
   ] = useState<RadioSelectorRuleType>("");
   const [overviewRuleType, setOverviewRuleType] = useState<OverviewRuleType>(
-    "experiment-ref-new"
+    ""
   );
 
   // Paged modal
