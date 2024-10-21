@@ -2,7 +2,8 @@ import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import {
   ExperimentInterface,
-  ExperimentInterfaceStringDates, LinkedFeatureInfo,
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -95,11 +96,11 @@ export function experimentHasLinkedChanges(
 
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: LinkedFeatureInfo[],
+  linkedFeatures: LinkedFeatureInfo[]
 ) {
   if (!experimentHasLinkedChanges(exp)) return false;
   if (linkedFeatures.length > 0) {
-    if (linkedFeatures.some(feature => feature.state === "live")) {
+    if (linkedFeatures.some((feature) => feature.state === "live")) {
       return true;
     }
     return false;

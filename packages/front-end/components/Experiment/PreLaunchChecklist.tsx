@@ -6,7 +6,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
-import {experimentHasLiveLinkedChanges, hasVisualChanges} from "shared/util";
+import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
@@ -112,7 +112,10 @@ export function PreLaunchChecklist({
       return manualChecklistStatus[index].status === "complete";
     }
     const items: CheckListItem[] = [];
-    const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(experiment, linkedFeatures);
+    const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
+      experiment,
+      linkedFeatures
+    );
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
@@ -121,7 +124,9 @@ export function PreLaunchChecklist({
       display: (
         <>
           Add at least one{isBandit && " live"}{" "}
-          {openSetupTab && ((isBandit && !hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges))  ? (
+          {openSetupTab &&
+          ((isBandit && !hasLiveLinkedChanges) ||
+            (!isBandit && hasLinkedChanges)) ? (
             <a className="a" role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
@@ -131,7 +136,10 @@ export function PreLaunchChecklist({
           .
         </>
       ),
-      status: ((isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges)) ? "complete" : "incomplete",
+      status:
+        (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges)
+          ? "complete"
+          : "incomplete",
       type: "auto",
     });
 
@@ -313,17 +321,6 @@ export function PreLaunchChecklist({
     data,
     editTargeting,
     experiment,
-    experiment.description,
-    experiment.hasURLRedirects,
-    experiment.hasVisualChangesets,
-    experiment.hypothesis,
-    experiment.manualLaunchChecklist,
-    experiment.phases.length,
-    experiment.project,
-    experiment.tags?.length,
-    experiment.variations,
-    experiment.type,
-    experiment.goalMetrics,
     linkedFeatures,
     openSetupTab,
     visualChangesets,

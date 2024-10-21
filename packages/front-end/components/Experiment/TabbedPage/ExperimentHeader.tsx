@@ -349,7 +349,11 @@ export default function ExperimentHeader({
                 ) : experiment.status === "draft" ? (
                   <Tooltip
                     shouldDisplay={
-                      isBandit && !experimentHasLiveLinkedChanges(experiment, linkedFeatures)
+                      isBandit &&
+                      !experimentHasLiveLinkedChanges(
+                        experiment,
+                        linkedFeatures
+                      )
                     }
                     body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
@@ -360,7 +364,11 @@ export default function ExperimentHeader({
                         setShowStartExperiment(true);
                       }}
                       disabled={
-                        isBandit && !experimentHasLiveLinkedChanges(experiment, linkedFeatures)
+                        isBandit &&
+                        !experimentHasLiveLinkedChanges(
+                          experiment,
+                          linkedFeatures
+                        )
                       }
                     >
                       Start Experiment <MdRocketLaunch />
