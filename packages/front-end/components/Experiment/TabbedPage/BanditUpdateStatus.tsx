@@ -76,9 +76,17 @@ export default function BanditUpdateStatus({
             <div className="d-flex align-items-center">
               <div
                 style={{ lineHeight: 1 }}
-                title={datetime(lastEvent?.date ?? "")}
+                title={
+                  (phase?.banditEvents?.length ?? 0) > 1
+                    ? datetime(lastEvent?.date ?? "")
+                    : "never"
+                }
               >
-                {ago(lastEvent?.date ?? "")}
+                {(phase?.banditEvents?.length ?? 0) > 1 ? (
+                  ago(lastEvent?.date ?? "")
+                ) : (
+                  <em>never</em>
+                )}
               </div>
             </div>
           </div>
@@ -95,7 +103,13 @@ export default function BanditUpdateStatus({
               </tr>
               <tr>
                 <td className="text-muted">Last updated at:</td>
-                <td className="nowrap">{datetime(lastEvent?.date ?? "")}</td>
+                <td className="nowrap">
+                  {(phase?.banditEvents?.length ?? 0) > 1 ? (
+                    datetime(lastEvent?.date ?? "")
+                  ) : (
+                    <em>never</em>
+                  )}
+                </td>
               </tr>
               {lastReweightEvent ? (
                 <tr>
@@ -105,28 +119,29 @@ export default function BanditUpdateStatus({
                   </td>
                 </tr>
               ) : null}
-              {["explore", "exploit"].includes(
-                experiment.banditStage ?? ""
-              ) && (
-                <>
-                  <tr>
-                    <td colSpan={2} className="pt-3">
-                      <span className="uppercase-title">Scheduling</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">Next scheduled update:</td>
-                    <td>
-                      {experiment.nextSnapshotAttempt &&
-                      experiment.autoSnapshots ? (
-                        ago(experiment.nextSnapshotAttempt)
-                      ) : (
-                        <em>Not scheduled</em>
-                      )}
-                    </td>
-                  </tr>
-                </>
-              )}
+              {experiment.status === "running" &&
+                ["explore", "exploit"].includes(
+                  experiment.banditStage ?? ""
+                ) && (
+                  <>
+                    <tr>
+                      <td colSpan={2} className="pt-3">
+                        <span className="uppercase-title">Scheduling</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted">Next scheduled update:</td>
+                      <td>
+                        {experiment.nextSnapshotAttempt &&
+                        experiment.autoSnapshots ? (
+                          ago(experiment.nextSnapshotAttempt)
+                        ) : (
+                          <em>Not scheduled</em>
+                        )}
+                      </td>
+                    </tr>
+                  </>
+                )}
             </tbody>
             <tbody>
               <tr>
@@ -142,7 +157,8 @@ export default function BanditUpdateStatus({
           <div className="mx-2" style={{ fontSize: "12px" }}>
             <p>
               The Bandit is{" "}
-              {experiment.banditStage === "paused" ? (
+              {experiment.banditStage === "paused" ||
+              experiment.status !== "running" ? (
                 "not running"
               ) : experiment.banditStage ? (
                 <>
@@ -157,20 +173,22 @@ export default function BanditUpdateStatus({
               ) : (
                 "not running"
               )}
-              {experiment.banditStage === "explore" && (
-                <> and is waiting until more data is collected</>
-              )}
+              {experiment.status === "running" &&
+                experiment.banditStage === "explore" && (
+                  <> and is waiting until more data is collected</>
+                )}
               .
             </p>
 
-            {experiment.banditStage === "explore" && (
-              <p>
-                {" "}
-                It will start updating weights and enter the Exploit stage on{" "}
-                <em className="nowrap">{datetime(burnInRunDate)}</em> (
-                {ago(burnInRunDate)}).
-              </p>
-            )}
+            {experiment.status === "running" &&
+              experiment.banditStage === "explore" && (
+                <p>
+                  {" "}
+                  It will start updating weights and enter the Exploit stage on{" "}
+                  <em className="nowrap">{datetime(burnInRunDate)}</em> (
+                  {ago(burnInRunDate)}).
+                </p>
+              )}
           </div>
 
           {error ? (

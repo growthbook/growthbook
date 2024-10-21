@@ -1337,10 +1337,11 @@ export async function postExperimentStatus(
     }
   }
 
-  // If starting a stopped experiment, clear the phase end date
+  // If starting or drafting a stopped experiment, clear the phase end date
+  // and perform any needed bandit cleanup
   else if (
     experiment.status === "stopped" &&
-    status === "running" &&
+    (status === "running" || status === "draft") &&
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
