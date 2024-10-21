@@ -1279,6 +1279,7 @@ export async function postExperimentStatus(
     };
     changes.phases = phases;
 
+    // Bandit-specific changes
     if (experiment.type === "multi-armed-bandit") {
       const metricMap = await getMetricMap(context);
 
@@ -1347,6 +1348,7 @@ export async function postExperimentStatus(
     phases[lastIndex] = clonedPhase;
     changes.phases = phases;
 
+    // Bandit-specific changes
     if (experiment.type === "multi-armed-bandit") {
       // We must create a new phase. No continuing old phases allowed
       // If we had a previous phase, mark it as ended
@@ -1366,6 +1368,10 @@ export async function postExperimentStatus(
         variationWeights: clonedPhase.variationWeights,
         seed: uuidv4(),
       });
+
+      // flush the sticky existing buckets
+      changes.bucketVersion = (experiment.bucketVersion ?? 0) + 1;
+      changes.minBucketVersion = (experiment.bucketVersion ?? 0) + 1;
 
       Object.assign(
         changes,
