@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { filterEnvironmentsByFeature } from "shared/dist/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";

@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useState } from "react";
-import { getScopedSettings } from "shared/dist/settings";
+import { getScopedSettings } from "shared/settings";
 import { upperFirst } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

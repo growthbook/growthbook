@@ -53,7 +53,7 @@
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
     "prettier": "^2.2.1",
-    "typescript": "5.3.3"
+    "typescript": "5.6.3"
   },
   "lint-staged": {
     "./**/*.{json,css,scss,md,mdx}": [
