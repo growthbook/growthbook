@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -40,6 +41,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { AppFeatures } from "@/types/app-features";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -436,11 +438,13 @@ const NewDataSourceForm: FC<{
     setStep("done");
   };
 
-  // TODO: Make this a feature flag
-  // Only show the inbuilt datasource option if the user doesn't have an inbuilt datasource already.
-  const showInbuiltDatasource = !datasources
-    .map((d) => d.type)
-    .find((type) => type === "growthbook_clickhouse");
+  const growthbook = useGrowthBook<AppFeatures>();
+  // Only show the inbuilt datasource option if the ff evaluates to true and the user doesn't have an inbuilt datasource already.
+  const showInbuiltDatasource =
+    growthbook.isOn("inbuilt-data-warehouse") &&
+    !datasources
+      .map((d) => d.type)
+      .find((type) => type === "growthbook_clickhouse");
 
   let stepContents: ReactNode = null;
   if (step === "initial") {
