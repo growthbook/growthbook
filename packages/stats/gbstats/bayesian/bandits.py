@@ -88,10 +88,6 @@ class Bandits(ABC):
         return len(self.historical_periods)
 
     @property
-    def num_periods(self) -> int:
-        return self.num_periods_historical + 1
-
-    @property
     def num_variations(self) -> int:
         return len(self.stats)
 
@@ -114,25 +110,24 @@ class Bandits(ABC):
             bandit_period.total_users for bandit_period in self.historical_periods
         ]
         cumulative_counts = cumulative_counts_historical + [self.current_sample_size]
-        period_counts = [cumulative_counts[0]]
-        if self.num_periods > 1:
-            for period in range(1, self.num_periods):
+        # the total user counts collected at the end of the 1st period correspond to weights for 0th period
+        period_counts = [cumulative_counts[1]]
+        if self.num_periods_historical > 1:
+            for period in range(1, self.num_periods_historical):
                 period_counts.append(
-                    cumulative_counts[period] - cumulative_counts[period - 1]
+                    cumulative_counts[period + 1] - cumulative_counts[period]
                 )
         return np.array(period_counts)
 
     @property
     def counts_expected(self) -> np.ndarray:
-        counts_expected_by_period = np.empty((self.num_periods, self.num_variations))
+        counts_expected_by_period = np.empty(
+            (self.num_periods_historical, self.num_variations)
+        )
         for period in range(self.num_periods_historical):
             counts_expected_by_period[period] = (
                 self.period_counts[period] * self.historical_weights_array[period, :]
             )
-        counts_expected_by_period[self.num_periods_historical] = (
-            np.array(self.current_weights)
-            * self.period_counts[self.num_periods_historical]
-        )
         return np.sum(counts_expected_by_period, axis=0)
 
     def compute_srm(self) -> float:

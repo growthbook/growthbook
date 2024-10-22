@@ -416,15 +416,21 @@ export function getSnapshotSettings({
             phase?.variationWeights ??
             [],
           historicalWeights:
-            phase?.banditEvents?.map((event) => ({
-              date: event.date,
-              weights: event.banditResult.currentWeights,
-              totalUsers:
-                event.banditResult?.singleVariationResults?.reduce(
-                  (sum, cur) => sum + (cur.users ?? 0),
-                  0
-                ) ?? 0,
-            })) ?? [],
+            phase?.banditEvents
+              ?.filter(
+                // only keep first sign post or reweight event for
+                // srm or SQL
+                (event, i) => i === 0 || event.banditResult?.reweight
+              )
+              .map((event) => ({
+                date: event.date,
+                weights: event.banditResult.updatedWeights,
+                totalUsers:
+                  event.banditResult?.singleVariationResults?.reduce(
+                    (sum, cur) => sum + (cur.users ?? 0),
+                    0
+                  ) ?? 0,
+              })) ?? [],
         }
       : undefined;
 
