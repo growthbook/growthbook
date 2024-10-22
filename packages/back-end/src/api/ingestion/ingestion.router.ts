@@ -5,7 +5,7 @@ import {
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
+import { findSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
 import { getAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
 
 interface SdkInfo {
@@ -20,18 +20,11 @@ interface GetDataEnrichmentResponse {
   };
 }
 
-// Refresh in-mem cache every minute
-const REFRESH_INTERVAL = 60_000;
-let sdkData: Record<string, SdkInfo> = {};
-let dataSourcesByOrgId: Record<string, string> = {};
-let lastUpdate = Date.now() - REFRESH_INTERVAL;
-
-function sdkInfo(conn: SDKConnectionInterface): SdkInfo {
-  // TODO: get datasource from SDKConnection rather than naively
+function sdkInfo(conn: SDKConnectionInterface, datasource: string): SdkInfo {
   return {
     organization: conn.organization,
     client_key: conn.id,
-    datasource: dataSourcesByOrgId[conn.organization] || "",
+    datasource,
   };
 }
 
@@ -41,20 +34,22 @@ export const getDataEnrichment = createApiRequestHandler({
   paramsSchema: z.never(),
 })(
   async (req): Promise<GetDataEnrichmentResponse> => {
+    // Must be a super-user to make cross-org mongo queries
     await validateIsSuperUserRequest(req);
 
-    if (Date.now() - lastUpdate >= REFRESH_INTERVAL) {
-      const dataSources = await getAllGrowthbookClickhouseDataSources(req);
-      dataSourcesByOrgId = Object.fromEntries(
-        dataSources.map((ds) => [ds.organization, ds.id])
-      );
-      const sdkConnections = await findAllSDKConnectionsAcrossAllOrgs();
-      sdkData = Object.fromEntries(
-        sdkConnections.map((conn) => [conn.id, sdkInfo(conn)])
-      );
-
-      lastUpdate = Date.now();
-    }
+    const dataSources = await getAllGrowthbookClickhouseDataSources(req);
+    const dataSourcesByOrgId = Object.fromEntries(
+      dataSources.map((ds) => [ds.organization, ds.id])
+    );
+    const sdkConnections = await findSdkConnectionsAcrossMultipleOrgs(
+      Object.keys(dataSourcesByOrgId)
+    );
+    const sdkData = Object.fromEntries(
+      sdkConnections.map((conn) => [
+        conn.id,
+        sdkInfo(conn, dataSourcesByOrgId[conn.organization] || ""),
+      ])
+    );
 
     return { sdkData };
   }
@@ -62,9 +57,6 @@ export const getDataEnrichment = createApiRequestHandler({
 
 const router = Router();
 
-// add permission middleware here?
-
-// Project Endpoints
 // Mounted at /api/v1/ingestion
 router.get("/data-enrichment", getDataEnrichment);
 

@@ -42,7 +42,7 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   },
   dateCreated: Date,
   dateUpdated: Date,
-  type: { type: String },
+  type: { type: String, index: true },
   params: String,
   projects: {
     type: [String],

@@ -32,6 +32,11 @@ import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 
+export const SDK_ID =
+  process.env.NODE_ENV === "production"
+    ? "sdk-ueFMOgZ2daLa0M"
+    : "sdk-UmQ03OkUDAu7Aox";
+
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
 
@@ -46,10 +51,7 @@ type ModAppProps = AppProps & {
 
 const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",
-  clientKey:
-    process.env.NODE_ENV === "production"
-      ? "sdk-ueFMOgZ2daLa0M"
-      : "sdk-UmQ03OkUDAu7Aox",
+  clientKey: SDK_ID,
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
