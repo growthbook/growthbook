@@ -461,7 +461,7 @@ function getWHERE({
       : [];
 
   whereParts.push(
-    `-- Only after seeing the experiment\ntimestamp > exposure_date`
+    `-- Only after seeing the experiment\ntimestamp > exposure_timestamp`
   );
 
   if (windowSettings.type === "lookback") {
@@ -470,7 +470,7 @@ function getWHERE({
     );
   } else if (windowSettings.type === "conversion") {
     whereParts.push(
-      `-- Conversion Metric Window\ntimestamp < (exposure_date + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+      `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
     );
   }
   if (
