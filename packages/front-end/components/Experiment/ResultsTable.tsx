@@ -88,6 +88,7 @@ export type ResultsTableProps = {
   isTabActive: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
+  isBandit?: boolean;
 };
 
 const ROW_HEIGHT = 56;
@@ -126,6 +127,7 @@ export default function ResultsTable({
   isTabActive,
   noStickyHeader,
   noTooltip,
+  isBandit,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
@@ -335,6 +337,7 @@ export default function ResultsTable({
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
+          isBandit={isBandit}
         />
       </CSSTransition>
 
@@ -694,6 +697,7 @@ export default function ResultsTable({
                             className={clsx("value baseline", {
                               hover: isHovered,
                             })}
+                            showRatio={!isBandit}
                           />
                         ) : (
                           <td />
@@ -705,6 +709,7 @@ export default function ResultsTable({
                           className={clsx("value", {
                             hover: isHovered,
                           })}
+                          showRatio={!isBandit}
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
