@@ -229,7 +229,7 @@ class Bandits(ABC):
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
         min_n = 100 * self.num_variations
-        enough_data = sum(self.variation_counts) >= min_n
+        enough_data = self.current_sample_size >= min_n
 
         return BanditResponse(
             users=self.variation_counts.tolist(),
@@ -240,7 +240,10 @@ class Bandits(ABC):
             seed=seed,
             bandit_update_message=update_message
             if enough_data
-            else "total sample size is less than 100 times number of variations",
+            else "total sample size is only "
+            + str(self.current_sample_size)
+            + " and it needs to be at least 100 * "
+            + str(self.num_variations),
         )
 
     # function that takes weights for largest realization and turns into top two weights
@@ -425,12 +428,11 @@ class BanditsCuped(Bandits):
     # for cuped, when producing intervals for the leaderboard, add back in the pooled baseline mean
     @property
     def addback(self) -> float:
-        total_n = sum(self.variation_counts)
-        if total_n:
+        if self.current_sample_size:
             return float(
                 self.theta
                 * np.sum(self.variation_counts * self.variation_means_pre)
-                / total_n
+                / self.current_sample_size
             )
         else:
             return 0

@@ -3,7 +3,6 @@ import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import { getEqualWeights } from "shared/experiments";
-import clsx from "clsx";
 import {
   decimalToPercent,
   distributeWeights,
@@ -33,6 +32,7 @@ export interface Props {
   setVariations?: (variations: SortableVariation[]) => void;
   coverage: number;
   setCoverage: (coverage: number) => void;
+  coverageLabel?: string;
   coverageTooltip?: string;
   valueAsId?: boolean;
   showPreview?: boolean;
@@ -55,7 +55,8 @@ export default function FeatureVariationsInput({
   setCoverage,
   valueType,
   defaultValue = "",
-  coverageTooltip = "Users not included in the experiment will skip this rule.",
+  coverageLabel = "Traffic included in this Experiment",
+  coverageTooltip = "Users not included in the Experiment will skip this rule",
   valueAsId = false,
   showPreview = true,
   hideCoverage = false,
@@ -80,10 +81,10 @@ export default function FeatureVariationsInput({
     });
   };
 
-  const label = simple
-    ? "Number of Variations"
-    : _label
+  const label = _label
     ? _label
+    : simple
+    ? "Traffic Percentage & Variations"
     : setVariations
     ? "Traffic Percentage, Variations, and Weights"
     : hideCoverage || hideVariations
@@ -94,39 +95,14 @@ export default function FeatureVariationsInput({
     <div className="form-group">
       <label>{label}</label>
       {simple ? (
-        <Field
-          type="number"
-          style={{ width: 100 }}
-          min={2}
-          value={variations.length}
-          onChange={(e) => {
-            const n = parseInt(e?.target?.value || "2");
-            const newValues: SortableVariation[] = [];
-            for (let i = 0; i < n; i++) {
-              newValues.push({
-                value: getDefaultVariationValue(defaultValue),
-                name: i === 0 ? "Control" : `Variation ${i}`,
-                weight: 1 / n,
-                id: generateVariationId(),
-              });
-            }
-            setVariations?.(newValues);
-          }}
-        />
-      ) : (
-        <div className="gbtable">
+        <>
           {!hideCoverage && (
-            <div
-              className={clsx("pt-3", {
-                "border-bottom pb-3": !hideVariations,
-              })}
-            >
-              <label>
-                Percent of traffic included in this experiment{" "}
-                <Tooltip body={coverageTooltip} />
+            <div className="px-3 pt-3 bg-highlight rounded mb-3">
+              <label className="mb-0">
+                {coverageLabel} <Tooltip body={coverageTooltip} />
               </label>
               <div className="row align-items-center pb-3 mx-1">
-                <div className="col">
+                <div className="col pl-0">
                   <Slider
                     value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
                     min={0}
@@ -141,13 +117,80 @@ export default function FeatureVariationsInput({
                     }}
                   />
                 </div>
-                <div
-                  className={`col-auto ${styles.percentInputWrap}`}
-                  style={{ fontSize: "1em" }}
-                >
-                  <div className="form-group mb-0 position-relative">
-                    <input
-                      className={`form-control ${styles.percentInput}`}
+                <div className="col-auto pr-0">
+                  <div
+                    className={`position-relative ${styles.percentInputWrap}`}
+                  >
+                    <Field
+                      style={{ width: 95 }}
+                      value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
+                      onChange={(e) => {
+                        let decimal = percentToDecimal(e.target.value);
+                        if (decimal > 1) decimal = 1;
+                        if (decimal < 0) decimal = 0;
+                        setCoverage(decimal);
+                      }}
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="1"
+                      disabled={!!disableCoverage}
+                    />
+                    <span>%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <Field
+            label="Number of Variations"
+            type="number"
+            min={2}
+            value={variations.length}
+            onChange={(e) => {
+              const n = parseInt(e?.target?.value || "2");
+              const newValues: SortableVariation[] = [];
+              for (let i = 0; i < n; i++) {
+                newValues.push({
+                  value: getDefaultVariationValue(defaultValue),
+                  name: i === 0 ? "Control" : `Variation ${i}`,
+                  weight: 1 / n,
+                  id: generateVariationId(),
+                });
+              }
+              setVariations?.(newValues);
+            }}
+          />
+        </>
+      ) : (
+        <div className="gbtable">
+          {!hideCoverage && (
+            <div className="px-3 pt-3 bg-highlight rounded mb-3">
+              <label className="mb-0">
+                {coverageLabel} <Tooltip body={coverageTooltip} />
+              </label>
+              <div className="row align-items-center pb-3 mx-1">
+                <div className="col pl-0">
+                  <Slider
+                    value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    disabled={!!disableCoverage}
+                    onValueChange={(e) => {
+                      let decimal = percentToDecimalForNumber(e[0]);
+                      if (decimal > 1) decimal = 1;
+                      if (decimal < 0) decimal = 0;
+                      setCoverage(decimal);
+                    }}
+                  />
+                </div>
+                <div className="col-auto pr-0">
+                  <div
+                    className={`position-relative ${styles.percentInputWrap}`}
+                  >
+                    <Field
+                      style={{ width: 95 }}
                       value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
                       onChange={(e) => {
                         let decimal = percentToDecimal(e.target.value);
@@ -168,7 +211,7 @@ export default function FeatureVariationsInput({
             </div>
           )}
           {!hideVariations && (
-            <table className="table bg-light mb-0">
+            <table className="table mb-0">
               <thead className={`${styles.variationSplitHeader}`}>
                 <tr>
                   <th className="pl-3">Id</th>
@@ -185,7 +228,7 @@ export default function FeatureVariationsInput({
                     Split
                     {!disableVariations && !disableCustomSplit && (
                       <div className="d-inline-block float-right form-check form-check-inline">
-                        <label className="mb-0">
+                        <label className="mb-0 cursor-pointer">
                           <input
                             type="checkbox"
                             className="form-check-input position-relative"
@@ -236,11 +279,9 @@ export default function FeatureVariationsInput({
                         <div className="col">
                           {valueType !== "boolean" && setVariations && (
                             <a
-                              className="btn btn-outline-primary"
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-
+                              role="button"
+                              className="btn btn-link p-0"
+                              onClick={() => {
                                 const newWeights = distributeWeights(
                                   [...weights, 0],
                                   customSplit
@@ -264,24 +305,19 @@ export default function FeatureVariationsInput({
                                 setVariations(newValues);
                               }}
                             >
-                              <span
-                                className={`h4 pr-2 m-0 d-inline-block align-top`}
-                              >
-                                <GBAddCircle />
-                              </span>
-                              add another variation
+                              <GBAddCircle className="mr-2" />
+                              Add variation
                             </a>
                           )}
                           {valueType === "boolean" && (
                             <>
                               <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                <a className="btn btn-outline-primary disabled">
-                                  <span
-                                    className={`h4 pr-2 m-0 d-inline-block align-top`}
-                                  >
-                                    <GBAddCircle />
-                                  </span>
-                                  add another variation
+                                <a
+                                  role="button"
+                                  className="btn btn-link p-0 disabled"
+                                >
+                                  <GBAddCircle className="mr-2" />
+                                  Add variation
                                 </a>
                               </Tooltip>
                             </>
@@ -308,12 +344,14 @@ export default function FeatureVariationsInput({
 
                 {showPreview && (
                   <tr>
-                    <td colSpan={4} className="pb-2">
-                      <ExperimentSplitVisual
-                        coverage={coverage}
-                        values={variations}
-                        type={valueType}
-                      />
+                    <td colSpan={4} className="px-0 border-0">
+                      <div className="box pt-3 px-3">
+                        <ExperimentSplitVisual
+                          coverage={coverage}
+                          values={variations}
+                          type={valueType}
+                        />
+                      </div>
                     </td>
                   </tr>
                 )}

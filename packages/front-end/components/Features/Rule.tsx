@@ -32,7 +32,11 @@ interface SortableProps {
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
-  setRuleModal: (args: { environment: string; i: number }) => void;
+  setRuleModal: (args: {
+    environment: string;
+    i: number;
+    defaultType?: string;
+  }) => void;
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];
@@ -110,13 +114,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return null;
     }
     return (
-      <div
-        className={`p-3 ${
-          i < rules.length - 1 ? "border-bottom" : ""
-        } bg-white`}
-        {...props}
-        ref={ref}
-      >
+      <div className={`p-3 border bg-white`} {...props} ref={ref}>
         <div className="d-flex mb-2 align-items-center">
           <div>
             <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
@@ -137,12 +135,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <div className="flex-1 mx-2">
             {linkedExperiment ? (
               <div>
-                Experiment:{" "}
-                <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
-                <Link href={`/experiment/${linkedExperiment.id}`}>
-                  View Experiment{" "}
+                {linkedExperiment.type === "multi-armed-bandit"
+                  ? "Bandit"
+                  : "Experiment"}
+                : <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
+                <Link
+                  href={`/${
+                    linkedExperiment.type === "multi-armed-bandit"
+                      ? "bandit"
+                      : "experiment"
+                  }/${linkedExperiment.id}`}
+                >
+                  View{" "}
+                  {linkedExperiment.type === "multi-armed-bandit"
+                    ? "Bandit"
+                    : "Experiment"}
                   <FaExternalLinkAlt
-                    className="small ml-1 position-relative"
+                    className="small ml-1 position-relative ml-2"
                     style={{ top: "-1px" }}
                   />
                 </Link>
@@ -332,6 +341,7 @@ export function SortableRule(props: SortableProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: active?.id === props.rule.id ? 0.3 : 1,
+    margin: -1,
   };
 
   return (

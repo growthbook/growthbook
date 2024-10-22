@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { FaPlusCircle } from "react-icons/fa";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 export interface Props {
@@ -15,6 +17,8 @@ export interface Props {
   noPercentileGoalMetrics?: boolean;
   disabled?: boolean;
   goalDisabled?: boolean;
+  collapseSecondary?: boolean;
+  collapseGuardrail?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -32,7 +36,15 @@ export default function ExperimentMetricsSelector({
   noPercentileGoalMetrics = false,
   disabled,
   goalDisabled,
+  collapseSecondary,
+  collapseGuardrail,
 }: Props) {
+  const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
+    !!collapseSecondary && secondaryMetrics.length === 0
+  );
+  const [guardrailCollapsed, setGuardrailCollapsed] = useState<boolean>(
+    !!collapseGuardrail && guardrailMetrics.length === 0
+  );
   return (
     <>
       {setGoalMetrics !== undefined && (
@@ -68,46 +80,72 @@ export default function ExperimentMetricsSelector({
 
       {setSecondaryMetrics !== undefined && (
         <div className="form-group">
-          <label className="font-weight-bold mb-1">Secondary Metrics</label>
-          <div className="mb-1">
-            <span className="font-italic">
-              {!forceSingleGoalMetric
-                ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
-                : "Additional metrics to learn about experiment impacts. "}
-            </span>
-            <MetricsSelectorTooltip />
-          </div>
-          <MetricsSelector
-            selected={secondaryMetrics}
-            onChange={setSecondaryMetrics}
-            datasource={datasource}
-            exposureQueryId={exposureQueryId}
-            project={project}
-            includeFacts={true}
-            disabled={disabled}
-          />
+          {secondaryCollapsed ? (
+            <a
+              role="button"
+              className="d-inline-block link-purple font-weight-bold mt-2"
+              onClick={() => setSecondaryCollapsed(false)}
+            >
+              <FaPlusCircle className="mr-1" />
+              Add Secondary Metrics
+            </a>
+          ) : (
+            <>
+              <label className="font-weight-bold mb-1">Secondary Metrics</label>
+              <div className="mb-1">
+                <span className="font-italic">
+                  {!forceSingleGoalMetric
+                    ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
+                    : "Additional metrics to learn about experiment impacts. "}
+                </span>
+                <MetricsSelectorTooltip />
+              </div>
+              <MetricsSelector
+                selected={secondaryMetrics}
+                onChange={setSecondaryMetrics}
+                datasource={datasource}
+                exposureQueryId={exposureQueryId}
+                project={project}
+                includeFacts={true}
+                disabled={disabled}
+              />
+            </>
+          )}
         </div>
       )}
 
       {setGuardrailMetrics !== undefined && (
         <div className="form-group">
-          <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-          <div className="mb-1">
-            <span className="font-italic">
-              Metrics you want to monitor, but are NOT specifically trying to
-              improve.{" "}
-            </span>
-            <MetricsSelectorTooltip />
-          </div>
-          <MetricsSelector
-            selected={guardrailMetrics}
-            onChange={setGuardrailMetrics}
-            datasource={datasource}
-            exposureQueryId={exposureQueryId}
-            project={project}
-            includeFacts={true}
-            disabled={disabled}
-          />
+          {guardrailCollapsed ? (
+            <a
+              role="button"
+              className="d-inline-block link-purple font-weight-bold mt-2"
+              onClick={() => setGuardrailCollapsed(false)}
+            >
+              <FaPlusCircle className="mr-1" />
+              Add Guardrail Metrics
+            </a>
+          ) : (
+            <>
+              <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+              <div className="mb-1">
+                <span className="font-italic">
+                  Metrics you want to monitor, but are NOT specifically trying
+                  to improve.{" "}
+                </span>
+                <MetricsSelectorTooltip />
+              </div>
+              <MetricsSelector
+                selected={guardrailMetrics}
+                onChange={setGuardrailMetrics}
+                datasource={datasource}
+                exposureQueryId={exposureQueryId}
+                project={project}
+                includeFacts={true}
+                disabled={disabled}
+              />
+            </>
+          )}
         </div>
       )}
     </>

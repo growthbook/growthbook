@@ -291,7 +291,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       throw new Error("Name must not be empty");
     }
 
-    // TODO: more validation?
     const data = { ...value };
 
     if (data.status !== "stopped" && data.phases?.[0]) {

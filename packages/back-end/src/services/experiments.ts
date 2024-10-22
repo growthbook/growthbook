@@ -719,13 +719,21 @@ export function resetExperimentBanditSettings({
   // Scheduling
   // ensure bandit scheduling exists
   changes.banditScheduleValue =
-    changes.banditScheduleValue ?? settings.banditScheduleValue.value;
+    changes.banditScheduleValue ??
+    experiment.banditScheduleValue ??
+    settings.banditScheduleValue.value;
   changes.banditScheduleUnit =
-    changes.banditScheduleUnit ?? settings.banditScheduleUnit.value;
+    changes.banditScheduleUnit ??
+    experiment.banditScheduleUnit ??
+    settings.banditScheduleUnit.value;
   changes.banditBurnInValue =
-    changes.banditBurnInValue ?? settings.banditBurnInValue.value;
+    changes.banditBurnInValue ??
+    experiment.banditBurnInValue ??
+    settings.banditBurnInValue.value;
   changes.banditBurnInUnit =
-    changes.banditBurnInUnit ?? settings.banditBurnInUnit.value;
+    changes.banditBurnInUnit ??
+    experiment.banditBurnInUnit ??
+    settings.banditBurnInUnit.value;
   // schedule
   changes.nextSnapshotAttempt = determineNextBanditSchedule({
     ...experiment,
