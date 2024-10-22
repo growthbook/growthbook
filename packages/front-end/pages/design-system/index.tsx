@@ -1,6 +1,6 @@
-import { Flex } from "@radix-ui/themes";
+import { Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
-import { FaDownload } from "react-icons/fa";
+import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
@@ -20,11 +20,20 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/components/Radix/Dropdown";
+import RadioCards from "@/components/Radix/RadioCards";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import DataList from "@/components/Radix/DataList";
+
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
   const [radioSelected, setRadioSelected] = useState("k1");
+  const [radioCardSelected, setRadioCardSelected] = useState("");
+  const [radioCardColumns, setRadioCardColumns] = useState<
+    "1" | "2" | "3" | "4" | "5" | "6"
+  >("1");
+  const [sliderVal, setSliderVal] = useState(10);
 
   return (
     <div className="pagecontents container-fluid">
@@ -93,7 +102,7 @@ export default function DesignSystemPage() {
         </div>
         <Flex direction="row" gap="3" className="my-3">
           <Button size={size}>Primary</Button>
-          <Button size={size} aria-label="Aria">
+          <Button size={size} aria-label="Aria" variant="outline">
             Aria
           </Button>
           <Button size={size} color="red">
@@ -224,6 +233,49 @@ export default function DesignSystemPage() {
       </div>
 
       <div className="appbox p-3">
+        <h3 className="mb-4">DataList</h3>
+        <DataList
+          header="Header"
+          columns={4}
+          data={[
+            { label: "Label 1", value: "Value 1" },
+            {
+              label: "Label 2",
+              value: "A very long value that will wrap to multiple lines",
+            },
+            {
+              label: "With Tooltip",
+              value: "Value 3",
+              tooltip: "This is a label tooltip",
+            },
+            {
+              label: "Label 4",
+              value: (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                  }}
+                >
+                  Link Value <FaExternalLinkAlt />
+                </a>
+              ),
+            },
+            {
+              label: "Label 5",
+              value: (
+                <>
+                  <em>Other</em> value{" "}
+                  <span className="text-muted">formatting</span>
+                </>
+              ),
+            },
+            { label: "Label 6", value: "Value 6" },
+          ]}
+        />
+      </div>
+
+      <div className="appbox p-3">
         <h3>HelperText</h3>
         <Flex direction="column" gap="3">
           <HelperText status="info">This is an info message</HelperText>
@@ -252,6 +304,82 @@ export default function DesignSystemPage() {
           <DropdownMenuItem> Item 4</DropdownMenuItem>
           <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
         </Dropdown>
+        
+      <div className="appbox p-3">
+        <h3>Radio Card</h3>
+        <div className="mb-2 w-100px">
+          <SelectField
+            label="columns"
+            value={radioCardColumns}
+            options={[
+              { label: "1", value: "1" },
+              { label: "2", value: "2" },
+              { label: "3", value: "3" },
+              { label: "4", value: "4" },
+              { label: "5", value: "5" },
+              { label: "6", value: "6" },
+            ]}
+            sort={false}
+            onChange={(v: "1" | "2" | "3" | "4" | "5" | "6") =>
+              setRadioCardColumns(v)
+            }
+          />
+        </div>
+        <RadioCards
+          columns={radioCardColumns}
+          width={radioCardColumns === "1" ? "400px" : undefined}
+          value={radioCardSelected}
+          setValue={(v) => {
+            setRadioCardSelected(v);
+          }}
+          options={[
+            {
+              value: "k1",
+              label: "Radio Card 1",
+            },
+            {
+              value: "k2",
+              label: "Radio Card 2 with avatar",
+              avatar: <Avatar radius="small">BF</Avatar>,
+            },
+            {
+              value: "k3",
+              label: "Radio Card 3, with description",
+              description: "This is a description",
+              avatar: (
+                <Avatar radius="small">
+                  <img src="https://app.growthbook.io/logo/growth-book-logomark-white.svg" />
+                </Avatar>
+              ),
+            },
+            {
+              value: "k4",
+              label: "Radio Card 4, disabled",
+              description: "This is a description",
+              disabled: true,
+            },
+            {
+              value: "k5",
+              label: "Radio Card 5, long title, long description",
+              description:
+                "This is a description. It is very long. It should wrap around without changing the width of the parent container.",
+            },
+            {
+              value: "k6",
+              label: (
+                <PremiumTooltip
+                  // @ts-expect-error - fake feature that nobody has
+                  commercialFeature="unobtanium"
+                  body="This is an expensive popup message"
+                  usePortal={true}
+                >
+                  Premium Card 6
+                </PremiumTooltip>
+              ),
+              description: "You can't afford this",
+            },
+          ]}
+        />
       </div>
 
       <div className="appbox p-3">
@@ -311,6 +439,43 @@ export default function DesignSystemPage() {
             },
           ]}
         />
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Slider</h3>
+        <Flex direction="column" gap="3" maxWidth="300px">
+          <div>
+            <label>Slider</label>
+            <Slider
+              value={[sliderVal]}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={(e) => {
+                setSliderVal(e[0]);
+              }}
+            />
+            <span className="col-auto" style={{ fontSize: "1.3em" }}>
+              {sliderVal}%
+            </span>
+          </div>
+          <div>
+            <label>Slider in cyan (high contrast) </label>
+            <Slider defaultValue={[35]} color="cyan" highContrast />
+          </div>
+          <div>
+            <label>Slider with no Radius</label>
+            <Slider defaultValue={[75]} radius="none" />
+          </div>
+          <div>
+            <label>Range Slider with Soft visual style</label>
+            <Slider defaultValue={[25, 75]} variant="soft" />
+          </div>
+          <div>
+            <label>Large Slider Disabled</label>
+            <Slider defaultValue={[25]} size="3" disabled={true} />
+          </div>
+        </Flex>
       </div>
     </div>
   );

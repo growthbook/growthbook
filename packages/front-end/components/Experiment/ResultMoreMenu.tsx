@@ -9,6 +9,7 @@ import {
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Button";
@@ -20,6 +21,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
+  experiment,
   editMetrics,
   queries,
   queryError,
@@ -38,6 +40,7 @@ export default function ResultMoreMenu({
   datasource,
   project,
 }: {
+  experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
   queries?: Queries;
   queryError?: string;
@@ -65,6 +68,8 @@ export default function ResultMoreMenu({
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
+
+  const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
     <MoreMenu autoCloseOnClick={false}>
@@ -153,7 +158,7 @@ export default function ResultMoreMenu({
           Download Notebook
         </Button>
       </Tooltip>
-      {canEdit && editMetrics && (
+      {canEdit && editMetrics && !isBandit && (
         <button
           type="button"
           className="dropdown-item py-2"

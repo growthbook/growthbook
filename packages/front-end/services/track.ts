@@ -61,6 +61,7 @@ export default function track(
   const id = currentUser?.id;
   const role = currentUser?.role;
   const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
+  const orgCreationDate = currentUser?.orgCreationDate;
 
   // Mask the hostname and sanitize URLs to avoid leaking private info
   const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
@@ -79,6 +80,7 @@ export default function track(
     build_date: build.date,
     build_version: build.lastVersion,
     account_plan: effectiveAccountPlan,
+    org_creation_date: orgCreationDate,
     configFile: hasFileConfig(),
     role: id ? role : "",
     // Track anonymous hashed identifiers for all deployments

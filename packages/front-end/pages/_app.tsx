@@ -1,3 +1,4 @@
+import Cookies from "js-cookie";
 import { AppProps } from "next/app";
 import "@/styles/global.scss";
 import "@/styles/global-radix-overrides.scss";
@@ -9,6 +10,7 @@ import {
   Context,
   GrowthBook,
   GrowthBookProvider,
+  BrowserCookieStickyBucketService,
 } from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
@@ -49,13 +51,15 @@ const gbContext: Context = {
       ? "sdk-ueFMOgZ2daLa0M"
       : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
-  subscribeToChanges: true,
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.variationId,
     });
   },
+  stickyBucketService: new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  }),
 };
 export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
@@ -95,7 +99,7 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    growthbook.loadFeatures().catch(() => {
+    growthbook.init({ streaming: true }).catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, []);

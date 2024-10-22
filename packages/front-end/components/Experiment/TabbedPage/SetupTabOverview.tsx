@@ -6,18 +6,14 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
-import VariationsTable from "@/components/Experiment/VariationsTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
-  safeToEdit: boolean;
   editTargeting?: (() => void) | null;
-  editVariations?: (() => void) | null;
   linkedFeatures: LinkedFeatureInfo[];
   verifiedConnections: SDKConnectionInterface[];
   disableEditing?: boolean;
@@ -30,8 +26,6 @@ export default function SetupTabOverview({
   visualChangesets,
   mutate,
   editTargeting,
-  safeToEdit,
-  editVariations,
   linkedFeatures,
   verifiedConnections,
   disableEditing,
@@ -46,6 +40,8 @@ export default function SetupTabOverview({
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project) &&
     !disableEditing;
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <div>
@@ -62,25 +58,28 @@ export default function SetupTabOverview({
           setChecklistItemsRemaining={setChecklistItemsRemaining}
         />
       ) : null}
-      <div className="appbox bg-white my-2 mb-4 p-3">
-        <div>
-          <MarkdownInlineEdit
-            value={experiment.description ?? ""}
-            save={async (description) => {
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify({ description }),
-              });
-              mutate();
-            }}
-            canCreate={canEditExperiment}
-            canEdit={canEditExperiment}
-            className="mb-3"
-            label="description"
-            header="Description"
-            headerClassName="h4"
-          />
 
+      <div className="box px-4 py-3">
+        <MarkdownInlineEdit
+          value={experiment.description ?? ""}
+          save={async (description) => {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ description }),
+            });
+            mutate();
+          }}
+          canCreate={canEditExperiment}
+          canEdit={canEditExperiment}
+          label="description"
+          header="Description"
+          headerClassName="h4"
+          containerClassName="mb-1"
+        />
+      </div>
+
+      {!isBandit && (
+        <div className="box px-4 py-3">
           <MarkdownInlineEdit
             value={experiment.hypothesis ?? ""}
             save={async (hypothesis) => {
@@ -93,32 +92,12 @@ export default function SetupTabOverview({
             canCreate={canEditExperiment}
             canEdit={canEditExperiment}
             label="hypothesis"
-            header={<>Hypothesis</>}
+            header="Hypothesis"
             headerClassName="h4"
-            className="mb-3"
             containerClassName="mb-1"
           />
-
-          <HeaderWithEdit
-            edit={editVariations && safeToEdit ? editVariations : undefined}
-            containerClassName="mb-2"
-            className="h4"
-            disabledMessage={
-              !safeToEdit &&
-              "Cannot edit variations while the experiment is running."
-            }
-          >
-            Variations
-          </HeaderWithEdit>
-          <div>
-            <VariationsTable
-              experiment={experiment}
-              canEditExperiment={canEditExperiment}
-              mutate={mutate}
-            />
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

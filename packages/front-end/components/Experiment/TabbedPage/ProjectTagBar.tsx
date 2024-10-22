@@ -34,6 +34,8 @@ export default function ProjectTagBar({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
+  const trackingKey = experiment.trackingKey;
+
   const ownerName = getUserDisplay(experiment.owner, false) || "";
 
   return (
@@ -102,6 +104,14 @@ export default function ProjectTagBar({
             <GBEdit />
           </a>
         )}
+      </div>
+      <div className="col-auto">
+        Tracking Key:{" "}
+        {trackingKey ? (
+          <code>{trackingKey}</code>
+        ) : (
+          <em className="text-muted">None</em>
+        )}{" "}
       </div>
       <div className="col-auto">
         Owner:{" "}

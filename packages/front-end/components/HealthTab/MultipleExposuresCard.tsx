@@ -33,10 +33,7 @@ const multiExposureCheck = ({
   return "Issues detected";
 };
 
-export default function MultipleExposuresDrawer({
-  totalUsers,
-  onNotify,
-}: Props) {
+export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
   const settings = useOrgSettings();
   const { snapshot } = useSnapshot();
 
