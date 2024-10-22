@@ -1,4 +1,4 @@
-import React, { forwardRef } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FaArrowsAlt } from "react-icons/fa";
@@ -8,12 +8,11 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import clsx from "clsx";
-import { Slider } from "@radix-ui/themes";
+import { v4 as uuidv4 } from "uuid";
 import {
   decimalToPercent,
   distributeWeights,
-  percentToDecimal,
-  percentToDecimalForNumber,
+  floatRound,
   rebalance,
 } from "@/services/utils";
 import {
@@ -64,9 +63,18 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     },
     ref
   ) => {
-    let updateTimeout: number | undefined = undefined;
+    const [componentId] = useState<string>(uuidv4());
 
     const weights = variations.map((v) => v.weight);
+    const weight = weights[i];
+    const weightPercent = floatRound(weight * 100, 2);
+    const [val, setVal] = useState<number>(weightPercent);
+    useEffect(() => {
+      if (val !== weight) {
+        setVal(weightPercent);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weightPercent]);
 
     const rebalanceAndUpdate = (
       i: number,
@@ -83,9 +91,13 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     };
 
     return (
-      <tr ref={ref} {...props} key={`v-${variation.id}__${i}`}>
+      <tr ref={ref} {...props} key={`${componentId}-${variation.id}__${i}`}>
         {!valueAsId && (
-          <td style={{ width: 45 }} className="position-relative pl-3">
+          <td
+            style={{ width: 45 }}
+            className="position-relative pl-3"
+            key={`${componentId}-${variation.id}__${i}__0`}
+          >
             <div
               className={styles.colorMarker}
               style={{
@@ -95,7 +107,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {i}
           </td>
         )}
-        <td>
+        <td key={`${componentId}-${variation.id}__${i}__1`}>
           {setVariations ? (
             <FeatureValueField
               id={`value_${i}`}
@@ -118,7 +130,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <>{variation.value}</>
           )}
         </td>
-        <td>
+        <td key={`${componentId}-${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
               label=""
@@ -137,43 +149,21 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <strong>{variation.name || ""}</strong>
           )}
         </td>
-        <td>
+        <td key={`${componentId}-${variation.id}__${i}__3`}>
           <div className="row align-items-center">
             {customSplit ? (
               <div className="col d-flex flex-row">
-                <div
-                  className="mr-3 d-flex align-items-center"
-                  style={{ width: 150 }}
-                >
-                  <Slider
-                    value={[decimalToPercent(weights[i] ?? 0)]}
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={!setWeight}
-                    onValueChange={(e) => {
-                      rebalanceAndUpdate(i, percentToDecimalForNumber(e[0]));
-                    }}
-                  />
-                </div>
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
+                    id={`${variation.id}__${i}__3__input`}
                     style={{ width: 80 }}
-                    value={decimalToPercent(weights[i] ?? 0)}
+                    value={val}
                     onChange={(e) => {
-                      setWeight?.(i, percentToDecimal(e.target.value));
-                      if (updateTimeout) {
-                        window.clearTimeout(updateTimeout);
-                      }
-                      updateTimeout = window.setTimeout(() => {
-                        // the split now should add to 100% if there are two variations.
-                        rebalanceAndUpdate(
-                          i,
-                          e.target.value === ""
-                            ? 0
-                            : percentToDecimal(e.target.value)
-                        );
-                      }, 1000);
+                      setVal(parseFloat(e.target.value));
+                    }}
+                    onBlur={() => {
+                      const decimal = (val >= 0 ? val : 0) / 100;
+                      rebalanceAndUpdate(i, decimal);
                     }}
                     type="number"
                     min={0}

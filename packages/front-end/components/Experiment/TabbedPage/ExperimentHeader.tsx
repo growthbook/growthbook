@@ -1,6 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaAngleRight, FaExclamationTriangle, FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
