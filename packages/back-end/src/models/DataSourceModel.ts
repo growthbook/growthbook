@@ -27,10 +27,6 @@ import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
-import {
-  validateIsSuperUserRequest,
-  ValidateSuperUserRequest,
-} from "back-end/src/util/handler";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -94,10 +90,8 @@ export async function getDataSourcesByOrganization(
     context.permissions.canReadMultiProjectResource(ds.projects)
   );
 }
-export async function getAllGrowthbookClickhouseDataSources(
-  request: ValidateSuperUserRequest
-) {
-  await validateIsSuperUserRequest(request);
+// WARNING: This does not restrict by organization
+export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
   const docs: DataSourceDocument[] = await DataSourceModel.find({
     type: "growthbook_clickhouse",
   });

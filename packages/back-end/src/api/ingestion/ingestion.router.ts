@@ -6,7 +6,7 @@ import {
 } from "back-end/src/util/handler";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { findSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
-import { getAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
+import { _dangerousGetAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
 
 interface SdkInfo {
   organization: string;
@@ -37,7 +37,7 @@ export const getDataEnrichment = createApiRequestHandler({
     // Must be a super-user to make cross-org mongo queries
     await validateIsSuperUserRequest(req);
 
-    const dataSources = await getAllGrowthbookClickhouseDataSources(req);
+    const dataSources = await _dangerousGetAllGrowthbookClickhouseDataSources();
     const dataSourcesByOrgId = Object.fromEntries(
       dataSources.map((ds) => [ds.organization, ds.id])
     );
