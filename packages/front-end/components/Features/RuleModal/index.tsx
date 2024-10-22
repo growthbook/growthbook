@@ -46,6 +46,7 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import HelperText from "@/components/Radix/HelperText";
 
 export interface Props {
   close: () => void;
@@ -584,25 +585,31 @@ export default function RuleModal({
                     {
                       value: "bandit",
                       disabled:
-                        !hasMultiArmedBanditFeature || !hasStickyBucketFeature,
+                        !hasMultiArmedBanditFeature ||
+                        !hasStickyBucketFeature ||
+                        !orgStickyBucketing,
                       label: (
                         <PremiumTooltip
                           commercialFeature="multi-armed-bandits"
-                          body={
-                            !orgStickyBucketing && hasStickyBucketFeature ? (
-                              <div>
-                                Enable Sticky Bucketing in your organization
-                                settings to run a Bandit.
-                              </div>
-                            ) : null
-                          }
                           usePortal={true}
                         >
                           Bandit
                         </PremiumTooltip>
                       ),
-                      description:
-                        "Find a winner among many variations on one goal metric",
+                      description: (
+                        <>
+                          <div>
+                            Find a winner among many variations on one goal
+                            metric
+                          </div>
+                          {hasStickyBucketFeature && !orgStickyBucketing && (
+                            <HelperText status="info" size="sm" mt="2">
+                              Enable Sticky Bucketing in your organization
+                              settings to run a Bandit.
+                            </HelperText>
+                          )}
+                        </>
+                      ),
                     },
                   ]
                 : []),

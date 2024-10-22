@@ -6,7 +6,7 @@ export type RadioOptions = {
   value: string;
   label?: ReactElement | string;
   avatar?: ReactElement;
-  description?: string;
+  description?: ReactElement | string;
   disabled?: boolean;
 }[];
 
