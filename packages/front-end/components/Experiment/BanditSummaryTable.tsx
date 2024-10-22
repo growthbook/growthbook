@@ -377,6 +377,8 @@ export default function BanditSummaryTable({
                         domain={domain}
                         significant={true}
                         showAxis={false}
+                        zeroLineWidth={1.5}
+                        zeroLineOffset={0}
                         graphWidth={graphCellWidth}
                         percent={false}
                         height={rowHeight}
