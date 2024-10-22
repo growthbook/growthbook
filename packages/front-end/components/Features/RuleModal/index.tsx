@@ -784,7 +784,16 @@ export default function RuleModal({
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
+          ? [
+              "Overview",
+              "Traffic",
+              "Targeting",
+              <>
+                Analysis
+                <br />
+                Settings
+              </>,
+            ].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   feature={feature}

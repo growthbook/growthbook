@@ -202,7 +202,7 @@ const PagedModal: FC<Props> = (props) => {
                   <a
                     key={i}
                     role="button"
-                    className={clsx("nav-link")}
+                    className="nav-link d-flex align-items-center"
                     onClick={async (e) => {
                       e.preventDefault();
                       setError("");
@@ -225,7 +225,12 @@ const PagedModal: FC<Props> = (props) => {
                         i + 1
                       )}
                     </span>
-                    <span className="step-title"> {display}</span>
+                    <div
+                      className="step-title ml-1"
+                      style={{ lineHeight: "18px" }}
+                    >
+                      {display}
+                    </div>
                   </a>
                 </div>
               );

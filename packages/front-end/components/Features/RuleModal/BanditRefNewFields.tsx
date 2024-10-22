@@ -1,8 +1,9 @@
 import { useFormContext } from "react-hook-form";
 import { ExperimentValue, FeatureInterface } from "back-end/types/feature";
 import React, { useEffect } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import Collapsible from "react-collapsible";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -232,6 +233,11 @@ export default function BanditRefNewFields({
 
       {step === 3 ? (
         <>
+          <label>Bandit Schedule</label>
+          <div className="rounded px-3 pt-3 pb-2 bg-highlight mb-4">
+            <BanditSettings page="experiment-settings" />
+          </div>
+
           <SelectField
             label="Data Source"
             labelClassName="font-weight-bold"
@@ -320,51 +326,62 @@ export default function BanditRefNewFields({
             setGuardrailMetrics={(guardrailMetrics) =>
               form.setValue("guardrailMetrics", guardrailMetrics)
             }
+            collapseSecondary={true}
+            collapseGuardrail={true}
           />
 
-          <BanditSettings page="experiment-settings" />
+          <Collapsible
+            trigger={
+              <div className="link-purple font-weight-bold mt-4 mb-2">
+                <FaAngleRight className="chevron mr-1" />
+                Advanced Settings
+              </div>
+            }
+            transitionTime={100}
+          >
+            <div className="box pt-3 px-3 mt-1">
+              <StatsEngineSelect
+                className="mb-4"
+                label={
+                  <>
+                    <div>Statistics Engine</div>
+                    <div className="small text-muted">
+                      Only <strong>Bayesian</strong> is available for Bandit
+                      Experiments.
+                    </div>
+                  </>
+                }
+                value={"bayesian"}
+                allowUndefined={false}
+                disabled={true}
+              />
 
-          <div className="mt-4">
-            <StatsEngineSelect
-              label={
-                <>
-                  <div>Statistics Engine</div>
-                  <div className="small text-muted">
-                    Only <strong>Bayesian</strong> is available for Bandit
-                    Experiments.
-                  </div>
-                </>
-              }
-              value={"bayesian"}
-              allowUndefined={false}
-              disabled={true}
-            />
-
-            <SelectField
-              label={
-                <PremiumTooltip commercialFeature="regression-adjustment">
-                  <GBCuped /> Use Regression Adjustment (CUPED)
-                </PremiumTooltip>
-              }
-              style={{ width: 200 }}
-              labelClassName="font-weight-bold"
-              value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-              onChange={(v) => {
-                form.setValue("regressionAdjustmentEnabled", v === "on");
-              }}
-              options={[
-                {
-                  label: "On",
-                  value: "on",
-                },
-                {
-                  label: "Off",
-                  value: "off",
-                },
-              ]}
-              disabled={!hasRegressionAdjustmentFeature}
-            />
-          </div>
+              <SelectField
+                className="mb-4"
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    <GBCuped /> Use Regression Adjustment (CUPED)
+                  </PremiumTooltip>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("regressionAdjustmentEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                disabled={!hasRegressionAdjustmentFeature}
+              />
+            </div>
+          </Collapsible>
         </>
       ) : null}
     </>
