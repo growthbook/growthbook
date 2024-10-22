@@ -110,6 +110,7 @@ class Bandits(ABC):
             bandit_period.total_users for bandit_period in self.historical_periods
         ]
         cumulative_counts = cumulative_counts_historical + [self.current_sample_size]
+        # the total user counts collected at the end of the 1st period correspond to weights for 0th period
         period_counts = [cumulative_counts[1]]
         if self.num_periods_historical > 1:
             for period in range(1, self.num_periods_historical):
@@ -120,7 +121,6 @@ class Bandits(ABC):
 
     @property
     def counts_expected(self) -> np.ndarray:
-        # historical weights array is right, period counts are wrong, there is extra 0
         counts_expected_by_period = np.empty(
             (self.num_periods_historical, self.num_variations)
         )
