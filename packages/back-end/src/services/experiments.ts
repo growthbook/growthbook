@@ -424,7 +424,7 @@ export function getSnapshotSettings({
               )
               .map((event) => ({
                 date: event.date,
-                weights: event.banditResult.currentWeights,
+                weights: event.banditResult.updatedWeights,
                 totalUsers:
                   event.banditResult?.singleVariationResults?.reduce(
                     (sum, cur) => sum + (cur.users ?? 0),
