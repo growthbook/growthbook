@@ -8,7 +8,6 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import clsx from "clsx";
-import { v4 as uuidv4 } from "uuid";
 import {
   decimalToPercent,
   distributeWeights,
@@ -63,8 +62,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     },
     ref
   ) => {
-    const [componentId] = useState<string>(uuidv4());
-
     const weights = variations.map((v) => v.weight);
     const weight = weights[i];
     const weightPercent = floatRound(weight * 100, 2);
@@ -91,12 +88,12 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     };
 
     return (
-      <tr ref={ref} {...props} key={`${componentId}-${variation.id}__${i}`}>
+      <tr ref={ref} {...props} key={`${variation.id}__${i}`}>
         {!valueAsId && (
           <td
             style={{ width: 45 }}
             className="position-relative pl-3"
-            key={`${componentId}-${variation.id}__${i}__0`}
+            key={`${variation.id}__${i}__0`}
           >
             <div
               className={styles.colorMarker}
@@ -107,7 +104,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {i}
           </td>
         )}
-        <td key={`${componentId}-${variation.id}__${i}__1`}>
+        <td key={`${variation.id}__${i}__1`}>
           {setVariations ? (
             <FeatureValueField
               id={`value_${i}`}
@@ -130,7 +127,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <>{variation.value}</>
           )}
         </td>
-        <td key={`${componentId}-${variation.id}__${i}__2`}>
+        <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
               label=""
@@ -149,14 +146,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <strong>{variation.name || ""}</strong>
           )}
         </td>
-        <td key={`${componentId}-${variation.id}__${i}__3`}>
+        <td key={`${variation.id}__${i}__3`} style={{ width: 210 }}>
           <div className="row align-items-center">
             {customSplit ? (
               <div className="col d-flex flex-row">
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
                     id={`${variation.id}__${i}__3__input`}
-                    style={{ width: 80 }}
+                    style={{ width: 95 }}
                     value={val}
                     onChange={(e) => {
                       setVal(parseFloat(e.target.value));

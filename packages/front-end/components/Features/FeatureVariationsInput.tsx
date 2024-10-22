@@ -122,7 +122,7 @@ export default function FeatureVariationsInput({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
-                      style={{ width: 80 }}
+                      style={{ width: 95 }}
                       value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
                       onChange={(e) => {
                         let decimal = percentToDecimal(e.target.value);
@@ -190,7 +190,7 @@ export default function FeatureVariationsInput({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
-                      style={{ width: 80 }}
+                      style={{ width: 95 }}
                       value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
                       onChange={(e) => {
                         let decimal = percentToDecimal(e.target.value);
@@ -228,7 +228,7 @@ export default function FeatureVariationsInput({
                     Split
                     {!disableVariations && !disableCustomSplit && (
                       <div className="d-inline-block float-right form-check form-check-inline">
-                        <label className="mb-0">
+                        <label className="mb-0 cursor-pointer">
                           <input
                             type="checkbox"
                             className="form-check-input position-relative"
