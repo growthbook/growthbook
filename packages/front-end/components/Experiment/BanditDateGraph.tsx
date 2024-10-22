@@ -104,6 +104,7 @@ const getTooltipContents = (
                 : "Variation Weight"}
             </td>
             {mode === "values" && <td>CI</td>}
+            <td>Users</td>
           </tr>
         </thead>
         <tbody>
@@ -152,6 +153,7 @@ const getTooltipContents = (
                     ]
                   </td>
                 )}
+                <td>{meta?.[i].users ?? 0}</td>
               </tr>
             );
           })}
@@ -178,7 +180,12 @@ const getTooltipContents = (
         </div>
       ) : null}
 
-      <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
+      <div className="text-sm-right mt-1 mr-1">
+        {datetime(d.date as Date)}
+        {d?.meta?.type === "today" ? (
+          <small className="text-info ml-1">(today)</small>
+        ) : null}
+      </div>
     </>
   );
 };
@@ -356,16 +363,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       experiment.status === "running" &&
       now > stackedData[stackedData.length - 1].date
     ) {
-      const dataPoint: BanditDateGraphDataPoint = {
-        date: now,
-        meta: {
-          type: "today",
-        },
-      };
+      const dataPoint: BanditDateGraphDataPoint = { date: now, meta: {} };
       variationNames.forEach((_, i) => {
         dataPoint[i] = stackedData[stackedData.length - 1][i];
       });
-      dataPoint.meta = stackedData[stackedData.length - 1].meta;
+      dataPoint.meta = { ...stackedData[stackedData.length - 1].meta };
+      dataPoint.meta.type = "today";
       stackedData.push(dataPoint);
     }
 
@@ -512,9 +515,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       {({ width }) => {
         const xMax = width - margin[1] - margin[3];
 
-        const allXTicks = stackedData
-          .filter((p) => p.meta?.type !== "today")
-          .map((p) => p.date.getTime());
+        const allXTicks = stackedData.map((p) => p.date.getTime());
         const reweights = stackedData
           .filter((p) => p.meta?.type !== "today" && p?.reweight === true)
           .map((p) => p.date.getTime());
@@ -540,7 +541,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             xScale,
             mode
           );
-          if (!data || data.meta?.type === "today") {
+          if (!data) {
             hideTooltip();
             return;
           }
@@ -726,6 +727,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       if (!showVariations[i]) return null;
                       const y = tooltipData?.d?.[i];
                       if (y === undefined) return;
+                      const users = tooltipData?.d?.meta?.[i]?.users ?? 0;
+                      if (users === 0 && mode === "values") return;
                       return (
                         <div
                           key={i}
@@ -835,6 +838,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           fill={getVariationColor(i, true)}
                           opacity={0.12}
                           curve={curveMonotoneX}
+                          defined={(d) => d?.meta?.[i]?.users !== 0}
                         />
                       );
                     })}
@@ -856,6 +860,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                               : mode === "probabilities"
                               ? curveMonotoneX
                               : curveStepAfter
+                          }
+                          defined={(d) =>
+                            mode !== "values" || d?.meta?.[i]?.users !== 0
                           }
                         />
                       );
