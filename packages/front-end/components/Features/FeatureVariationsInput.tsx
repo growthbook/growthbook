@@ -74,6 +74,9 @@ export default function FeatureVariationsInput({
   const [customSplit, setCustomSplit] = useState(
     customSplitOn ?? !isEqualWeights
   );
+  const [numberOfVariations, setNumberOfVariations] = useState(
+    Math.max(variations?.length ?? 2, 2) + ""
+  );
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {
@@ -145,10 +148,11 @@ export default function FeatureVariationsInput({
           <Field
             label="Number of Variations"
             type="number"
-            min={2}
-            value={variations.length}
-            onChange={(e) => {
-              const n = parseInt(e?.target?.value || "2");
+            value={numberOfVariations}
+            onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
+            onBlur={(e) => {
+              let n = parseInt(e?.target?.value ?? numberOfVariations);
+              n = Math.min(Math.max(2, n), 100);
               const newValues: SortableVariation[] = [];
               for (let i = 0; i < n; i++) {
                 newValues.push({
@@ -159,6 +163,7 @@ export default function FeatureVariationsInput({
                 });
               }
               setVariations?.(newValues);
+              setNumberOfVariations(n + "");
             }}
           />
         </>
