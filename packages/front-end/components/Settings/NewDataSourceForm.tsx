@@ -210,7 +210,11 @@ const NewDataSourceForm: FC<{
       })
   );
   const projectOptions = useProjectOptions(
-    (project) => permissionsUtil.canCreateDataSource({ projects: [project] }),
+    (project) =>
+      permissionsUtil.canCreateDataSource({
+        projects: [project],
+        type: undefined,
+      }),
     []
   );
 
