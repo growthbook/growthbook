@@ -425,6 +425,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         step={step}
         setStep={setStep}
         inline={inline}
+        backButton={true}
       >
         <Page display="Overview">
           <div className="px-2">

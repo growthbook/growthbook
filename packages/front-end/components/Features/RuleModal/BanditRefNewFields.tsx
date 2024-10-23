@@ -141,26 +141,24 @@ export default function BanditRefNewFields({
       {step === 1 ? (
         <>
           <div className="mb-4">
-            <div className="d-flex" style={{ gap: "2rem" }}>
-              <SelectField
-                label="Assign value based on attribute"
-                containerClassName="flex-1"
-                options={attributeSchema
-                  .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
-                value={form.watch("hashAttribute")}
-                onChange={(v) => {
-                  form.setValue("hashAttribute", v);
-                }}
-                helpText={
-                  "Will be hashed together with the Tracking Key to determine which variation to assign"
-                }
-              />
-              <FallbackAttributeSelector
-                form={form}
-                attributeSchema={attributeSchema}
-              />
-            </div>
+            <SelectField
+              label="Assign value based on attribute"
+              containerClassName="flex-1"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+            />
 
             {hasSDKWithNoBucketingV2 && (
               <HashVersionSelector

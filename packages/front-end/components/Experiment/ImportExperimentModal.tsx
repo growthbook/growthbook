@@ -8,6 +8,7 @@ import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
+import Callout from "@/components/Radix/Callout";
 
 const ImportExperimentModal: FC<{
   onClose: () => void;
@@ -99,11 +100,11 @@ const ImportExperimentModal: FC<{
       size="max"
       close={() => onClose()}
     >
-      <div className="alert alert-info">
+      <Callout status="info" mb="3">
         Don&apos;t see your experiment listed below?{" "}
         <a
-          href="#"
-          className="alert-link"
+          role="button"
+          className="link"
           onClick={(e) => {
             e.preventDefault();
             setImportModal(false);
@@ -111,7 +112,7 @@ const ImportExperimentModal: FC<{
         >
           Create From Scratch
         </a>
-      </div>
+      </Callout>
       <h2>Import from Data source</h2>
       {importId && (
         <ImportExperimentList
@@ -124,7 +125,9 @@ const ImportExperimentModal: FC<{
       )}
       {error ? (
         <>
-          <div className="alert alert-danger">{error}</div>
+          <Callout status="error" mb="3">
+            {error}
+          </Callout>
           <SelectField
             label="Choose a Data Source"
             value={datasourceId}

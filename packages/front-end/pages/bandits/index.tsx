@@ -33,6 +33,7 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/components/Radix/Button";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -293,25 +294,34 @@ const ExperimentsPage = (): React.ReactElement => {
                   Run adaptive experiments with Bandits.
                 </p>
               </div>
-              <div className="d-flex justify-content-center">
-                <Link href="/getstarted/experiment-guide">
-                  {" "}
-                  <button className="btn btn-outline-primary mr-2">
-                    Setup Instructions
-                  </button>
-                </Link>
+              <div className="d-flex justify-content-center" style={{gap: "1rem"}}>
+                <LinkButton href="/getstarted/experiment-guide" variant="outline">
+                  Setup Instructions
+                </LinkButton>
                 {canAdd && (
-                  <button
-                    className="btn btn-primary float-right"
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
+                  <PremiumTooltip
+                    tipPosition="left"
+                    popperStyle={{ top: 15 }}
+                    body={
+                      hasStickyBucketFeature && !orgStickyBucketing
+                        ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
+                        : undefined
+                    }
+                    commercialFeature="multi-armed-bandits"
                   >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Bandit
-                  </button>
+                    <Button
+                      onClick={() => {
+                        setOpenNewExperimentModal(true);
+                      }}
+                      disabled={
+                        !hasMultiArmedBanditFeature ||
+                        !hasStickyBucketFeature ||
+                        !orgStickyBucketing
+                      }
+                    >
+                      Add Bandit
+                    </Button>
+                  </PremiumTooltip>
                 )}
               </div>
             </div>

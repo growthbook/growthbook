@@ -47,6 +47,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -698,12 +699,12 @@ export default function FeaturesPage() {
         <Tabs newStyle={true} defaultTab="all-features">
           <Tab id="all-features" display="All Features" padding={false}>
             {renderFeaturesTable()}
-            <div className="alert alert-info mt-5">
+            <Callout status="info" mt="5" mb="3">
               Looking for <strong>Attributes</strong>,{" "}
               <strong>Namespaces</strong>, <strong>Environments</strong>, or{" "}
               <strong>Saved Groups</strong>? They have moved to the{" "}
               <Link href="/sdks">SDK Configuration</Link> tab.
-            </div>
+            </Callout>
           </Tab>
           <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
             <FeaturesDraftTable features={features} />
