@@ -18,6 +18,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import Cookies from "js-cookie";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -27,6 +28,7 @@ import {
   isTelemetryEnabled,
   dataWarehouseUrl,
 } from "./env";
+import { GB_SDK_ID } from "./utils";
 
 export type TrackEventProps = Record<string, unknown>;
 
@@ -47,8 +49,6 @@ export interface TrackSnapshotProps {
   dimension_id: string;
   error?: string;
 }
-
-const TEST_SDK_ID = "sdk_kkrb1j1im01hrmdf";
 
 interface DataWarehouseTrackedEvent {
   // Core event data
@@ -76,17 +76,61 @@ interface DataWarehouseTrackedEvent {
   user_attributes_json: string; // JSON-encoded string
 }
 
+const DEVICE_ID_COOKIE = "gb_device_id";
+const SESSION_ID_COOKIE = "gb_session_id";
+const pageIds: Record<string, string> = {};
+
 const dataWareHouseTrack = (event: DataWarehouseTrackedEvent) => {
   if (!dataWarehouseUrl) return;
-  void fetch(`${dataWarehouseUrl}/track?client_key=${TEST_SDK_ID}`, {
-    method: "POST",
-    body: JSON.stringify(event),
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-  });
+  try {
+    fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
+      method: "POST",
+      body: JSON.stringify(event),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (e) {
+    if (inTelemetryDebugMode()) {
+      console.error("Failed to fire tracking event");
+      console.error(e);
+    }
+  }
 };
+
+function getOrGenerateDeviceId() {
+  const deviceId = Cookies.get(DEVICE_ID_COOKIE) || uuidv4();
+  Cookies.set(DEVICE_ID_COOKIE, deviceId, {
+    expires: 365,
+    sameSite: "strict",
+  });
+  return deviceId;
+}
+
+function getOrGeneratePageId() {
+  if (!(window.history.state.key in pageIds)) {
+    pageIds[window.history.state.key] = uuidv4();
+  }
+  return pageIds[window.history.state.key];
+}
+
+function getOrGenerateSessionId() {
+  const sessionId = Cookies.get(SESSION_ID_COOKIE) || uuidv4();
+  const now = new Date();
+  Cookies.set(SESSION_ID_COOKIE, sessionId, {
+    expires: new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes() + 30,
+      now.getSeconds()
+    ),
+    sameSite: "strict",
+  });
+  return sessionId;
+}
 
 let jitsu: JitsuClient;
 export default function track(
@@ -136,11 +180,11 @@ export default function track(
   dataWareHouseTrack({
     event_name: event,
     properties_json: JSON.stringify(trackProps),
-    // TODO: swap these back to uuids after fixing db schema
-    device_id: Math.floor(Math.random() * 2147483647).toString(),
-    page_id: Math.floor(Math.random() * 2147483647).toString(),
-    session_id: uuidv4(),
-    sdk_language: "javascript",
+    device_id: getOrGenerateDeviceId(),
+    page_id: getOrGeneratePageId(),
+    session_id: getOrGenerateSessionId(),
+    sdk_language: "react",
+    // TODO: programmatically get sdk version. Importing from _app breaks tests
     sdk_version: "1.2.0",
     url: trackProps.url,
     user_id: id,
