@@ -746,6 +746,8 @@ def process_experiment_results(
                         # when using multi-period data, binomial is no longer iid and variance is wrong
                         if metric_settings_bandit.main_metric_type == "binomial":
                             metric_settings_bandit.main_metric_type = "count"
+                        if metric_settings_bandit.covariate_metric_type == "binomial":
+                            metric_settings_bandit.covariate_metric_type = "count"
                         if (
                             metric == d.bandit_settings.decision_metric
                             and not d.analyses[0].dimension
