@@ -6,9 +6,9 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/components/Radix/Callout";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
-import Callout from "@/components/Radix/Callout";
 
 const ImportExperimentModal: FC<{
   onClose: () => void;
@@ -94,7 +94,7 @@ const ImportExperimentModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="import-experiment"
       header="Import Experiment"
       open={true}
       size="max"

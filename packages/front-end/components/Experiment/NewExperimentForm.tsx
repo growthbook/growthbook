@@ -15,6 +15,7 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import { kebabCase } from "lodash";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -386,36 +387,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
-  // TODO with PagedModal tracking
-  // useEffect(() => {
-  //   const values = form.getValues();
-  //   setTrackingProps({
-  //     numTags: values.tags?.length || 0,
-  //     numMetrics:
-  //       (values.goalMetrics?.length || 0) +
-  //       (values.secondaryMetrics?.length || 0),
-  //     numVariations: values.variations?.length || 0,
-  //   });
-  // }, [form]);
-
   let header = isNewExperiment
     ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
     : "Add new Experiment Analysis";
   if (duplicate) {
     header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
   }
+  const trackingEventModalType = kebabCase(header);
 
   return (
     <FormProvider {...form}>
       <PagedModal
+        trackingEventModalType={trackingEventModalType}
+        trackingEventModalSource={source}
         header={header}
-        subHeader={
-          isNewExperiment
-            ? `You will have a chance to review and change these settings before starting your ${
-                isBandit ? "Bandit" : "Experiment"
-              }.`
-            : undefined
-        }
         close={onClose}
         docSection="experimentConfiguration"
         submit={onSubmit}

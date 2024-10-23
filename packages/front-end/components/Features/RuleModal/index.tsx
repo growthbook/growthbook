@@ -15,6 +15,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
+import { kebabCase } from "lodash";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -540,7 +541,7 @@ export default function RuleModal({
   if (newRuleOverviewPage) {
     return (
       <Modal
-        trackingEventModalType=""
+        trackingEventModalType="feature-rule-overview"
         open={true}
         close={close}
         size="lg"
@@ -689,20 +690,19 @@ export default function RuleModal({
           ruleType === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
       : "Rule";
+  const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
 
   return (
     <FormProvider {...form}>
       <PagedModal
+        trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
         cta="Save"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         bodyClassName="px-4"
         header={headerText}
-        subHeader={`You will have a chance to review ${
-          isNewRule ? "new rules" : "changes"
-        } as a draft before publishing.`}
         docSection={
           ruleType === "experiment-ref-new"
             ? "experimentConfiguration"
