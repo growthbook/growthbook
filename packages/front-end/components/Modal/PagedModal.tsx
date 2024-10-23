@@ -57,6 +57,7 @@ const PagedModal: FC<Props> = (props) => {
     ctaEnabled = true,
     forceCtaText,
     inline,
+    secondaryCTA,
     size,
     className,
     bodyClassName,
@@ -153,7 +154,9 @@ const PagedModal: FC<Props> = (props) => {
         ) : null
       }
       secondaryCTA={
-        onSkip ? (
+        secondaryCTA ? (
+          secondaryCTA
+        ) : onSkip ? (
           <button
             className={`btn btn-link mr-3`}
             onClick={(e) => {
