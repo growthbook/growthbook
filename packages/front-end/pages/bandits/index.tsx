@@ -13,7 +13,6 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
-import { GBAddCircle } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
@@ -294,8 +293,14 @@ const ExperimentsPage = (): React.ReactElement => {
                   Run adaptive experiments with Bandits.
                 </p>
               </div>
-              <div className="d-flex justify-content-center" style={{gap: "1rem"}}>
-                <LinkButton href="/getstarted/experiment-guide" variant="outline">
+              <div
+                className="d-flex justify-content-center"
+                style={{ gap: "1rem" }}
+              >
+                <LinkButton
+                  href="/getstarted/experiment-guide"
+                  variant="outline"
+                >
                   Setup Instructions
                 </LinkButton>
                 {canAdd && (

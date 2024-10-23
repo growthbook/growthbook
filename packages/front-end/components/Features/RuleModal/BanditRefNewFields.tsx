@@ -29,6 +29,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function BanditRefNewFields({
   step,
@@ -87,9 +88,6 @@ export default function BanditRefNewFields({
 
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
-  const userIdType = exposureQueries?.find(
-    (e) => e.id === form.getValues("exposureQueryId")
-  )?.userIdType;
 
   useEffect(() => {
     if (!exposureQueries?.find((q) => q.id === exposureQueryId)) {
@@ -239,80 +237,87 @@ export default function BanditRefNewFields({
 
       {step === 3 ? (
         <>
-          <label>Bandit Schedule</label>
-          <div className="rounded px-3 pt-3 pb-2 bg-highlight mb-4">
-            <BanditSettings page="experiment-settings" />
-          </div>
-
-          <SelectField
-            label="Data Source"
-            labelClassName="font-weight-bold"
-            value={form.watch("datasource") ?? ""}
-            onChange={(newDatasource) => {
-              form.setValue("datasource", newDatasource);
-
-              // If unsetting the datasource, leave all the other settings alone
-              // That way, it will be restored if the user switches back to the previous value
-              if (!newDatasource) {
-                return;
-              }
-
-              const isValidMetric = (id: string) =>
-                getExperimentMetricById(id)?.datasource === newDatasource;
-
-              // Filter the selected metrics to only valid ones
-              const goals = form.watch("goalMetrics") ?? [];
-              form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-              const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
-              form.setValue(
-                "secondaryMetrics",
-                secondaryMetrics.filter(isValidMetric)
-              );
-
-              // const guardrails = form.watch("guardrailMetrics") ?? [];
-              // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
-            }}
-            options={datasources.map((d) => {
-              const isDefaultDataSource = d.id === settings.defaultDataSource;
-              return {
-                value: d.id,
-                label: `${d.name}${d.description ? ` — ${d.description}` : ""}${
-                  isDefaultDataSource ? " (default)" : ""
-                }`,
-              };
-            })}
-            className="portal-overflow-ellipsis"
-          />
-
-          {exposureQueries ? (
+          <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
-              label="Experiment Assignment Table"
+              label="Data Source"
               labelClassName="font-weight-bold"
-              value={form.watch("exposureQueryId") ?? ""}
-              onChange={(v) => form.setValue("exposureQueryId", v)}
-              required
-              options={exposureQueries?.map((q) => {
+              value={form.watch("datasource") ?? ""}
+              onChange={(newDatasource) => {
+                form.setValue("datasource", newDatasource);
+
+                // If unsetting the datasource, leave all the other settings alone
+                // That way, it will be restored if the user switches back to the previous value
+                if (!newDatasource) {
+                  return;
+                }
+
+                const isValidMetric = (id: string) =>
+                  getExperimentMetricById(id)?.datasource === newDatasource;
+
+                // Filter the selected metrics to only valid ones
+                const goals = form.watch("goalMetrics") ?? [];
+                form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
+                form.setValue(
+                  "secondaryMetrics",
+                  secondaryMetrics.filter(isValidMetric)
+                );
+
+                // const guardrails = form.watch("guardrailMetrics") ?? [];
+                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
+              }}
+              options={datasources.map((d) => {
+                const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
-                  label: q.name,
-                  value: q.id,
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  }${isDefaultDataSource ? " (default)" : ""}`,
                 };
               })}
-              helpText={
-                <>
-                  <div>
-                    Should correspond to the Identifier Type used to randomize
-                    units for this experiment
-                  </div>
-                  {userIdType ? (
-                    <>
-                      Identifier Type: <code>{userIdType}</code>
-                    </>
-                  ) : null}
-                </>
-              }
+              className="portal-overflow-ellipsis"
             />
-          ) : null}
+
+            {exposureQueries ? (
+              <SelectField
+                label={
+                  <>
+                    Experiment Assignment Table{" "}
+                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                  </>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("exposureQueryId") ?? ""}
+                onChange={(v) => form.setValue("exposureQueryId", v)}
+                required
+                options={exposureQueries?.map((q) => {
+                  return {
+                    label: q.name,
+                    value: q.id,
+                  };
+                })}
+                formatOptionLabel={({ label, value }) => {
+                  const userIdType = exposureQueries?.find(
+                    (e) => e.id === value
+                  )?.userIdType;
+                  return (
+                    <>
+                      {label}
+                      {userIdType ? (
+                        <span
+                          className="text-muted small float-right position-relative"
+                          style={{ top: 3 }}
+                        >
+                          Identifier Type: <code>{userIdType}</code>
+                        </span>
+                      ) : null}
+                    </>
+                  );
+                }}
+              />
+            ) : null}
+          </div>
 
           <ExperimentMetricsSelector
             datasource={datasource?.id}
@@ -326,6 +331,19 @@ export default function BanditRefNewFields({
             setGoalMetrics={(goalMetrics) =>
               form.setValue("goalMetrics", goalMetrics)
             }
+          />
+
+          <div className="mt-2 mb-3">
+            <BanditSettings page="experiment-settings" />
+          </div>
+
+          <ExperimentMetricsSelector
+            datasource={datasource?.id}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
             setSecondaryMetrics={(secondaryMetrics) =>
               form.setValue("secondaryMetrics", secondaryMetrics)
             }

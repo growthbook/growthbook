@@ -52,6 +52,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Callout from "@/components/Radix/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -372,9 +373,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
-  const userIdType = exposureQueries.find(
-    (e) => e.id === form.getValues("exposureQueryId")
-  )?.userIdType;
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
@@ -806,31 +804,41 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
               {datasource?.properties?.exposureQueries && (
                 <SelectField
-                  label="Experiment Assignment Table"
+                  label={
+                    <>
+                      Experiment Assignment Table{" "}
+                      <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                    </>
+                  }
                   labelClassName="font-weight-bold"
                   value={form.watch("exposureQueryId") ?? ""}
                   onChange={(v) => form.setValue("exposureQueryId", v)}
                   initialOption="Choose..."
                   required
-                  options={exposureQueries.map((q) => {
+                  options={exposureQueries?.map((q) => {
                     return {
                       label: q.name,
                       value: q.id,
                     };
                   })}
-                  helpText={
-                    <>
-                      <div>
-                        Should correspond to the Identifier Type used to
-                        randomize units for this experiment
-                      </div>
-                      {userIdType ? (
-                        <>
-                          Identifier Type: <code>{userIdType}</code>
-                        </>
-                      ) : null}
-                    </>
-                  }
+                  formatOptionLabel={({ label, value }) => {
+                    const userIdType = exposureQueries?.find(
+                      (e) => e.id === value
+                    )?.userIdType;
+                    return (
+                      <>
+                        {label}
+                        {userIdType ? (
+                          <span
+                            className="text-muted small float-right position-relative"
+                            style={{ top: 3 }}
+                          >
+                            Identifier Type: <code>{userIdType}</code>
+                          </span>
+                        ) : null}
+                      </>
+                    );
+                  }}
                 />
               )}
 
