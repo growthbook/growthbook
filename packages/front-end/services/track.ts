@@ -19,7 +19,6 @@ import {
 import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import Cookies from "js-cookie";
-import { growthbook, SDK_ID } from "@/pages/_app";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -29,6 +28,7 @@ import {
   isTelemetryEnabled,
   dataWarehouseUrl,
 } from "./env";
+import { GB_SDK_ID } from "./utils";
 
 export type TrackEventProps = Record<string, unknown>;
 
@@ -83,7 +83,7 @@ const pageIds: Record<string, string> = {};
 const dataWareHouseTrack = (event: DataWarehouseTrackedEvent) => {
   if (!dataWarehouseUrl) return;
   try {
-    fetch(`${dataWarehouseUrl}/track?client_key=${SDK_ID}`, {
+    fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
       method: "POST",
       body: JSON.stringify(event),
       headers: {
@@ -184,7 +184,8 @@ export default function track(
     page_id: getOrGeneratePageId(),
     session_id: getOrGenerateSessionId(),
     sdk_language: "react",
-    sdk_version: growthbook.version,
+    // TODO: programmatically get sdk version. Importing from _app breaks tests
+    sdk_version: "1.2.0",
     url: trackProps.url,
     user_id: id,
     user_attributes_json: "{}",
