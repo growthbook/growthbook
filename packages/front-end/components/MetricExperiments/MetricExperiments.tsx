@@ -58,7 +58,11 @@ interface MetricExperimentData {
 
 const NUM_PER_PAGE = 50;
 
-function MetricExperimentResultTab({ experimentsWithSnapshot, metric, bandits }: Props) {
+function MetricExperimentResultTab({
+  experimentsWithSnapshot,
+  metric,
+  bandits,
+}: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -188,22 +192,24 @@ function MetricExperimentResultTab({ experimentsWithSnapshot, metric, bandits }:
           </div>
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>
-        {!bandits ? e.variationResults ? (
-          <ChangeColumn
-            metric={metric}
-            stats={e.variationResults}
-            rowResults={{
-              enoughData: true,
-              directionalStatus: e.directionalStatus ?? "losing",
-              hasScaledImpact: true,
-            }}
-            statsEngine={e.statsEngine}
-            differenceType="relative"
-            showCI={true}
-            className={resultsHighlightClassname}
-          />
-        ) : (
-          <td>No results available</td>
+        {!bandits ? (
+          e.variationResults ? (
+            <ChangeColumn
+              metric={metric}
+              stats={e.variationResults}
+              rowResults={{
+                enoughData: true,
+                directionalStatus: e.directionalStatus ?? "losing",
+                hasScaledImpact: true,
+              }}
+              statsEngine={e.statsEngine}
+              differenceType="relative"
+              showCI={true}
+              className={resultsHighlightClassname}
+            />
+          ) : (
+            <td>No results available</td>
+          )
         ) : null}
       </tr>
     );
@@ -220,7 +226,7 @@ function MetricExperimentResultTab({ experimentsWithSnapshot, metric, bandits }:
             <SortableTH field="status">Status</SortableTH>
             <SortableTH field="users">Variation Users</SortableTH>
             {/* <th>Won/lost</th> */}
-            {!bandits && (<SortableTH field="lift">Lift</SortableTH>)}
+            {!bandits && <SortableTH field="lift">Lift</SortableTH>}
           </tr>
         </thead>
         <tbody>{expRows}</tbody>
@@ -245,8 +251,8 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
   }>(`/metrics/${metric.id}/experiments`);
-  const metricExperiments = (data?.data ?? []).filter(
-    (e) => bandits ? e.type === "multi-armed-bandit" : e.type !== "multi-armed-bandit"
+  const metricExperiments = (data?.data ?? []).filter((e) =>
+    bandits ? e.type === "multi-armed-bandit" : e.type !== "multi-armed-bandit"
   );
 
   const body = !metricExperiments?.length ? (

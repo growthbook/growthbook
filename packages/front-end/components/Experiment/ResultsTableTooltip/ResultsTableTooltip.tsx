@@ -651,13 +651,19 @@ export default function ResultsTableTooltip({
                     {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
                     {quantileMetric === "event" ? "Events" : "Users"}
                   </th>
-                  {!quantileMetric ? <th>
-                    Numerator
-                    {isBandit && (<>
-                      <br />
-                      <div className="small" style={{ marginTop: -2 }}>(adjusted)</div>
-                    </>)}
-                  </th> : null}
+                  {!quantileMetric ? (
+                    <th>
+                      Numerator
+                      {isBandit && (
+                        <>
+                          <br />
+                          <div className="small" style={{ marginTop: -2 }}>
+                            (adjusted)
+                          </div>
+                        </>
+                      )}
+                    </th>
+                  ) : null}
                   {hasCustomDenominator ? <th>Denom.</th> : null}
                   {quantileMetric && quantileValue ? (
                     <th>{getPercentileLabel(quantileValue)}</th>
