@@ -1,13 +1,7 @@
 import { FC } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
-import {
-  CheckboxGroup,
-  Container,
-  Text,
-  Checkbox as RadixCheckbox,
-  Flex,
-} from "@radix-ui/themes";
+import { Container, Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -19,32 +13,50 @@ const EnvironmentSelect: FC<{
 }> = ({ environmentSettings, environments, setValue }) => {
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
+  const selectAllChecked = Object.values(environmentSettings).every(
+    (env) => env.enabled
+  );
+  const selectAllIndeterminate = Object.values(environmentSettings).some(
+    (env) => env.enabled
+  );
+
   return (
     <div className="form-group">
-      <Container p="5" style={{ background: "#FAF8FF" }}>
-        <Text as="label" weight="bold">
+      <Container
+        p="5"
+        style={{
+          background: "var(--color-background)",
+          borderRadius: "var(--radius-2)",
+        }}
+      >
+        <Text as="label" weight="bold" mb="4">
           Enabled Environments
         </Text>
-        <CheckboxGroup.Root name="enabled-environments" mt="3">
-          <Text
-            as="label"
-            className={"rt-CheckboxItem"}
-            size="2"
-            onClick={() => {
+        <div>
+          <Checkbox
+            value={
+              selectAllChecked
+                ? true
+                : selectAllIndeterminate
+                ? "indeterminate"
+                : false
+            }
+            setValue={(v) =>
               environments.forEach((env) => {
-                setValue(env, true);
-              });
-            }}
-          >
-            <Flex gap="2" mb="2">
-              <RadixCheckbox checked={"indeterminate"} color={"violet"} />
-              <Flex direction="column" gap="1">
-                <Text weight="bold" className="main-text">
-                  Select All
-                </Text>
-              </Flex>
-            </Flex>
-          </Text>
+                setValue(env, v === true);
+              })
+            }
+            label="Select All"
+            weight="bold"
+            mb="5"
+          />
+        </div>
+        <Flex
+          direction="column"
+          wrap="wrap"
+          style={{ maxHeight: "168px" }}
+          overflowY="auto"
+        >
           {environments.map((env) => (
             <Checkbox
               disabled={
@@ -52,13 +64,14 @@ const EnvironmentSelect: FC<{
               }
               disabledMessage="You don't have permission to create features in this environment."
               value={environmentSettings[env.id].enabled}
-              setValue={(enabled) => setValue(env, enabled)}
+              setValue={(enabled) => setValue(env, enabled === true)}
               label={env.id}
               key={env.id}
               weight="regular"
+              mb="4"
             />
           ))}
-        </CheckboxGroup.Root>
+        </Flex>
       </Container>
     </div>
   );

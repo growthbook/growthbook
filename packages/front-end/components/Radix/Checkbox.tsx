@@ -8,12 +8,12 @@ export type Props = {
   label: string;
   disabled?: boolean;
   disabledMessage?: string;
-  value: boolean;
+  value: boolean | "indeterminate";
   error?: string;
   errorLevel?: "error" | "warning";
   description?: string;
   weight?: "bold" | "regular";
-  setValue: (value: boolean) => void;
+  setValue: (value: boolean | "indeterminate") => void;
 } & MarginProps;
 
 export default function Checkbox({
@@ -51,7 +51,7 @@ export default function Checkbox({
         <Flex gap="2">
           <RadixCheckbox
             checked={value}
-            onCheckedChange={(v) => setValue(v === true)}
+            onCheckedChange={(v) => setValue(v)}
             disabled={disabled}
             color={checkboxColor}
           />
