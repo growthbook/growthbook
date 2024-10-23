@@ -793,6 +793,28 @@ export default function RuleModal({
                   conditionKey={conditionKey}
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
+                  coverage={form.watch("coverage") || 0}
+                  setCoverage={(coverage) =>
+                    form.setValue("coverage", coverage)
+                  }
+                  setWeight={(i, weight) =>
+                    form.setValue(`values.${i}.weight`, weight)
+                  }
+                  variations={
+                    form
+                      .watch("values")
+                      ?.map((v: ExperimentValue & { id?: string }) => {
+                        return {
+                          value: v.value || "",
+                          name: v.name,
+                          weight: v.weight,
+                          id: v.id || generateVariationId(),
+                        };
+                      }) || []
+                  }
+                  setVariations={(variations) =>
+                    form.setValue("values", variations)
+                  }
                 />
               </Page>
             ))
