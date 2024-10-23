@@ -2,7 +2,12 @@ import React, { FC, useMemo, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { FaCaretDown, FaExclamationCircle } from "react-icons/fa";
+import {
+  FaCaretDown,
+  FaDatabase,
+  FaExclamationCircle,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -177,14 +182,37 @@ const RefreshBanditButton: FC<{
       {error ? (
         <>
           {generatedSnapshot ? (
-            <div className="text-danger mx-2 my-2">
-              <FaRegCircleXmark className="mr-1" />
-              Update errored
+            <div className="d-flex align-items-center mx-2 my-2">
+              <div className="text-danger">
+                <FaRegCircleXmark className="mr-1" />
+                Update errored
+              </div>
+              <div className="flex-1" />
+              <ViewAsyncQueriesButton
+                queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
+                error={generatedSnapshot.error}
+                display="View Queries"
+                status={status}
+                color="link link-purple p-0"
+                condensed={false}
+                icon={
+                  <span className="position-relative pr-2">
+                    <FaDatabase />
+                    <FaExclamationTriangle
+                      className="position-absolute mr-2 text-danger"
+                      style={{
+                        top: -6,
+                        right: -12,
+                      }}
+                    />
+                  </span>
+                }
+              />
             </div>
           ) : null}
           <div
             className="text-danger text-monospace mx-2 my-1 small"
-            style={{ lineHeight: "14px" }}
+            style={{ lineHeight: "14px", maxHeight: 100, overflowY: "auto" }}
           >
             {error}
           </div>
