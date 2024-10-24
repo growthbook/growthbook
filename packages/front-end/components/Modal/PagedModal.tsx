@@ -149,10 +149,27 @@ const PagedModal: FC<Props> = (props) => {
   );
 
   useEffect(() => {
+    let pageName = "";
+    try {
+      const display: unknown = steps?.[step]?.display;
+      if (typeof display === "string") {
+        pageName = display;
+      } else {
+        const children = (display as ReactElement)?.props?.children;
+        if (children instanceof Array) {
+          pageName = children
+            .map((c) => (typeof c === "string" ? c : " "))
+            .join("")
+            .trim();
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
     sendTrackingEvent("modal-page-change", {
       step: step + 1,
       steps: steps?.length,
-      pageName: steps?.[step]?.display,
+      pageName,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
