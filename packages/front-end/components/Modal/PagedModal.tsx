@@ -166,6 +166,7 @@ const PagedModal: FC<Props> = (props) => {
       className={className}
       bodyClassName={bodyClassName}
       {...passThrough}
+      trackOnSubmit={!nextStep}
       submit={async () => {
         await validateSteps(nextStep);
         if (!nextStep) {
