@@ -237,7 +237,7 @@ export default function ExperimentRefNewFields({
                     additional changes before starting.
                   </small>
                 </div>
-                {!form.watch("autoStart") ? (
+                {!form.watch("autoStart") && setScheduleToggleEnabled ? (
                   <div>
                     <hr />
                     <ScheduleInputs
@@ -245,7 +245,7 @@ export default function ExperimentRefNewFields({
                       onChange={(value) =>
                         form.setValue("scheduleRules", value)
                       }
-                      scheduleToggleEnabled={scheduleToggleEnabled}
+                      scheduleToggleEnabled={!!scheduleToggleEnabled}
                       setScheduleToggleEnabled={setScheduleToggleEnabled}
                     />
                   </div>
