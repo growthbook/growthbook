@@ -9,6 +9,7 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -38,6 +39,7 @@ import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { AppFeatures } from "@/types/app-features";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -155,6 +157,7 @@ export default function FactMetricPage() {
     projects,
     getDatasourceById,
   } = useDefinitions();
+  const growthbook = useGrowthBook<AppFeatures>();
 
   if (!ready) return <LoadingOverlay />;
 
@@ -831,20 +834,22 @@ export default function FactMetricPage() {
           >
             <MetricExperiments metric={factMetric} />
           </Tab>
-          <Tab
-            display={
-              <>
-                <GBBandit className="mr-1" />
-                Bandits
-              </>
-            }
-            id="bandits"
-            anchor="bandits"
-            padding={false}
-            lazy={true}
-          >
-            <MetricExperiments metric={factMetric} bandits={true} />
-          </Tab>
+          {growthbook.isOn("bandits") ? (
+            <Tab
+              display={
+                <>
+                  <GBBandit className="mr-1" />
+                  Bandits
+                </>
+              }
+              id="bandits"
+              anchor="bandits"
+              padding={false}
+              lazy={true}
+            >
+              <MetricExperiments metric={factMetric} bandits={true} />
+            </Tab>
+          ) : null}
         </ControlledTabs>
       </div>
     </div>
