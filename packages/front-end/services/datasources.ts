@@ -22,7 +22,7 @@ import {
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 
-function camelToUnderscore(orig) {
+function camelToUnderscore(orig: string) {
   return orig
     .replace(/\s+/g, "_")
     .replace(/([A-Z]+)([A-Z][a-z])/, "$1_$2")
@@ -242,7 +242,8 @@ const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -296,7 +297,8 @@ const RudderstackSchema: SchemaInterface = {
   experimentDimensions: ["device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -395,7 +397,8 @@ const FreshpaintSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "campaign", "os", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   time as timestamp,
@@ -448,7 +451,8 @@ const HeapSchema: SchemaInterface = {
   ],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   time as timestamp,
@@ -485,7 +489,7 @@ const FullStorySchema: SchemaInterface = {
   experimentDimensions: ["source"],
   getExperimentSQL: (tablePrefix, userId) => {
     // const exposureTableName =
-    //   camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    //   camelToUnderscore(options?.exposureTableName || "") || "experiment_viewed";
     return `
 -- Modify the below query to match your exported data
 SELECT
