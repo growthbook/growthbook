@@ -131,12 +131,15 @@ export async function removeProjectFromDatasources(
   );
 }
 
-export async function deleteDatasourceById(id: string, organization: string) {
+export async function deleteDatasourceById(
+  datasource: DataSourceInterface,
+  organization: string
+) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   await DataSourceModel.deleteOne({
-    id,
+    id: datasource.id,
     organization,
   });
 }

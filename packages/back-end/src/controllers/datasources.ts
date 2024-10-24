@@ -111,7 +111,7 @@ export async function deleteDataSource(
     );
   }
 
-  await deleteDatasourceById(datasource.id, org.id);
+  await deleteDatasourceById(datasource, org.id);
 
   if (datasource.settings?.informationSchemaId) {
     const informationSchemaId = datasource.settings.informationSchemaId;
@@ -210,7 +210,7 @@ export async function postDataSources(
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
-  if (!context.permissions.canCreateDataSource({ projects })) {
+  if (!context.permissions.canCreateDataSource({ projects, type })) {
     context.permissions.throwPermissionError();
   }
 
@@ -491,7 +491,8 @@ export async function postGoogleOauthRedirect(
   const context = getContextFromReq(req);
   const { projects } = req.body;
 
-  if (!context.permissions.canCreateDataSource({ projects })) {
+  // Huh, why? -- rb
+  if (!context.permissions.canCreateDataSource({ projects, type: undefined })) {
     context.permissions.throwPermissionError();
   }
 
