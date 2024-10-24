@@ -607,6 +607,8 @@ const MetricForm: FC<MetricFormProps> = ({
     form.watch("projects") || []
   );
 
+  const trackingEventModalType = edit ? "edit-metric" : "new-metric";
+
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -633,6 +635,7 @@ const MetricForm: FC<MetricFormProps> = ({
         />
       )}
       <PagedModal
+        trackingEventModalType={trackingEventModalType}
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
         close={onClose}
