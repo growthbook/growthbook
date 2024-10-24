@@ -73,11 +73,22 @@ export type SchemaOption = {
   helpText?: string;
 };
 
+type GetExperimentSqlOptions = {
+  exposureTableName?: string;
+  actionName?: string;
+  eventType?: string;
+  projectId?: string;
+  tablePrefix?: string;
+  actionPrefix?: string;
+  siteId?: string | number;
+  categoryName?: string;
+};
+
 export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
     userId: string,
-    options?: Record<string, string | number>
+    options?: GetExperimentSqlOptions
   ): string;
   getIdentitySQL(
     tablePrefix: string,
