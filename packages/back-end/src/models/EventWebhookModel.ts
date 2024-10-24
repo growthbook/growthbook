@@ -167,17 +167,33 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @param doc
  * @returns
  */
-const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
+const toInterface = async (
+  doc: EventWebHookDocument
+): Promise<EventWebHookInterface> => {
   const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
 
+  // Add defaults values
+  const defaults = {
+    ...(payload.method ? {} : { method: "POST" }),
+    // All webhook are created with a payloadType. This is here for antiquated ones
+    // which don't have one and should be considered raw.
+    ...(payload.payloadType ? {} : { payloadType: "raw" }),
+    ...(payload.headers ? {} : { headers: {} }),
+    ...(payload.tags ? {} : { tags: [] }),
+    ...(payload.environments ? {} : { environments: [] }),
+  };
+
+  if (Object.keys(defaults).length)
+    await EventWebHookModel.updateOne(
+      { id: doc.id },
+      {
+        $set: defaults,
+      }
+    );
+
   return {
+    ...defaults,
     ...payload,
-    method: payload.method || "POST",
-    payloadType: payload.payloadType || "raw",
-    headers: payload.headers || {},
-    projects: payload.projects || [],
-    tags: payload.tags || [],
-    environments: payload.environments || [],
   };
 };
 
@@ -379,7 +395,7 @@ export const getAllEventWebHooks = async (
     ["dateCreated", -1],
   ]);
 
-  return docs.map(toInterface);
+  return Promise.all(docs.map(toInterface));
 };
 
 const filterOptional = <T>(want: T[] = [], has: T[]) => {
@@ -419,7 +435,7 @@ export const getAllEventWebHooksForEvent = async ({
     return true;
   });
 
-  return docs.map(toInterface);
+  return Promise.all(docs.map(toInterface));
 };
 
 export const sendEventWebhookTestEvent = async (
