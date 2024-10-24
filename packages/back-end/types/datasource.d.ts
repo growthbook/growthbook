@@ -75,7 +75,13 @@ export type SchemaOption = {
 
 type GetExperimentSqlOptions = {
   exposureTableName?: string;
-  [key: string]: string | number | undefined;
+  actionName?: string;
+  eventType?: string;
+  projectId?: string;
+  tablePrefix?: string;
+  actionPrefix?: string;
+  siteId?: string | number;
+  categoryName?: string;
 };
 
 export interface SchemaInterface {
