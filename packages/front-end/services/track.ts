@@ -51,7 +51,6 @@ export default function track(
   event: string,
   props: TrackEventProps = {}
 ): void {
-  console.log("track", { event, props });
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
 
