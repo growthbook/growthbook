@@ -21,6 +21,7 @@ import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
 import {
   canInlineFilterColumn,
+  getAggregateFilters,
   getColumnRefWhereClause,
 } from "shared/experiments";
 import { FaTriangleExclamation } from "react-icons/fa6";
@@ -214,6 +215,7 @@ function ColumnRefSelector({
   datasource,
   disableFactTableSelector,
   extraField,
+  supportsAggregatedFilter,
 }: {
   setValue: (ref: ColumnRef) => void;
   value: ColumnRef;
@@ -223,6 +225,7 @@ function ColumnRefSelector({
   datasource: string;
   disableFactTableSelector?: boolean;
   extraField?: ReactElement;
+  supportsAggregatedFilter?: boolean;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
@@ -424,6 +427,59 @@ function ColumnRefSelector({
               />
             </div>
           )}
+        {supportsAggregatedFilter && factTable && (
+          <div className="d-flex align-items-center">
+            <div>
+              <SelectField
+                label={
+                  <>
+                    User Filter{" "}
+                    <Tooltip
+                      body={
+                        <>
+                          Filter after grouping by user id. Simple comparison
+                          operators only. For example, <code>&gt;= 3</code> or{" "}
+                          <code>&lt; 10</code>
+                        </>
+                      }
+                    />
+                  </>
+                }
+                value={value.aggregateFilterColumn || ""}
+                onChange={(v) =>
+                  setValue({
+                    ...value,
+                    aggregateFilterColumn: v,
+                  })
+                }
+                options={getNumericColumnOptions({
+                  factTable: factTable,
+                  includeCount: true,
+                  includeCountDistinct: false,
+                  showColumnsAsSums: true,
+                })}
+                initialOption="All Users"
+              />
+            </div>
+            {value.aggregateFilterColumn && (
+              <div className="ml-1">
+                <Field
+                  label={<>&nbsp;</>}
+                  value={value.aggregateFilter || ""}
+                  onChange={(v) =>
+                    setValue({
+                      ...value,
+                      aggregateFilter: v.target.value,
+                    })
+                  }
+                  placeholder=">= 10"
+                  style={{ maxWidth: 120 }}
+                  required
+                />
+              </div>
+            )}
+          </div>
+        )}
         {extraField && <>{extraField}</>}
       </div>
     </div>
@@ -545,8 +601,25 @@ function getPreviewSQL({
     type,
   });
 
-  let HAVING = "";
+  const havingParts = getAggregateFilters({
+    columnRef: {
+      // Column is often set incorrectly for proportion metrics and changed later during submit
+      ...numerator,
+      column: type === "proportion" ? "$$distinctUsers" : numerator.column,
+    },
+    column:
+      numerator.aggregateFilterColumn === "$$count"
+        ? `COUNT(*)`
+        : `SUM(${numerator.aggregateFilterColumn})`,
+    ignoreInvalid: true,
+  });
+  let HAVING =
+    havingParts.length > 0
+      ? `\nHAVING\n${indentLines(havingParts.join("\nAND "))}`
+      : "";
+
   if (type === "quantile") {
+    HAVING = "";
     if (quantileSettings.type === "unit" && quantileSettings.ignoreZeros) {
       HAVING = `\n-- Ignore zeros in percentile\nHAVING ${numeratorCol} > 0`;
     }
@@ -857,6 +930,21 @@ export default function FactMetricModal({
           values.numerator.column = "$$distinctUsers";
         }
 
+        if (
+          values.numerator.aggregateFilterColumn &&
+          values.metricType === "ratio"
+        ) {
+          if (values.numerator.aggregateFilterColumn !== "$$distinctUsers") {
+            values.numerator.aggregateFilterColumn = "";
+          } else {
+            if (values.cappingSettings?.type) {
+              throw new Error(
+                "Cannot specify both Capping and a User Threshold"
+              );
+            }
+          }
+        }
+
         if (!selectedDataSource) throw new Error("Must select a data source");
 
         // Correct percent values
@@ -1106,6 +1194,7 @@ export default function FactMetricModal({
                     }
                     datasource={selectedDataSource.id}
                     disableFactTableSelector={!!initialFactTable}
+                    supportsAggregatedFilter={true}
                   />
                   <HelperText status="info">
                     The final metric value will be the percent of users in the
@@ -1247,6 +1336,9 @@ export default function FactMetricModal({
                       includeCountDistinct={true}
                       datasource={selectedDataSource.id}
                       disableFactTableSelector={!!initialFactTable}
+                      supportsAggregatedFilter={
+                        numerator.column === "$$distinctUsers"
+                      }
                     />
                   </div>
                   <div className="form-group">
