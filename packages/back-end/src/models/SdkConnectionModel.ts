@@ -132,7 +132,7 @@ export async function findSDKConnectionsByOrganization(
   );
 }
 
-export async function findSdkConnectionsAcrossMultipleOrgs(
+export async function _dangerousGetSdkConnectionsAcrossMultipleOrgs(
   organizationIds: string[]
 ) {
   const docs = await SDKConnectionModel.find({

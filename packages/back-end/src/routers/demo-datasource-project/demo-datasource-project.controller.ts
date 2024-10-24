@@ -183,7 +183,7 @@ export const postDemoDatasourceProject = async (
     !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
     !context.permissions.canCreateDataSource({
       projects: [demoProjId],
-      type: undefined,
+      type: "postgres",
     })
   ) {
     context.permissions.throwPermissionError();

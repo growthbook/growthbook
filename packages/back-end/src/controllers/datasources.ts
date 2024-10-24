@@ -491,8 +491,12 @@ export async function postGoogleOauthRedirect(
   const context = getContextFromReq(req);
   const { projects } = req.body;
 
-  // Huh, why? -- rb
-  if (!context.permissions.canCreateDataSource({ projects, type: undefined })) {
+  if (
+    !context.permissions.canCreateDataSource({
+      projects,
+      type: "google_analytics",
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 

@@ -5,7 +5,7 @@ import {
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { findSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
+import { _dangerousGetSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
 import { _dangerousGetAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
 
 interface SdkInfo {
@@ -23,7 +23,7 @@ interface GetDataEnrichmentResponse {
 function sdkInfo(conn: SDKConnectionInterface, datasource: string): SdkInfo {
   return {
     organization: conn.organization,
-    client_key: conn.id,
+    client_key: conn.key,
     datasource,
   };
 }
@@ -41,13 +41,13 @@ export const getDataEnrichment = createApiRequestHandler({
     const dataSourcesByOrgId = Object.fromEntries(
       dataSources.map((ds) => [ds.organization, ds.id])
     );
-    const sdkConnections = await findSdkConnectionsAcrossMultipleOrgs(
+    const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
       Object.keys(dataSourcesByOrgId)
     );
     const sdkData = Object.fromEntries(
       sdkConnections.map((conn) => [
-        conn.id,
-        sdkInfo(conn, dataSourcesByOrgId[conn.organization] || ""),
+        conn.key,
+        sdkInfo(conn, dataSourcesByOrgId[conn.organization]),
       ])
     );
 
