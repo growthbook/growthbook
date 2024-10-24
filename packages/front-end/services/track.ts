@@ -10,6 +10,7 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
+import { v4 as uuidv4 } from "uuid";
 import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
@@ -17,6 +18,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import Cookies from "js-cookie";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -24,7 +26,9 @@ import {
   inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
+  dataWarehouseUrl,
 } from "./env";
+import { GB_SDK_ID } from "./utils";
 
 export type TrackEventProps = Record<string, unknown>;
 
@@ -44,6 +48,88 @@ export interface TrackSnapshotProps {
   dimension_type: string;
   dimension_id: string;
   error?: string;
+}
+
+interface DataWarehouseTrackedEvent {
+  // Core event data
+  event_name: string;
+  properties_json: string; // JSON-encoded string of event properties
+
+  // UUIDs generated and tracked automatically in the SDK
+  device_id: string;
+  page_id: string;
+  session_id: string;
+
+  // Metadata gathered automatically by SDK
+  sdk_language: string;
+  sdk_version: string;
+  url: string;
+  page_title?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+
+  // User-supplied targeting attributes
+  user_id?: string;
+  user_attributes_json: string; // JSON-encoded string
+}
+
+const DEVICE_ID_COOKIE = "gb_device_id";
+const SESSION_ID_COOKIE = "gb_session_id";
+const pageIds: Record<string, string> = {};
+
+const dataWareHouseTrack = (event: DataWarehouseTrackedEvent) => {
+  if (!dataWarehouseUrl) return;
+  try {
+    fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
+      method: "POST",
+      body: JSON.stringify(event),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (e) {
+    if (inTelemetryDebugMode()) {
+      console.error("Failed to fire tracking event");
+      console.error(e);
+    }
+  }
+};
+
+function getOrGenerateDeviceId() {
+  const deviceId = Cookies.get(DEVICE_ID_COOKIE) || uuidv4();
+  Cookies.set(DEVICE_ID_COOKIE, deviceId, {
+    expires: 365,
+    sameSite: "strict",
+  });
+  return deviceId;
+}
+
+function getOrGeneratePageId() {
+  if (!(window.history.state.key in pageIds)) {
+    pageIds[window.history.state.key] = uuidv4();
+  }
+  return pageIds[window.history.state.key];
+}
+
+function getOrGenerateSessionId() {
+  const sessionId = Cookies.get(SESSION_ID_COOKIE) || uuidv4();
+  const now = new Date();
+  Cookies.set(SESSION_ID_COOKIE, sessionId, {
+    expires: new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes() + 30,
+      now.getSeconds()
+    ),
+    sameSite: "strict",
+  });
+  return sessionId;
 }
 
 let jitsu: JitsuClient;
@@ -90,6 +176,20 @@ export default function track(
     user_id: isCloud() ? id : "",
     org: isCloud() ? org : "",
   };
+
+  dataWareHouseTrack({
+    event_name: event,
+    properties_json: JSON.stringify(trackProps),
+    device_id: getOrGenerateDeviceId(),
+    page_id: getOrGeneratePageId(),
+    session_id: getOrGenerateSessionId(),
+    sdk_language: "react",
+    // TODO: programmatically get sdk version. Importing from _app breaks tests
+    sdk_version: "1.2.0",
+    url: trackProps.url,
+    user_id: id,
+    user_attributes_json: "{}",
+  });
 
   if (inTelemetryDebugMode()) {
     console.log("Telemetry Event - ", event, trackProps);
@@ -198,7 +298,10 @@ function getTrackingPropsFromReport(
 
 export function parseSnapshotDimension(
   dimension: string
-): { type: string; id: string } {
+): {
+  type: string;
+  id: string;
+} {
   if (!dimension) {
     return { type: "none", id: "" };
   }
