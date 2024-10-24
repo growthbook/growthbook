@@ -33,7 +33,7 @@ import {
   createDataSource,
   getDataSourcesByOrganization,
   getDataSourceById,
-  deleteDatasourceById,
+  deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
@@ -111,7 +111,7 @@ export async function deleteDataSource(
     );
   }
 
-  await deleteDatasourceById(datasource, org.id);
+  await deleteDatasource(datasource, org.id);
 
   if (datasource.settings?.informationSchemaId) {
     const informationSchemaId = datasource.settings.informationSchemaId;

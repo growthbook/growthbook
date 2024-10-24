@@ -131,7 +131,7 @@ export async function removeProjectFromDatasources(
   );
 }
 
-export async function deleteDatasourceById(
+export async function deleteDatasource(
   datasource: DataSourceInterface,
   organization: string
 ) {
