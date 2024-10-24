@@ -42,7 +42,7 @@ class BanditResponse:
 
 
 def get_error_bandit_result(
-    error: str, reweight: bool, current_weights: List[float]
+    update_message: str, error: str, reweight: bool, current_weights: List[float]
 ) -> BanditResult:
     return BanditResult(
         singleVariationResults=None,
