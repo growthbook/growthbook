@@ -29,6 +29,7 @@ type ModalProps = {
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
   modalUuid?: string;
+  trackOnSubmit?: boolean;
   className?: string;
   submitColor?: string;
   cta?: string | ReactNode;
@@ -102,6 +103,7 @@ const Modal: FC<ModalProps> = ({
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
   modalUuid: _modalUuid,
+  trackOnSubmit = true,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
@@ -371,13 +373,17 @@ const Modal: FC<ModalProps> = ({
                 } else if (close && autoCloseOnSubmit) {
                   close();
                 }
-                sendTrackingEvent("modal-submit-success");
+                if (trackOnSubmit) {
+                  sendTrackingEvent("modal-submit-success");
+                }
               } catch (e) {
                 setError(e.message);
                 setLoading(false);
-                sendTrackingEvent("modal-submit-error", {
-                  error: truncateString(e.message, 32),
-                });
+                if (trackOnSubmit) {
+                  sendTrackingEvent("modal-submit-error", {
+                    error: truncateString(e.message, 32),
+                  });
+                }
               }
             }}
           >
