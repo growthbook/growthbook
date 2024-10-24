@@ -31,7 +31,7 @@ export default function BanditSummaryResultsTab({
   >(`banditSummaryResultsChartMode__${experiment.id}`, "values");
   const [chartType, setChartType] = useLocalStorage<"area" | "line">(
     `banditSummaryResultsChartType__${experiment.id}`,
-    "line"
+    "area"
   );
   const numPhases = experiment.phases.length;
   const [phase, setPhase] = useState<number>(experiment.phases.length - 1);
@@ -164,12 +164,12 @@ export default function BanditSummaryResultsTab({
                     setValue={(v) => setChartType(v)}
                     options={[
                       {
-                        label: <LiaChartLineSolid size={20} />,
-                        value: "line",
-                      },
-                      {
                         label: <TbChartAreaLineFilled size={20} />,
                         value: "area",
+                      },
+                      {
+                        label: <LiaChartLineSolid size={20} />,
+                        value: "line",
                       },
                     ]}
                   />

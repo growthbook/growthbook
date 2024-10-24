@@ -1,15 +1,8 @@
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useState } from "react";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  getExperimentDefinitionFromFeature,
-  getVariationColor,
-} from "@/services/features";
+import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -32,12 +25,6 @@ export default function ExperimentSummary({
   const type = feature.valueType;
   const { namespaces: allNamespaces } = useOrgSettings();
 
-  const { datasources, metrics } = useDefinitions();
-  const [newExpModal, setNewExpModal] = useState(false);
-  const [experimentInstructions, setExperimentInstructions] = useState(false);
-
-  const expDefinition = getExperimentDefinitionFromFeature(feature, rule);
-
   const hasNamespace = namespace && namespace.enabled;
   const namespaceRange = hasNamespace
     ? namespace.range[1] - namespace.range[0]
@@ -46,53 +33,6 @@ export default function ExperimentSummary({
 
   return (
     <div>
-      {newExpModal && (
-        <NewExperimentForm
-          onClose={() => setNewExpModal(false)}
-          source="feature-rule"
-          isImport={true}
-          fromFeature={true}
-          msg="We couldn't find an analysis yet for that feature. Create a new one now."
-          initialValue={expDefinition || undefined}
-        />
-      )}
-      {experimentInstructions && (
-        <Modal
-          trackingEventModalType=""
-          header={"Experiments need to be set up first"}
-          open={true}
-          size="lg"
-          close={() => {
-            setExperimentInstructions(false);
-          }}
-          cta={"Set up experiments"}
-        >
-          <div className="row">
-            <div className="col-8 pl-2 mt-2">
-              In order to view the results, you first have to set up experiments
-              by connecting to your data source, and adding a metric.
-              <div className="mt-5">
-                <Link
-                  href={`/experiments/?featureExperiment=${encodeURIComponent(
-                    JSON.stringify(expDefinition)
-                  )}`}
-                  className="btn btn-primary"
-                >
-                  Set up experiments
-                </Link>
-              </div>
-            </div>
-            <div className="col-4">
-              <img
-                className=""
-                src="/images/add-graph.svg"
-                alt=""
-                style={{ width: "100%", maxWidth: "200px" }}
-              />
-            </div>
-          </div>
-        </Modal>
-      )}
       <div className="mb-3 row">
         <div className="col-auto">
           <strong>SPLIT</strong>
@@ -216,30 +156,7 @@ export default function ExperimentSummary({
             >
               View results
             </Link>
-          ) : datasources.length > 0 && metrics.length > 0 ? (
-            <a
-              className="btn btn-outline-primary"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setNewExpModal(true);
-              }}
-              title="Create an experiment report from this rule"
-            >
-              View results
-            </a>
-          ) : (
-            <a
-              className="btn btn-outline-primary"
-              title="Setup experiments to view results"
-              onClick={(e) => {
-                e.preventDefault();
-                setExperimentInstructions(true);
-              }}
-            >
-              View results
-            </a>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

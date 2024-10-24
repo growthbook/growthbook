@@ -3,7 +3,6 @@ import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-  ExperimentType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -16,8 +15,7 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
-import { FaRegCircleCheck } from "react-icons/fa6";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { kebabCase } from "lodash";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -49,14 +47,12 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import Toggle from "@/components/Forms/Toggle";
-import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { useUser } from "@/services/UserContext";
 import { useExperiments } from "@/hooks/useExperiments";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import { GBCuped } from "@/components/Icons";
-import { AppFeatures } from "@/types/app-features";
+import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
+import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
+import Callout from "@/components/Radix/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -129,7 +125,9 @@ export function getNewExperimentDatasourceDefaults(
 
 const NewExperimentForm: FC<NewExperimentFormProps> = ({
   initialStep = 0,
-  initialValue,
+  initialValue = {
+    type: "standard",
+  },
   initialNumVariations = 2,
   onClose,
   onCreate = null,
@@ -143,8 +141,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   inline,
   isNewExperiment,
 }) => {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { organization, hasCommercialFeature } = useUser();
 
   const router = useRouter();
@@ -152,13 +148,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
   );
-  //const [trackingProps, setTrackingProps] = useState({});
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
   const {
     datasources,
     getDatasourceById,
-    getExperimentMetricById,
     refreshTags,
     project,
   } = useDefinitions();
@@ -187,19 +181,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project
   );
 
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
-  const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
-  );
-  const orgStickyBucketing = !!settings.useStickyBucketing;
-  const usingStickyBucketing =
-    orgStickyBucketing && !initialValue?.disableStickyBucketing;
-
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema(false, project);
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
+  const hashAttributes =
+    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
+    [];
+  const hasHashAttributes = hashAttributes.length > 0;
+  const hashAttribute = hashAttributes.includes("id")
+    ? "id"
+    : hashAttributes[0] || "id";
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -212,14 +203,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue
       ),
       name: initialValue?.name || "",
-      type:
-        (hasStickyBucketFeature &&
-        usingStickyBucketing &&
-        hasMultiArmedBanditFeature
-          ? initialValue?.type
-          : "standard") || "standard",
+      type: initialValue?.type ?? "standard",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
+      hashAttribute: initialValue?.hashAttribute || hashAttribute,
       hashVersion:
         initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
       attributionModel:
@@ -278,7 +265,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
-  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
   const { apiCall } = useAuth();
 
@@ -368,7 +354,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
 
     // TODO remove if data correlates
-    track("Create Experiment", {
+    track(isBandit ? "CreateBandit" : "Create Experiment", {
       source,
       numTags: data.tags?.length || 0,
       numMetrics:
@@ -387,17 +373,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
-  const userIdType = exposureQueries.find(
-    (e) => e.id === form.getValues("exposureQueryId")
-  )?.userIdType;
   const status = form.watch("status");
   const type = form.watch("type");
+  const isBandit = type === "multi-armed-bandit";
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
-  );
 
   useEffect(() => {
     if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
@@ -405,617 +385,497 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
-  // TODO with PagedModal tracking
-  // useEffect(() => {
-  //   const values = form.getValues();
-  //   setTrackingProps({
-  //     numTags: values.tags?.length || 0,
-  //     numMetrics:
-  //       (values.goalMetrics?.length || 0) +
-  //       (values.secondaryMetrics?.length || 0),
-  //     numVariations: values.variations?.length || 0,
-  //   });
-  // }, [form]);
-
   let header = isNewExperiment
-    ? `Create ${
-        form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
-      }`
-    : "Create Experiment Analysis";
+    ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
+    : "Add new Experiment Analysis";
   if (duplicate) {
-    header = `Duplicate ${
-      form.watch("type") === "multi-armed-bandit" ? "Bandit" : "Experiment"
-    }`;
+    header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
   }
+  const trackingEventModalType = kebabCase(header);
 
   return (
-    <PagedModal
-      header={header}
-      close={onClose}
-      docSection="experimentConfiguration"
-      submit={onSubmit}
-      cta={"Save"}
-      closeCta="Cancel"
-      size="lg"
-      step={step}
-      setStep={setStep}
-      inline={inline}
-    >
-      <Page display="Overview">
-        <div className="px-2">
-          {msg && <div className="alert alert-info">{msg}</div>}
+    <FormProvider {...form}>
+      <PagedModal
+        trackingEventModalType={trackingEventModalType}
+        trackingEventModalSource={source}
+        header={header}
+        close={onClose}
+        docSection="experimentConfiguration"
+        submit={onSubmit}
+        cta={"Save"}
+        closeCta="Cancel"
+        size="lg"
+        step={step}
+        setStep={setStep}
+        inline={inline}
+        backButton={true}
+      >
+        <Page display="Overview">
+          <div className="px-2">
+            {msg && <div className="alert alert-info">{msg}</div>}
 
-          {currentProjectIsDemo && (
-            <div className="alert alert-warning">
-              You are creating an experiment under the demo datasource project.
-              This experiment will be deleted when the demo datasource project
-              is deleted.
-            </div>
-          )}
-
-          {growthbook.isOn("bandits") && !duplicate && (
-            <div className="bg-highlight rounded py-4 px-4 mb-4">
-              <ButtonSelectField
-                buttonType="card"
-                value={form.watch("type") || ""}
-                setValue={(v) => form.setValue("type", v as ExperimentType)}
-                options={[
-                  {
-                    label: (
-                      <div
-                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                        style={{ minHeight: 120 }}
-                      >
-                        <div className="h4">
-                          {form.watch("type") === "standard" && (
-                            <FaRegCircleCheck
-                              size={18}
-                              className="check text-success mr-2"
-                            />
-                          )}
-                          Experiment
-                        </div>
-                        <div className="small">
-                          Variation weights are constant throughout the
-                          experiment
-                        </div>
-                      </div>
-                    ),
-                    value: "standard",
-                  },
-                  {
-                    label: (
-                      <div
-                        className="mx-3 d-flex flex-column align-items-center justify-content-center"
-                        style={{ minHeight: 120 }}
-                      >
-                        <div className="h4">
-                          <PremiumTooltip
-                            commercialFeature="multi-armed-bandits"
-                            body={
-                              !usingStickyBucketing &&
-                              hasStickyBucketFeature ? (
-                                <div>
-                                  Enable Sticky Bucketing in your organization
-                                  settings to run a Bandit.
-                                </div>
-                              ) : null
-                            }
-                            usePortal={true}
-                          >
-                            {form.watch("type") === "multi-armed-bandit" && (
-                              <FaRegCircleCheck
-                                size={18}
-                                className="check text-success mr-2"
-                              />
-                            )}
-                            Bandit
-                          </PremiumTooltip>
-                        </div>
-
-                        <div className="small">
-                          Variations with better results receive more traffic
-                          during the experiment
-                        </div>
-                      </div>
-                    ),
-                    value: "multi-armed-bandit",
-                    disabled:
-                      !hasMultiArmedBanditFeature || !usingStickyBucketing,
-                  },
-                ]}
-              />
-            </div>
-          )}
-
-          <Field
-            label={
-              type === "multi-armed-bandit" ? "Bandit Name" : "Experiment Name"
-            }
-            required
-            minLength={2}
-            {...form.register("name", { setValueAs: (s) => s?.trim() })}
-            onChange={async (e) => {
-              const val = e?.target?.value ?? form.watch("name");
-              if (!val) {
-                form.setValue("trackingKey", "");
-                return;
-              }
-              const trackingKey = await generateTrackingKey(
-                { name: val },
-                async (key: string) =>
-                  (experiments.find((exp) => exp.trackingKey === key) as
-                    | ExperimentInterfaceStringDates
-                    | undefined) ?? null
-              );
-              form.setValue("trackingKey", trackingKey);
-            }}
-          />
-
-          <Field
-            label="Tracking Key"
-            {...form.register("trackingKey")}
-            helpText={
-              supportsSQL ? (
-                <>
-                  Unique identifier for this experiment, used to track
-                  impressions and analyze results. Will match against the{" "}
-                  <code>experiment_id</code> column in your data source.
-                </>
-              ) : (
-                <>
-                  Unique identifier for this experiment, used to track
-                  impressions and analyze results. Must match the experiment id
-                  in your tracking callback.
-                </>
-              )
-            }
-          />
-
-          {type !== "multi-armed-bandit" && (
-            <Field
-              label="Hypothesis"
-              textarea
-              minRows={2}
-              maxRows={6}
-              placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-              {...form.register("hypothesis")}
-            />
-          )}
-          {includeDescription && (
-            <Field
-              label="Description"
-              textarea
-              minRows={2}
-              maxRows={6}
-              placeholder={
-                type === "multi-armed-bandit"
-                  ? "Purpose of the Bandit"
-                  : "Purpose of the Experiment"
-              }
-              {...form.register("description")}
-            />
-          )}
-          <div className="form-group">
-            <label>Tags</label>
-            <TagsInput
-              value={form.watch("tags") ?? []}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          </div>
-          {isNewExperiment && (
-            <Field
-              type="hidden"
-              value={
-                !hasStickyBucketFeature || !usingStickyBucketing
-                  ? "standard"
-                  : form.watch("type") ?? "standard"
-              }
-            />
-          )}
-          {!isNewExperiment && (
-            <SelectField
-              label="Status"
-              options={[
-                { label: "draft", value: "draft" },
-                { label: "running", value: "running" },
-                { label: "stopped", value: "stopped" },
-              ]}
-              onChange={(v) => {
-                const status = v as ExperimentStatus;
-                form.setValue("status", status);
-              }}
-              value={form.watch("status") ?? ""}
-              sort={false}
-            />
-          )}
-          {status !== "draft" && (
-            <Field
-              label="Start Date (UTC)"
-              type="datetime-local"
-              {...form.register("phases.0.dateStarted")}
-            />
-          )}
-          {status === "stopped" && (
-            <Field
-              label="End Date (UTC)"
-              type="datetime-local"
-              {...form.register("phases.0.dateEnded")}
-            />
-          )}
-        </div>
-      </Page>
-
-      {!!isNewExperiment && type === "multi-armed-bandit" && (
-        <Page display="Bandit Settings">
-          <div className="mx-2">
-            <SelectField
-              label="Data Source"
-              labelClassName="font-weight-bold"
-              value={form.watch("datasource") ?? ""}
-              onChange={(newDatasource) => {
-                form.setValue("datasource", newDatasource);
-
-                // If unsetting the datasource, leave all the other settings alone
-                // That way, it will be restored if the user switches back to the previous value
-                if (!newDatasource) {
-                  return;
-                }
-
-                const isValidMetric = (id: string) =>
-                  getExperimentMetricById(id)?.datasource === newDatasource;
-
-                // Filter the selected metrics to only valid ones
-                const goals = form.watch("goalMetrics") ?? [];
-                form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
-                form.setValue(
-                  "secondaryMetrics",
-                  secondaryMetrics.filter(isValidMetric)
-                );
-
-                // const guardrails = form.watch("guardrailMetrics") ?? [];
-                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
-              }}
-              options={datasources.map((d) => {
-                const isDefaultDataSource = d.id === settings.defaultDataSource;
-                return {
-                  value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
-                };
-              })}
-              className="portal-overflow-ellipsis"
-            />
-
-            {datasource?.properties?.exposureQueries && (
-              <SelectField
-                label="Experiment Assignment Table"
-                labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                required
-                options={exposureQueries.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                helpText={
-                  <>
-                    <div>
-                      Should correspond to the Identifier Type used to randomize
-                      units for this experiment
-                    </div>
-                    {userIdType ? (
-                      <>
-                        Identifier Type: <code>{userIdType}</code>
-                      </>
-                    ) : null}
-                  </>
-                }
-              />
+            {currentProjectIsDemo && (
+              <div className="alert alert-warning">
+                You are creating an experiment under the demo datasource
+                project. This experiment will be deleted when the demo
+                datasource project is deleted.
+              </div>
             )}
 
-            <ExperimentMetricsSelector
-              datasource={datasource?.id}
-              exposureQueryId={exposureQueryId}
-              project={project}
-              forceSingleGoalMetric={true}
-              noPercentileGoalMetrics={true}
-              goalMetrics={form.watch("goalMetrics") ?? []}
-              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
-              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
-              setGoalMetrics={(goalMetrics) =>
-                form.setValue("goalMetrics", goalMetrics)
-              }
-              setSecondaryMetrics={(secondaryMetrics) =>
-                form.setValue("secondaryMetrics", secondaryMetrics)
-              }
-              setGuardrailMetrics={(guardrailMetrics) =>
-                form.setValue("guardrailMetrics", guardrailMetrics)
-              }
+            <Field
+              label={isBandit ? "Bandit Name" : "Experiment Name"}
+              required
+              minLength={2}
+              {...form.register("name", { setValueAs: (s) => s?.trim() })}
+              onChange={async (e) => {
+                const val = e?.target?.value ?? form.watch("name");
+                if (!val) {
+                  form.setValue("trackingKey", "");
+                  return;
+                }
+                const trackingKey = await generateTrackingKey(
+                  { name: val },
+                  async (key: string) =>
+                    (experiments.find((exp) => exp.trackingKey === key) as
+                      | ExperimentInterfaceStringDates
+                      | undefined) ?? null
+                );
+                form.setValue("trackingKey", trackingKey);
+              }}
             />
 
-            <FormProvider {...form}>
-              <BanditSettings
-                page="experiment-settings"
-                settings={scopedSettings}
-              />
-            </FormProvider>
+            <Field
+              label="Tracking Key"
+              {...form.register("trackingKey")}
+              helpText={`Unique identifier for this ${
+                isBandit ? "Bandit" : "Experiment"
+              }, used to track impressions and analyze results`}
+            />
 
-            <div className="mt-4">
-              <StatsEngineSelect
-                label={
-                  <>
-                    <div>Statistics Engine</div>
-                    <div className="small text-muted">
-                      Only <strong>Bayesian</strong> is available for Bandit
-                      Experiments.
-                    </div>
-                  </>
-                }
-                value={"bayesian"}
-                parentSettings={scopedSettings}
-                allowUndefined={false}
-                disabled={true}
+            {!isBandit && (
+              <Field
+                label="Hypothesis"
+                textarea
+                minRows={1}
+                placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+                {...form.register("hypothesis")}
               />
-
-              <SelectField
-                label={
-                  <PremiumTooltip commercialFeature="regression-adjustment">
-                    <GBCuped /> Use Regression Adjustment (CUPED)
-                  </PremiumTooltip>
-                }
-                style={{ width: 200 }}
-                labelClassName="font-weight-bold"
-                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-                onChange={(v) => {
-                  form.setValue("regressionAdjustmentEnabled", v === "on");
-                }}
-                options={[
-                  {
-                    label: "On",
-                    value: "on",
-                  },
-                  {
-                    label: "Off",
-                    value: "off",
-                  },
-                ]}
-                disabled={!hasRegressionAdjustmentFeature}
+            )}
+            {includeDescription && (
+              <Field
+                label="Description"
+                textarea
+                minRows={1}
+                {...form.register("description")}
+                placeholder={`Short human-readable description of the ${
+                  isBandit ? "Bandit" : "Experiment"
+                }`}
+              />
+            )}
+            <div className="form-group">
+              <label>Tags</label>
+              <TagsInput
+                value={form.watch("tags") ?? []}
+                onChange={(tags) => form.setValue("tags", tags)}
               />
             </div>
+            {!isNewExperiment && (
+              <>
+                <SelectField
+                  label="Status"
+                  options={[
+                    { label: "draft", value: "draft" },
+                    { label: "running", value: "running" },
+                    { label: "stopped", value: "stopped" },
+                  ]}
+                  onChange={(v) => {
+                    const status = v as ExperimentStatus;
+                    form.setValue("status", status);
+                  }}
+                  value={form.watch("status") ?? ""}
+                  sort={false}
+                />
+                {status !== "draft" && (
+                  <Field
+                    label="Start Date (UTC)"
+                    type="datetime-local"
+                    {...form.register("phases.0.dateStarted")}
+                  />
+                )}
+                {status === "stopped" && (
+                  <Field
+                    label="End Date (UTC)"
+                    type="datetime-local"
+                    {...form.register("phases.0.dateEnded")}
+                  />
+                )}
+              </>
+            )}
           </div>
         </Page>
-      )}
 
-      <Page display="Targeting">
-        <div className="px-2">
-          {isNewExperiment && (
-            <div className="alert alert-info mb-4">
-              You will have a chance to review and change these settings before
-              starting your experiment.
-            </div>
-          )}
+        {!isBandit && (isNewExperiment || duplicate)
+          ? ["Overview", "Traffic", "Targeting"].map((p, i) => {
+              // skip, custom overview page above
+              if (i === 0) return null;
+              return (
+                <Page display={p} key={i}>
+                  <ExperimentRefNewFields
+                    step={i}
+                    source="experiment"
+                    project={project}
+                    environments={envs}
+                    noSchedule={true}
+                    setPrerequisiteTargetingSdkIssues={
+                      setPrerequisiteTargetingSdkIssues
+                    }
+                    conditionKey={conditionKey}
+                    coverage={form.watch("phases.0.coverage")}
+                    setCoverage={(coverage) =>
+                      form.setValue("phases.0.coverage", coverage)
+                    }
+                    setWeight={(i, weight) =>
+                      form.setValue(`phases.0.variationWeights.${i}`, weight)
+                    }
+                    variations={
+                      form.watch("variations")?.map((v, i) => {
+                        return {
+                          value: v.key || "",
+                          name: v.name,
+                          weight: form.watch(`phases.0.variationWeights.${i}`),
+                          id: v.id,
+                        };
+                      }) ?? []
+                    }
+                    setVariations={(v) => {
+                      form.setValue(
+                        "variations",
+                        v.map((data, i) => {
+                          return {
+                            // default values
+                            name: "",
+                            screenshots: [],
+                            ...data,
+                            key: data.value || `${i}` || "",
+                          };
+                        })
+                      );
+                      form.setValue(
+                        "phases.0.variationWeights",
+                        v.map((v) => v.weight)
+                      );
+                    }}
+                  />
+                </Page>
+              );
+            })
+          : null}
 
-          {isNewExperiment && (
-            <>
-              <div className="d-flex" style={{ gap: "2rem" }}>
-                <SelectField
-                  containerClassName="flex-1"
-                  label="Assign variation based on attribute"
-                  labelClassName="font-weight-bold"
-                  options={attributeSchema
-                    .filter((s) => !hasHashAttributes || s.hashAttribute)
-                    .map((s) => ({ label: s.property, value: s.property }))}
-                  sort={false}
-                  value={form.watch("hashAttribute") || ""}
-                  onChange={(v) => {
-                    form.setValue("hashAttribute", v);
-                  }}
-                  helpText={
-                    "Will be hashed together with the seed (UUID) to determine which variation to assign"
-                  }
-                />
-                <FallbackAttributeSelector
-                  form={form}
-                  attributeSchema={attributeSchema}
-                />
-              </div>
+        {isBandit && (isNewExperiment || duplicate)
+          ? [
+              "Overview",
+              "Traffic",
+              "Targeting",
+              <>
+                Analysis
+                <br />
+                Settings
+              </>,
+            ].map((p, i) => {
+              // skip, custom overview page above
+              if (i === 0) return null;
+              return (
+                <Page display={p} key={i}>
+                  <BanditRefNewFields
+                    step={i}
+                    source="experiment"
+                    project={project}
+                    environments={envs}
+                    setPrerequisiteTargetingSdkIssues={
+                      setPrerequisiteTargetingSdkIssues
+                    }
+                    conditionKey={conditionKey}
+                    coverage={form.watch("phases.0.coverage")}
+                    setCoverage={(coverage) =>
+                      form.setValue("phases.0.coverage", coverage)
+                    }
+                    setWeight={(i, weight) =>
+                      form.setValue(`phases.0.variationWeights.${i}`, weight)
+                    }
+                    variations={
+                      form.watch("variations")?.map((v, i) => {
+                        return {
+                          value: v.key || "",
+                          name: v.name,
+                          weight: form.watch(`phases.0.variationWeights.${i}`),
+                          id: v.id,
+                        };
+                      }) ?? []
+                    }
+                    setVariations={(v) => {
+                      form.setValue(
+                        "variations",
+                        v.map((data, i) => {
+                          return {
+                            // default values
+                            name: "",
+                            screenshots: [],
+                            ...data,
+                            key: data.value || `${i}` || "",
+                          };
+                        })
+                      );
+                      form.setValue(
+                        "phases.0.variationWeights",
+                        v.map((v) => v.weight)
+                      );
+                    }}
+                  />
+                </Page>
+              );
+            })
+          : null}
 
-              {hasSDKWithNoBucketingV2 && (
-                <HashVersionSelector
-                  value={(form.watch("hashVersion") || 1) as 1 | 2}
-                  onChange={(v) => form.setValue("hashVersion", v)}
-                  project={project}
-                />
+        {!(isNewExperiment || duplicate) ? (
+          <Page display="Targeting">
+            <div className="px-2">
+              {isNewExperiment && (
+                <>
+                  <div className="d-flex" style={{ gap: "2rem" }}>
+                    <SelectField
+                      containerClassName="flex-1"
+                      label="Assign variation based on attribute"
+                      labelClassName="font-weight-bold"
+                      options={attributeSchema
+                        .filter((s) => !hasHashAttributes || s.hashAttribute)
+                        .map((s) => ({
+                          label: s.property,
+                          value: s.property,
+                        }))}
+                      sort={false}
+                      value={form.watch("hashAttribute") || ""}
+                      onChange={(v) => {
+                        form.setValue("hashAttribute", v);
+                      }}
+                      helpText={
+                        "Will be hashed together with the seed (UUID) to determine which variation to assign"
+                      }
+                    />
+                    <FallbackAttributeSelector
+                      form={form}
+                      attributeSchema={attributeSchema}
+                    />
+                  </div>
+
+                  {hasSDKWithNoBucketingV2 && (
+                    <HashVersionSelector
+                      value={(form.watch("hashVersion") || 1) as 1 | 2}
+                      onChange={(v) => form.setValue("hashVersion", v)}
+                      project={project}
+                    />
+                  )}
+
+                  <hr />
+                  <SavedGroupTargetingField
+                    value={form.watch("phases.0.savedGroups") || []}
+                    setValue={(savedGroups) =>
+                      form.setValue("phases.0.savedGroups", savedGroups)
+                    }
+                    project={project}
+                  />
+                  <hr />
+                  <ConditionInput
+                    defaultValue={form.watch("phases.0.condition") || ""}
+                    onChange={(value) =>
+                      form.setValue("phases.0.condition", value)
+                    }
+                    key={conditionKey}
+                    project={project}
+                  />
+                  <hr />
+                  <PrerequisiteTargetingField
+                    value={form.watch("phases.0.prerequisites") || []}
+                    setValue={(prerequisites) =>
+                      form.setValue("phases.0.prerequisites", prerequisites)
+                    }
+                    environments={envs}
+                    project={form.watch("project")}
+                    setPrerequisiteTargetingSdkIssues={
+                      setPrerequisiteTargetingSdkIssues
+                    }
+                  />
+                  <hr />
+                  <NamespaceSelector
+                    formPrefix="phases.0."
+                    form={form}
+                    featureId={""}
+                    trackingKey={""}
+                  />
+                </>
               )}
 
               <hr />
-              <SavedGroupTargetingField
-                value={form.watch("phases.0.savedGroups") || []}
-                setValue={(savedGroups) =>
-                  form.setValue("phases.0.savedGroups", savedGroups)
+              {isImport && (
+                <Callout status="info" mb="3">
+                  We&apos;ve guessed the variation weights below based on the
+                  data we&apos;ve seen. They may need to be adjusted.
+                </Callout>
+              )}
+              <FeatureVariationsInput
+                valueType="string"
+                coverage={form.watch("phases.0.coverage")}
+                setCoverage={(coverage) =>
+                  form.setValue("phases.0.coverage", coverage)
                 }
-                project={project}
-              />
-              <hr />
-              <ConditionInput
-                defaultValue={form.watch("phases.0.condition") || ""}
-                onChange={(value) => form.setValue("phases.0.condition", value)}
-                key={conditionKey}
-                project={project}
-              />
-              <hr />
-              <PrerequisiteTargetingField
-                value={form.watch("phases.0.prerequisites") || []}
-                setValue={(prerequisites) =>
-                  form.setValue("phases.0.prerequisites", prerequisites)
+                coverageTooltip={
+                  isNewExperiment
+                    ? "This can be changed later"
+                    : "This is just for documentation purposes and has no effect on the analysis."
                 }
-                environments={envs}
-                project={form.watch("project")}
-                setPrerequisiteTargetingSdkIssues={
-                  setPrerequisiteTargetingSdkIssues
+                setWeight={(i, weight) =>
+                  form.setValue(`phases.0.variationWeights.${i}`, weight)
                 }
+                valueAsId={true}
+                variations={
+                  form.watch("variations")?.map((v, i) => {
+                    return {
+                      value: v.key || "",
+                      name: v.name,
+                      weight: form.watch(`phases.0.variationWeights.${i}`),
+                      id: v.id,
+                    };
+                  }) ?? []
+                }
+                setVariations={(v) => {
+                  form.setValue(
+                    "variations",
+                    v.map((data, i) => {
+                      return {
+                        name: "",
+                        screenshots: [],
+                        ...data,
+                        // use value as key if provided to maintain backwards compatibility
+                        key: data.value || `${i}` || "",
+                      };
+                    })
+                  );
+                  form.setValue(
+                    "phases.0.variationWeights",
+                    v.map((v) => v.weight)
+                  );
+                }}
+                showPreview={!!isNewExperiment}
+                disableCustomSplit={type === "multi-armed-bandit"}
               />
-              <hr />
-              <NamespaceSelector
-                formPrefix="phases.0."
-                form={form}
-                featureId={""}
-                trackingKey={""}
-              />
-            </>
-          )}
-
-          <hr />
-          {isImport && (
-            <div className="alert alert-info">
-              We guessed at the variation percents below based on the data we
-              saw. They might need to be adjusted.
             </div>
-          )}
-          <FeatureVariationsInput
-            simple={type === "multi-armed-bandit" && !initialValue?.variations}
-            valueType="string"
-            coverage={form.watch("phases.0.coverage")}
-            setCoverage={(coverage) =>
-              form.setValue("phases.0.coverage", coverage)
-            }
-            setWeight={(i, weight) =>
-              form.setValue(`phases.0.variationWeights.${i}`, weight)
-            }
-            valueAsId={true}
-            setVariations={(v) => {
-              form.setValue(
-                "variations",
-                v.map((data, i) => {
-                  return {
-                    // default values
-                    name: "",
-                    screenshots: [],
-                    // overwrite defaults
-                    ...data,
-                    // use value as key if provided to maintain backwards compatibility
-                    key: data.value || `${i}` || "",
-                  };
-                })
-              );
-              form.setValue(
-                "phases.0.variationWeights",
-                v.map((v) => v.weight)
-              );
-            }}
-            variations={
-              form.watch("variations")?.map((v, i) => {
-                return {
-                  value: v.key || "",
-                  name: v.name,
-                  weight: form.watch(`phases.0.variationWeights.${i}`),
-                  id: v.id,
-                };
-              }) ?? []
-            }
-            coverageTooltip={
-              isNewExperiment
-                ? "This can be changed later"
-                : "This is just for documentation purposes and has no effect on the analysis."
-            }
-            showPreview={!!isNewExperiment}
-            disableCustomSplit={type === "multi-armed-bandit"}
-          />
-        </div>
-      </Page>
+          </Page>
+        ) : null}
 
-      {!isNewExperiment && (
-        <Page display={"Analysis Settings"}>
-          <div className="px-2" style={{ minHeight: 350 }}>
-            {(!isImport || fromFeature) && (
-              <SelectField
-                label="Data Source"
-                labelClassName="font-weight-bold"
-                value={form.watch("datasource") ?? ""}
-                onChange={(v) => form.setValue("datasource", v)}
-                initialOption="Manual"
-                options={datasources.map((d) => {
-                  const isDefaultDataSource =
-                    d.id === settings.defaultDataSource;
-                  return {
-                    value: d.id,
-                    label: `${d.name}${
-                      d.description ? ` — ${d.description}` : ""
-                    }${isDefaultDataSource ? " (default)" : ""}`,
-                  };
-                })}
-                className="portal-overflow-ellipsis"
-              />
-            )}
-            {datasource?.properties?.exposureQueries && (
-              <SelectField
-                label="Experiment Assignment Table"
-                labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                initialOption="Choose..."
-                required
-                options={exposureQueries.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                helpText={
-                  <>
-                    <div>
-                      Should correspond to the Identifier Type used to randomize
-                      units for this experiment
-                    </div>
-                    {userIdType ? (
+        {!(isNewExperiment || duplicate) ? (
+          <Page
+            display={
+              <>
+                Analysis
+                <br />
+                Settings
+              </>
+            }
+          >
+            <div className="px-2" style={{ minHeight: 350 }}>
+              {(!isImport || fromFeature) && (
+                <SelectField
+                  label="Data Source"
+                  labelClassName="font-weight-bold"
+                  value={form.watch("datasource") ?? ""}
+                  onChange={(v) => form.setValue("datasource", v)}
+                  initialOption="Manual"
+                  options={datasources.map((d) => {
+                    const isDefaultDataSource =
+                      d.id === settings.defaultDataSource;
+                    return {
+                      value: d.id,
+                      label: `${d.name}${
+                        d.description ? ` — ${d.description}` : ""
+                      }${isDefaultDataSource ? " (default)" : ""}`,
+                    };
+                  })}
+                  className="portal-overflow-ellipsis"
+                />
+              )}
+              {datasource?.properties?.exposureQueries && (
+                <SelectField
+                  label={
+                    <>
+                      Experiment Assignment Table{" "}
+                      <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                    </>
+                  }
+                  labelClassName="font-weight-bold"
+                  value={form.watch("exposureQueryId") ?? ""}
+                  onChange={(v) => form.setValue("exposureQueryId", v)}
+                  initialOption="Choose..."
+                  required
+                  options={exposureQueries?.map((q) => {
+                    return {
+                      label: q.name,
+                      value: q.id,
+                    };
+                  })}
+                  formatOptionLabel={({ label, value }) => {
+                    const userIdType = exposureQueries?.find(
+                      (e) => e.id === value
+                    )?.userIdType;
+                    return (
                       <>
-                        Identifier Type: <code>{userIdType}</code>
+                        {label}
+                        {userIdType ? (
+                          <span
+                            className="text-muted small float-right position-relative"
+                            style={{ top: 3 }}
+                          >
+                            Identifier Type: <code>{userIdType}</code>
+                          </span>
+                        ) : null}
                       </>
-                    ) : null}
-                  </>
+                    );
+                  }}
+                />
+              )}
+
+              <ExperimentMetricsSelector
+                datasource={datasource?.id}
+                exposureQueryId={exposureQueryId}
+                project={project}
+                goalMetrics={form.watch("goalMetrics") ?? []}
+                secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+                guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+                setGoalMetrics={(goalMetrics) =>
+                  form.setValue("goalMetrics", goalMetrics)
+                }
+                setSecondaryMetrics={(secondaryMetrics) =>
+                  form.setValue("secondaryMetrics", secondaryMetrics)
+                }
+                setGuardrailMetrics={(guardrailMetrics) =>
+                  form.setValue("guardrailMetrics", guardrailMetrics)
                 }
               />
-            )}
-
-            <ExperimentMetricsSelector
-              datasource={datasource?.id}
-              exposureQueryId={exposureQueryId}
-              project={project}
-              goalMetrics={form.watch("goalMetrics") ?? []}
-              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
-              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
-              setGoalMetrics={(goalMetrics) =>
-                form.setValue("goalMetrics", goalMetrics)
-              }
-              setSecondaryMetrics={(secondaryMetrics) =>
-                form.setValue("secondaryMetrics", secondaryMetrics)
-              }
-              setGuardrailMetrics={(guardrailMetrics) =>
-                form.setValue("guardrailMetrics", guardrailMetrics)
-              }
-            />
-          </div>
-
-          {isImport && (
-            <div className="form-group">
-              <Toggle
-                id="auto_refresh_results"
-                label="Auto Refresh Results"
-                value={autoRefreshResults}
-                setValue={setAutoRefreshResults}
-              />
-              <label>Populate Results on Save</label>
             </div>
-          )}
-        </Page>
-      )}
-    </PagedModal>
+
+            {isImport && (
+              <div className="form-group">
+                <Toggle
+                  id="auto_refresh_results"
+                  label="Auto Refresh Results"
+                  value={autoRefreshResults}
+                  setValue={setAutoRefreshResults}
+                />
+                <label>Populate Results on Save</label>
+              </div>
+            )}
+          </Page>
+        ) : null}
+      </PagedModal>
+    </FormProvider>
   );
 };
 

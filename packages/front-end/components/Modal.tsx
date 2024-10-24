@@ -9,6 +9,7 @@ import {
 } from "react";
 import clsx from "clsx";
 import { truncateString } from "shared/util";
+import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import LoadingOverlay from "./LoadingOverlay";
@@ -27,6 +28,7 @@ type ModalProps = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
+  modalUuid?: string;
   className?: string;
   submitColor?: string;
   cta?: string | ReactNode;
@@ -99,7 +101,9 @@ const Modal: FC<ModalProps> = ({
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
+  modalUuid: _modalUuid,
 }) => {
+  const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -303,6 +307,7 @@ const Modal: FC<ModalProps> = ({
       track(eventName, {
         type: trackingEventModalType,
         source: trackingEventModalSource,
+        eventGroupUuid: modalUuid,
         ...allowlistedTrackingEventProps,
         ...(additionalProps || {}),
       });
@@ -311,6 +316,7 @@ const Modal: FC<ModalProps> = ({
       trackingEventModalType,
       trackingEventModalSource,
       allowlistedTrackingEventProps,
+      modalUuid,
     ]
   );
 

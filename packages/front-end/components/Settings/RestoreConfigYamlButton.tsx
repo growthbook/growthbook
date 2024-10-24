@@ -236,6 +236,7 @@ export default function RestoreConfigYamlButton({
     <div>
       {open && (
         <PagedModal
+          trackingEventModalType="import-settings-config-yaml"
           close={() => setOpen(false)}
           header="Import from config.yml"
           step={step}

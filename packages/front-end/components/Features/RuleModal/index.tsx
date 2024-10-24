@@ -1,5 +1,6 @@
 import { FormProvider, useForm } from "react-hook-form";
 import {
+  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
@@ -7,13 +8,14 @@ import {
 import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { isFeatureCyclic } from "shared/util";
+import { generateVariationId, isFeatureCyclic } from "shared/util";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
+import { kebabCase } from "lodash";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -539,7 +541,7 @@ export default function RuleModal({
   if (newRuleOverviewPage) {
     return (
       <Modal
-        trackingEventModalType=""
+        trackingEventModalType="feature-rule-overview"
         open={true}
         close={close}
         size="lg"
@@ -605,7 +607,7 @@ export default function RuleModal({
                           {hasStickyBucketFeature && !orgStickyBucketing && (
                             <HelperText status="info" size="sm" mt="2">
                               Enable Sticky Bucketing in your organization
-                              settings to run a Bandit.
+                              settings to run a Bandit
                             </HelperText>
                           )}
                         </>
@@ -688,20 +690,24 @@ export default function RuleModal({
           ruleType === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
       : "Rule";
+  const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
 
   return (
     <FormProvider {...form}>
       <PagedModal
+        trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
         cta="Save"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         bodyClassName="px-4"
         header={headerText}
-        subHeader={`You will have a chance to review ${
-          isNewRule ? "new rules" : "changes"
-        } as a draft before publishing.`}
+        docSection={
+          ruleType === "experiment-ref-new"
+            ? "experimentConfiguration"
+            : undefined
+        }
         step={step}
         setStep={setStep}
         hideNav={ruleType !== "experiment-ref-new"}
@@ -771,7 +777,10 @@ export default function RuleModal({
           ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields
+                  step={i}
+                  source="rule"
                   feature={feature}
+                  project={feature.project}
                   environment={environment}
                   defaultValues={defaultValues}
                   version={version}
@@ -784,7 +793,28 @@ export default function RuleModal({
                   conditionKey={conditionKey}
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
-                  step={i}
+                  coverage={form.watch("coverage") || 0}
+                  setCoverage={(coverage) =>
+                    form.setValue("coverage", coverage)
+                  }
+                  setWeight={(i, weight) =>
+                    form.setValue(`values.${i}.weight`, weight)
+                  }
+                  variations={
+                    form
+                      .watch("values")
+                      ?.map((v: ExperimentValue & { id?: string }) => {
+                        return {
+                          value: v.value || "",
+                          name: v.name,
+                          weight: v.weight,
+                          id: v.id || generateVariationId(),
+                        };
+                      }) || []
+                  }
+                  setVariations={(variations) =>
+                    form.setValue("values", variations)
+                  }
                 />
               </Page>
             ))
@@ -803,7 +833,10 @@ export default function RuleModal({
             ].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
+                  step={i}
+                  source="rule"
                   feature={feature}
+                  project={feature.project}
                   environment={environment}
                   version={version}
                   revisions={revisions}
@@ -813,7 +846,28 @@ export default function RuleModal({
                   isCyclic={isCyclic}
                   cyclicFeatureId={cyclicFeatureId}
                   conditionKey={conditionKey}
-                  step={i}
+                  coverage={form.watch("coverage") || 0}
+                  setCoverage={(coverage) =>
+                    form.setValue("coverage", coverage)
+                  }
+                  setWeight={(i, weight) =>
+                    form.setValue(`values.${i}.weight`, weight)
+                  }
+                  variations={
+                    form
+                      .watch("values")
+                      ?.map((v: ExperimentValue & { id?: string }) => {
+                        return {
+                          value: v.value || "",
+                          name: v.name,
+                          weight: v.weight,
+                          id: v.id || generateVariationId(),
+                        };
+                      }) || []
+                  }
+                  setVariations={(variations) =>
+                    form.setValue("values", variations)
+                  }
                 />
               </Page>
             ))

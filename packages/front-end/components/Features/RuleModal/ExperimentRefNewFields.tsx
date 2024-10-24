@@ -1,9 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import {
-  ExperimentValue,
-  FeatureInterface,
-  FeatureRule,
-} from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -15,7 +11,6 @@ import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
 import {
-  generateVariationId,
   getFeatureDefaultValue,
   NewExperimentRefRule,
   useAttributeSchema,
@@ -28,44 +23,64 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import Toggle from "@/components/Forms/Toggle";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 
 export default function ExperimentRefNewFields({
+  step,
+  source,
   feature,
+  project,
   environment,
+  environments,
   defaultValues,
+  noSchedule,
   revisions,
   version,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  step,
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
+  // variation input fields
+  coverage,
+  setCoverage,
+  setWeight,
+  variations,
+  setVariations,
 }: {
-  feature: FeatureInterface;
-  environment: string;
-  defaultValues: FeatureRule | NewExperimentRefRule;
-  revisions?: FeatureRevisionInterface[];
-  version: number;
-  setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
-  isCyclic: boolean;
-  cyclicFeatureId: string | null;
-  conditionKey: number;
   step: number;
-  scheduleToggleEnabled: boolean;
-  setScheduleToggleEnabled: (b: boolean) => void;
+  source: "rule" | "experiment";
+  feature?: FeatureInterface;
+  project?: string;
+  environment?: string;
+  environments?: string[];
+  defaultValues?: FeatureRule | NewExperimentRefRule;
+  noSchedule?: boolean;
+  revisions?: FeatureRevisionInterface[];
+  version?: number;
+  setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
+  isCyclic?: boolean;
+  cyclicFeatureId?: string | null;
+  conditionKey: number;
+  scheduleToggleEnabled?: boolean;
+  setScheduleToggleEnabled?: (b: boolean) => void;
+  coverage: number;
+  setCoverage: (c: number) => void;
+  setWeight: (i: number, w: number) => void;
+  variations: SortableVariation[];
+  setVariations: (v: SortableVariation[]) => void;
 }) {
   const form = useFormContext();
 
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    feature.project
+    project
   );
 
   const { namespaces } = useOrgSettings();
@@ -74,12 +89,17 @@ export default function ExperimentRefNewFields({
     <>
       {step === 0 ? (
         <>
-          <Field label="Experiment Name" {...form.register("name")} required />
+          <Field
+            required={true}
+            minLength={2}
+            label="Experiment Name"
+            {...form.register("name")}
+          />
 
           <Field
             label="Tracking Key"
             {...form.register(`trackingKey`)}
-            placeholder={feature.id}
+            placeholder={feature?.id || ""}
             helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
           />
 
@@ -104,66 +124,53 @@ export default function ExperimentRefNewFields({
       {step === 1 ? (
         <>
           <div className="mb-4">
-            <div className="d-flex" style={{ gap: "2rem" }}>
-              <SelectField
-                label="Assign value based on attribute"
-                containerClassName="flex-1"
-                options={attributeSchema
-                  .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
-                value={form.watch("hashAttribute")}
-                onChange={(v) => {
-                  form.setValue("hashAttribute", v);
-                }}
-                helpText={
-                  "Will be hashed together with the Tracking Key to determine which variation to assign"
-                }
-              />
-              <FallbackAttributeSelector
-                form={form}
-                attributeSchema={attributeSchema}
-              />
-            </div>
+            <SelectField
+              label="Assign value based on attribute"
+              containerClassName="flex-1"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+            />
 
             {hasSDKWithNoBucketingV2 && (
               <HashVersionSelector
                 value={(form.watch("hashVersion") || 1) as 1 | 2}
                 onChange={(v) => form.setValue("hashVersion", v)}
-                project={feature.project}
+                project={project}
               />
             )}
           </div>
 
           <FeatureVariationsInput
             label="Traffic Percent & Variations"
-            defaultValue={getFeatureDefaultValue(feature)}
-            valueType={feature.valueType}
-            coverage={form.watch("coverage") || 0}
-            setCoverage={(coverage) => form.setValue("coverage", coverage)}
-            setWeight={(i, weight) =>
-              form.setValue(`values.${i}.weight`, weight)
-            }
-            variations={
-              form
-                .watch("values")
-                ?.map((v: ExperimentValue & { id?: string }) => {
-                  return {
-                    value: v.value || "",
-                    name: v.name,
-                    weight: v.weight,
-                    id: v.id || generateVariationId(),
-                  };
-                }) || []
-            }
-            setVariations={(variations) => form.setValue("values", variations)}
+            defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
+            valueType={feature?.valueType ?? "string"}
+            coverageLabel="Traffic included in this Experiment"
+            coverageTooltip={`Users not included in the Bandit will skip this ${source}`}
+            coverage={coverage}
+            setCoverage={setCoverage}
+            setWeight={setWeight}
+            variations={variations}
+            setVariations={setVariations}
             feature={feature}
           />
 
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector
               form={form}
-              trackingKey={form.watch("trackingKey") || feature.id}
-              featureId={feature.id}
+              trackingKey={form.watch("trackingKey") || feature?.id}
+              featureId={feature?.id || ""}
               formPrefix=""
             />
           )}
@@ -177,14 +184,14 @@ export default function ExperimentRefNewFields({
             setValue={(savedGroups) =>
               form.setValue("savedGroups", savedGroups)
             }
-            project={feature.project || ""}
+            project={project || ""}
           />
           <hr />
           <ConditionInput
             defaultValue={form.watch("condition") || ""}
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
-            project={feature.project || ""}
+            project={project || ""}
           />
           <hr />
           <PrerequisiteTargetingField
@@ -195,7 +202,7 @@ export default function ExperimentRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={[environment]}
+            environments={environment ? [environment] : environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -207,38 +214,47 @@ export default function ExperimentRefNewFields({
               Remove this prerequisite to continue.
             </div>
           )}
-          <hr />
 
-          {form.watch("type") === "experiment-ref-new" && (
-            <div className="mt-4 mb-3">
-              <Toggle
-                value={form.watch("autoStart")}
-                setValue={(v) => form.setValue("autoStart", v)}
-                id="auto-start-new-experiment"
-              />{" "}
-              <label htmlFor="auto-start-new-experiment" className="text-dark">
-                Start Experiment Immediately
-              </label>
-              <div>
-                <small className="form-text text-muted">
-                  If On, the Experiment will start serving traffic as soon as
-                  the feature is published. Leave Off if you want to make
-                  additional changes before starting.
-                </small>
-              </div>
-              {!form.watch("autoStart") && (
+          {!noSchedule && form.watch("type") === "experiment-ref-new" ? (
+            <>
+              <hr />
+              <div className="mt-4 mb-3">
+                <Toggle
+                  value={form.watch("autoStart")}
+                  setValue={(v) => form.setValue("autoStart", v)}
+                  id="auto-start-new-experiment"
+                />{" "}
+                <label
+                  htmlFor="auto-start-new-experiment"
+                  className="text-dark"
+                >
+                  Start Experiment Immediately
+                </label>
                 <div>
-                  <hr />
-                  <ScheduleInputs
-                    defaultValue={defaultValues.scheduleRules || []}
-                    onChange={(value) => form.setValue("scheduleRules", value)}
-                    scheduleToggleEnabled={scheduleToggleEnabled}
-                    setScheduleToggleEnabled={setScheduleToggleEnabled}
-                  />
+                  <small className="form-text text-muted">
+                    If On, the Experiment will start serving traffic as soon as
+                    the feature is published. Leave Off if you want to make
+                    additional changes before starting.
+                  </small>
                 </div>
-              )}
-            </div>
-          )}
+                {!form.watch("autoStart") &&
+                scheduleToggleEnabled &&
+                setScheduleToggleEnabled ? (
+                  <div>
+                    <hr />
+                    <ScheduleInputs
+                      defaultValue={defaultValues?.scheduleRules || []}
+                      onChange={(value) =>
+                        form.setValue("scheduleRules", value)
+                      }
+                      scheduleToggleEnabled={scheduleToggleEnabled}
+                      setScheduleToggleEnabled={setScheduleToggleEnabled}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </>
       ) : null}
     </>

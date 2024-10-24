@@ -6,11 +6,15 @@ import React, {
   FC,
   isValidElement,
   ReactNode,
+  useCallback,
+  useEffect,
 } from "react";
 import { MdCheck } from "react-icons/md";
 import { PiArrowLeft, PiCaretRight, PiCircleDashed } from "react-icons/pi";
+import { v4 as uuidv4 } from "uuid";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
+import track, { TrackEventProps } from "@/services/track";
 
 type Props = {
   header: string;
@@ -40,6 +44,13 @@ type Props = {
   onSkip?: () => Promise<void>;
   skipped?: Set<number>;
   hideNav?: boolean;
+  // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
+  trackingEventModalType: string;
+  // The source (likely page or component) causing the modal to be shown
+  trackingEventModalSource?: string;
+  // Currently the allowlist for what event props are valid is controlled outside of the codebase.
+  // Make sure you've checked that any props you pass here are in the list!
+  allowlistedTrackingEventProps?: TrackEventProps;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -64,8 +75,12 @@ const PagedModal: FC<Props> = (props) => {
     onSkip,
     skipped,
     hideNav,
+    trackingEventModalType,
+    trackingEventModalSource,
+    allowlistedTrackingEventProps = {},
     ...passThrough
   } = props;
+  const [modalUuid] = useState(uuidv4());
 
   const [error, setError] = useState("");
   const style = navStyle ? navStyle : "default";
@@ -112,9 +127,38 @@ const PagedModal: FC<Props> = (props) => {
   const navFillClass =
     typeof navFill === "undefined" ? "nav-fill" : navFill ? "nav-fill" : "";
 
+  const sendTrackingEvent = useCallback(
+    (eventName: string, additionalProps?: Record<string, unknown>) => {
+      if (trackingEventModalType === "") {
+        return;
+      }
+      track(eventName, {
+        type: trackingEventModalType,
+        source: trackingEventModalSource,
+        eventGroupUuid: modalUuid,
+        ...allowlistedTrackingEventProps,
+        ...(additionalProps || {}),
+      });
+    },
+    [
+      trackingEventModalType,
+      trackingEventModalSource,
+      allowlistedTrackingEventProps,
+      modalUuid,
+    ]
+  );
+
+  useEffect(() => {
+    sendTrackingEvent("modal-page-change", {
+      step: step + 1,
+      steps: steps?.length,
+      pageName: steps?.[step]?.display,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   return (
     <Modal
-      trackingEventModalType=""
       inline={inline}
       size={size}
       disabledMessage={disabledMessage}
@@ -136,7 +180,7 @@ const PagedModal: FC<Props> = (props) => {
         }
       }}
       backCTA={
-        backButton && ((prevStep ?? 0) >= 0 || onBackFirstStep) ? (
+        backButton && (step >= 1 || onBackFirstStep) ? (
           <button
             className={`btn btn-link mr-3`}
             onClick={(e) => {
@@ -181,6 +225,10 @@ const PagedModal: FC<Props> = (props) => {
         )
       }
       ctaEnabled={ctaEnabled}
+      trackingEventModalType={trackingEventModalType}
+      trackingEventModalSource={trackingEventModalSource}
+      allowlistedTrackingEventProps={allowlistedTrackingEventProps}
+      modalUuid={modalUuid}
     >
       {!hideNav ? (
         <nav

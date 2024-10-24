@@ -329,6 +329,7 @@ const CompactResults: FC<{
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
           noTooltip={noTooltip}
+          isBandit={isBandit}
         />
       ) : null}
 
@@ -363,6 +364,7 @@ const CompactResults: FC<{
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
+            isBandit={isBandit}
           />
         </div>
       ) : null}
@@ -398,6 +400,7 @@ const CompactResults: FC<{
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
+            isBandit={isBandit}
           />
         </div>
       ) : (
