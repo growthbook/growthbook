@@ -132,6 +132,16 @@ export async function findSDKConnectionsByOrganization(
   );
 }
 
+export async function findSdkConnectionsAcrossMultipleOrgs(
+  organizationIds: string[]
+) {
+  const docs = await SDKConnectionModel.find({
+    organization: { $in: organizationIds },
+  });
+
+  return docs.map(toInterface);
+}
+
 export async function findAllSDKConnectionsAcrossAllOrgs() {
   const docs = await SDKConnectionModel.find();
   return docs.map(toInterface);

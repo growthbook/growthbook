@@ -52,4 +52,5 @@ export type AppFeatures = {
   "gb-ax5-bandit": boolean;
   "gb-ax10-bandit": boolean;
   "fact-metric-sql-preview": boolean;
+  "inbuilt-data-warehouse": boolean;
 };

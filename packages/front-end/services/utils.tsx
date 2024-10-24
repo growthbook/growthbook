@@ -3,6 +3,11 @@ import React, { ReactNode } from "react";
 import qs from "query-string";
 import { getEqualWeights } from "shared/experiments";
 
+export const GB_SDK_ID =
+  process.env.NODE_ENV === "production"
+    ? "sdk-ueFMOgZ2daLa0M"
+    : "sdk-UmQ03OkUDAu7Aox";
+
 export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);
   return weights.map((w) => +((w / sum) * 100));

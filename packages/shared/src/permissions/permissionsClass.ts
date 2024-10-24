@@ -567,18 +567,27 @@ export class Permissions {
   };
 
   public canViewCreateDataSourceModal = (project?: string): boolean => {
-    return this.canCreateDataSource({ projects: project ? [project] : [] });
+    return this.canCreateDataSource({
+      projects: project ? [project] : [],
+      type: undefined,
+    });
   };
 
-  public canCreateDataSource = (
-    datasource: Pick<DataSourceInterface, "projects">
-  ): boolean => {
+  public canCreateDataSource = (datasource: {
+    projects?: DataSourceInterface["projects"];
+    type: DataSourceInterface["type"] | undefined;
+  }): boolean => {
+    if (datasource?.type === "growthbook_clickhouse") return false;
+
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
-  public canUpdateDataSourceParams = (
-    datasource: Pick<DataSourceInterface, "projects">
-  ): boolean => {
+  public canUpdateDataSourceParams = (datasource: {
+    projects?: DataSourceInterface["projects"];
+    type: DataSourceInterface["type"] | undefined;
+  }): boolean => {
+    if (datasource?.type === "growthbook_clickhouse") return false;
+
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
