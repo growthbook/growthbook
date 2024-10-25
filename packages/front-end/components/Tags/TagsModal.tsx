@@ -1,11 +1,10 @@
 import { useForm } from "react-hook-form";
 import React from "react";
 import { TagInterface } from "back-end/types/tag";
-import { Button } from "@radix-ui/themes";
+import { Button, Container } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import { RadixColor } from "@/components/Radix/HelperText";
 import styles from "./TagsModal.module.scss";
 import Tag, { TAG_COLORS } from "./Tag";
 
@@ -57,7 +56,13 @@ export default function TagsModal({
         )}
         <label>Color:</label>
         <div className={styles.picker}>
-          <div className={styles.picker__swatches}>
+          <Container
+            style={{
+              background: "var(--color-background)",
+              borderRadius: "var(--radius-3)",
+            }}
+            p="4"
+          >
             {TAG_COLORS.map((c) => (
               <Button
                 key={c}
@@ -72,7 +77,7 @@ export default function TagsModal({
                 mb="1"
               />
             ))}
-          </div>
+          </Container>
         </div>
         <Field
           // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
