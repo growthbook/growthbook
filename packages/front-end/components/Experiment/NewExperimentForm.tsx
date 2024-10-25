@@ -385,6 +385,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
+  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
+
   let header = isNewExperiment
     ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
     : "Add new Experiment Analysis";
@@ -428,6 +430,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               minLength={2}
               {...form.register("name", { setValueAs: (s) => s?.trim() })}
               onChange={async (e) => {
+                if (!isNewExperiment) return;
+                if (!linkNameWithTrackingKey) return;
                 const val = e?.target?.value ?? form.watch("name");
                 if (!val) {
                   form.setValue("trackingKey", "");
@@ -450,6 +454,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               helpText={`Unique identifier for this ${
                 isBandit ? "Bandit" : "Experiment"
               }, used to track impressions and analyze results`}
+              onChange={() => setLinkNameWithTrackingKey(false)}
             />
 
             {!isBandit && (
