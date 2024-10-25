@@ -123,7 +123,7 @@ export const createEventWebHook = async (
     tags = [],
     projects = [],
     environments = [],
-    payloadType = "raw",
+    payloadType,
     method = "POST",
     headers = {},
   } = req.body;

@@ -111,9 +111,10 @@ export class EventWebHookNotifier implements Notifier {
 
     const payload = await (async () => {
       let invalidPayloadType: never;
-      const { payloadType } = eventWebHook;
 
-      if (!payloadType) return event.data;
+      // There might be very old webhook definitions who don't have
+      // a payloadType at all. Assume "raw" in this case.
+      const payloadType = eventWebHook.payloadType || "raw";
 
       switch (payloadType) {
         case "json": {
