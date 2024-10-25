@@ -713,7 +713,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               ref={containerRef}
               className={styles.dategraph}
               style={{
-                width: width - margin[1] - margin[3],
+                width: width - margin[3],
                 height: height - margin[0],
                 marginLeft: margin[3],
                 marginTop: margin[0],
