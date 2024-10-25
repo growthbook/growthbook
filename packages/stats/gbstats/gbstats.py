@@ -657,12 +657,7 @@ def get_bandit_result(
             )
         srm_p_value = b.compute_srm()
         bandit_result = b.compute_result()
-        if (
-            bandit_result.bandit_update_message
-            and bandit_result.bandit_update_message.startswith(
-                "total sample size is only "
-            )
-        ):
+        if not bandit_result.enough_units:
             return get_error_bandit_result(
                 update_message=bandit_result.bandit_update_message,
                 error="",
