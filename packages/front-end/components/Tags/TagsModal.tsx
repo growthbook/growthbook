@@ -1,12 +1,13 @@
 import { useForm } from "react-hook-form";
-import { HexColorPicker } from "react-colorful";
 import React from "react";
 import { TagInterface } from "back-end/types/tag";
+import { Button } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import { RadixColor } from "@/components/Radix/HelperText";
 import styles from "./TagsModal.module.scss";
-import Tag from "./Tag";
+import Tag, { TAG_COLORS } from "./Tag";
 
 export default function TagsModal({
   existing,
@@ -20,23 +21,11 @@ export default function TagsModal({
   const form = useForm<TagInterface>({
     defaultValues: {
       id: existing?.id || "",
-      color: existing?.color || "#029dd1",
+      color: existing?.color || "violet",
       description: existing?.description || "",
     },
   });
   const { apiCall } = useAuth();
-
-  const tagColors = [
-    { value: "#029dd1", label: "light-blue" },
-    { value: "#0047bd", label: "blue" },
-    { value: "#F170AC", label: "pink" },
-    { value: "#D64538", label: "red" },
-    { value: "#fc8414", label: "orange" },
-    { value: "#e2d221", label: "yellow" },
-    { value: "#9edd63", label: "lime" },
-    { value: "#28A66B", label: "green" },
-    { value: "#20C9B9", label: "teal" },
-  ];
 
   return (
     <Modal
@@ -68,24 +57,19 @@ export default function TagsModal({
         )}
         <label>Color:</label>
         <div className={styles.picker}>
-          <HexColorPicker
-            onChange={(c) => {
-              form.setValue("color", c);
-            }}
-            style={{ margin: "0 auto" }}
-            color={form.watch("color") || ""}
-            id="tagcolor"
-          />
           <div className={styles.picker__swatches}>
-            {tagColors.map((c) => (
-              <button
-                key={c.value}
-                className={styles.picker__swatch}
-                style={{ background: c.value }}
+            {TAG_COLORS.map((c) => (
+              <Button
+                key={c}
+                radius="full"
+                color={c}
                 onClick={(e) => {
                   e.preventDefault();
-                  form.setValue("color", c.value);
+                  form.setValue("color", c);
                 }}
+                mr="2"
+                mt="1"
+                mb="1"
               />
             ))}
           </div>

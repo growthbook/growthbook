@@ -41,7 +41,7 @@ export default function SortedTags({
           tag={tagCopy}
           key="tag-ellipsis"
           skipMargin={useFlex}
-          color="#ffffff"
+          // color="white"
         />
       </Tooltip>
     );

@@ -3,7 +3,7 @@
   font-size: 14px !important; /* radix should start at 16px as standard but that messes with all our em and rem */
   --font-weight-light: 200;
   --font-weight-regular: 400;
-  --font-weight-medium: 400;
+  --font-weight-medium: 500;
   --font-weight-bold: 600;
   .main {
     background-color: var(--background-color);

@@ -51,7 +51,6 @@ export interface Props {
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
-  idea?: IdeaInterface;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
@@ -72,7 +71,6 @@ export default function TabbedPage({
   duplicate,
   editProject,
   editTags,
-  idea,
   editVariations,
   visualChangesets,
   urlRedirects,
@@ -286,6 +284,8 @@ export default function TabbedPage({
         usersWatching={usersWatching}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
+        editProject={editProject}
+        editTags={editTags}
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
@@ -351,12 +351,6 @@ export default function TabbedPage({
             tab === "overview" ? "d-block" : "d-none d-print-block"
           )}
         >
-          <ProjectTagBar
-            experiment={experiment}
-            editProject={!viewingOldPhase ? editProject : undefined}
-            editTags={!viewingOldPhase ? editTags : undefined}
-            idea={idea}
-          />
           <SetupTabOverview
             experiment={experiment}
             mutate={mutate}
