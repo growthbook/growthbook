@@ -74,10 +74,14 @@ Triggered when a feature is created
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
                         fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: any | undefined;
+                        disableStickyBucketing?: boolean | undefined;
                         bucketVersion?: number | undefined;
                         minBucketVersion?: number | undefined;
-                        namespace?: any | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
                         coverage?: number | undefined;
                         value?: {
                             value: string;
@@ -134,10 +138,14 @@ Triggered when a feature is created
                             trackingKey?: string | undefined;
                             hashAttribute?: string | undefined;
                             fallbackAttribute?: string | undefined;
-                            disableStickyBucketing?: any | undefined;
+                            disableStickyBucketing?: boolean | undefined;
                             bucketVersion?: number | undefined;
                             minBucketVersion?: number | undefined;
-                            namespace?: any | undefined;
+                            namespace?: {
+                                enabled: boolean;
+                                name: string;
+                                range: number[];
+                            } | undefined;
                             coverage?: number | undefined;
                             value?: {
                                 value: string;
@@ -252,10 +260,14 @@ Triggered when a feature is updated
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
                         fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: any | undefined;
+                        disableStickyBucketing?: boolean | undefined;
                         bucketVersion?: number | undefined;
                         minBucketVersion?: number | undefined;
-                        namespace?: any | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
                         coverage?: number | undefined;
                         value?: {
                             value: string;
@@ -312,10 +324,14 @@ Triggered when a feature is updated
                             trackingKey?: string | undefined;
                             hashAttribute?: string | undefined;
                             fallbackAttribute?: string | undefined;
-                            disableStickyBucketing?: any | undefined;
+                            disableStickyBucketing?: boolean | undefined;
                             bucketVersion?: number | undefined;
                             minBucketVersion?: number | undefined;
-                            namespace?: any | undefined;
+                            namespace?: {
+                                enabled: boolean;
+                                name: string;
+                                range: number[];
+                            } | undefined;
                             coverage?: number | undefined;
                             value?: {
                                 value: string;
@@ -398,10 +414,14 @@ Triggered when a feature is updated
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
                         fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: any | undefined;
+                        disableStickyBucketing?: boolean | undefined;
                         bucketVersion?: number | undefined;
                         minBucketVersion?: number | undefined;
-                        namespace?: any | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
                         coverage?: number | undefined;
                         value?: {
                             value: string;
@@ -458,10 +478,14 @@ Triggered when a feature is updated
                             trackingKey?: string | undefined;
                             hashAttribute?: string | undefined;
                             fallbackAttribute?: string | undefined;
-                            disableStickyBucketing?: any | undefined;
+                            disableStickyBucketing?: boolean | undefined;
                             bucketVersion?: number | undefined;
                             minBucketVersion?: number | undefined;
-                            namespace?: any | undefined;
+                            namespace?: {
+                                enabled: boolean;
+                                name: string;
+                                range: number[];
+                            } | undefined;
                             coverage?: number | undefined;
                             value?: {
                                 value: string;
@@ -576,10 +600,14 @@ Triggered when a feature is deleted
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
                         fallbackAttribute?: string | undefined;
-                        disableStickyBucketing?: any | undefined;
+                        disableStickyBucketing?: boolean | undefined;
                         bucketVersion?: number | undefined;
                         minBucketVersion?: number | undefined;
-                        namespace?: any | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
                         coverage?: number | undefined;
                         value?: {
                             value: string;
@@ -636,10 +664,14 @@ Triggered when a feature is deleted
                             trackingKey?: string | undefined;
                             hashAttribute?: string | undefined;
                             fallbackAttribute?: string | undefined;
-                            disableStickyBucketing?: any | undefined;
+                            disableStickyBucketing?: boolean | undefined;
                             bucketVersion?: number | undefined;
                             minBucketVersion?: number | undefined;
-                            namespace?: any | undefined;
+                            namespace?: {
+                                enabled: boolean;
+                                name: string;
+                                range: number[];
+                            } | undefined;
                             coverage?: number | undefined;
                             value?: {
                                 value: string;
@@ -722,7 +754,7 @@ Triggered when an experiment is created
             hashAttribute: string;
             fallbackAttribute?: string | undefined;
             hashVersion: 1 | 2;
-            disableStickyBucketing?: any | undefined;
+            disableStickyBucketing?: boolean | undefined;
             bucketVersion?: number | undefined;
             minBucketVersion?: number | undefined;
             variations: {
@@ -860,7 +892,7 @@ Triggered when an experiment is updated
             hashAttribute: string;
             fallbackAttribute?: string | undefined;
             hashVersion: 1 | 2;
-            disableStickyBucketing?: any | undefined;
+            disableStickyBucketing?: boolean | undefined;
             bucketVersion?: number | undefined;
             minBucketVersion?: number | undefined;
             variations: {
@@ -966,7 +998,7 @@ Triggered when an experiment is updated
             hashAttribute?: string | undefined;
             fallbackAttribute?: (string | undefined) | undefined;
             hashVersion?: (1 | 2) | undefined;
-            disableStickyBucketing?: (any | undefined) | undefined;
+            disableStickyBucketing?: (boolean | undefined) | undefined;
             bucketVersion?: (number | undefined) | undefined;
             minBucketVersion?: (number | undefined) | undefined;
             variations?: {
@@ -1104,7 +1136,7 @@ Triggered when an experiment is deleted
             hashAttribute: string;
             fallbackAttribute?: string | undefined;
             hashVersion: 1 | 2;
-            disableStickyBucketing?: any | undefined;
+            disableStickyBucketing?: boolean | undefined;
             bucketVersion?: number | undefined;
             minBucketVersion?: number | undefined;
             variations: {
