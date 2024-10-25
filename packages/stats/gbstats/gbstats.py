@@ -650,12 +650,20 @@ def get_bandit_result(
     if b:
         if any(value is None for value in b.stats):
             return get_error_bandit_result(
+                update_message="not updated",
                 error="not all statistics are instance of type BanditStatistic",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
         srm_p_value = b.compute_srm()
         bandit_result = b.compute_result()
+        if not bandit_result.enough_units:
+            return get_error_bandit_result(
+                update_message=bandit_result.bandit_update_message,
+                error="",
+                reweight=bandit_settings.reweight,
+                current_weights=bandit_settings.current_weights,
+            )
         if (
             bandit_result.bandit_update_message == "successfully updated"
             and bandit_result.ci
@@ -689,11 +697,13 @@ def get_bandit_result(
                 else "unknown error in get_bandit_result"
             )
             return get_error_bandit_result(
+                update_message="not updated",
                 error=error_message,
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
     return get_error_bandit_result(
+        update_message="not updated",
         error="no data froms sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
@@ -778,6 +788,7 @@ def process_experiment_results(
                 else:
                     if d.bandit_settings:
                         bandit_result = get_error_bandit_result(
+                            update_message="not updated",
                             error="no rows",
                             reweight=d.bandit_settings.reweight,
                             current_weights=d.bandit_settings.current_weights,

@@ -38,11 +38,12 @@ class BanditResponse:
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     seed: int
-    bandit_update_message: Optional[str]
+    bandit_update_message: str
+    enough_units: Optional[bool]
 
 
 def get_error_bandit_result(
-    error: str, reweight: bool, current_weights: List[float]
+    update_message: str, error: str, reweight: bool, current_weights: List[float]
 ) -> BanditResult:
     return BanditResult(
         singleVariationResults=None,
@@ -51,7 +52,7 @@ def get_error_bandit_result(
         srm=1,
         bestArmProbabilities=None,
         seed=0,
-        updateMessage="not updated",
+        updateMessage=update_message,
         error=error,
         reweight=reweight,
     )
@@ -229,21 +230,22 @@ class Bandits(ABC):
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
         min_n = 100 * self.num_variations
-        enough_data = self.current_sample_size >= min_n
+        enough_units = self.current_sample_size >= min_n
 
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
             ci=credible_intervals,
-            bandit_weights=p.tolist() if enough_data else None,
+            bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             seed=seed,
             bandit_update_message=update_message
-            if enough_data
+            if enough_units
             else "total sample size is only "
             + str(self.current_sample_size)
             + " and it needs to be at least 100 * "
             + str(self.num_variations),
+            enough_units=enough_units,
         )
 
     # function that takes weights for largest realization and turns into top two weights
