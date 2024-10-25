@@ -3,7 +3,6 @@ import {
   useState,
   useEffect,
   ChangeEventHandler,
-  ReactElement,
   useCallback,
   ReactNode,
 } from "react";
@@ -15,6 +14,9 @@ import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Text } from "@radix-ui/themes";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -39,6 +41,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
+import RadioCards from "@/components/Radix/RadioCards";
+import { DocLink } from "@/components/DocLink";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -60,7 +64,6 @@ const NewDataSourceForm: FC<{
   onSuccess: (id: string) => Promise<void>;
   showImportSampleData: boolean;
   inline?: boolean;
-  secondaryCTA?: ReactElement;
   showBackButton?: boolean;
 }> = ({
   initial,
@@ -69,7 +72,6 @@ const NewDataSourceForm: FC<{
   source,
   showImportSampleData,
   inline,
-  secondaryCTA,
   showBackButton = true,
 }) => {
   const {
@@ -80,6 +82,8 @@ const NewDataSourceForm: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
   const router = useRouter();
+
+  const datasourceFirst = useFeatureIsOn("datasource-first");
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -124,6 +128,12 @@ const NewDataSourceForm: FC<{
   const possibleTypes =
     schemasMap.get(eventTracker || "custom")?.types ||
     dataSourceConnections.map((d) => d.type);
+
+  const possibleSchemas = eventSchemas
+    .filter(
+      (s) => connectionInfo.type && s.types?.includes(connectionInfo.type)
+    )
+    .map((s) => s.value);
 
   const [lastError, setLastError] = useState("");
 
@@ -171,6 +181,7 @@ const NewDataSourceForm: FC<{
   );
 
   useEffect(() => {
+    if (datasourceFirst) return;
     if (initial?.settings?.schemaFormat) {
       const schema = schemasMap.get(initial.settings.schemaFormat);
       if (schema) {
@@ -178,7 +189,7 @@ const NewDataSourceForm: FC<{
         setStep("connection");
       }
     }
-  }, [initial?.settings?.schemaFormat, setSchemaSettings]);
+  }, [datasourceFirst, initial?.settings?.schemaFormat, setSchemaSettings]);
 
   const selectedSchema: eventSchema = schemasMap.get(
     eventTracker || "custom"
@@ -383,7 +394,17 @@ const NewDataSourceForm: FC<{
 
   const submit =
     step === "initial"
-      ? undefined
+      ? datasourceFirst
+        ? async () => {
+            if (connectionInfo.type === "mixpanel") {
+              setStep("connection");
+            } else if (possibleSchemas.length > 0) {
+              setStep("eventTracker");
+            } else {
+              setStep("connection");
+            }
+          }
+        : undefined
       : step === "eventTracker"
       ? async () => {
           setStep("connection");
@@ -418,77 +439,124 @@ const NewDataSourceForm: FC<{
   if (step === "initial") {
     stepContents = (
       <div>
-        <p>
-          GrowthBook is warehouse native, which means we don&apos;t store a copy
-          of your data and instead run <code>read-only</code> SELECT queries on
-          your existing analytics infrastructure. These queries return the
-          aggregated statistics necessary to analyze experiments, ensuring your
-          data remains securely stored and unmodified.
+        <p className="mb-4">
+          GrowthBook is <strong>Warehouse Native</strong>, which means we sit on
+          top of your existing data instead of storing our own copy. This
+          approach is cheaper, more secure, and more flexible.
         </p>
-        <div>
-          <h4>Choose Your Setup</h4>
-          <div className="d-flex flex-wrap">
-            <div
-              className={clsx(
-                styles.ctaContainer,
-                !showImportSampleData && "w-50"
-              )}
-              onClick={() => setStep("eventTracker")}
-            >
-              <div className={styles.ctaButton}>
-                <div>
-                  <h3 className={styles.ctaText}>Guided Setup</h3>
-                  <p>
-                    Tell us what tool you use for event tracking in your app and
-                    we&apos;ll guide you through the rest
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div
-              className={clsx(
-                styles.ctaContainer,
-                !showImportSampleData && "w-50"
-              )}
-              onClick={(e) => {
-                e.preventDefault();
-                const custom = schemasMap.get("custom");
-                if (custom) {
-                  setSchemaSettings(custom);
-                }
-                setStep("connection");
+        {datasourceFirst ? (
+          <div>
+            <label>Where do you store your analytics data?</label>
+
+            <RadioCards
+              options={dataSourceConnections
+                .filter((o) => o.type !== "google_analytics")
+                .map((o) => {
+                  return {
+                    value: o.type,
+                    label: o.display,
+                    avatar: (
+                      <Text size={"7"} mr={"1"}>
+                        {o.icon}
+                      </Text>
+                    ),
+                  };
+                })}
+              value={connectionInfo.type || ""}
+              setValue={(value) => {
+                const option = dataSourceConnections.find(
+                  (o) => o.type === value
+                );
+                if (!option) return;
+
+                setLastError("");
+
+                track("Data Source Type Selected", {
+                  type: value,
+                  newDatasourceForm: true,
+                });
+
+                setConnectionInfo({
+                  ...connectionInfo,
+                  type: option.type,
+                  params: option.default,
+                } as Partial<DataSourceInterfaceWithParams>);
               }}
-            >
-              <div className={styles.ctaButton}>
-                <div>
-                  <h3 className={styles.ctaText}>Manual Setup</h3>
-                  <p>
-                    Connect to your data warehouse and manually configure
-                    GrowthBook with SQL queries
-                  </p>
+              columns={"3"}
+              align="center"
+            />
+
+            <Callout status="info" mt="3">
+              Don&apos;t have a data warehouse yet? We recommend using BigQuery
+              with Google Analytics.{" "}
+              <DocLink docSection="ga4BigQuery">
+                Learn more <FaExternalLinkAlt />
+              </DocLink>
+            </Callout>
+          </div>
+        ) : (
+          <div>
+            <h4>Choose Your Setup</h4>
+            <div className="d-flex flex-wrap">
+              <div
+                className={clsx(
+                  styles.ctaContainer,
+                  !showImportSampleData && "w-50"
+                )}
+                onClick={() => setStep("eventTracker")}
+              >
+                <div className={styles.ctaButton}>
+                  <div>
+                    <h3 className={styles.ctaText}>Guided Setup</h3>
+                    <p>
+                      Tell us what tool you use for event tracking in your app
+                      and we&apos;ll guide you through the rest
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-            {showImportSampleData && (
               <div
-                className={styles.ctaContainer}
+                className={clsx(
+                  styles.ctaContainer,
+                  !showImportSampleData && "w-50"
+                )}
                 onClick={(e) => {
                   e.preventDefault();
-                  router.push("/demo-datasource-project");
+                  const custom = schemasMap.get("custom");
+                  if (custom) {
+                    setSchemaSettings(custom);
+                  }
+                  setStep("connection");
                 }}
               >
                 <div className={styles.ctaButton}>
-                  <h3 className={styles.ctaText}>Use Sample Dataset</h3>
-                  <p className="mb-0 text-dark">
-                    Explore GrowthBook with a pre-loaded sample dataset.
-                  </p>
+                  <div>
+                    <h3 className={styles.ctaText}>Manual Setup</h3>
+                    <p>
+                      Connect to your data warehouse and manually configure
+                      GrowthBook with SQL queries
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
+              {showImportSampleData && (
+                <div
+                  className={styles.ctaContainer}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/demo-datasource-project");
+                  }}
+                >
+                  <div className={styles.ctaButton}>
+                    <h3 className={styles.ctaText}>Use Sample Dataset</h3>
+                    <p className="mb-0 text-dark">
+                      Explore GrowthBook with a pre-loaded sample dataset.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        {secondaryCTA && (
-          <div className="col-12 text-center">{secondaryCTA}</div>
         )}
       </div>
     );
@@ -521,6 +589,9 @@ const NewDataSourceForm: FC<{
             setSchemaSettings(s);
             setStep("connection");
           }}
+          allowedSchemas={
+            datasourceFirst && connectionInfo.type ? possibleSchemas : undefined
+          }
         />
       </div>
     );
@@ -559,43 +630,45 @@ const NewDataSourceForm: FC<{
             value={connectionInfo.name}
           />
         </div>
-        <SelectField
-          label="Select the data warehouse where your event data is stored"
-          value={connectionInfo.type || ""}
-          onChange={(value) => {
-            const option = dataSourceConnections.filter(
-              (o) => o.type === value
-            )[0];
-            if (!option) return;
+        {!datasourceFirst && (
+          <SelectField
+            label="Select the data warehouse where your event data is stored"
+            value={connectionInfo.type || ""}
+            onChange={(value) => {
+              const option = dataSourceConnections.filter(
+                (o) => o.type === value
+              )[0];
+              if (!option) return;
 
-            setLastError("");
+              setLastError("");
 
-            track("Data Source Type Selected", {
-              type: value,
-              newDatasourceForm: true,
-            });
+              track("Data Source Type Selected", {
+                type: value,
+                newDatasourceForm: true,
+              });
 
-            setConnectionInfo({
-              ...connectionInfo,
-              type: option.type,
-              params: option.default,
-            } as Partial<DataSourceInterfaceWithParams>);
-          }}
-          disabled={possibleTypes.length === 1}
-          required
-          autoFocus={true}
-          placeholder="Choose Type..."
-          options={dataSourceConnections
-            .filter((o) => {
-              return !!possibleTypes.includes(o.type);
-            })
-            .map((o) => {
-              return {
-                value: o.type,
-                label: o.display,
-              };
-            })}
-        />
+              setConnectionInfo({
+                ...connectionInfo,
+                type: option.type,
+                params: option.default,
+              } as Partial<DataSourceInterfaceWithParams>);
+            }}
+            disabled={possibleTypes.length === 1}
+            required
+            autoFocus={true}
+            placeholder="Choose Type..."
+            options={dataSourceConnections
+              .filter((o) => {
+                return !!possibleTypes.includes(o.type);
+              })
+              .map((o) => {
+                return {
+                  value: o.type,
+                  label: o.display,
+                };
+              })}
+          />
+        )}
         <div className="form-group">
           <label>Description</label>
           <textarea
@@ -726,6 +799,10 @@ const NewDataSourceForm: FC<{
     connectionInfo.type === "bigquery" &&
     !connectionInfo.params?.defaultDataset
   ) {
+    ctaEnabled = false;
+  }
+
+  if (datasourceFirst && step === "initial" && !connectionInfo.type) {
     ctaEnabled = false;
   }
 
