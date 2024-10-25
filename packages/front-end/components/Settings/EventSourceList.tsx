@@ -6,9 +6,14 @@ import styles from "./EventSourceList.module.scss";
 export interface Props {
   selected?: SchemaFormat;
   onSelect: (schema: eventSchema) => void;
+  allowedSchemas?: SchemaFormat[];
 }
 
-export default function EventSourceList({ onSelect, selected }: Props) {
+export default function EventSourceList({
+  onSelect,
+  selected,
+  allowedSchemas,
+}: Props) {
   return (
     <>
       <div
@@ -20,32 +25,36 @@ export default function EventSourceList({ onSelect, selected }: Props) {
           transition: "max-height 0.5s",
         }}
       >
-        {eventSchemas.map((s, i) => (
-          <div className={`col-4 relative`} key={i + s.value}>
-            {s?.beta && (
-              <span
-                className={`badge badge-purple text-uppercase mr-2 position-absolute`}
-                style={{ top: 1, right: 1 }}
-              >
-                Beta
-              </span>
-            )}
-            <a
-              href="#"
-              title={s.label}
-              onClick={(e) => {
-                e.preventDefault();
-                onSelect(s);
-              }}
-              className={`${styles.eventCard} btn btn-light-hover btn-outline-${
-                s.value === selected ? "selected" : "primary"
-              } mb-3`}
-              style={{
-                backgroundImage: `url(${s.logo})`,
-              }}
-            />
-          </div>
-        ))}
+        {eventSchemas
+          .filter((s) => !allowedSchemas || allowedSchemas.includes(s.value))
+          .map((s, i) => (
+            <div className={`col-4 relative`} key={i + s.value}>
+              {s?.beta && (
+                <span
+                  className={`badge badge-purple text-uppercase mr-2 position-absolute`}
+                  style={{ top: 1, right: 1 }}
+                >
+                  Beta
+                </span>
+              )}
+              <a
+                href="#"
+                title={s.label}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSelect(s);
+                }}
+                className={`${
+                  styles.eventCard
+                } btn btn-light-hover btn-outline-${
+                  s.value === selected ? "selected" : "primary"
+                } mb-3`}
+                style={{
+                  backgroundImage: `url(${s.logo})`,
+                }}
+              />
+            </div>
+          ))}
         <div className="d-flex flex-column col-12">
           <div className="my-2">
             <strong style={{ fontSize: "1.2em" }}>

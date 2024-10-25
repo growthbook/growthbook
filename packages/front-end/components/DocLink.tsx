@@ -63,6 +63,7 @@ const docSections = {
   statisticsSequential: "/statistics/sequential",
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
   savedGroups: "/features/targeting#saved-groups",
+  ga4BigQuery: "/guide/GA4-google-analytics",
 };
 
 export type DocSection = keyof typeof docSections;

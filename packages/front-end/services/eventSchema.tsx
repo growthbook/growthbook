@@ -5,6 +5,21 @@ import {
   SchemaOption,
 } from "back-end/types/datasource";
 import { ReactElement } from "react";
+import { BsDatabase } from "react-icons/bs";
+import { GrBarChart } from "react-icons/gr";
+import {
+  SiAmazonredshift,
+  SiClickhouse,
+  SiDatabricks,
+  SiGoogleanalytics,
+  SiGooglebigquery,
+  SiMicrosoftsqlserver,
+  SiMixpanel,
+  SiMysql,
+  SiPostgresql,
+  SiPresto,
+  SiSnowflake,
+} from "react-icons/si";
 
 export type eventSchema = {
   value: SchemaFormat;
@@ -483,11 +498,44 @@ export const eventSchemas: eventSchema[] = [
 export const dataSourceConnections: {
   type: DataSourceType;
   display: string;
+  icon: ReactElement;
   default: Partial<DataSourceParams>;
 }[] = [
   {
+    type: "bigquery",
+    display: "BigQuery",
+    icon: <SiGooglebigquery />,
+    default: {
+      privateKey: "",
+      clientEmail: "",
+      projectId: "",
+    },
+  },
+  {
+    type: "snowflake",
+    display: "Snowflake",
+    icon: <SiSnowflake />,
+    default: {
+      account: "",
+      username: "",
+      password: "",
+    },
+  },
+  {
+    type: "databricks",
+    display: "Databricks",
+    icon: <SiDatabricks />,
+    default: {
+      host: "",
+      port: 443,
+      path: "",
+      token: "",
+    },
+  },
+  {
     type: "redshift",
     display: "Redshift",
+    icon: <SiAmazonredshift />,
     default: {
       host: "",
       port: 5439,
@@ -499,6 +547,7 @@ export const dataSourceConnections: {
   {
     type: "google_analytics",
     display: "Google Analytics",
+    icon: <SiGoogleanalytics />,
     default: {
       viewId: "",
       customDimension: "1",
@@ -508,6 +557,7 @@ export const dataSourceConnections: {
   {
     type: "athena",
     display: "AWS Athena",
+    icon: <GrBarChart />,
     default: {
       bucketUri: "s3://",
       region: "us-east-1",
@@ -519,7 +569,8 @@ export const dataSourceConnections: {
   },
   {
     type: "presto",
-    display: "PrestoDB or Trino",
+    display: "Presto / Trino",
+    icon: <SiPresto />,
     default: {
       engine: "presto",
       host: "",
@@ -531,27 +582,21 @@ export const dataSourceConnections: {
     },
   },
   {
-    type: "databricks",
-    display: "Databricks",
+    type: "clickhouse",
+    display: "ClickHouse",
+    icon: <SiClickhouse />,
     default: {
-      host: "",
-      port: 443,
-      path: "",
-      token: "",
-    },
-  },
-  {
-    type: "snowflake",
-    display: "Snowflake",
-    default: {
-      account: "",
+      url: "",
+      port: 8123,
       username: "",
       password: "",
+      database: "",
     },
   },
   {
     type: "postgres",
     display: "Postgres",
+    icon: <SiPostgresql />,
     default: {
       host: "",
       port: 5432,
@@ -561,19 +606,9 @@ export const dataSourceConnections: {
     },
   },
   {
-    type: "vertica",
-    display: "Vertica",
-    default: {
-      host: "",
-      port: 5433,
-      database: "",
-      user: "",
-      password: "",
-    },
-  },
-  {
     type: "mysql",
-    display: "MySQL or MariaDB",
+    display: "MySQL / MariaDB",
+    icon: <SiMysql />,
     default: {
       host: "",
       port: 3306,
@@ -583,8 +618,21 @@ export const dataSourceConnections: {
     },
   },
   {
+    type: "vertica",
+    display: "Vertica",
+    icon: <BsDatabase />,
+    default: {
+      host: "",
+      port: 5433,
+      database: "",
+      user: "",
+      password: "",
+    },
+  },
+  {
     type: "mssql",
-    display: "MS SQL or SQL Server",
+    display: "MS SQL Server",
+    icon: <SiMicrosoftsqlserver />,
     default: {
       server: "",
       port: 1433,
@@ -599,28 +647,9 @@ export const dataSourceConnections: {
     },
   },
   {
-    type: "bigquery",
-    display: "BigQuery",
-    default: {
-      privateKey: "",
-      clientEmail: "",
-      projectId: "",
-    },
-  },
-  {
-    type: "clickhouse",
-    display: "ClickHouse",
-    default: {
-      url: "",
-      port: 8123,
-      username: "",
-      password: "",
-      database: "",
-    },
-  },
-  {
     type: "mixpanel",
     display: "Mixpanel",
+    icon: <SiMixpanel />,
     default: {
       username: "",
       secret: "",
