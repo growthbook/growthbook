@@ -75,6 +75,7 @@ export default function TagsModal({
                 mr="2"
                 mt="1"
                 mb="1"
+                style={{ height: "32px", width: "32px" }}
               />
             ))}
           </Container>
