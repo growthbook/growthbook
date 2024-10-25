@@ -175,9 +175,11 @@ export default function ResultsTab({
     snapshot &&
     analysis?.results?.[0];
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   return (
     <div className="mt-3">
-      {experiment.type === "multi-armed-bandit" && hasResults ? (
+      {isBandit && hasResults ? (
         <div className="alert alert-info mt-4">
           <BsLightbulb className="mr-2" />
           Bandits are better than experiments at directing traffic to the best
@@ -301,7 +303,7 @@ export default function ResultsTab({
           )}
         </div>
       </div>
-      {snapshot && (
+      {snapshot && !isBandit && (
         <div className="bg-white border mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col h3 ml-2 mb-0">Custom Reports</div>

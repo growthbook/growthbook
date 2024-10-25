@@ -752,7 +752,8 @@ pre {
     font-weight: bold;
 
     &.results-ctw,
-    &.results-pval {
+    &.results-pval,
+    &.results-mean {
       color: var(--alert-success-color);
       background: linear-gradient(-40deg, #09ac1730, #09ac1716);
     }
@@ -762,7 +763,8 @@ pre {
     font-weight: bold;
 
     &.results-ctw,
-    &.results-pval {
+    &.results-pval,
+    &.results-mean {
       color: var(--alert-danger-color);
       background: linear-gradient(-40deg, #ce372930, #ce372916);
     }
