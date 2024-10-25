@@ -64,6 +64,92 @@ def get_error_bandit_result(
     )
 
 
+class MCMC:
+    def __init__(self, variation_means: np.ndarray, variation_variances: np.ndarray):
+        self.variation_means = variation_means
+        self.variation_variances = variation_variances
+        self.a = 1  # prior shape for inverse gamma
+        self.b = 1  # prior scale for inverse gamma
+        self.burn = 1000
+        self.keep = 1000
+        self.iters = self.burn + self.keep
+        self.num_variations = len(self.variation_means)
+        self.seed = 20241024
+
+    def run_mcmc(self):
+        self.initalize_parameters()
+        self.create_storage_arrays()
+
+    def initalize_parameters(self):
+        self.alpha = self.variation_means.copy()
+        self.mu = float(np.mean(self.alpha))
+        self.gamma_2 = float(np.var(self.alpha, ddof=1))
+
+    def create_storage_arrays(self):
+        self.alpha_keep = np.empty((self.keep, self.num_variations))
+        self.mu_keep = np.empty((self.keep,))
+        self.gamma_2_keep = np.empty((self.keep,))
+
+    def run_all_iterations(self):
+        for iter in range(self.iters):
+            self.update_parameters(iter)
+            if iter >= self.burn:
+                storage_index = iter - self.burn
+                self.alpha_keep[
+                    storage_index,
+                ] = self.alpha
+                self.mu_keep[storage_index] = self.mu
+                self.gamma_2_keep[storage_index] = self.gamma_2
+
+    def update_parameters(self, iter):
+        self.alpha = self.update_alpha(
+            self.variation_means,
+            self.variation_variances,
+            self.mu,
+            self.gamma_2,
+            self.seed + iter,
+        )
+        self.mu = self.update_mu(
+            self.alpha, self.gamma_2, self.seed + self.iters + iter
+        )
+        self.gamma_2 = self.update_gamma2(
+            self.mu, self.alpha, self.a, self.b, self.seed + 2 * self.iters + iter
+        )
+
+    @staticmethod
+    def update_mu(alpha: np.ndarray, gamma_2: float, seed: int) -> float:
+        num_variations = len(alpha)
+        rng = np.random.default_rng(seed=seed)
+        return np.sqrt(gamma_2 / num_variations) * rng.normal(size=1) + np.mean(alpha)
+
+    @staticmethod
+    def update_gamma2(
+        mu: float, alpha: np.ndarray, a: float, b: float, seed: int
+    ) -> float:
+        shape = a + 0.5 * len(alpha)
+        scale = b + 0.5 * np.sum((alpha - mu) ** 2)
+        rng = np.random.default_rng(seed=seed)
+        return float(1 / rng.gamma(size=1, shape=shape, scale=1 / scale))
+
+    @staticmethod
+    def update_alpha(
+        variation_means: np.ndarray,
+        variation_variances: np.ndarray,
+        mu: float,
+        gamma_2: float,
+        seed: int,
+    ) -> np.ndarray:
+        num_variations = len(variation_means)
+        big_omega = (variation_variances + gamma_2) / (variation_variances * gamma_2)
+        little_omega = (variation_variances * mu + gamma_2 * variation_means) / (
+            variation_variances * gamma_2
+        )
+        v = 1 / big_omega
+        s = np.sqrt(v)
+        rng = np.random.default_rng(seed=seed)
+        return np.array(s * rng.normal(size=num_variations) + v * little_omega)
+
+
 class Bandits(ABC):
     def __init__(
         self,
