@@ -35,6 +35,7 @@ import {
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
+import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { BanditResult } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -802,6 +803,8 @@ export function updateExperimentBanditSettings({
     if (reweight) {
       // apply the latest weights (SDK level)
       changes.phases[phase].variationWeights = banditResult.updatedWeights;
+      // re-randomize to reduce bias (in cases of multiple exposures / failed sticky bucketing)
+      changes.phases[phase].seed = uuidv4();
     } else {
       // ignore (revert) the weight changes
       banditResult.updatedWeights = changes.phases[phase].variationWeights;
