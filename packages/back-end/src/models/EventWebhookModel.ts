@@ -167,9 +167,7 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @param doc
  * @returns
  */
-const toInterface = async (
-  doc: EventWebHookDocument
-): Promise<EventWebHookInterface> => {
+const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
 
   // Add defaults values
@@ -184,7 +182,7 @@ const toInterface = async (
   };
 
   if (Object.keys(defaults).length)
-    await EventWebHookModel.updateOne(
+    void EventWebHookModel.updateOne(
       { id: doc.id },
       {
         $set: defaults,
@@ -395,7 +393,7 @@ export const getAllEventWebHooks = async (
     ["dateCreated", -1],
   ]);
 
-  return Promise.all(docs.map(toInterface));
+  return docs.map(toInterface);
 };
 
 const filterOptional = <T>(want: T[] = [], has: T[]) => {
@@ -435,7 +433,7 @@ export const getAllEventWebHooksForEvent = async ({
     return true;
   });
 
-  return Promise.all(docs.map(toInterface));
+  return docs.map(toInterface);
 };
 
 export const sendEventWebhookTestEvent = async (
