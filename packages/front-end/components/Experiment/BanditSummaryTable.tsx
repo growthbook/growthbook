@@ -243,13 +243,13 @@ export default function BanditSummaryTable({
                 </th>
                 <th
                   className="axis-col label text-center px-0"
-                  style={{ width: 100 }}
+                  style={{ width: 120 }}
                 >
                   Users
                 </th>
                 <th
                   className="axis-col label text-center px-0"
-                  style={{ width: 100 }}
+                  style={{ width: 120 }}
                 >
                   Mean
                 </th>

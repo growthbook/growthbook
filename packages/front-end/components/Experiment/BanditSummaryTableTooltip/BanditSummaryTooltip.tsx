@@ -222,7 +222,7 @@ export default function BanditSummaryTooltip({
 
           <div
             className={clsx(
-              "results-overview mt-1 px-3 pb-2 rounded position-relative",
+              "results-overview mt-2 px-3 pb-2 rounded position-relative",
               data.status
             )}
             style={{ paddingTop: 12 }}
@@ -254,7 +254,9 @@ export default function BanditSummaryTooltip({
             ) : null}
 
             <div className={clsx("results-chance d-flex mt-0", data.status)}>
-              <div className="label mr-2">Probability of Winning:</div>
+              <div className="label mr-2" style={{ width: 140 }}>
+                Probability of Winning:
+              </div>
               <div
                 className={clsx("value", {
                   "font-weight-bold": isFinite(data.probability ?? NaN),
@@ -270,8 +272,12 @@ export default function BanditSummaryTooltip({
               </div>
             </div>
 
+            <hr className="my-2" />
+
             <div className={clsx("results-chance d-flex mt-1", data.status)}>
-              <div className="label mr-2">Variation Mean:</div>
+              <div className="label mr-2" style={{ width: 140 }}>
+                Variation Mean:
+              </div>
               <div
                 className={clsx("value", {
                   "font-weight-bold": isFinite(data.probability ?? NaN),
@@ -282,22 +288,21 @@ export default function BanditSummaryTooltip({
             </div>
 
             <div className={clsx("results-ci d-flex mt-1", data.status)}>
-              <div className="label mr-2">95% Credible Interval:</div>
-              <div
-                className={clsx("value", {
-                  "font-weight-bold": isFinite(data.probability ?? NaN),
-                })}
-              >
-                {ciRangeText}
+              <div className="label mr-2" style={{ width: 140 }}>
+                95% CI:
               </div>
+              <div className="value">{ciRangeText}</div>
             </div>
+
             {data.regressionAdjustmentEnabled && (
-              <Tooltip body="Credible intervals have been adjusted using CUPED and are scaled to represent variation means. They are not actual credible intervals for variation means.">
-                <div className="mt-1 text-muted">
-                  <GBCuped size={13} /> CUPED affects results{" "}
-                  <HiOutlineExclamationCircle />
-                </div>
-              </Tooltip>
+              <div className="mt-3">
+                <Tooltip body="Credible intervals have been adjusted using CUPED and are scaled to represent variation means. They are not actual credible intervals for variation means.">
+                  <div className="mt-1 text-muted">
+                    <GBCuped size={13} /> CUPED affects results{" "}
+                    <HiOutlineExclamationCircle />
+                  </div>
+                </Tooltip>
+              </div>
             )}
           </div>
         </div>
