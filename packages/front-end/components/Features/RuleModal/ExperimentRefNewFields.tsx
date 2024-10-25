@@ -1,5 +1,10 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeaturePrerequisite,
+  FeatureRule,
+  SavedGroupTargeting,
+} from "back-end/types/feature";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -36,10 +41,17 @@ export default function ExperimentRefNewFields({
   noSchedule,
   revisions,
   version,
+  prerequisiteValue,
+  setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
+  savedGroupValue,
+  setSavedGroupValue,
+  defaultConditionValue,
+  setConditionValue,
   conditionKey,
+  namespaceFormPrefix = "",
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
   // variation input fields
@@ -59,10 +71,17 @@ export default function ExperimentRefNewFields({
   noSchedule?: boolean;
   revisions?: FeatureRevisionInterface[];
   version?: number;
+  prerequisiteValue: FeaturePrerequisite[];
+  setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic?: boolean;
   cyclicFeatureId?: string | null;
+  savedGroupValue: SavedGroupTargeting[];
+  setSavedGroupValue: (savedGroups: SavedGroupTargeting[]) => void;
+  defaultConditionValue: string;
+  setConditionValue: (s: string) => void;
   conditionKey: number;
+  namespaceFormPrefix?: string;
   scheduleToggleEnabled?: boolean;
   setScheduleToggleEnabled?: (b: boolean) => void;
   coverage: number;
@@ -169,9 +188,9 @@ export default function ExperimentRefNewFields({
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector
               form={form}
+              formPrefix={namespaceFormPrefix}
               trackingKey={form.watch("trackingKey") || feature?.id}
               featureId={feature?.id || ""}
-              formPrefix=""
             />
           )}
         </>
@@ -180,25 +199,21 @@ export default function ExperimentRefNewFields({
       {step === 2 ? (
         <>
           <SavedGroupTargetingField
-            value={form.watch("savedGroups") || []}
-            setValue={(savedGroups) =>
-              form.setValue("savedGroups", savedGroups)
-            }
+            value={savedGroupValue}
+            setValue={setSavedGroupValue}
             project={project || ""}
           />
           <hr />
           <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(value) => form.setValue("condition", value)}
+            defaultValue={defaultConditionValue}
+            onChange={setConditionValue}
             key={conditionKey}
             project={project || ""}
           />
           <hr />
           <PrerequisiteTargetingField
-            value={form.watch("prerequisites") || []}
-            setValue={(prerequisites) =>
-              form.setValue("prerequisites", prerequisites)
-            }
+            value={prerequisiteValue}
+            setValue={setPrerequisiteValue}
             feature={feature}
             revisions={revisions}
             version={version}

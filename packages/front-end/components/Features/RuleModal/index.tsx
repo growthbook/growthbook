@@ -321,7 +321,14 @@ export default function RuleModal({
           values.scheduleRules = [];
         }
 
+        if (prerequisiteTargetingSdkIssues) {
+          throw new Error("Prerequisite targeting issues must be resolved");
+        }
+
         if (values.experimentType === "multi-armed-bandit") {
+          if (!hasCommercialFeature("multi-armed-bandits")) {
+            throw new Error("Bandits are a premium feature");
+          }
           values.statsEngine = "bayesian";
           if (!values.datasource) {
             throw new Error("You must select a datasource");
@@ -785,11 +792,23 @@ export default function RuleModal({
                   defaultValues={defaultValues}
                   version={version}
                   revisions={revisions}
+                  prerequisiteValue={form.watch("prerequisites") || []}
+                  setPrerequisiteValue={(prerequisites) =>
+                    form.setValue("prerequisites", prerequisites)
+                  }
                   setPrerequisiteTargetingSdkIssues={
                     setPrerequisiteTargetingSdkIssues
                   }
                   isCyclic={isCyclic}
                   cyclicFeatureId={cyclicFeatureId}
+                  savedGroupValue={form.watch("savedGroups") || []}
+                  setSavedGroupValue={(savedGroups) =>
+                    form.setValue("savedGroups", savedGroups)
+                  }
+                  defaultConditionValue={form.watch("condition") || ""}
+                  setConditionValue={(value) =>
+                    form.setValue("condition", value)
+                  }
                   conditionKey={conditionKey}
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
@@ -840,11 +859,23 @@ export default function RuleModal({
                   environment={environment}
                   version={version}
                   revisions={revisions}
+                  prerequisiteValue={form.watch("prerequisites") || []}
+                  setPrerequisiteValue={(prerequisites) =>
+                    form.setValue("prerequisites", prerequisites)
+                  }
                   setPrerequisiteTargetingSdkIssues={
                     setPrerequisiteTargetingSdkIssues
                   }
                   isCyclic={isCyclic}
                   cyclicFeatureId={cyclicFeatureId}
+                  savedGroupValue={form.watch("savedGroups") || []}
+                  setSavedGroupValue={(savedGroups) =>
+                    form.setValue("savedGroups", savedGroups)
+                  }
+                  defaultConditionValue={form.watch("condition") || ""}
+                  setConditionValue={(value) =>
+                    form.setValue("condition", value)
+                  }
                   conditionKey={conditionKey}
                   coverage={form.watch("coverage") || 0}
                   setCoverage={(coverage) =>

@@ -1,5 +1,9 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeaturePrerequisite,
+  SavedGroupTargeting,
+} from "back-end/types/feature";
 import React, { useEffect } from "react";
 import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -40,10 +44,17 @@ export default function BanditRefNewFields({
   environments,
   revisions,
   version,
+  prerequisiteValue,
+  setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
+  savedGroupValue,
+  setSavedGroupValue,
+  defaultConditionValue,
+  setConditionValue,
   conditionKey,
+  namespaceFormPrefix = "",
   // variation input fields
   coverage,
   setCoverage,
@@ -59,10 +70,17 @@ export default function BanditRefNewFields({
   environments?: string[];
   revisions?: FeatureRevisionInterface[];
   version?: number;
+  prerequisiteValue: FeaturePrerequisite[];
+  setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic?: boolean;
   cyclicFeatureId?: string | null;
+  savedGroupValue: SavedGroupTargeting[];
+  setSavedGroupValue: (savedGroups: SavedGroupTargeting[]) => void;
+  defaultConditionValue: string;
+  setConditionValue: (s: string) => void;
   conditionKey: number;
+  namespaceFormPrefix?: string;
   coverage: number;
   setCoverage: (c: number) => void;
   setWeight: (i: number, w: number) => void;
@@ -186,9 +204,9 @@ export default function BanditRefNewFields({
             <div className="mt-4">
               <NamespaceSelector
                 form={form}
+                formPrefix={namespaceFormPrefix}
                 trackingKey={form.watch("trackingKey") || feature?.id}
                 featureId={feature?.id || ""}
-                formPrefix=""
               />
             </div>
           )}
@@ -198,25 +216,31 @@ export default function BanditRefNewFields({
       {step === 2 ? (
         <>
           <SavedGroupTargetingField
-            value={form.watch("savedGroups") || []}
-            setValue={(savedGroups) =>
-              form.setValue("savedGroups", savedGroups)
-            }
+            value={savedGroupValue}
+            setValue={setSavedGroupValue}
+            // value={form.watch("savedGroups") || []}
+            // setValue={(savedGroups) =>
+            //   form.setValue("savedGroups", savedGroups)
+            // }
             project={project || ""}
           />
           <hr />
           <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(value) => form.setValue("condition", value)}
+            defaultValue={defaultConditionValue}
+            onChange={setConditionValue}
+            // defaultValue={form.watch("condition") || ""}
+            // onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
             project={project || ""}
           />
           <hr />
           <PrerequisiteTargetingField
-            value={form.watch("prerequisites") || []}
-            setValue={(prerequisites) =>
-              form.setValue("prerequisites", prerequisites)
-            }
+            value={prerequisiteValue}
+            setValue={setPrerequisiteValue}
+            // value={form.watch("prerequisites") || []}
+            // setValue={(prerequisites) =>
+            //   form.setValue("prerequisites", prerequisites)
+            // }
             feature={feature}
             revisions={revisions}
             version={version}
