@@ -99,7 +99,7 @@ const DataSourcesPage: FC = () => {
             }}
             variant="soft"
           >
-            Generate Sample Data
+            View Sample Data Source
           </Button>
         )}
         {demoDataSourceExists && demoProjectId && demoDataSourceId ? (
