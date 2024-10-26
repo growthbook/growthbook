@@ -14,8 +14,6 @@ import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { Text } from "@radix-ui/themes";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -41,8 +39,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
-import RadioCards from "@/components/Radix/RadioCards";
 import { DocLink } from "@/components/DocLink";
+import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -65,6 +63,7 @@ const NewDataSourceForm: FC<{
   showImportSampleData: boolean;
   inline?: boolean;
   showBackButton?: boolean;
+  datasourceFirst: boolean;
 }> = ({
   initial,
   onSuccess,
@@ -73,6 +72,7 @@ const NewDataSourceForm: FC<{
   showImportSampleData,
   inline,
   showBackButton = true,
+  datasourceFirst,
 }) => {
   const {
     projects: allProjects,
@@ -82,8 +82,6 @@ const NewDataSourceForm: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
   const router = useRouter();
-
-  const datasourceFirst = useFeatureIsOn("datasource-first");
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -145,7 +143,7 @@ const NewDataSourceForm: FC<{
         source,
         newDatasourceForm: true,
       });
-      if (s.types?.length === 1) {
+      if (!datasourceFirst && s.types?.length === 1) {
         const type = s.types[0];
         const data = dataSourcesMap.get(s.types[0]);
         setConnectionInfo((connectionInfo) => {
@@ -161,12 +159,12 @@ const NewDataSourceForm: FC<{
           } as Partial<DataSourceInterfaceWithParams>;
         });
       } else {
-        setConnectionInfo({
-          name: `${s.label}`,
+        setConnectionInfo((connectionInfo) => ({
+          ...connectionInfo,
           settings: {
             schemaFormat: s.value,
           },
-        });
+        }));
       }
 
       if (s.options) {
@@ -177,19 +175,37 @@ const NewDataSourceForm: FC<{
         schemaOptionsForm.reset({});
       }
     },
-    [schemaOptionsForm, source]
+    [datasourceFirst, schemaOptionsForm, source]
   );
 
   useEffect(() => {
-    if (datasourceFirst) return;
-    if (initial?.settings?.schemaFormat) {
-      const schema = schemasMap.get(initial.settings.schemaFormat);
+    if (datasourceFirst && initial?.type) {
+      if (
+        initial.type !== "mixpanel" &&
+        eventSchemas.some(
+          (s) => initial.type && s.types?.includes(initial.type)
+        )
+      ) {
+        setStep("eventTracker");
+      } else {
+        setStep("connection");
+      }
+    } else if (!datasourceFirst && initial?.settings?.schemaFormat) {
+      const schema =
+        initial.settings.schemaFormat === "custom"
+          ? { label: "Custom", value: "custom" }
+          : schemasMap.get(initial.settings.schemaFormat);
       if (schema) {
-        setSchemaSettings(schema);
+        setSchemaSettings(schema as eventSchema);
         setStep("connection");
       }
     }
-  }, [datasourceFirst, initial?.settings?.schemaFormat, setSchemaSettings]);
+  }, [
+    datasourceFirst,
+    initial?.type,
+    initial?.settings?.schemaFormat,
+    setSchemaSettings,
+  ]);
 
   const selectedSchema: eventSchema = schemasMap.get(
     eventTracker || "custom"
@@ -448,20 +464,7 @@ const NewDataSourceForm: FC<{
           <div>
             <label>Where do you store your analytics data?</label>
 
-            <RadioCards
-              options={dataSourceConnections
-                .filter((o) => o.type !== "google_analytics")
-                .map((o) => {
-                  return {
-                    value: o.type,
-                    label: o.display,
-                    avatar: (
-                      <Text size={"7"} mr={"1"}>
-                        {o.icon}
-                      </Text>
-                    ),
-                  };
-                })}
+            <DataSourceTypeSelector
               value={connectionInfo.type || ""}
               setValue={(value) => {
                 const option = dataSourceConnections.find(
@@ -481,9 +484,16 @@ const NewDataSourceForm: FC<{
                   type: option.type,
                   params: option.default,
                 } as Partial<DataSourceInterfaceWithParams>);
+
+                if (
+                  option.type !== "mixpanel" &&
+                  eventSchemas.some((s) => s.types?.includes(option.type))
+                ) {
+                  setStep("eventTracker");
+                } else {
+                  setStep("connection");
+                }
               }}
-              columns={"3"}
-              align="center"
             />
 
             <Callout status="info" mt="3">
@@ -578,17 +588,25 @@ const NewDataSourceForm: FC<{
             Back
           </a>
         </div>
-        <h4>Select Your Event Tracker</h4>
+        {datasourceFirst && connectionInfo.type ? (
+          <h3>
+            {dataSourceConnections.find((d) => d.type === connectionInfo.type)
+              ?.display || connectionInfo.type}
+          </h3>
+        ) : (
+          <h3>Select Your Event Tracker</h3>
+        )}
         <p>
-          GrowthBook has built-in support for a number of popular event tracking
-          systems. Don&apos;t see yours listed? GrowthBook can work with
-          virtually any type of data with a custom integration.
+          We can pre-populate SQL for a number of common event trackers.
+          Don&apos;t see yours listed? Choose &quot;Custom&quot; to configure it
+          manually.
         </p>
         <EventSourceList
           onSelect={(s) => {
             setSchemaSettings(s);
             setStep("connection");
           }}
+          selected={connectionInfo.settings?.schemaFormat}
           allowedSchemas={
             datasourceFirst && connectionInfo.type ? possibleSchemas : undefined
           }
@@ -611,11 +629,20 @@ const NewDataSourceForm: FC<{
               <span style={{ position: "relative", top: "-1px" }}>
                 <GBCircleArrowLeft />
               </span>{" "}
-              Change Event Tracker
+              Back
             </a>
           )}
         </div>
-        <h3>{selectedSchema.label}</h3>
+        <h3>
+          {datasourceFirst && connectionInfo.type ? (
+            <>
+              {dataSourceConnections.find((d) => d.type === connectionInfo.type)
+                ?.display || connectionInfo.type}{" "}
+              &gt;{" "}
+            </>
+          ) : null}
+          {selectedSchema.label}
+        </h3>
         {selectedSchema && selectedSchema.intro && (
           <div className="mb-4">{selectedSchema.intro}</div>
         )}
@@ -628,6 +655,7 @@ const NewDataSourceForm: FC<{
             required
             onChange={onChange}
             value={connectionInfo.name}
+            autoFocus={datasourceFirst}
           />
         </div>
         {!datasourceFirst && (
