@@ -484,6 +484,15 @@ const NewDataSourceForm: FC<{
                   type: option.type,
                   params: option.default,
                 } as Partial<DataSourceInterfaceWithParams>);
+
+                if (
+                  option.type !== "mixpanel" &&
+                  eventSchemas.some((s) => s.types?.includes(option.type))
+                ) {
+                  setStep("eventTracker");
+                } else {
+                  setStep("connection");
+                }
               }}
             />
 
@@ -595,7 +604,7 @@ const NewDataSourceForm: FC<{
         <EventSourceList
           onSelect={(s) => {
             setSchemaSettings(s);
-            //setStep("connection");
+            setStep("connection");
           }}
           selected={connectionInfo.settings?.schemaFormat}
           allowedSchemas={
