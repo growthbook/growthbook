@@ -35,9 +35,11 @@ function compareDimsByTotalUsers(
 export default function TrafficCard({
   traffic,
   variations,
+  isBandit,
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
+  isBandit?: boolean;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
@@ -177,33 +179,35 @@ export default function TrafficCard({
               return (
                 <tr key={i}>
                   <td className="border-right">
-                    {(
-                      <>
-                        <Tooltip
-                          body={
-                            showWarning
-                              ? "Issues detected"
-                              : "No issues detected"
-                          }
-                          tipPosition="top"
-                        >
-                          <FaCircle
-                            style={{
-                              width: "6px",
-                              height: "6px",
-                              margin: "7px",
-                              color: showWarning ? "#FFC107" : "#E8EBEF",
-                            }}
-                          />{" "}
-                        </Tooltip>
-                        <a
-                          href="#balanceCheck"
-                          onClick={(e) => e.preventDefault}
-                        >
-                          {r.name}
-                        </a>
-                      </>
-                    ) || <em>unknown</em>}
+                    {!isBandit
+                      ? (
+                          <>
+                            <Tooltip
+                              body={
+                                showWarning
+                                  ? "Issues detected"
+                                  : "No issues detected"
+                              }
+                              tipPosition="top"
+                            >
+                              <FaCircle
+                                style={{
+                                  width: "6px",
+                                  height: "6px",
+                                  margin: "7px",
+                                  color: showWarning ? "#FFC107" : "#E8EBEF",
+                                }}
+                              />{" "}
+                            </Tooltip>
+                            <a
+                              href="#balanceCheck"
+                              onClick={(e) => e.preventDefault}
+                            >
+                              {r.name}
+                            </a>
+                          </>
+                        ) || <em>unknown</em>
+                      : null}
                   </td>
                   {variations.map((_v, i) => (
                     <td style={{ paddingLeft: "35px" }} key={i}>
