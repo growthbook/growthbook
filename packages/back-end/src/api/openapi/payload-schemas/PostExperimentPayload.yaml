@@ -82,6 +82,7 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
   statsEngine:
     type: string
     enum:

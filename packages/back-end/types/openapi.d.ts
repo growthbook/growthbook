@@ -1023,7 +1023,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -1105,7 +1108,10 @@ export interface components {
       queryFilter: string;
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
-      /** @enum {unknown} */
+      /**
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @enum {unknown}
+       */
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
@@ -1174,7 +1180,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -3629,7 +3638,10 @@ export interface operations {
                   queryFilter: string;
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
-                  /** @enum {unknown} */
+                  /**
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @enum {unknown}
+                   */
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
@@ -3738,7 +3750,10 @@ export interface operations {
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -3850,7 +3865,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -3984,7 +4002,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4089,7 +4110,10 @@ export interface operations {
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -4201,7 +4225,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4322,7 +4349,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -5228,7 +5258,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";

@@ -792,6 +792,7 @@ Triggered when an experiment is created
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
@@ -930,6 +931,7 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
@@ -1036,6 +1038,7 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
@@ -1174,6 +1177,7 @@ Triggered when an experiment is deleted
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
