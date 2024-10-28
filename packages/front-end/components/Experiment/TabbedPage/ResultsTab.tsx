@@ -3,7 +3,7 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ReportInterface } from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
@@ -11,11 +11,13 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { BsLightbulb } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -27,6 +29,7 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { trackReport } from "@/services/track";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -87,7 +90,7 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot } = useSnapshot();
+  const { snapshot, analysis } = useSnapshot();
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -162,9 +165,28 @@ export default function ResultsTab({
     mutate();
   };
 
+  const hasData =
+    (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+
+  const hasResults =
+    experiment.status !== "draft" &&
+    hasData &&
+    snapshot &&
+    analysis?.results?.[0];
+
   return (
-    <>
-      <div className="bg-white border mt-3">
+    <div className="mt-3">
+      {experiment.type === "multi-armed-bandit" && hasResults ? (
+        <div className="alert alert-info mt-4">
+          <BsLightbulb className="mr-2" />
+          Bandits are better than experiments at directing traffic to the best
+          variation but they can produce biased results.
+          {/*todo: docs*/}
+        </div>
+      ) : null}
+
+      <div className="bg-white border">
         {analysisSettingsOpen && (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
@@ -174,6 +196,7 @@ export default function ResultsTab({
             editDates={false}
             editMetrics={true}
             editVariationIds={false}
+            source={"results-tab"}
           />
         )}
         <div className="mb-2" style={{ overflowX: "initial" }}>
@@ -298,6 +321,13 @@ export default function ResultsTab({
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
+                    trackReport(
+                      "create",
+                      "ResultsTab",
+                      getDatasourceById(res.report.args.datasource)?.type ||
+                        null,
+                      res.report
+                    );
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >
@@ -310,6 +340,6 @@ export default function ResultsTab({
           <ExperimentReportsList experiment={experiment} />
         </div>
       )}
-    </>
+    </div>
   );
 }

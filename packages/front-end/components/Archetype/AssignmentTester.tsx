@@ -21,9 +21,10 @@ import styles from "./AssignmentTester.module.scss";
 export interface Props {
   feature: FeatureInterface;
   version: number;
+  project?: string;
 }
 
-export default function AssignmentTester({ feature, version }: Props) {
+export default function AssignmentTester({ feature, version, project }: Props) {
   const [open, setOpen] = useState(false);
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
@@ -39,6 +40,7 @@ export default function AssignmentTester({ feature, version }: Props) {
   const { data, mutate: mutateData } = useArchetype({
     feature,
     version,
+    project,
     skipRulesWithPrerequisites,
   });
 
@@ -254,7 +256,7 @@ export default function AssignmentTester({ feature, version }: Props) {
                 Top-level: <span className="text-success">pass</span>.
               </span>{" "}
               <span>
-                Override rules:{" "}
+                Rules:{" "}
                 {skipRulesWithPrerequisites ? (
                   <span className="text-danger">fail</span>
                 ) : (
@@ -381,7 +383,11 @@ export default function AssignmentTester({ feature, version }: Props) {
               header="Save Archetype"
             />
           ) : (
-            <Modal open={true} close={() => setOpenArchetypeModal(null)}>
+            <Modal
+              trackingEventModalType=""
+              open={true}
+              close={() => setOpenArchetypeModal(null)}
+            >
               <div className="p-3">
                 Archetypes allow you set up user attribute traits to test how
                 feature will be applied to your real users. This feature is part

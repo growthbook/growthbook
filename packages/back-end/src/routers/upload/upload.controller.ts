@@ -1,8 +1,8 @@
 import { Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { getImageData, uploadFile } from "../../services/files";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
+import { getImageData, uploadFile } from "back-end/src/services/files";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 const mimetypes: Record<string, string> = {
   "image/png": "png",

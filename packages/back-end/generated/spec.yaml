@@ -3,7 +3,7 @@ info:
   version: 1.0.0
   title: GrowthBook REST API
   description: |
-    GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+    GrowthBook offers a full REST API for interacting with the application.
 
     Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
 
@@ -75,6 +75,9 @@ tags:
   - name: experiments
     x-displayName: Experiments
     description: Experiments (A/B Tests)
+  - name: snapshots
+    x-displayName: Experiment Snapshots
+    description: Experiment Snapshots (the individual updates of an experiment)
   - name: dimensions
     x-displayName: Dimensions
     description: Dimensions used during experiment analysis
@@ -105,6 +108,9 @@ tags:
   - name: code-references
     x-displayName: Code References
     description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
+  - name: Attribute_model
+    x-displayName: Attribute
+    description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -126,6 +132,9 @@ tags:
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: ExperimentSnapshot_model
+    x-displayName: ExperimentSnapshot
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
   - name: FactMetric_model
     x-displayName: FactMetric
     description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
@@ -408,6 +417,86 @@ paths:
                                         type: string
                                 experimentId:
                                   type: string
+                            - deprecated: true
+                              type: object
+                              required:
+                                - condition
+                                - type
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - experiment
+                                trackingKey:
+                                  type: string
+                                hashAttribute:
+                                  type: string
+                                fallbackAttribute:
+                                  type: string
+                                disableStickyBucketing:
+                                  type: boolean
+                                bucketVersion:
+                                  type: number
+                                minBucketVersion:
+                                  type: number
+                                namespace:
+                                  type: object
+                                  required:
+                                    - enabled
+                                    - name
+                                    - range
+                                  properties:
+                                    enabled:
+                                      type: boolean
+                                    name:
+                                      type: string
+                                    range:
+                                      type: array
+                                      items:
+                                        type: number
+                                      minItems: 2
+                                      maxItems: 2
+                                coverage:
+                                  type: number
+                                values:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - value
+                                      - weight
+                                    properties:
+                                      value:
+                                        type: string
+                                      weight:
+                                        type: number
+                                      name:
+                                        type: string
+                                value:
+                                  deprecated: true
+                                  description: Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - value
+                                      - weight
+                                    properties:
+                                      value:
+                                        type: string
+                                      weight:
+                                        type: number
+                                      name:
+                                        type: string
                       definition:
                         type: string
                         description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
@@ -1249,7 +1338,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1496,7 +1585,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1644,6 +1733,50 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+  '/experiments/{id}/snapshot':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The experiment id of the experiment to update
+        schema:
+          type: string
+    post:
+      tags:
+        - experiments
+        - snapshots
+      summary: Create Experiment Snapshot
+      operationId: postExperimentSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234/snapshot \
+              -d '{"triggeredBy":"schedule"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                triggeredBy:
+                  type: string
+                  description: Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.
+                  enum:
+                    - manual
+                    - schedule
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - snapshot
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   '/experiments/{id}/results':
     parameters:
       - $ref: '#/components/parameters/id'
@@ -1677,6 +1810,68 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
+  '/experiments/{id}/visual-changesets':
+    get:
+      summary: Get all visual changesets
+      tags:
+        - visual-changesets
+      parameters:
+        - id: null
+          name: id
+          in: path
+          required: true
+          description: The experiment id the visual changesets belong to
+          schema:
+            type: string
+      operationId: listVisualChangesets
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - visualChangesets
+                    properties:
+                      visualChangesets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VisualChangeset'
+  '/snapshots/{id}':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 'The id of the requested resource (a snapshot ID, not experiment ID)'
+        schema:
+          type: string
+    get:
+      tags:
+        - snapshots
+      summary: Get an experiment snapshot status
+      operationId: getExperimentSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X GET https://api.growthbook.io/api/v1/snapshots/snp_1234 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - snapshot
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   /metrics:
     get:
       summary: Get all metrics
@@ -2297,39 +2492,6 @@ paths:
                 properties:
                   deletedId:
                     type: string
-  '/experiments/{id}/visual-changesets':
-    get:
-      summary: Get all visual changesets
-      tags:
-        - visual-changesets
-      parameters:
-        - id: null
-          name: id
-          in: path
-          required: true
-          description: The experiment id the visual changesets belong to
-          schema:
-            type: string
-      operationId: listVisualChangesets
-      x-codeSamples:
-        - lang: cURL
-          source: |
-            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
-              -u secret_abc123DEF456:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - type: object
-                    required:
-                      - visualChangesets
-                    properties:
-                      visualChangesets:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/VisualChangeset'
   '/visual-changesets/{id}':
     get:
       parameters:
@@ -2512,6 +2674,10 @@ paths:
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -2582,6 +2748,10 @@ paths:
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -2726,6 +2896,201 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  /attributes:
+    get:
+      summary: Get the organization's attributes
+      tags:
+        - attributes
+      operationId: listAttributes
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/attributes \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - attributes
+                    properties:
+                      attributes:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Attribute'
+    post:
+      tags:
+        - attributes
+      summary: Create a new attribute
+      operationId: postAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/attributes \
+              -d '{"property": "foo", "datatype": "boolean", "description": "My new attribute" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - property
+                - datatype
+              properties:
+                property:
+                  type: string
+                  description: The attribute property
+                datatype:
+                  type: string
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - secureString
+                    - enum
+                    - 'string[]'
+                    - 'number[]'
+                    - 'secureString[]'
+                  description: The attribute datatype
+                description:
+                  type: string
+                  description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
+                hashAttribute:
+                  type: boolean
+                  description: Shall the attribute be hashed
+                enum:
+                  type: string
+                format:
+                  type: string
+                  enum:
+                    - ''
+                    - version
+                    - date
+                    - isoCountryCode
+                  description: The attribute's format
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - attribute
+                properties:
+                  attribute:
+                    $ref: '#/components/schemas/Attribute'
+  '/attributes/${property}':
+    put:
+      parameters:
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
+      tags:
+        - attributes
+      summary: Update an attribute
+      operationId: putAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/attributes/property \
+               -d '{ "description": "My updated attribute" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datatype:
+                  type: string
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - secureString
+                    - enum
+                    - 'string[]'
+                    - 'number[]'
+                    - 'secureString[]'
+                  description: The attribute datatype
+                description:
+                  type: string
+                  description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
+                hashAttribute:
+                  type: boolean
+                  description: Shall the attribute be hashed
+                enum:
+                  type: string
+                format:
+                  type: string
+                  enum:
+                    - ''
+                    - version
+                    - date
+                    - isoCountryCode
+                  description: The attribute's format
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - attribute
+                properties:
+                  attribute:
+                    $ref: '#/components/schemas/Attribute'
+    delete:
+      summary: Deletes a single attribute
+      parameters:
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
+      tags:
+        - attributes
+      operationId: deleteAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/property \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedProperty
+                properties:
+                  deletedProperty:
+                    type: string
   /members:
     get:
       summary: Get all organization members
@@ -4515,6 +4880,44 @@ components:
           type: array
           items:
             type: string
+    Attribute:
+      type: object
+      required:
+        - property
+        - datatype
+      properties:
+        property:
+          type: string
+        datatype:
+          type: string
+          enum:
+            - boolean
+            - string
+            - number
+            - secureString
+            - enum
+            - 'string[]'
+            - 'number[]'
+            - 'secureString[]'
+        description:
+          type: string
+        hashAttribute:
+          type: boolean
+        archived:
+          type: boolean
+        enum:
+          type: string
+        format:
+          type: string
+          enum:
+            - ''
+            - version
+            - date
+            - isoCountryCode
+        projects:
+          type: array
+          items:
+            type: string
     Segment:
       type: object
       required:
@@ -4850,13 +5253,13 @@ components:
         fallbackAttribute:
           type: string
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:
           type: number
         namespace:
-          type: obect
+          type: object
           required:
             - enabled
             - name
@@ -5056,7 +5459,7 @@ components:
             - 1
             - 2
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:
@@ -5176,6 +5579,19 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
+    ExperimentSnapshot:
+      type: object
+      required:
+        - id
+        - experiment
+        - status
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        status:
+          type: string
     ExperimentMetric:
       type: object
       required:
@@ -5631,9 +6047,10 @@ components:
             type: string
         description:
           type: string
-        passByReferenceOnly:
-          description: Whether the saved group must be referenced by ID rather than its list of items for performance reasons
-          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
     Organization:
       type: object
       properties:
@@ -6042,6 +6459,7 @@ x-tagGroups:
       - data-sources
       - metrics
       - experiments
+      - snapshots
       - dimensions
       - segments
       - sdk-connections
@@ -6054,6 +6472,7 @@ x-tagGroups:
       - code-references
   - name: Models
     tags:
+      - Attribute_model
       - DataSource_model
       - Dimension_model
       - Environment_model
@@ -6061,6 +6480,7 @@ x-tagGroups:
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model
       - ExperimentResults_model
+      - ExperimentSnapshot_model
       - FactMetric_model
       - FactTable_model
       - FactTableFilter_model

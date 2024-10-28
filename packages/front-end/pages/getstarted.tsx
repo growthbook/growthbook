@@ -14,7 +14,6 @@ import {
 import { IconType } from "react-icons";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
@@ -24,6 +23,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FeaturedCard from "@/components/GetStarted/FeaturedCard";
+import LinkButton from "@/components/Radix/LinkButton";
 
 function WorkspaceLink({
   Icon,
@@ -90,7 +90,6 @@ const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
-  const showNewReleasePost = useFeatureIsOn("show-3.0-release");
 
   const router = useRouter();
 
@@ -105,6 +104,16 @@ const GetStartedPage = (): React.ReactElement => {
       id: "",
     }) &&
     permissionsUtils.canCreateProjects();
+
+  const canUseSetupFlow =
+    permissionsUtils.canCreateSDKConnection({
+      projects: [project],
+      environment: "production",
+    }) &&
+    permissionsUtils.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -126,7 +135,6 @@ const GetStartedPage = (): React.ReactElement => {
           videoId={showVideoId}
         />
       )}
-      <h1 className="mb-3">Get Started</h1>
       <div className="container-fluid mx-0 mb-3">
         <div className="row">
           <div
@@ -135,6 +143,7 @@ const GetStartedPage = (): React.ReactElement => {
               maxWidth: 862,
             }}
           >
+            <h1 className="mb-3">Get Started</h1>
             <div className="d-flex flex-wrap">
               <Link
                 href={"/getstarted/feature-flag-guide"}
@@ -337,35 +346,17 @@ const GetStartedPage = (): React.ReactElement => {
                       }
                     />
                   </a>
-                  {showNewReleasePost ? (
-                    <a
-                      href="https://blog.growthbook.io/growthbook-version-3-0/"
-                      target="_blank"
-                      rel="noreferrer"
-                      key="3-0-release"
-                    >
-                      <FeaturedCard
-                        imgUrl={
-                          "/images/get-started/thumbnails/3.0-release.svg"
-                        }
-                        lastCard
-                      />
-                    </a>
-                  ) : (
-                    <a
-                      href="https://blog.growthbook.io/growthbook-version-2-9/"
-                      target="_blank"
-                      rel="noreferrer"
-                      key="2-9-release"
-                    >
-                      <FeaturedCard
-                        imgUrl={
-                          "/images/get-started/thumbnails/2.9-release.png"
-                        }
-                        lastCard
-                      />
-                    </a>
-                  )}
+                  <a
+                    href="https://blog.growthbook.io/growthbook-version-3-2/"
+                    target="_blank"
+                    rel="noreferrer"
+                    key="3-2-release"
+                  >
+                    <FeaturedCard
+                      imgUrl={"/images/get-started/thumbnails/3.2-release.svg"}
+                      lastCard
+                    />
+                  </a>
                 </div>
               </div>
             </div>
@@ -424,6 +415,11 @@ const GetStartedPage = (): React.ReactElement => {
             </div>
           </div>
           <div className="col-auto pl-0">
+            {canUseSetupFlow && (
+              <LinkButton href="/setup" mt="2" mb="4">
+                Launch Setup Flow
+              </LinkButton>
+            )}
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"

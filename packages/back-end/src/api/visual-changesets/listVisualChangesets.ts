@@ -1,10 +1,10 @@
-import { ListVisualChangesetsResponse } from "../../../types/openapi";
+import { ListVisualChangesetsResponse } from "back-end/types/openapi";
 import {
   findVisualChangesetsByExperiment,
   toVisualChangesetApiInterface,
-} from "../../models/VisualChangesetModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { listVisualChangesetsValidator } from "../../validators/openapi";
+} from "back-end/src/models/VisualChangesetModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { listVisualChangesetsValidator } from "back-end/src/validators/openapi";
 
 export const listVisualChangesets = createApiRequestHandler(
   listVisualChangesetsValidator

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Environment,
   NamespaceUsage,
@@ -33,6 +33,7 @@ import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTar
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
+import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -186,6 +187,11 @@ export function findGaps(
 
 export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
+  const [features, setFeatures] = useState<FeatureInterface[]>([]);
+  const [experiments, setExperiments] = useState<
+    ExperimentInterfaceStringDates[]
+  >([]);
+  const [hasArchived, setHasArchived] = useState(false);
 
   const qs = new URLSearchParams();
   if (withProject) {
@@ -203,28 +209,47 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
     hasArchived: boolean;
   }>(url);
 
+  useEffect(() => {
+    if (data) {
+      setFeatures(data.features);
+      setExperiments(data.linkedExperiments);
+      setHasArchived(data.hasArchived);
+    }
+  }, [data]);
+
   return {
-    features: data?.features || [],
-    experiments: data?.linkedExperiments || [],
+    features,
+    experiments,
     loading: !data,
     error,
     mutate,
-    hasArchived: data?.hasArchived || false,
+    hasArchived,
   };
 }
 
-export function getVariationColor(i: number) {
-  const colors = [
-    "#8f66dc",
-    "#e5a6f3",
-    "#38aecc",
-    "#f5dd90",
-    "#3383ec",
-    "#80c17b",
-    "#79c4e0",
-    "#f87a7a",
-    "#6cc160",
-  ];
+export function getVariationColor(i: number, experimentTheme = false) {
+  const colors = !experimentTheme
+    ? [
+        "#8f66dc",
+        "#e5a6f3",
+        "#38aecc",
+        "#f5dd90",
+        "#3383ec",
+        "#80c17b",
+        "#79c4e0",
+        "#f87a7a",
+        "#6cc160",
+      ]
+    : [
+        "#4f69ff",
+        "#03d1ca",
+        "#e67112",
+        "#e83e8c",
+        "#fdc714",
+        "#bd41d9",
+        "#57d9a3",
+        "#f87a7a",
+      ];
   return colors[i % colors.length];
 }
 
@@ -509,6 +534,7 @@ export function getDefaultRuleValue({
   if (ruleType === "experiment-ref-new") {
     return {
       type: "experiment-ref-new",
+      experimentType: "standard",
       description: "",
       name: "",
       autoStart: true,
@@ -886,6 +912,8 @@ export function useAttributeMap(
         enum:
           schema.datatype === "enum" && schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
+            : schema.format === "isoCountryCode"
+            ? ALL_COUNTRY_CODES
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,

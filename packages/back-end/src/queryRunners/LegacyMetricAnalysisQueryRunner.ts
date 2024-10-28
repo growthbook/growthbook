@@ -1,13 +1,13 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { LegacyMetricAnalysis, MetricInterface } from "../../types/metric";
-import { Queries, QueryStatus } from "../../types/query";
-import { getMetricById, updateMetric } from "../models/MetricModel";
+import { LegacyMetricAnalysis, MetricInterface } from "back-end/types/metric";
+import { Queries, QueryStatus } from "back-end/types/query";
+import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
 import {
   MetricValueParams,
   MetricValueQueryResponseRows,
   MetricValueResult,
-} from "../types/Integration";
-import { meanVarianceFromSums } from "../util/stats";
+} from "back-end/src/types/Integration";
+import { meanVarianceFromSums } from "back-end/src/util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class LegacyMetricAnalysisQueryRunner extends QueryRunner<

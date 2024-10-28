@@ -1,7 +1,7 @@
 import {
   EventWebHookModel,
   getAllEventWebHooksForEvent,
-} from "../../src/models/EventWebhookModel";
+} from "back-end/src/models/EventWebhookModel";
 
 describe("getAllEventWebHooksForEvent", () => {
   describe("when event has no projects", () => {
@@ -56,11 +56,17 @@ describe("getAllEventWebHooksForEvent", () => {
           projects: [],
         },
         {
-          toJSON: () => ({ name: "webhook with filter for event project" }),
+          toJSON: () => ({
+            name: "webhook with filter for event project",
+            projects: ["event project"],
+          }),
           projects: ["event project"],
         },
         {
-          toJSON: () => ({ name: "webhook with filter for foo projects" }),
+          toJSON: () => ({
+            name: "webhook with filter for foo projects",
+            projects: ["foo"],
+          }),
           projects: ["foo"],
         },
       ]);

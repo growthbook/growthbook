@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
-import { SegmentInterface } from "@back-end/types/segment";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { SegmentInterface } from "back-end/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -63,6 +63,7 @@ export default function FactSegmentForm({
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       open={true}
       size={"lg"}

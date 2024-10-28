@@ -1,11 +1,14 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotAnalysis } from "../../types/experiment-snapshot";
-import { Queries, QueryStatus } from "../../types/query";
-import { ExperimentReportResults, ReportInterface } from "../../types/report";
-import { FactTableMap } from "../models/FactTableModel";
-import { getReportById, updateReport } from "../models/ReportModel";
-import { getSnapshotSettingsFromReportArgs } from "../services/reports";
-import { analyzeExperimentResults } from "../services/stats";
+import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
+import { Queries, QueryStatus } from "back-end/types/query";
+import {
+  ExperimentReportResults,
+  ReportInterface,
+} from "back-end/types/report";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { getReportById, updateReport } from "back-end/src/models/ReportModel";
+import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
@@ -66,14 +69,15 @@ export class ReportQueryRunner extends QueryRunner<
         analysisSettings,
       } = getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
 
-      const res = await analyzeExperimentResults({
+      // todo: bandits? (probably not needed)
+      const { results } = await analyzeExperimentResults({
         variationNames: this.model.args.variations.map((v) => v.name),
         queryData: queryMap,
         metricMap: this.metricMap,
         snapshotSettings,
         analysisSettings: [analysisSettings],
       });
-      return res[0];
+      return results[0];
     }
 
     throw new Error("Unsupported report type");

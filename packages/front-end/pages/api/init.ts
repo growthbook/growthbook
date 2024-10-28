@@ -9,6 +9,7 @@ export interface EnvironmentInitValue {
   isMultiOrg?: boolean;
   allowSelfOrgCreation: boolean;
   showMultiOrgSelfSelector: boolean;
+  dataWarehouseUrl?: string;
   appOrigin: string;
   apiHost: string;
   s3domain: string;
@@ -19,6 +20,7 @@ export interface EnvironmentInitValue {
   build?: {
     sha: string;
     date: string;
+    lastVersion: string;
   };
   sentryDSN: string;
   usingSSO: boolean;
@@ -40,6 +42,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
+    DATAWAREHOUSE_URL,
     ALLOW_SELF_ORG_CREATION,
     SHOW_MULTI_ORG_SELF_SELECTOR,
     DISABLE_TELEMETRY,
@@ -61,6 +64,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const build = {
     sha: "",
     date: "",
+    lastVersion: "",
   };
   if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
     build.sha = fs
@@ -71,6 +75,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     build.date = fs
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
       .toString();
+  }
+
+  // Read version from package.json
+  try {
+    const packageJSONPath = path.join(rootPath, "package.json");
+    if (fs.existsSync(packageJSONPath)) {
+      const json = JSON.parse(fs.readFileSync(packageJSONPath).toString());
+      build.lastVersion = json.version;
+    }
+  } catch (e) {
+    // Ignore errors here, not important
   }
 
   const body: EnvironmentInitValue = {
@@ -86,6 +101,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
+    ...(DATAWAREHOUSE_URL ? { dataWarehouseUrl: DATAWAREHOUSE_URL } : {}),
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION),
     showMultiOrgSelfSelector: stringToBoolean(
       SHOW_MULTI_ORG_SELF_SELECTOR,

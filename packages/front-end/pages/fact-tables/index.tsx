@@ -6,7 +6,6 @@ import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
-import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
@@ -22,10 +21,12 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AutoGenerateFactTableModal from "@/components/AutoGenerateFactTablesModal";
+import Toggle from "@/components/Forms/Toggle";
+import Button from "@/components/Radix/Button";
 
 export default function FactTablesPage() {
   const {
-    factTables,
+    _factTablesIncludingArchived: factTables,
     getDatasourceById,
     project,
     factMetrics,
@@ -44,6 +45,7 @@ export default function FactTablesPage() {
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
   const [discoverFactOpen, setDiscoverFactOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const factMetricCounts: Record<string, number> = {};
   factMetrics.forEach((m) => {
@@ -63,6 +65,8 @@ export default function FactTablesPage() {
         isProjectListValidForProject(t.projects, project)
       )
     : factTables;
+
+  const hasArchivedFactTables = factTables.some((t) => t.archived);
 
   const canCreate = permissionsUtil.canViewCreateFactTableModal(project);
 
@@ -92,7 +96,9 @@ export default function FactTablesPage() {
   );
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
-    items: factTablesWithLabels,
+    items: showArchived
+      ? factTablesWithLabels
+      : factTablesWithLabels.filter((t) => !t.archived),
     defaultSortField: "name",
     localStorageKey: "factTables",
     searchFields: [
@@ -119,12 +125,7 @@ export default function FactTablesPage() {
         />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <h1>
-        Fact Tables
-        <Tooltip body="This initial release of Fact Tables is an early preview of what's to come. Expect some rough edges and bugs.">
-          <span className="badge badge-purple border ml-2">beta</span>
-        </Tooltip>
-      </h1>
+      <h1>Fact Tables</h1>
       <div className="mb-3">
         <a
           className="font-weight-bold"
@@ -211,6 +212,17 @@ export default function FactTablesPage() {
                 {...searchInputProps}
               />
             </div>
+            {hasArchivedFactTables && (
+              <div className="col-auto text-muted">
+                <Toggle
+                  value={showArchived}
+                  setValue={setShowArchived}
+                  id="show-archived"
+                  label="show archived"
+                />
+                Show archived
+              </div>
+            )}
             <div className="col-auto">
               <TagsFilter filter={tagsFilter} items={items} />
             </div>
@@ -229,10 +241,10 @@ export default function FactTablesPage() {
                 : ""
             }
           >
-            <button
-              className="btn btn-outline-info mr-2"
-              onClick={(e) => {
-                e.preventDefault();
+            <Button
+              variant="outline"
+              mr="2"
+              onClick={() => {
                 if (!canCreate) return;
                 setDiscoverFactOpen(true);
               }}
@@ -240,8 +252,8 @@ export default function FactTablesPage() {
                 !canCreate || !dataSourcesThatSupportAutoFactTables.length
               }
             >
-              <strong>Auto-generate Fact Tables...</strong>
-            </button>
+              Auto-generate Fact Tables
+            </Button>
           </Tooltip>
           <Tooltip
             body={
@@ -252,17 +264,15 @@ export default function FactTablesPage() {
                 : ""
             }
           >
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
+            <Button
+              onClick={() => {
                 if (!canCreate) return;
                 setCreateFactOpen(true);
               }}
               disabled={!canCreate}
             >
-              <GBAddCircle /> Add Fact Table
-            </button>
+              Add Fact Table
+            </Button>
           </Tooltip>
         </div>
       </div>

@@ -7,7 +7,7 @@ import {
   simpleSchemaValidator,
   FeatureRule,
   FeatureInterface,
-} from "../src/validators/features";
+} from "back-end/src/validators/features";
 import { UserRef } from "./user";
 
 export {
@@ -25,7 +25,7 @@ export {
   NamespaceValue,
   SavedGroupTargeting,
   ExperimentRefVariation,
-} from "../src/validators/features";
+} from "back-end/src/validators/features";
 
 export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
 export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;

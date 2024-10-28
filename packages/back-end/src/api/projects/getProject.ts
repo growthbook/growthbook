@@ -1,6 +1,6 @@
-import { GetProjectResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { getProjectValidator } from "../../validators/openapi";
+import { GetProjectResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getProjectValidator } from "back-end/src/validators/openapi";
 
 export const getProject = createApiRequestHandler(getProjectValidator)(
   async (req): Promise<GetProjectResponse> => {

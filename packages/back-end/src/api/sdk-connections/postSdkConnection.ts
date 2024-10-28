@@ -1,11 +1,11 @@
-import { PostSdkConnectionResponse } from "../../../types/openapi";
+import { PostSdkConnectionResponse } from "back-end/types/openapi";
 import {
   toApiSDKConnectionInterface,
   createSDKConnection,
-} from "../../models/SdkConnectionModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postSdkConnectionValidator } from "../../validators/openapi";
-import { auditDetailsCreate } from "../../services/audit";
+} from "back-end/src/models/SdkConnectionModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postSdkConnectionValidator } from "back-end/src/validators/openapi";
+import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 
 export const postSdkConnection = createApiRequestHandler(

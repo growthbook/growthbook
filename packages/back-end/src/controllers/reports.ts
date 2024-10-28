@@ -2,13 +2,13 @@ import { Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import { ReportInterface } from "../../types/report";
+import { ReportInterface } from "back-end/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
-} from "../models/ExperimentModel";
-import { findSnapshotById } from "../models/ExperimentSnapshotModel";
-import { getMetricMap } from "../models/MetricModel";
+} from "back-end/src/models/ExperimentModel";
+import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createReport,
   deleteReportById,
@@ -16,14 +16,14 @@ import {
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
-} from "../models/ReportModel";
-import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
-import { getIntegrationFromDatasourceId } from "../services/datasource";
-import { generateReportNotebook } from "../services/notebook";
-import { getContextFromReq } from "../services/organizations";
-import { reportArgsFromSnapshot } from "../services/reports";
-import { AuthRequest } from "../types/AuthRequest";
-import { getFactTableMap } from "../models/FactTableModel";
+} from "back-end/src/models/ReportModel";
+import { ReportQueryRunner } from "back-end/src/queryRunners/ReportQueryRunner";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { generateReportNotebook } from "back-end/src/services/notebook";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { reportArgsFromSnapshot } from "back-end/src/services/reports";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,

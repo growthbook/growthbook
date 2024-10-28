@@ -56,8 +56,14 @@ const DataSourceForm: FC<{
 
   const permissionRequired = (project: string) => {
     return existing
-      ? permissionsUtil.canUpdateDataSourceParams({ projects: [project] })
-      : permissionsUtil.canCreateDataSource({ projects: [project] });
+      ? permissionsUtil.canUpdateDataSourceParams({
+          projects: [project],
+          type: datasource?.type,
+        })
+      : permissionsUtil.canCreateDataSource({
+          projects: [project],
+          type: datasource?.type,
+        });
   };
 
   const projectOptions = useProjectOptions(
@@ -163,6 +169,7 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       inline={inline}
       open={true}
       submit={handleSubmit}

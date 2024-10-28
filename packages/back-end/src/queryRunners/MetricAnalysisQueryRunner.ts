@@ -6,18 +6,18 @@ import {
   MetricAnalysisHistogram,
   MetricAnalysisInterface,
   MetricAnalysisResult,
-} from "../../types/metric-analysis";
-import { FactMetricInterface } from "../../types/fact-table";
-import { Queries, QueryStatus } from "../../types/query";
+} from "back-end/types/metric-analysis";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { Queries, QueryStatus } from "back-end/types/query";
 import {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
-} from "../types/Integration";
+} from "back-end/src/types/Integration";
 import {
   meanVarianceFromSums,
   proportionVarianceFromSums,
   ratioVarianceFromSums,
-} from "../util/stats";
+} from "back-end/src/util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<

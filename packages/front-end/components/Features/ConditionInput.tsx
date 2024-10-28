@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { some } from "lodash";
 import {
   FaExclamationCircle,
@@ -9,7 +9,6 @@ import {
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
 import clsx from "clsx";
-import { SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import {
   condToJson,
   jsonToConds,
@@ -19,22 +18,18 @@ import {
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import LargeSavedGroupSupportWarning, {
-  useLargeSavedGroupSupport,
-} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import CountrySelector, {
+  ALL_COUNTRY_CODES,
+} from "@/components/Forms/CountrySelector";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   project: string;
-  setAttributeTargetingSdkIssues: (
-    attributeTargetingSdkIssues: boolean
-  ) => void;
   labelClassName?: string;
   emptyText?: string;
   title?: string;
@@ -42,7 +37,7 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { savedGroups, getSavedGroupById } = useDefinitions();
+  const { savedGroups } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
 
@@ -60,55 +55,6 @@ export default function ConditionInput(props: Props) {
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema(false, props.project);
-
-  const {
-    supportedConnections,
-    unsupportedConnections,
-    unversionedConnections,
-    hasLargeSavedGroupFeature,
-  } = useLargeSavedGroupSupport(props.project);
-
-  const largeSavedGroups = useMemo(
-    () =>
-      new Set(
-        savedGroups
-          .filter((savedGroup) => savedGroup?.passByReferenceOnly)
-          .map((group) => group.id)
-      ),
-    [savedGroups]
-  );
-
-  const selectedLargeSavedGroups = useMemo(
-    () =>
-      conds
-        .filter((condition) =>
-          ["$inGroup", "$notInGroup"].includes(condition.operator)
-        )
-        .map((condition) => getSavedGroupById(condition.value))
-        .filter((savedGroup) => savedGroup?.passByReferenceOnly),
-    [conds, getSavedGroupById]
-  );
-
-  const [localTargetingIssues, setLocalTargetingIssues] = useState(false);
-
-  useEffect(() => {
-    if (
-      selectedLargeSavedGroups.length > 0 &&
-      supportedConnections.length === 0 &&
-      unversionedConnections.length === 0
-    ) {
-      props.setAttributeTargetingSdkIssues(true);
-      setLocalTargetingIssues(true);
-    } else {
-      props.setAttributeTargetingSdkIssues(false);
-      setLocalTargetingIssues(false);
-    }
-  }, [
-    selectedLargeSavedGroups,
-    supportedConnections,
-    unversionedConnections,
-    props.setAttributeTargetingSdkIssues,
-  ]);
 
   useEffect(() => {
     if (advanced) return;
@@ -131,6 +77,8 @@ export default function ConditionInput(props: Props) {
     },
   ];
 
+  const listOperators = ["$in", "$nin"];
+
   if (advanced || !attributes.size || !simpleAllowed) {
     const hasSecureAttributes = some(
       [...attributes].filter(([_, a]) =>
@@ -140,18 +88,6 @@ export default function ConditionInput(props: Props) {
     return (
       <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
-        {largeSavedGroups.size > 0 && (
-          <div className="mb-1">
-            <LargeSavedGroupSupportWarning
-              type="targeting_rule"
-              supportedConnections={supportedConnections}
-              unsupportedConnections={unsupportedConnections}
-              unversionedConnections={unversionedConnections}
-              upgradeWarningToError={localTargetingIssues}
-              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-            />
-          </div>
-        )}
         <div className="appbox bg-light px-3 py-3">
           <CodeTextArea
             labelClassName={props.labelClassName}
@@ -225,18 +161,6 @@ export default function ConditionInput(props: Props) {
   return (
     <div className="form-group my-4">
       <label className={props.labelClassName || ""}>{title}</label>
-      {largeSavedGroups.size > 0 && (
-        <div className="mb-1">
-          <LargeSavedGroupSupportWarning
-            type="targeting_rule"
-            supportedConnections={supportedConnections}
-            unsupportedConnections={unsupportedConnections}
-            unversionedConnections={unversionedConnections}
-            upgradeWarningToError={localTargetingIssues}
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          />
-        </div>
-      )}
       <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
@@ -250,6 +174,14 @@ export default function ConditionInput(props: Props) {
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
               .filter((g) => g.type === "list" && g.attributeKey === field)
+              // Filter by project
+              .filter((group) => {
+                return (
+                  !props.project ||
+                  !group.projects?.length ||
+                  group.projects.includes(props.project)
+                );
+              })
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
@@ -385,6 +317,7 @@ export default function ConditionInput(props: Props) {
               | "enum"
               | "number"
               | "string"
+              | "isoCountryCode"
               | null = null;
             if (
               [
@@ -397,7 +330,9 @@ export default function ConditionInput(props: Props) {
               ].includes(operator)
             ) {
               displayType = "select-only";
-            } else if (["$in", "$nin"].includes(operator)) {
+            } else if (attribute.enum === ALL_COUNTRY_CODES) {
+              displayType = "isoCountryCode";
+            } else if (listOperators.includes(operator)) {
               displayType = "array-field";
             } else if (attribute.enum.length) {
               displayType = "enum";
@@ -468,40 +403,6 @@ export default function ConditionInput(props: Props) {
                     savedGroupOptions.length > 0 ? (
                     <SelectField
                       options={savedGroupOptions}
-                      formatOptionLabel={({ value, label }, { context }) => {
-                        if (context === "value") return label;
-                        const group = getSavedGroupById(value);
-                        if (!group) return label;
-                        const unsupported =
-                          supportedConnections.length === 0 &&
-                          unversionedConnections.length === 0 &&
-                          !!group.passByReferenceOnly;
-                        return (
-                          <div className={clsx(unsupported ? "disabled" : "")}>
-                            {group.groupName}
-                            {group.passByReferenceOnly && (
-                              <span className="float-right ml-4">
-                                <Tooltip
-                                  body={
-                                    unsupportedConnections.length > 0
-                                      ? `Lists with >${SMALL_GROUP_SIZE_LIMIT} items are not supported by one or more SDKs`
-                                      : ""
-                                  }
-                                  tipPosition="top"
-                                >
-                                  &gt;{SMALL_GROUP_SIZE_LIMIT} ITEMS
-                                </Tooltip>
-                              </span>
-                            )}
-                          </div>
-                        );
-                      }}
-                      isOptionDisabled={(option) =>
-                        supportedConnections.length === 0 &&
-                        unversionedConnections.length === 0 &&
-                        isSingleValue(option) &&
-                        !!getSavedGroupById(option.value)?.passByReferenceOnly
-                      }
                       value={value}
                       onChange={(v) => {
                         handleCondsChange(v, "value");
@@ -510,7 +411,6 @@ export default function ConditionInput(props: Props) {
                       initialOption="Choose group..."
                       containerClassName="col-sm-12 col-md mb-2"
                       required
-                      className={localTargetingIssues ? "error" : ""}
                     />
                   ) : displayType === "array-field" ? (
                     <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
@@ -553,6 +453,26 @@ export default function ConditionInput(props: Props) {
                         Switch to {rawTextMode ? "token" : "raw text"} mode
                       </span>
                     </div>
+                  ) : displayType === "isoCountryCode" ? (
+                    listOperators.includes(operator) ? (
+                      <CountrySelector
+                        selectAmount="multi"
+                        displayFlags={true}
+                        value={
+                          value ? value.split(",").map((val) => val.trim()) : []
+                        }
+                        onChange={handleListChange}
+                      />
+                    ) : (
+                      <CountrySelector
+                        selectAmount="single"
+                        displayFlags={true}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                      />
+                    )
                   ) : displayType === "enum" ? (
                     <SelectField
                       options={attribute.enum.map((v) => ({

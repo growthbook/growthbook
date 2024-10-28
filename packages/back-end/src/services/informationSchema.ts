@@ -1,18 +1,18 @@
-import { DataSourceInterface } from "../../types/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
   createInformationSchema,
   updateInformationSchemaById,
-} from "../models/InformationSchemaModel";
+} from "back-end/src/models/InformationSchemaModel";
 import {
   InformationSchema,
   InformationSchemaInterface,
-} from "../types/Integration";
-import { updateDataSource } from "../models/DataSourceModel";
-import { removeDeletedInformationSchemaTables } from "../models/InformationSchemaTablesModel";
-import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
-import { promiseAllChunks } from "../util/promise";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
+} from "back-end/src/types/Integration";
+import { updateDataSource } from "back-end/src/models/DataSourceModel";
+import { removeDeletedInformationSchemaTables } from "back-end/src/models/InformationSchemaTablesModel";
+import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(

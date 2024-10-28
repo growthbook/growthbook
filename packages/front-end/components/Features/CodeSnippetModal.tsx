@@ -163,6 +163,7 @@ export default function CodeSnippetModal({
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
         className="mb-4"
@@ -390,7 +391,7 @@ export default function CodeSnippetModal({
                   setAttributesOpen(!attributesOpen);
                 }}
               >
-                Targeting Attributes (Optional){" "}
+                Targeting Attributes{" "}
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (

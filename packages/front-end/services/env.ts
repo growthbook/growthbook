@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/react";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
-  telemetry: "enable",
+  telemetry: "disable",
   cloud: false,
   isMultiOrg: false,
   allowSelfOrgCreation: false,
@@ -22,10 +22,14 @@ const env: EnvironmentInitValue = {
   superadminDefaultRole: "readonly",
 };
 
+export let dataWarehouseUrl;
+
 export async function initEnv() {
   const res = await fetch("/api/init");
   const json = await res.json();
   Object.assign(env, json);
+
+  dataWarehouseUrl = env.dataWarehouseUrl;
 
   if (env.sentryDSN) {
     Sentry.init({
@@ -77,8 +81,12 @@ export function envAllowsCreatingMetrics() {
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
 }
-export function getGrowthBookBuild(): { sha: string; date: string } {
-  return env.build || { sha: "", date: "" };
+export function getGrowthBookBuild(): {
+  sha: string;
+  date: string;
+  lastVersion: string;
+} {
+  return env.build || { sha: "", date: "", lastVersion: "" };
 }
 export function usingSSO() {
   return env.usingSSO;

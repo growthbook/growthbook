@@ -81,11 +81,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
       <div>
         {dataSourceOpen && (
           <NewDataSourceForm
-            data={{
-              name: "My Datasource",
-              settings: {},
-            }}
-            existing={false}
             source="get-started"
             onCancel={() => setDataSourceOpen(false)}
             onSuccess={async () => {
@@ -93,6 +88,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               setDataSourceOpen(false);
             }}
             showImportSampleData={false}
+            datasourceFirst={false}
           />
         )}
 
@@ -103,9 +99,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
             source="get-started"
             onClose={() => {
               setMetricsOpen(false);
-            }}
-            onSuccess={() => {
-              mutateDefinitions();
             }}
           />
         )}

@@ -1,9 +1,9 @@
 import { snowflakeCreateTableOptions } from "enterprise";
-import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
-import { decryptDataSourceParams } from "../services/datasource";
-import { runSnowflakeQuery } from "../services/snowflake";
-import { QueryResponse } from "../types/Integration";
-import { FormatDialect } from "../util/sql";
+import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runSnowflakeQuery } from "back-end/src/services/snowflake";
+import { QueryResponse } from "back-end/src/types/Integration";
+import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {

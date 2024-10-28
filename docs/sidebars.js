@@ -469,6 +469,7 @@ const sidebars = {
         "self-host/environment-variables",
         "self-host/config-yml",
         "self-host/production",
+        { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
       ],
     },
@@ -484,7 +485,22 @@ const sidebars = {
       label: "Webhooks",
       items: [
         { type: "doc", id: "webhooks/overview", label: "Webhooks overview" },
-        { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
+        {
+          type: "category",
+          label: "Event Webhooks",
+          collapsed: true,
+          link: {
+            type: "doc",
+            id: "webhooks/event-webhooks",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "webhooks/event-webhooks/events",
+              label: "Available Events",
+            },
+          ],
+        },
         { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
         {
           type: "doc",
@@ -577,6 +593,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/nextjs-and-vercel-feature-flags",
+          label: "Next.js + Vercel Feature Flags",
+        },
         {
           type: "doc",
           id: "guide/nextjs-app-router",

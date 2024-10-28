@@ -9,21 +9,21 @@ import {
   getSDKPayloadKeysByDiff,
   replaceSavedGroupsInCondition,
   roundVariationWeight,
-} from "../src/util/features";
-import { getCurrentEnabledState } from "../src/util/scheduleRules";
-import { FeatureInterface, ScheduleRule } from "../types/feature";
+} from "back-end/src/util/features";
+import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
+import { FeatureInterface, ScheduleRule } from "back-end/types/feature";
 import {
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
-} from "../src/services/features";
+} from "back-end/src/services/features";
 import {
   OrganizationInterface,
   SDKAttribute,
   SDKAttributeSchema,
-} from "../types/organization";
-import { ExperimentInterface } from "../types/experiment";
-import { FeatureDefinitionWithProject } from "../types/api";
+} from "back-end/types/organization";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { FeatureDefinitionWithProject } from "back-end/types/api";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
@@ -66,43 +66,36 @@ describe("getParsedCondition", () => {
     groupMap.clear();
     groupMap.set("a", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["0", "1"],
       attributeKey: "id_a",
     });
     groupMap.set("b", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["2"],
       attributeKey: "id_b",
     });
     groupMap.set("c", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["3"],
       attributeKey: "id_c",
     });
     groupMap.set("d", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["4"],
       attributeKey: "id_d",
     });
     groupMap.set("e", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["5"],
       attributeKey: "id_e",
     });
     groupMap.set("f", {
       type: "list",
-      passByReferenceOnly: true,
       values: ["6"],
       attributeKey: "id_f",
     });
     groupMap.set("empty", {
       type: "list",
-      passByReferenceOnly: true,
       values: [],
       attributeKey: "empty",
     });
@@ -246,16 +239,13 @@ describe("getParsedCondition", () => {
     });
     groupMap.set("e", {
       type: "list",
-      passByReferenceOnly: true,
     });
     groupMap.set("f", {
       type: "list",
-      passByReferenceOnly: true,
       attributeKey: "a",
     });
     groupMap.set("g", {
       type: "list",
-      passByReferenceOnly: true,
       attributeKey: "",
       values: ["a"],
     });

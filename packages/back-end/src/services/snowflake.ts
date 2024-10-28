@@ -1,7 +1,7 @@
 import { createConnection } from "snowflake-sdk";
-import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
-import { QueryResponse } from "../types/Integration";
-import { logger } from "../util/logger";
+import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import { QueryResponse } from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -16,7 +16,7 @@ function getProxySettings(): ProxyOptions {
 
   const parsed = new URL(uri);
   return {
-    proxyProtocol: parsed.protocol,
+    proxyProtocol: parsed.protocol.replace(":", ""),
     proxyHost: parsed.hostname,
     proxyPort: (parsed.port ? parseInt(parsed.port) : 0) || undefined,
     proxyUser: parsed.username || undefined,
@@ -31,6 +31,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 ): Promise<QueryResponse<T[]>> {
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
+
   const connection = createConnection({
     account,
     username: conn.username,
@@ -41,6 +42,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     role: conn.role,
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
+    accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
   });
   // promise with timeout to prevent hanging
   await new Promise((resolve, reject) => {

@@ -201,7 +201,7 @@ const HistoryTable: FC<{
           </Button>
         </div>
       </div>
-      <table className="table appbox">
+      <table className="table appbox bg-light">
         <thead>
           <tr>
             <th>Date</th>

@@ -2,12 +2,14 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
+  "version": "3.2.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
     "clean": "wsrun -m clean && rimraf node_modules && yarn cache clean",
+    "doc-gen": "cd docs && yarn && yarn gen",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
     "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -p 'enterprise' -c dev",
@@ -65,7 +67,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.2.0"
+    "@growthbook/growthbook": "1.2.1"
   },
   "prettier": {
     "overrides": [

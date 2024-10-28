@@ -1,3 +1,5 @@
+import path from "path";
+import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
@@ -24,9 +26,14 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
+import { getBuild } from "./util/handler";
 
 if (SENTRY_DSN) {
-  Sentry.init({ dsn: SENTRY_DSN });
+  const buildInfo = getBuild();
+
+  Sentry.init({ dsn: SENTRY_DSN, release: buildInfo.sha });
+
+  Sentry.setTag("build_date", buildInfo.date);
 }
 
 // Begin Controllers
@@ -86,7 +93,6 @@ const informationSchemasController = wrapController(
 
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
-import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -148,6 +154,26 @@ app.get("/healthcheck", (req, res) => {
 
 app.get("/favicon.ico", (req, res) => {
   res.status(404).send("");
+});
+
+let robotsTxt = "";
+app.get("/robots.txt", (_req, res) => {
+  if (!robotsTxt) {
+    const file =
+      process.env.ROBOTS_TXT_PATH || path.join(__dirname, "..", "robots.txt");
+    if (existsSync(file)) {
+      robotsTxt = readFileSync(file).toString();
+    } else {
+      res.status(404).json({
+        message: "Not found",
+      });
+      return;
+    }
+  }
+
+  res.setHeader("Cache-Control", "max-age=3600");
+  res.setHeader("Content-Type", "text/plain");
+  res.send(robotsTxt);
 });
 
 app.use(compression());
@@ -412,6 +438,10 @@ app.post(
   "/metric/:id/analysis/cancel",
   metricsController.cancelLegacyMetricAnalysis
 );
+app.get(
+  "/metrics/:id/experiments",
+  metricsController.getMetricExperimentResults
+);
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
@@ -437,6 +467,10 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
+app.post(
+  "/experiment/:id/banditSnapshot",
+  experimentsController.postBanditSnapshot
+);
 
 app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(

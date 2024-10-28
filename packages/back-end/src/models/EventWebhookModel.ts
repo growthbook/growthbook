@@ -7,17 +7,17 @@ import intersection from "lodash/intersection";
 import {
   NotificationEventName,
   zodNotificationEventNamesEnum,
-} from "../events/base-types";
-import { errorStringFromZodResult } from "../util/validation";
-import { EventWebHookInterface } from "../../types/event-webhook";
-import { logger } from "../util/logger";
+} from "back-end/src/events/base-types";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { logger } from "back-end/src/util/logger";
 import {
   eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "../types/EventWebHook";
-import { ReqContext } from "../../types/organization";
+} from "back-end/src/validators/event-webhook";
+import { ReqContext } from "back-end/types/organization";
 import { createEvent } from "./EventModel";
 
 const eventWebHookSchema = new mongoose.Schema({
@@ -167,15 +167,19 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @param doc
  * @returns
  */
-const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => ({
-  ...omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]),
-  method: doc.method || "POST",
-  payloadType: doc.payloadType || "raw",
-  headers: doc.headers || {},
-  projects: doc.projects || [],
-  tags: doc.tags || [],
-  environments: doc.environments || [],
-});
+const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
+  const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
+
+  return {
+    ...payload,
+    method: payload.method || "POST",
+    payloadType: payload.payloadType || "raw",
+    headers: payload.headers || {},
+    projects: payload.projects || [],
+    tags: payload.tags || [],
+    environments: payload.environments || [],
+  };
+};
 
 export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   "EventWebHook",

@@ -5,10 +5,12 @@ import useApi from "./useApi";
 export const useArchetype = ({
   feature,
   version,
+  project,
   skipRulesWithPrerequisites = false,
 }: {
   feature: FeatureInterface;
   version: number;
+  project?: string;
   skipRulesWithPrerequisites?: boolean;
 }) =>
   useApi<{
@@ -18,5 +20,5 @@ export const useArchetype = ({
   }>(
     `/archetype/eval/${feature.id}/${version}?skipRulesWithPrerequisites=${
       skipRulesWithPrerequisites ? 1 : 0
-    }`
+    }&project=${project ?? ""}`
   );

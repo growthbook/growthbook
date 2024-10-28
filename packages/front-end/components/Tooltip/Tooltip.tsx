@@ -10,6 +10,7 @@ import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
 import Portal from "@/components/Modal/Portal";
+import track from "@/services/track";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   body: string | JSX.Element;
@@ -22,6 +23,9 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   shouldDisplay?: boolean;
   usePortal?: boolean;
   state?: boolean;
+  // must be set for tracking event to fire on hover
+  trackingEventTooltipType?: string;
+  trackingEventTooltipSource?: string;
 }
 const Tooltip: FC<Props> = ({
   body,
@@ -35,18 +39,32 @@ const Tooltip: FC<Props> = ({
   shouldDisplay = true,
   usePortal = false,
   state,
+  trackingEventTooltipType,
+  trackingEventTooltipSource,
   ...otherProps
 }) => {
   const [trigger, setTrigger] = useState(null);
   const [tooltip, setTooltip] = useState(null);
   const [arrow, setArrow] = useState(null);
   const [open, setOpen] = useState(state ?? false);
+  const [alreadyHovered, setAlreadyHovered] = useState(false);
 
   useEffect(() => {
     if (state !== undefined) {
       setOpen(state);
     }
   }, [state, setOpen]);
+
+  useEffect(() => {
+    if (open && !alreadyHovered && trackingEventTooltipType) {
+      setAlreadyHovered(true);
+      track("tooltip-open", {
+        type: trackingEventTooltipType,
+        source: trackingEventTooltipSource,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, alreadyHovered, trackingEventTooltipType]);
 
   const { styles, attributes } = usePopper(trigger, tooltip, {
     modifiers: [

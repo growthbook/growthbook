@@ -126,6 +126,9 @@ export default function FactFilterList({ factTable }: Props) {
                           className="dropdown-item"
                           useIcon={false}
                           text="Delete"
+                          additionalMessage={
+                            "This will remove the filter from all metrics that are using it."
+                          }
                           onClick={async () => {
                             await apiCall(
                               `/fact-tables/${factTable.id}/filter/${filter.id}`,
