@@ -8,6 +8,7 @@ import { getBuild } from "back-end/src/util/handler";
 import { ApiRequestLocals } from "back-end/types/api";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
+import snapshotsRouter from "./snapshots/snapshots.router";
 import metricsRouter from "./metrics/metrics.router";
 import segmentsRouter from "./segments/segments.router";
 import projectsRouter from "./projects/projects.router";
@@ -27,7 +28,6 @@ import bulkImportRouter from "./bulk-import/bulk-import.router";
 import membersRouter from "./members/members.router";
 import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
-import ingestionRouter from "./ingestion/ingestion.router";
 
 const router = Router();
 let openapiSpec: string;
@@ -82,6 +82,7 @@ router.get("/", (req, res) => {
 router.use("/features", featuresRouter);
 router.get("/feature-keys", getFeatureKeys);
 router.use("/experiments", experimentsRouter);
+router.use("/snapshots", snapshotsRouter);
 router.use("/metrics", metricsRouter);
 router.use("/segments", segmentsRouter);
 router.use("/dimensions", dimensionsRouter);
@@ -99,7 +100,6 @@ router.use("/fact-metrics", factMetricsRouter);
 router.use("/bulk-import", bulkImportRouter);
 router.use("/code-refs", codeRefsRouter);
 router.use("/members", membersRouter);
-router.use("/ingestion", ingestionRouter);
 
 router.post("/transform-copy", postCopyTransform);
 

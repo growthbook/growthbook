@@ -32,6 +32,8 @@ SdkConnection:
   $ref: "./SdkConnection.yaml"
 Experiment:
   $ref: "./Experiment.yaml"
+ExperimentSnapshot:
+  $ref: "./ExperimentSnapshot.yaml"
 ExperimentMetric:
   $ref: "./ExperimentMetric.yaml"
 ExperimentAnalysisSettings:

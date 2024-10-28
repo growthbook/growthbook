@@ -40,6 +40,8 @@ export const apiSdkConnectionValidator = z.object({ "id": z.string(), "dateCreat
 
 export const apiExperimentValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "project": z.string(), "hypothesis": z.string(), "description": z.string(), "tags": z.array(z.string()), "owner": z.string(), "archived": z.boolean(), "status": z.string(), "autoRefresh": z.boolean(), "hashAttribute": z.string(), "fallbackAttribute": z.string().optional(), "hashVersion": z.union([z.literal(1), z.literal(2)]), "disableStickyBucketing": z.boolean().optional(), "bucketVersion": z.coerce.number().optional(), "minBucketVersion": z.coerce.number().optional(), "variations": z.array(z.object({ "variationId": z.string(), "key": z.string(), "name": z.string(), "description": z.string(), "screenshots": z.array(z.string()) })), "phases": z.array(z.object({ "name": z.string(), "dateStarted": z.string(), "dateEnded": z.string(), "reasonForStopping": z.string(), "seed": z.string(), "coverage": z.coerce.number(), "trafficSplit": z.array(z.object({ "variationId": z.string(), "weight": z.coerce.number() })), "namespace": z.object({ "namespaceId": z.string(), "range": z.array(z.any()) }).optional(), "targetingCondition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional() })), "settings": z.object({ "datasourceId": z.string(), "assignmentQueryId": z.string(), "experimentId": z.string(), "segmentId": z.string(), "queryFilter": z.string(), "inProgressConversions": z.enum(["include","exclude"]), "attributionModel": z.enum(["firstExposure","experimentDuration"]), "statsEngine": z.enum(["bayesian","frequentist"]), "regressionAdjustmentEnabled": z.boolean().optional(), "goals": z.array(z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) })), "secondaryMetrics": z.array(z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) })), "guardrails": z.array(z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) })), "activationMetric": z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) }).optional() }), "resultSummary": z.object({ "status": z.string(), "winner": z.string(), "conclusions": z.string(), "releasedVariationId": z.string(), "excludeFromPayload": z.boolean() }).optional() }).strict()
 
+export const apiExperimentSnapshotValidator = z.object({ "id": z.string(), "experiment": z.string(), "status": z.string() }).strict()
+
 export const apiExperimentMetricValidator = z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) }).strict()
 
 export const apiExperimentAnalysisSettingsValidator = z.object({ "datasourceId": z.string(), "assignmentQueryId": z.string(), "experimentId": z.string(), "segmentId": z.string(), "queryFilter": z.string(), "inProgressConversions": z.enum(["include","exclude"]), "attributionModel": z.enum(["firstExposure","experimentDuration"]), "statsEngine": z.enum(["bayesian","frequentist"]), "regressionAdjustmentEnabled": z.boolean().optional(), "goals": z.array(z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) })), "secondaryMetrics": z.array(z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) })), "guardrails": z.array(z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) })), "activationMetric": z.object({ "metricId": z.string(), "overrides": z.object({ "delayHours": z.coerce.number().optional(), "windowHours": z.coerce.number().optional(), "window": z.enum(["conversion","lookback",""]).optional(), "winRiskThreshold": z.coerce.number().optional(), "loseRiskThreshold": z.coerce.number().optional() }) }).optional() }).strict()
@@ -220,9 +222,27 @@ export const updateExperimentValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const postExperimentSnapshotValidator = {
+  bodySchema: z.object({ "triggeredBy": z.enum(["manual","schedule"]).describe("Set to \"schedule\" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const getExperimentResultsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "phase": z.string().optional(), "dimension": z.string().optional() }).strict(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const listVisualChangesetsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const getExperimentSnapshotValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
@@ -251,12 +271,6 @@ export const putMetricValidator = {
 };
 
 export const deleteMetricValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
-};
-
-export const listVisualChangesetsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
