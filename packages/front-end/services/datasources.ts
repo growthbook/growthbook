@@ -722,13 +722,7 @@ interface InitialDatasourceResources {
   }[];
 }
 
-const getClickHouseInitialDatasourceResources = ({
-  table,
-  organization,
-}: {
-  table: string;
-  organization: string;
-}): InitialDatasourceResources => {
+const getClickHouseInitialDatasourceResources = (): InitialDatasourceResources => {
   return {
     factTables: [
       {
@@ -738,6 +732,7 @@ const getClickHouseInitialDatasourceResources = ({
           sql: `SELECT
   timestamp,
   user_id,
+  device_id as anonymous_id,
   user_attributes_json,
   event_name,
   geo_country,
@@ -752,12 +747,12 @@ const getClickHouseInitialDatasourceResources = ({
   utm_campaign,
   url_path,
   session_id
-FROM ${table} WHERE organization = '${organization}'`,
+FROM events`,
           columns: generateColumns({
             timestamp: { datatype: "date" },
             user_id: { datatype: "string" },
             user_attributes_json: { datatype: "string" },
-            event_name: { datatype: "string" },
+            event_name: { datatype: "string", alwaysInlineFilter: true },
             geo_country: { datatype: "string" },
             geo_city: { datatype: "string" },
             geo_lat: { datatype: "number" },
@@ -771,7 +766,7 @@ FROM ${table} WHERE organization = '${organization}'`,
             url_path: { datatype: "string" },
             session_id: { datatype: "string" },
           }),
-          userIdTypes: [],
+          userIdTypes: ["user_id", "anonymous_id"],
           eventName: "",
         },
         filters: [],
@@ -1076,10 +1071,7 @@ export function getInitialDatasourceResources({
     });
 
   if (datasource.type === "growthbook_clickhouse")
-    return getClickHouseInitialDatasourceResources({
-      table: process.env.CLICKHOUSE_MAIN_TABLE || "test_enriched_events",
-      organization: datasource.organization,
-    });
+    return getClickHouseInitialDatasourceResources();
 
   return {
     factTables: [],

@@ -228,7 +228,7 @@ export async function createDataSource(
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
-    logger.info("queueCreateInformationSchema");
+    logger.debug("queueCreateInformationSchema");
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 

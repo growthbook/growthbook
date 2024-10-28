@@ -260,7 +260,6 @@ export async function postInbuiltDataSource(
       params?: DataSourceParams;
       settings?: DataSourceSettings;
       projects?: string[];
-      metricsToCreate?: AutoMetricToCreate[];
     },
     { id: string }
   >,
@@ -293,7 +292,6 @@ export async function postInbuiltDataSource(
           id: "anonymous_id",
           dimensions: [
             "country",
-            "city",
             "browser",
             "os",
             "device_type",

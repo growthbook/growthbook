@@ -33,6 +33,21 @@ function ensureClickhouseEnvVars() {
   }
 }
 
+function createAdminClickhouseClient() {
+  ensureClickhouseEnvVars();
+  return createClickhouseClient({
+    host: CLICKHOUSE_HOST,
+    username: CLICKHOUSE_ADMIN_USER,
+    password: CLICKHOUSE_ADMIN_PASSWORD,
+    database: CLICKHOUSE_DATABASE,
+    application: "GrowthBook",
+    request_timeout: 3620_000,
+    clickhouse_settings: {
+      max_execution_time: 3600,
+    },
+  });
+}
+
 export async function createClickhouseUser(
   context: ReqContext,
   datasourceId: string
@@ -44,19 +59,7 @@ export async function createClickhouseUser(
     );
   }
 
-  ensureClickhouseEnvVars();
-
-  const client = createClickhouseClient({
-    host: CLICKHOUSE_HOST,
-    username: CLICKHOUSE_ADMIN_USER,
-    password: CLICKHOUSE_ADMIN_PASSWORD,
-    database: CLICKHOUSE_DATABASE,
-    application: "GrowthBook",
-    request_timeout: 3620_000,
-    clickhouse_settings: {
-      max_execution_time: 3600,
-    },
-  });
+  const client = createAdminClickhouseClient();
 
   const orgId = context.org.id;
   const user = clickhouseUserId(orgId, datasourceId);
@@ -79,7 +82,7 @@ export async function createClickhouseUser(
 
   logger.info(`Creating Clickhouse user ${user}`);
   await client.command({
-    query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}'`,
+    query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
   });
 
   logger.info(`Creating Clickhouse view ${viewName}`);
@@ -92,13 +95,11 @@ export async function createClickhouseUser(
 
   logger.info(`Clickhouse user ${user} created`);
 
-  const parts = CLICKHOUSE_HOST.split(":");
-  const port = parseInt(CLICKHOUSE_HOST.split(":").pop() || "9000");
-  const url = parts.join(":");
+  const url = new URL(CLICKHOUSE_HOST);
 
   const params = {
-    port: port,
-    url: url,
+    port: parseInt(url.port) || 9000,
+    url: url.toString(),
     user: user,
     password: password,
     database: database,
@@ -111,19 +112,7 @@ export async function deleteClickhouseUser(
   datasourceId: string,
   organization: string
 ) {
-  ensureClickhouseEnvVars();
-
-  const client = createClickhouseClient({
-    host: CLICKHOUSE_HOST,
-    username: CLICKHOUSE_ADMIN_USER,
-    password: CLICKHOUSE_ADMIN_PASSWORD,
-    database: CLICKHOUSE_DATABASE,
-    application: "GrowthBook",
-    request_timeout: 3620_000,
-    clickhouse_settings: {
-      max_execution_time: 3600,
-    },
-  });
+  const client = createAdminClickhouseClient();
   const user = clickhouseUserId(organization, datasourceId);
 
   logger.info(`Deleting Clickhouse user ${user}`);
