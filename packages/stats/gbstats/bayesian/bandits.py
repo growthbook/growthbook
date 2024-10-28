@@ -64,7 +64,7 @@ def get_error_bandit_result(
     )
 
 
-class MCMC:
+class BanditsMCMC:
     def __init__(self, variation_means: np.ndarray, variation_variances: np.ndarray):
         self.variation_means = variation_means
         self.variation_variances = variation_variances
@@ -79,6 +79,7 @@ class MCMC:
     def run_mcmc(self):
         self.initalize_parameters()
         self.create_storage_arrays()
+        self.run_all_iterations()
 
     def initalize_parameters(self):
         self.alpha = self.variation_means.copy()
