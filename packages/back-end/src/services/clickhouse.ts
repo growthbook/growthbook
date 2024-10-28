@@ -92,7 +92,7 @@ export async function deleteClickhouseUser(
       max_execution_time: 3600,
     },
   });
-  const user = `${organization}-${datasourceId}`;
+  const user = `${organization}_${datasourceId}`;
 
   logger.info(`Deleting Clickhouse user ${user}`);
   await client.command({
