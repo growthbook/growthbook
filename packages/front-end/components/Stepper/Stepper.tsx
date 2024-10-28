@@ -27,16 +27,16 @@ export default function Stepper({
   return (
     <Flex
       as="div"
-      justify={"start"}
-      className={"nav nav-default paged-modal-default"}
+      justify="start"
+      className="nav nav-default paged-modal-default"
       mb="4"
     >
       {steps.map(({ label, enabled }, i) => {
         return (
           <Flex
             as="div"
-            align={"center"}
-            justify={"between"}
+            align="center"
+            justify="between"
             className={clsx("step", {
               active: step === i,
               completed: i < step && !skipped?.has(i),
@@ -47,7 +47,7 @@ export default function Stepper({
             <a
               key={i}
               role="button"
-              className={"nav-link"}
+              className="nav-link"
               onClick={async (e) => {
                 e.preventDefault();
                 setError("");
