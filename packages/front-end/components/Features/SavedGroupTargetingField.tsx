@@ -27,7 +27,15 @@ export default function SavedGroupTargetingField({
     hasLargeSavedGroupFeature,
   } = useLargeSavedGroupSupport(project);
 
-  if (!savedGroups.length) return null;
+  if (!savedGroups.length)
+    return (
+      <div>
+        <label>Target by Saved Groups</label>
+        <div className="font-italic text-muted mr-3">
+          You do not have any saved groups.
+        </div>
+      </div>
+    );
 
   const filteredSavedGroups = savedGroups.filter((group) => {
     return (
@@ -45,6 +53,7 @@ export default function SavedGroupTargetingField({
   if (value.length === 0) {
     return (
       <div>
+        <label>Target by Saved Groups</label>
         <div className="font-italic text-muted mr-3">
           No saved group targeting applied.
         </div>

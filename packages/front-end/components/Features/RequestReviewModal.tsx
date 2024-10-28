@@ -15,10 +15,10 @@ import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
-import RadioSelector from "@/components/Forms/RadioSelector";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import RadioGroup from "@/components/Radix/RadioGroup";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -378,36 +378,34 @@ export default function RequestReviewModal({
           <div>
             <h4>Leave a Comment</h4>
             <Field
-              placeholder="leave a comment"
+              placeholder="Leave a comment"
               textarea
               className="mb-3 mt-3"
               {...submitReviewform.register("comment")}
             />
           </div>
 
-          <RadioSelector
-            name="type"
+          <RadioGroup
             value={submitReviewform.watch("reviewStatus")}
-            descriptionNewLine={true}
             setValue={(val: ReviewSubmittedType) => {
               submitReviewform.setValue("reviewStatus", val);
             }}
             options={[
               {
-                key: "Comment",
-                display: "Comment",
+                value: "Comment",
+                label: "Comment",
                 description:
                   "Submit general feedback without explicit approval.",
               },
               {
-                key: "Requested Changes",
-                display: "Request Changes",
+                value: "Requested Changes",
+                label: "Request Changes",
                 description:
                   "Submit feedback that must be addressed before publishing.",
               },
               {
-                key: "Approved",
-                display: "Approve",
+                value: "Approved",
+                label: "Approve",
                 description: "Submit feedback and approve for publishing.",
               },
             ]}

@@ -29,14 +29,14 @@ subset of users (like beta users), gradually roll out a new features, or turn an
 1. Create an [SDK Connection](#sdk-connections) in GrowthBook
 2. See [Feature Flag Basics](/features/basics) to learn the fundamentals and see the types of features we support (boolean, number, string, JSON)
 3. Learn about [Targeting](/features/targeting) to target features to users with certain attributes
-4. Add [Override Rules](/features/rules) to target users with a Forced Value, rollout your feature to a percentage of users, or run an experiment
+4. Add [Rules](/features/rules) to target users with a Forced Value, rollout your feature to a percentage of users, or run an experiment
 5. Learn about [Scheduling](/features/scheduling) features and different feature [Environments](/features/environments)
 
 ## SDK Connections
 
 In order to use feature flags in your application, you need to create an **SDK Connection** in GrowthBook.
 
-At a high level, the SDK Connection generates a unique clientKey which grants read-only access to feature flags in a specific environment. The SDKs use this to fetch feature flag states and override rules from the GrowthBook API.
+At a high level, the SDK Connection generates a unique clientKey which grants read-only access to feature flags in a specific environment. The SDKs use this to fetch feature flag states and rules from the GrowthBook API.
 
 On GrowthBook Cloud, we have a global CDN in front of the API (https://cdn.growthbook.io) to ensure low latency responses from anywhere in the world. The CDN has a 30-second TTL, so changes to a feature may take a little time to be reflected.
 

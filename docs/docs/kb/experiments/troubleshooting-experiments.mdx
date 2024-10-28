@@ -15,6 +15,7 @@ Check the following to correct a lack of traffic to the experiment:
 
 - **Ensure the trackingCallback in the SDK is configured correctly.** It should be using the intended tracking library (e.g. Google Analytics [GA4], Segment, Amplitude) and actually emitting tracking events to your data warehouse.
 - **Ensure the Hash Attribute identifier is being set for each user.** When you start an experiment in GrowthBook, you need to choose which Attribute to use to assign users to variations, often the user `id`. If you do not set that Attribute when you instantiate the GrowthBook SDK, then users can't be assigned to the right variation and users will default to not entering the experiment at all.
+- **Remove any Segments or Activation Metrics that may be filtering out users.** Open the Analysis Settings for your experiment and remove any selected Activation Metric or Segment. These may be filter out users. If removing them causes data to show up, you need to investigate your configuration of that Activation Metric or your Segment.
 - **Ensure the Experiment Assignment Query in your data source is configured correctly.** You can find this query on your data source's detail page.
 
 ## Problem 2: SRM errors (traffic imbalance) in the experiment

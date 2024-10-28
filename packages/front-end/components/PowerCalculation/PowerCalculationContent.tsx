@@ -86,11 +86,17 @@ const AnalysisSettings = ({
             <h2>Analysis Settings</h2>
             <p>
               {params.nVariations} Variations ·{" "}
-              {engineType[params.statsEngineSettings.type]} (Sequential Testing{" "}
-              {params.statsEngineSettings.sequentialTesting
-                ? "enabled"
-                : "disabled"}
-              ) ·{" "}
+              {engineType[params.statsEngineSettings.type]}
+              {params.statsEngineSettings.type === "frequentist"
+                ? ` (Sequential Testing 
+              ${
+                params.statsEngineSettings.sequentialTesting
+                  ? "enabled"
+                  : "disabled"
+              })
+              `
+                : ""}{" "}
+              ·{" "}
               <Link
                 href="#"
                 onClick={() => setShowStatsEngineSettingsModal(true)}

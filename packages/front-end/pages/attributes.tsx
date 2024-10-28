@@ -8,7 +8,6 @@ import { FeatureInterface } from "back-end/src/validators/features";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { SavedGroupInterface } from "shared/src/types";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema, useFeaturesList } from "@/services/features";
@@ -19,6 +18,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
+import Button from "@/components/Radix/Button";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;
@@ -374,25 +374,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
         <div className="mb-5">
           <div className="row mb-3 align-items-center">
             <div className="col">
-              <div className="d-flex">
+              <div className="d-flex mb-1">
                 <h1>Targeting Attributes</h1>
                 {canCreateAttributes && (
                   <div className="ml-auto">
-                    <button
-                      className="btn btn-primary"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setModalData("");
-                      }}
-                    >
-                      <span
-                        style={{ position: "relative", top: "-1px" }}
-                        className="mr-2"
-                      >
-                        <GBAddCircle />
-                      </span>
+                    <Button onClick={() => setModalData("")}>
                       Add Attribute
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

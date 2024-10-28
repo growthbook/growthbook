@@ -8,7 +8,6 @@ import {
 } from "react-icons/fa";
 import { Link } from "@radix-ui/themes";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
-import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -25,7 +24,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import Callout from "@/components/Radix/Callout";
-import styles from "./InitialSetup.module.scss";
 
 interface Props {
   connection: string | null;
@@ -70,10 +68,7 @@ const VerifyConnectionPage = ({
   }
 
   return (
-    <div
-      className={clsx(styles.setupPage, "mt-5")}
-      style={{ padding: "0px 57px" }}
-    >
+    <div className="mt-5" style={{ padding: "0px 57px" }}>
       {!currentConnection && <LoadingOverlay />}
       {inviting && (
         <InviteModal

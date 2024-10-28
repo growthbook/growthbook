@@ -9,6 +9,7 @@ import {
 } from "react";
 import clsx from "clsx";
 import { truncateString } from "shared/util";
+import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import LoadingOverlay from "./LoadingOverlay";
@@ -18,6 +19,7 @@ import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
+  subHeader?: string | ReactNode;
   open: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
@@ -26,12 +28,16 @@ type ModalProps = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
+  modalUuid?: string;
+  trackOnSubmit?: boolean;
   className?: string;
   submitColor?: string;
   cta?: string | ReactNode;
+  ctaEnabled?: boolean;
   closeCta?: string | ReactNode;
   includeCloseCta?: boolean;
-  ctaEnabled?: boolean;
+  onClickCloseCta?: () => Promise<void> | void;
+  closeCtaClassName?: string;
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
@@ -48,6 +54,7 @@ type ModalProps = {
   fullWidthSubmit?: boolean;
   secondaryCTA?: ReactNode;
   tertiaryCTA?: ReactNode;
+  backCTA?: ReactNode;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
@@ -58,6 +65,7 @@ type ModalProps = {
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
+  subHeader = "",
   children,
   close,
   submit,
@@ -67,6 +75,8 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  onClickCloseCta,
+  closeCtaClassName = "btn btn-link",
   includeCloseCta = true,
   disabledMessage,
   inline = false,
@@ -82,6 +92,7 @@ const Modal: FC<ModalProps> = ({
   loading: externalLoading,
   secondaryCTA,
   tertiaryCTA,
+  backCTA,
   successMessage,
   bodyClassName = "",
   formRef,
@@ -91,7 +102,10 @@ const Modal: FC<ModalProps> = ({
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
+  modalUuid: _modalUuid,
+  trackOnSubmit = true,
 }) => {
+  const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -137,22 +151,25 @@ const Modal: FC<ModalProps> = ({
       {loading && <LoadingOverlay />}
       {header ? (
         <div className="modal-header">
-          <h5 className="modal-title">
-            {header === "logo" ? (
-              <img
-                alt="GrowthBook"
-                src="/logo/growthbook-logo.png"
-                style={{ height: 40 }}
-              />
-            ) : (
-              header
-            )}
-          </h5>
-          {docSection && (
-            <DocLink docSection={docSection}>
-              <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
-            </DocLink>
-          )}
+          <div>
+            <h4 className="modal-title">
+              {header === "logo" ? (
+                <img
+                  alt="GrowthBook"
+                  src="/logo/growthbook-logo.png"
+                  style={{ height: 40 }}
+                />
+              ) : (
+                header
+              )}
+              {docSection && (
+                <DocLink docSection={docSection}>
+                  <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+                </DocLink>
+              )}
+            </h4>
+            {subHeader ? <div className="mt-1">{subHeader}</div> : null}
+          </div>
           {close && (
             <button
               type="button"
@@ -203,10 +220,20 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit || secondaryCTA || (close && includeCloseCta) ? (
+      {submit ||
+      secondaryCTA ||
+      tertiaryCTA ||
+      backCTA ||
+      (close && includeCloseCta) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >
+          {backCTA ? (
+            <>
+              {backCTA}
+              <div className="flex-1" />
+            </>
+          ) : null}
           {error && (
             <div className="alert alert-danger mr-auto">
               {error
@@ -226,6 +253,18 @@ const Modal: FC<ModalProps> = ({
               />
             }
           >
+            {close && includeCloseCta ? (
+              <button
+                className={closeCtaClassName}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await onClickCloseCta?.();
+                  close();
+                }}
+              >
+                {isSuccess && successMessage ? "Close" : closeCta}
+              </button>
+            ) : null}
             {secondaryCTA}
             {submit && !isSuccess ? (
               <Tooltip
@@ -244,19 +283,6 @@ const Modal: FC<ModalProps> = ({
                   {cta}
                 </button>
               </Tooltip>
-            ) : (
-              ""
-            )}
-            {close && includeCloseCta ? (
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  close();
-                }}
-              >
-                {isSuccess && successMessage ? "Close" : closeCta}
-              </button>
             ) : null}
             {tertiaryCTA}
           </ConditionalWrapper>
@@ -283,6 +309,7 @@ const Modal: FC<ModalProps> = ({
       track(eventName, {
         type: trackingEventModalType,
         source: trackingEventModalSource,
+        eventGroupUuid: modalUuid,
         ...allowlistedTrackingEventProps,
         ...(additionalProps || {}),
       });
@@ -291,6 +318,7 @@ const Modal: FC<ModalProps> = ({
       trackingEventModalType,
       trackingEventModalSource,
       allowlistedTrackingEventProps,
+      modalUuid,
     ]
   );
 
@@ -298,7 +326,8 @@ const Modal: FC<ModalProps> = ({
     if (open) {
       sendTrackingEvent("modal-open");
     }
-  }, [open, sendTrackingEvent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const modalHtml = (
     <div
@@ -344,13 +373,17 @@ const Modal: FC<ModalProps> = ({
                 } else if (close && autoCloseOnSubmit) {
                   close();
                 }
-                sendTrackingEvent("modal-submit-success");
+                if (trackOnSubmit) {
+                  sendTrackingEvent("modal-submit-success");
+                }
               } catch (e) {
                 setError(e.message);
                 setLoading(false);
-                sendTrackingEvent("modal-submit-error", {
-                  error: truncateString(e.message, 32),
-                });
+                if (trackOnSubmit) {
+                  sendTrackingEvent("modal-submit-error", {
+                    error: truncateString(e.message, 32),
+                  });
+                }
               }
             }}
           >

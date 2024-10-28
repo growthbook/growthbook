@@ -389,6 +389,8 @@ export const notifySignificance = async ({
   });
 
   if (!experimentChanges.length) return;
+  // no notifications for bandits yet, will add 95% event later
+  if (experiment.type === "multi-armed-bandit") return;
 
   // send email if enabled and the snapshot is scheduled standard analysis
   if (
