@@ -13,6 +13,26 @@ import { DataSourceParams } from "back-end/types/datasource";
 import { ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
 
+function clickhouseUserId(orgId: string, datasourceId: string) {
+  return ENVIRONMENT === "production"
+    ? `${orgId}_${datasourceId}`
+    : `test_${orgId}_${datasourceId}`;
+}
+
+function ensureClickhouseEnvVars() {
+  if (
+    !CLICKHOUSE_HOST ||
+    !CLICKHOUSE_ADMIN_USER ||
+    !CLICKHOUSE_ADMIN_PASSWORD ||
+    !CLICKHOUSE_DATABASE ||
+    !CLICKHOUSE_MAIN_TABLE
+  ) {
+    throw new Error(
+      "Must specify necessary environment variables to interact with clickhouse."
+    );
+  }
+}
+
 export async function createClickhouseUser(
   context: ReqContext,
   datasourceId: string
@@ -23,6 +43,8 @@ export async function createClickhouseUser(
       "Clickhouse user creation is only allowed for the Growthbook organization"
     );
   }
+
+  ensureClickhouseEnvVars();
 
   const client = createClickhouseClient({
     host: CLICKHOUSE_HOST,
@@ -37,10 +59,7 @@ export async function createClickhouseUser(
   });
 
   const orgId = context.org.id;
-  const user =
-    ENVIRONMENT === "production"
-      ? `${orgId}_${datasourceId}`
-      : `test_${orgId}_${datasourceId}`;
+  const user = clickhouseUserId(orgId, datasourceId);
   const password = generator.generate({
     length: 30,
     numbers: true,
@@ -92,6 +111,8 @@ export async function deleteClickhouseUser(
   datasourceId: string,
   organization: string
 ) {
+  ensureClickhouseEnvVars();
+
   const client = createClickhouseClient({
     host: CLICKHOUSE_HOST,
     username: CLICKHOUSE_ADMIN_USER,
@@ -103,10 +124,7 @@ export async function deleteClickhouseUser(
       max_execution_time: 3600,
     },
   });
-  const user =
-    ENVIRONMENT === "production"
-      ? `${organization}_${datasourceId}`
-      : `test_${organization}_${datasourceId}`;
+  const user = clickhouseUserId(organization, datasourceId);
 
   logger.info(`Deleting Clickhouse user ${user}`);
   await client.command({
