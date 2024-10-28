@@ -66,7 +66,8 @@ const RunQueriesButton: FC<{
   icon?: "run" | "refresh";
   color?: string;
   position?: "left" | "right";
-  onSubmit?: () => void;
+  resetFilters?: () => void | Promise<void>;
+  onSubmit?: () => void | Promise<void>;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -76,6 +77,7 @@ const RunQueriesButton: FC<{
   icon = "run",
   color = "primary",
   position = "right",
+  resetFilters,
   onSubmit,
 }) => {
   const { apiCall } = useAuth();
@@ -151,9 +153,8 @@ const RunQueriesButton: FC<{
               top: -10,
               borderRadius: 50,
             }}
-            onClick={async (e) => {
-              e.preventDefault();
-              onSubmit?.();
+            onClick={async () => {
+              resetFilters?.();
               try {
                 await apiCall(cancelEndpoint, { method: "POST" });
               } catch (e) {
@@ -173,7 +174,10 @@ const RunQueriesButton: FC<{
             })}
             disabled={status === "running"}
             type="submit"
-            onClick={onSubmit}
+            onClick={async () => {
+              await resetFilters?.();
+              await onSubmit?.();
+            }}
           >
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               {buttonIcon}

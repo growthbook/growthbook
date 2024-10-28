@@ -1,6 +1,4 @@
 import { FC, useState } from "react";
-import { FaUsers, FaPlusCircle } from "react-icons/fa";
-import Link from "next/link";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
 import { Team, useUser } from "@/services/UserContext";
@@ -10,6 +8,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 import RoleList from "@/components/Teams/Roles/RoleList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -58,16 +58,12 @@ const TeamPage: FC = () => {
             </div>
             <div style={{ flex: 1 }} />
             <div className="col-auto">
-              <button
-                className="btn btn-primary"
+              <Button
                 disabled={!hasTeamsFeature}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalOpen({});
-                }}
+                onClick={() => setModalOpen({})}
               >
-                <FaUsers /> <span> </span>Create Team
-              </button>
+                Create Team
+              </Button>
             </div>
           </div>
           {hasTeamsFeature ? (
@@ -97,9 +93,9 @@ const TeamPage: FC = () => {
             <div style={{ flex: 1 }} />
             <div className="col-auto">
               {hasCustomRolesFeature ? (
-                <Link href="/settings/role/new" className="btn btn-primary">
-                  <FaPlusCircle /> <span> </span>Create Custom Role
-                </Link>
+                <LinkButton href="/settings/role/new">
+                  Create Custom Role
+                </LinkButton>
               ) : null}
             </div>
           </div>

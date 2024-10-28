@@ -36,7 +36,7 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   },
   dateCreated: Date,
   dateUpdated: Date,
-  type: { type: String },
+  type: { type: String, index: true },
   params: String,
   projects: {
     type: [String],
@@ -88,6 +88,13 @@ export async function getDataSourcesByOrganization(
     context.permissions.canReadMultiProjectResource(ds.projects)
   );
 }
+// WARNING: This does not restrict by organization
+export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    type: "growthbook_clickhouse",
+  });
+  return docs.map(toInterface);
+}
 
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
@@ -124,12 +131,15 @@ export async function removeProjectFromDatasources(
   );
 }
 
-export async function deleteDatasourceById(id: string, organization: string) {
+export async function deleteDatasource(
+  datasource: DataSourceInterface,
+  organization: string
+) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   await DataSourceModel.deleteOne({
-    id,
+    id: datasource.id,
     organization,
   });
 }

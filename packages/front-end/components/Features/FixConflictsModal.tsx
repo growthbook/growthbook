@@ -192,6 +192,7 @@ export default function FixConflictsModal({
 
   return (
     <PagedModal
+      trackingEventModalType="resolve-conflicts"
       header={"Resolve Conflicts"}
       step={step}
       setStep={setStep}

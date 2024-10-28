@@ -1,5 +1,10 @@
 # Changelog
 
+## **1.2.1** - Oct 8, 2024
+
+- Set default cookie expiry (180 days) in cookie-related Sticky Bucket Services.
+- Provide `getKey` method in Sticky Bucket Services.
+
 ## **1.2.0** - Aug 20, 2024
 
 - Make `trackingCallback` optionally async; await it when navigating in a URL redirect test

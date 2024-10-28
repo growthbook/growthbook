@@ -14,7 +14,8 @@ const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
-}> = ({ experiment, cancel, mutate }) => {
+  source?: string;
+}> = ({ experiment, cancel, mutate, source }) => {
   const form = useForm<{
     variations: Variation[];
   }>({
@@ -43,7 +44,8 @@ const EditVariationsForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-variations-form"
+      trackingEventModalSource={source}
       header={"Edit Variations"}
       open={true}
       close={cancel}

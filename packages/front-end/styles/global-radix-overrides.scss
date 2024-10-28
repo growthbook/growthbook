@@ -1,0 +1,109 @@
+// Button
+.rt-variant-ghost {
+  margin: 0 !important;
+  height: var(--base-button-height) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  &:where(.rt-r-size-1) {
+    padding-left: var(--space-2) !important;
+    padding-right: var(--space-2) !important;
+  }
+  &:where(.rt-r-size-2) {
+    padding-left: var(--space-3) !important;
+    padding-right: var(--space-3) !important;
+  }
+  &:where(.rt-r-size-3) {
+    padding-left: var(--space-4) !important;
+    padding-right: var(--space-4) !important;
+  }
+  &:where(.rt-r-size-4) {
+    padding-left: var(--space-5) !important;
+    padding-right: var(--space-5) !important;
+  }
+}
+
+// Callout
+.rt-CalloutRoot:where(.rt-r-size-1) {
+  padding: var(--space-2) var(--space-3) !important;
+  p:first-of-type {
+    margin-top: 2px;
+  }
+}
+
+// Checkbox
+.rt-CheckboxItem {
+  cursor: pointer;
+  &.disabled {
+    cursor: not-allowed;
+  }
+  &:hover:not(.disabled) {
+    .main-text {
+      color: var(--gray-11);
+    }
+    .rt-BaseCheckboxRoot {
+      &:not([data-state="checked"]) {
+        &::before {
+          background: var(--violet-a3);
+        }
+      }
+    }
+  }
+}
+
+// Radio
+.rt-RadioGroupItem {
+  cursor: pointer;
+  &.disabled {
+    cursor: not-allowed;
+  }
+  &:hover:not(.disabled) {
+    .main-text {
+      color: var(--gray-11);
+    }
+    .rt-BaseRadioRoot {
+      &:not([data-state="checked"]) {
+        &::before {
+          background: var(--violet-a2);
+        }
+      }
+    }
+  }
+}
+
+// RadioCards
+.rt-RadioCardsItem {
+  &:hover:not(.disabled) {
+    background: var(--violet-a3);
+  }
+  & > * {
+    pointer-events: auto !important;
+  }
+}
+
+// Slider
+.rt-SliderThumb::before,
+.rt-SliderThumb::after {
+  cursor: grab !important;
+  transition: 100ms box-shadow;
+}
+.rt-SliderThumb::before {
+  width: calc(var(--slider-thumb-size) * 1.5) !important;
+  height: calc(var(--slider-thumb-size) * 1.5) !important;
+  border-radius: calc(var(--slider-thumb-size) * 1.5) !important;
+}
+.rt-SliderRoot {
+  cursor: grab;
+  padding: 10px 0;
+  &:hover {
+    .rt-SliderThumb::before {
+      box-shadow: 0 0 0 2px var(--violet-a8);
+    }
+    .rt-SliderThumb::after {
+      box-shadow: 0 0 0 1.5px var(--gray-6);
+    }
+  }
+}
+
+.rt-TextDisabled {
+  color: var(--gray-9);
+}

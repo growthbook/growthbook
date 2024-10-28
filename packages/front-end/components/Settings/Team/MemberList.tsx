@@ -7,7 +7,6 @@ import router from "next/router";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { GBAddCircle } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { usingSSO } from "@/services/env";
 import { useEnvironments } from "@/services/features";
@@ -19,6 +18,7 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
+import Button from "@/components/Radix/Button";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -123,10 +123,9 @@ const MemberList: FC<{
           <div className="flex-1" />
           <div>
             {canInviteMembers && (
-              <button className="btn btn-primary mb-1" onClick={onInvite}>
-                <GBAddCircle className="mr-2" />
+              <Button mb="1" onClick={onInvite}>
                 Invite Member
-              </button>
+              </Button>
             )}
           </div>
         </div>

@@ -1,13 +1,10 @@
 import React, { ReactElement, useCallback, useState } from "react";
-import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
-import { useRouter } from "next/router";
+import { FaArchive } from "react-icons/fa";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
-import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
 import TagsFilter, {
   filterByTags,
@@ -17,7 +14,6 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import MetricForm from "@/components/Metrics/MetricForm";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
@@ -30,7 +26,14 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-interface MetricTableItem {
+import Button from "@/components/Radix/Button";
+import {
+  MetricModalState,
+  MetricModal,
+} from "@/components/FactTables/NewMetricModal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+
+export interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
   name: string;
@@ -43,45 +46,37 @@ interface MetricTableItem {
   dateUpdated: Date | null;
   dateCreated: Date | null;
   archived: boolean;
-  onDuplicate?: () => void;
+  canEdit: boolean;
+  canDuplicate: boolean;
   onArchive?: (desiredState: boolean) => Promise<void>;
+  onDuplicate?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => Promise<void>;
 }
 
-const MetricsPage = (): React.ReactElement => {
-  const [modalData, setModalData] = useState<{
-    current: Partial<MetricInterface>;
-    edit: boolean;
-    duplicate: boolean;
-  } | null>(null);
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
-
+export function useCombinedMetrics({
+  setMetricModalProps,
+  afterArchive,
+}: {
+  setMetricModalProps?: (props: MetricModalState) => void;
+  afterArchive?: (id: string, archived: boolean) => void;
+}): MetricTableItem[] {
   const {
-    getDatasourceById,
-    mutateDefinitions,
     _metricsIncludingArchived: inlineMetrics,
     _factMetricsIncludingArchived: factMetrics,
-    project,
-    ready,
+    mutateDefinitions,
   } = useDefinitions();
-  const router = useRouter();
-
-  const { getUserDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
+
   const { apiCall } = useAuth();
-
-  const tagsFilter = useTagsFilter("metrics");
-
-  const [showArchived, setShowArchived] = useState(false);
-  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
-    new Set()
-  );
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
+      const canDuplicate = permissionsUtil.canCreateMetric(m);
+      const canEdit = permissionsUtil.canUpdateMetric(m, {});
+      const canDelete = permissionsUtil.canDeleteMetric(m);
+
       const item: MetricTableItem = {
         id: m.id,
         managedBy: m.managedBy || "",
@@ -95,36 +90,61 @@ const MetricsPage = (): React.ReactElement => {
         tags: m.tags || [],
         type: m.type,
         isRatio: !!m.denominator,
-        onArchive: async (desiredState) => {
-          const newStatus = desiredState ? "archived" : "active";
-          await apiCall(`/metric/${m.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              status: newStatus,
-            }),
-          });
-          if (newStatus === "archived") {
-            setRecentlyArchived((set) => new Set([...set, m.id]));
-          } else {
-            setRecentlyArchived(
-              (set) => new Set([...set].filter((id) => id !== m.id))
-            );
-          }
-        },
-        onDuplicate: () => {
-          setModalData({
-            current: {
-              ...m,
-              name: m.name + " (copy)",
-            },
-            edit: false,
-            duplicate: true,
-          });
-        },
+        canDuplicate,
+        canEdit,
+        onArchive: canEdit
+          ? async (desiredState) => {
+              const newStatus = desiredState ? "archived" : "active";
+              await apiCall(`/metric/${m.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  status: newStatus,
+                }),
+              });
+
+              mutateDefinitions();
+
+              if (afterArchive) {
+                afterArchive(m.id, desiredState);
+              }
+            }
+          : undefined,
+        onDuplicate:
+          canDuplicate && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "duplicate",
+                  currentMetric: {
+                    ...m,
+                    name: m.name + " (copy)",
+                  },
+                })
+            : undefined,
+        onEdit:
+          canEdit && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "edit",
+                  currentMetric: m,
+                })
+            : undefined,
+        onDelete: canDelete
+          ? async () => {
+              await apiCall(`/metric/${m.id}`, {
+                method: "DELETE",
+              });
+
+              mutateDefinitions();
+            }
+          : undefined,
       };
       return item;
     }),
     ...factMetrics.map((m) => {
+      const canDuplicate = permissionsUtil.canCreateFactMetric(m);
+      const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
+      const canDelete = permissionsUtil.canDeleteFactMetric(m);
+
       const item: MetricTableItem = {
         id: m.id,
         managedBy: m.managedBy || "",
@@ -138,25 +158,95 @@ const MetricsPage = (): React.ReactElement => {
         tags: m.tags || [],
         isRatio: m.metricType === "ratio",
         type: m.metricType,
-        onArchive: async (archivedState) => {
-          await apiCall(`/fact-metrics/${m.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              archived: archivedState,
-            }),
-          });
-          if (archivedState) {
-            setRecentlyArchived((set) => new Set([...set, m.id]));
-          } else {
-            setRecentlyArchived(
-              (set) => new Set([...set].filter((id) => id !== m.id))
-            );
-          }
-        },
+        canDuplicate,
+        canEdit,
+        onArchive: canEdit
+          ? async (archivedState) => {
+              await apiCall(`/fact-metrics/${m.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  archived: archivedState,
+                }),
+              });
+
+              mutateDefinitions();
+
+              if (afterArchive) {
+                afterArchive(m.id, archivedState);
+              }
+            }
+          : undefined,
+        onDuplicate:
+          canDuplicate && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "duplicate",
+                  currentFactMetric: {
+                    ...m,
+                    name: m.name + " (copy)",
+                  },
+                })
+            : undefined,
+        onEdit:
+          canEdit && setMetricModalProps
+            ? () =>
+                setMetricModalProps({
+                  mode: "edit",
+                  currentFactMetric: m,
+                })
+            : undefined,
+        onDelete: canDelete
+          ? async () => {
+              await apiCall(`/fact-metrics/${m.id}`, {
+                method: "DELETE",
+              });
+
+              mutateDefinitions();
+            }
+          : undefined,
       };
       return item;
     }),
   ];
+
+  return combinedMetrics;
+}
+
+const MetricsPage = (): React.ReactElement => {
+  const [modalData, setModalData] = useState<MetricModalState | null>(null);
+
+  const [
+    showAutoGenerateMetricsModal,
+    setShowAutoGenerateMetricsModal,
+  ] = useState(false);
+
+  const {
+    getDatasourceById,
+    mutateDefinitions,
+    project,
+    ready,
+  } = useDefinitions();
+  const { getUserDisplay } = useUser();
+
+  const permissionsUtil = usePermissionsUtil();
+
+  const tagsFilter = useTagsFilter("metrics");
+
+  const [showArchived, setShowArchived] = useState(false);
+  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
+    new Set()
+  );
+
+  const combinedMetrics = useCombinedMetrics({
+    setMetricModalProps: setModalData,
+    afterArchive: (id, archived) => {
+      if (archived) {
+        setRecentlyArchived((set) => new Set([...set, id]));
+      } else {
+        setRecentlyArchived((set) => new Set([...set].filter((i) => i !== id)));
+      }
+    },
+  });
 
   const metrics = useAddComputedFields(
     combinedMetrics,
@@ -189,15 +279,6 @@ const MetricsPage = (): React.ReactElement => {
     [showArchived, recentlyArchived, tagsFilter.tags]
   );
 
-  const editMetricsPermissions: {
-    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
-  } = {};
-  filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = {
-      canDuplicate: permissionsUtil.canCreateMetric(m),
-      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
-    };
-  });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
     defaultSortField: "name",
@@ -246,22 +327,13 @@ const MetricsPage = (): React.ReactElement => {
   const closeModal = () => {
     setModalData(null);
   };
-  const onSuccess = () => {
-    mutateDefinitions();
-  };
 
   if (!filteredMetrics.length) {
     return (
       <div className="container p-4">
-        {modalData && (
-          <MetricForm
-            {...modalData}
-            onClose={closeModal}
-            onSuccess={onSuccess}
-            source="blank-state"
-            allowFactMetrics={!modalData.duplicate && !modalData.edit}
-          />
-        )}
+        {modalData ? (
+          <MetricModal {...modalData} close={closeModal} source="blank-state" />
+        ) : null}
         {showAutoGenerateMetricsModal && (
           <AutoGenerateMetricsModal
             source="metrics-index-page"
@@ -304,21 +376,11 @@ const MetricsPage = (): React.ReactElement => {
                 setShowAutoGenerateMetricsModal={
                   setShowAutoGenerateMetricsModal
                 }
-                size="lg"
+                size="md"
               />
-              <button
-                className="btn btn-lg btn-success"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalData({
-                    current: {},
-                    edit: false,
-                    duplicate: false,
-                  });
-                }}
-              >
-                <FaPlus /> Add your first Metric
-              </button>
+              <Button onClick={() => setModalData({ mode: "new" })}>
+                Add your first Metric
+              </Button>
             </>
           )}
       </div>
@@ -329,15 +391,9 @@ const MetricsPage = (): React.ReactElement => {
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
-      {modalData && (
-        <MetricForm
-          {...modalData}
-          onClose={closeModal}
-          onSuccess={onSuccess}
-          source="metrics-list"
-          allowFactMetrics={!modalData.duplicate && !modalData.edit}
-        />
-      )}
+      {modalData ? (
+        <MetricModal {...modalData} close={closeModal} source="blank-state" />
+      ) : null}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal
           source="metric-index-page"
@@ -368,21 +424,9 @@ const MetricsPage = (): React.ReactElement => {
                   setShowAutoGenerateMetricsModal
                 }
               />
-              <button
-                className="btn btn-primary float-right"
-                onClick={() =>
-                  setModalData({
-                    current: {},
-                    edit: false,
-                    duplicate: false,
-                  })
-                }
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
+              <Button onClick={() => setModalData({ mode: "new" })}>
                 Add Metric
-              </button>
+              </Button>
             </div>
           )}
       </div>
@@ -408,7 +452,7 @@ const MetricsPage = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={items} />
         </div>
       </div>
-      <table className="table appbox gbtable table-hover">
+      <table className="table appbox gbtable">
         <thead>
           <tr>
             <SortableTH field="name" className="col-3">
@@ -440,53 +484,67 @@ const MetricsPage = (): React.ReactElement => {
           {items.map((metric) => {
             const moreMenuLinks: ReactElement[] = [];
 
-            if (
-              metric.onDuplicate &&
-              editMetricsPermissions[metric.id].canDuplicate &&
-              envAllowsCreatingMetrics()
-            ) {
+            if (metric.onDuplicate && envAllowsCreatingMetrics()) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
                   onClick={(e) => {
-                    e.stopPropagation();
                     e.preventDefault();
                     metric.onDuplicate && metric.onDuplicate();
                   }}
                 >
-                  <FaRegCopy /> Duplicate
+                  Duplicate
                 </button>
               );
             }
 
-            if (
-              !metric.managedBy &&
-              metric.onArchive &&
-              editMetricsPermissions[metric.id].canUpdate
-            ) {
+            if (!metric.managedBy && !metric.archived && metric.onEdit) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    metric.onEdit?.();
+                  }}
+                >
+                  Edit
+                </button>
+              );
+            }
+
+            if (!metric.managedBy && metric.onArchive) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
                   onClick={async (e) => {
                     e.preventDefault();
-                    metric.onArchive &&
-                      (await metric.onArchive(!metric.archived));
-                    mutateDefinitions({});
+                    await metric.onArchive?.(!metric.archived);
                   }}
                 >
-                  <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}
+                  {metric.archived ? "Unarchive" : "Archive"}
                 </button>
+              );
+            }
+
+            if (!metric.managedBy && metric.onDelete) {
+              moreMenuLinks.push(
+                <DeleteButton
+                  className="dropdown-item text-danger"
+                  onClick={async () => {
+                    await metric.onDelete?.();
+                  }}
+                  displayName="Metric"
+                  useIcon={false}
+                  text="Delete"
+                  canDelete={true}
+                  disabled={false}
+                />
               );
             }
 
             return (
               <tr
                 key={metric.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push(getMetricLink(metric.id));
-                }}
-                style={{ cursor: "pointer" }}
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
@@ -553,13 +611,7 @@ const MetricsPage = (): React.ReactElement => {
                     </Tooltip>
                   )}
                 </td>
-                <td
-                  style={{ cursor: "initial" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                >
+                <td>
                   <MoreMenu>
                     {moreMenuLinks.map((menuItem, i) => (
                       <div key={`${menuItem}-${i}`} className="d-inline">

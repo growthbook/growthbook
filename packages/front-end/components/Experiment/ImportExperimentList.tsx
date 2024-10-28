@@ -24,6 +24,7 @@ import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Callout from "@/components/Radix/Callout";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -254,7 +255,7 @@ const ImportExperimentList: FC<{
       </div>
       {hasStarted && status === "failed" && (
         <>
-          <div className="alert alert-danger my-3">
+          <Callout status="error" my="3">
             <p>Error importing experiments.</p>
             {datasource?.id && (
               <p>
@@ -277,7 +278,7 @@ const ImportExperimentList: FC<{
               />{" "}
               for more information.
             </span>
-          </div>
+          </Callout>
         </>
       )}
       {totalRows === 0 && (
