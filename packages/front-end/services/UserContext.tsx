@@ -41,7 +41,7 @@ import {
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
-import track from "@/services/track";
+import track, { getJitsuClient } from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 import { sha256 } from "@/services/utils";
 
@@ -301,7 +301,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const growthbook = useGrowthBook<AppFeatures>();
 
   useEffect(() => {
+    let anonymous_id = "";
+    // This is an undocumented way to get the anonymous id from Jitsu
+    // Lots of type guards added to avoid breaking if we update Jitsu in the future
+    const jitsu = getJitsuClient();
+    if (
+      jitsu &&
+      "getAnonymousId" in jitsu &&
+      typeof jitsu.getAnonymousId === "function"
+    ) {
+      const _anonymous_id = jitsu.getAnonymousId();
+      if (typeof _anonymous_id === "string") {
+        anonymous_id = _anonymous_id;
+      }
+    }
+
     growthbook?.setAttributes({
+      anonymous_id,
       id: data?.userId || "",
       name: data?.userName || "",
       superAdmin: data?.superAdmin || false,
