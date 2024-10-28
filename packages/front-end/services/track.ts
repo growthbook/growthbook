@@ -134,7 +134,24 @@ function getOrGenerateSessionId() {
   return sessionId;
 }
 
-let jitsu: JitsuClient;
+let _jitsu: JitsuClient;
+export function getJitsuClient(): JitsuClient | null {
+  if (!isTelemetryEnabled()) return null;
+
+  if (!_jitsu) {
+    _jitsu = jitsuClient({
+      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
+      log_level: "ERROR",
+      tracking_host: "https://t.growthbook.io",
+      cookie_name: "__growthbookid",
+      capture_3rd_party_cookies: isCloud() ? ["_ga"] : false,
+      randomize_url: true,
+    });
+  }
+
+  return _jitsu;
+}
+
 export default function track(
   event: string,
   props: TrackEventProps = {}
@@ -196,20 +213,11 @@ export default function track(
   if (inTelemetryDebugMode()) {
     console.log("Telemetry Event - ", event, trackProps);
   }
-  if (!isTelemetryEnabled()) return;
 
-  if (!jitsu) {
-    jitsu = jitsuClient({
-      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
-      log_level: "ERROR",
-      tracking_host: "https://t.growthbook.io",
-      cookie_name: "__growthbookid",
-      capture_3rd_party_cookies: isCloud() ? ["_ga"] : false,
-      randomize_url: true,
-    });
+  const jitsu = getJitsuClient();
+  if (jitsu) {
+    jitsu.track(event, trackProps);
   }
-
-  jitsu.track(event, trackProps);
 }
 
 export function trackSnapshot(
