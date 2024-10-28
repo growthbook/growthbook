@@ -64,11 +64,13 @@ export default function RadioGroup({
                   >
                     <Text className={disabled ? "rt-TextDisabled" : undefined}>
                       <Flex direction="column" gap="1">
-                        <Text weight="bold" className="main-text">
+                        <Text style={{ fontWeight: 500 }} className="main-text">
                           {label || value}
                         </Text>
                         {description ? (
-                          <Text weight="regular">{description}</Text>
+                          <Text weight="regular" size="1">
+                            {description}
+                          </Text>
                         ) : null}
                         {error && selected ? (
                           <HelperText status={errorLevel}>{error}</HelperText>

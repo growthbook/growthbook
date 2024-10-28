@@ -227,6 +227,7 @@ export default function EditTargetingModal({
 
   return (
     <PagedModal
+      trackingEventModalType="make-changes"
       close={close}
       header={`Make ${isBandit ? "Bandit" : "Experiment"} Changes`}
       submit={onSubmit}

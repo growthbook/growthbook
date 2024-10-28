@@ -650,12 +650,20 @@ def get_bandit_result(
     if b:
         if any(value is None for value in b.stats):
             return get_error_bandit_result(
+                update_message="not updated",
                 error="not all statistics are instance of type BanditStatistic",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
         srm_p_value = b.compute_srm()
         bandit_result = b.compute_result()
+        if not bandit_result.enough_units:
+            return get_error_bandit_result(
+                update_message=bandit_result.bandit_update_message,
+                error="",
+                reweight=bandit_settings.reweight,
+                current_weights=bandit_settings.current_weights,
+            )
         if (
             bandit_result.bandit_update_message == "successfully updated"
             and bandit_result.ci
@@ -683,12 +691,19 @@ def get_bandit_result(
                 reweight=bandit_settings.reweight,
             )
         else:
+            error_message = (
+                bandit_result.bandit_update_message
+                if bandit_result.bandit_update_message
+                else "unknown error in get_bandit_result"
+            )
             return get_error_bandit_result(
-                error="bandit result computation failed",
+                update_message="not updated",
+                error=error_message,
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
     return get_error_bandit_result(
+        update_message="not updated",
         error="no data froms sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
@@ -741,6 +756,8 @@ def process_experiment_results(
                         # when using multi-period data, binomial is no longer iid and variance is wrong
                         if metric_settings_bandit.main_metric_type == "binomial":
                             metric_settings_bandit.main_metric_type = "count"
+                        if metric_settings_bandit.covariate_metric_type == "binomial":
+                            metric_settings_bandit.covariate_metric_type = "count"
                         if (
                             metric == d.bandit_settings.decision_metric
                             and not d.analyses[0].dimension
@@ -771,6 +788,7 @@ def process_experiment_results(
                 else:
                     if d.bandit_settings:
                         bandit_result = get_error_bandit_result(
+                            update_message="not updated",
                             error="no rows",
                             reweight=d.bandit_settings.reweight,
                             current_weights=d.bandit_settings.current_weights,

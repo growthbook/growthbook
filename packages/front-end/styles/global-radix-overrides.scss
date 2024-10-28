@@ -22,6 +22,14 @@
   }
 }
 
+// Callout
+.rt-CalloutRoot:where(.rt-r-size-1) {
+  padding: var(--space-2) var(--space-3) !important;
+  p:first-of-type {
+    margin-top: 2px;
+  }
+}
+
 // Checkbox
 .rt-CheckboxItem {
   cursor: pointer;
@@ -55,7 +63,7 @@
     .rt-BaseRadioRoot {
       &:not([data-state="checked"]) {
         &::before {
-          background: var(--violet-a3);
+          background: var(--violet-a2);
         }
       }
     }

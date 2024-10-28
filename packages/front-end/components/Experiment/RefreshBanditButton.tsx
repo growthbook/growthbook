@@ -212,7 +212,7 @@ const RefreshBanditButton: FC<{
           ) : null}
           <div
             className="text-danger text-monospace mx-2 my-1 small"
-            style={{ lineHeight: "14px" }}
+            style={{ lineHeight: "14px", maxHeight: 100, overflowY: "auto" }}
           >
             {error}
           </div>

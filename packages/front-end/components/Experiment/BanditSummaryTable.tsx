@@ -23,10 +23,13 @@ export type BanditSummaryTableProps = {
   isTabActive: boolean;
 };
 
+const numberFormatter = Intl.NumberFormat();
+
 const intPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 0,
 });
+
 const percentileFormatter = (v: number) => {
   if (v > 0.99) {
     return ">99%";
@@ -94,8 +97,8 @@ export default function BanditSummaryTable({
   const currentEvent = validEvents[validEvents.length - 1];
   const results = currentEvent?.banditResult?.singleVariationResults;
 
-  const probabilities: number[] = useMemo(() => {
-    let probs: number[] = [];
+  const { probabilities, totalUsers } = useMemo(() => {
+    let probabilities: number[] = [];
     let totalUsers = 0;
     for (let i = 0; i < variations.length; i++) {
       let prob =
@@ -110,12 +113,12 @@ export default function BanditSummaryTable({
           prob = NaN;
         }
       }
-      probs.push(prob);
+      probabilities.push(prob);
     }
     if (totalUsers < 100 * variations.length) {
-      probs = probs.map(() => 1 / (variations.length || 2));
+      probabilities = probabilities.map(() => 1 / (variations.length || 2));
     }
-    return probs;
+    return { probabilities, totalUsers };
   }, [variations, results, currentEvent]);
 
   function rankArray(values: (number | undefined)[]): number[] {
@@ -247,6 +250,12 @@ export default function BanditSummaryTable({
                   </div>
                 </th>
                 <th
+                  className="axis-col label text-center px-0"
+                  style={{ width: 100 }}
+                >
+                  Users
+                </th>
+                <th
                   className="axis-col label text-right pr-3"
                   style={{ width: 120 }}
                 >
@@ -322,11 +331,6 @@ export default function BanditSummaryTable({
                 return (
                   <tr
                     className="results-variation-row align-items-center"
-                    style={
-                      j === variations.length - 1
-                        ? { boxShadow: "none" }
-                        : undefined
-                    }
                     key={j}
                   >
                     <td
@@ -348,6 +352,15 @@ export default function BanditSummaryTable({
                           {v.name}
                         </span>
                       </div>
+                    </td>
+                    <td className="text-center px-0">
+                      {stats.users >= 0 ? (
+                        numberFormatter.format(stats.users)
+                      ) : (
+                        <em className="text-muted">
+                          <small>not enough data</small>
+                        </em>
+                      )}
                     </td>
                     <td
                       className={clsx("results-ctw chance text-right pr-3", {
@@ -377,6 +390,8 @@ export default function BanditSummaryTable({
                         domain={domain}
                         significant={true}
                         showAxis={false}
+                        zeroLineWidth={1.5}
+                        zeroLineOffset={0}
                         graphWidth={graphCellWidth}
                         percent={false}
                         height={rowHeight}
@@ -403,6 +418,18 @@ export default function BanditSummaryTable({
                   </tr>
                 );
               })}
+              <tr
+                key="summary"
+                className="results-variation-row bg-light align-items-center"
+                style={{ boxShadow: "none" }}
+              >
+                <td className="font-weight-bold pl-3">All variations</td>
+                <td className="text-center px-0 py-2 font-weight-bold">
+                  {totalUsers >= 0 ? numberFormatter.format(totalUsers) : null}
+                </td>
+                <td />
+                <td />
+              </tr>
             </tbody>
           </table>
         </div>

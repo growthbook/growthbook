@@ -357,13 +357,16 @@ const ExperimentsPage = (): React.ReactElement => {
                   experiments from other platforms.
                 </p>
               </div>
-              <div className="d-flex justify-content-center">
-                <Link href="/getstarted/experiment-guide">
-                  {" "}
-                  <button className="btn btn-outline-primary mr-2">
-                    Setup Instructions
-                  </button>
-                </Link>
+              <div
+                className="d-flex justify-content-center"
+                style={{ gap: "1rem" }}
+              >
+                <LinkButton
+                  href="/getstarted/experiment-guide"
+                  variant="outline"
+                >
+                  Setup Instructions
+                </LinkButton>
                 {canAdd && addExperimentDropdownButton}
               </div>
             </div>

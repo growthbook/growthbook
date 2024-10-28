@@ -53,7 +53,7 @@ properties:
     type: number
     enum: [1, 2]
   disableStickyBucketing:
-    type: boolean;
+    type: boolean
   bucketVersion:
     type: number
   minBucketVersion:

@@ -1,12 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import {
-  FaChartLine,
-  FaExternalLinkAlt,
-  FaFlask,
-  FaTimes,
-} from "react-icons/fa";
+import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { quantileMetricType } from "shared/experiments";
 import {
@@ -14,9 +9,10 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCuped, GBEdit } from "@/components/Icons";
+import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -43,9 +39,7 @@ import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
-
-const metricTabs = ["analysis", "experiments"] as const;
-export type MetricTab = typeof metricTabs[number];
+import { AppFeatures } from "@/types/app-features";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -163,6 +157,7 @@ export default function FactMetricPage() {
     projects,
     getDatasourceById,
   } = useDefinitions();
+  const growthbook = useGrowthBook<AppFeatures>();
 
   if (!ready) return <LoadingOverlay />;
 
@@ -797,7 +792,7 @@ export default function FactMetricPage() {
         <ControlledTabs
           orientation="horizontal"
           className="col"
-          buttonsClassName="mb-0"
+          buttonsClassName="mb-0 d-flex align-items-center"
           buttonsWrapperClassName="border-bottom-0 large shiftdown-1"
           defaultTab="analysis"
           newStyle={false}
@@ -808,7 +803,7 @@ export default function FactMetricPage() {
           <Tab
             display={
               <>
-                <FaChartLine className="mr-1" />
+                <FaChartLine className="mr-1" size={16} />
                 Metric Analysis
               </>
             }
@@ -828,7 +823,7 @@ export default function FactMetricPage() {
           <Tab
             display={
               <>
-                <FaFlask className="mr-1" />
+                <GBExperiment className="mr-1" />
                 Experiments
               </>
             }
@@ -839,6 +834,22 @@ export default function FactMetricPage() {
           >
             <MetricExperiments metric={factMetric} />
           </Tab>
+          {growthbook.isOn("bandits") ? (
+            <Tab
+              display={
+                <>
+                  <GBBandit className="mr-1" />
+                  Bandits
+                </>
+              }
+              id="bandits"
+              anchor="bandits"
+              padding={false}
+              lazy={true}
+            >
+              <MetricExperiments metric={factMetric} bandits={true} />
+            </Tab>
+          ) : null}
         </ControlledTabs>
       </div>
     </div>

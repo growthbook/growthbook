@@ -12,7 +12,7 @@ describe("Role permissions", () => {
     invites: [],
     members: [],
     settings: {
-      environments: [{ id: "production" }],
+      environments: [{ id: "production", description: "" }],
     },
   };
 
@@ -30,7 +30,7 @@ describe("Role permissions", () => {
   const project = "";
   const projects = [];
   const projectResource = { project: "" };
-  const projectsResource = { projects: [] };
+  const projectsResource = { projects: [], type: undefined };
   const environmentsResource = { projects: [], id: "" };
   const envs = ["production"];
   const sdkConnection = { projects: [], environment: "" };

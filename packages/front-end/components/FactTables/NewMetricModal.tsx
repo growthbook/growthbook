@@ -42,7 +42,7 @@ export function MetricModal({
         current={currentMetric}
         edit={mode === "edit"}
         duplicate={mode === "duplicate"}
-        source={source}
+        source={source + (mode === "duplicate" ? "-duplicate" : "")}
         onClose={close}
       />
     );
@@ -50,7 +50,7 @@ export function MetricModal({
     return (
       <FactMetricModal
         close={close}
-        source={source}
+        source={source + (mode === "duplicate" ? "-duplicate" : "")}
         duplicate={mode === "duplicate"}
         existing={currentFactMetric}
       />

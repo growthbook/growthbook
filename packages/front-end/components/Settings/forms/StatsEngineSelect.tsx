@@ -9,6 +9,7 @@ export default function StatsEngineSelect({
   showDefault = true,
   allowUndefined = true,
   label = "Statistics Engine",
+  className = "w-200px",
   value,
   onChange,
   labelClassName = "font-weight-bold text-muted mr-2",
@@ -19,6 +20,7 @@ export default function StatsEngineSelect({
   showDefault?: boolean;
   allowUndefined?: boolean;
   label?: ReactNode;
+  className?: string;
   onChange?: (v: StatsEngine) => void;
   labelClassName?: string;
   disabled?: boolean;
@@ -46,7 +48,7 @@ export default function StatsEngineSelect({
   return (
     <SelectField
       label={label}
-      className="w-200px"
+      className={className}
       containerClassName="mb-3"
       labelClassName={labelClassName}
       sort={false}
