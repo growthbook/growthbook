@@ -3,34 +3,16 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Radix/Badge";
 import { RadixColor } from "@/components/Radix/HelperText";
 
-export const TAG_COLORS: RadixColor[] = [
+export const TAG_COLORS = [
+  "blue",
+  "teal",
+  "pink",
+  "orange",
+  "lime",
   "gray",
   "gold",
-  "bronze",
-  "brown",
-  "yellow",
-  "amber",
-  "orange",
-  "tomato",
-  "red",
-  "ruby",
-  "crimson",
-  "pink",
-  "plum",
-  "purple",
-  "violet",
-  "iris",
-  "indigo",
-  "blue",
-  "cyan",
-  "teal",
-  "jade",
-  "green",
-  "grass",
-  "lime",
-  "mint",
-  "sky",
-];
+] as const;
+export type TagColor = typeof TAG_COLORS[number];
 
 interface Props {
   tag: string;
@@ -43,9 +25,9 @@ export default function Tag({ tag, color, description, skipMargin }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
-  const displayColor = TAG_COLORS.includes(fullTag?.color as RadixColor)
-    ? fullTag?.color
-    : "violet";
+  const displayColor: TagColor = TAG_COLORS.includes(fullTag?.color)
+    ? (fullTag?.color as TagColor)
+    : "blue";
 
   return (
     <Badge label={tag} color={color ?? displayColor} variant="soft" mr="2" />
