@@ -23,6 +23,7 @@ import {
 import RadioCards from "@/components/Radix/RadioCards";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DataList from "@/components/Radix/DataList";
+import Stepper from "@/components/Stepper/Stepper";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -34,6 +35,7 @@ export default function DesignSystemPage() {
     "1" | "2" | "3" | "4" | "5" | "6"
   >("1");
   const [sliderVal, setSliderVal] = useState(10);
+  const [stepperStep, setStepperStep] = useState(0);
 
   return (
     <div className="pagecontents container-fluid">
@@ -476,6 +478,20 @@ export default function DesignSystemPage() {
             <Slider defaultValue={[25]} size="3" disabled={true} />
           </div>
         </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Stepper</h3>
+        <Stepper
+          step={stepperStep}
+          setStep={setStepperStep}
+          setError={() => {}}
+          steps={[
+            { label: "Step 1", enabled: true },
+            { label: "Step 2", enabled: true },
+            { label: "Step 3", enabled: true },
+          ]}
+        />
       </div>
     </div>
   );
