@@ -233,9 +233,7 @@ class Bandits(ABC):
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
-        min_n = 100 * self.num_variations
-        enough_units = self.current_sample_size >= min_n
-
+        enough_units = all(self.variation_counts >= 100)
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
@@ -245,10 +243,7 @@ class Bandits(ABC):
             seed=seed,
             bandit_update_message=update_message
             if enough_units
-            else "total sample size is only "
-            + str(self.current_sample_size)
-            + " and it needs to be at least 100 * "
-            + str(self.num_variations),
+            else "total sample size must be at least 100 per variation",
             enough_units=enough_units,
         )
 
