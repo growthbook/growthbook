@@ -80,9 +80,9 @@ export const postExperimentSnapshot = createApiRequestHandler(
     });
     return {
       snapshot: {
-        id: snapshot.id,
-        experiment: snapshot.experiment,
-        status: snapshot.status,
+        id: snapshot.snapshot.id,
+        experiment: snapshot.snapshot.experiment,
+        status: snapshot.snapshot.status,
       },
     };
   }

@@ -1,8 +1,8 @@
-import { findSnapshotById } from "../../models/ExperimentSnapshotModel";
-import { GetExperimentSnapshotResponse } from "../../../types/openapi";
-import { getExperimentById } from "../../models/ExperimentModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { getExperimentSnapshotValidator } from "../../validators/openapi";
+import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
+import { GetExperimentSnapshotResponse } from "back-end/types/openapi";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExperimentSnapshotValidator } from "back-end/src/validators/openapi";
 
 export const getExperimentSnapshot = createApiRequestHandler(
   getExperimentSnapshotValidator
@@ -10,7 +10,7 @@ export const getExperimentSnapshot = createApiRequestHandler(
   async (req): Promise<GetExperimentSnapshotResponse> => {
     const snapshot = await findSnapshotById(req.context.org.id, req.params.id);
     if (!snapshot) {
-      throw new Error("Snapshot not found");
+      throw new Error("Snapshot not found or no permission to access");
     }
     // no permission check in above method, so have to make sure they can read
     // experiment first, which will be thrown by getExperimentById method
@@ -19,7 +19,7 @@ export const getExperimentSnapshot = createApiRequestHandler(
       snapshot.experiment
     );
     if (!experiment) {
-      throw new Error("Likely you do not have requisite permissions");
+      throw new Error("Snapshot not found or no permission to access");
     }
     return {
       snapshot: {
