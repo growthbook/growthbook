@@ -7,6 +7,7 @@ import {
   CLICKHOUSE_ADMIN_PASSWORD,
   CLICKHOUSE_DATABASE,
   CLICKHOUSE_MAIN_TABLE,
+  ENVIRONMENT,
 } from "back-end/src/util/secrets";
 import { DataSourceParams } from "back-end/types/datasource";
 import { ReqContext } from "back-end/types/organization";
@@ -29,7 +30,10 @@ export async function createClickhouseUser(
   });
 
   const orgId = context.org.id;
-  const user = `${orgId}_${datasourceId}`;
+  const user =
+    ENVIRONMENT === "production"
+      ? `${orgId}_${datasourceId}`
+      : `test_${orgId}_${datasourceId}`;
   const password = generator.generate({
     length: 30,
     numbers: true,
@@ -92,7 +96,10 @@ export async function deleteClickhouseUser(
       max_execution_time: 3600,
     },
   });
-  const user = `${organization}_${datasourceId}`;
+  const user =
+    ENVIRONMENT === "production"
+      ? `${organization}_${datasourceId}`
+      : `test_${organization}_${datasourceId}`;
 
   logger.info(`Deleting Clickhouse user ${user}`);
   await client.command({
