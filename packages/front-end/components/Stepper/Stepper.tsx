@@ -1,3 +1,4 @@
+import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiCheck, PiCircleDashed } from "react-icons/pi";
 
@@ -24,22 +25,23 @@ export default function Stepper({
   validateSteps,
 }: Props) {
   return (
-    <nav
-      className={
-        "nav mb-4 justify-content-start nav-default paged-modal-default"
-      }
+    <Flex
+      as="div"
+      justify={"start"}
+      className={"nav nav-default paged-modal-default"}
+      mb="4"
     >
       {steps.map(({ label, enabled }, i) => {
         return (
-          <div
-            className={clsx(
-              "step d-flex align-items-center justify-content-between",
-              {
-                active: step === i,
-                completed: i < step && !skipped?.has(i),
-                disabled: !enabled,
-              }
-            )}
+          <Flex
+            as="div"
+            align={"center"}
+            justify={"between"}
+            className={clsx("step", {
+              active: step === i,
+              completed: i < step && !skipped?.has(i),
+              disabled: !enabled,
+            })}
             key={i}
           >
             <a
@@ -70,9 +72,9 @@ export default function Stepper({
               </span>
               <span className="step-title">{label}</span>
             </a>
-          </div>
+          </Flex>
         );
       })}
-    </nav>
+    </Flex>
   );
 }
