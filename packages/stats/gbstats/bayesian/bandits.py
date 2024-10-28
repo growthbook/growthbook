@@ -7,7 +7,7 @@ import random
 from pydantic.dataclasses import dataclass
 from scipy.stats import chi2  # type: ignore
 
-from gbstats.models.results import BanditResult
+from gbstats.models.results import BanditResult, SingleVariationResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -43,10 +43,14 @@ class BanditResponse:
 
 
 def get_error_bandit_result(
-    update_message: str, error: str, reweight: bool, current_weights: List[float]
+    single_variation_results: Optional[List[SingleVariationResult]],
+    update_message: str,
+    error: str,
+    reweight: bool,
+    current_weights: List[float],
 ) -> BanditResult:
     return BanditResult(
-        singleVariationResults=None,
+        singleVariationResults=single_variation_results,
         currentWeights=current_weights,
         updatedWeights=current_weights,
         srm=1,
