@@ -304,7 +304,7 @@ export default function DesignSystemPage() {
           <DropdownMenuItem> Item 4</DropdownMenuItem>
           <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
         </Dropdown>
-        
+      </div>
       <div className="appbox p-3">
         <h3>Radio Card</h3>
         <div className="mb-2 w-100px">
