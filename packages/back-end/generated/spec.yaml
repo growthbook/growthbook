@@ -1357,6 +1357,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -1604,6 +1605,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -3819,7 +3821,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
-              -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
+              -d '{"name":"Purchased", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -5650,6 +5652,7 @@ components:
           enum:
             - firstExposure
             - experimentDuration
+          description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
         statsEngine:
           enum:
             - bayesian
