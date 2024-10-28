@@ -23,8 +23,9 @@
   &:after {
     content: "▶";
     position: absolute;
-    top: -6px;
+    top: -7px;
     right: -2px;
+    font-size: 14px;
   }
   > span {
     font-size: 11px;
@@ -33,27 +34,24 @@
   }
 }
 
-.bottomArrow {
-  height: 20px;
-  border-bottom: 2px solid var(--border-color-100);
-  border-left: 2px solid var(--border-color-100);
-  border-right: 2px solid var(--border-color-100);
+.leftArrow {
+  height: 0px;
+  border-top: 2px solid var(--border-color-100);
+  padding-top: 10px;
   position: relative;
-  margin: 0 80px;
   flex: 1;
   font-size: 8px;
-  text-align: center;
   color: var(--border-color-100);
   line-height: 10px;
-  &:before {
-    content: "▲";
+  text-align: center;
+  &:after {
+    content: "◀";
     position: absolute;
-    top: -2px;
-    left: -5px;
+    top: -7px;
+    left: -2px;
+    font-size: 14px;
   }
   > span {
-    position: absolute;
-    top: 30px;
     font-size: 11px;
     font-weight: 500;
     color: var(--text-color-main);

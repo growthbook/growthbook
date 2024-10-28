@@ -88,6 +88,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               setDataSourceOpen(false);
             }}
             showImportSampleData={false}
+            datasourceFirst={false}
           />
         )}
 
@@ -98,9 +99,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
             source="get-started"
             onClose={() => {
               setMetricsOpen(false);
-            }}
-            onSuccess={() => {
-              mutateDefinitions();
             }}
           />
         )}

@@ -78,6 +78,9 @@ tags:
   - name: experiments
     x-displayName: Experiments
     description: Experiments (A/B Tests)
+  - name: snapshots
+    x-displayName: Experiment Snapshots
+    description: Experiment Snapshots (the individual updates of an experiment)
   - name: dimensions
     x-displayName: Dimensions
     description: Dimensions used during experiment analysis
@@ -170,8 +173,14 @@ paths:
       $ref: "./paths/getExperiment.yaml"
     post:
       $ref: "./paths/updateExperiment.yaml"
+  /experiments/{id}/snapshot:
+    $ref: "./paths/postExperimentSnapshot.yaml"
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
+  /experiments/{id}/visual-changesets:
+    $ref: "./paths/listVisualChangesets.yaml"
+  /snapshots/{id}:
+    $ref: "./paths/getExperimentSnapshot.yaml"
   /metrics:
     get:
       $ref: "./paths/listMetrics.yaml"
@@ -184,8 +193,6 @@ paths:
       $ref: "./paths/putMetric.yaml"
     delete:
       $ref: "./paths/deleteMetric.yaml"
-  /experiments/{id}/visual-changesets:
-    $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:
     get:
       $ref: "./paths/getVisualChangeset.yaml"

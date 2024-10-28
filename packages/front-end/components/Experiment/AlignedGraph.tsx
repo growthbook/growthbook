@@ -7,13 +7,18 @@ import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { getExperimentMetricFormatter } from "@/services/metrics";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   id: string;
   ci?: [number, number] | [];
   barType?: "pill" | "violin";
-  barFillType?: "gradient" | "significant";
+  barFillType?: "gradient" | "significant" | "color";
+  barFillColor?: string;
   uplift?: { dist: string; mean?: number; stddev?: number };
   domain: [number, number];
   graphWidth?: number;
@@ -23,6 +28,9 @@ interface Props
   significant: boolean;
   showAxis?: boolean;
   axisOnly?: boolean;
+  zeroLineWidth?: number;
+  zeroLineOffset?: number;
+  metricForFormatting?: ExperimentMetricInterface | null;
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
@@ -47,12 +55,16 @@ const AlignedGraph: FC<Props> = ({
   ci,
   barType = "pill",
   barFillType = "gradient",
+  barFillColor,
   uplift,
   domain,
   expected,
   significant = false,
   showAxis = false,
   axisOnly = false,
+  zeroLineWidth = 3,
+  zeroLineOffset = 1,
+  metricForFormatting,
   graphWidth = 500,
   height = 30,
   inverse = false,
@@ -65,9 +77,12 @@ const AlignedGraph: FC<Props> = ({
   onClick,
 }) => {
   id = id.replaceAll("%20", "_").replace(/[\W]+/g, "_");
+  const metricDisplayCurrency = useCurrency();
+  const { getFactTableById } = useDefinitions();
+  const metricFormatterOptions = { currency: metricDisplayCurrency };
+
   const axisColor = "var(--text-link-hover-color)";
   const zeroLineColor = "#0077b6";
-  const zeroLineWidth = 3;
   const gridColor = "#0077b633";
   let barColor = "#aaa";
   let sigBarColorPos = "#52be5b";
@@ -79,7 +94,7 @@ const AlignedGraph: FC<Props> = ({
   const barHeight = Math.floor(height / 2) - barThickness / 2;
   const violinOpacitySignificant = 0.8;
   const violinOpacityNotSignificant = 0.4;
-  if (isHovered) {
+  if (barFillType !== "color" && isHovered) {
     barColor = "#a0a0a0";
     sigBarColorPos = "#39cb45";
     sigBarColorNeg = "#e34040";
@@ -96,15 +111,6 @@ const AlignedGraph: FC<Props> = ({
     barType = "pill";
   }
 
-  const tickLabelProps = () =>
-    ({
-      fill: axisColor,
-      fontSize: 12,
-      y: -10,
-      fontFamily: "sans-serif",
-      textAnchor: "middle",
-    } as const);
-
   // add some spacing around the graph
   const domainPadding = (domain[1] - domain[0]) * 0.1;
   const leftDomain = domain[0] - domainPadding;
@@ -116,7 +122,12 @@ const AlignedGraph: FC<Props> = ({
     ...(domainWidth > 5000 ? { notation: "compact" } : {}),
   });
   const tickFormat = (v: number) => {
-    return !percent
+    return metricForFormatting
+      ? getExperimentMetricFormatter(metricForFormatting, getFactTableById)(
+          v as number,
+          metricFormatterOptions
+        )
+      : !percent
       ? numberFormatter.format(v)
       : domainWidth < 0.05
       ? smallPercentFormatter.format(v)
@@ -149,7 +160,9 @@ const AlignedGraph: FC<Props> = ({
   }
 
   let barFill =
-    barFillType === "gradient"
+    barFillType === "color"
+      ? barFillColor
+      : barFillType === "gradient"
       ? `url(#${gradientId})`
       : significant
       ? (expected ?? 0) > 0
@@ -174,6 +187,11 @@ const AlignedGraph: FC<Props> = ({
     }
   }
 
+  let barStyle = {};
+  if (isHovered && barFillType === "color") {
+    barStyle = { filter: "brightness(1.05) saturate(1.1)" };
+  }
+
   const maskId = "mask_" + id;
 
   return (
@@ -193,6 +211,23 @@ const AlignedGraph: FC<Props> = ({
             domain: domain,
             range: [0, graphWidth],
           });
+          const tickLabelProps = (value) => {
+            const currentX = xScale(value);
+            const pos = currentX / graphWidth;
+            if (pos < 0.06 || pos > 0.94) {
+              return {
+                display: "none",
+              };
+            }
+
+            return {
+              fill: axisColor,
+              fontSize: 12,
+              y: -10,
+              fontFamily: "sans-serif",
+              textAnchor: "middle",
+            } as const;
+          };
           return (
             <svg width={graphWidth} height={height} className="d-block">
               <defs>
@@ -252,7 +287,7 @@ const AlignedGraph: FC<Props> = ({
                   <AxisLeft
                     key={`test`}
                     orientation={Orientation.left}
-                    left={xScale(0) - zeroLineWidth / 2 + 1}
+                    left={xScale(0) - zeroLineWidth / 2 + zeroLineOffset}
                     scale={yScale}
                     tickFormat={tickFormat}
                     stroke={zeroLineColor}
@@ -286,7 +321,7 @@ const AlignedGraph: FC<Props> = ({
                       className={clsx("hover-target aligned-graph-violin", {
                         hover: isHovered,
                       })}
-                      style={{ transition: "100ms all" }}
+                      style={{ transition: "100ms all", ...barStyle }}
                       top={barHeight}
                       width={barThickness}
                       left={xScale(ci?.[0] ?? 0)}
@@ -346,7 +381,7 @@ const AlignedGraph: FC<Props> = ({
                       className={clsx("hover-target aligned-graph-pill", {
                         hover: isHovered,
                       })}
-                      style={{ transition: "100ms all" }}
+                      style={{ transition: "100ms all", ...barStyle }}
                       x={xScale(Math.max(ci?.[0] ?? 0, domain[0] - 0.1))}
                       y={barHeight}
                       width={

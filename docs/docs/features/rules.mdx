@@ -1,18 +1,18 @@
 ---
-title: Feature Flag Override Rules
-description: Learn about feature flag override rules
+title: Feature Flag Rules
+description: Learn about feature flag rules
 sidebar_label: Rules (Force, Rollout, Experimentation)
 slug: /features/rules
 ---
 
 # Rules (Force, Rollout, Experimentation)
 
-Every feature has a default value that is served to all users. The real power comes when you define **override rules**
+Every feature has a default value that is served to all users. The real power comes when you define **Rules**
 that let you run experiments and/or change the value for specific users.
 
-<img src="/images/features/feature-override-rules.png" alt="Feature override rules UI" width="700" />
+<img src="/images/features/feature-override-rules.png" alt="Feature rules UI" width="700" />
 
-Override rules are defined separately for each environment (e.g. dev and production). This way you can, for example, test
+Rules are defined separately for each environment (e.g. dev and production). This way you can, for example, test
 an experiment rule in dev first before deploying it to production.
 
 The first matching rule for a user will be applied, so order matters. If there are no matching rules, the default value
@@ -28,7 +28,7 @@ Learn more about [targeting here](/features/targeting).
 
 ## Forced Value
 
-The simplest type of override rule is a "Forced Value" rule. This forces everyone who matches the targeting condition to get a specific value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
+The simplest type of Rule is a "Forced Value" rule. This forces everyone who matches the targeting condition to get a specific value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
 
 <img src="/images/features/feature-force-rule.png" alt="Force rule UI" width="500" />
 
@@ -66,7 +66,7 @@ instead, which ensures all users in a company will see the same thing.
 
 You can control both the percent of users included and the traffic split between the variations. For example, if you include 50% of users and do a 40/60 split, then 20% will see the first variation, 30% will see the 2nd variation, and the remaining 50% will skip the rule entirely and move onto the next rule (or the default value if there are no more matching rules).
 
-When a user is placed in an experiment via the experiment override rule, the SDK will track the experiment assignment
+When a user is placed in an experiment via the experiment rule, the SDK will track the experiment assignment
 in your data warehouse or analytics tool, via the `trackingCallback` method.
 
 You can analyze the result of a Feature Experiment rule the same way you would any experiment in GrowthBook.

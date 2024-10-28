@@ -1,0 +1,12 @@
+type: object
+required:
+  - id
+  - experiment
+  - status
+properties:
+  id:
+    type: string
+  experiment:
+    type: string
+  status:
+    type: string

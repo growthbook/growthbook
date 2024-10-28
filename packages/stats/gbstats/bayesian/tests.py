@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 
 import numpy as np
 from pydantic.dataclasses import dataclass
-from scipy.stats import norm  # type: ignore
+from scipy.stats import norm
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
@@ -13,9 +13,17 @@ from gbstats.messages import (
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.models.statistics import TestStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+)
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
-from gbstats.utils import truncated_normal_mean
+from gbstats.utils import (
+    truncated_normal_mean,
+    gaussian_credible_interval,
+)
 
 
 # Configs
@@ -62,7 +70,8 @@ class BayesianABTest(BaseABTest):
         self.inverse = config.inverse
         self.relative = config.difference_type == "relative"
         self.scaled = config.difference_type == "scaled"
-        self.traffic_proportion_b = config.traffic_proportion_b
+        self.traffic_percentage = config.traffic_percentage
+        self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
 
     @abstractmethod
@@ -88,38 +97,42 @@ class BayesianABTest(BaseABTest):
     def has_empty_input(self):
         return self.stat_a.n == 0 or self.stat_b.n == 0
 
-    def credible_interval(
-        self, mean_diff: float, std_diff: float, alpha: float
-    ) -> List[float]:
-        ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
-        return ci.tolist()
-
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
         if self.inverse:
             return 1 - norm.sf(0, mean_diff, std_diff)  # type: ignore
         else:
             return norm.sf(0, mean_diff, std_diff)  # type: ignore
 
-    def scale_result(
-        self, result: BayesianTestResult, p: float, d: float
-    ) -> BayesianTestResult:
+    def scale_result(self, result: BayesianTestResult) -> BayesianTestResult:
         if result.uplift.dist != "normal":
             raise ValueError("Cannot scale relative results.")
-        if p == 0:
+        if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        adjustment = self.stat_b.n / p / d
-        return BayesianTestResult(
-            chance_to_win=result.chance_to_win,
-            expected=result.expected * adjustment,
-            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
-            uplift=Uplift(
-                dist=result.uplift.dist,
-                mean=result.uplift.mean * adjustment,
-                stddev=result.uplift.stddev * adjustment,
-            ),
-            risk=result.risk,
-            risk_type=result.risk_type,
-        )
+        if isinstance(
+            self.stat_a,
+            (ProportionStatistic, SampleMeanStatistic, RegressionAdjustedStatistic),
+        ):
+            if self.total_users:
+                adjustment = self.total_users / (
+                    self.traffic_percentage * self.phase_length_days
+                )
+                return BayesianTestResult(
+                    chance_to_win=result.chance_to_win,
+                    expected=result.expected * adjustment,
+                    ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+                    uplift=Uplift(
+                        dist=result.uplift.dist,
+                        mean=result.uplift.mean * adjustment,
+                        stddev=result.uplift.stddev * adjustment,
+                    ),
+                    risk=result.risk,
+                    risk_type=result.risk_type,
+                )
+            else:
+                return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
+        else:
+            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, or RegressionAdjustedStatistic"
+            return self._default_output(error_str)
 
 
 class EffectBayesianABTest(BayesianABTest):
@@ -189,12 +202,10 @@ class EffectBayesianABTest(BayesianABTest):
             if scaled_prior_effect.proper
             else data_mean
         )
-
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        ci = self.credible_interval(self.mean_diff, self.std_diff, self.alpha)
-
+        ci = gaussian_credible_interval(self.mean_diff, self.std_diff, self.alpha)
         risk = self.get_risk(self.mean_diff, self.std_diff)
         # flip risk for inverse metrics
         risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
@@ -212,9 +223,7 @@ class EffectBayesianABTest(BayesianABTest):
             risk_type="relative" if self.relative else "absolute",
         )
         if self.scaled:
-            result = self.scale_result(
-                result, self.traffic_proportion_b, self.phase_length_days
-            )
+            result = self.scale_result(result)
         return result
 
     @staticmethod

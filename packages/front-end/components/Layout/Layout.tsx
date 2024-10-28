@@ -9,11 +9,13 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
+  GBBandit,
   GBDatabase,
   GBExperiment,
   GBPremiumBadge,
@@ -21,6 +23,7 @@ import {
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { AppFeatures } from "@/types/app-features";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -46,6 +49,13 @@ const navlinks: SidebarLinkProps[] = [
     href: "/experiments",
     path: /^experiment/,
     Icon: GBExperiment,
+  },
+  {
+    name: "Bandits",
+    href: "/bandits",
+    Icon: GBBandit,
+    path: /^bandit/,
+    filter: ({ gb }) => !!gb?.isOn("bandits"),
   },
   {
     name: "Metrics and Data",
@@ -298,6 +308,11 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const { accountPlan, license } = useUser();
   const { hasPaymentMethod } = useStripeSubscription();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  // app wide a-a tests
+  growthbook?.isOn("gb-ax5-bandit");
+  growthbook?.isOn("gb-ax10-bandit");
 
   const { breadcrumb } = usePageHead();
 
