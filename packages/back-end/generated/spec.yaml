@@ -437,13 +437,13 @@ paths:
                                 fallbackAttribute:
                                   type: string
                                 disableStickyBucketing:
-                                  type: boolean;
+                                  type: boolean
                                 bucketVersion:
                                   type: number
                                 minBucketVersion:
                                   type: number
                                 namespace:
-                                  type: obect
+                                  type: object
                                   required:
                                     - enabled
                                     - name
@@ -1332,7 +1332,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1579,7 +1579,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -5174,13 +5174,13 @@ components:
         fallbackAttribute:
           type: string
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:
           type: number
         namespace:
-          type: obect
+          type: object
           required:
             - enabled
             - name
@@ -5380,7 +5380,7 @@ components:
             - 1
             - 2
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:

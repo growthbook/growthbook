@@ -511,7 +511,7 @@ export interface components {
               trackingKey?: string;
               hashAttribute?: string;
               fallbackAttribute?: string;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               namespace?: {
@@ -581,7 +581,7 @@ export interface components {
                 trackingKey?: string;
                 hashAttribute?: string;
                 fallbackAttribute?: string;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 namespace?: {
@@ -666,7 +666,7 @@ export interface components {
           trackingKey?: string;
           hashAttribute?: string;
           fallbackAttribute?: string;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           namespace?: {
@@ -736,7 +736,7 @@ export interface components {
             trackingKey?: string;
             hashAttribute?: string;
             fallbackAttribute?: string;
-            disableStickyBucketing?: any;
+            disableStickyBucketing?: boolean;
             bucketVersion?: number;
             minBucketVersion?: number;
             namespace?: {
@@ -805,7 +805,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -887,7 +887,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -963,7 +963,7 @@ export interface components {
       fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       variations: ({
@@ -1588,7 +1588,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -1658,7 +1658,7 @@ export interface operations {
                           trackingKey?: string;
                           hashAttribute?: string;
                           fallbackAttribute?: string;
-                          disableStickyBucketing?: any;
+                          disableStickyBucketing?: boolean;
                           bucketVersion?: number;
                           minBucketVersion?: number;
                           namespace?: {
@@ -1798,7 +1798,7 @@ export interface operations {
                   trackingKey?: string;
                   hashAttribute?: string;
                   fallbackAttribute?: string;
-                  disableStickyBucketing?: any;
+                  disableStickyBucketing?: boolean;
                   bucketVersion?: number;
                   minBucketVersion?: number;
                   namespace?: {
@@ -1884,7 +1884,7 @@ export interface operations {
                     trackingKey?: string;
                     hashAttribute?: string;
                     fallbackAttribute?: string;
-                    disableStickyBucketing?: any;
+                    disableStickyBucketing?: boolean;
                     bucketVersion?: number;
                     minBucketVersion?: number;
                     namespace?: {
@@ -1978,7 +1978,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2048,7 +2048,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2165,7 +2165,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2235,7 +2235,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2364,7 +2364,7 @@ export interface operations {
                   trackingKey?: string;
                   hashAttribute?: string;
                   fallbackAttribute?: string;
-                  disableStickyBucketing?: any;
+                  disableStickyBucketing?: boolean;
                   bucketVersion?: number;
                   minBucketVersion?: number;
                   namespace?: {
@@ -2450,7 +2450,7 @@ export interface operations {
                     trackingKey?: string;
                     hashAttribute?: string;
                     fallbackAttribute?: string;
-                    disableStickyBucketing?: any;
+                    disableStickyBucketing?: boolean;
                     bucketVersion?: number;
                     minBucketVersion?: number;
                     namespace?: {
@@ -2544,7 +2544,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2614,7 +2614,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2735,7 +2735,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2805,7 +2805,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -3564,7 +3564,7 @@ export interface operations {
                 fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 variations: ({
@@ -3706,7 +3706,7 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
@@ -3785,7 +3785,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3919,7 +3919,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -4057,7 +4057,7 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
@@ -4136,7 +4136,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -5120,7 +5120,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
