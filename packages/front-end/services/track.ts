@@ -136,7 +136,7 @@ function getOrGenerateSessionId() {
 
 let _jitsu: JitsuClient;
 export function getJitsuClient(): JitsuClient | null {
-  if (isTelemetryEnabled()) return null;
+  if (!isTelemetryEnabled()) return null;
 
   if (!_jitsu) {
     _jitsu = jitsuClient({
@@ -213,7 +213,6 @@ export default function track(
   if (inTelemetryDebugMode()) {
     console.log("Telemetry Event - ", event, trackProps);
   }
-  if (!isTelemetryEnabled()) return;
 
   const jitsu = getJitsuClient();
   if (jitsu) {
