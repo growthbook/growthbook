@@ -17,6 +17,13 @@ export async function createClickhouseUser(
   context: ReqContext,
   datasourceId: string
 ): Promise<DataSourceParams> {
+  // Temporary protection to prevent users from manually changing feature flag to create Clickhouse users.
+  if (ENVIRONMENT === "production" && context.org.id != "org_24yyifrkf649iz6") {
+    throw new Error(
+      "Clickhouse user creation is only allowed for the Growthbook organization"
+    );
+  }
+
   const client = createClickhouseClient({
     host: CLICKHOUSE_HOST,
     username: CLICKHOUSE_ADMIN_USER,
