@@ -109,7 +109,9 @@ function getOrGenerateDeviceId() {
 }
 
 function getOrGeneratePageId() {
-  if (!(window.history.state.key in pageIds)) {
+  // On initial load if the router hasn't initialized a state change yet then history.state will be null.
+  // Since this only happens on one pageload, using a hardcoded default key should still work as its own key
+  if (!((window.history.state?.key || "") in pageIds)) {
     pageIds[window.history.state.key] = uuidv4();
   }
   return pageIds[window.history.state.key];
