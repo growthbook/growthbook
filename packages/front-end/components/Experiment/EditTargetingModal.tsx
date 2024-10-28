@@ -32,6 +32,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/components/Radix/RadioGroup";
+import Checkbox from "@/components/Radix/Checkbox";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -417,6 +418,7 @@ function TargetingForm({
     });
   }
 
+  const settings = useOrgSettings();
   const { getDatasourceById } = useDefinitions();
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
@@ -427,6 +429,10 @@ function TargetingForm({
   const envs = environments.map((e) => e.id);
 
   const type = experiment.type;
+
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <div className="px-2 pt-2">
@@ -452,29 +458,40 @@ function TargetingForm({
               )
             }
           />
-          <div className="d-flex" style={{ gap: "2rem" }}>
-            <SelectField
-              containerClassName="flex-1"
-              label="Assign variation based on attribute"
-              labelClassName="font-weight-bold"
-              options={hashAttributeOptions}
-              sort={false}
-              value={form.watch("hashAttribute")}
-              onChange={(v) => {
-                form.setValue("hashAttribute", v);
-              }}
-              helpText={"The globally unique tracking key for the experiment"}
-            />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-            />
-          </div>
+          <SelectField
+            containerClassName="flex-1"
+            label="Assign variation based on attribute"
+            labelClassName="font-weight-bold"
+            options={hashAttributeOptions}
+            sort={false}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={"The globally unique tracking key for the experiment"}
+          />
+          <FallbackAttributeSelector
+            form={form}
+            attributeSchema={attributeSchema}
+          />
           <HashVersionSelector
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}
             project={experiment.project}
           />
+
+          {orgStickyBucketing && !isBandit ? (
+            <Checkbox
+              mt="4"
+              size="lg"
+              label="Disable Sticky Bucketing"
+              description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+              value={!!form.watch("disableStickyBucketing")}
+              setValue={(v) => {
+                form.setValue("disableStickyBucketing", v);
+              }}
+            />
+          ) : null}
         </>
       )}
 

@@ -29,6 +29,7 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import Toggle from "@/components/Forms/Toggle";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export default function ExperimentRefNewFields({
   step,
@@ -54,12 +55,12 @@ export default function ExperimentRefNewFields({
   namespaceFormPrefix = "",
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
-  // variation input fields
   coverage,
   setCoverage,
   setWeight,
   variations,
   setVariations,
+  orgStickyBucketing,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -89,6 +90,7 @@ export default function ExperimentRefNewFields({
   setWeight: (i: number, w: number) => void;
   variations: SortableVariation[];
   setVariations: (v: SortableVariation[]) => void;
+  orgStickyBucketing?: boolean;
 }) {
   const form = useFormContext();
 
@@ -169,6 +171,19 @@ export default function ExperimentRefNewFields({
                 project={project}
               />
             )}
+
+            {orgStickyBucketing ? (
+              <Checkbox
+                mt="4"
+                size="lg"
+                label="Disable Sticky Bucketing"
+                description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+                value={!!form.watch("disableStickyBucketing")}
+                setValue={(v) => {
+                  form.setValue("disableStickyBucketing", v);
+                }}
+              />
+            ) : null}
           </div>
 
           <FeatureVariationsInput
