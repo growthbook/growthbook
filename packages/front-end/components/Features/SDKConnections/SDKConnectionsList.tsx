@@ -10,6 +10,8 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
+import type { SDKLanguage } from "back-end/types/sdk-connection";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -21,8 +23,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
-import SDKLanguageLogo from "./SDKLanguageLogo";
+import SDKLanguageLogo, { getLanguagesByFilter } from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
+import { SDKLanguageOption } from "./SDKLanguageSelector";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -40,6 +43,14 @@ export default function SDKConnectionsList() {
     project
   );
 
+  const gb = useGrowthBook();
+  const useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
+
+  const popularLanguages = getLanguagesByFilter("popular");
+  const [selectedLanguage, setSelectedLanguage] = useState<SDKLanguage | null>(
+    null
+  );
+
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
@@ -47,10 +58,63 @@ export default function SDKConnectionsList() {
     return <LoadingOverlay />;
   }
 
+  const emptyStateContentControl = (
+    <div className="appbox p-5 text-center">
+      <p>
+        <strong>SDK Connections</strong> make it easy to integrate GrowthBook
+        into your front-end, back-end, or mobile application.
+      </p>
+      <button
+        className="btn btn-primary"
+        onClick={(e) => {
+          e.preventDefault();
+          setModalOpen(true);
+        }}
+      >
+        <GBAddCircle /> Create New SDK Connection
+      </button>
+    </div>
+  );
+
+  const emptyStateContentExperiment = (
+    <div className="bg-white p-5 mb-3">
+      <div className="text-center mt-3">
+        <h2 className="h1 mb-2">
+          Easily integrate GrowthBook into your app or website
+        </h2>
+        <p className="mt-3">
+          Select your SDK to connect your front-end, back-end or mobile app.
+        </p>
+      </div>
+
+      <hr className="mt-5 mb-4" />
+
+      <h3 className="mb-2 h5 font-weight-bold">Select your SDK:</h3>
+      <div className="mb-3 d-flex flex-row flex-wrap">
+        {popularLanguages.map((language) => (
+          <div key={language} className="mr-4 mb-3">
+            <SDKLanguageOption
+              language={language}
+              selected={false}
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectedLanguage(language);
+                setModalOpen(true);
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div>
       {modalOpen && (
         <SDKConnectionForm
+          initialValue={{
+            languages: selectedLanguage ? [selectedLanguage] : [],
+          }}
           close={() => setModalOpen(false)}
           mutate={mutate}
           edit={false}
@@ -61,7 +125,8 @@ export default function SDKConnectionsList() {
         <div className="col-auto">
           <h1 className="mb-0">SDK Connections</h1>
         </div>
-        {connections.length > 0 && canCreateSDKConnections ? (
+        {canCreateSDKConnections &&
+        (useNewEmptyStateLayout || connections.length > 0) ? (
           <div className="col-auto ml-auto">
             <Button onClick={() => setModalOpen(true)}>
               Add SDK Connection
@@ -69,6 +134,23 @@ export default function SDKConnectionsList() {
           </div>
         ) : null}
       </div>
+
+      {connections.length === 0 ? (
+        <>
+          {!canCreateSDKConnections ? (
+            <div className="appbox p-5 text-center">
+              <p>
+                You do not have permission to create SDK connections. Please
+                contact your account administrator
+              </p>
+            </div>
+          ) : useNewEmptyStateLayout ? (
+            emptyStateContentExperiment
+          ) : (
+            emptyStateContentControl
+          )}
+        </>
+      ) : null}
 
       {connections.length > 0 && (
         <table className="table mb-3 appbox gbtable table-hover">
@@ -271,35 +353,6 @@ export default function SDKConnectionsList() {
           </tbody>
         </table>
       )}
-
-      {connections.length === 0 ? (
-        <>
-          {canCreateSDKConnections ? (
-            <div className="appbox p-5 text-center">
-              <p>
-                <strong>SDK Connections</strong> make it easy to integrate
-                GrowthBook into your front-end, back-end, or mobile application.
-              </p>
-              <button
-                className="btn btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalOpen(true);
-                }}
-              >
-                <GBAddCircle /> Create New SDK Connection
-              </button>
-            </div>
-          ) : (
-            <div className="appbox p-5 text-center">
-              <p>
-                You do not have permission to create SDK connections. Please
-                contact your account administrator
-              </p>
-            </div>
-          )}
-        </>
-      ) : null}
     </div>
   );
 }

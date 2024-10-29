@@ -16,44 +16,26 @@ const tabs: Record<LanguageFilter, string> = {
   edge: "Edge",
 };
 
-function LanguageOption({
+export function SDKLanguageOption({
   language,
   selected,
-  setValue,
-  multiple,
+  onClick,
 }: {
   language: SDKLanguage;
-  selected: Set<SDKLanguage>;
-  setValue: (languages: SDKLanguage[]) => void;
-  multiple: boolean;
+  selected: boolean;
+  onClick: (language: React.MouseEvent) => void;
 }) {
   return (
     <div
       className={`hover-highlight cursor-pointer border rounded ${
-        selected.has(language) ? "bg-light" : ""
+        selected ? "bg-light" : ""
       }`}
       style={{
         height: 50,
         padding: 10,
-        boxShadow: selected.has(language)
-          ? "0 0 0 1px var(--text-color-primary)"
-          : "",
+        boxShadow: selected ? "0 0 0 1px var(--text-color-primary)" : "",
       }}
-      key={language}
-      onClick={(e) => {
-        e.preventDefault();
-        if (selected.has(language)) {
-          if (!multiple) return;
-          selected.delete(language);
-        } else {
-          if (multiple) {
-            selected.add(language);
-          } else {
-            selected = new Set([language]);
-          }
-        }
-        setValue([...selected]);
-      }}
+      onClick={onClick}
     >
       <SDKLanguageLogo language={language} showLabel={true} size={30} />
     </div>
@@ -82,7 +64,26 @@ export default function SDKLanguageSelector({
   setLanguageFilter?: (l: LanguageFilter) => void;
 }) {
   const useTabs = !!setLanguageFilter;
-  const selected = new Set(value);
+
+  let selected = new Set(value);
+  const handleLanguageOptionClick = (
+    e: React.MouseEvent,
+    language: SDKLanguage
+  ) => {
+    e.preventDefault();
+
+    if (selected.has(language)) {
+      if (!multiple) return;
+      selected.delete(language);
+    } else {
+      if (multiple) {
+        selected.add(language);
+      } else {
+        selected = new Set([language]);
+      }
+    }
+    setValue([...selected]);
+  };
 
   // If the selected language(s) are not in the "limitLanguages" list, add them
   if (limitLanguages) {
@@ -163,12 +164,11 @@ export default function SDKLanguageSelector({
               style={{ rowGap: "1em", columnGap: "0.6em" }}
             >
               {languages.map((l) => (
-                <LanguageOption
+                <SDKLanguageOption
                   key={l}
                   language={l}
-                  setValue={setValue}
-                  selected={selected}
-                  multiple={multiple}
+                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  selected={selected.has(l)}
                 />
               ))}
             </div>
@@ -193,12 +193,11 @@ export default function SDKLanguageSelector({
               style={{ rowGap: "1em", columnGap: "0.6em" }}
             >
               {backEnd.map((l) => (
-                <LanguageOption
+                <SDKLanguageOption
                   key={l}
                   language={l}
-                  setValue={setValue}
-                  selected={selected}
-                  multiple={multiple}
+                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  selected={selected.has(l)}
                 />
               ))}
             </div>
@@ -216,12 +215,11 @@ export default function SDKLanguageSelector({
               style={{ rowGap: "1em", columnGap: "0.6em" }}
             >
               {frontEnd.map((l) => (
-                <LanguageOption
+                <SDKLanguageOption
                   key={l}
                   language={l}
-                  setValue={setValue}
-                  selected={selected}
-                  multiple={multiple}
+                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  selected={selected.has(l)}
                 />
               ))}
             </div>
@@ -239,12 +237,11 @@ export default function SDKLanguageSelector({
               style={{ rowGap: "1em", columnGap: "0.6em" }}
             >
               {mobile.map((l) => (
-                <LanguageOption
+                <SDKLanguageOption
                   key={l}
                   language={l}
-                  setValue={setValue}
-                  selected={selected}
-                  multiple={multiple}
+                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  selected={selected.has(l)}
                 />
               ))}
             </div>
@@ -262,12 +259,11 @@ export default function SDKLanguageSelector({
               style={{ rowGap: "1em", columnGap: "0.6em" }}
             >
               {edge.map((l) => (
-                <LanguageOption
+                <SDKLanguageOption
                   key={l}
                   language={l}
-                  setValue={setValue}
-                  selected={selected}
-                  multiple={multiple}
+                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  selected={selected.has(l)}
                 />
               ))}
             </div>
@@ -285,12 +281,11 @@ export default function SDKLanguageSelector({
               style={{ rowGap: "1em", columnGap: "0.6em" }}
             >
               {nocode.map((l) => (
-                <LanguageOption
+                <SDKLanguageOption
                   key={l}
                   language={l}
-                  setValue={setValue}
-                  selected={selected}
-                  multiple={multiple}
+                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  selected={selected.has(l)}
                 />
               ))}
             </div>
@@ -303,11 +298,10 @@ export default function SDKLanguageSelector({
                 <strong>Other</strong>
               </div>
             )}
-            <LanguageOption
+            <SDKLanguageOption
               language={"other"}
-              setValue={setValue}
-              selected={selected}
-              multiple={multiple}
+              onClick={(e) => handleLanguageOptionClick(e, "other")}
+              selected={selected.has("other")}
             />
           </div>
         )}
