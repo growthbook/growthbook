@@ -11,7 +11,6 @@ import {
   MetricAnalysisPopulationType,
   MetricAnalysisResult,
   MetricAnalysisSettings,
-  MetricAnalysisSource,
 } from "back-end/types/metric-analysis";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
@@ -43,6 +42,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
+import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 
 const LOOKBACK_DAY_OPTIONS = [7, 14, 30, 180, 365];
 
@@ -134,35 +134,6 @@ function getLookbackSelected(lookbackDays: number): string {
     : `custom`;
 }
 
-export function getMetricAnalysisProps({
-  id,
-  values,
-  endOfToday,
-  source,
-}: {
-  id: string;
-  values: MetricAnalysisFormFields;
-  endOfToday: Date;
-  source?: MetricAnalysisSource;
-}): CreateMetricAnalysisProps {
-  const todayMinusLookback = new Date(endOfToday);
-  todayMinusLookback.setDate(
-    todayMinusLookback.getDate() - (values.lookbackDays as number)
-  );
-  todayMinusLookback.setHours(0, 0, 0, 0);
-
-  return {
-    id: id,
-    userIdType: values.userIdType,
-    lookbackDays: Number(values.lookbackDays),
-    startDate: todayMinusLookback.toISOString().substring(0, 16),
-    endDate: endOfToday.toISOString().substring(0, 16),
-    populationType: values.populationType,
-    populationId: values.populationId ?? null,
-    source: source ?? "metric",
-  };
-}
-
 function settingsMatch(
   settings: MetricAnalysisSettings,
   desiredSettings: CreateMetricAnalysisProps
@@ -206,7 +177,7 @@ function getAnalysisSettingsForm(
   };
 }
 
-type MetricAnalysisFormFields = {
+export type MetricAnalysisFormFields = {
   userIdType: string;
 
   lookbackSelected: string;

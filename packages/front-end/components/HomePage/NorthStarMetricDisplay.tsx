@@ -19,9 +19,9 @@ import { getExperimentMetricFormatter } from "@/services/metrics";
 import DateGraph from "@/components/Metrics/DateGraph";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricName from "@/components/Metrics/MetricName";
-import { getMetricAnalysisProps } from "@/components/MetricAnalysis/MetricAnalysis";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -58,12 +58,12 @@ const NorthStarMetricDisplay = ({
     };
   }>(`/metrics/${metricId}/northstar`);
 
-  if (!metric || !data) {
-    return <LoadingOverlay />;
-  }
-
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
+  }
+
+  if (!metric || !data) {
+    return <LoadingOverlay />;
   }
 
   // @todo: get the metric period in days from the 'window'.
