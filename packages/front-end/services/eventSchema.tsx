@@ -34,6 +34,29 @@ export type eventSchema = {
 
 export const eventSchemas: eventSchema[] = [
   {
+    value: "ga4",
+    label: "Google Analytics v4",
+    types: ["bigquery"],
+    logo: "/images/3rd-party-logos/ga4.png",
+    popular: true,
+    intro: (
+      <>
+        Google Analytics v4 is a new version of Google Analytics that makes it
+        easy to export events to a BigQuery data warehouse on Google Cloud
+        Platform (GCP). Using BigQuery with your GA4 data makes it easy to use
+        with GrowthBook. You can{" "}
+        <a
+          target="_blank"
+          href="https://support.google.com/analytics/answer/9358801?hl=en"
+          rel="noreferrer"
+        >
+          read more about it here
+        </a>
+        .
+      </>
+    ),
+  },
+  {
     value: "segment",
     label: "Segment",
     types: [
@@ -107,27 +130,6 @@ export const eventSchemas: eventSchema[] = [
     ],
   },
   {
-    value: "mixpanel",
-    label: "Mixpanel",
-    types: ["mixpanel"],
-    logo: "/images/3rd-party-logos/mixpanel.png",
-    popular: true,
-    intro: (
-      <>
-        Connect to your Mixpanel instance below. You can find a step by step
-        guide{" "}
-        <a
-          target="_blank"
-          href="https://docs.growthbook.io/guide/mixpanel"
-          rel="noreferrer"
-        >
-          here
-        </a>
-        .
-      </>
-    ),
-  },
-  {
     value: "snowplow",
     label: "Snowplow",
     types: [
@@ -190,29 +192,6 @@ export const eventSchemas: eventSchema[] = [
         type: "text",
       },
     ],
-  },
-  {
-    value: "ga4",
-    label: "Google Analytics v4",
-    types: ["bigquery"],
-    logo: "/images/3rd-party-logos/ga4.png",
-    popular: true,
-    intro: (
-      <>
-        Google Analytics v4 is a new version of Google Analytics that makes it
-        easy to export events to a BigQuery data warehouse on Google Cloud
-        Platform (GCP). Using BigQuery with your GA4 data makes it easy to use
-        with GrowthBook. You can{" "}
-        <a
-          target="_blank"
-          href="https://support.google.com/analytics/answer/9358801?hl=en"
-          rel="noreferrer"
-        >
-          read more about it here
-        </a>
-        .
-      </>
-    ),
   },
   {
     value: "firebase",
@@ -447,6 +426,27 @@ export const eventSchemas: eventSchema[] = [
           warehouse destination here
         </a>
         . Please contact us for help setting up the initial queries.
+      </>
+    ),
+  },
+  {
+    value: "mixpanel",
+    label: "Mixpanel",
+    types: ["mixpanel"],
+    logo: "/images/3rd-party-logos/mixpanel.png",
+    popular: true,
+    intro: (
+      <>
+        Connect to your Mixpanel instance below. You can find a step by step
+        guide{" "}
+        <a
+          target="_blank"
+          href="https://docs.growthbook.io/guide/mixpanel"
+          rel="noreferrer"
+        >
+          here
+        </a>
+        .
       </>
     ),
   },

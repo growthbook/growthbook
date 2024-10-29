@@ -7,7 +7,7 @@ import random
 from pydantic.dataclasses import dataclass
 from scipy.stats import chi2  # type: ignore
 
-from gbstats.models.results import BanditResult
+from gbstats.models.results import BanditResult, SingleVariationResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -43,10 +43,14 @@ class BanditResponse:
 
 
 def get_error_bandit_result(
-    update_message: str, error: str, reweight: bool, current_weights: List[float]
+    single_variation_results: Optional[List[SingleVariationResult]],
+    update_message: str,
+    error: str,
+    reweight: bool,
+    current_weights: List[float],
 ) -> BanditResult:
     return BanditResult(
-        singleVariationResults=None,
+        singleVariationResults=single_variation_results,
         currentWeights=current_weights,
         updatedWeights=current_weights,
         srm=1,
@@ -229,9 +233,7 @@ class Bandits(ABC):
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
-        min_n = 100 * self.num_variations
-        enough_units = self.current_sample_size >= min_n
-
+        enough_units = all(self.variation_counts >= 100)
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
@@ -241,10 +243,7 @@ class Bandits(ABC):
             seed=seed,
             bandit_update_message=update_message
             if enough_units
-            else "total sample size is only "
-            + str(self.current_sample_size)
-            + " and it needs to be at least 100 * "
-            + str(self.num_variations),
+            else "total sample size must be at least 100 per variation",
             enough_units=enough_units,
         )
 

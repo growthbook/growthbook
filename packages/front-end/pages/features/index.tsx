@@ -203,11 +203,7 @@ export default function FeaturesPage() {
                   <br />
                   Value
                 </th>
-                <th>
-                  Overrides
-                  <br />
-                  Rules
-                </th>
+                <th>Rules</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (

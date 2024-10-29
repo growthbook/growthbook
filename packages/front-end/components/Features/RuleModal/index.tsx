@@ -349,6 +349,7 @@ export default function RuleModal({
           ),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
+          disableStickyBucketing: values.disableStickyBucketing ?? false,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
           goalMetrics: values.goalMetrics || [],
@@ -837,6 +838,7 @@ export default function RuleModal({
                   setVariations={(variations) =>
                     form.setValue("values", variations)
                   }
+                  orgStickyBucketing={orgStickyBucketing}
                 />
               </Page>
             ))

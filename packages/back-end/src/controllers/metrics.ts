@@ -1,4 +1,6 @@
 import { Response } from "express";
+import { isFactMetricId } from "shared/experiments";
+import { daysBetween } from "shared/dates";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
@@ -8,7 +10,6 @@ import {
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentWithSnapshot } from "back-end/types/experiment-snapshot";
 import {
-  getRecentExperimentsUsingMetric,
   getExperimentsByMetric,
   getExperimentsUsingMetric,
 } from "back-end/src/models/ExperimentModel";
@@ -40,6 +41,8 @@ import {
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { getUserById } from "back-end/src/models/UserModel";
 import { AuditUserLoggedIn } from "back-end/types/audit";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -262,12 +265,9 @@ export async function getMetric(
     });
   }
 
-  const experiments = await getRecentExperimentsUsingMetric(context, metric.id);
-
   res.status(200).json({
     status: 200,
     metric,
-    experiments,
   });
 }
 
@@ -577,5 +577,93 @@ export const getMetricExperimentResults = async (
   res.status(200).json({
     status: 200,
     data,
+  });
+};
+
+export const getMetricNorthstarData = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{
+    status: 200;
+    data: {
+      experiments: ExperimentInterfaceStringDates[];
+      analysis: MetricAnalysisInterface | null;
+      metric: MetricInterface | null;
+    };
+  }>
+) => {
+  // get metric analysis and latest experiments
+  const context = getContextFromReq(req);
+
+  const experiments = await getExperimentsUsingMetric(
+    context,
+    req.params.id,
+    100
+  );
+
+  // get analysis
+  let analysis: MetricAnalysisInterface | null = null;
+  let metric: MetricInterface | null = null;
+  if (isFactMetricId(req.params.id)) {
+    analysis = await context.models.metricAnalysis.findLatestByMetric(
+      req.params.id,
+      true
+    );
+  } else {
+    metric = await getMetricById(context, req.params.id, true);
+    if (metric && metric.analysis && metric.analysis.dates.length) {
+      // do my best to take legacy analysis and port it to new
+      const startDate = metric.analysis.dates[0].d;
+      const endDate = metric.analysis.dates[metric.analysis.dates.length - 1].d;
+      analysis = {
+        id: "spoofed_metan",
+        organization: metric.organization,
+        metric: metric.id,
+        error: metric.analysisError,
+        dateCreated: metric.analysis.createdAt,
+        dateUpdated: metric.analysis.createdAt,
+        runStarted: metric.runStarted,
+        status: metric.analysisError ? "failed" : "succeeded",
+        result: {
+          units: metric.analysis.count ?? 0,
+          mean: metric.analysis.average,
+          stddev: metric.analysis.stddev,
+          dates: metric.analysis.dates.map((d) => ({
+            date: d.d,
+            units: d.c ?? 0,
+            mean: d.v,
+            stddev: d.s,
+          })),
+        },
+        settings: {
+          userIdType: metric.userIdTypes?.[0] ?? "user_id", // reasonable guess
+          startDate: startDate,
+          endDate: endDate,
+          lookbackDays: daysBetween(startDate, endDate),
+          populationType: metric.segment ? "segment" : "metric",
+          populationId: metric.segment ?? null,
+        },
+        queries: metric.queries,
+      };
+    }
+  }
+
+  const experimentsStringDates = experiments.map((e) => ({
+    ...e,
+    dateCreated: e.dateCreated.toISOString(),
+    dateUpdated: e.dateUpdated.toISOString(),
+    phases: e.phases.map((p) => ({
+      ...p,
+      dateStarted: p.dateStarted.toISOString(),
+      dateEnded: p.dateEnded?.toISOString(),
+    })),
+  }));
+
+  res.status(200).json({
+    status: 200,
+    data: {
+      experiments: experimentsStringDates,
+      analysis,
+      metric,
+    },
   });
 };

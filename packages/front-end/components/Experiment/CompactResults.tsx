@@ -330,6 +330,7 @@ const CompactResults: FC<{
           noStickyHeader={noStickyHeader}
           noTooltip={noTooltip}
           isBandit={isBandit}
+          isGoalMetrics={true}
         />
       ) : null}
 
