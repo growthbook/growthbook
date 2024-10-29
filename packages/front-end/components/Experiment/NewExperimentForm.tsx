@@ -193,6 +193,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? "id"
     : hashAttributes[0] || "id";
 
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
@@ -210,6 +212,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hashAttribute: initialValue?.hashAttribute || hashAttribute,
       hashVersion:
         initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
+      disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -589,6 +592,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         v.map((v) => v.weight)
                       );
                     }}
+                    orgStickyBucketing={orgStickyBucketing}
                   />
                 </Page>
               );
