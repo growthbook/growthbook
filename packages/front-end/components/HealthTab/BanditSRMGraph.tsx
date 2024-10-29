@@ -22,7 +22,6 @@ import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import styles from "@/components/Experiment/ExperimentDateGraph.module.scss";
-import { pValueFormatter } from "@/services/experiments";
 
 export interface BanditSRMGraphDataPoint {
   date: Date;
@@ -127,10 +126,10 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
-      <div className="mt-1 mb-2 text-right">
-        p-value:{" "}
-        {d.srm !== undefined ? pValueFormatter(d.srm, 4) : <em>n/a</em>}
-      </div>
+      {/*<div className="mt-1 mb-2 text-right">*/}
+      {/*  p-value:{" "}*/}
+      {/*  {d.srm !== undefined ? pValueFormatter(d.srm, 4) : <em>n/a</em>}*/}
+      {/*</div>*/}
       <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
     </>
   );
