@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useState } from "react";
 import { getScopedSettings } from "shared/dist/settings";
 import { upperFirst } from "lodash";
+import { expandMetricGroups } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
@@ -17,6 +18,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
     getDatasourceById,
     getProjectById,
     getExperimentMetricById,
+    metricGroups,
   } = useDefinitions();
   const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -47,20 +49,26 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
   const statsEngine = scopedSettings.statsEngine.value;
 
   const goals: string[] = [];
-  experiment.goalMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) goals.push(name);
-  });
+  expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) goals.push(name);
+    }
+  );
   const secondary: string[] = [];
-  experiment.secondaryMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) secondary.push(name);
-  });
+  expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) secondary.push(name);
+    }
+  );
   const guardrails: string[] = [];
-  experiment.guardrailMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) guardrails.push(name);
-  });
+  expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) guardrails.push(name);
+    }
+  );
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
