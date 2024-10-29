@@ -11,7 +11,7 @@ import {
 } from "shared/util";
 import clsx from "clsx";
 import type { SDKLanguage } from "back-end/types/sdk-connection";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -43,8 +43,9 @@ export default function SDKConnectionsList() {
     project
   );
 
-  const gb = useGrowthBook();
-  const useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
+  const useNewEmptyStateLayout = useFeatureIsOn(
+    "sdk-connections-new-empty-state"
+  );
 
   const popularLanguages = getLanguagesByFilter("popular");
   const [selectedLanguage, setSelectedLanguage] = useState<SDKLanguage | null>(
