@@ -15,6 +15,7 @@ export type Props = {
   columns?: "1" | "2" | "3" | "4" | "5" | "6";
   width?: string;
   options: RadioOptions;
+  align?: "start" | "center" | "end";
   value: string;
   setValue: (value: string) => void;
 } & MarginProps;
@@ -26,6 +27,7 @@ export default function RadioCards({
   options,
   value,
   setValue,
+  align,
   ...containerProps
 }: Props) {
   return (
@@ -45,7 +47,7 @@ export default function RadioCards({
                 disabled={disabled}
                 className={disabled ? "disabled" : undefined}
               >
-                <Flex direction="row" width="100%" gap="3">
+                <Flex direction="row" width="100%" gap="3" align={align}>
                   {avatar}
                   <Flex direction="column" gap="1">
                     <Text weight="bold" size="3" className="main-text">

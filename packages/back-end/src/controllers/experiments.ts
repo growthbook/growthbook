@@ -96,6 +96,7 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  SnapshotTriggeredBy,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
@@ -115,6 +116,8 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
+
+export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
 export async function getExperiments(
   req: AuthRequest<
@@ -701,7 +704,7 @@ export async function postExperiments(
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       // This is doing an expensive analytics SQL query, so may take a long time
       // Set timeout to 30 minutes
-      req.setTimeout(30 * 60 * 1000);
+      req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
         await createExperimentSnapshot({
@@ -2082,13 +2085,14 @@ function getSnapshotType({
   return "standard";
 }
 
-async function createExperimentSnapshot({
+export async function createExperimentSnapshot({
   context,
   experiment,
   datasource,
   dimension,
   phase,
   useCache = true,
+  triggeredBy,
   type,
   reweight,
 }: {
@@ -2098,6 +2102,7 @@ async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
 }): Promise<{
@@ -2177,7 +2182,7 @@ async function createExperimentSnapshot({
     factTableMap,
     reweight,
     type: snapshotType,
-    triggeredBy: "manual",
+    triggeredBy: triggeredBy ?? "manual",
   });
   const snapshot = queryRunner.model;
 
@@ -2297,7 +2302,7 @@ export async function postSnapshot(
 
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
+  req.setTimeout(SNAPSHOT_TIMEOUT);
 
   try {
     const { snapshot } = await createExperimentSnapshot({

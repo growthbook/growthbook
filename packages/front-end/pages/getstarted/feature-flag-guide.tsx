@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -23,6 +24,8 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { setStep, clearStep } = useGetStarted();
 
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+
+  const hideOptional = useFeatureIsOn("hide-optional-get-started-steps");
 
   const loading = featuresLoading && !sdkConnections && !definitionsReady;
 
@@ -133,110 +136,114 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
               </div>
             </div>
 
-            <div className="row">
-              <div className="col-sm-auto">
-                {environmentsReviewed ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
+            {!hideOptional && (
+              <div className="row">
+                <div className="col-sm-auto">
+                  {environmentsReviewed ? (
+                    <PiCheckCircleFill
+                      className="mt-1"
+                      style={{
+                        fill: "#56BA9F",
+                        width: "18.5px",
+                        height: "18.5px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="mt-1"
+                      style={{
+                        borderRadius: "50%",
+                        borderStyle: "solid",
+                        borderWidth: "0.6px",
+                        borderColor: "#D3D4DB",
+                        width: "15px",
+                        height: "15px",
+                        margin: "2px",
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="col">
+                  <Link
+                    href="/environments"
                     style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
+                      fontSize: "17px",
+                      fontWeight: 600,
+                      textDecoration: environmentsReviewed
+                        ? "line-through"
+                        : "none",
                     }}
-                  />
-                ) : (
-                  <div
-                    className="mt-1"
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
+                    onClick={() =>
+                      setStep({
+                        step: "Review or Add Environments",
+                        source: "features",
+                        stepKey: "environments",
+                      })
+                    }
+                  >
+                    Review or Add Environments (Optional)
+                  </Link>
+                  <p className="mt-2">
+                    By default, GrowthBook comes with one
+                    environment—production—but you can add as many as you need.
+                  </p>
+                  <hr />
+                </div>
               </div>
-              <div className="col">
-                <Link
-                  href="/environments"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: environmentsReviewed
-                      ? "line-through"
-                      : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Review or Add Environments",
-                      source: "features",
-                      stepKey: "environments",
-                    })
-                  }
-                >
-                  Review or Add Environments (Optional)
-                </Link>
-                <p className="mt-2">
-                  By default, GrowthBook comes with one
-                  environment—production—but you can add as many as you need.
-                </p>
-                <hr />
-              </div>
-            </div>
+            )}
 
-            <div className="row">
-              <div className="col-sm-auto">
-                {attributesSet ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
+            {!hideOptional && (
+              <div className="row">
+                <div className="col-sm-auto">
+                  {attributesSet ? (
+                    <PiCheckCircleFill
+                      className="mt-1"
+                      style={{
+                        fill: "#56BA9F",
+                        width: "18.5px",
+                        height: "18.5px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        borderRadius: "50%",
+                        borderStyle: "solid",
+                        borderWidth: "0.6px",
+                        borderColor: "#D3D4DB",
+                        width: "15px",
+                        height: "15px",
+                        margin: "2px",
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="col">
+                  <Link
+                    href="/attributes"
                     style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
+                      fontSize: "17px",
+                      fontWeight: 600,
+                      textDecoration: attributesSet ? "line-through" : "none",
                     }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
+                    onClick={() =>
+                      setStep({
+                        step: "Customize Targeting Attributes",
+                        source: "features",
+                        stepKey: "attributes",
+                      })
+                    }
+                  >
+                    Customize Targeting Attributes (Optional)
+                  </Link>
+                  <p className="mt-2">
+                    Define user attributes used to target specific feature
+                    values to subsets of users.
+                  </p>
+                  <hr />
+                </div>
               </div>
-              <div className="col">
-                <Link
-                  href="/attributes"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: attributesSet ? "line-through" : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Customize Targeting Attributes",
-                      source: "features",
-                      stepKey: "attributes",
-                    })
-                  }
-                >
-                  Customize Targeting Attributes (Optional)
-                </Link>
-                <p className="mt-2">
-                  Define user attributes used to target specific feature values
-                  to subsets of users.
-                </p>
-                <hr />
-              </div>
-            </div>
+            )}
 
             <div className="row">
               <div className="col-sm-auto">

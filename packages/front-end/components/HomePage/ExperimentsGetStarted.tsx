@@ -88,6 +88,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               setDataSourceOpen(false);
             }}
             showImportSampleData={false}
+            datasourceFirst={false}
           />
         )}
 

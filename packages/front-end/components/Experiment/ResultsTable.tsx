@@ -89,6 +89,7 @@ export type ResultsTableProps = {
   noStickyHeader?: boolean;
   noTooltip?: boolean;
   isBandit?: boolean;
+  isGoalMetrics?: boolean;
 };
 
 const ROW_HEIGHT = 56;
@@ -306,10 +307,10 @@ export default function ResultsTable({
 
   const changeTitle = getEffectLabel(differenceType);
 
-  const hasNonGuardrailMetrics = rows.some(
-    (r) => r.resultGroup !== "guardrail"
-  );
   const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
+  const appliedPValueCorrection = hasGoalMetrics
+    ? pValueCorrection ?? null
+    : null;
 
   return (
     <div className="position-relative" ref={containerRef}>
@@ -473,8 +474,8 @@ export default function ResultsTable({
                           <span className="nowrap">Chance</span>{" "}
                           <span className="nowrap">to Win</span>
                         </div>
-                      ) : hasNonGuardrailMetrics &&
-                        (sequentialTestingEnabled || pValueCorrection) ? (
+                      ) : sequentialTestingEnabled ||
+                        appliedPValueCorrection ? (
                         <Tooltip
                           usePortal={true}
                           innerClassName={"text-left"}
@@ -482,9 +483,7 @@ export default function ResultsTable({
                             <div style={{ lineHeight: 1.5 }}>
                               {getPValueTooltip(
                                 !!sequentialTestingEnabled,
-                                hasGoalMetrics
-                                  ? pValueCorrection ?? null
-                                  : null,
+                                appliedPValueCorrection,
                                 orgSettings.pValueThreshold ??
                                   DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
@@ -492,7 +491,8 @@ export default function ResultsTable({
                             </div>
                           }
                         >
-                          P-value <RxInfoCircled />
+                          {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
+                          <RxInfoCircled />
                         </Tooltip>
                       ) : (
                         <>P-value</>
@@ -1000,8 +1000,8 @@ function getPValueTooltip(
           using the {pValueCorrection} method. P-values were adjusted across
           tests for
           {tableRowAxis === "dimension"
-            ? "all dimension values, non-guardrail metrics, and variations"
-            : "all non-guardrail metrics and variations"}
+            ? " all dimension values, goal metrics, and variations"
+            : " all goal metrics and variations"}
           . The unadjusted p-values are returned in the tooltip.
         </div>
       )}

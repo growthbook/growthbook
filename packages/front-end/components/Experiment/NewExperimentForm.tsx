@@ -165,6 +165,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     prerequisiteTargetingSdkIssues,
     setPrerequisiteTargetingSdkIssues,
   ] = useState(false);
+  const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({
@@ -405,6 +406,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         docSection="experimentConfiguration"
         submit={onSubmit}
         cta={"Save"}
+        ctaEnabled={canSubmit}
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -531,10 +533,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     project={project}
                     environments={envs}
                     noSchedule={true}
+                    prerequisiteValue={
+                      form.watch("phases.0.prerequisites") || []
+                    }
+                    setPrerequisiteValue={(prerequisites) =>
+                      form.setValue("phases.0.prerequisites", prerequisites)
+                    }
                     setPrerequisiteTargetingSdkIssues={
                       setPrerequisiteTargetingSdkIssues
                     }
+                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                    setSavedGroupValue={(savedGroups) =>
+                      form.setValue("phases.0.savedGroups", savedGroups)
+                    }
+                    defaultConditionValue={
+                      form.watch("phases.0.condition") || ""
+                    }
+                    setConditionValue={(value) =>
+                      form.setValue("phases.0.condition", value)
+                    }
                     conditionKey={conditionKey}
+                    namespaceFormPrefix={"phases.0."}
                     coverage={form.watch("phases.0.coverage")}
                     setCoverage={(coverage) =>
                       form.setValue("phases.0.coverage", coverage)
@@ -596,10 +615,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     source="experiment"
                     project={project}
                     environments={envs}
+                    prerequisiteValue={
+                      form.watch("phases.0.prerequisites") || []
+                    }
+                    setPrerequisiteValue={(prerequisites) =>
+                      form.setValue("phases.0.prerequisites", prerequisites)
+                    }
                     setPrerequisiteTargetingSdkIssues={
                       setPrerequisiteTargetingSdkIssues
                     }
+                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                    setSavedGroupValue={(savedGroups) =>
+                      form.setValue("phases.0.savedGroups", savedGroups)
+                    }
+                    defaultConditionValue={
+                      form.watch("phases.0.condition") || ""
+                    }
+                    setConditionValue={(value) =>
+                      form.setValue("phases.0.condition", value)
+                    }
                     conditionKey={conditionKey}
+                    namespaceFormPrefix={"phases.0."}
                     coverage={form.watch("phases.0.coverage")}
                     setCoverage={(coverage) =>
                       form.setValue("phases.0.coverage", coverage)

@@ -109,10 +109,13 @@ function getOrGenerateDeviceId() {
 }
 
 function getOrGeneratePageId() {
-  if (!(window.history.state.key in pageIds)) {
-    pageIds[window.history.state.key] = uuidv4();
+  // On initial load if the router hasn't initialized a state change yet then history.state will be null.
+  // Since this only happens on one pageload, using a hardcoded default key should still work as its own key
+  const pageIdKey = window.history.state?.key || "";
+  if (!(pageIdKey in pageIds)) {
+    pageIds[pageIdKey] = uuidv4();
   }
-  return pageIds[window.history.state.key];
+  return pageIds[pageIdKey];
 }
 
 function getOrGenerateSessionId() {
@@ -132,7 +135,24 @@ function getOrGenerateSessionId() {
   return sessionId;
 }
 
-let jitsu: JitsuClient;
+let _jitsu: JitsuClient;
+export function getJitsuClient(): JitsuClient | null {
+  if (!isTelemetryEnabled()) return null;
+
+  if (!_jitsu) {
+    _jitsu = jitsuClient({
+      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
+      log_level: "ERROR",
+      tracking_host: "https://t.growthbook.io",
+      cookie_name: "__growthbookid",
+      capture_3rd_party_cookies: isCloud() ? ["_ga"] : false,
+      randomize_url: true,
+    });
+  }
+
+  return _jitsu;
+}
+
 export default function track(
   event: string,
   props: TrackEventProps = {}
@@ -194,20 +214,11 @@ export default function track(
   if (inTelemetryDebugMode()) {
     console.log("Telemetry Event - ", event, trackProps);
   }
-  if (!isTelemetryEnabled()) return;
 
-  if (!jitsu) {
-    jitsu = jitsuClient({
-      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
-      log_level: "ERROR",
-      tracking_host: "https://t.growthbook.io",
-      cookie_name: "__growthbookid",
-      capture_3rd_party_cookies: isCloud() ? ["_ga"] : false,
-      randomize_url: true,
-    });
+  const jitsu = getJitsuClient();
+  if (jitsu) {
+    jitsu.track(event, trackProps);
   }
-
-  jitsu.track(event, trackProps);
 }
 
 export function trackSnapshot(

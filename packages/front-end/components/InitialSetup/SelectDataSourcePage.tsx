@@ -1,14 +1,13 @@
 import { PiPaperPlaneTiltFill } from "react-icons/pi";
 import { useState } from "react";
 import { SchemaFormat } from "back-end/types/datasource";
-import clsx from "clsx";
 import DataSourceLogo, {
   eventTrackerMapping,
 } from "@/components/DataSources/DataSourceLogo";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
-import styles from "./InitialSetup.module.scss";
+import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 
 interface Props {
   eventTracker: SchemaFormat | null;
@@ -91,73 +90,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
             </div>
           </div>
         </div>
-        <div className="appbox p-4 mb-3">
-          <h3 className="mb-2">How A/B Testing Works at GrowthBook</h3>
-
-          <p>
-            For example, Google Analytics is an event tracker that sits on top
-            of BigQuery, where your data is stored. You will need to configure
-            BigQuery in order to connect GrowthBook to Google Analytics
-          </p>
-          <div
-            className={clsx(
-              styles.setupPage,
-              "d-flex align-items-center position-relative mt-4"
-            )}
-          >
-            <div
-              className="appbox mb-0 p-3 d-flex flex-wrap justify-content-center"
-              style={{ maxWidth: 325 }}
-            >
-              <img
-                src="/logo/Logo-mark.png"
-                style={{ width: 40 }}
-                alt="GrowthBook"
-              />
-              <div className="col">
-                <h5 className="mb-0">GrowthBook</h5>
-                <strong className="text-muted">SDK</strong>
-              </div>
-            </div>
-            <div className={styles.rightArrow}>
-              <span>trackingCallback</span>
-            </div>
-            <div
-              className="appbox mb-0  p-3 d-flex flex-wrap justify-content-center"
-              style={{ maxWidth: 325 }}
-            >
-              <img
-                src="/images/3rd-party-logos/datasource-logos/ga4.svg"
-                style={{ width: 30 }}
-                alt="GA4"
-              />
-              <div className="col">
-                <h5 className="mb-0">Google Analytics v4</h5>
-                <strong className="text-muted">Event Tracker</strong>
-              </div>
-            </div>
-            <div className={styles.rightArrow}>
-              <span>polling</span>
-            </div>
-            <div
-              className="appbox mb-0 p-3 d-flex flex-wrap justify-content-center"
-              style={{ maxWidth: 325 }}
-            >
-              <img
-                src="/images/3rd-party-logos/bigquery.svg"
-                style={{ width: 40 }}
-                alt="GA4"
-              />
-              <div className="col">
-                <h5 className="mb-0">Big Query</h5>
-                <strong className="text-muted">Data Warehouse</strong>
-              </div>
-            </div>
-          </div>
-          <div className={clsx(styles.bottomArrow, "mb-4")}>
-            <span>Metrics</span>
-          </div>
-        </div>
+        <DataSourceDiagram className="appbox p-4 mb-3" />
       </div>
     </>
   );
