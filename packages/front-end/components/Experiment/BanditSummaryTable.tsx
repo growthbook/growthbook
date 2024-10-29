@@ -138,10 +138,16 @@ export default function BanditSummaryTable({
     if (!results) return [-0.1, 0.1];
     const cis = results.map((v) => v.ci).filter(Boolean) as [number, number][];
     let min = Math.min(
-      ...cis.filter((_, i) => isFinite(probabilities?.[i])).map((ci) => ci[0])
+      ...cis
+        .filter((_, i) => isFinite(probabilities?.[i]))
+        .map((ci) => ci[0])
+        .filter((ci) => !((ci?.[0] ?? 0) < -9000))
     );
     let max = Math.max(
-      ...cis.filter((_, i) => isFinite(probabilities?.[i])).map((ci) => ci[1])
+      ...cis
+        .filter((_, i) => isFinite(probabilities?.[i]))
+        .map((ci) => ci[1])
+        .filter((ci) => !((ci?.[1] ?? 0) > 9000))
     );
     if (!isFinite(min) || !isFinite(max)) {
       min = -0.1;
