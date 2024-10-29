@@ -96,9 +96,7 @@ class BanditsMCMC:
             self.update_parameters(iter)
             if iter >= self.burn:
                 storage_index = iter - self.burn
-                self.alpha_keep[
-                    storage_index,
-                ] = self.alpha
+                self.alpha_keep[storage_index, :] = self.alpha
                 self.mu_keep[storage_index] = self.mu
                 self.gamma_2_keep[storage_index] = self.gamma_2
 
