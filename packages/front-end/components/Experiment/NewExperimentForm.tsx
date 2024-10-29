@@ -399,6 +399,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   }
   const trackingEventModalType = kebabCase(header);
 
+  const nameFieldHandlers = form.register("name", {
+    setValueAs: (s) => s?.trim(),
+  });
+  const trackingKeyFieldHandlers = form.register("trackingKey");
+
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -433,8 +438,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
-              {...form.register("name", { setValueAs: (s) => s?.trim() })}
+              {...nameFieldHandlers}
               onChange={async (e) => {
+                // Ensure the name field is updated and then sync with trackingKey if possible
+                nameFieldHandlers.onChange(e);
+
                 if (!isNewExperiment) return;
                 if (!linkNameWithTrackingKey) return;
                 const val = e?.target?.value ?? form.watch("name");
@@ -455,11 +463,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             <Field
               label="Tracking Key"
-              {...form.register("trackingKey")}
               helpText={`Unique identifier for this ${
                 isBandit ? "Bandit" : "Experiment"
               }, used to track impressions and analyze results`}
-              onChange={() => setLinkNameWithTrackingKey(false)}
+              {...trackingKeyFieldHandlers}
+              onChange={(e) => {
+                trackingKeyFieldHandlers.onChange(e);
+                setLinkNameWithTrackingKey(false);
+              }}
             />
 
             {!isBandit && (
