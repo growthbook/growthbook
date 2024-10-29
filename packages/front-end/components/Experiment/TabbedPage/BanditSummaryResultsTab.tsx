@@ -54,7 +54,8 @@ export default function BanditSummaryResultsTab({
 
   const phaseObj = experiment.phases[phase];
 
-  const showVisualizations = (phaseObj?.banditEvents?.length ?? 0) > 0;
+  const showVisualizations =
+    (phaseObj?.banditEvents?.length ?? 0) > 0 && experiment.status !== "draft";
 
   return (
     <>
@@ -67,7 +68,7 @@ export default function BanditSummaryResultsTab({
       </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (
-          <Callout status="info" mx="3" mb="2">
+          <Callout status="info" mx="3" mb="4">
             Your experiment is still in a <strong>draft</strong> state. You must
             start the experiment first before seeing results.
           </Callout>
@@ -84,12 +85,12 @@ export default function BanditSummaryResultsTab({
         {isCurrentPhase &&
         experiment.status === "running" &&
         !phaseObj?.banditEvents?.length ? (
-          <Callout status="info" mx="3" mb="2">
+          <Callout status="info" mx="3" mb="4">
             No data yet.
           </Callout>
         ) : null}
         {!isCurrentPhase && !phaseObj?.banditEvents?.length ? (
-          <Callout status="info" mx="3" mb="2">
+          <Callout status="info" mx="3" mb="4">
             No data available for this phase.
           </Callout>
         ) : null}

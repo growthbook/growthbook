@@ -30,6 +30,7 @@ import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { trackReport } from "@/services/track";
+import Callout from "@/components/Radix/Callout";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -213,12 +214,10 @@ export default function ResultsTab({
             setDifferenceType={setDifferenceType}
           />
           {experiment.status === "draft" ? (
-            <div className="mx-3">
-              <div className="alert bg-light border my-4">
-                Your experiment is still in a <strong>draft</strong> state. You
-                must start the experiment first before seeing results.
-              </div>
-            </div>
+            <Callout status="info" mx="3" my="4">
+              Your experiment is still in a <strong>draft</strong> state. You
+              must start the experiment first before seeing results.
+            </Callout>
           ) : (
             <>
               {experiment.status === "running" &&
