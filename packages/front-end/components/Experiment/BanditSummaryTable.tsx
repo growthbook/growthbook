@@ -10,6 +10,9 @@ import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFi
 import { useBanditSummaryTooltip } from "@/components/Experiment/BanditSummaryTableTooltip/useBanditSummaryTooltip";
 import BanditSummaryTooltip from "@/components/Experiment/BanditSummaryTableTooltip/BanditSummaryTooltip";
 import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
+import { getExperimentMetricFormatter } from "@/services/metrics";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import AlignedGraph from "./AlignedGraph";
 
 export const WIN_THRESHOLD_PROBABILITY = 0.95;
@@ -25,27 +28,16 @@ export type BanditSummaryTableProps = {
 
 const numberFormatter = Intl.NumberFormat();
 
-const intPercentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
-
-const percentileFormatter = (v: number) => {
-  if (v > 0.99) {
-    return ">99%";
-  }
-  if (v < 0.01) {
-    return "<1%";
-  }
-  return intPercentFormatter.format(v);
-};
-
 export default function BanditSummaryTable({
   experiment,
   metric,
   phase,
   isTabActive,
 }: BanditSummaryTableProps) {
+  const { getFactTableById } = useDefinitions();
+  const metricDisplayCurrency = useCurrency();
+  const metricFormatterOptions = { currency: metricDisplayCurrency };
+
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
 
@@ -146,10 +138,16 @@ export default function BanditSummaryTable({
     if (!results) return [-0.1, 0.1];
     const cis = results.map((v) => v.ci).filter(Boolean) as [number, number][];
     let min = Math.min(
-      ...cis.filter((_, i) => isFinite(probabilities?.[i])).map((ci) => ci[0])
+      ...cis
+        .filter((_, i) => isFinite(probabilities?.[i]))
+        .map((ci) => ci[0])
+        .filter((ci) => !((ci ?? 0) < -9000))
     );
     let max = Math.max(
-      ...cis.filter((_, i) => isFinite(probabilities?.[i])).map((ci) => ci[1])
+      ...cis
+        .filter((_, i) => isFinite(probabilities?.[i]))
+        .map((ci) => ci[1])
+        .filter((ci) => !((ci ?? 0) > 9000))
     );
     if (!isFinite(min) || !isFinite(max)) {
       min = -0.1;
@@ -251,23 +249,15 @@ export default function BanditSummaryTable({
                 </th>
                 <th
                   className="axis-col label text-center px-0"
-                  style={{ width: 100 }}
+                  style={{ width: 120 }}
                 >
                   Users
                 </th>
                 <th
-                  className="axis-col label text-right pr-3"
+                  className="axis-col label text-center px-0"
                   style={{ width: 120 }}
                 >
-                  <div
-                    style={{
-                      lineHeight: "15px",
-                      marginBottom: 2,
-                    }}
-                  >
-                    <span className="nowrap">Probability</span>{" "}
-                    <span className="nowrap">of Winning</span>
-                  </div>
+                  Mean
                 </th>
                 <th
                   className="axis-col graph-cell"
@@ -312,8 +302,16 @@ export default function BanditSummaryTable({
                     users: result?.users ?? 0,
                   };
                 }
+                const meanText = metric
+                  ? getExperimentMetricFormatter(metric, getFactTableById)(
+                      isFinite(stats.cr) ? stats.cr : 0,
+                      metricFormatterOptions
+                    )
+                  : (stats.cr ?? 0) + "";
                 const probability =
                   probabilities?.[v.index] ?? 1 / (variations.length || 2);
+
+                const won = (probability ?? 0) >= WIN_THRESHOLD_PROBABILITY;
 
                 const isHovered = hoveredVariationRow === v.index;
 
@@ -354,33 +352,49 @@ export default function BanditSummaryTable({
                       </div>
                     </td>
                     <td className="text-center px-0">
-                      {stats.users >= 0 ? (
-                        numberFormatter.format(stats.users)
-                      ) : (
-                        <em className="text-muted">
-                          <small>not enough data</small>
-                        </em>
+                      {numberFormatter.format(
+                        isFinite(stats.users) ? stats.users : 0
                       )}
                     </td>
                     <td
-                      className={clsx("results-ctw chance text-right pr-3", {
-                        won: (probability ?? 0) >= WIN_THRESHOLD_PROBABILITY,
-                        hover: isHovered,
-                      })}
+                      className={clsx(
+                        "results-mean value text-center position-relative",
+                        {
+                          won,
+                          hover: isHovered,
+                        }
+                      )}
                       onMouseMove={onPointerMove}
                       onMouseLeave={onPointerLeave}
                       onClick={onPointerMove}
                     >
-                      {isFinite(probability) ? (
-                        percentileFormatter(probability)
-                      ) : (
-                        <em className="text-muted">
-                          <small>not enough data</small>
-                        </em>
+                      <span className="position-relative" style={{ zIndex: 1 }}>
+                        {isFinite(stats.cr) && stats.users >= 100 ? (
+                          meanText
+                        ) : (
+                          <em className="text-muted">
+                            <small>not enough data</small>
+                          </em>
+                        )}
+                      </span>
+                      {won && (
+                        <div
+                          className="position-absolute"
+                          style={{
+                            bottom: shrinkRows ? 2 : 5,
+                            right: 5,
+                            opacity: 0.5,
+                            fontSize: shrinkRows ? "14px" : "18px",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          🎉
+                        </div>
                       )}
                     </td>
                     <td className="graph-cell overflow-hidden">
                       <AlignedGraph
+                        axisOnly={!isFinite(stats.cr) || stats.users < 100}
                         ci={stats.ci}
                         expected={isFinite(stats.cr) ? stats.cr : 0}
                         barType="violin"

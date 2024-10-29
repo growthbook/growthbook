@@ -17,7 +17,6 @@ import {
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { BsLightbulb } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -30,6 +29,7 @@ import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { trackReport } from "@/services/track";
+import Callout from "@/components/Radix/Callout";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -175,15 +175,16 @@ export default function ResultsTab({
     snapshot &&
     analysis?.results?.[0];
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   return (
     <div className="mt-3">
-      {experiment.type === "multi-armed-bandit" && hasResults ? (
-        <div className="alert alert-info mt-4">
-          <BsLightbulb className="mr-2" />
+      {isBandit && hasResults ? (
+        <Callout status="info" mb="5">
           Bandits are better than experiments at directing traffic to the best
           variation but they can produce biased results.
           {/*todo: docs*/}
-        </div>
+        </Callout>
       ) : null}
 
       <div className="bg-white border">
@@ -211,12 +212,10 @@ export default function ResultsTab({
             setDifferenceType={setDifferenceType}
           />
           {experiment.status === "draft" ? (
-            <div className="mx-3">
-              <div className="alert bg-light border my-4">
-                Your experiment is still in a <strong>draft</strong> state. You
-                must start the experiment first before seeing results.
-              </div>
-            </div>
+            <Callout status="info" mx="3" my="4">
+              Your experiment is still in a <strong>draft</strong> state. You
+              must start the experiment first before seeing results.
+            </Callout>
           ) : (
             <>
               {experiment.status === "running" &&
@@ -301,7 +300,7 @@ export default function ResultsTab({
           )}
         </div>
       </div>
-      {snapshot && (
+      {snapshot && !isBandit && (
         <div className="bg-white border mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col h3 ml-2 mb-0">Custom Reports</div>

@@ -21,12 +21,13 @@ import { BanditEvent } from "back-end/src/validators/experiments";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/components/Radix/Callout";
+import HelperText from "@/components/Radix/HelperText";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -44,6 +45,7 @@ export interface BanditDateGraphDataPoint {
   date: Date;
   reweight?: boolean;
   updateMessage?: string;
+  initial?: boolean;
   error?: string;
   meta: DataPointVariation;
 }
@@ -92,93 +94,99 @@ const getTooltipContents = (
   const { d } = data;
   return (
     <>
-      <table className={`table-condensed ${styles.table}`}>
-        <thead>
-          <tr>
-            <td></td>
-            <td>
-              {mode === "values"
-                ? "Variation Mean"
-                : mode === "probabilities"
-                ? "Probability of Winning"
-                : "Variation Weight"}
-            </td>
-            {mode === "values" && <td>CI</td>}
-            <td>Users</td>
-          </tr>
-        </thead>
-        <tbody>
-          {variationNames.map((v, i) => {
-            if (!showVariations[i]) return null;
-            const val = d[i];
-            const meta = d.meta;
-            const crFormatted = metric
-              ? getExperimentMetricFormatter(metric, getFactTableById)(
-                  val,
-                  metricFormatterOptions
-                )
-              : val;
-            return (
-              <tr key={i}>
-                <td
-                  className="text-ellipsis"
-                  style={{ color: getVariationColor(i, true) }}
-                >
-                  {v}
-                </td>
-                <td>
-                  {mode === "values" && crFormatted !== undefined
-                    ? crFormatted
-                    : null}
-                  {mode !== "values" && val !== undefined
-                    ? percentFormatter.format(val)
-                    : null}
-                </td>
-                {mode === "values" && (
-                  <td className="small">
-                    [
-                    {metric
-                      ? getExperimentMetricFormatter(metric, getFactTableById)(
-                          meta?.[i].rawCi?.[0] ?? 0,
-                          metricFormatterOptions
-                        )
-                      : meta?.[i].rawCi?.[0] ?? 0}
-                    ,{" "}
-                    {metric
-                      ? getExperimentMetricFormatter(metric, getFactTableById)(
-                          meta?.[i].rawCi?.[1] ?? 0,
-                          metricFormatterOptions
-                        )
-                      : meta?.[i].rawCi?.[1] ?? 0}
-                    ]
+      {d.error !== "no rows" ? (
+        <table className={`table-condensed ${styles.table}`}>
+          <thead>
+            <tr>
+              <td></td>
+              <td>
+                {mode === "values"
+                  ? "Variation Mean"
+                  : mode === "probabilities"
+                  ? "Probability of Winning"
+                  : "Variation Weight"}
+              </td>
+              {mode === "values" && <td>CI</td>}
+              <td>Users</td>
+            </tr>
+          </thead>
+          <tbody>
+            {variationNames.map((v, i) => {
+              if (!showVariations[i]) return null;
+              const val = d[i];
+              const meta = d.meta;
+              const crFormatted = metric
+                ? getExperimentMetricFormatter(metric, getFactTableById)(
+                    val,
+                    metricFormatterOptions
+                  )
+                : val;
+              return (
+                <tr key={i}>
+                  <td
+                    className="text-ellipsis"
+                    style={{ color: getVariationColor(i, true) }}
+                  >
+                    {v}
                   </td>
-                )}
-                <td>{meta?.[i].users ?? 0}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {!!d.reweight && (
-        <div className="text-sm my-2 alert alert-info py-1 px-2">
-          <FaInfoCircle className="mr-1" />
-          Variation weights were recalculated
+                  <td>
+                    {mode === "values" && crFormatted !== undefined
+                      ? crFormatted
+                      : null}
+                    {mode !== "values" && val !== undefined
+                      ? percentFormatter.format(val)
+                      : null}
+                  </td>
+                  {mode === "values" && (
+                    <td className="small">
+                      [
+                      {metric
+                        ? getExperimentMetricFormatter(
+                            metric,
+                            getFactTableById
+                          )(meta?.[i].rawCi?.[0] ?? 0, metricFormatterOptions)
+                        : meta?.[i].rawCi?.[0] ?? 0}
+                      ,{" "}
+                      {metric
+                        ? getExperimentMetricFormatter(
+                            metric,
+                            getFactTableById
+                          )(meta?.[i].rawCi?.[1] ?? 0, metricFormatterOptions)
+                        : meta?.[i].rawCi?.[1] ?? 0}
+                      ]
+                    </td>
+                  )}
+                  <td>{meta?.[i].users ?? 0}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <div className="my-2" style={{ minWidth: 300 }}>
+          <em>Bandit update failed</em>
         </div>
       )}
 
-      {d.updateMessage && !d.error ? (
-        <div className="text-sm my-2 alert alert-warning py-1 px-2">
-          <FaExclamationTriangle className="mr-1" />
-          {d.updateMessage}
-        </div>
-      ) : null}
+      <div style={{ maxWidth: 330 }}>
+        {!!d.reweight && (
+          <HelperText status="info" my="2" size="md">
+            Variation weights were recalculated
+          </HelperText>
+        )}
 
-      {d.error ? (
-        <div className="text-sm my-2 alert alert-danger py-1 px-2">
-          <FaExclamationTriangle className="mr-1" />
-          {d.error}
-        </div>
-      ) : null}
+        {d.updateMessage && !d.error ? (
+          <Callout status="warning" my="2" size="sm">
+            {d.updateMessage}
+          </Callout>
+        ) : null}
+
+        {d.error ? (
+          <Callout status="error" my="2" size="sm">
+            {d.error}
+          </Callout>
+        ) : null}
+      </div>
 
       <div className="text-sm-right mt-1 mr-1">
         {datetime(d.date as Date)}
@@ -289,7 +297,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     const stackedData: any[] = [];
 
     let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
-    events.forEach((event) => {
+    events.forEach((event, eventNo) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
 
@@ -318,6 +326,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           event.banditResult?.updateMessage !== "successfully updated"
             ? event.banditResult?.updateMessage
             : undefined,
+        initial: eventNo === 0,
         error: event.banditResult?.error,
         meta: {},
       };
@@ -367,6 +376,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       variationNames.forEach((_, i) => {
         dataPoint[i] = stackedData[stackedData.length - 1][i];
       });
+      dataPoint.initial = stackedData[stackedData.length - 1].initial;
+      dataPoint.error = stackedData[stackedData.length - 1].error;
       dataPoint.meta = { ...stackedData[stackedData.length - 1].meta };
       dataPoint.meta.type = "today";
       stackedData.push(dataPoint);
@@ -454,15 +465,19 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   Math.min(
                     ...variationNames
                       .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
+                      .filter((_, i) => !((d?.meta?.[i]?.ci?.[0] ?? 0) < -9000))
+                      .filter(() => !d?.error && !d.initial)
                       .filter((_, i) => showVariations[i])
                   )
                 )
-              ) * 1.03,
+              ) * 0.97,
               Math.max(
                 ...stackedData.map((d) =>
                   Math.max(
                     ...variationNames
                       .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
+                      .filter((_, i) => !((d?.meta?.[i]?.ci?.[1] ?? 0) > 9000))
+                      .filter(() => !d?.error && !d.initial)
                       .filter((_, i) => showVariations[i])
                   )
                 )
@@ -520,7 +535,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           .filter((p) => p.meta?.type !== "today" && p?.reweight === true)
           .map((p) => p.date.getTime());
         const errorTicks = stackedData
-          .filter((p) => p?.error)
+          .filter((p) => p?.error && p.meta?.type !== "today")
           .map((p) => p.date.getTime());
 
         const xScale = scaleTime({
@@ -711,7 +726,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               ref={containerRef}
               className={styles.dategraph}
               style={{
-                width: width - margin[1] - margin[3],
+                width: width - margin[3],
                 height: height - margin[0],
                 marginLeft: margin[3],
                 marginTop: margin[0],

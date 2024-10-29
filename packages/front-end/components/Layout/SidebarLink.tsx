@@ -122,7 +122,14 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
             </span>
           )}
           {props.name}
-          {props.beta && <div className="badge badge-warning ml-2">beta</div>}
+          {props.beta && (
+            <div
+              className="badge border text-uppercase ml-2"
+              style={{ opacity: 0.65 }}
+            >
+              beta
+            </div>
+          )}
           {props.subLinks && (
             <div className={clsx("float-right", styles.chevron)}>
               <FiChevronRight />
