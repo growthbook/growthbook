@@ -30,11 +30,13 @@ import track from "@/services/track";
 interface MetricAnalysisProps {
   metric: ExperimentMetricInterface;
   outerClassName?: string;
+  bandits?: boolean;
 }
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
   metric: ExperimentMetricInterface;
+  bandits?: boolean;
 }
 
 interface MetricExperimentData {
@@ -56,7 +58,11 @@ interface MetricExperimentData {
 
 const NUM_PER_PAGE = 50;
 
-function MetricExperimentResultTab({ experimentsWithSnapshot, metric }: Props) {
+function MetricExperimentResultTab({
+  experimentsWithSnapshot,
+  metric,
+  bandits,
+}: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -90,7 +96,7 @@ function MetricExperimentResultTab({ experimentsWithSnapshot, metric }: Props) {
         variationId: i,
         variationName: v.name,
       };
-      if (baseline && variationResults[i]) {
+      if (!bandits && baseline && variationResults[i]) {
         const {
           significant,
           resultsStatus,
@@ -186,23 +192,25 @@ function MetricExperimentResultTab({ experimentsWithSnapshot, metric }: Props) {
           </div>
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>
-        {e.variationResults ? (
-          <ChangeColumn
-            metric={metric}
-            stats={e.variationResults}
-            rowResults={{
-              enoughData: true,
-              directionalStatus: e.directionalStatus ?? "losing",
-              hasScaledImpact: true,
-            }}
-            statsEngine={e.statsEngine}
-            differenceType="relative"
-            showCI={true}
-            className={resultsHighlightClassname}
-          />
-        ) : (
-          <td>No results available</td>
-        )}
+        {!bandits ? (
+          e.variationResults ? (
+            <ChangeColumn
+              metric={metric}
+              stats={e.variationResults}
+              rowResults={{
+                enoughData: true,
+                directionalStatus: e.directionalStatus ?? "losing",
+                hasScaledImpact: true,
+              }}
+              statsEngine={e.statsEngine}
+              differenceType="relative"
+              showCI={true}
+              className={resultsHighlightClassname}
+            />
+          ) : (
+            <td>No results available</td>
+          )
+        ) : null}
       </tr>
     );
   });
@@ -218,7 +226,7 @@ function MetricExperimentResultTab({ experimentsWithSnapshot, metric }: Props) {
             <SortableTH field="status">Status</SortableTH>
             <SortableTH field="users">Variation Users</SortableTH>
             {/* <th>Won/lost</th> */}
-            <SortableTH field="lift">Lift</SortableTH>
+            {!bandits && <SortableTH field="lift">Lift</SortableTH>}
           </tr>
         </thead>
         <tbody>{expRows}</tbody>
@@ -238,32 +246,34 @@ function MetricExperimentResultTab({ experimentsWithSnapshot, metric }: Props) {
 const MetricExperiments: FC<MetricAnalysisProps> = ({
   metric,
   outerClassName,
+  bandits = false,
 }) => {
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
   }>(`/metrics/${metric.id}/experiments`);
-  const metricExperiments = (data?.data ?? []).filter(
-    (e) => e.type !== "multi-armed-bandit"
+  const metricExperiments = (data?.data ?? []).filter((e) =>
+    bandits ? e.type === "multi-armed-bandit" : e.type !== "multi-armed-bandit"
   );
 
   const body = !metricExperiments?.length ? (
     <div className={`mt-2 alert alert-warning`}>
       <span style={{ fontSize: "1.2em" }}>
-        0 experiments with this metric found.
+        0 {bandits ? "bandits" : "experiments"} with this metric found.
       </span>
     </div>
   ) : (
     <MetricExperimentResultTab
       experimentsWithSnapshot={metricExperiments}
       metric={metric}
+      bandits={bandits}
     />
   );
 
   useEffect(() => {
-    track("Load Metric Experiments", {
+    track(`Load Metric ${bandits ? "Bandits" : "Experiments"}`, {
       type: isFactMetric(metric) ? "fact" : "classic",
     });
-  }, [metric]);
+  }, [metric, bandits]);
 
   return (
     <div

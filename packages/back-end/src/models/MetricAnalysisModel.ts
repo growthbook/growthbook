@@ -44,9 +44,12 @@ export class MetricAnalysisModel extends BaseClass {
     return this.canCreate(doc);
   }
 
-  public async findLatestByMetric(metric: string) {
+  public async findLatestByMetric(metric: string, includeNorthStar?: boolean) {
     const metricAnalyses = await this._find(
-      { metric },
+      {
+        metric,
+        ...(!includeNorthStar ? { source: { $ne: "northstar" } } : {}),
+      },
       { sort: { dateCreated: -1 }, limit: 1 }
     );
     return metricAnalyses[0] ? metricAnalyses[0] : null;

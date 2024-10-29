@@ -169,6 +169,7 @@ const NorthStar: FC<{
               onChange={(metrics) => form.setValue("metrics", metrics)}
               includeFacts={true}
               includeGroups={false}
+              excludeQuantiles={true}
             />
           </div>
           <Field label="Title" {...form.register("title")} />

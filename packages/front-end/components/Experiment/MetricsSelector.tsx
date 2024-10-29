@@ -2,6 +2,7 @@ import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import { DataSourceSettings } from "back-end/types/datasource";
+import { quantileMetricType } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -100,6 +101,7 @@ const MetricsSelector: FC<{
   autoFocus?: boolean;
   includeFacts?: boolean;
   includeGroups?: boolean;
+  excludeQuantiles?: boolean;
   forceSingleMetric?: boolean;
   noPercentile?: boolean;
   disabled?: boolean;
@@ -112,6 +114,7 @@ const MetricsSelector: FC<{
   autoFocus,
   includeFacts,
   includeGroups = true,
+  excludeQuantiles,
   forceSingleMetric = false,
   noPercentile = false,
   disabled,
@@ -155,9 +158,15 @@ const MetricsSelector: FC<{
       : []),
     ...(includeFacts
       ? factMetrics
-          .filter((m) =>
-            noPercentile ? m.cappingSettings.type !== "percentile" : true
-          )
+          .filter((m) => {
+            if (quantileMetricType(m) && excludeQuantiles) {
+              return false;
+            }
+            if (noPercentile) {
+              return m.cappingSettings.type !== "percentile";
+            }
+            return true;
+          })
           .map((m) => ({
             id: m.id,
             name: m.name,

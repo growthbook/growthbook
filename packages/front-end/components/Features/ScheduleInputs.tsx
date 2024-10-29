@@ -6,17 +6,15 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
-import UpgradeLabel from "@/components/Marketing/UpgradeLabel";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Checkbox from "@/components/Radix/Checkbox";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {
   defaultValue: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
-  setShowUpgradeModal: (value: boolean) => void;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (value: boolean) => void;
-  title?: string;
 }
 
 export default function ScheduleInputs(props: Props) {
@@ -44,45 +42,36 @@ export default function ScheduleInputs(props: Props) {
   };
 
   return (
-    <div className="form-group">
-      <UpgradeLabel
-        showUpgradeModal={() => props.setShowUpgradeModal(true)}
-        commercialFeature="schedule-feature-flag"
-        upgradeMessage="enable feature flag scheduling"
-        labelText={
-          props.title ??
-          "Add scheduling to automatically enable/disable an override rule"
+    <div className="my-3">
+      <Checkbox
+        size="lg"
+        label={
+          <PremiumTooltip commercialFeature="schedule-feature-flag">
+            Apply Schedule
+          </PremiumTooltip>
         }
-      />
-      <div className="pb-2">
-        <Toggle
-          id="schedule-toggle"
-          value={props.scheduleToggleEnabled}
-          setValue={(v) => {
-            props.setScheduleToggleEnabled(v);
+        description="Enable/disable rule based on selected date and time"
+        value={props.scheduleToggleEnabled}
+        setValue={(v) => {
+          props.setScheduleToggleEnabled(v);
 
-            if (!rules.length) {
-              setRules([
-                {
-                  enabled: true,
-                  timestamp: null,
-                },
-                {
-                  enabled: false,
-                  timestamp: null,
-                },
-              ]);
-            }
-          }}
-          disabled={!canScheduleFeatureFlags}
-          type="featureValue"
-        />
-        <span className="text-muted pl-2">
-          <strong>{props.scheduleToggleEnabled ? "on" : "off"}</strong>
-        </span>
-      </div>
+          if (!rules.length) {
+            setRules([
+              {
+                enabled: true,
+                timestamp: null,
+              },
+              {
+                enabled: false,
+                timestamp: null,
+              },
+            ]);
+          }
+        }}
+        disabled={!canScheduleFeatureFlags}
+      />
       {rules.length > 0 && props.scheduleToggleEnabled && (
-        <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
+        <div className={`box mb-3 bg-light pt-2 px-3 ${styles.conditionbox}`}>
           <ul className={styles.conditionslist}>
             <li className={styles.listitem}>
               <div className="row align-items-center">

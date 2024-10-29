@@ -1,6 +1,6 @@
 import { Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
-import { FaDownload } from "react-icons/fa";
+import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
@@ -13,8 +13,17 @@ import SelectField from "@/components/Forms/SelectField";
 import LinkButton from "@/components/Radix/LinkButton";
 import Avatar from "@/components/Radix/Avatar";
 import Field from "@/components/Forms/Field";
+import {
+  Dropdown,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/components/Radix/Dropdown";
 import RadioCards from "@/components/Radix/RadioCards";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import DataList from "@/components/Radix/DataList";
+import Stepper from "@/components/Stepper/Stepper";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState(false);
@@ -26,6 +35,7 @@ export default function DesignSystemPage() {
     "1" | "2" | "3" | "4" | "5" | "6"
   >("1");
   const [sliderVal, setSliderVal] = useState(10);
+  const [stepperStep, setStepperStep] = useState(0);
 
   return (
     <div className="pagecontents container-fluid">
@@ -225,6 +235,49 @@ export default function DesignSystemPage() {
       </div>
 
       <div className="appbox p-3">
+        <h3 className="mb-4">DataList</h3>
+        <DataList
+          header="Header"
+          columns={4}
+          data={[
+            { label: "Label 1", value: "Value 1" },
+            {
+              label: "Label 2",
+              value: "A very long value that will wrap to multiple lines",
+            },
+            {
+              label: "With Tooltip",
+              value: "Value 3",
+              tooltip: "This is a label tooltip",
+            },
+            {
+              label: "Label 4",
+              value: (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                  }}
+                >
+                  Link Value <FaExternalLinkAlt />
+                </a>
+              ),
+            },
+            {
+              label: "Label 5",
+              value: (
+                <>
+                  <em>Other</em> value{" "}
+                  <span className="text-muted">formatting</span>
+                </>
+              ),
+            },
+            { label: "Label 6", value: "Value 6" },
+          ]}
+        />
+      </div>
+
+      <div className="appbox p-3">
         <h3>HelperText</h3>
         <Flex direction="column" gap="3">
           <HelperText status="info">This is an info message</HelperText>
@@ -234,6 +287,26 @@ export default function DesignSystemPage() {
         </Flex>
       </div>
 
+      <div className="appbox p-3">
+        <h3>Dropdown</h3>
+        <Dropdown trigger="Dropdown button">
+          <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
+          <DropdownSubMenu trigger="Item 1">
+            <DropdownMenuItem>Item 1.1</DropdownMenuItem>
+          </DropdownSubMenu>
+          <DropdownMenuItem
+            onClick={function (): void {
+              alert("Item 2");
+            }}
+          >
+            Item 2
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>Item 3</DropdownMenuItem>
+          <DropdownMenuItem> Item 4</DropdownMenuItem>
+          <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
+        </Dropdown>
+      </div>
       <div className="appbox p-3">
         <h3>Radio Card</h3>
         <div className="mb-2 w-100px">
@@ -405,6 +478,20 @@ export default function DesignSystemPage() {
             <Slider defaultValue={[25]} size="3" disabled={true} />
           </div>
         </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Stepper</h3>
+        <Stepper
+          step={stepperStep}
+          setStep={setStepperStep}
+          setError={() => {}}
+          steps={[
+            { label: "Step 1", enabled: true },
+            { label: "Step 2", enabled: true },
+            { label: "Step 3", enabled: true },
+          ]}
+        />
       </div>
     </div>
   );

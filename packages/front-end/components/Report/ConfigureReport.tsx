@@ -176,9 +176,6 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
-  const userIdType = exposureQueries.find(
-    (e) => e.id === form.getValues("exposureQueryId")
-  )?.userIdType;
 
   return (
     <Modal
@@ -275,27 +272,40 @@ export default function ConfigureReport({
         </small>
       </div>
       {datasource?.properties?.userIds && (
-        <Field
-          label="Experiment Assignment Table"
-          labelClassName="font-weight-bold"
-          {...form.register("exposureQueryId")}
-          options={exposureQueries.map((e) => ({
-            display: e.name,
-            value: e.id,
-          }))}
-          helpText={
+        <SelectField
+          label={
             <>
-              <div>
-                Should correspond to the Identifier Type used to randomize units
-                for this experiment
-              </div>
-              {userIdType ? (
-                <>
-                  Identifier Type: <code>{userIdType}</code>
-                </>
-              ) : null}
+              Experiment Assignment Table{" "}
+              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
             </>
           }
+          labelClassName="font-weight-bold"
+          value={form.watch("exposureQueryId") ?? ""}
+          onChange={(v) => form.setValue("exposureQueryId", v)}
+          required
+          options={exposureQueries?.map((q) => {
+            return {
+              label: q.name,
+              value: q.id,
+            };
+          })}
+          formatOptionLabel={({ label, value }) => {
+            const userIdType = exposureQueries?.find((e) => e.id === value)
+              ?.userIdType;
+            return (
+              <>
+                {label}
+                {userIdType ? (
+                  <span
+                    className="text-muted small float-right position-relative"
+                    style={{ top: 3 }}
+                  >
+                    Identifier Type: <code>{userIdType}</code>
+                  </span>
+                ) : null}
+              </>
+            );
+          }}
         />
       )}
 

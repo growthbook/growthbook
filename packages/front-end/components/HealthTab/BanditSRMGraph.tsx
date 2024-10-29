@@ -128,7 +128,8 @@ const getTooltipContents = (
         </tbody>
       </table>
       <div className="mt-1 mb-2 text-right">
-        p-value: {d.srm ? pValueFormatter(d.srm, 4) : <em>n/a</em>}
+        p-value:{" "}
+        {d.srm !== undefined ? pValueFormatter(d.srm, 4) : <em>n/a</em>}
       </div>
       <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
     </>
@@ -519,6 +520,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                               y={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
                               stroke={getVariationColor(i, true)}
                               strokeWidth={2}
+                              strokeDasharray={"2,5"}
                               curve={curveMonotoneX}
                             />
                             <LinePath
@@ -528,7 +530,6 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                               y={(d) => yScale(d.users?.[i] ?? 0)}
                               stroke={getVariationColor(i, true)}
                               strokeWidth={2}
-                              strokeDasharray={"2,5"}
                               curve={curveMonotoneX}
                             />
                             <AreaClosed

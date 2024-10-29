@@ -9,7 +9,6 @@ import { BanditEvent } from "back-end/src/validators/experiments";
 import { RxInfoCircled } from "react-icons/rx";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
 import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
 import { getExperimentMetricFormatter } from "@/services/metrics";
@@ -29,7 +28,6 @@ export type TooltipHoverSettings = {
 export type LayoutX = "element-center" | "element-left" | "element-right";
 export type YAlign = "top" | "bottom";
 
-const numberFormatter = Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 1,
@@ -99,6 +97,13 @@ export default function BanditSummaryTooltip({
       <MdSwapCalls />
     </Tooltip>
   ) : null;
+
+  const meanText = data.metric
+    ? getExperimentMetricFormatter(data.metric, getFactTableById)(
+        data.stats.cr ?? 0,
+        metricFormatterOptions
+      )
+    : (data.stats.cr ?? 0) + "";
 
   const ciRangeText = (
     <>
@@ -179,7 +184,7 @@ export default function BanditSummaryTooltip({
         </a>
 
         {/*tooltip contents*/}
-        <div className="px-2 py-1">
+        <div className="px-2 pt-1 pb-3">
           <div className="metric-label d-flex align-items-end">
             <span
               className="h5 mb-0 text-dark text-ellipsis"
@@ -265,6 +270,17 @@ export default function BanditSummaryTooltip({
               </div>
             </div>
 
+            <div className={clsx("results-chance d-flex mt-1", data.status)}>
+              <div className="label mr-2">Variation Mean:</div>
+              <div
+                className={clsx("value", {
+                  "font-weight-bold": isFinite(data.probability ?? NaN),
+                })}
+              >
+                {meanText}
+              </div>
+            </div>
+
             <div className={clsx("results-ci d-flex mt-1", data.status)}>
               <div className="label mr-2">95% Credible Interval:</div>
               <div
@@ -283,47 +299,6 @@ export default function BanditSummaryTooltip({
                 </div>
               </Tooltip>
             )}
-          </div>
-
-          <div className="mt-3 mb-2 results">
-            <table
-              className="table-condensed results-table text-center"
-              style={{ tableLayout: "fixed" }}
-            >
-              <thead>
-                <tr>
-                  <th>Mean</th>
-                  <th>
-                    Metric Value
-                    <div className="small">(numerator)</div>
-                  </th>
-                  <th>
-                    Users
-                    <div className="small">(denominator)</div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <MetricValueColumn
-                    metric={data.metric}
-                    stats={data.stats}
-                    users={data.stats.users}
-                    showRatio={false}
-                  />
-                  <td>
-                    {getExperimentMetricFormatter(
-                      data.metric,
-                      getFactTableById,
-                      true
-                    )(data.stats.cr * data.stats.users, {
-                      currency: metricDisplayCurrency,
-                    })}
-                  </td>
-                  <td>{numberFormatter.format(data.stats.users)}</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       </div>

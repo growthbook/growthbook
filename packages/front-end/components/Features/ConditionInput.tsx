@@ -24,6 +24,7 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import CountrySelector, {
   ALL_COUNTRY_CODES,
 } from "@/components/Forms/CountrySelector";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -332,10 +333,10 @@ export default function ConditionInput(props: Props) {
               displayType = "select-only";
             } else if (attribute.enum === ALL_COUNTRY_CODES) {
               displayType = "isoCountryCode";
-            } else if (listOperators.includes(operator)) {
-              displayType = "array-field";
             } else if (attribute.enum.length) {
               displayType = "enum";
+            } else if (listOperators.includes(operator)) {
+              displayType = "array-field";
             } else if (attribute.datatype === "number") {
               displayType = "number";
             } else if (
@@ -474,20 +475,36 @@ export default function ConditionInput(props: Props) {
                       />
                     )
                   ) : displayType === "enum" ? (
-                    <SelectField
-                      options={attribute.enum.map((v) => ({
-                        label: v,
-                        value: v,
-                      }))}
-                      value={value}
-                      onChange={(v) => {
-                        handleCondsChange(v, "value");
-                      }}
-                      name="value"
-                      initialOption="Choose One..."
-                      containerClassName="col-sm-12 col-md mb-2"
-                      required
-                    />
+                    listOperators.includes(operator) ? (
+                      <MultiSelectField
+                        options={attribute.enum.map((v) => ({
+                          label: v,
+                          value: v,
+                        }))}
+                        value={
+                          value ? value.split(",").map((val) => val.trim()) : []
+                        }
+                        onChange={handleListChange}
+                        name="value"
+                        containerClassName="col-sm-12 col-md mb-2"
+                        required
+                      />
+                    ) : (
+                      <SelectField
+                        options={attribute.enum.map((v) => ({
+                          label: v,
+                          value: v,
+                        }))}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                        name="value"
+                        initialOption="Choose One..."
+                        containerClassName="col-sm-12 col-md mb-2"
+                        required
+                      />
+                    )
                   ) : displayType === "number" ? (
                     <Field
                       type="number"
