@@ -465,7 +465,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   Math.min(
                     ...variationNames
                       .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
-                      .filter((_, i) => !((d?.meta?.[i]?.ci?.[0] ?? 0) < -9000))
+                      .filter(
+                        (_, i) =>
+                          !(
+                            d?.meta?.[i]?.cr === 0 &&
+                            (d?.meta?.[i]?.ci?.[0] ?? 0) < -195
+                          )
+                      )
                       .filter(() => !d?.error && !d.initial)
                       .filter((_, i) => showVariations[i])
                   )
@@ -476,7 +482,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   Math.max(
                     ...variationNames
                       .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
-                      .filter((_, i) => !((d?.meta?.[i]?.ci?.[1] ?? 0) > 9000))
+                      .filter(
+                        (_, i) =>
+                          !(
+                            d?.meta?.[i]?.cr === 0 &&
+                            (d?.meta?.[i]?.ci?.[1] ?? 0) > 195
+                          )
+                      )
                       .filter(() => !d?.error && !d.initial)
                       .filter((_, i) => showVariations[i])
                   )
