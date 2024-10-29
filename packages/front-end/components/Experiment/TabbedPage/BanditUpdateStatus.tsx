@@ -1,15 +1,15 @@
-import React, {useState} from "react";
+import React, { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import {ExperimentSnapshotInterface} from "back-end/types/experiment-snapshot";
 
 export default function BanditUpdateStatus({
   experiment,
@@ -56,7 +56,9 @@ export default function BanditUpdateStatus({
     : lastEvent?.banditResult?.error;
 
   const [error, setError] = useState<string | undefined>(_error);
-  const [generatedSnapshot, setGeneratedSnapshot] = useState<ExperimentSnapshotInterface | undefined>(undefined);
+  const [generatedSnapshot, setGeneratedSnapshot] = useState<
+    ExperimentSnapshotInterface | undefined
+  >(undefined);
 
   return (
     <div className="hover-highlight rounded">
@@ -203,7 +205,11 @@ export default function BanditUpdateStatus({
               {generatedSnapshot || latest ? (
                 <div className="col-auto">
                   <ViewAsyncQueriesButton
-                    queries={(generatedSnapshot || latest)?.queries?.map((q) => q.query) ?? []}
+                    queries={
+                      (generatedSnapshot || latest)?.queries?.map(
+                        (q) => q.query
+                      ) ?? []
+                    }
                     error={(generatedSnapshot || latest)?.error}
                     status={status}
                     display={null}
@@ -219,7 +225,12 @@ export default function BanditUpdateStatus({
           {experiment.status === "running" && (
             <>
               <hr className="mx-2" />
-              <RefreshBanditButton mutate={mutate} experiment={experiment} setError={setError} setGeneratedSnapshot={setGeneratedSnapshot} />
+              <RefreshBanditButton
+                mutate={mutate}
+                experiment={experiment}
+                setError={setError}
+                setGeneratedSnapshot={setGeneratedSnapshot}
+              />
             </>
           )}
         </div>
