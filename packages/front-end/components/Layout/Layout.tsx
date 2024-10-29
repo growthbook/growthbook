@@ -55,6 +55,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/bandits",
     Icon: GBBandit,
     path: /^bandit/,
+    beta: true,
     filter: ({ gb }) => !!gb?.isOn("bandits"),
   },
   {
