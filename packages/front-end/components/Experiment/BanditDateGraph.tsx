@@ -94,73 +94,79 @@ const getTooltipContents = (
   const { d } = data;
   return (
     <>
-      <table className={`table-condensed ${styles.table}`}>
-        <thead>
-          <tr>
-            <td></td>
-            <td>
-              {mode === "values"
-                ? "Variation Mean"
-                : mode === "probabilities"
-                ? "Probability of Winning"
-                : "Variation Weight"}
-            </td>
-            {mode === "values" && <td>CI</td>}
-            <td>Users</td>
-          </tr>
-        </thead>
-        <tbody>
-          {variationNames.map((v, i) => {
-            if (!showVariations[i]) return null;
-            const val = d[i];
-            const meta = d.meta;
-            const crFormatted = metric
-              ? getExperimentMetricFormatter(metric, getFactTableById)(
-                  val,
-                  metricFormatterOptions
-                )
-              : val;
-            return (
-              <tr key={i}>
-                <td
-                  className="text-ellipsis"
-                  style={{ color: getVariationColor(i, true) }}
-                >
-                  {v}
-                </td>
-                <td>
-                  {mode === "values" && crFormatted !== undefined
-                    ? crFormatted
-                    : null}
-                  {mode !== "values" && val !== undefined
-                    ? percentFormatter.format(val)
-                    : null}
-                </td>
-                {mode === "values" && (
-                  <td className="small">
-                    [
-                    {metric
-                      ? getExperimentMetricFormatter(metric, getFactTableById)(
-                          meta?.[i].rawCi?.[0] ?? 0,
-                          metricFormatterOptions
-                        )
-                      : meta?.[i].rawCi?.[0] ?? 0}
-                    ,{" "}
-                    {metric
-                      ? getExperimentMetricFormatter(metric, getFactTableById)(
-                          meta?.[i].rawCi?.[1] ?? 0,
-                          metricFormatterOptions
-                        )
-                      : meta?.[i].rawCi?.[1] ?? 0}
-                    ]
+      {d.error !== "no rows" ? (
+        <table className={`table-condensed ${styles.table}`}>
+          <thead>
+            <tr>
+              <td></td>
+              <td>
+                {mode === "values"
+                  ? "Variation Mean"
+                  : mode === "probabilities"
+                  ? "Probability of Winning"
+                  : "Variation Weight"}
+              </td>
+              {mode === "values" && <td>CI</td>}
+              <td>Users</td>
+            </tr>
+          </thead>
+          <tbody>
+            {variationNames.map((v, i) => {
+              if (!showVariations[i]) return null;
+              const val = d[i];
+              const meta = d.meta;
+              const crFormatted = metric
+                ? getExperimentMetricFormatter(metric, getFactTableById)(
+                    val,
+                    metricFormatterOptions
+                  )
+                : val;
+              return (
+                <tr key={i}>
+                  <td
+                    className="text-ellipsis"
+                    style={{ color: getVariationColor(i, true) }}
+                  >
+                    {v}
                   </td>
-                )}
-                <td>{meta?.[i].users ?? 0}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  <td>
+                    {mode === "values" && crFormatted !== undefined
+                      ? crFormatted
+                      : null}
+                    {mode !== "values" && val !== undefined
+                      ? percentFormatter.format(val)
+                      : null}
+                  </td>
+                  {mode === "values" && (
+                    <td className="small">
+                      [
+                      {metric
+                        ? getExperimentMetricFormatter(
+                            metric,
+                            getFactTableById
+                          )(meta?.[i].rawCi?.[0] ?? 0, metricFormatterOptions)
+                        : meta?.[i].rawCi?.[0] ?? 0}
+                      ,{" "}
+                      {metric
+                        ? getExperimentMetricFormatter(
+                            metric,
+                            getFactTableById
+                          )(meta?.[i].rawCi?.[1] ?? 0, metricFormatterOptions)
+                        : meta?.[i].rawCi?.[1] ?? 0}
+                      ]
+                    </td>
+                  )}
+                  <td>{meta?.[i].users ?? 0}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <div className="my-2">
+          <em>Bandit update failed</em>
+        </div>
+      )}
 
       <div style={{ maxWidth: 330 }}>
         {!!d.reweight && (
@@ -370,6 +376,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       variationNames.forEach((_, i) => {
         dataPoint[i] = stackedData[stackedData.length - 1][i];
       });
+      dataPoint.initial = stackedData[stackedData.length - 1].initial;
+      dataPoint.error = stackedData[stackedData.length - 1].error;
       dataPoint.meta = { ...stackedData[stackedData.length - 1].meta };
       dataPoint.meta.type = "today";
       stackedData.push(dataPoint);
