@@ -45,6 +45,7 @@ export interface BanditDateGraphDataPoint {
   date: Date;
   reweight?: boolean;
   updateMessage?: string;
+  initial?: boolean;
   error?: string;
   meta: DataPointVariation;
 }
@@ -290,7 +291,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     const stackedData: any[] = [];
 
     let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
-    events.forEach((event) => {
+    events.forEach((event, eventNo) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
 
@@ -319,6 +320,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           event.banditResult?.updateMessage !== "successfully updated"
             ? event.banditResult?.updateMessage
             : undefined,
+        initial: eventNo === 0,
         error: event.banditResult?.error,
         meta: {},
       };
@@ -456,18 +458,18 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     ...variationNames
                       .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
                       .filter((_, i) => !((d?.meta?.[i]?.ci?.[0] ?? 0) < -9000))
-                      .filter(() => !d?.error)
+                      .filter(() => !d?.error && !d.initial)
                       .filter((_, i) => showVariations[i])
                   )
                 )
-              ) * 1.03,
+              ) * 0.97,
               Math.max(
                 ...stackedData.map((d) =>
                   Math.max(
                     ...variationNames
                       .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
                       .filter((_, i) => !((d?.meta?.[i]?.ci?.[1] ?? 0) > 9000))
-                      .filter(() => !d?.error)
+                      .filter(() => !d?.error && !d.initial)
                       .filter((_, i) => showVariations[i])
                   )
                 )
