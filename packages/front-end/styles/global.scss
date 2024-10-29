@@ -1223,6 +1223,10 @@ main.main.report {
   label:not(.rt-Text) {
     color: var(--text-color-main);
     font-weight: 600;
+    strong,
+    b {
+      font-weight: 800;
+    }
   }
 }
 
