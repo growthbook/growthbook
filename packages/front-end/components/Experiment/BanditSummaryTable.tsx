@@ -136,18 +136,19 @@ export default function BanditSummaryTable({
 
   const domain: [number, number] = useMemo(() => {
     if (!results) return [-0.1, 0.1];
+    const crs = results.map((v) => v.cr).filter(Boolean) as number[];
     const cis = results.map((v) => v.ci).filter(Boolean) as [number, number][];
     let min = Math.min(
       ...cis
         .filter((_, i) => isFinite(probabilities?.[i]))
         .map((ci) => ci[0])
-        .filter((ci) => !((ci ?? 0) < -9000))
+        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) < -195))
     );
     let max = Math.max(
       ...cis
         .filter((_, i) => isFinite(probabilities?.[i]))
         .map((ci) => ci[1])
-        .filter((ci) => !((ci ?? 0) > 9000))
+        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) > 195))
     );
     if (!isFinite(min) || !isFinite(max)) {
       min = -0.1;
