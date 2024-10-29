@@ -21,12 +21,13 @@ import { BanditEvent } from "back-end/src/validators/experiments";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/components/Radix/Callout";
+import HelperText from "@/components/Radix/HelperText";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -159,26 +160,26 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
-      {!!d.reweight && (
-        <div className="text-sm my-2 alert alert-info py-1 px-2">
-          <FaInfoCircle className="mr-1" />
-          Variation weights were recalculated
-        </div>
-      )}
 
-      {d.updateMessage && !d.error ? (
-        <div className="text-sm my-2 alert alert-warning py-1 px-2">
-          <FaExclamationTriangle className="mr-1" />
-          {d.updateMessage}
-        </div>
-      ) : null}
+      <div style={{ maxWidth: 330 }}>
+        {!!d.reweight && (
+          <HelperText status="info" my="2" size="md">
+            Variation weights were recalculated
+          </HelperText>
+        )}
 
-      {d.error ? (
-        <div className="text-sm my-2 alert alert-danger py-1 px-2">
-          <FaExclamationTriangle className="mr-1" />
-          {d.error}
-        </div>
-      ) : null}
+        {d.updateMessage && !d.error ? (
+          <Callout status="warning" my="2" size="sm">
+            {d.updateMessage}
+          </Callout>
+        ) : null}
+
+        {d.error ? (
+          <Callout status="error" my="2" size="sm">
+            {d.error}
+          </Callout>
+        ) : null}
+      </div>
 
       <div className="text-sm-right mt-1 mr-1">
         {datetime(d.date as Date)}

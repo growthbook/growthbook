@@ -14,6 +14,7 @@ import VariationsTable from "@/components/Experiment/VariationsTable";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import Callout from "@/components/Radix/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -139,12 +140,12 @@ export default function Implementation({
               setUrlRedirectModal={setUrlRedirectModal}
             />
           ) : (
-            <div className="alert alert-info mb-3">
+            <Callout status="info" mb="4">
               This experiment has no directly linked feature flag, visual editor
               changes, or redirects. Randomization, targeting, and
               implementation is either being managed by an external system or
               via legacy Feature Flags in GrowthBook.
-            </div>
+            </Callout>
           )}
         </>
       )}

@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useEffect, useState } from "react";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
+import { BanditEvent } from "back-end/src/validators/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,6 +13,9 @@ import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateS
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
 import Callout from "@/components/Radix/Callout";
+import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
+import SRMWarning from "@/components/Experiment/SRMWarning";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -44,6 +48,20 @@ export default function BanditSummaryResultsTab({
   const mid = experiment?.goalMetrics?.[0];
   const metric = getExperimentMetricById(mid ?? "");
 
+  const { latest } = useSnapshot();
+  const multipleExposures = latest?.multipleExposures;
+
+  const phaseObj = experiment.phases[phase];
+
+  const showVisualizations =
+    (phaseObj?.banditEvents?.length ?? 0) > 0 && experiment.status !== "draft";
+
+  const event: BanditEvent | undefined =
+    phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
+  const users = experiment.variations.map(
+    (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0
+  );
+
   if (!metric) {
     return (
       <Callout status="warning" mx="3" mb="2">
@@ -51,11 +69,6 @@ export default function BanditSummaryResultsTab({
       </Callout>
     );
   }
-
-  const phaseObj = experiment.phases[phase];
-
-  const showVisualizations =
-    (phaseObj?.banditEvents?.length ?? 0) > 0 && experiment.status !== "draft";
 
   return (
     <>
@@ -94,6 +107,19 @@ export default function BanditSummaryResultsTab({
             No data available for this phase.
           </Callout>
         ) : null}
+
+        <div className="mx-3">
+          <SRMWarning
+            srm={event?.banditResult?.srm ?? Infinity}
+            users={users}
+            showWhenHealthy={false}
+            isBandit={true}
+          />
+          <MultipleExposureWarning
+            users={users}
+            multipleExposures={multipleExposures ?? 0}
+          />
+        </div>
 
         {showVisualizations && (
           <>

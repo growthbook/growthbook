@@ -17,7 +17,6 @@ import {
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { BsLightbulb } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -181,12 +180,11 @@ export default function ResultsTab({
   return (
     <div className="mt-3">
       {isBandit && hasResults ? (
-        <div className="alert alert-info mt-4">
-          <BsLightbulb className="mr-2" />
+        <Callout status="info" mb="5">
           Bandits are better than experiments at directing traffic to the best
           variation but they can produce biased results.
           {/*todo: docs*/}
-        </div>
+        </Callout>
       ) : null}
 
       <div className="bg-white border">
