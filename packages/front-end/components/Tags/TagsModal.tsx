@@ -20,7 +20,7 @@ export default function TagsModal({
   const form = useForm<TagInterface>({
     defaultValues: {
       id: existing?.id || "",
-      color: existing?.color || "violet",
+      color: existing?.color || "blue",
       description: existing?.description || "",
     },
   });

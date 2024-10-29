@@ -6,10 +6,10 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
-import Tag from "@/components/Tags/Tag";
 import Button from "@/components/Button";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Badge from "@/components/Radix/Badge";
 
 export default function RoleList() {
   const { roles, refreshOrganization, organization } = useUser();
@@ -45,9 +45,21 @@ export default function RoleList() {
                     >
                       {r.id}
                     </Link>{" "}
-                    {isCustom ? <Tag color="indigo" tag="Custom" /> : null}
+                    {isCustom ? (
+                      <Badge
+                        label="Custom"
+                        color="violet"
+                        variant="soft"
+                        ml="2"
+                      />
+                    ) : null}
                     {isDeactivated ? (
-                      <Tag color="gray" tag="Deactivated" />
+                      <Badge
+                        label="Deactivated"
+                        color="gray"
+                        variant="soft"
+                        ml="2"
+                      />
                     ) : null}
                   </td>
                   <td>{r.description}</td>

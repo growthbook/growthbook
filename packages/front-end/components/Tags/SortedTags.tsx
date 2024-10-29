@@ -1,5 +1,6 @@
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Badge from "@/components/Radix/Badge";
 import Tag from "./Tag";
 
 export interface Props {
@@ -37,11 +38,11 @@ export default function SortedTags({
         body={<>{renderFlexContainer(tagElements, true)}</>}
         usePortal={true}
       >
-        <Tag
-          tag={tagCopy}
-          key="tag-ellipsis"
-          skipMargin={useFlex}
-          // color="white"
+        <Badge
+          label={tagCopy}
+          color="violet"
+          variant="soft"
+          ml={useFlex ? undefined : "2"}
         />
       </Tooltip>
     );

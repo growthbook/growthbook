@@ -120,7 +120,11 @@ export default function ProjectTagBar({
         <div className="col-auto">
           <Text weight="medium">Tags: </Text>
           {experiment.tags?.length > 0 ? (
-            <SortedTags tags={experiment.tags} skipFirstMargin={true} />
+            <SortedTags
+              tags={experiment.tags}
+              skipFirstMargin={true}
+              shouldShowEllipsis={false}
+            />
           ) : (
             <em className="text-muted">None</em>
           )}{" "}
