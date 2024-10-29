@@ -182,12 +182,18 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   };
 
   if (Object.keys(defaults).length)
-    void EventWebHookModel.updateOne(
-      { id: doc.id },
-      {
-        $set: defaults,
+    void (async () => {
+      try {
+        EventWebHookModel.updateOne(
+          { id: doc.id },
+          {
+            $set: defaults,
+          }
+        );
+      } catch (_) {
+        return;
       }
-    );
+    })();
 
   return {
     ...defaults,
