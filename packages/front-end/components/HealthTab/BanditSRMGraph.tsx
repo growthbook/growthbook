@@ -22,7 +22,6 @@ import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
 import styles from "@/components/Experiment/ExperimentDateGraph.module.scss";
-import { pValueFormatter } from "@/services/experiments";
 
 export interface BanditSRMGraphDataPoint {
   date: Date;
@@ -127,10 +126,10 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
-      <div className="mt-1 mb-2 text-right">
-        p-value:{" "}
-        {d.srm !== undefined ? pValueFormatter(d.srm, 4) : <em>n/a</em>}
-      </div>
+      {/*<div className="mt-1 mb-2 text-right">*/}
+      {/*  p-value:{" "}*/}
+      {/*  {d.srm !== undefined ? pValueFormatter(d.srm, 4) : <em>n/a</em>}*/}
+      {/*</div>*/}
       <div className="text-sm-right mt-1 mr-1">{datetime(d.date as Date)}</div>
     </>
   );
@@ -426,59 +425,10 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
               onPointerLeave={hideTooltip}
             >
               {tooltipOpen && (
-                <>
-                  {(() => {
-                    let offset = -1;
-                    return variationNames.map((_, i) => {
-                      // Render a dot at the current x location for each variation
-                      if (!showVariations[i]) return null;
-                      offset++;
-                      const y0 =
-                        mode === "users"
-                          ? Math.min(
-                              tooltipData?.d?.expectedUsers?.[i] ?? 0,
-                              tooltipData?.d?.users?.[i] ?? 0
-                            )
-                          : Math.min(
-                              tooltipData?.d?.weights?.[i] ?? 0,
-                              tooltipData?.d?.userRatios?.[i] ?? 0
-                            );
-                      const y1 =
-                        mode === "users"
-                          ? Math.max(
-                              tooltipData?.d?.expectedUsers?.[i] ?? 0,
-                              tooltipData?.d?.users?.[i] ?? 0
-                            )
-                          : Math.max(
-                              tooltipData?.d?.weights?.[i] ?? 0,
-                              tooltipData?.d?.userRatios?.[i] ?? 0
-                            );
-                      if (y0 === undefined || y1 === undefined) return;
-                      if (
-                        mode === "weights" &&
-                        (tooltipData?.d?.userRatios?.[i] ?? 0) === 0
-                      )
-                        return;
-                      return (
-                        <div
-                          key={i}
-                          className={styles.deltaIndicator}
-                          style={{
-                            height: yScale(y0) - yScale(y1),
-                            transform: `translate(${
-                              tooltipLeft + (4 * offset) / variationNames.length
-                            }px, ${yScale(y1)}px)`,
-                            background: getVariationColor(i, true),
-                          }}
-                        />
-                      );
-                    });
-                  })()}
-                  <div
-                    className={styles.crosshair}
-                    style={{ transform: `translateX(${tooltipLeft}px)` }}
-                  />
-                </>
+                <div
+                  className={styles.crosshair}
+                  style={{ transform: `translateX(${tooltipLeft}px)` }}
+                />
               )}
             </div>
             <svg width={width} height={height}>

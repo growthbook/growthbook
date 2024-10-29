@@ -42,6 +42,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
+import Callout from "@/components/Radix/Callout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 
 const LOOKBACK_DAY_OPTIONS = [7, 14, 30, 180, 365];
@@ -303,11 +304,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
     <div className={`mb-4 ${outerClassName || ""}`}>
       <div className={`appbox p-3 mb-3 ${className || ""}`}>
         {factMetric.metricType === "quantile" ? (
-          <div className={`mt-2 mb-2 alert alert-warning`}>
-            <span style={{ fontSize: "1.2em" }}>
-              Standalone metric analysis not available for quantile metrics.
-            </span>
-          </div>
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not available for quantile metrics.
+          </Callout>
         ) : (
           <>
             <div
@@ -415,7 +414,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     " "
                   )}
                   icon={
-                    <span className="position-relative pr-2">
+                    <span
+                      className="position-relative pr-2"
+                      style={{ marginRight: 6 }}
+                    >
                       <span className="text-main">
                         <FaDatabase />
                       </span>
@@ -508,16 +510,14 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
             </div>
 
             {error || metricAnalysis?.error ? (
-              <div className={`mt-2 mb-2 alert alert-danger`}>
-                <span style={{ fontSize: "1.2em" }}>
-                  {`Analysis error: ${error || metricAnalysis?.error}`}
-                </span>
-              </div>
+              <Callout status="error" mt="2" mb="2">
+                {`Analysis error: ${error || metricAnalysis?.error}`}
+              </Callout>
             ) : null}
             {metricAnalysis ? (
               <>
                 {!matchedSettings ? (
-                  <div className={`mt-2 alert alert-warning`}>
+                  <Callout status="warning" mt="2" mb="2">
                     <span style={{ fontSize: "1.2em" }}>
                       Analysis settings changed. Update results or{" "}
                       <a
@@ -539,7 +539,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       </a>
                       .
                     </span>
-                  </div>
+                  </Callout>
                 ) : (
                   <>
                     {metricAnalysis?.result && !northStarView && (

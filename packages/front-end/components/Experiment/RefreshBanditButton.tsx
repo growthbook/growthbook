@@ -1,27 +1,27 @@
-import React, { FC, useMemo, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import {
-  FaCaretDown,
-  FaDatabase,
-  FaExclamationCircle,
-  FaExclamationTriangle,
-} from "react-icons/fa";
+import { FaCaretDown, FaExclamationCircle } from "react-icons/fa";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import Dropdown from "@/components/Dropdown/Dropdown";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 const RefreshBanditButton: FC<{
   mutate: () => void;
   experiment: ExperimentInterfaceStringDates;
-}> = ({ mutate, experiment }) => {
+  setError: (e: string | undefined) => void;
+  setGeneratedSnapshot: (s: ExperimentSnapshotInterface | undefined) => void;
+}> = ({
+  mutate,
+  experiment,
+  setError: setOuterError,
+  setGeneratedSnapshot: setOuterGeneratedSnapshot,
+}) => {
   const [loading, setLoading] = useState(false);
   const [_error, setError] = useState("");
   const [generatedSnapshot, setGeneratedSnapshot] = useState<
@@ -42,13 +42,13 @@ const RefreshBanditButton: FC<{
     };
     return trimErrorMessage(_error);
   }, [_error]);
+  useEffect(() => {
+    if (error) {
+      setOuterError(error);
+    }
+  }, [error, setOuterError]);
 
   const { apiCall } = useAuth();
-
-  const { status } = getQueryStatus(
-    generatedSnapshot?.queries || [],
-    generatedSnapshot?.error
-  );
 
   const refresh = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,6 +108,9 @@ const RefreshBanditButton: FC<{
                 setGeneratedSnapshot(
                   res?.snapshot as ExperimentSnapshotInterface | undefined
                 );
+                setOuterGeneratedSnapshot(
+                  res?.snapshot as ExperimentSnapshotInterface | undefined
+                );
                 const banditError = res?.snapshot?.banditResult?.error;
                 if (res.status >= 400) {
                   setError(res.message || "Unable to update bandit.");
@@ -120,6 +123,7 @@ const RefreshBanditButton: FC<{
                 clearTimeout(timer);
               } catch (e) {
                 setGeneratedSnapshot(undefined);
+                setOuterGeneratedSnapshot(undefined);
                 setLoading(false);
                 clearTimeout(timer);
                 throw e;
@@ -180,60 +184,14 @@ const RefreshBanditButton: FC<{
         </div>
       ) : null}
       {error ? (
-        <>
-          {generatedSnapshot ? (
-            <div className="d-flex align-items-center mx-2 my-2">
-              <div className="text-danger">
-                <FaRegCircleXmark className="mr-1" />
-                Update errored
-              </div>
-              <div className="flex-1" />
-              <ViewAsyncQueriesButton
-                queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
-                error={generatedSnapshot.error}
-                display="View Queries"
-                status={status}
-                color="link link-purple p-0"
-                condensed={false}
-                icon={
-                  <span className="position-relative pr-2">
-                    <FaDatabase />
-                    <FaExclamationTriangle
-                      className="position-absolute mr-2 text-danger"
-                      style={{
-                        top: -6,
-                        right: -12,
-                      }}
-                    />
-                  </span>
-                }
-              />
-            </div>
-          ) : null}
-          <div
-            className="text-danger text-monospace mx-2 my-1 small"
-            style={{ lineHeight: "14px", maxHeight: 100, overflowY: "auto" }}
-          >
-            {error}
-          </div>
-        </>
+        <div className="text-danger mx-2 my-2">
+          <FaRegCircleXmark className="mr-1" />
+          Update errored
+        </div>
       ) : generatedSnapshot ? (
-        <div className="d-flex align-items-center mx-2 mt-2 mb-1">
-          <div className="text-success">
-            <FaRegCircleCheck className="mr-1" />
-            Update successful
-          </div>
-          <div className="flex-1" />
-          {generatedSnapshot ? (
-            <ViewAsyncQueriesButton
-              queries={generatedSnapshot.queries?.map((q) => q.query) ?? []}
-              error={generatedSnapshot.error}
-              display="View Queries"
-              status={status}
-              color="link link-purple p-0"
-              condensed={false}
-            />
-          ) : null}
+        <div className="text-success mx-2 my-2">
+          <FaRegCircleCheck className="mr-1" />
+          Update successful
         </div>
       ) : null}
     </>

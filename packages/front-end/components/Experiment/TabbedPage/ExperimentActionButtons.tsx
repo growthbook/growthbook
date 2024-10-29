@@ -12,9 +12,9 @@ export default function ExperimentActionButtons({
   isBandit,
 }: Props) {
   return (
-    <div className="d-flex">
+    <div className="d-flex ml-2">
       <Button
-        mr="2"
+        mr="3"
         disabled={!editTargeting}
         onClick={() => editTargeting?.()}
       >

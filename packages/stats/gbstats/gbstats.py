@@ -789,15 +789,14 @@ def process_experiment_results(
                                 analyses=d.analyses,
                             )
                         )
-                else:
-                    if d.bandit_settings:
-                        bandit_result = get_error_bandit_result(
-                            single_variation_results=None,
-                            update_message="not updated",
-                            error="no rows",
-                            reweight=d.bandit_settings.reweight,
-                            current_weights=d.bandit_settings.current_weights,
-                        )
+    if d.bandit_settings and bandit_result is None:
+        bandit_result = get_error_bandit_result(
+            single_variation_results=None,
+            update_message="not updated",
+            error="no rows",
+            reweight=d.bandit_settings.reweight,
+            current_weights=d.bandit_settings.current_weights,
+        )
     return results, bandit_result
 
 
