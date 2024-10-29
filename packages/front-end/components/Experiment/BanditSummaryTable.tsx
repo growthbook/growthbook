@@ -369,7 +369,7 @@ export default function BanditSummaryTable({
                       onClick={onPointerMove}
                     >
                       <span className="position-relative" style={{ zIndex: 1 }}>
-                        {isFinite(stats.cr) ? (
+                        {isFinite(stats.cr) && stats.users >= 100 ? (
                           meanText
                         ) : (
                           <em className="text-muted">
