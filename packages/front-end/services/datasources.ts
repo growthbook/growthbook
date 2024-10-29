@@ -5,6 +5,7 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
+  UserIdType,
 } from "back-end/types/datasource";
 import {
   ColumnInterface,
@@ -19,6 +20,7 @@ import {
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
+import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
 
@@ -61,7 +63,7 @@ FROM
 WHERE
   ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
    (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-  AND event_name = 'experiment_viewed'  
+  AND event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userCol} is not null
@@ -255,10 +257,10 @@ const SegmentSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -308,10 +310,10 @@ const RudderstackSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -348,20 +350,20 @@ const MatomoSchema: SchemaInterface = {
       userId === "user_id"
         ? `visit.user_id`
         : `conv(hex(events.idvisitor), 16, 16)`;
-    return `SELECT 
+    return `SELECT
   ${userStr} as ${userId},
-  events.server_time as timestamp, 
-  experiment.name as experiment_id, 
+  events.server_time as timestamp,
+  experiment.name as experiment_id,
   SUBSTRING(variation.name, ${variationPrefixLength + 1}) as variation_id,
   visit.config_device_model as device,
   visit.config_os as OS,
   visit.location_country as country
-FROM ${tPrefix}_log_link_visit_action events 
-INNER JOIN ${tPrefix}_log_action experiment 
-  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11) 
-INNER JOIN ${tPrefix}_log_action variation 
-  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12) 
-INNER JOIN ${tPrefix}_log_visit visit 
+FROM ${tPrefix}_log_link_visit_action events
+INNER JOIN ${tPrefix}_log_action experiment
+  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11)
+INNER JOIN ${tPrefix}_log_action variation
+  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12)
+INNER JOIN ${tPrefix}_log_visit visit
   ON (events.idvisit = visit.idvisit)
 WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "${categoryName}" AND mla1.type = 10)
    AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
@@ -506,7 +508,7 @@ FROM
 WHERE
   _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
   AND event_type = 'custom'
-  AND exp_event_properties.event_name = 'experiment_viewed'  
+  AND exp_event_properties.event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userId} is not null
@@ -720,43 +722,120 @@ interface InitialDatasourceResources {
   }[];
 }
 
-export function getInitialDatasourceResources({
-  datasource,
+const getClickHouseInitialDatasourceResources = (): InitialDatasourceResources => {
+  return {
+    factTables: [
+      {
+        factTable: {
+          name: "Clickhouse Events",
+          description: "",
+          sql: `SELECT
+  timestamp,
+  user_id,
+  device_id as anonymous_id,
+  user_attributes_json,
+  event_name,
+  geo_country,
+  geo_city,
+  geo_lat,
+  geo_lon,
+  ua_device_type,
+  ua_browser,
+  ua_os,
+  utm_source,
+  utm_medium,
+  utm_campaign,
+  url_path,
+  session_id
+FROM events`,
+          columns: generateColumns({
+            timestamp: { datatype: "date" },
+            user_id: { datatype: "string" },
+            user_attributes_json: { datatype: "string" },
+            event_name: { datatype: "string", alwaysInlineFilter: true },
+            geo_country: { datatype: "string" },
+            geo_city: { datatype: "string" },
+            geo_lat: { datatype: "number" },
+            geo_lon: { datatype: "number" },
+            ua_device_type: { datatype: "string" },
+            ua_browser: { datatype: "string" },
+            ua_os: { datatype: "string" },
+            utm_source: { datatype: "string" },
+            utm_medium: { datatype: "string" },
+            utm_campaign: { datatype: "string" },
+            url_path: { datatype: "string" },
+            session_id: { datatype: "string" },
+          }),
+          userIdTypes: ["user_id", "anonymous_id"],
+          eventName: "",
+        },
+        filters: [],
+        metrics: [
+          {
+            name: "Page Views per User",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["page_view"],
+              },
+            },
+          },
+          {
+            name: "Pages per Session",
+            metricType: "ratio",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["page_view"],
+              },
+            },
+            denominator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["session_start"],
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+};
+
+const getBigQueryWithGa4InitialDatasourceResources = ({
+  params,
+  userIdTypes: datasourceUserIdTypes,
 }: {
-  datasource: DataSourceInterfaceWithParams;
-}): InitialDatasourceResources {
-  if (
-    datasource.type === "bigquery" &&
-    datasource.settings?.schemaFormat === "ga4"
-  ) {
-    const params = datasource.params;
+  params: BigQueryConnectionParams;
+  userIdTypes: UserIdType[];
+}): InitialDatasourceResources => {
+  // Sanity check
+  if (!params.defaultDataset?.startsWith("analytics_")) {
+    return { factTables: [] };
+  }
 
-    // Sanity check
-    if (!params.defaultDataset?.startsWith("analytics_")) {
-      return { factTables: [] };
-    }
+  const userIdTypes: string[] = [];
+  if (datasourceUserIdTypes.some((t) => t.userIdType === "user_id")) {
+    userIdTypes.push("user_id");
+  }
+  if (datasourceUserIdTypes.some((t) => t.userIdType === "anonymous_id")) {
+    userIdTypes.push("anonymous_id");
+  }
 
-    const userIdTypes: string[] = [];
-    if (
-      datasource.settings?.userIdTypes?.some((t) => t.userIdType === "user_id")
-    ) {
-      userIdTypes.push("user_id");
-    }
-    if (
-      datasource.settings?.userIdTypes?.some(
-        (t) => t.userIdType === "anonymous_id"
-      )
-    ) {
-      userIdTypes.push("anonymous_id");
-    }
-
-    return {
-      factTables: [
-        {
-          factTable: {
-            name: "GA4 Events",
-            description: "",
-            sql: `
+  return {
+    factTables: [
+      {
+        factTable: {
+          name: "GA4 Events",
+          description: "",
+          sql: `
 SELECT
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
   user_id,
@@ -774,158 +853,157 @@ SELECT
   (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'engagement_time_msec')/1000 as engagement_time
 FROM
   \`${params.defaultProject || "my_project"}\`.\`${
-              params.defaultDataset || "my_dataset"
-            }\`.\`events_*\`
+            params.defaultDataset || "my_dataset"
+          }\`.\`events_*\`
 WHERE
   ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
             `.trim(),
-            eventName: "",
-            userIdTypes,
-            columns: generateColumns({
-              timestamp: { datatype: "date" },
-              user_id: { datatype: "string" },
-              anonymous_id: { datatype: "string" },
-              event_name: { datatype: "string", alwaysInlineFilter: true },
-              country: { datatype: "string" },
-              device_category: { datatype: "string" },
-              source: { datatype: "string" },
-              medium: { datatype: "string" },
-              campaign: { datatype: "string" },
-              page_path: { datatype: "string" },
-              session_engaged: { datatype: "string" },
-              event_value_in_usd: {
-                datatype: "number",
-                numberFormat: "currency",
-              },
-              session_id: { datatype: "string" },
-              engagement_time: {
-                datatype: "number",
-                numberFormat: "time:seconds",
-              },
-            }),
-          },
-          filters: [
-            {
-              name: "Engaged Session",
-              description:
-                "Events fired once a session is considered 'engaged'",
-              value: `session_engaged = '1'`,
+          eventName: "",
+          userIdTypes,
+          columns: generateColumns({
+            timestamp: { datatype: "date" },
+            user_id: { datatype: "string" },
+            anonymous_id: { datatype: "string" },
+            event_name: { datatype: "string", alwaysInlineFilter: true },
+            country: { datatype: "string" },
+            device_category: { datatype: "string" },
+            source: { datatype: "string" },
+            medium: { datatype: "string" },
+            campaign: { datatype: "string" },
+            page_path: { datatype: "string" },
+            session_engaged: { datatype: "string" },
+            event_value_in_usd: {
+              datatype: "number",
+              numberFormat: "currency",
             },
-            {
-              name: "Desktop",
-              description: "Events fired on desktop devices",
-              value: `device_category = 'desktop'`,
+            session_id: { datatype: "string" },
+            engagement_time: {
+              datatype: "number",
+              numberFormat: "time:seconds",
             },
-            {
-              name: "Mobile / Tablet",
-              description: "Events fired on mobile or tablet devices",
-              value: `device_category IN ('mobile', 'tablet')`,
-            },
-          ],
-          metrics: [
-            {
-              name: "Page Views per User",
-              metricType: "mean",
-              numerator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["page_view"],
-                },
-              },
-            },
-            {
-              name: "Sessions per User",
-              metricType: "mean",
-              numerator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["session_start"],
-                },
-              },
-            },
-            {
-              name: "Pages per Session",
-              metricType: "ratio",
-              numerator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["page_view"],
-                },
-              },
-              denominator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["session_start"],
-                },
-              },
-            },
-            {
-              name: "Engaged Users",
-              metricType: "proportion",
-              description:
-                "The percent of users who have at least 1 engaged session",
-              numerator: {
-                factTableId: "",
-                column: "$$distinctUsers",
-                filters: ["Engaged Session"],
-              },
-            },
-            {
-              name: "Total Time on Site",
-              description: "Total time spent on site per user",
-              metricType: "mean",
-              numerator: {
-                factTableId: "",
-                column: "engagement_time",
-                filters: [],
-              },
-            },
-            {
-              name: "Session Duration",
-              description: "Total time spent per session",
-              metricType: "ratio",
-              numerator: {
-                factTableId: "",
-                column: "engagement_time",
-                filters: [],
-              },
-              denominator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["session_start"],
-                },
-              },
-            },
-            {
-              name: "Submitted Form",
-              metricType: "proportion",
-              numerator: {
-                factTableId: "",
-                column: "$$distinctUsers",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["form_submit"],
-                },
-              },
-            },
-          ],
+          }),
         },
-        {
-          factTable: {
-            name: "GA4 Page Views",
-            description: "",
-            sql: `
+        filters: [
+          {
+            name: "Engaged Session",
+            description: "Events fired once a session is considered 'engaged'",
+            value: `session_engaged = '1'`,
+          },
+          {
+            name: "Desktop",
+            description: "Events fired on desktop devices",
+            value: `device_category = 'desktop'`,
+          },
+          {
+            name: "Mobile / Tablet",
+            description: "Events fired on mobile or tablet devices",
+            value: `device_category IN ('mobile', 'tablet')`,
+          },
+        ],
+        metrics: [
+          {
+            name: "Page Views per User",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["page_view"],
+              },
+            },
+          },
+          {
+            name: "Sessions per User",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["session_start"],
+              },
+            },
+          },
+          {
+            name: "Pages per Session",
+            metricType: "ratio",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["page_view"],
+              },
+            },
+            denominator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["session_start"],
+              },
+            },
+          },
+          {
+            name: "Engaged Users",
+            metricType: "proportion",
+            description:
+              "The percent of users who have at least 1 engaged session",
+            numerator: {
+              factTableId: "",
+              column: "$$distinctUsers",
+              filters: ["Engaged Session"],
+            },
+          },
+          {
+            name: "Total Time on Site",
+            description: "Total time spent on site per user",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "engagement_time",
+              filters: [],
+            },
+          },
+          {
+            name: "Session Duration",
+            description: "Total time spent per session",
+            metricType: "ratio",
+            numerator: {
+              factTableId: "",
+              column: "engagement_time",
+              filters: [],
+            },
+            denominator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["session_start"],
+              },
+            },
+          },
+          {
+            name: "Submitted Form",
+            metricType: "proportion",
+            numerator: {
+              factTableId: "",
+              column: "$$distinctUsers",
+              filters: [],
+              inlineFilters: {
+                event_name: ["form_submit"],
+              },
+            },
+          },
+        ],
+      },
+      {
+        factTable: {
+          name: "GA4 Page Views",
+          description: "",
+          sql: `
 SELECT
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
   user_id,
@@ -939,44 +1017,61 @@ SELECT
   CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id
 FROM
   \`${params.defaultProject || "my_project"}\`.\`${
-              params.defaultDataset || "my_dataset"
-            }\`.\`events_*\`
+            params.defaultDataset || "my_dataset"
+          }\`.\`events_*\`
 WHERE
   ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
             `.trim(),
-            eventName: "",
-            userIdTypes,
-            columns: generateColumns({
-              timestamp: { datatype: "date" },
-              user_id: { datatype: "string" },
-              anonymous_id: { datatype: "string" },
-              country: { datatype: "string" },
-              device_category: { datatype: "string" },
-              source: { datatype: "string" },
-              medium: { datatype: "string" },
-              campaign: { datatype: "string" },
-              page_path: { datatype: "string", alwaysInlineFilter: true },
-              session_id: { datatype: "string" },
-            }),
-          },
-          filters: [
-            {
-              name: "Desktop",
-              description: "Events fired on desktop devices",
-              value: `device_category = 'desktop'`,
-            },
-            {
-              name: "Mobile / Tablet",
-              description: "Events fired on mobile or tablet devices",
-              value: `device_category IN ('mobile', 'tablet')`,
-            },
-          ],
-          metrics: [],
+          eventName: "",
+          userIdTypes,
+          columns: generateColumns({
+            timestamp: { datatype: "date" },
+            user_id: { datatype: "string" },
+            anonymous_id: { datatype: "string" },
+            country: { datatype: "string" },
+            device_category: { datatype: "string" },
+            source: { datatype: "string" },
+            medium: { datatype: "string" },
+            campaign: { datatype: "string" },
+            page_path: { datatype: "string", alwaysInlineFilter: true },
+            session_id: { datatype: "string" },
+          }),
         },
-      ],
-    };
-  }
+        filters: [
+          {
+            name: "Desktop",
+            description: "Events fired on desktop devices",
+            value: `device_category = 'desktop'`,
+          },
+          {
+            name: "Mobile / Tablet",
+            description: "Events fired on mobile or tablet devices",
+            value: `device_category IN ('mobile', 'tablet')`,
+          },
+        ],
+        metrics: [],
+      },
+    ],
+  };
+};
+
+export function getInitialDatasourceResources({
+  datasource,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+}): InitialDatasourceResources {
+  if (
+    datasource.type === "bigquery" &&
+    datasource.settings?.schemaFormat === "ga4"
+  )
+    return getBigQueryWithGa4InitialDatasourceResources({
+      params: datasource.params,
+      userIdTypes: datasource.settings?.userIdTypes || [],
+    });
+
+  if (datasource.type === "growthbook_clickhouse")
+    return getClickHouseInitialDatasourceResources();
 
   return {
     factTables: [],
