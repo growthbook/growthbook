@@ -134,12 +134,14 @@ const NorthStarMetricDisplay = ({
                   Your analysis is currently running.
                 </div>
               )}
-              <div className="mb-2">
-                <em>
-                  No data for this metric yet. Click the{" "}
-                  {analysis ? "Refresh Data" : "Run Analysis"} button below.
-                </em>
-              </div>
+              {status !== "running" && status !== "failed" && (
+                <div className="mb-2">
+                  <em>
+                    No data for this metric yet. Click the{" "}
+                    {analysis ? "Refresh Data" : "Run Analysis"} button below.
+                  </em>
+                </div>
+              )}
             </>
           )}
           {datasource && permissionsUtil.canRunMetricQueries(datasource) ? (
