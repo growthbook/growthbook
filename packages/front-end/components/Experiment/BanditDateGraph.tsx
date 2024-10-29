@@ -163,7 +163,7 @@ const getTooltipContents = (
           </tbody>
         </table>
       ) : (
-        <div className="my-2">
+        <div className="my-2" style={{ minWidth: 300 }}>
           <em>Bandit update failed</em>
         </div>
       )}
@@ -535,7 +535,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           .filter((p) => p.meta?.type !== "today" && p?.reweight === true)
           .map((p) => p.date.getTime());
         const errorTicks = stackedData
-          .filter((p) => p?.error)
+          .filter((p) => p?.error && p.meta?.type !== "today")
           .map((p) => p.date.getTime());
 
         const xScale = scaleTime({
