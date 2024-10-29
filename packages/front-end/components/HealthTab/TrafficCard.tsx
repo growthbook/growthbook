@@ -179,35 +179,35 @@ export default function TrafficCard({
               return (
                 <tr key={i}>
                   <td className="border-right">
-                    {!isBandit
-                      ? (
-                          <>
-                            <Tooltip
-                              body={
-                                showWarning
-                                  ? "Issues detected"
-                                  : "No issues detected"
-                              }
-                              tipPosition="top"
-                            >
-                              <FaCircle
-                                style={{
-                                  width: "6px",
-                                  height: "6px",
-                                  margin: "7px",
-                                  color: showWarning ? "#FFC107" : "#E8EBEF",
-                                }}
-                              />{" "}
-                            </Tooltip>
-                            <a
-                              href="#balanceCheck"
-                              onClick={(e) => e.preventDefault}
-                            >
-                              {r.name}
-                            </a>
-                          </>
-                        ) || <em>unknown</em>
-                      : null}
+                    {!isBandit ? (
+                      <>
+                        <Tooltip
+                          body={
+                            showWarning
+                              ? "Issues detected"
+                              : "No issues detected"
+                          }
+                          tipPosition="top"
+                        >
+                          <FaCircle
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              margin: "7px",
+                              color: showWarning ? "#FFC107" : "#E8EBEF",
+                            }}
+                          />{" "}
+                        </Tooltip>
+                        <a
+                          href="#balanceCheck"
+                          onClick={(e) => e.preventDefault}
+                        >
+                          {r.name}
+                        </a>
+                      </>
+                    ) : (
+                      r.name
+                    )}
                   </td>
                   {variations.map((_v, i) => (
                     <td style={{ paddingLeft: "35px" }} key={i}>
