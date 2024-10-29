@@ -7,7 +7,6 @@ import React, {
   ReactNode,
   ReactElement,
 } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaArchive, FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
@@ -107,7 +106,6 @@ const MetricPage: FC = () => {
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
-    experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
   const {
