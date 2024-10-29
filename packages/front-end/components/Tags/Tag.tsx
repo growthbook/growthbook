@@ -1,7 +1,7 @@
 import React from "react";
+import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Radix/Badge";
-import { RadixColor } from "@/components/Radix/HelperText";
 
 export const TAG_COLORS = [
   "blue",
@@ -13,24 +13,34 @@ export const TAG_COLORS = [
   "gold",
 ] as const;
 export type TagColor = typeof TAG_COLORS[number];
+const isTagColor = (x: TagColor | string): x is TagColor =>
+  TAG_COLORS.includes(x as TagColor);
 
-interface Props {
+type Props = {
   tag: string;
-  color?: RadixColor;
+  color?: string;
   description?: string;
   skipMargin?: boolean;
-}
+} & MarginProps;
 
 export default function Tag({ tag, color, description, skipMargin }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
-  const displayColor: TagColor = TAG_COLORS.includes(fullTag?.color)
-    ? (fullTag?.color as TagColor)
-    : "blue";
+  const displayTitle = description ?? fullTag?.description ?? "";
+
+  const tagColor = color ?? fullTag?.color ?? "blue";
+  // If a tag is still using a hex code color, we'll default to blue
+  const displayColor = isTagColor(tagColor) ? tagColor : "blue";
 
   return (
-    <Badge label={tag} color={color ?? displayColor} variant="soft" mr="2" />
+    <Badge
+      title={displayTitle}
+      label={tag}
+      color={displayColor}
+      variant="soft"
+      ml={skipMargin ? undefined : "2"}
+    />
   );
 }
 

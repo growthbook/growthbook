@@ -45,9 +45,9 @@ export default function RoleList() {
                     >
                       {r.id}
                     </Link>{" "}
-                    {isCustom ? <Tag color="#f9f9f9" tag="Custom" /> : null}
+                    {isCustom ? <Tag color="indigo" tag="Custom" /> : null}
                     {isDeactivated ? (
-                      <Tag color="#808080" tag="Deactivated" />
+                      <Tag color="gray" tag="Deactivated" />
                     ) : null}
                   </td>
                   <td>{r.description}</td>
