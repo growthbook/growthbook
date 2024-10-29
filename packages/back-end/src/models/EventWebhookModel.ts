@@ -178,6 +178,7 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
     ...(payload.payloadType ? {} : { payloadType: "raw" }),
     ...(payload.headers ? {} : { headers: {} }),
     ...(payload.tags ? {} : { tags: [] }),
+    ...(payload.projects ? {} : { projects: [] }),
     ...(payload.environments ? {} : { environments: [] }),
   };
 
