@@ -394,7 +394,7 @@ export default function BanditSummaryTable({
                     </td>
                     <td className="graph-cell overflow-hidden">
                       <AlignedGraph
-                        axisOnly={!isFinite(stats.cr)}
+                        axisOnly={!isFinite(stats.cr) || stats.users < 100}
                         ci={stats.ci}
                         expected={isFinite(stats.cr) ? stats.cr : 0}
                         barType="violin"
