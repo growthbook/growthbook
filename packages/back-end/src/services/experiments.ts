@@ -26,6 +26,7 @@ import {
   validateCondition,
 } from "shared/util";
 import {
+  expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
@@ -134,6 +135,7 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
+import {MetricGroupInterface} from "back-end/types/metric-groups";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -373,6 +375,7 @@ export function getSnapshotSettings({
   orgPriorSettings,
   settingsForSnapshotMetrics,
   metricMap,
+  metricGroups,
   reweight,
 }: {
   experiment: ExperimentInterface;
@@ -381,6 +384,7 @@ export function getSnapshotSettings({
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
   reweight?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
@@ -394,7 +398,13 @@ export function getSnapshotSettings({
     mean: 0,
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
-  const metricSettings = getAllMetricIdsFromExperiment(experiment)
+  const goalMetrics = expandMetricGroups(experiment.goalMetrics, metricGroups);
+  const secondaryMetrics = expandMetricGroups(experiment.secondaryMetrics, metricGroups);
+  const guardrailMetrics = expandMetricGroups(experiment.guardrailMetrics, metricGroups);
+  const metricSettings = expandMetricGroups(
+      getAllMetricIdsFromExperiment(experiment),
+      metricGroups
+    )
     .map((m) =>
       getMetricForSnapshot(
         m,
@@ -447,9 +457,9 @@ export function getSnapshotSettings({
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
-    goalMetrics: experiment.goalMetrics,
-    secondaryMetrics: experiment.secondaryMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
@@ -491,6 +501,7 @@ export async function createManualSnapshot({
     settings: analysisSettings,
     settingsForSnapshotMetrics: [],
     metricMap,
+    metricGroups: [], // todo?
   });
 
   const { srm, variations } = await getManualSnapshotData(
@@ -871,6 +882,7 @@ export async function createSnapshot({
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
+  const metricGroups = await context.models.metricGroups.getAll();
 
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -879,6 +891,7 @@ export async function createSnapshot({
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
     metricMap,
+    metricGroups,
     reweight,
   });
 
