@@ -443,6 +443,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
     row?: ExperimentTableRow,
     maxRows?: number
   ) {
+    console.log({ row });
     const metricLink = (
       <Tooltip
         body={
@@ -528,6 +529,11 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
         {metricLink}
         {metricInverseIconDisplay}
         {cupedIconDisplay}
+        {row?.resultGroup !== undefined && row.resultGroup !== "goal" ? (
+          <small className="badge badge-secondary ml-1">
+            {row.resultGroup}
+          </small>
+        ) : null}
       </span>
     );
   };
