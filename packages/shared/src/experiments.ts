@@ -126,7 +126,7 @@ export function getAggregateFilters({
       const [, operator, value] = match;
       filters.push(`${column} ${operator} ${value}`);
     } else if (!ignoreInvalid) {
-      throw new Error(`Invalid aggregate filter: ${part}`);
+      throw new Error(`Invalid user filter: ${part}`);
     }
   });
 

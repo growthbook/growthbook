@@ -165,11 +165,13 @@ function getNumericColumnOptions({
   includeCount = true,
   includeCountDistinct = false,
   showColumnsAsSums = false,
+  groupPrefix = "",
 }: {
   factTable: FactTableInterface | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
   showColumnsAsSums?: boolean;
+  groupPrefix?: string;
 }): SingleValue[] | GroupedValue[] {
   const columnOptions: SingleValue[] = getNumericColumns(factTable).map(
     (col) => ({
@@ -195,11 +197,11 @@ function getNumericColumnOptions({
   return specialColumnOptions.length > 0
     ? [
         {
-          label: "Special",
+          label: `${groupPrefix}Special`,
           options: specialColumnOptions,
         },
         {
-          label: "Columns",
+          label: `${groupPrefix}Columns`,
           options: columnOptions,
         },
       ]
@@ -371,7 +373,7 @@ function ColumnRefSelector({
                 label: f.name,
                 value: f.id,
               }))}
-              placeholder={"All Rows"}
+              placeholder={"Any Row"}
               closeMenuOnSelect={true}
               formatOptionLabel={({ value, label }) => {
                 const filter = factTable?.filters.find((f) => f.id === value);
@@ -457,8 +459,9 @@ function ColumnRefSelector({
                   includeCount: true,
                   includeCountDistinct: false,
                   showColumnsAsSums: true,
+                  groupPrefix: "Filter by ",
                 })}
-                initialOption="All Users"
+                initialOption="Any User"
               />
             </div>
             {value.aggregateFilterColumn && (
@@ -930,6 +933,15 @@ export default function FactMetricModal({
           values.numerator.column = "$$distinctUsers";
         }
 
+        if (values.numerator.aggregateFilterColumn) {
+          // Validate that the value is correct
+          getAggregateFilters({
+            columnRef: values.numerator,
+            column: values.numerator.aggregateFilterColumn,
+            ignoreInvalid: false,
+          });
+        }
+
         if (
           values.numerator.aggregateFilterColumn &&
           values.metricType === "ratio"
@@ -1199,7 +1211,7 @@ export default function FactMetricModal({
                   />
                   <HelperText status="info">
                     The final metric value will be the percent of users in the
-                    experiment with at least 1 matching row.
+                    experiment that match the above criteria.
                   </HelperText>
                 </div>
               ) : type === "mean" ? (
