@@ -4,6 +4,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricGroupDetails from "@/components/Metrics/MetricGroupDetails";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
+import Button from "@/components/Radix/Button";
 
 export default function MetricGroupDetailPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function MetricGroupDetailPage() {
   }
   return (
     <div className="container-fluid pagecontents">
-      <div className="d-flex align-items-center">
+      <div className="d-flex align-items-center mb-3">
         <div>
           <h1>{group.name}</h1>
           <p>{group.description}</p>
@@ -27,14 +28,14 @@ export default function MetricGroupDetailPage() {
         <div style={{ flex: 1 }} />
         <div className="">
           {canCreate && (
-            <button
-              className="btn float-right btn-outline-primary"
+            <Button
+              variant="outline"
               onClick={() => {
                 setOpenEditModal(true);
               }}
             >
               Edit Metric Group
-            </button>
+            </Button>
           )}
         </div>
       </div>

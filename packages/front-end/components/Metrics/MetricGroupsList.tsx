@@ -3,7 +3,7 @@ import { FaArchive, FaExclamationTriangle } from "react-icons/fa";
 import router from "next/router";
 import { date } from "shared/dates";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { GBAddCircle, GBPremiumBadge } from "@/components/Icons";
+import { GBPremiumBadge } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,6 +13,7 @@ import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useUser } from "@/services/UserContext";
+import Button from "@/components/Radix/Button";
 
 const MetricGroupsList: FC = () => {
   const [openModal, setOpenModal] = useState(false);
@@ -78,33 +79,18 @@ const MetricGroupsList: FC = () => {
   }
 
   return (
-    <div className="">
-      <div className="filters md-form row mb-1 align-items-center">
-        <div className="col-auto">
-          <h1 className="mb-0">Metric Groups</h1>
-          <div>
-            <p>
-              Create groups of metrics that can be ordered and added to
-              experiments
-            </p>
-          </div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          {canCreate && (
-            <button
-              className="btn btn-primary float-right"
-              onClick={() => {
-                setOpenModal(true);
-              }}
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Metric Group
-            </button>
-          )}
-        </div>
+    <div className="mt-4">
+      <div className="filters md-form d-flex mb-0 align-items-center">
+        <h1 className="mb-0">Metric Groups</h1>
+        <div className="flex-1" />
+        {canCreate && (
+          <Button onClick={() => setOpenModal(true)}>Add Metric Group</Button>
+        )}
+      </div>
+      <div className="mb-4">
+        <p>
+          Create groups of metrics that can be ordered and added to experiments.
+        </p>
       </div>
       <div>
         {metricGroups?.length > 0 ? (
@@ -230,7 +216,7 @@ const MetricGroupsList: FC = () => {
           <div className="text-center p-4">
             <p>
               No metric groups defined. Click the button in the top right to
-              create your first metric group
+              create your first metric group.
             </p>
           </div>
         )}

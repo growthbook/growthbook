@@ -392,7 +392,7 @@ const MetricsList = (): React.ReactElement => {
   const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
 
   return (
-    <div className="container-fluid py-3 p-3 pagecontents">
+    <div className="container-fluid pagecontents p-0 mt-4">
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
@@ -406,7 +406,7 @@ const MetricsList = (): React.ReactElement => {
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto d-flex">
           <h1>
-            Your Metrics{" "}
+            Metrics{" "}
             <Tooltip
               className="small"
               body="Metrics define success and failure for your business. Create metrics
