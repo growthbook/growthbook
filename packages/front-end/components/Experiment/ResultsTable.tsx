@@ -63,6 +63,7 @@ export type ResultsTableProps = {
   baselineRow?: number;
   status: ExperimentStatus;
   queryStatusData?: QueryStatusData;
+  unjoinableMetrics: string[];
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
@@ -106,6 +107,7 @@ export default function ResultsTable({
   isLatestPhase,
   status,
   queryStatusData,
+  unjoinableMetrics,
   rows,
   dimension,
   tableRowAxis,
@@ -198,8 +200,18 @@ export default function ResultsTable({
 
   const domain = useDomain(filteredVariations, rows);
 
-  const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
-    const rr: (RowResults | "query error" | null)[][] = [];
+  const rowsResults: (
+    | RowResults
+    | "query error"
+    | "no joint identifier"
+    | null
+  )[][] = useMemo(() => {
+    const rr: (
+      | RowResults
+      | "query error"
+      | "no joint identifier"
+      | null
+    )[][] = [];
     rows.map((row, i) => {
       rr.push([]);
       const baseline = row.variations[baselineRow] || {
@@ -224,6 +236,15 @@ export default function ResultsTable({
           queryStatusData?.failedNames?.includes(row.metric.id)
         ) {
           rr[i].push("query error");
+          return;
+        }
+        // if no data, check if it's because it is missing data
+        if (
+          (!row.variations[v.index] ||
+            !!row.variations[v.index].errorMessage) &&
+          unjoinableMetrics.includes(row.metric.id)
+        ) {
+          rr[i].push("no joint identifier");
           return;
         }
         const stats = row.variations[v.index] || {
@@ -276,6 +297,7 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
+    unjoinableMetrics,
     getFactTableById,
     getMetricById,
   ]);
@@ -626,6 +648,33 @@ export default function ResultsTable({
                       } else {
                         return null;
                       }
+                    }
+                    if (rowResults === "no joint identifier") {
+                      return drawEmptyRow({
+                        key: j,
+                        className:
+                          "results-variation-row align-items-center error-row",
+                        label: (
+                          <>
+                            {compactResults ? (
+                              <div className="mb-1">
+                                {renderLabelColumn(row.label, row.metric, row)}
+                              </div>
+                            ) : null}
+                            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+                              <FaExclamationTriangle className="mr-1" />
+                              No identifier types that match with assignment
+                              query
+                            </div>
+                          </>
+                        ),
+                        graphCellWidth,
+                        rowHeight: compactResults
+                          ? ROW_HEIGHT + 20
+                          : ROW_HEIGHT,
+                        id,
+                        domain,
+                      });
                     }
 
                     const hideScaledImpact =

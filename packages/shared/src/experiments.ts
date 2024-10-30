@@ -20,7 +20,10 @@ import {
 } from "back-end/types/experiment";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+} from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
@@ -627,6 +630,7 @@ export function getAllMetricIdsFromExperiment(
     secondaryMetrics?: string[];
     guardrailMetrics?: string[];
     activationMetric?: string | null;
+    unjoinableMetrics?: string[];
   },
   includeActivationMetric: boolean = true
 ) {
@@ -635,6 +639,7 @@ export function getAllMetricIdsFromExperiment(
       ...(exp.goalMetrics || []),
       ...(exp.secondaryMetrics || []),
       ...(exp.guardrailMetrics || []),
+      ...(exp.unjoinableMetrics || []),
       ...(includeActivationMetric && exp.activationMetric
         ? [exp.activationMetric]
         : []),
@@ -731,4 +736,36 @@ export function expandMetricGroups(
     }
   });
   return expandedMetricIds;
+}
+
+export function isMetricJoinable(
+  metricIdTypes: string[],
+  userIdType: string,
+  settings: DataSourceSettings
+): boolean {
+  if (metricIdTypes.includes(userIdType)) return true;
+
+  if (settings?.queries?.identityJoins) {
+    if (
+      settings.queries.identityJoins.some(
+        (j) =>
+          j.ids.includes(userIdType) &&
+          j.ids.some((jid) => metricIdTypes.includes(jid))
+      )
+    ) {
+      return true;
+    }
+  }
+
+  // legacy support for pageviewsQuery
+  if (settings?.queries?.pageviewsQuery) {
+    if (
+      ["user_id", "anonymous_id"].includes(userIdType) &&
+      metricIdTypes.some((m) => ["user_id", "anonymous_id"].includes(m))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }

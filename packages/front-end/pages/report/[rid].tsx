@@ -480,6 +480,7 @@ export default function ReportPage() {
                   reportDate={report.dateCreated}
                   results={report.results?.dimensions || []}
                   queryStatusData={queryStatusData}
+                  // unjoinable metrics
                   status={"stopped"}
                   startDate={getValidDate(report.args.startDate).toISOString()}
                   dimensionId={report.args.dimension}
@@ -543,6 +544,7 @@ export default function ReportPage() {
                     multipleExposures={report.results?.multipleExposures || 0}
                     results={report.results?.dimensions?.[0]}
                     queryStatusData={queryStatusData}
+                    // TODO unjoinable metrics
                     reportDate={report.dateCreated}
                     startDate={getValidDate(
                       report.args.startDate

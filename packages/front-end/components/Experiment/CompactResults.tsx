@@ -58,6 +58,7 @@ const CompactResults: FC<{
   multipleExposures?: number;
   results: ExperimentReportResultDimension;
   queryStatusData?: QueryStatusData;
+  unjoinableMetrics?: string[];
   reportDate: Date;
   startDate: string;
   isLatestPhase: boolean;
@@ -89,6 +90,7 @@ const CompactResults: FC<{
   multipleExposures = 0,
   results,
   queryStatusData,
+  unjoinableMetrics,
   reportDate,
   startDate,
   isLatestPhase,
@@ -318,6 +320,7 @@ const CompactResults: FC<{
           startDate={startDate}
           status={status}
           queryStatusData={queryStatusData}
+          unjoinableMetrics={unjoinableMetrics ?? []}
           variations={variations}
           variationFilter={variationFilter}
           baselineRow={baselineRow}
@@ -366,6 +369,7 @@ const CompactResults: FC<{
             startDate={startDate}
             status={status}
             queryStatusData={queryStatusData}
+            unjoinableMetrics={unjoinableMetrics ?? []}
             variations={variations}
             variationFilter={variationFilter}
             baselineRow={baselineRow}
@@ -402,6 +406,7 @@ const CompactResults: FC<{
             startDate={startDate}
             status={status}
             queryStatusData={queryStatusData}
+            unjoinableMetrics={unjoinableMetrics ?? []}
             variations={variations}
             variationFilter={variationFilter}
             baselineRow={baselineRow}

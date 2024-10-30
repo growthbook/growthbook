@@ -184,6 +184,7 @@ export interface ExperimentSnapshotInterface {
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
+  unjoinableMetrics?: string[];
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
 
