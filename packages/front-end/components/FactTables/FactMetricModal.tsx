@@ -908,7 +908,8 @@ export default function FactMetricModal({
         } else {
           const createPayload: CreateFactMetricProps = {
             ...values,
-            projects: selectedDataSource.projects || [],
+            projects:
+              numeratorFactTable?.projects || selectedDataSource.projects || [],
           };
 
           await apiCall<{
