@@ -150,15 +150,6 @@ const MetricGroupsList: FC = () => {
                       <MoreMenu>
                         {canEdit ? (
                           <>
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEditModal(mg);
-                              }}
-                            >
-                              Edit
-                            </button>
                             {mg.archived ? (
                               <button
                                 className="dropdown-item"

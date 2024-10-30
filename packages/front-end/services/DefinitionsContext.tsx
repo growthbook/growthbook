@@ -151,6 +151,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metrics;
   }, [data?.metrics]);
 
+  const metricGroups = useMemo(() => {
+    if (!data || !data.metricGroups) {
+      return [];
+    }
+    return data.metricGroups;
+  }, [data?.metricGroups]);
+
   const activeFactMetrics = useMemo(() => {
     if (!data || !data.factMetrics) {
       return [];
@@ -235,7 +242,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: data.tags,
       savedGroups: data.savedGroups,
-      metricGroups: data.metricGroups,
+      metricGroups: metricGroups,
       projects: data.projects,
       project: filteredProject,
       factTables: activeFactTables,

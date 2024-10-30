@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -17,9 +17,9 @@ import {
 } from "@dnd-kit/sortable";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CSS } from "@dnd-kit/utilities";
-import { MetricInterface } from "back-end/types/metric";
 import { GrDrag } from "react-icons/gr";
 import Link from "next/link";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 //import track from "@/services/track";
@@ -38,7 +38,7 @@ export default function MetricGroupDetails({
   const permissionsUtil = usePermissionsUtil();
   const { getMetricById, getFactMetricById } = useDefinitions();
   const factMetricsInList: string[] = [];
-  const metricObjs: MetricInterface[] = metricGroup.metrics
+  const metricObjs: ExperimentMetricInterface[] = metricGroup.metrics
     .map((id) => {
       const mi = getMetricById(id);
       if (mi) return mi;
@@ -48,9 +48,14 @@ export default function MetricGroupDetails({
         return fm;
       }
     })
-    .filter((m) => m) as MetricInterface[];
+    .filter((m) => m) as ExperimentMetricInterface[];
 
   const [items, setItems] = useState(metricObjs.length ? metricObjs : []);
+  useEffect(() => {
+    setItems(metricObjs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(metricObjs)]);
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -72,6 +77,7 @@ export default function MetricGroupDetails({
 
   return (
     <DndContext
+      key={Math.random()}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {
@@ -115,12 +121,12 @@ export default function MetricGroupDetails({
         <thead>
           <tr>
             <th style={{ width: "3%" }}></th>
-            <th style={{ width: "3%" }}>Order</th>
-            <th style={{ width: "20%" }}>Name</th>
-            <th style={{ width: "25%" }}>Description</th>
-            <th style={{ width: "10%" }}>Type</th>
-            <th style={{ width: "10%" }}>Units</th>
-            <th style={{ width: "16%" }}>Datasources</th>
+            <th className="text-center" style={{ width: "3%" }}>
+              Order
+            </th>
+            <th style={{ width: "34%" }}>Metric</th>
+            <th style={{ width: "27%" }}>Type</th>
+            <th style={{ width: "30%" }}>Datasource</th>
             <th style={{ width: "3%" }}></th>
           </tr>
         </thead>
@@ -168,7 +174,6 @@ export default function MetricGroupDetails({
 }
 
 function SortableMetricRow(props) {
-  //console.log("props: ", props);
   const {
     attributes,
     listeners,
@@ -208,7 +213,7 @@ function SortableMetricRow(props) {
 }
 
 interface SortableProps {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   metricGroupId: string;
   i: number;
   mutate?: () => void;
@@ -237,7 +242,7 @@ function MetricRow({
     : `/metric/${metric.id}`;
   return (
     <>
-      <td style={{ width: "3%", padding: "0" }}>
+      <td className="p-0" style={{ width: "3%" }}>
         <div
           {...handle}
           title="Drag and drop to re-order metric"
@@ -253,18 +258,13 @@ function MetricRow({
       <td className="text-center" style={{ width: "3%" }}>
         {i + 1}
       </td>
-      <td style={{ width: "20%" }}>
+      <td style={{ width: "34%" }}>
         <Link href={metricUrl}>{metric.name}</Link>
       </td>
-      <td style={{ width: "25%" }}>
-        <p className="text-muted small">{metric.description}</p>
+      <td style={{ width: "27%" }}>
+        {isFactMetric(metric) ? metric.metricType : metric.type}
       </td>
-      <td style={{ width: "10%" }}>
-        {metric.type}
-        {factMetricsInList.includes(metric.id) ? " (fact)" : ""}
-      </td>
-      <td style={{ width: "10%" }}>{metric?.userIdTypes?.join(", ") || ""}</td>
-      <td style={{ width: "16%" }}>
+      <td style={{ width: "30%" }}>
         {metric.datasource ? getDatasourceById(metric.datasource)?.name : ""}
       </td>
       <td style={{ width: "3%" }}>
