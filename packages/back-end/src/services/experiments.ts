@@ -122,6 +122,7 @@ import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevi
 import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
 import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -135,7 +136,6 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
-import {MetricGroupInterface} from "back-end/types/metric-groups";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -399,12 +399,18 @@ export function getSnapshotSettings({
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
   const goalMetrics = expandMetricGroups(experiment.goalMetrics, metricGroups);
-  const secondaryMetrics = expandMetricGroups(experiment.secondaryMetrics, metricGroups);
-  const guardrailMetrics = expandMetricGroups(experiment.guardrailMetrics, metricGroups);
+  const secondaryMetrics = expandMetricGroups(
+    experiment.secondaryMetrics,
+    metricGroups
+  );
+  const guardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics,
+    metricGroups
+  );
   const metricSettings = expandMetricGroups(
-      getAllMetricIdsFromExperiment(experiment),
-      metricGroups
-    )
+    getAllMetricIdsFromExperiment(experiment),
+    metricGroups
+  )
     .map((m) =>
       getMetricForSnapshot(
         m,

@@ -56,7 +56,12 @@ const DateResults: FC<{
   statsEngine,
   differenceType,
 }) => {
-  const { getExperimentMetricById, getFactTableById, metricGroups, ready } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactTableById,
+    metricGroups,
+    ready,
+  } = useDefinitions();
 
   const pValueThreshold = usePValueThreshold();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -126,7 +131,9 @@ const DateResults: FC<{
     // Merge goal and guardrail metrics
     return (
       Array.from(
-        new Set(expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails))
+        new Set(
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
+        )
       )
         .map((metricId) => {
           const metric = getExperimentMetricById(metricId);
@@ -248,7 +255,7 @@ const DateResults: FC<{
             resultGroup: getMetricResultGroup(
               metric.id,
               expandedGoals,
-              expandedSecondaries,
+              expandedSecondaries
             ),
             datapoints,
           };
