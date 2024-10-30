@@ -103,7 +103,12 @@ class Bandits(ABC):
 
     @property
     def enough_samples_for_srm(self):
-        return all(self.variation_counts >= 5)
+        expected_count = (
+            self.current_sample_size / self.num_variations
+            if self.num_variations > 0
+            else 0
+        )
+        return expected_count >= 5
 
     @property
     def historical_weights_array(self) -> np.ndarray:
