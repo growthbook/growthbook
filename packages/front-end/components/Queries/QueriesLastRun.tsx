@@ -25,9 +25,11 @@ const QueriesLastRun: FC<{
         {status === "partially-succeeded" && (
           <Tooltip
             body={
-              <span style={{ lineHeight: 1.5 }}>
-                {partiallySucceededString}
-              </span>
+              <div className="text-left">
+                <span style={{ lineHeight: 1.5 }}>
+                  {partiallySucceededString}
+                </span>
+              </div>
             }
           >
             <FaExclamationTriangle

@@ -6,6 +6,7 @@ import {
 } from "shared/experiments";
 import { VscListTree } from "react-icons/vsc";
 import React from "react";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -97,16 +98,20 @@ export default function MetricName({
   disableTooltip,
   showOfficialLabel,
   showDescription,
+  isGroup,
+  allJoinable,
 }: {
   id: string;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
+  isGroup?: boolean;
+  allJoinable?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = getExperimentMetricById(id);
 
-  if (!metric) {
+  if (isGroup) {
     // check if this is a metric group:
     const metricGroup = getMetricGroupById(id);
     if (!metricGroup) {
@@ -129,9 +134,19 @@ export default function MetricName({
               : metricGroup?.description}
           </span>
         ) : null}
+        {!allJoinable && (
+          <Tooltip
+            className="ml-1 text-danger"
+            body="Includes some metrics that are not joinable"
+          >
+            <FaExclamationTriangle />
+          </Tooltip>
+        )}
       </>
     );
   }
+
+  if (!metric) return null;
 
   return (
     <>

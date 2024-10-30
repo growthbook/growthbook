@@ -1,7 +1,11 @@
 import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
-import { isMetricJoinable, quantileMetricType } from "shared/experiments";
+import {
+  isFactMetric,
+  isMetricJoinable,
+  quantileMetricType,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -18,6 +22,8 @@ type MetricOption = {
   projects: string[];
   factTables: string[];
   userIdTypes: string[];
+  isGroup: boolean;
+  metrics?: string[];
 };
 
 type MetricsSelectorTooltipProps = {
@@ -91,6 +97,7 @@ const MetricsSelector: FC<{
     metricGroups,
     factMetrics,
     factTables,
+    getExperimentMetricById,
     getDatasourceById,
   } = useDefinitions();
 
@@ -108,21 +115,8 @@ const MetricsSelector: FC<{
         projects: m.projects || [],
         factTables: [],
         userIdTypes: m.userIdTypes || [],
+        isGroup: false,
       })),
-    ...(includeGroups
-      ? metricGroups
-          .filter((mg) => !mg.archived)
-          .map((mg) => ({
-            id: mg.id,
-            name: mg.name + " (" + mg.metrics.length + " metrics)",
-            description: mg.description || "",
-            datasource: mg.datasource,
-            tags: mg.tags || [],
-            projects: mg.projects || [],
-            factTables: [],
-            userIdTypes: [],
-          }))
-      : []),
     ...(includeFacts
       ? factMetrics
           .filter((m) => {
@@ -151,6 +145,23 @@ const MetricsSelector: FC<{
             userIdTypes:
               factTables.find((f) => f.id === m.numerator.factTableId)
                 ?.userIdTypes || [],
+            isGroup: false,
+          }))
+      : []),
+    ...(includeGroups
+      ? metricGroups
+          .filter((mg) => !mg.archived)
+          .map((mg) => ({
+            id: mg.id,
+            name: mg.name + " (" + mg.metrics.length + " metrics)",
+            description: mg.description || "",
+            datasource: mg.datasource,
+            tags: mg.tags || [],
+            projects: mg.projects || [],
+            factTables: [],
+            userIdTypes: [],
+            isGroup: true,
+            metrics: mg.metrics,
           }))
       : []),
   ];
@@ -160,6 +171,7 @@ const MetricsSelector: FC<{
   const datasourceSettings = datasource
     ? getDatasourceById(datasource)?.settings
     : undefined;
+  // todo: get specific exposure query from experiment?
   const userIdType = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId
   )?.userIdType;
@@ -167,7 +179,7 @@ const MetricsSelector: FC<{
   const filteredOptions = options
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) =>
-      userIdType && m.userIdTypes.length
+      datasourceSettings && userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
@@ -197,8 +209,29 @@ const MetricsSelector: FC<{
       placeholder="Select metrics..."
       autoFocus={autoFocus}
       formatOptionLabel={({ value, label }, { context }) => {
+        const option = filteredOptions.find((o) => o.id === value);
+        const isGroup = option?.isGroup;
+        const joinableMetrics = isGroup
+          ? option?.metrics?.map((m) => {
+              const metric = getExperimentMetricById(m);
+              if (!metric) return false;
+              const userIdTypes = isFactMetric(metric)
+                ? factTables.find((f) => f.id === metric.numerator.factTableId)
+                    ?.userIdTypes || []
+                : metric.userIdTypes || [];
+              return userIdType && userIdTypes.length
+                ? isMetricJoinable(userIdTypes, userIdType, datasourceSettings)
+                : true;
+            })
+          : [];
+        const allJoinable = !joinableMetrics?.every((m) => m) ?? true;
         return value ? (
-          <MetricName id={value} showDescription={context !== "value"} />
+          <MetricName
+            id={value}
+            showDescription={context !== "value"}
+            isGroup={isGroup}
+            allJoinable={allJoinable}
+          />
         ) : (
           label
         );
@@ -207,7 +240,7 @@ const MetricsSelector: FC<{
         try {
           const clipboard = e.clipboardData;
           const data = JSON.parse(clipboard.getData("Text"));
-          if (data.every((d) => d.startsWith("met_"))) {
+          if (data.every((d) => d.startsWith("met_") || d.startsWith("mg_"))) {
             e.preventDefault();
             e.stopPropagation();
             onChange(data);
