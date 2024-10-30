@@ -33,6 +33,7 @@ import {
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
+  isMetricJoinable,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
@@ -94,7 +95,7 @@ import {
   ReqContext,
 } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { DataSourceInterface, ExposureQuery } from "back-end/types/datasource";
 import {
   ApiExperiment,
   ApiExperimentMetric,
@@ -123,8 +124,12 @@ import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
 import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
-import { getIntegrationFromDatasourceId } from "./datasource";
+import {
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "./datasource";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
@@ -368,6 +373,39 @@ export function getAdditionalExperimentAnalysisSettings(
   return additionalAnalyses;
 }
 
+function isJoinableMetric({
+  metricId,
+  metricMap,
+  factTableMap,
+  exposureQuery,
+  datasource,
+}: {
+  metricId: string;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  exposureQuery?: ExposureQuery;
+  datasource?: DataSourceInterface;
+}): boolean {
+  if (!exposureQuery || !datasource) {
+    // be lenient and allow metrics through
+    return true;
+  }
+  const experimentIdType = exposureQuery.userIdType;
+  const metric = metricMap.get(metricId);
+
+  if (!metric) {
+    // be lenient and allow metrics through
+    return true;
+  }
+
+  const metricIdTypes =
+    (isFactMetric(metric)
+      ? factTableMap.get(metric.numerator.factTableId)?.userIdTypes
+      : metric.userIdTypes) ?? [];
+
+  return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
@@ -375,8 +413,10 @@ export function getSnapshotSettings({
   orgPriorSettings,
   settingsForSnapshotMetrics,
   metricMap,
+  factTableMap,
   metricGroups,
   reweight,
+  datasource,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -384,8 +424,10 @@ export function getSnapshotSettings({
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   reweight?: boolean;
+  datasource?: DataSourceInterface;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -398,15 +440,50 @@ export function getSnapshotSettings({
     mean: 0,
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
-  const goalMetrics = expandMetricGroups(experiment.goalMetrics, metricGroups);
+
+  const queries = datasource?.settings?.queries?.exposure || [];
+  const exposureQuery = queries.find(
+    (q) => q.id === experiment.exposureQueryId
+  );
+
+  // expand metric groups and scrub unjoinable metrics
+  const goalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
+  );
   const secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
   );
   const guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
   );
+
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment(experiment),
     metricGroups
@@ -507,6 +584,7 @@ export async function createManualSnapshot({
     settings: analysisSettings,
     settingsForSnapshotMetrics: [],
     metricMap,
+    factTableMap: new Map(), // todo
     metricGroups: [], // todo?
   });
 
@@ -890,6 +968,11 @@ export async function createSnapshot({
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
 
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not load data source");
+  }
+
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -897,8 +980,10 @@ export async function createSnapshot({
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
     metricMap,
+    factTableMap,
     metricGroups,
     reweight,
+    datasource,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -963,11 +1048,7 @@ export async function createSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({ data, context });
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    experiment.datasource,
-    true
-  );
+  const integration = getSourceIntegrationObject(context, datasource, true);
 
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
