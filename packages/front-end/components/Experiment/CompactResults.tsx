@@ -443,7 +443,6 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
     row?: ExperimentTableRow,
     maxRows?: number
   ) {
-    console.log({ row });
     const metricLink = (
       <Tooltip
         body={

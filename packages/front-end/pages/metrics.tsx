@@ -8,12 +8,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 const MetricsPage = (): React.ReactElement => {
   return (
     <div className="container-fluid pagecontents">
-      <Tabs
-        defaultTab="metrics"
-        newStyle={true}
-        tabContentsClassName="p-0"
-        className="p-0"
-      >
+      <Tabs defaultTab="metrics" newStyle={true}>
         <Tab anchor="metrics" id="metrics" display="Metrics" padding={false}>
           <MetricsList />
         </Tab>
