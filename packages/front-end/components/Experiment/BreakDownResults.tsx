@@ -55,7 +55,6 @@ type TableDef = {
 const BreakDownResults: FC<{
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
-  unjoinableMetrics?: string[];
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
@@ -82,7 +81,6 @@ const BreakDownResults: FC<{
   dimensionId,
   results,
   queryStatusData,
-  unjoinableMetrics,
   variations,
   variationFilter,
   baselineRow,
@@ -276,7 +274,6 @@ const BreakDownResults: FC<{
               startDate={startDate}
               status={status}
               queryStatusData={queryStatusData}
-              unjoinableMetrics={unjoinableMetrics ?? []}
               variations={variations}
               variationFilter={variationFilter}
               baselineRow={baselineRow}

@@ -469,13 +469,7 @@ export function isOutdated({
       Array.from(
         new Set(
           expandMetricGroups(
-            getAllMetricIdsFromExperiment(
-              {
-                ...snapshotSettings,
-                unjoinableMetrics: snapshot.unjoinableMetrics,
-              },
-              false
-            ),
+            getAllMetricIdsFromExperiment(snapshotSettings, false),
             metricGroups
           )
         )

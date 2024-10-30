@@ -630,7 +630,6 @@ export function getAllMetricIdsFromExperiment(
     secondaryMetrics?: string[];
     guardrailMetrics?: string[];
     activationMetric?: string | null;
-    unjoinableMetrics?: string[];
   },
   includeActivationMetric: boolean = true
 ) {
@@ -639,7 +638,6 @@ export function getAllMetricIdsFromExperiment(
       ...(exp.goalMetrics || []),
       ...(exp.secondaryMetrics || []),
       ...(exp.guardrailMetrics || []),
-      ...(exp.unjoinableMetrics || []),
       ...(includeActivationMetric && exp.activationMetric
         ? [exp.activationMetric]
         : []),

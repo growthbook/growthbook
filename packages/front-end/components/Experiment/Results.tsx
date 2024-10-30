@@ -327,7 +327,6 @@ const Results: FC<{
           key={snapshot.dimension}
           results={analysis?.results ?? []}
           queryStatusData={queryStatusData}
-          unjoinableMetrics={snapshot.unjoinableMetrics}
           variations={variations}
           variationFilter={variationFilter}
           baselineRow={baselineRow}
@@ -370,7 +369,6 @@ const Results: FC<{
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}
-            unjoinableMetrics={snapshot.unjoinableMetrics || []}
             reportDate={snapshot.dateCreated}
             startDate={phaseObj?.dateStarted ?? ""}
             isLatestPhase={phase === experiment.phases.length - 1}

@@ -1,7 +1,8 @@
 import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
-import { isMetricJoinable, quantileMetricType } from "shared/experiments";
+import { DataSourceSettings } from "back-end/types/datasource";
+import { quantileMetricType } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -58,6 +59,38 @@ export const MetricsSelectorTooltip = ({
     />
   );
 };
+
+export function isMetricJoinable(
+  metricIdTypes: string[],
+  userIdType: string,
+  settings: DataSourceSettings
+): boolean {
+  if (metricIdTypes.includes(userIdType)) return true;
+
+  if (settings?.queries?.identityJoins) {
+    if (
+      settings.queries.identityJoins.some(
+        (j) =>
+          j.ids.includes(userIdType) &&
+          j.ids.some((jid) => metricIdTypes.includes(jid))
+      )
+    ) {
+      return true;
+    }
+  }
+
+  // legacy support for pageviewsQuery
+  if (settings?.queries?.pageviewsQuery) {
+    if (
+      ["user_id", "anonymous_id"].includes(userIdType) &&
+      metricIdTypes.some((m) => ["user_id", "anonymous_id"].includes(m))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 const MetricsSelector: FC<{
   datasource?: string;

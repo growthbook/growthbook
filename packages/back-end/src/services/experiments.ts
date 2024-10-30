@@ -373,45 +373,37 @@ export function getAdditionalExperimentAnalysisSettings(
   return additionalAnalyses;
 }
 
-function getJoinableMetrics({
-  metrics,
+function isJoinableMetric({
+  metricId,
   metricMap,
   factTableMap,
   exposureQuery,
   datasource,
 }: {
-  metrics: string[];
+  metricId: string;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  exposureQuery: ExposureQuery;
-  datasource: DataSourceInterface;
-}): { joinableMetrics: string[]; unjoinableMetrics: string[] } {
-  const joinableMetrics: string[] = [];
-  const unjoinableMetrics: string[] = [];
+  exposureQuery?: ExposureQuery;
+  datasource?: DataSourceInterface;
+}): boolean {
+  if (!exposureQuery || !datasource) {
+    // be lenient and allow metrics through
+    return true;
+  }
   const experimentIdType = exposureQuery.userIdType;
+  const metric = metricMap.get(metricId);
 
-  metrics.forEach((metricId) => {
-    const metric = metricMap.get(metricId);
-    if (!metric) {
-      // to be consistent with behavior from before adding this joinability check
-      joinableMetrics.push(metricId);
-      return;
-    }
+  if (!metric) {
+    // be lenient and allow metrics through
+    return true;
+  }
 
-    const metricIdTypes =
-      (isFactMetric(metric)
-        ? factTableMap.get(metric.numerator.factTableId)?.userIdTypes
-        : metric.userIdTypes) ?? [];
+  const metricIdTypes =
+    (isFactMetric(metric)
+      ? factTableMap.get(metric.numerator.factTableId)?.userIdTypes
+      : metric.userIdTypes) ?? [];
 
-    if (
-      isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings)
-    ) {
-      joinableMetrics.push(metricId);
-    } else {
-      unjoinableMetrics.push(metricId);
-    }
-  });
-  return { joinableMetrics, unjoinableMetrics };
+  return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
 }
 
 export function getSnapshotSettings({
@@ -436,10 +428,7 @@ export function getSnapshotSettings({
   metricGroups: MetricGroupInterface[];
   reweight?: boolean;
   datasource?: DataSourceInterface;
-}): {
-  snapshotSettings: ExperimentSnapshotSettings;
-  unjoinableMetrics: string[];
-} {
+}): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -451,18 +440,50 @@ export function getSnapshotSettings({
     mean: 0,
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
-  const allGoalMetrics = expandMetricGroups(
+
+  const queries = datasource?.settings?.queries?.exposure || [];
+  const exposureQuery = queries.find(
+    (q) => q.id === experiment.exposureQueryId
+  );
+
+  // expand metric groups and scrub unjoinable metrics
+  const goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
   );
-  const allSecondaryMetrics = expandMetricGroups(
+  const secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
   );
-  const allGuardrailMetrics = expandMetricGroups(
+  const guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
   );
+
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment(experiment),
     metricGroups
@@ -476,61 +497,6 @@ export function getSnapshotSettings({
       )
     )
     .filter(isDefined);
-
-  // scrub metrics that can't be used in snapshots
-  const unjoinableMetrics: string[] = [];
-  const goalMetrics: string[] = [];
-  const secondaryMetrics: string[] = [];
-  const guardrailMetrics: string[] = [];
-
-  const queries = datasource?.settings?.queries?.exposure || [];
-  const exposureQuery = queries.find(
-    (q) => q.id === experiment.exposureQueryId
-  );
-  if (datasource && exposureQuery) {
-    const {
-      joinableMetrics: joinableGoalMetrics,
-      unjoinableMetrics: unjoinableGoalMetrics,
-    } = getJoinableMetrics({
-      metrics: allGoalMetrics,
-      metricMap,
-      factTableMap,
-      exposureQuery,
-      datasource,
-    });
-    goalMetrics.push(...joinableGoalMetrics);
-    unjoinableMetrics.push(...unjoinableGoalMetrics);
-
-    const {
-      joinableMetrics: joinableSecondaryMetrics,
-      unjoinableMetrics: unjoinableSecondaryMetrics,
-    } = getJoinableMetrics({
-      metrics: allSecondaryMetrics,
-      metricMap,
-      factTableMap,
-      exposureQuery,
-      datasource,
-    });
-    secondaryMetrics.push(...joinableSecondaryMetrics);
-    unjoinableMetrics.push(...unjoinableSecondaryMetrics);
-
-    const {
-      joinableMetrics: joinableGuardrailMetrics,
-      unjoinableMetrics: unjoinableGuardrailMetrics,
-    } = getJoinableMetrics({
-      metrics: allGuardrailMetrics,
-      metricMap,
-      factTableMap,
-      exposureQuery,
-      datasource,
-    });
-    guardrailMetrics.push(...joinableGuardrailMetrics);
-    unjoinableMetrics.push(...unjoinableGuardrailMetrics);
-  } else {
-    goalMetrics.push(...allGoalMetrics);
-    secondaryMetrics.push(...allSecondaryMetrics);
-    guardrailMetrics.push(...allGuardrailMetrics);
-  }
 
   const banditSettings: SnapshotBanditSettings | undefined =
     experiment.type === "multi-armed-bandit"
@@ -563,33 +529,30 @@ export function getSnapshotSettings({
       : undefined;
 
   return {
-    snapshotSettings: {
-      manual: !experiment.datasource,
-      activationMetric: experiment.activationMetric || null,
-      attributionModel: experiment.attributionModel || "firstExposure",
-      skipPartialData: !!experiment.skipPartialData,
-      segment: experiment.segment || "",
-      queryFilter: experiment.queryFilter || "",
-      datasourceId: experiment.datasource || "",
-      dimensions: settings.dimensions.map((id) => ({ id })),
-      startDate: phase.dateStarted,
-      endDate: phase.dateEnded || new Date(),
-      experimentId: experiment.trackingKey || experiment.id,
-      goalMetrics,
-      secondaryMetrics,
-      guardrailMetrics,
-      regressionAdjustmentEnabled: !!settings.regressionAdjusted,
-      defaultMetricPriorSettings: defaultPriorSettings,
-      exposureQueryId: experiment.exposureQueryId,
-      metricSettings,
-      variations: experiment.variations.map((v, i) => ({
-        id: v.key || i + "",
-        weight: phase.variationWeights[i] || 0,
-      })),
-      coverage: phase.coverage ?? 1,
-      banditSettings,
-    },
-    unjoinableMetrics,
+    manual: !experiment.datasource,
+    activationMetric: experiment.activationMetric || null,
+    attributionModel: experiment.attributionModel || "firstExposure",
+    skipPartialData: !!experiment.skipPartialData,
+    segment: experiment.segment || "",
+    queryFilter: experiment.queryFilter || "",
+    datasourceId: experiment.datasource || "",
+    dimensions: settings.dimensions.map((id) => ({ id })),
+    startDate: phase.dateStarted,
+    endDate: phase.dateEnded || new Date(),
+    experimentId: experiment.trackingKey || experiment.id,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    regressionAdjustmentEnabled: !!settings.regressionAdjusted,
+    defaultMetricPriorSettings: defaultPriorSettings,
+    exposureQueryId: experiment.exposureQueryId,
+    metricSettings,
+    variations: experiment.variations.map((v, i) => ({
+      id: v.key || i + "",
+      weight: phase.variationWeights[i] || 0,
+    })),
+    coverage: phase.coverage ?? 1,
+    banditSettings,
   };
 }
 
@@ -614,7 +577,7 @@ export async function createManualSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   context: Context;
 }) {
-  const { snapshotSettings } = getSnapshotSettings({
+  const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
     orgPriorSettings: orgPriorSettings,
@@ -1010,7 +973,7 @@ export async function createSnapshot({
     throw new Error("Could not load data source");
   }
 
-  const { snapshotSettings, unjoinableMetrics } = getSnapshotSettings({
+  const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
@@ -1034,7 +997,6 @@ export async function createSnapshot({
     queries: [],
     dimension: dimension || null,
     settings: snapshotSettings,
-    unjoinableMetrics,
     type,
     triggeredBy,
     unknownVariations: [],

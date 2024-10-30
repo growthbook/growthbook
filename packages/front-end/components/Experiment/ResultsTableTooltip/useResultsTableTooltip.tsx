@@ -29,7 +29,7 @@ export function useResultsTableTooltip({
 }: {
   orderedVariations: ExperimentReportVariationWithIndex[];
   rows: ExperimentTableRow[];
-  rowsResults: (RowResults | "query error" | "no joint identifier" | null)[][];
+  rowsResults: (RowResults | "query error" | null)[][];
   dimension?: string;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
@@ -161,7 +161,6 @@ export function useResultsTableTooltip({
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
-    if (rowResults === "no joint identifier") return;
     if (!rowResults.hasScaledImpact && differenceType === "scaled") return;
 
     showTooltip({
