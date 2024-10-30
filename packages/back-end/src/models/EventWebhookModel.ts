@@ -170,14 +170,35 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
 
+  // Add defaults values
+  const defaults = {
+    ...(payload.method ? {} : { method: "POST" }),
+    // All webhook are created with a payloadType. This is here for antiquated ones
+    // which don't have one and should be considered raw.
+    ...(payload.payloadType ? {} : { payloadType: "raw" }),
+    ...(payload.headers ? {} : { headers: {} }),
+    ...(payload.tags ? {} : { tags: [] }),
+    ...(payload.projects ? {} : { projects: [] }),
+    ...(payload.environments ? {} : { environments: [] }),
+  };
+
+  if (Object.keys(defaults).length)
+    void (async () => {
+      try {
+        EventWebHookModel.updateOne(
+          { id: doc.id },
+          {
+            $set: defaults,
+          }
+        );
+      } catch (_) {
+        return;
+      }
+    })();
+
   return {
+    ...defaults,
     ...payload,
-    method: payload.method || "POST",
-    payloadType: payload.payloadType || "raw",
-    headers: payload.headers || {},
-    projects: payload.projects || [],
-    tags: payload.tags || [],
-    environments: payload.environments || [],
   };
 };
 

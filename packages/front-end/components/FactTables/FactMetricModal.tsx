@@ -848,7 +848,7 @@ export default function FactMetricModal({
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
-  const isNew = !existing;
+  const isNew = !existing || duplicate;
   const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
@@ -996,7 +996,8 @@ export default function FactMetricModal({
         } else {
           const createPayload: CreateFactMetricProps = {
             ...values,
-            projects: selectedDataSource.projects || [],
+            projects:
+              numeratorFactTable?.projects || selectedDataSource.projects || [],
           };
 
           await apiCall<{

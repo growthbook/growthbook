@@ -35,9 +35,11 @@ function compareDimsByTotalUsers(
 export default function TrafficCard({
   traffic,
   variations,
+  isBandit,
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
+  isBandit?: boolean;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
@@ -177,7 +179,7 @@ export default function TrafficCard({
               return (
                 <tr key={i}>
                   <td className="border-right">
-                    {(
+                    {!isBandit ? (
                       <>
                         <Tooltip
                           body={
@@ -203,7 +205,9 @@ export default function TrafficCard({
                           {r.name}
                         </a>
                       </>
-                    ) || <em>unknown</em>}
+                    ) : (
+                      r.name
+                    )}
                   </td>
                   {variations.map((_v, i) => (
                     <td style={{ paddingLeft: "35px" }} key={i}>

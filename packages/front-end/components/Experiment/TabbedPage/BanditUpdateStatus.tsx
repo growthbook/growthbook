@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -50,9 +51,14 @@ export default function BanditUpdateStatus({
         1000
   );
 
-  const error = !lastEvent?.banditResult
+  const _error = !lastEvent?.banditResult
     ? "Bandit update failed"
     : lastEvent?.banditResult?.error;
+
+  const [error, setError] = useState<string | undefined>(_error);
+  const [generatedSnapshot, setGeneratedSnapshot] = useState<
+    ExperimentSnapshotInterface | undefined
+  >(undefined);
 
   return (
     <div className="hover-highlight rounded">
@@ -75,9 +81,17 @@ export default function BanditUpdateStatus({
             <div className="d-flex align-items-center">
               <div
                 style={{ lineHeight: 1 }}
-                title={datetime(lastEvent?.date ?? "")}
+                title={
+                  (phase?.banditEvents?.length ?? 0) > 1
+                    ? datetime(lastEvent?.date ?? "")
+                    : "never"
+                }
               >
-                {ago(lastEvent?.date ?? "")}
+                {(phase?.banditEvents?.length ?? 0) > 1 ? (
+                  ago(lastEvent?.date ?? "")
+                ) : (
+                  <em>never</em>
+                )}
               </div>
             </div>
           </div>
@@ -94,7 +108,13 @@ export default function BanditUpdateStatus({
               </tr>
               <tr>
                 <td className="text-muted">Last updated at:</td>
-                <td className="nowrap">{datetime(lastEvent?.date ?? "")}</td>
+                <td className="nowrap">
+                  {(phase?.banditEvents?.length ?? 0) > 1 ? (
+                    datetime(lastEvent?.date ?? "")
+                  ) : (
+                    <em>never</em>
+                  )}
+                </td>
               </tr>
               {lastReweightEvent ? (
                 <tr>
@@ -104,28 +124,29 @@ export default function BanditUpdateStatus({
                   </td>
                 </tr>
               ) : null}
-              {["explore", "exploit"].includes(
-                experiment.banditStage ?? ""
-              ) && (
-                <>
-                  <tr>
-                    <td colSpan={2} className="pt-3">
-                      <span className="uppercase-title">Scheduling</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">Next scheduled update:</td>
-                    <td>
-                      {experiment.nextSnapshotAttempt &&
-                      experiment.autoSnapshots ? (
-                        ago(experiment.nextSnapshotAttempt)
-                      ) : (
-                        <em>Not scheduled</em>
-                      )}
-                    </td>
-                  </tr>
-                </>
-              )}
+              {experiment.status === "running" &&
+                ["explore", "exploit"].includes(
+                  experiment.banditStage ?? ""
+                ) && (
+                  <>
+                    <tr>
+                      <td colSpan={2} className="pt-3">
+                        <span className="uppercase-title">Scheduling</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted">Next scheduled update:</td>
+                      <td>
+                        {experiment.nextSnapshotAttempt &&
+                        experiment.autoSnapshots ? (
+                          ago(experiment.nextSnapshotAttempt)
+                        ) : (
+                          <em>Not scheduled</em>
+                        )}
+                      </td>
+                    </tr>
+                  </>
+                )}
             </tbody>
             <tbody>
               <tr>
@@ -141,7 +162,10 @@ export default function BanditUpdateStatus({
           <div className="mx-2" style={{ fontSize: "12px" }}>
             <p>
               The Bandit is{" "}
-              {experiment.banditStage ? (
+              {experiment.banditStage === "paused" ||
+              experiment.status !== "running" ? (
+                "not running"
+              ) : experiment.banditStage ? (
                 <>
                   in the{" "}
                   <strong>
@@ -154,36 +178,42 @@ export default function BanditUpdateStatus({
               ) : (
                 "not running"
               )}
-              {experiment.banditStage === "explore" && (
-                <> and is waiting until more data is collected</>
-              )}
+              {experiment.status === "running" &&
+                experiment.banditStage === "explore" && (
+                  <> and is waiting until more data is collected</>
+                )}
               .
             </p>
 
-            {experiment.banditStage === "explore" && (
-              <p>
-                {" "}
-                It will start updating weights and enter the Exploit stage on{" "}
-                <em className="nowrap">{datetime(burnInRunDate)}</em> (
-                {ago(burnInRunDate)}).
-              </p>
-            )}
+            {experiment.status === "running" &&
+              experiment.banditStage === "explore" && (
+                <p>
+                  {" "}
+                  It will start updating weights and enter the Exploit stage on{" "}
+                  <em className="nowrap">{datetime(burnInRunDate)}</em> (
+                  {ago(burnInRunDate)}).
+                </p>
+              )}
           </div>
 
           {error ? (
-            <div className="alert alert-danger mx-2 px-1 py-1 row align-items-start">
+            <div className="alert small alert-danger mx-2 px-1 pt-2 pb-1 row align-items-start">
               <div className="col">
                 <FaExclamationTriangle className="mr-1" />
                 {error}
               </div>
-              {latest ? (
+              {generatedSnapshot || latest ? (
                 <div className="col-auto">
                   <ViewAsyncQueriesButton
-                    queries={latest.queries?.map((q) => q.query) ?? []}
-                    error={latest.error}
+                    queries={
+                      (generatedSnapshot || latest)?.queries?.map(
+                        (q) => q.query
+                      ) ?? []
+                    }
+                    error={(generatedSnapshot || latest)?.error}
                     status={status}
                     display={null}
-                    color="link link-purple p-0 pt-1"
+                    color="link link-purple p-0 pb-1"
                     condensed={true}
                     hideQueryCount={true}
                   />
@@ -192,8 +222,17 @@ export default function BanditUpdateStatus({
             </div>
           ) : null}
 
-          <hr className="mx-2" />
-          <RefreshBanditButton mutate={mutate} experiment={experiment} />
+          {experiment.status === "running" && (
+            <>
+              <hr className="mx-2" />
+              <RefreshBanditButton
+                mutate={mutate}
+                experiment={experiment}
+                setError={setError}
+                setGeneratedSnapshot={setGeneratedSnapshot}
+              />
+            </>
+          )}
         </div>
       </Dropdown>
     </div>

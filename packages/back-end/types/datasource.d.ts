@@ -12,6 +12,7 @@ import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 
 export type DataSourceType =
+  | "growthbook_clickhouse"
   | "redshift"
   | "athena"
   | "google_analytics"
@@ -73,11 +74,22 @@ export type SchemaOption = {
   helpText?: string;
 };
 
+type GetExperimentSqlOptions = {
+  exposureTableName?: string;
+  actionName?: string;
+  eventType?: string;
+  projectId?: string;
+  tablePrefix?: string;
+  actionPrefix?: string;
+  siteId?: string | number;
+  categoryName?: string;
+};
+
 export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
     userId: string,
-    options?: Record<string, string | number>
+    options?: GetExperimentSqlOptions
   ): string;
   getIdentitySQL(
     tablePrefix: string,
@@ -235,6 +247,9 @@ interface DataSourceBase {
   settings: DataSourceSettings;
 }
 
+export interface GrowthbookClickhouseDataSource extends DataSourceBase {
+  type: "growthbook_clickhouse";
+}
 interface RedshiftDataSource extends DataSourceBase {
   type: "redshift";
 }
@@ -287,6 +302,10 @@ interface MixpanelDataSource extends DataSourceBase {
   type: "mixpanel";
 }
 
+export type GrowthbookClickhouseDataSourceWithParams = WithParams<
+  GrowthbookClickhouseDataSource,
+  ClickHouseConnectionParams
+>;
 export type RedshiftDataSourceWithParams = WithParams<
   RedshiftDataSource,
   PostgresConnectionParams
@@ -342,6 +361,7 @@ export type MixpanelDataSourceWithParams = WithParams<
 >;
 
 export type DataSourceInterface =
+  | GrowthbookClickhouseDataSource
   | RedshiftDataSource
   | AthenaDataSource
   | PrestoDataSource
@@ -357,6 +377,7 @@ export type DataSourceInterface =
   | MixpanelDataSource;
 
 export type DataSourceInterfaceWithParams =
+  | GrowthbookClickhouseDataSourceWithParams
   | RedshiftDataSourceWithParams
   | AthenaDataSourceWithParams
   | PrestoDataSourceWithParams

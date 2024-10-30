@@ -13,7 +13,6 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
-import { GBAddCircle } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
@@ -31,6 +30,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/components/Radix/Button";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -59,8 +61,9 @@ const ExperimentsPage = (): React.ReactElement => {
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, userId } = useUser();
+  const { getUserDisplay, userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -206,6 +209,12 @@ const ExperimentsPage = (): React.ReactElement => {
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
 
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
+
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
     setCurrentPage(1);
@@ -243,19 +252,38 @@ const ExperimentsPage = (): React.ReactElement => {
       <div className="contents experiments container-fluid pagecontents">
         <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
-            <div className="col-auto">
+            <div className="col d-flex align-items-center">
               <h1>Bandits</h1>
+              <span className="mr-auto badge badge-purple text-uppercase ml-2">
+                Beta
+              </span>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
               <div className="col-auto">
-                <Button
-                  onClick={() => {
-                    setOpenNewExperimentModal(true);
-                  }}
+                <PremiumTooltip
+                  tipPosition="left"
+                  popperStyle={{ top: 15 }}
+                  body={
+                    hasStickyBucketFeature && !orgStickyBucketing
+                      ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
+                      : undefined
+                  }
+                  commercialFeature="multi-armed-bandits"
                 >
-                  Add Bandit
-                </Button>
+                  <Button
+                    onClick={() => {
+                      setOpenNewExperimentModal(true);
+                    }}
+                    disabled={
+                      !hasMultiArmedBanditFeature ||
+                      !hasStickyBucketFeature ||
+                      !orgStickyBucketing
+                    }
+                  >
+                    Add Bandit
+                  </Button>
+                </PremiumTooltip>
               </div>
             )}
           </div>
@@ -268,25 +296,40 @@ const ExperimentsPage = (): React.ReactElement => {
                   Run adaptive experiments with Bandits.
                 </p>
               </div>
-              <div className="d-flex justify-content-center">
-                <Link href="/getstarted/experiment-guide">
-                  {" "}
-                  <button className="btn btn-outline-primary mr-2">
-                    Setup Instructions
-                  </button>
-                </Link>
+              <div
+                className="d-flex justify-content-center"
+                style={{ gap: "1rem" }}
+              >
+                <LinkButton
+                  href="/getstarted/experiment-guide"
+                  variant="outline"
+                >
+                  Setup Instructions
+                </LinkButton>
                 {canAdd && (
-                  <button
-                    className="btn btn-primary float-right"
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
+                  <PremiumTooltip
+                    tipPosition="left"
+                    popperStyle={{ top: 15 }}
+                    body={
+                      hasStickyBucketFeature && !orgStickyBucketing
+                        ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
+                        : undefined
+                    }
+                    commercialFeature="multi-armed-bandits"
                   >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Bandit
-                  </button>
+                    <Button
+                      onClick={() => {
+                        setOpenNewExperimentModal(true);
+                      }}
+                      disabled={
+                        !hasMultiArmedBanditFeature ||
+                        !hasStickyBucketFeature ||
+                        !orgStickyBucketing
+                      }
+                    >
+                      Add Bandit
+                    </Button>
+                  </PremiumTooltip>
                 )}
               </div>
             </div>

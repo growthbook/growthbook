@@ -1,5 +1,8 @@
 import { FactMetricInterface } from "back-end/types/fact-table";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
+import {
+  MetricAnalysisSettings,
+  MetricAnalysisSource,
+} from "back-end/types/metric-analysis";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";
@@ -10,6 +13,7 @@ export async function createMetricAnalysis(
   context: Context,
   metric: FactMetricInterface,
   metricAnalysisSettings: MetricAnalysisSettings,
+  source: MetricAnalysisSource,
   useCache: boolean = true
 ): Promise<MetricAnalysisQueryRunner> {
   if (!metric.datasource) {
@@ -41,6 +45,7 @@ export async function createMetricAnalysis(
     metric: metric.id,
     runStarted: null,
     status: "running",
+    source: source,
 
     settings: metricAnalysisSettings,
     queries: [],

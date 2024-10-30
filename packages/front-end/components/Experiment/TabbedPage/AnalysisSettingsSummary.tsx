@@ -189,7 +189,7 @@ export default function AnalysisSettingsSummary({
   }
 
   items.push({
-    value: numMetrics + " metrics",
+    value: numMetrics + (numMetrics === 1 ? " metric" : " metrics"),
     icon: <FaChartBar className="mr-1" />,
     noTransform: true,
     tooltip:

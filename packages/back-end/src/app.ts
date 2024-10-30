@@ -442,6 +442,7 @@ app.get(
   "/metrics/:id/experiments",
   metricsController.getMetricExperimentResults
 );
+app.get("/metrics/:id/northstar", metricsController.getMetricNorthstarData);
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
@@ -664,6 +665,13 @@ app.post(
   "/datasources/fetch-bigquery-datasets",
   datasourcesController.fetchBigQueryDatasets
 );
+
+if (IS_CLOUD) {
+  app.post(
+    "/datasource/create-inbuilt",
+    datasourcesController.postInbuiltDataSource
+  );
+}
 
 // Auto Fact Tables
 app.post(

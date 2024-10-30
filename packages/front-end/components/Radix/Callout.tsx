@@ -1,30 +1,43 @@
 import { Callout as RadixCallout } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { RadixStatusIcon, Status, getRadixColor } from "./HelperText";
+import { Responsive } from "@radix-ui/themes/dist/cjs/props";
+import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./RadixOverrides.module.scss";
 
-type Props = {
-  children: ReactNode;
-  status: Status;
-} & MarginProps;
+export function getRadixSize(size: Size): Responsive<"1" | "2"> {
+  switch (size) {
+    case "sm":
+      return "1";
+    case "md":
+      return "2";
+  }
+}
 
 export default function Callout({
   children,
   status,
+  size = "md",
   ...containerProps
-}: Props) {
+}: {
+  children: ReactNode;
+  status: Status;
+  size?: "sm" | "md";
+} & MarginProps) {
   return (
     <RadixCallout.Root
       className={styles.callout}
       color={getRadixColor(status)}
       role={status === "error" ? "alert" : undefined}
+      size={getRadixSize(size)}
       {...containerProps}
     >
       <RadixCallout.Icon>
-        <RadixStatusIcon status={status} size={"md"} />
+        <RadixStatusIcon status={status} size={size} />
       </RadixCallout.Icon>
-      <RadixCallout.Text>{children}</RadixCallout.Text>
+      <RadixCallout.Text size={getRadixSize(size)}>
+        {children}
+      </RadixCallout.Text>
     </RadixCallout.Root>
   );
 }
