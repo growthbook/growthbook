@@ -3,7 +3,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
-import { isMetricJoinable } from "./MetricsSelector";
+import { isMetricJoinable } from "shared/experiments";
 
 type MetricOption = {
   id: string;
