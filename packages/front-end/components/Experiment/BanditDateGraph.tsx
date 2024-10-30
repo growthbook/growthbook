@@ -469,7 +469,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         (_, i) =>
                           !(
                             d?.meta?.[i]?.cr === 0 &&
-                            (d?.meta?.[i]?.ci?.[0] ?? 0) < -195
+                            (d?.meta?.[i]?.ci?.[0] ?? 0) < -190
                           )
                       )
                       .filter(() => !d?.error && !d.initial)
@@ -486,7 +486,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         (_, i) =>
                           !(
                             d?.meta?.[i]?.cr === 0 &&
-                            (d?.meta?.[i]?.ci?.[1] ?? 0) > 195
+                            (d?.meta?.[i]?.ci?.[1] ?? 0) > 190
                           )
                       )
                       .filter(() => !d?.error && !d.initial)
