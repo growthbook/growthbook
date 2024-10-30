@@ -506,7 +506,7 @@ const Layout = (): React.ReactElement => {
             target="_blank"
             rel="noreferrer"
           >
-            View Docs <FaArrowRight className="ml-2" />
+            View docs <FaArrowRight className="ml-2" />
           </a>
         </div>
         {build.sha && (
