@@ -25,6 +25,7 @@ class BanditResult:
     updateMessage: Optional[str]
     error: Optional[str]
     reweight: bool
+    weightsWereUpdated: bool
 
 
 @dataclass
