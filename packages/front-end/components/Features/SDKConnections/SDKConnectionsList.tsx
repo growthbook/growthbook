@@ -12,6 +12,7 @@ import {
 import clsx from "clsx";
 import type { SDKLanguage } from "back-end/types/sdk-connection";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Box, Flex, Heading, Separator, Strong, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -93,43 +94,60 @@ export default function SDKConnectionsList() {
   );
 
   const emptyStateContentExperiment = (
-    <div className="bg-white p-5 mb-3">
-      <div className="text-center mt-3">
-        <h2 className="h1 mb-2">
+    <Box
+      pt="9"
+      pb="7"
+      px="6"
+      mb="4"
+      style={{ backgroundColor: "var(--color-panel-solid)" }}
+    >
+      <Flex direction="column" align="center">
+        <Heading as="h2" size="7">
           Easily integrate GrowthBook into your app or website
-        </h2>
-        <p className="mt-3">
+        </Heading>
+        <Text>
           Select your SDK to connect your front-end, back-end or mobile app.
-        </p>
-      </div>
+        </Text>
+      </Flex>
 
-      <hr className="mt-5 mb-4" />
+      <Separator size="4" mt="5" mb="4" />
 
-      <h3 className="mb-2 h5 font-weight-bold">Select your SDK:</h3>
-      <div className="mb-3 d-flex flex-row flex-wrap">
+      <Heading as="h3" size="2">
+        <Strong>Select your SDK:</Strong>
+      </Heading>
+
+      <Flex
+        justify="start"
+        direction="row"
+        wrap="wrap"
+        gapX="5"
+        gapY="4"
+        mb="7"
+      >
         {sdkLanguagesToShow.map((language) => (
-          <div key={language} className="mr-4 mb-3">
-            <SDKLanguageOption
-              language={language}
-              selected={false}
-              onClick={(e) => {
-                e.preventDefault();
-                setSelectedLanguage(language);
-                setModalOpen(true);
-              }}
-            />
-          </div>
+          <SDKLanguageOption
+            key={language}
+            language={language}
+            selected={false}
+            onClick={(e) => {
+              e.preventDefault();
+              setSelectedLanguage(language);
+              setModalOpen(true);
+            }}
+          />
         ))}
-      </div>
-      <div className="d-flex row w-100 justify-content-center">
+      </Flex>
+
+      <Flex justify="center">
         <Button
           variant="ghost"
           onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
+          size="sm"
         >
           {showAllSdkLanguages ? "Show less" : "Show all"}
         </Button>
-      </div>
-    </div>
+      </Flex>
+    </Box>
   );
 
   return (
