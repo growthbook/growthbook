@@ -221,6 +221,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
     const id = currentOrg?.organization?.id || "";
+    if (!id) return;
     sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).then((hashedOrgId) => {
       setHashedOrganizationId(hashedOrgId);
     });
