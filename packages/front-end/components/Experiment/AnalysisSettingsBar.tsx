@@ -15,9 +15,13 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { RiBarChartFill } from "react-icons/ri";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -394,15 +398,25 @@ function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
   return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
 }
 
-export function isOutdated(
-  experiment: ExperimentInterfaceStringDates | undefined,
-  snapshot: ExperimentSnapshotInterface | undefined,
-  orgSettings: OrganizationSettings,
-  statsEngine: StatsEngine,
-  hasRegressionAdjustmentFeature: boolean,
-  hasSequentialFeature: boolean,
-  phase: number | undefined
-): { outdated: boolean; reasons: string[] } {
+export function isOutdated({
+  experiment,
+  snapshot,
+  metricGroups = [],
+  orgSettings,
+  statsEngine,
+  hasRegressionAdjustmentFeature,
+  hasSequentialFeature,
+  phase,
+}: {
+  experiment?: ExperimentInterfaceStringDates;
+  snapshot?: ExperimentSnapshotInterface;
+  metricGroups?: MetricGroupInterface[];
+  orgSettings: OrganizationSettings;
+  statsEngine: StatsEngine;
+  hasRegressionAdjustmentFeature: boolean;
+  hasSequentialFeature: boolean;
+  phase?: number;
+}): { outdated: boolean; reasons: string[] } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
     ? getSnapshotAnalysis(snapshot)?.settings
@@ -452,8 +466,22 @@ export function isOutdated(
   }
   if (
     isStringArrayMissingElements(
-      getAllMetricIdsFromExperiment(snapshotSettings, false),
-      getAllMetricIdsFromExperiment(experiment, false)
+      Array.from(
+        new Set(
+          expandMetricGroups(
+            getAllMetricIdsFromExperiment(snapshotSettings, false),
+            metricGroups
+          )
+        )
+      ),
+      Array.from(
+        new Set(
+          expandMetricGroups(
+            getAllMetricIdsFromExperiment(experiment, false),
+            metricGroups
+          )
+        )
+      )
     )
   ) {
     reasons.push("Metrics changed");

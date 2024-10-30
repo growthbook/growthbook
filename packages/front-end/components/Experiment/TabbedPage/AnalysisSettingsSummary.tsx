@@ -112,15 +112,16 @@ export default function AnalysisSettingsSummary({
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  const { outdated, reasons } = isOutdated(
+  const { outdated, reasons } = isOutdated({
     experiment,
     snapshot,
+    metricGroups,
     orgSettings,
     statsEngine,
     hasRegressionAdjustmentFeature,
     hasSequentialFeature,
-    phase
-  );
+    phase,
+  });
 
   const ds = getDatasourceById(experiment.datasource);
   const assignmentQuery = ds?.settings?.queries?.exposure?.find(
