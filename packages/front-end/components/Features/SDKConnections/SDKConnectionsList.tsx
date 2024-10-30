@@ -23,9 +23,21 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
-import SDKLanguageLogo, { getLanguagesByFilter } from "./SDKLanguageLogo";
+import SDKLanguageLogo, {
+  getLanguagesByFilter,
+  languageMapping,
+} from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 import { SDKLanguageOption } from "./SDKLanguageSelector";
+
+function popularLanguagesFirst(a: SDKLanguage, b: SDKLanguage) {
+  const isAPopular = languageMapping[a].filters.includes("popular");
+  const isBPopular = languageMapping[b].filters.includes("popular");
+
+  if (isAPopular && !isBPopular) return -1;
+  if (!isAPopular && isBPopular) return 1;
+  return 0;
+}
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -47,7 +59,10 @@ export default function SDKConnectionsList() {
     "sdk-connections-new-empty-state"
   );
 
-  const popularLanguages = getLanguagesByFilter("popular");
+  const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
+  const sdkLanguagesToShow = getLanguagesByFilter(
+    showAllSdkLanguages ? "all" : "popular"
+  ).sort(popularLanguagesFirst);
   const [selectedLanguage, setSelectedLanguage] = useState<SDKLanguage | null>(
     null
   );
@@ -92,7 +107,7 @@ export default function SDKConnectionsList() {
 
       <h3 className="mb-2 h5 font-weight-bold">Select your SDK:</h3>
       <div className="mb-3 d-flex flex-row flex-wrap">
-        {popularLanguages.map((language) => (
+        {sdkLanguagesToShow.map((language) => (
           <div key={language} className="mr-4 mb-3">
             <SDKLanguageOption
               language={language}
@@ -105,6 +120,14 @@ export default function SDKConnectionsList() {
             />
           </div>
         ))}
+      </div>
+      <div className="d-flex row w-100 justify-content-center">
+        <Button
+          variant="ghost"
+          onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
+        >
+          {showAllSdkLanguages ? "Show less" : "Show all"}
+        </Button>
       </div>
     </div>
   );
