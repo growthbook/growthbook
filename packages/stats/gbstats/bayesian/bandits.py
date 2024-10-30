@@ -45,6 +45,7 @@ class BanditResponse:
 def get_error_bandit_result(
     single_variation_results: Optional[List[SingleVariationResult]],
     update_message: str,
+    srm: float,
     error: str,
     reweight: bool,
     current_weights: List[float],
@@ -53,7 +54,7 @@ def get_error_bandit_result(
         singleVariationResults=single_variation_results,
         currentWeights=current_weights,
         updatedWeights=current_weights,
-        srm=1,
+        srm=srm,
         bestArmProbabilities=None,
         seed=0,
         updateMessage=update_message,
@@ -99,6 +100,10 @@ class Bandits(ABC):
     @property
     def current_sample_size(self):
         return sum(self.variation_counts)
+
+    @property
+    def enough_samples_for_srm(self):
+        return all(self.variation_counts >= 5)
 
     @property
     def historical_weights_array(self) -> np.ndarray:
