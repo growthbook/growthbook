@@ -115,22 +115,20 @@ export default function MetricName({
     return (
       <>
         <VscListTree className="mr-1" />
-        {metricGroup.name} ({metricGroup.metrics.length} metrics)
+        {metricGroup.name}
+        <span className="ml-1 small">
+          ({metricGroup.metrics.length} metric
+          {metricGroup.metrics.length === 0 ? "" : "s"})
+        </span>
         {showDescription && metricGroup.description ? (
           <span className="text-muted">
             {" "}
-            -{" "}
+            —{" "}
             {metricGroup?.description.length > 50
               ? metricGroup?.description.substring(0, 50) + "..."
               : metricGroup?.description}
           </span>
         ) : null}
-        <span
-          className="ml-1 small text-muted position-relative"
-          style={{ top: 2 }}
-        >
-          GROUP
-        </span>
       </>
     );
   }
@@ -141,7 +139,7 @@ export default function MetricName({
       {showDescription && metric.description ? (
         <span className="text-muted">
           {" "}
-          -{" "}
+          —{" "}
           {metric?.description.length > 50
             ? metric?.description.substring(0, 50) + "..."
             : metric?.description}
