@@ -657,7 +657,7 @@ def get_bandit_result(
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
-        srm_p_value = b.compute_srm() if b.enough_samples_for_srm else 1
+        srm_p_value = b.compute_srm()
         bandit_result = b.compute_result()
         if bandit_result.ci:
             single_variation_results = [

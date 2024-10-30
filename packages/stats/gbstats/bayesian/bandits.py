@@ -102,15 +102,6 @@ class Bandits(ABC):
         return sum(self.variation_counts)
 
     @property
-    def enough_samples_for_srm(self):
-        expected_count = (
-            self.current_sample_size / self.num_variations
-            if self.num_variations > 0
-            else 0
-        )
-        return expected_count >= 5
-
-    @property
     def historical_weights_array(self) -> np.ndarray:
         weights_list = []
         for period in range(self.num_periods_historical):
@@ -145,15 +136,28 @@ class Bandits(ABC):
             )
         return np.sum(counts_expected_by_period, axis=0)
 
-    def compute_srm(self) -> float:
-        resid = self.variation_counts - self.counts_expected
-        resid_squared = resid**2
-        positive_expected = self.counts_expected > 0
-        test_stat = np.sum(
-            resid_squared[positive_expected] / self.counts_expected[positive_expected]
+    @property
+    def enough_samples_for_srm(self):
+        expected_count = (
+            self.current_sample_size / self.num_variations
+            if self.num_variations > 0
+            else 0
         )
-        df = self.num_variations - 1
-        return float(1 - chi2.cdf(test_stat, df=df))
+        return expected_count >= 5
+
+    def compute_srm(self) -> float:
+        if self.enough_samples_for_srm:
+            resid = self.variation_counts - self.counts_expected
+            resid_squared = resid**2
+            positive_expected = self.counts_expected > 0
+            test_stat = np.sum(
+                resid_squared[positive_expected]
+                / self.counts_expected[positive_expected]
+            )
+            df = self.num_variations - 1
+            return float(1 - chi2.cdf(test_stat, df=df))
+        else:
+            return 1
 
     # sample sizes by variation
     @property
