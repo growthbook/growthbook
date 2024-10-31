@@ -231,7 +231,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   formatterOptions,
   statsEngine = "bayesian",
   hasStats = true,
-  maxGapHours = 24,
+  maxGapHours = 36,
   cumulative = false,
 }) => {
   // yaxis = "users";
