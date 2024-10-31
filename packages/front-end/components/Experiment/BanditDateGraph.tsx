@@ -175,6 +175,11 @@ const getTooltipContents = (
             Variation weights were recalculated
           </HelperText>
         )}
+        {!!d.reweight && !d.weightsWereUpdated && (
+          <HelperText status="info" my="2" size="md">
+            Variation weights were unable to update
+          </HelperText>
+        )}
 
         {d.updateMessage && !d.error ? (
           <Callout status="warning" my="2" size="sm">
