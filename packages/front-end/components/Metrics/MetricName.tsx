@@ -125,7 +125,7 @@ export default function MetricName({
         <VscListTree className="mr-1" />
         {metricGroup.name}
         <Tooltip
-          className="text-danger px-1"
+          className={clsx("px-1", { "text-danger": allJoinable })}
           body={
             <>
               {!allJoinable && (
