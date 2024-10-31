@@ -4849,7 +4849,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ? columnRef?.aggregateFilterColumn
         : columnRef?.column;
 
-      if (metric.metricType === "proportion" || column === "$$distinctUsers") {
+      if (
+        !hasAggregateFilter &&
+        (metric.metricType === "proportion" || column === "$$distinctUsers")
+      ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
       } else if (column === "$$count") {
         return `COUNT(${valueColumn})`;

@@ -639,7 +639,7 @@ export default function FactMetricPage() {
                     </li>
                   )}
                   {factMetric.cappingSettings.type &&
-                    factMetric.cappingSettings.value && (
+                    !!factMetric.cappingSettings.value && (
                       <>
                         <li className="mb-2">
                           <span className="uppercase-title lg">

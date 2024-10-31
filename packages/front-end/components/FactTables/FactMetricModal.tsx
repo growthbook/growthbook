@@ -933,6 +933,12 @@ export default function FactMetricModal({
           values.numerator.column = "$$distinctUsers";
         }
 
+        if (values.cappingSettings?.type) {
+          if (!values.cappingSettings.value) {
+            throw new Error("Capped Value cannot be 0");
+          }
+        }
+
         if (values.numerator.aggregateFilterColumn) {
           // Validate that the value is correct
           getAggregateFilters({
@@ -946,12 +952,12 @@ export default function FactMetricModal({
           values.numerator.aggregateFilterColumn &&
           values.metricType === "ratio"
         ) {
-          if (values.numerator.aggregateFilterColumn !== "$$distinctUsers") {
+          if (values.numerator.column !== "$$distinctUsers") {
             values.numerator.aggregateFilterColumn = "";
           } else {
             if (values.cappingSettings?.type) {
               throw new Error(
-                "Cannot specify both Capping and a User Threshold"
+                "Cannot specify both Percentile Capping and a User Filter. Please remove one of them."
               );
             }
           }
@@ -1028,7 +1034,7 @@ export default function FactMetricModal({
     >
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
-          <h3>Enter Details</h3>
+          {showSQLPreview ? <h3>Enter Details</h3> : null}
           {switchToLegacy && (
             <Callout status="info" mb="3">
               You are creating a Fact Table Metric.{" "}
@@ -1208,6 +1214,7 @@ export default function FactMetricModal({
                     datasource={selectedDataSource.id}
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={true}
+                    key={selectedDataSource.id}
                   />
                   <HelperText status="info">
                     The final metric value will be the percent of users in the
@@ -1225,6 +1232,7 @@ export default function FactMetricModal({
                     includeColumn={true}
                     datasource={selectedDataSource.id}
                     disableFactTableSelector={!!initialFactTable}
+                    key={selectedDataSource.id}
                   />
                   <HelperText status="info">
                     The final metric value will be the average per-user value
@@ -1282,6 +1290,7 @@ export default function FactMetricModal({
                     aggregationType={quantileSettings.type}
                     datasource={selectedDataSource.id}
                     disableFactTableSelector={!!initialFactTable}
+                    key={selectedDataSource.id}
                     extraField={
                       <>
                         {form
@@ -1352,6 +1361,7 @@ export default function FactMetricModal({
                       supportsAggregatedFilter={
                         numerator.column === "$$distinctUsers"
                       }
+                      key={selectedDataSource.id}
                     />
                   </div>
                   <div className="form-group">
@@ -1370,6 +1380,7 @@ export default function FactMetricModal({
                       includeColumn={true}
                       includeCountDistinct={true}
                       datasource={selectedDataSource.id}
+                      key={selectedDataSource.id}
                     />
                   </div>
 
