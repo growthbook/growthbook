@@ -20,9 +20,13 @@ import {
 } from "back-end/types/experiment";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+} from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -34,6 +38,10 @@ export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
+}
+
+export function isMetricGroupId(id: string): boolean {
+  return !!id.match(/^mg_/);
 }
 
 export function isFactMetric(
@@ -710,4 +718,52 @@ export async function generateTrackingKey(
 
     return key;
   }
+}
+
+export function expandMetricGroups(
+  metricIds: string[],
+  metricGroups: MetricGroupInterface[]
+): string[] {
+  const metricGroupMap = new Map(metricGroups.map((mg) => [mg.id, mg]));
+  const expandedMetricIds: string[] = [];
+  metricIds.forEach((id) => {
+    if (metricGroupMap.has(id)) {
+      expandedMetricIds.push(...(metricGroupMap.get(id)?.metrics || []));
+    } else {
+      expandedMetricIds.push(id);
+    }
+  });
+  return expandedMetricIds;
+}
+
+export function isMetricJoinable(
+  metricIdTypes: string[],
+  userIdType: string,
+  settings?: DataSourceSettings
+): boolean {
+  if (metricIdTypes.includes(userIdType)) return true;
+
+  if (settings?.queries?.identityJoins) {
+    if (
+      settings.queries.identityJoins.some(
+        (j) =>
+          j.ids.includes(userIdType) &&
+          j.ids.some((jid) => metricIdTypes.includes(jid))
+      )
+    ) {
+      return true;
+    }
+  }
+
+  // legacy support for pageviewsQuery
+  if (settings?.queries?.pageviewsQuery) {
+    if (
+      ["user_id", "anonymous_id"].includes(userIdType) &&
+      metricIdTypes.some((m) => ["user_id", "anonymous_id"].includes(m))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
