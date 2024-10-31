@@ -2,6 +2,7 @@ import { Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
+import { PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";
@@ -49,10 +50,16 @@ export default function DesignSystemPage() {
       <div className="appbox p-3">
         <h3>Avatar</h3>
         <Flex direction="row" gap="3">
-          <Avatar name="Bryce Fitzsimons" />
-          <Avatar color="grass" name="Michael Samper" />
-          <Avatar size="lg" radius="small" name="Guy Langford-Lee" />
-          <Avatar color="orange" variant="soft" size="sm" name="Kevin Chant" />
+          <Avatar>BF</Avatar>
+          <Avatar color="green">
+            <PiInfoFill size={25} />
+          </Avatar>
+          <Avatar size="lg" radius="small">
+            <img src="https://app.growthbook.io/logo/growth-book-logomark-white.svg" />
+          </Avatar>
+          <Avatar color="orange" variant="soft" size="sm">
+            sm
+          </Avatar>
         </Flex>
       </div>
 
@@ -335,13 +342,17 @@ export default function DesignSystemPage() {
             {
               value: "k2",
               label: "Radio Card 2 with avatar",
-              avatar: <Avatar radius="small" name="Bryce Fitzsimons" />,
+              avatar: <Avatar radius="small">BF</Avatar>,
             },
             {
               value: "k3",
               label: "Radio Card 3, with description",
               description: "This is a description",
-              avatar: <Avatar radius="small" name="Bryce Fitzsimons" />,
+              avatar: (
+                <Avatar radius="small">
+                  <img src="https://app.growthbook.io/logo/growth-book-logomark-white.svg" />
+                </Avatar>
+              ),
             },
             {
               value: "k4",

@@ -7,7 +7,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import Avatar from "@/components/Radix/Avatar";
+import InitialAvatar from "@/components/Avatar/InitialAvatar";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -26,7 +26,7 @@ export default function ProjectTagBar({
     getProjectById,
   } = useDefinitions();
 
-  const { getUserDisplay, user } = useUser();
+  const { getUserDisplay } = useUser();
 
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
@@ -103,12 +103,7 @@ export default function ProjectTagBar({
           <Text weight="medium">Owner: </Text>
           {ownerName ? (
             <span>
-              <Avatar
-                name={ownerName}
-                email={user?.email}
-                size="sm"
-                variant="soft"
-              />{" "}
+              <InitialAvatar name={ownerName} size="sm" variant="soft" />{" "}
               {ownerName}
             </span>
           ) : (

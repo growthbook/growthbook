@@ -6,7 +6,17 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import styles from "./TagsModal.module.scss";
-import Tag, { TAG_COLORS } from "./Tag";
+import Tag from "./Tag";
+
+export const TAG_COLORS = [
+  "blue",
+  "teal",
+  "pink",
+  "orange",
+  "lime",
+  "gray",
+  "gold",
+] as const;
 
 export default function TagsModal({
   existing,
