@@ -265,8 +265,22 @@ const BreakDownResults: FC<{
         <span className="h3 mb-0">All Metrics</span>
       </div>
       {tables.map((table, i) => {
+        const metric = table.metric;
+        console.log(goalMetrics, metric);
         return (
           <>
+            <h5
+              className="ml-2 mt-3 position-relative"
+              style={{ marginBottom: -15, zIndex: 801 }}
+            >
+              {expandedGoals.includes(metric.id)
+                ? "Goal Metric"
+                : expandedSecondaries.includes(metric.id)
+                ? "Secondary Metric"
+                : expandedGuardrails.includes(metric.id)
+                ? "Guardrail Metric"
+                : null}
+            </h5>
             <ResultsTable
               key={i}
               dateCreated={reportDate}
