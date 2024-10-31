@@ -340,12 +340,12 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
 
   const isVerified = crypto.verify(
     "sha256",
-    license,
+    new Uint8Array(license.buffer),
     {
       key: publicKey,
       padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
     },
-    signature
+    new Uint8Array(signature.buffer)
   );
 
   // License key signature is invalid, don't use it
@@ -390,12 +390,12 @@ function verifyLicenseInterface(license: LicenseInterface) {
   logger.info("Verifying license data: " + JSON.stringify(data));
   const isVerified = crypto.verify(
     "sha256",
-    dataBuffer,
+    new Uint8Array(dataBuffer.buffer),
     {
       key: publicKey,
       padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
     },
-    signature
+    new Uint8Array(signature.buffer)
   );
 
   // License key signature is invalid, don't use it

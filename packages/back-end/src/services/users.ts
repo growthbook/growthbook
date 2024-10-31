@@ -60,7 +60,10 @@ export async function verifyPassword(
     salt,
     HASH_LEN
   ) as Promise<Buffer>);
-  return crypto.timingSafeEqual(keyBuffer, derivedKey);
+  return crypto.timingSafeEqual(
+    new Uint8Array(keyBuffer.buffer),
+    new Uint8Array(derivedKey.buffer)
+  );
 }
 
 export async function updatePassword(userId: string, password: string) {
