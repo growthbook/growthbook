@@ -80,83 +80,6 @@ QUERY_OUTPUT = [
 
 MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT)
 
-# used for testing bandits
-QUERY_OUTPUT_BANDITS = [
-    {
-        "dimension": "All",
-        "bandit_period": 0,
-        "variation": "zero",
-        "main_sum": 270,
-        "main_sum_squares": 848.79,
-        "users": 100,
-        "count": 100,
-    },
-    {
-        "dimension": "All",
-        "bandit_period": 0,
-        "variation": "one",
-        "main_sum": 300,
-        "main_sum_squares": 869,
-        "users": 120,
-        "count": 120,
-    },
-    {
-        "dimension": "All",
-        "bandit_period": 0,
-        "variation": "two",
-        "main_sum": 740,
-        "main_sum_squares": 1615.59,
-        "users": 200,
-        "count": 200,
-    },
-    {
-        "dimension": "All",
-        "bandit_period": 0,
-        "variation": "three",
-        "main_sum": 770,
-        "main_sum_squares": 1571,
-        "users": 220,
-        "count": 220,
-    },
-    {
-        "dimension": "All",
-        "bandit_period": 1,
-        "variation": "zero",
-        "main_sum": 270,
-        "main_sum_squares": 848.79,
-        "users": 100,
-        "count": 100,
-    },
-    {
-        "dimension": "All",
-        "bandit_period": 1,
-        "variation": "one",
-        "main_sum": 300,
-        "main_sum_squares": 869,
-        "users": 120,
-        "count": 120,
-    },
-    {
-        "dimension": "All",
-        "bandit_period": 1,
-        "variation": "two",
-        "main_sum": 740,
-        "main_sum_squares": 1615.59,
-        "users": 200,
-        "count": 200,
-    },
-    {
-        "dimension": "All",
-        "bandit_period": 1,
-        "variation": "three",
-        "main_sum": 770,
-        "main_sum_squares": 1571,
-        "users": 220,
-        "count": 220,
-    },
-]
-
-
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
         {
@@ -329,7 +252,7 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     decision_metric="count_metric",
     bandit_weights_seed=int(100),
     weight_by_period=True,
-    top_two=True,
+    top_two=False,
 )
 
 
@@ -832,70 +755,99 @@ class TestFormatResults(TestCase):
 class TestBandit(TestCase):
     def setUp(self):
         # preprocessing steps
-        self.rows = QUERY_OUTPUT_BANDITS
+        self.rows = copy.deepcopy(QUERY_OUTPUT)
+        for index, row in enumerate(self.rows):
+            row["dimension"] = ""
+            if index == 2:
+                row["variation"] = "two"
+            if index == 3:
+                row["variation"] = "three"
         self.metric = COUNT_METRIC
         self.analysis = DEFAULT_ANALYSIS
         self.bandit_analysis = BANDIT_ANALYSIS
         self.update_messages = [
             "successfully updated",
         ]
-        self.true_weights = [0.3716, 0.13325, 0.2488, 0.24635]
-        self.true_additional_reward = 192.0
-        num_variations = len(self.true_weights)
-        self.constant_weights = [1 / num_variations] * num_variations
+        self.num_variations = len(self.rows)
+        self.constant_weights = [1 / self.num_variations] * self.num_variations
         self.historical_weights = [self.constant_weights, self.constant_weights]
-
-    import unittest
-
-    @unittest.skip("will update this test later in the week")
-    def test_create_bandit_statistics(self):
-        df = get_metric_df(
-            rows=pd.DataFrame(self.rows),
-            var_id_map={v: i for i, v in enumerate(self.bandit_analysis.var_ids)},
-            var_names=self.bandit_analysis.var_names,
+        self.r = get_bandit_result(
+            self.rows, self.metric, self.analysis, self.bandit_analysis
         )
-        result = create_bandit_statistics(df, self.metric)
-        stats_0 = []
-        stats_1 = []
-        for d in QUERY_OUTPUT_BANDITS:
-            if d["bandit_period"] == 0:
-                stats_0.append(
-                    SampleMeanStatistic(
-                        n=d["count"],
-                        sum=d["main_sum"],
-                        sum_squares=d["main_sum_squares"],
-                    )
-                )
-            if d["bandit_period"] == 1:
-                stats_1.append(
-                    SampleMeanStatistic(
-                        n=d["count"],
-                        sum=d["main_sum"],
-                        sum_squares=d["main_sum_squares"],
-                    )
-                )
-        result_true = {
-            0: BanditPeriodDataSampleMean(stats_0, self.constant_weights),
-            1: BanditPeriodDataSampleMean(stats_1, self.constant_weights),
-        }
-        self.assertEqual(result, result_true)
-
-    import unittest
-
-    @unittest.skip("will update this test later in the week")
-    def test_get_bandit_result_2(self):
-        b = preprocess_bandits(
-            self.rows, self.metric, self.bandit_analysis, self.analysis.alpha, "All"
+        self.variation_results = pd.DataFrame(self.rows)
+        self.variation_results = self.variation_results.reindex(
+            [1, 0, 2, 3]
+        )  # now variation zero is first
+        self.variation_results["cr"] = (
+            self.variation_results["main_sum"] / self.variation_results["users"]
         )
-        if isinstance(b, BanditsSimple):
-            result = get_bandit_result(
-                self.rows, self.metric, self.analysis, self.bandit_analysis
-            )
-            self.assertEqual(result.updateMessage, self.update_messages[0])
-            self.assertEqual(result.updatedWeights, self.true_weights)
-            # self.assertEqual(result.additionalReward, self.true_additional_reward)
+        self.variation_results["v"] = (
+            self.variation_results["main_sum_squares"]
+            - self.variation_results["users"] * self.variation_results["cr"] ** 2
+        ) / (self.variation_results["users"] - 1)
+        self.variation_results["lower"] = round(
+            self.variation_results["cr"]
+            - np.sqrt(self.variation_results["v"] / self.variation_results["users"])
+            * 1.959964,
+            4,
+        )
+        self.variation_results["upper"] = round(
+            self.variation_results["cr"]
+            + np.sqrt(self.variation_results["v"] / self.variation_results["users"])
+            * 1.959964,
+            4,
+        )
+
+    def test_update_message(self):
+        self.assertEqual(self.r.updateMessage, self.update_messages[0])
+
+    def test_single_variation_results(self):
+        if self.r.singleVariationResults:
+            cr_rounded = [
+                round(single_variation_result.cr, 4)
+                if single_variation_result.cr
+                else 0
+                for single_variation_result in self.r.singleVariationResults
+            ]
+            lower_rounded = [
+                round(single_variation_result.ci[0], 4)
+                if single_variation_result.ci
+                else 0
+                for single_variation_result in self.r.singleVariationResults
+            ]
+            upper_rounded = [
+                round(single_variation_result.ci[1], 4)
+                if single_variation_result.ci
+                else 0
+                for single_variation_result in self.r.singleVariationResults
+            ]
+            self.assertEqual(cr_rounded, list(self.variation_results["cr"]))
+            self.assertEqual(lower_rounded, list(self.variation_results["lower"]))
+            self.assertEqual(upper_rounded, list(self.variation_results["upper"]))
         else:
-            assert 1 > 2, "wrong class"
+            assert 1 > 2, "singleVariationResults do not exist"
+
+    def test_variation_weights(self):
+        rng = np.random.default_rng(seed=self.bandit_analysis.bandit_weights_seed)
+        m = np.array(self.variation_results["cr"])
+        v = np.array(self.variation_results["v"] / self.variation_results["users"])
+        y = rng.multivariate_normal(
+            mean=m,
+            cov=np.diag(v),
+            size=int(1e4),
+        )
+        best_probs = np.empty((self.num_variations,))
+        best_rows = np.max(y, axis=1)
+        for variation in range(self.num_variations):
+            best_probs[variation] = np.mean(y[:, variation] == best_rows)
+        best_probs[best_probs < 0.01] = 0.01
+        best_probs /= sum(best_probs)
+        best_probs = np.round(np.array(best_probs, dtype=float), decimals=4)
+        if self.r.updatedWeights:
+            result_rounded = np.array([round(num, 4) for num in self.r.updatedWeights])
+            self.assertTrue(np.array_equal(result_rounded, best_probs))
+        else:
+            self.assertEqual(1, 2)
 
 
 if __name__ == "__main__":
