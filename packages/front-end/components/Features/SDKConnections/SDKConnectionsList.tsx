@@ -60,13 +60,14 @@ export default function SDKConnectionsList() {
     "sdk-connections-new-empty-state"
   );
 
+  const [
+    initialModalSelectedLanguage,
+    setInitialModalSelectedLanguage,
+  ] = useState<SDKLanguage | null>(null);
   const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
   const sdkLanguagesToShow = getLanguagesByFilter(
     showAllSdkLanguages ? "all" : "popular"
   ).sort(popularLanguagesFirst);
-  const [selectedLanguage, setSelectedLanguage] = useState<SDKLanguage | null>(
-    null
-  );
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -97,28 +98,31 @@ export default function SDKConnectionsList() {
     <Box
       pt="9"
       pb="7"
-      px="6"
+      px="10%"
       mb="4"
       style={{ backgroundColor: "var(--color-panel-solid)" }}
     >
       <Flex direction="column" align="center">
-        <Heading as="h2" size="7">
+        <Heading as="h2" size="6" align="center">
           Easily integrate GrowthBook into your app or website
         </Heading>
-        <Text>
+        <Text size="3" align="center">
           Select your SDK to connect your front-end, back-end or mobile app.
         </Text>
       </Flex>
 
-      <Separator size="4" mt="5" mb="4" />
+      <Separator size="4" mt="7" mb="5" />
 
-      <Heading as="h3" size="2">
+      <Heading as="h3" size="2" mb="3">
         <Strong>Select your SDK:</Strong>
       </Heading>
 
       <Flex
         justify="start"
-        direction="row"
+        direction={{
+          initial: "column",
+          xs: "row",
+        }}
         wrap="wrap"
         gapX="5"
         gapY="4"
@@ -131,7 +135,7 @@ export default function SDKConnectionsList() {
             selected={false}
             onClick={(e) => {
               e.preventDefault();
-              setSelectedLanguage(language);
+              setInitialModalSelectedLanguage(language);
               setModalOpen(true);
             }}
           />
@@ -144,7 +148,7 @@ export default function SDKConnectionsList() {
           onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
           size="sm"
         >
-          {showAllSdkLanguages ? "Show less" : "Show all"}
+          <Strong>{showAllSdkLanguages ? "Show less" : "Show all"}</Strong>
         </Button>
       </Flex>
     </Box>
@@ -155,7 +159,9 @@ export default function SDKConnectionsList() {
       {modalOpen && (
         <SDKConnectionForm
           initialValue={{
-            languages: selectedLanguage ? [selectedLanguage] : [],
+            languages: initialModalSelectedLanguage
+              ? [initialModalSelectedLanguage]
+              : [],
           }}
           close={() => setModalOpen(false)}
           mutate={mutate}

@@ -17,7 +17,7 @@ export type Props = {
   setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
-  children: string | string[];
+  children: ReactNode;
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
