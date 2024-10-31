@@ -45,6 +45,7 @@ class BanditResponse:
 def get_error_bandit_result(
     single_variation_results: Optional[List[SingleVariationResult]],
     update_message: str,
+    srm: float,
     error: str,
     reweight: bool,
     current_weights: List[float],
@@ -53,7 +54,7 @@ def get_error_bandit_result(
         singleVariationResults=single_variation_results,
         currentWeights=current_weights,
         updatedWeights=current_weights,
-        srm=1,
+        srm=srm,
         bestArmProbabilities=None,
         seed=0,
         updateMessage=update_message,
@@ -135,15 +136,28 @@ class Bandits(ABC):
             )
         return np.sum(counts_expected_by_period, axis=0)
 
-    def compute_srm(self) -> float:
-        resid = self.variation_counts - self.counts_expected
-        resid_squared = resid**2
-        positive_expected = self.counts_expected > 0
-        test_stat = np.sum(
-            resid_squared[positive_expected] / self.counts_expected[positive_expected]
+    @property
+    def enough_samples_for_srm(self):
+        expected_count = (
+            self.current_sample_size / self.num_variations
+            if self.num_variations > 0
+            else 0
         )
-        df = self.num_variations - 1
-        return float(1 - chi2.cdf(test_stat, df=df))
+        return expected_count >= 5
+
+    def compute_srm(self) -> float:
+        if self.enough_samples_for_srm:
+            resid = self.variation_counts - self.counts_expected
+            resid_squared = resid**2
+            positive_expected = self.counts_expected > 0
+            test_stat = np.sum(
+                resid_squared[positive_expected]
+                / self.counts_expected[positive_expected]
+            )
+            df = self.num_variations - 1
+            return float(1 - chi2.cdf(test_stat, df=df))
+        else:
+            return 1
 
     # sample sizes by variation
     @property

@@ -652,6 +652,7 @@ def get_bandit_result(
             return get_error_bandit_result(
                 single_variation_results=None,
                 update_message="not updated",
+                srm=1,
                 error="not all statistics are instance of type BanditStatistic",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
@@ -671,6 +672,7 @@ def get_bandit_result(
                 return get_error_bandit_result(
                     single_variation_results=single_variation_results,
                     update_message=bandit_result.bandit_update_message,
+                    srm=srm_p_value,
                     error="",
                     reweight=bandit_settings.reweight,
                     current_weights=bandit_settings.current_weights,
@@ -701,6 +703,7 @@ def get_bandit_result(
             return get_error_bandit_result(
                 single_variation_results=None,
                 update_message="not updated",
+                srm=1,
                 error=error_message,
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
@@ -708,6 +711,7 @@ def get_bandit_result(
     return get_error_bandit_result(
         single_variation_results=None,
         update_message="not updated",
+        srm=1,
         error="no data froms sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
@@ -794,6 +798,7 @@ def process_experiment_results(
             single_variation_results=None,
             update_message="not updated",
             error="no rows",
+            srm=1,
             reweight=d.bandit_settings.reweight,
             current_weights=d.bandit_settings.current_weights,
         )
