@@ -53,7 +53,7 @@ const MetricGroupsList: FC = () => {
   if (!hasGroupsFeature) {
     return (
       <div className="">
-        <div className="filters md-form row mb-1 align-items-center">
+        <div className="filters md-form row mb-3 align-items-center">
           <div className="col-auto">
             <h1 className="mb-0">Metric Groups</h1>
             <div>
@@ -204,11 +204,9 @@ const MetricGroupsList: FC = () => {
             </tbody>
           </table>
         ) : (
-          <div className="text-center p-4">
-            <p>
-              No metric groups defined. Click the button in the top right to
-              create your first metric group.
-            </p>
+          <div className="appbox p-4 text-center">
+            No metric groups defined. Click the button in the top right to
+            create your first metric group.
           </div>
         )}
       </div>
