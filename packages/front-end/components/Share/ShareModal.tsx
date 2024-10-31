@@ -593,6 +593,7 @@ const ShareModal = ({
 
   return (
     <PagedModal
+      trackingEventModalType="share"
       header={title}
       close={() => setModalState(false)}
       submit={submitForm}
@@ -742,7 +743,7 @@ const ShareModal = ({
                       }}
                       id="checkbox-voting"
                     />
-                  </div> 
+                  </div>
                 </div>*/}
             <div className="form-group row">
               <label htmlFor="" className="col-sm-4 col-form-label text-right">

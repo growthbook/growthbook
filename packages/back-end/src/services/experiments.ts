@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
+import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
@@ -34,6 +35,7 @@ import {
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
+import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { BanditResult } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -415,15 +417,21 @@ export function getSnapshotSettings({
             phase?.variationWeights ??
             [],
           historicalWeights:
-            phase?.banditEvents?.map((event) => ({
-              date: event.date,
-              weights: event.banditResult.currentWeights,
-              totalUsers:
-                event.banditResult?.singleVariationResults?.reduce(
-                  (sum, cur) => sum + (cur.users ?? 0),
-                  0
-                ) ?? 0,
-            })) ?? [],
+            phase?.banditEvents
+              ?.filter(
+                // only keep first sign post or reweight event for
+                // srm or SQL
+                (event, i) => i === 0 || event.banditResult?.reweight
+              )
+              .map((event) => ({
+                date: event.date,
+                weights: event.banditResult.updatedWeights,
+                totalUsers:
+                  event.banditResult?.singleVariationResults?.reduce(
+                    (sum, cur) => sum + (cur.users ?? 0),
+                    0
+                  ) ?? 0,
+              })) ?? [],
         }
       : undefined;
 
@@ -686,6 +694,8 @@ export function resetExperimentBanditSettings({
   changes.queryFilter = undefined;
   // metric overrides
   changes.metricOverrides = undefined;
+  // don't disable sticky bucketing
+  changes.disableStickyBucketing = false;
 
   // Reset bandit stage
   if (!preserveExistingBanditEvents) {
@@ -712,13 +722,21 @@ export function resetExperimentBanditSettings({
   // Scheduling
   // ensure bandit scheduling exists
   changes.banditScheduleValue =
-    changes.banditScheduleValue ?? settings.banditScheduleValue.value;
+    changes.banditScheduleValue ??
+    experiment.banditScheduleValue ??
+    settings.banditScheduleValue.value;
   changes.banditScheduleUnit =
-    changes.banditScheduleUnit ?? settings.banditScheduleUnit.value;
+    changes.banditScheduleUnit ??
+    experiment.banditScheduleUnit ??
+    settings.banditScheduleUnit.value;
   changes.banditBurnInValue =
-    changes.banditBurnInValue ?? settings.banditBurnInValue.value;
+    changes.banditBurnInValue ??
+    experiment.banditBurnInValue ??
+    settings.banditBurnInValue.value;
   changes.banditBurnInUnit =
-    changes.banditBurnInUnit ?? settings.banditBurnInUnit.value;
+    changes.banditBurnInUnit ??
+    experiment.banditBurnInUnit ??
+    settings.banditBurnInUnit.value;
   // schedule
   changes.nextSnapshotAttempt = determineNextBanditSchedule({
     ...experiment,
@@ -743,7 +761,7 @@ export function updateExperimentBanditSettings({
 }): Changeset {
   if (!changes) changes = {};
   if (!changes.phases) {
-    changes.phases = [...experiment.phases];
+    changes.phases = cloneDeep<ExperimentPhase[]>(experiment.phases);
   }
   const phase = changes.phases.length - 1;
 
@@ -787,6 +805,8 @@ export function updateExperimentBanditSettings({
     if (reweight) {
       // apply the latest weights (SDK level)
       changes.phases[phase].variationWeights = banditResult.updatedWeights;
+      // re-randomize to reduce bias (in cases of multiple exposures / failed sticky bucketing)
+      changes.phases[phase].seed = uuidv4();
     } else {
       // ignore (revert) the weight changes
       banditResult.updatedWeights = changes.phases[phase].variationWeights;

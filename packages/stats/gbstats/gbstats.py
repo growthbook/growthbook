@@ -650,17 +650,16 @@ def get_bandit_result(
     if b:
         if any(value is None for value in b.stats):
             return get_error_bandit_result(
+                single_variation_results=None,
+                update_message="not updated",
+                srm=1,
                 error="not all statistics are instance of type BanditStatistic",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
         srm_p_value = b.compute_srm()
         bandit_result = b.compute_result()
-        if (
-            bandit_result.bandit_update_message == "successfully updated"
-            and bandit_result.ci
-            and bandit_result.bandit_weights
-        ):
+        if bandit_result.ci:
             single_variation_results = [
                 SingleVariationResult(n, mn, ci)
                 for n, mn, ci in zip(
@@ -669,26 +668,50 @@ def get_bandit_result(
                     bandit_result.ci,
                 )
             ]
-            return BanditResult(
-                singleVariationResults=single_variation_results,
-                currentWeights=bandit_settings.current_weights,
-                updatedWeights=bandit_result.bandit_weights
-                if bandit_settings.reweight
-                else bandit_settings.current_weights,
-                srm=srm_p_value,
-                bestArmProbabilities=bandit_result.best_arm_probabilities,
-                seed=bandit_result.seed,
-                updateMessage=bandit_result.bandit_update_message,
-                error="",
-                reweight=bandit_settings.reweight,
-            )
+            if not bandit_result.enough_units:
+                return get_error_bandit_result(
+                    single_variation_results=single_variation_results,
+                    update_message=bandit_result.bandit_update_message,
+                    srm=srm_p_value,
+                    error="",
+                    reweight=bandit_settings.reweight,
+                    current_weights=bandit_settings.current_weights,
+                )
+            if (
+                bandit_result.bandit_update_message == "successfully updated"
+                and bandit_result.bandit_weights
+            ):
+                return BanditResult(
+                    singleVariationResults=single_variation_results,
+                    currentWeights=bandit_settings.current_weights,
+                    updatedWeights=bandit_result.bandit_weights
+                    if bandit_settings.reweight
+                    else bandit_settings.current_weights,
+                    srm=srm_p_value,
+                    bestArmProbabilities=bandit_result.best_arm_probabilities,
+                    seed=bandit_result.seed,
+                    updateMessage=bandit_result.bandit_update_message,
+                    error="",
+                    reweight=bandit_settings.reweight,
+                )
         else:
+            error_message = (
+                bandit_result.bandit_update_message
+                if bandit_result.bandit_update_message
+                else "unknown error in get_bandit_result"
+            )
             return get_error_bandit_result(
-                error="bandit result computation failed",
+                single_variation_results=None,
+                update_message="not updated",
+                srm=1,
+                error=error_message,
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
     return get_error_bandit_result(
+        single_variation_results=None,
+        update_message="not updated",
+        srm=1,
         error="no data froms sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
@@ -741,6 +764,8 @@ def process_experiment_results(
                         # when using multi-period data, binomial is no longer iid and variance is wrong
                         if metric_settings_bandit.main_metric_type == "binomial":
                             metric_settings_bandit.main_metric_type = "count"
+                        if metric_settings_bandit.covariate_metric_type == "binomial":
+                            metric_settings_bandit.covariate_metric_type = "count"
                         if (
                             metric == d.bandit_settings.decision_metric
                             and not d.analyses[0].dimension
@@ -768,13 +793,15 @@ def process_experiment_results(
                                 analyses=d.analyses,
                             )
                         )
-                else:
-                    if d.bandit_settings:
-                        bandit_result = get_error_bandit_result(
-                            error="no rows",
-                            reweight=d.bandit_settings.reweight,
-                            current_weights=d.bandit_settings.current_weights,
-                        )
+    if d.bandit_settings and bandit_result is None:
+        bandit_result = get_error_bandit_result(
+            single_variation_results=None,
+            update_message="not updated",
+            error="no rows",
+            srm=1,
+            reweight=d.bandit_settings.reweight,
+            current_weights=d.bandit_settings.current_weights,
+        )
     return results, bandit_result
 
 

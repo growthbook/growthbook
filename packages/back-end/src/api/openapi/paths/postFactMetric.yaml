@@ -7,7 +7,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
-        -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
+        -d '{"name":"Purchased", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
         -u secret_abc123DEF456:
 requestBody:
   required: true

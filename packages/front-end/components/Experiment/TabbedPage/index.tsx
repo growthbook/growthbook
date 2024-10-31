@@ -271,7 +271,7 @@ export default function TabbedPage({
           source={trackSource}
         />
       )}
-      {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}
+      {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
       <ExperimentHeader
         experiment={experiment}
         tab={tab}
@@ -291,6 +291,7 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         verifiedConnections={verifiedConnections}
+        linkedFeatures={linkedFeatures}
       />
       <div className="container pagecontents pb-4 px-3">
         {experiment.project ===

@@ -7,7 +7,7 @@ import random
 from pydantic.dataclasses import dataclass
 from scipy.stats import chi2  # type: ignore
 
-from gbstats.models.results import BanditResult
+from gbstats.models.results import BanditResult, SingleVariationResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -38,20 +38,26 @@ class BanditResponse:
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     seed: int
-    bandit_update_message: Optional[str]
+    bandit_update_message: str
+    enough_units: Optional[bool]
 
 
 def get_error_bandit_result(
-    error: str, reweight: bool, current_weights: List[float]
+    single_variation_results: Optional[List[SingleVariationResult]],
+    update_message: str,
+    srm: float,
+    error: str,
+    reweight: bool,
+    current_weights: List[float],
 ) -> BanditResult:
     return BanditResult(
-        singleVariationResults=None,
+        singleVariationResults=single_variation_results,
         currentWeights=current_weights,
         updatedWeights=current_weights,
-        srm=1,
+        srm=srm,
         bestArmProbabilities=None,
         seed=0,
-        updateMessage="not updated",
+        updateMessage=update_message,
         error=error,
         reweight=reweight,
     )
@@ -88,10 +94,6 @@ class Bandits(ABC):
         return len(self.historical_periods)
 
     @property
-    def num_periods(self) -> int:
-        return self.num_periods_historical + 1
-
-    @property
     def num_variations(self) -> int:
         return len(self.stats)
 
@@ -114,36 +116,48 @@ class Bandits(ABC):
             bandit_period.total_users for bandit_period in self.historical_periods
         ]
         cumulative_counts = cumulative_counts_historical + [self.current_sample_size]
-        period_counts = [cumulative_counts[0]]
-        if self.num_periods > 1:
-            for period in range(1, self.num_periods):
+        # the total user counts collected at the end of the 1st period correspond to weights for 0th period
+        period_counts = [cumulative_counts[1]]
+        if self.num_periods_historical > 1:
+            for period in range(1, self.num_periods_historical):
                 period_counts.append(
-                    cumulative_counts[period] - cumulative_counts[period - 1]
+                    cumulative_counts[period + 1] - cumulative_counts[period]
                 )
         return np.array(period_counts)
 
     @property
     def counts_expected(self) -> np.ndarray:
-        counts_expected_by_period = np.empty((self.num_periods, self.num_variations))
+        counts_expected_by_period = np.empty(
+            (self.num_periods_historical, self.num_variations)
+        )
         for period in range(self.num_periods_historical):
             counts_expected_by_period[period] = (
                 self.period_counts[period] * self.historical_weights_array[period, :]
             )
-        counts_expected_by_period[self.num_periods_historical] = (
-            np.array(self.current_weights)
-            * self.period_counts[self.num_periods_historical]
-        )
         return np.sum(counts_expected_by_period, axis=0)
 
-    def compute_srm(self) -> float:
-        resid = self.variation_counts - self.counts_expected
-        resid_squared = resid**2
-        positive_expected = self.counts_expected > 0
-        test_stat = np.sum(
-            resid_squared[positive_expected] / self.counts_expected[positive_expected]
+    @property
+    def enough_samples_for_srm(self):
+        expected_count = (
+            self.current_sample_size / self.num_variations
+            if self.num_variations > 0
+            else 0
         )
-        df = self.num_variations - 1
-        return float(1 - chi2.cdf(test_stat, df=df))
+        return expected_count >= 5
+
+    def compute_srm(self) -> float:
+        if self.enough_samples_for_srm:
+            resid = self.variation_counts - self.counts_expected
+            resid_squared = resid**2
+            positive_expected = self.counts_expected > 0
+            test_stat = np.sum(
+                resid_squared[positive_expected]
+                / self.counts_expected[positive_expected]
+            )
+            df = self.num_variations - 1
+            return float(1 - chi2.cdf(test_stat, df=df))
+        else:
+            return 1
 
     # sample sizes by variation
     @property
@@ -233,19 +247,18 @@ class Bandits(ABC):
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
-        min_n = 100 * self.num_variations
-        enough_data = sum(self.variation_counts) >= min_n
-
+        enough_units = all(self.variation_counts >= 100)
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
             ci=credible_intervals,
-            bandit_weights=p.tolist() if enough_data else None,
+            bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             seed=seed,
             bandit_update_message=update_message
-            if enough_data
-            else "total sample size is less than 100 times number of variations",
+            if enough_units
+            else "total sample size must be at least 100 per variation",
+            enough_units=enough_units,
         )
 
     # function that takes weights for largest realization and turns into top two weights
@@ -430,12 +443,11 @@ class BanditsCuped(Bandits):
     # for cuped, when producing intervals for the leaderboard, add back in the pooled baseline mean
     @property
     def addback(self) -> float:
-        total_n = sum(self.variation_counts)
-        if total_n:
+        if self.current_sample_size:
             return float(
                 self.theta
                 * np.sum(self.variation_counts * self.variation_means_pre)
-                / total_n
+                / self.current_sample_size
             )
         else:
             return 0

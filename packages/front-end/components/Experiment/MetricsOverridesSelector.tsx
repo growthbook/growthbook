@@ -218,7 +218,7 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong className="text-body">
+                  <strong>
                     <MetricName id={metricDefinition?.id || ""} />
                   </strong>
                 </label>

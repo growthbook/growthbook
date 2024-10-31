@@ -31,9 +31,9 @@ describe("Build base user permissions", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1305,9 +1305,9 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1466,9 +1466,9 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1682,9 +1682,9 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1841,9 +1841,9 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1935,9 +1935,9 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2094,9 +2094,9 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2162,9 +2162,9 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2230,9 +2230,9 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2299,9 +2299,9 @@ describe("PermissionsUtilClass.canCreatePresentation check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2367,9 +2367,9 @@ describe("PermissionsUtilClass.canUpdatePresentation check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2435,9 +2435,9 @@ describe("PermissionsUtilClass.canDeletePresentation check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2503,9 +2503,9 @@ describe("PermissionsUtilClass.canCreateDimension check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2571,9 +2571,9 @@ describe("PermissionsUtilClass.canUpdateDimension check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2639,9 +2639,9 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2707,9 +2707,9 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2775,9 +2775,9 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2843,9 +2843,9 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2912,9 +2912,9 @@ describe("PermissionsUtilClass.canCreateIdea check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2999,9 +2999,9 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3120,9 +3120,9 @@ describe("PermissionsUtilClass.canDeleteIdea check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3207,9 +3207,9 @@ describe("PermissionsUtilClass.canViewExperimentModal check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3294,9 +3294,9 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3385,9 +3385,9 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3509,9 +3509,9 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3600,9 +3600,9 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3779,9 +3779,9 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3979,9 +3979,9 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4158,9 +4158,9 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4270,9 +4270,9 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4379,9 +4379,9 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4491,9 +4491,9 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4664,9 +4664,9 @@ describe("PermissionsUtilClass.canCreateProjects check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4722,9 +4722,9 @@ describe("PermissionsUtilClass.canUpdateProject check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4780,9 +4780,9 @@ describe("PermissionsUtilClass.canDeleteProject check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4837,9 +4837,9 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4892,9 +4892,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5015,9 +5015,9 @@ describe("PermissionsUtilClass.canCreateVisualChange", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5149,9 +5149,9 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5166,7 +5166,9 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateDataSource({ projects: [] })).toEqual(true);
+    expect(
+      permissions.canCreateDataSource({ projects: [], type: undefined })
+    ).toEqual(true);
   });
 
   it("User with engineer role is not able to create a data source", async () => {
@@ -5179,7 +5181,27 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateDataSource({ projects: [] })).toEqual(false);
+    expect(
+      permissions.canCreateDataSource({ projects: [], type: undefined })
+    ).toEqual(false);
+  });
+
+  it("User with admin role unable to create growthbook_clickhouse source", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateDataSource({
+        projects: [],
+        type: "growthbook_clickhouse",
+      })
+    ).toEqual(false);
   });
 });
 
@@ -5204,9 +5226,9 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5221,9 +5243,9 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateDataSourceParams({ projects: [] })).toEqual(
-      true
-    );
+    expect(
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+    ).toEqual(true);
   });
 
   it("User with engineer role is not able to create a data source's params", async () => {
@@ -5236,9 +5258,27 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateDataSourceParams({ projects: [] })).toEqual(
-      false
-    );
+    expect(
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+    ).toEqual(false);
+  });
+
+  it("User with admin role can't update a growthbook_clickhouse source's params", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canUpdateDataSourceParams({
+        projects: [],
+        type: "growthbook_clickhouse",
+      })
+    ).toEqual(false);
   });
 });
 
@@ -5263,9 +5303,9 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5417,9 +5457,9 @@ describe("PermissionsUtilClass.canDeleteDataSource", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5472,9 +5512,9 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5592,9 +5632,9 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5738,9 +5778,9 @@ describe("PermissionsUtilClass.canViewFeatureModal check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5812,9 +5852,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5905,9 +5945,9 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5996,9 +6036,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };

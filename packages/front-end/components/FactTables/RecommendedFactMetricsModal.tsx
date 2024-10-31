@@ -13,8 +13,8 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
-import { getDefaultFactMetricProps } from "@/components/FactTables/FactMetricModal";
 import Field from "@/components/Forms/Field";
+import { getDefaultFactMetricProps } from "@/services/metrics";
 
 type RecommendedMetric = Pick<
   CreateFactMetricProps,
