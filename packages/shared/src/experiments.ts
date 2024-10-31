@@ -739,7 +739,7 @@ export function expandMetricGroups(
 export function isMetricJoinable(
   metricIdTypes: string[],
   userIdType: string,
-  settings: DataSourceSettings
+  settings?: DataSourceSettings
 ): boolean {
   if (metricIdTypes.includes(userIdType)) return true;
 

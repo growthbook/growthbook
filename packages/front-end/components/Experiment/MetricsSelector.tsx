@@ -180,7 +180,7 @@ const MetricsSelector: FC<{
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) =>
       datasourceSettings && userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
+        ? isMetricJoinable(m.userIdTypes, userIdType)
         : true
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
@@ -211,26 +211,29 @@ const MetricsSelector: FC<{
       formatOptionLabel={({ value, label }, { context }) => {
         const option = filteredOptions.find((o) => o.id === value);
         const isGroup = option?.isGroup;
-        const joinableMetrics = isGroup
+        const metricsWithJoinableStatus = isGroup
           ? option?.metrics?.map((m) => {
               const metric = getExperimentMetricById(m);
-              if (!metric) return false;
+              if (!metric) return { metric, joinable: false };
               const userIdTypes = isFactMetric(metric)
                 ? factTables.find((f) => f.id === metric.numerator.factTableId)
                     ?.userIdTypes || []
                 : metric.userIdTypes || [];
-              return userIdType && userIdTypes.length
-                ? isMetricJoinable(userIdTypes, userIdType, datasourceSettings)
-                : true;
+              return {
+                metric,
+                joinable:
+                  userIdType && userIdTypes.length
+                    ? isMetricJoinable(userIdTypes, userIdType)
+                    : true,
+              };
             })
           : [];
-        const allJoinable = !joinableMetrics?.every((m) => m) ?? true;
         return value ? (
           <MetricName
             id={value}
             showDescription={context !== "value"}
             isGroup={isGroup}
-            allJoinable={allJoinable}
+            metrics={metricsWithJoinableStatus}
           />
         ) : (
           label

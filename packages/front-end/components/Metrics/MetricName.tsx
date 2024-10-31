@@ -6,10 +6,12 @@ import {
 } from "shared/experiments";
 import { VscListTree } from "react-icons/vsc";
 import React from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationCircle } from "react-icons/fa";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
+import HelperText from "@/components/Radix/HelperText";
 
 export function PercentileLabel({
   metric,
@@ -99,14 +101,14 @@ export default function MetricName({
   showOfficialLabel,
   showDescription,
   isGroup,
-  allJoinable,
+  metrics,
 }: {
   id: string;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
   isGroup?: boolean;
-  allJoinable?: boolean;
+  metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = getExperimentMetricById(id);
@@ -117,14 +119,52 @@ export default function MetricName({
     if (!metricGroup) {
       return <>{id}</>;
     }
+    const allJoinable = metrics?.every((m) => m.joinable) ?? true;
     return (
       <>
         <VscListTree className="mr-1" />
         {metricGroup.name}
-        <span className="ml-1 small">
-          ({metricGroup.metrics.length} metric
-          {metricGroup.metrics.length === 0 ? "" : "s"})
-        </span>
+        <Tooltip
+          className="text-danger px-1"
+          body={
+            <>
+              {!allJoinable && (
+                <div className="mb-2">
+                  <HelperText status="error">
+                    Includes some metrics that are not joinable
+                  </HelperText>
+                </div>
+              )}
+              {metrics && metrics.length > 0 ? (
+                <>
+                  <div>Group Metrics:</div>
+                  <ul className="ml-0 pl-3 mb-0">
+                    {metrics.map((m, i) => (
+                      <li
+                        key={i}
+                        className={clsx({ "text-danger": !m.joinable })}
+                      >
+                        {m.metric?.name}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+            </>
+          }
+        >
+          <span className="ml-1 small">
+            ({metricGroup.metrics.length} metric
+            {metricGroup.metrics.length === 0 ? "" : "s"})
+            {!allJoinable && (
+              <FaExclamationCircle
+                size={10}
+                className="position-relative text-danger ml-1"
+                style={{ top: -2 }}
+              />
+            )}
+          </span>
+        </Tooltip>
         {showDescription && metricGroup.description ? (
           <span className="text-muted">
             {" "}
@@ -134,14 +174,6 @@ export default function MetricName({
               : metricGroup?.description}
           </span>
         ) : null}
-        {!allJoinable && (
-          <Tooltip
-            className="ml-1 text-danger"
-            body="Includes some metrics that are not joinable"
-          >
-            <FaExclamationTriangle />
-          </Tooltip>
-        )}
       </>
     );
   }
