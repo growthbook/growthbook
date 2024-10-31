@@ -176,7 +176,7 @@ const getTooltipContents = (
           </HelperText>
         )}
         {!!d.reweight && !d.weightsWereUpdated && (
-          <HelperText status="info" my="2" size="md">
+          <HelperText status="warning" my="2" size="md">
             Variation weights were unable to update
           </HelperText>
         )}
@@ -226,7 +226,11 @@ const getTooltipData = (
     }
   }
 
-  const d = stackedData[closestIndex];
+  let d = stackedData[closestIndex];
+  if (d?.meta?.type === "today" && mode !== "weights") {
+    closestIndex = Math.max(0, closestIndex - 1);
+    d = stackedData?.[closestIndex];
+  }
   const x = xCoords[closestIndex];
   const y = d?.variations
     ? d.variations.map(
@@ -840,6 +844,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           ? curveLinear
                           : curveStepAfter
                       }
+                      defined={(d) =>
+                        d.data.meta.type === "today" ? mode === "weights" : true
+                      }
                     >
                       {({ stacks, path }) =>
                         stacks.map((stack, i) => {
@@ -872,7 +879,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           fill={getVariationColor(i, true)}
                           opacity={0.12}
                           curve={curveMonotoneX}
-                          defined={(d) => d?.meta?.[i]?.users !== 0}
+                          defined={(d) =>
+                            d?.meta?.[i]?.users !== 0 &&
+                            d?.meta?.type !== "today"
+                          }
                         />
                       );
                     })}
@@ -896,7 +906,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                               : curveStepAfter
                           }
                           defined={(d) =>
-                            mode !== "values" || d?.meta?.[i]?.users !== 0
+                            (mode !== "values" || d?.meta?.[i]?.users !== 0) &&
+                            d?.meta?.type !== "today"
                           }
                         />
                       );
