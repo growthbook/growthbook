@@ -85,7 +85,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
             <button
-              className="btn p-0 link-purple"
+              className="radixBtnPls"
               onClick={() => {
                 setAnalysisModal(true);
               }}

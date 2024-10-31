@@ -24,7 +24,7 @@ export default function BuildInformationSchemaCard({
         >
           <button
             disabled={!canRunQueries}
-            className="mt-2 btn btn-primary"
+            className="radixBtnPls"
             onClick={async (e) => {
               e.preventDefault();
               refreshOrCreateInfoSchema("POST");

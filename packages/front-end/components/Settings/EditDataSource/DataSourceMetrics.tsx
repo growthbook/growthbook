@@ -93,7 +93,7 @@ export default function DataSourceMetrics({
                 size="sm"
               />
               <button
-                className="btn btn-outline-primary font-weight-bold text-nowrap"
+                className="radixBtnPls"
                 onClick={() => setModalData({ mode: "new" })}
               >
                 <FaPlus className="mr-1" /> Add
@@ -101,7 +101,7 @@ export default function DataSourceMetrics({
             </>
           ) : null}
           <button
-            className="btn text-dark"
+            className="radixBtnPls"
             onClick={(e) => {
               e.preventDefault();
               setMetricsOpen(!metricsOpen);
@@ -213,7 +213,7 @@ export default function DataSourceMetrics({
                         <MoreMenu className="px-2">
                           {metric.onDuplicate ? (
                             <button
-                              className="btn dropdown-item py-2"
+                              className="radixBtnPls"
                               onClick={(e) => {
                                 e.preventDefault();
                                 metric.onDuplicate?.();
@@ -226,7 +226,7 @@ export default function DataSourceMetrics({
                           !metric.archived &&
                           metric.onEdit ? (
                             <button
-                              className="btn dropdown-item py-2"
+                              className="radixBtnPls"
                               onClick={(e) => {
                                 e.preventDefault();
                                 metric.onEdit?.();
@@ -237,7 +237,7 @@ export default function DataSourceMetrics({
                           ) : null}
                           {!metric.managedBy && metric.onArchive ? (
                             <button
-                              className="btn dropdown-item py-2"
+                              className="radixBtnPls"
                               color=""
                               onClick={async () => {
                                 await metric.onArchive?.(!metric.archived);

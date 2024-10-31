@@ -70,7 +70,7 @@ const ShowLicenseInfo: FC<{
               <div className="form-group row mb-1">
                 <div className="col-sm-12">
                   <button
-                    className="btn btn-premium font-weight-normal"
+                    className="radixBtnPls"
                     onClick={() => setUpgradeModal(true)}
                   >
                     <>

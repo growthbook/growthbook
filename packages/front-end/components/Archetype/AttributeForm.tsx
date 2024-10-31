@@ -242,7 +242,7 @@ export default function AttributeForm({
                   <div className="text-right">
                     <button
                       type="submit"
-                      className="btn btn-primary"
+                      className="radixBtnPls"
                       onClick={(e) => {
                         e.preventDefault();
                         try {

@@ -156,7 +156,7 @@ export default function ColumnList({ factTable }: Props) {
                 <td>
                   {canEdit && (
                     <button
-                      className="btn btn-link btn-sm"
+                      className="radixBtnPls"
                       onClick={(e) => {
                         e.preventDefault();
                         setEditOpen(col.column);

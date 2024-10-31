@@ -122,7 +122,7 @@ const VariationIdWarning: FC<{
             permissionsUtil.canRunExperimentQueries(datasource) &&
             permissionsUtil.canViewExperimentModal(project) && (
               <button
-                className="btn btn-info btn-sm ml-3"
+                className="radixBtnPls"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();

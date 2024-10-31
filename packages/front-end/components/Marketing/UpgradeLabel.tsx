@@ -47,7 +47,7 @@ export default function UpgradeLabel({
       {showUpgradeCTA && (
         <a
           href="#"
-          className="btn btn-sm btn-outline-primary ml-2 px-2 mb-2 col-auto"
+          className="radixBtnPls"
           style={{ paddingTop: "2px", paddingBottom: "2px" }}
           onClick={(e) => {
             e.preventDefault();

@@ -253,7 +253,7 @@ export default function EditTargetingModal({
               </div>
               <label
                 htmlFor="confirm-changes"
-                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-1 d-flex align-items-center justify-content-md-center"
+                className="radixBtnPls"
                 style={{ height: 35 }}
               >
                 <strong className="mr-2 user-select-none text-dark">

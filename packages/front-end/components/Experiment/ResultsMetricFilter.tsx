@@ -136,7 +136,7 @@ export default function ResultsMetricFilter({
             <div className="d-flex mt-3">
               {_filteringApplied ? (
                 <button
-                  className="btn btn-sm btn-link px-0"
+                  className="radixBtnPls"
                   onClick={(e) => {
                     e.preventDefault();
                     _setMetricFilter({});
@@ -148,7 +148,7 @@ export default function ResultsMetricFilter({
               ) : null}
               <div className="flex-1" />
               <button
-                className="btn btn-sm btn-primary"
+                className="radixBtnPls"
                 onClick={(e) => {
                   e.preventDefault();
                   setMetricFilter(_metricFilter);

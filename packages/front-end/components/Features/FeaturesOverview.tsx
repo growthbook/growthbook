@@ -514,7 +514,7 @@ export default function FeaturesOverview({
               className="d-inline-flex align-items-center mt-3"
             >
               <button
-                className="btn d-inline-block px-1 font-weight-bold link-purple"
+                className="radixBtnPls"
                 disabled={!hasPrerequisitesCommercialFeature}
                 onClick={() => {
                   setPrerequisiteModal({

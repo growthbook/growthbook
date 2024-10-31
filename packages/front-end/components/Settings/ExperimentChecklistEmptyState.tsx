@@ -15,7 +15,7 @@ export default function ExperimentChecklistEmptyState({
       </p>
       <div>
         <button
-          className="btn btn-outline-primary"
+          className="radixBtnPls"
           onClick={(e) => {
             e.preventDefault();
             setNewTaskInput({ task: "", completionType: "manual" });

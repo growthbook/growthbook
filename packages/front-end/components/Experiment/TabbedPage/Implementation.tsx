@@ -80,7 +80,7 @@ export default function Implementation({
               body="Cannot edit variations while the experiment is running."
             >
               <button
-                className="btn p-0 link-purple"
+                className="radixBtnPls"
                 disabled={!safeToEdit}
                 onClick={editVariations}
               >

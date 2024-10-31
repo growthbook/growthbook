@@ -64,7 +64,7 @@ const IdeasPage = (): React.ReactElement => {
         </p>
         {canCreateIdeas ? (
           <button
-            className="btn btn-success btn-lg"
+            className="radixBtnPls"
             onClick={() => {
               setCurrent({});
             }}

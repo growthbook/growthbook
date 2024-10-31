@@ -37,7 +37,7 @@ export default function PendingInformationSchemaCard({
             We&apos;re generating the information schema for this datasource.
             This may take a minute, depending on the size of the datasource.
           </div>
-          <button disabled={true} className="btn btn-link">
+          <button disabled={true} className="radixBtnPls">
             {fetching && <LoadingSpinner />} Checking Status
           </button>
         </div>

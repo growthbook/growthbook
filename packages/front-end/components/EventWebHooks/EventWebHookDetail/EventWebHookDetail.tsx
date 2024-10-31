@@ -182,13 +182,13 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           )}
 
           <div className="ml-auto d-flex align-items-center">
-            <button className="btn btn-primary" onClick={onEditModalOpen}>
+            <button className="radixBtnPls" onClick={onEditModalOpen}>
               <FaPencilAlt className="mr-1" /> Edit
             </button>
             <MoreMenu className="ml-2">
               <button
                 onClick={onTestWebhook}
-                className="btn dropdown-item pb-2"
+                className="radixBtnPls"
                 disabled={state && state.type === "loading"}
               >
                 Send Test
@@ -196,7 +196,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
               <button
                 onClick={onToggleWebhook}
-                className="btn dropdown-item pb-2"
+                className="radixBtnPls"
                 disabled={state && state.type === "loading"}
               >
                 {enabled ? "Disable" : "Enable"}
@@ -240,7 +240,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
             <span className="ml-2">
               {copySupported ? (
                 <button
-                  className="btn p-0 pb-1"
+                  className="radixBtnPls"
                   onClick={() => performCopy(signingKey)}
                 >
                   <span className="text-main" style={{ fontSize: "1.1rem" }}>

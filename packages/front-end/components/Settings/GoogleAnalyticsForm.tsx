@@ -46,7 +46,7 @@ const GoogleAnalyticsForm: FC<{
           ). Universal Analytics properties can connect below.
         </div>
         <button
-          className="btn btn-success"
+          className="radixBtnPls"
           onClick={(e) => {
             e.preventDefault();
             redirect();
@@ -79,7 +79,7 @@ const GoogleAnalyticsForm: FC<{
               <FaCheck /> Authenticated
             </div>
             <button
-              className="btn btn-secondary"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 redirect();

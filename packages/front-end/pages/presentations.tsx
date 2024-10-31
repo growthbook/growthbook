@@ -70,7 +70,7 @@ const PresentationPage = (): React.ReactElement => {
 
         {canCreatePresentation && (
           <button
-            className="btn btn-success btn-lg"
+            className="radixBtnPls"
             onClick={() => {
               setOpenNewPresentationModal(true);
             }}
@@ -199,7 +199,7 @@ const PresentationPage = (): React.ReactElement => {
                 ) : null}
                 <Link
                   href={`/present/${pres.id}`}
-                  className="btn btn-primary mr-3"
+                  className="radixBtnPls"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -216,14 +216,14 @@ const PresentationPage = (): React.ReactElement => {
                 </Link>
                 <Link
                   href={`/present/${pres.id}?exportMode=true&printMode=true`}
-                  className="btn btn-outline-primary mr-3"
+                  className="radixBtnPls"
                   target="_blank"
                   rel="noreferrer"
                 >
                   Print view
                 </Link>
                 <a
-                  className="btn btn-outline-primary mr-3"
+                  className="radixBtnPls"
                   onClick={(e) => {
                     e.preventDefault();
                     setSharableLink(`/present/${pres.id}`);

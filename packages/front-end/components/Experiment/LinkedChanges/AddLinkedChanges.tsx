@@ -105,7 +105,7 @@ const AddLinkedChangeRow = ({
           </b>
           {isCTAClickable ? (
             <div
-              className="btn btn-link link-purple p-0"
+              className="radixBtnPls"
               onClick={() => {
                 setModal(true);
               }}
@@ -114,14 +114,14 @@ const AddLinkedChangeRow = ({
             </div>
           ) : commercialFeature && !hasFeature ? (
             <PremiumTooltip commercialFeature={type as CommercialFeature}>
-              <div className="btn btn-link p-0 disabled">{cta}</div>
+              <div className="radixBtnPls">{cta}</div>
             </PremiumTooltip>
           ) : (
             <Tooltip
               body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
               tipPosition="top"
             >
-              <div className="btn btn-link disabled p-0">{cta}</div>
+              <div className="radixBtnPls">{cta}</div>
             </Tooltip>
           )}
         </div>

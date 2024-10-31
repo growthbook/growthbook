@@ -130,10 +130,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
         {canEdit && (
           <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold text-nowrap"
-              onClick={handleAdd}
-            >
+            <button className="radixBtnPls" onClick={handleAdd}>
               <FaPlus className="mr-1" /> Add
             </button>
           </div>
@@ -249,7 +246,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                 )}
 
                 <button
-                  className="btn ml-3 text-dark"
+                  className="radixBtnPls"
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
                   <FaChevronRight

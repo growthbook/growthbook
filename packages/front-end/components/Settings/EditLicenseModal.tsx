@@ -78,7 +78,7 @@ const EditLicenseModal: FC<{
               *******************************************
             </div>
             <button
-              className="btn btn-md btn-primary"
+              className="radixBtnPls"
               onClick={() => {
                 setEditField(true);
               }}

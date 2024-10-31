@@ -118,7 +118,7 @@ const PendingMemberList: FC<{
                 })}
                 <td>
                   <button
-                    className="btn btn-outline-success px-2"
+                    className="radixBtnPls"
                     onClick={async () => {
                       await apiCall(`/member/${member.id}/approve`, {
                         method: "POST",

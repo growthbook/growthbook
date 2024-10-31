@@ -16,7 +16,7 @@ export default function EmptyPowerCalculation({
         </div>
         <div className="col-auto">
           <button
-            className="btn btn-primary float-right"
+            className="radixBtnPls"
             onClick={() => showModal()}
             type="button"
           >
@@ -33,7 +33,7 @@ export default function EmptyPowerCalculation({
             Plan the duration of your next experiment.
           </div>
           <button
-            className="btn action-link mr-3 btn-primary mt-3"
+            className="radixBtnPls"
             onClick={() => showModal()}
             type="button"
           >

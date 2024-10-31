@@ -242,7 +242,7 @@ const DimensionsPage: FC = () => {
           settings.
         </p>
 
-        <Link href="/datasources" className="btn btn-outline-primary">
+        <Link href="/datasources" className="radixBtnPls">
           View Data Sources
         </Link>
       </div>

@@ -83,7 +83,7 @@ const Redirect = ({
           {canEdit && (
             <div>
               <button
-                className="btn btn-link"
+                className="radixBtnPls"
                 onClick={() => {
                   setEditingRedirect(true);
                 }}

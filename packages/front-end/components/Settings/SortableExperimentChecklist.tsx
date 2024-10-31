@@ -69,7 +69,7 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
           )}
         </div>
         <button
-          className="btn"
+          className="radixBtnPls"
           style={{
             color: "red",
             visibility: showDeleteBtn ? "visible" : "hidden",

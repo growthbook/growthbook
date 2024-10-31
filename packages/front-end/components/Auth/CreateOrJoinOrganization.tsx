@@ -178,7 +178,7 @@ const CreateOrJoinOrganization: FC<{
                       </div>
                       <button
                         type="button"
-                        className="btn btn-lg btn-primary"
+                        className="radixBtnPls"
                         onClick={() => {
                           joinOrgFormSubmit(org);
                         }}

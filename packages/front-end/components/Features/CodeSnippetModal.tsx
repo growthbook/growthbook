@@ -235,10 +235,7 @@ export default function CodeSnippetModal({
                 extensive documentation if you want to build your own and
                 contribute it back to the community!{" "}
               </p>
-              <DocLink
-                docSection="buildYourOwn"
-                className="btn btn-outline-primary"
-              >
+              <DocLink docSection="buildYourOwn" className="radixBtnPls">
                 View Documentation
               </DocLink>
             </div>

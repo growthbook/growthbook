@@ -163,7 +163,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
           <div className="col-xs-12 col-md-6">
             <Code language="sql" code={userEnteredQuery} expandable={true} />
             <button
-              className="btn btn-outline-primary"
+              className="radixBtnPls"
               type="button"
               onClick={(e) => {
                 e.preventDefault();

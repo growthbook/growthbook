@@ -532,7 +532,7 @@ export default function ExperimentImpact({
                 <div className="flex-1" />
                 <div className="col-auto">
                   <button
-                    className="btn btn-sm btn-primary"
+                    className="radixBtnPls"
                     onClick={() =>
                       updateSnapshots(experimentsWithNoImpact).then(
                         fetchSnapshots

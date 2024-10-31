@@ -475,7 +475,7 @@ const Layout = (): React.ReactElement => {
         <div className="p-3">
           {showUpgradeButton && (
             <button
-              className="btn btn-premium btn-block font-weight-normal"
+              className="radixBtnPls"
               onClick={() => setUpgradeModal(true)}
             >
               <>
@@ -485,7 +485,7 @@ const Layout = (): React.ReactElement => {
           )}
           <a
             href={inferDocUrl()}
-            className="btn btn-outline-light btn-block"
+            className="radixBtnPls"
             target="_blank"
             rel="noreferrer"
           >

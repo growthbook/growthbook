@@ -17,7 +17,7 @@ export type Props = {
   setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
-  children: string | string[];
+  children?: string | string[];
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
@@ -78,7 +78,7 @@ export default function Button({
       type={type}
     >
       {icon && iconPosition === "left" ? icon : null}
-      <Text weight="medium">{children}</Text>
+      {children ? <Text weight="medium">{children}</Text> : null}
       {icon && iconPosition === "right" ? icon : null}
     </RadixButton>
   );

@@ -36,10 +36,7 @@ export const getSavedGroupMessage = (
               return (
                 <li key={feature}>
                   <div className="d-flex">
-                    <Link
-                      href={`/features/${feature}`}
-                      className="btn btn-link pt-1 pb-1"
-                    >
+                    <Link href={`/features/${feature}`} className="radixBtnPls">
                       {feature}
                     </Link>
                   </div>

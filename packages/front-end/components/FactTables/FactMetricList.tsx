@@ -165,7 +165,7 @@ export default function FactMetricList({ factTable }: Props) {
             }
           >
             <button
-              className="btn btn-primary"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 if (!canCreateMetrics) return;
@@ -213,7 +213,7 @@ export default function FactMetricList({ factTable }: Props) {
                     <MoreMenu>
                       {canEdit(metric) && (
                         <button
-                          className="btn dropdown-item"
+                          className="radixBtnPls"
                           onClick={() => setEditMetric(metric)}
                         >
                           Edit
@@ -221,7 +221,7 @@ export default function FactMetricList({ factTable }: Props) {
                       )}
                       {canCreateMetrics && (
                         <button
-                          className="btn dropdown-item"
+                          className="radixBtnPls"
                           onClick={() =>
                             setDuplicateMetric({
                               ...metric,
@@ -234,7 +234,7 @@ export default function FactMetricList({ factTable }: Props) {
                       )}
                       {canEdit(metric) && (
                         <button
-                          className="btn dropdown-item"
+                          className="radixBtnPls"
                           onClick={async () => {
                             await apiCall(`/fact-metrics/${metric.id}`, {
                               method: "PUT",

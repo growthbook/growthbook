@@ -150,7 +150,7 @@ export default function SavedGroupTargetingField({
                 </div>
                 <div className="col-auto ml-auto">
                   <button
-                    className="btn btn-link text-danger"
+                    className="radixBtnPls"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();

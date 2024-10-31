@@ -144,7 +144,7 @@ const RefreshBanditButton: FC<{
                 <FaCaretDown />
               </span>
             }
-            toggleClassName="btn btn-outline-primary btn-sm p-0"
+            toggleclassName="radixBtnPls"
             toggleStyle={{ zIndex: "auto" }}
             className="nowrap py-0"
           >

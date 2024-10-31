@@ -19,7 +19,7 @@ const ViewQueryButton: FC<{
         />
       )}
       <button
-        className="btn btn-link"
+        className="radixBtnPls"
         onClick={(e) => {
           e.preventDefault();
           setOpen(true);

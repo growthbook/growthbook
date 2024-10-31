@@ -64,7 +64,7 @@ const EditOrganization: FC<{
           <div className="flex-grow-1">
             {currentOrg.disabled ? (
               <button
-                className="btn btn-info"
+                className="radixBtnPls"
                 onClick={async (e) => {
                   e.preventDefault();
                   await apiCall<{
@@ -84,7 +84,7 @@ const EditOrganization: FC<{
               </button>
             ) : (
               <button
-                className="btn btn-danger"
+                className="radixBtnPls"
                 onClick={async (e) => {
                   e.preventDefault();
                   if (

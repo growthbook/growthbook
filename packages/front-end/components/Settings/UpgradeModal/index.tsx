@@ -462,7 +462,7 @@ export default function UpgradeModal({ close, source }: Props) {
                         }
                       >
                         <button
-                          className="btn btn-primary m-3 w-100"
+                          className="radixBtnPls"
                           onClick={startPro}
                           disabled={isAtLeastPro}
                         >
@@ -528,7 +528,7 @@ export default function UpgradeModal({ close, source }: Props) {
                         }
                       >
                         <button
-                          className="btn btn-primary m-3 w-100"
+                          className="radixBtnPls"
                           onClick={startEnterprise}
                         >
                           Contact Us

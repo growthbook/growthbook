@@ -40,15 +40,12 @@ export default function PowerCalculationStatsEngineSettingsModal({
       includeCloseCta={false}
       cta="Update"
       secondaryCTA={
-        <button className="btn btn-link" onClick={close}>
+        <button className="radixBtnPls" onClick={close}>
           Cancel
         </button>
       }
       tertiaryCTA={
-        <button
-          className="btn btn-primary"
-          onClick={() => onSubmit(currentParams)}
-        >
+        <button className="radixBtnPls" onClick={() => onSubmit(currentParams)}>
           Update
         </button>
       }

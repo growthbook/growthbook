@@ -99,7 +99,7 @@ const ReportsPage = (): React.ReactElement => {
           <li>Select &quot;ad-hoc report&quot;</li>
         </ol>
 
-        <Link href="/experiments" className="btn btn-primary mb-2">
+        <Link href="/experiments" className="radixBtnPls">
           Go to Experiments
         </Link>
 

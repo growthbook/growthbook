@@ -244,7 +244,7 @@ export default function PrerequisiteTargetingField({
                   </div>
                   <div className="col-md-auto col-sm-12">
                     <button
-                      className="btn btn-link py-0 text-danger position-relative"
+                      className="radixBtnPls"
                       style={{ top: -4 }}
                       type="button"
                       onClick={(e) => {
@@ -403,7 +403,7 @@ export default function PrerequisiteTargetingField({
           </div>
 
           <button
-            className="btn p-0 ml-2 link-purple font-weight-bold"
+            className="radixBtnPls"
             disabled={!hasPrerequisitesCommercialFeature}
             onClick={(e) => {
               e.preventDefault();
@@ -426,7 +426,7 @@ export default function PrerequisiteTargetingField({
             No prerequisite targeting applied.
           </div>
           <button
-            className="btn p-0 ml-1 mt-2 link-purple font-weight-bold"
+            className="radixBtnPls"
             disabled={!hasPrerequisitesCommercialFeature}
             onClick={(e) => {
               e.preventDefault();

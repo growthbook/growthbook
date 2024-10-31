@@ -219,7 +219,7 @@ const Results: FC<{
           Add at least 1 metric to view results.{" "}
           {editMetrics && (
             <button
-              className="btn btn-primary btn-sm ml-3"
+              className="radixBtnPls"
               type="button"
               onClick={(e) => {
                 e.preventDefault();

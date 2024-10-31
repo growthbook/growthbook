@@ -49,7 +49,7 @@ export default function TrafficAndTargeting({
               <div className="flex-1" />
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
+                <button className="radixBtnPls" onClick={editTargeting}>
                   <span className="text-purple">Edit</span>
                 </button>
               ) : null}
@@ -131,7 +131,7 @@ export default function TrafficAndTargeting({
               <div className="flex-1" />
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
+                <button className="radixBtnPls" onClick={editTargeting}>
                   <span className="text-purple">Edit</span>
                 </button>
               ) : null}

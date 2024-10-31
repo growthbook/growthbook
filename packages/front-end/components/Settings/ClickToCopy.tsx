@@ -25,7 +25,7 @@ export default function ClickToCopy({
     >
       {copySupported ? (
         <button
-          className="btn p-0"
+          className="radixBtnPls"
           type="button"
           onClick={(e) => {
             e.preventDefault();

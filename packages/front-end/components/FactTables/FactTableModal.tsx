@@ -231,7 +231,7 @@ export default function FactTableModal({ existing, close }: Props) {
             )}
             <div>
               <button
-                className="btn btn-outline-primary"
+                className="radixBtnPls"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();

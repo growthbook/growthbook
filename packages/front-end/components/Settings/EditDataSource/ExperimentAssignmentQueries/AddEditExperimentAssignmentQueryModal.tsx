@@ -273,7 +273,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 )}
                 <div>
                   <button
-                    className="btn btn-primary mt-2"
+                    className="radixBtnPls"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();

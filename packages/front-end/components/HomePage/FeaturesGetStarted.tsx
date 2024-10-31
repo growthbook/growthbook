@@ -164,7 +164,7 @@ export default function FeaturesGetStarted({ features }: Props) {
                   href="https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
                   target="_blank"
                   rel="noreferrer"
-                  className="btn btn-outline-primary"
+                  className="radixBtnPls"
                   onClick={() => {
                     track("Install DevTools", {
                       type: "chrome",

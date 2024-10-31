@@ -319,7 +319,7 @@ export default function AutoGenerateMetricsModal({
                     tipPosition="top"
                   >
                     <button
-                      className="btn btn-link p-0 pl-1 text-secondary"
+                      className="radixBtnPls"
                       disabled={refreshingSchema}
                       onClick={async (e) => {
                         e.preventDefault();

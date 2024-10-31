@@ -195,7 +195,7 @@ const MarkdownInput: FC<{
             <div className="col-auto">
               {onCancel && (
                 <button
-                  className="btn btn-link mr-2 ml-3"
+                  className="radixBtnPls"
                   onClick={(e) => {
                     e.preventDefault();
                     onCancel();
@@ -205,7 +205,7 @@ const MarkdownInput: FC<{
                 </button>
               )}
               {cta && (
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="radixBtnPls">
                   {cta}
                 </button>
               )}

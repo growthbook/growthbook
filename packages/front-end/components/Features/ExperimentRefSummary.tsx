@@ -44,7 +44,7 @@ function ExperimentSkipped({
             <div className="ml-auto">
               <Link
                 href={`/experiment/${experimentId}`}
-                className="btn btn-outline-primary"
+                className="radixBtnPls"
               >
                 {cta}
               </Link>

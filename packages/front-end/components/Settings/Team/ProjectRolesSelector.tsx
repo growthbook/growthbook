@@ -91,7 +91,7 @@ export default function ProjectRolesSelector({
           </div>
           <div className="col-auto">
             <button
-              className="btn btn-outline-primary"
+              className="radixBtnPls"
               disabled={!newProject || !hasFeature}
               onClick={(e) => {
                 e.preventDefault();

@@ -34,7 +34,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
 
           <div className="ml-auto">
             <button
-              className="btn btn-link"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 setInviting(true);

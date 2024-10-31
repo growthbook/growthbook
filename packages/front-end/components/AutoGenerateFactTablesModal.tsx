@@ -10,13 +10,13 @@ import { FaExternalLinkAlt, FaRedo } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Radix/Button";
 import { DocLink } from "./DocLink";
 import Modal from "./Modal";
 import Tooltip from "./Tooltip/Tooltip";
 import SelectField from "./Forms/SelectField";
 import LoadingOverlay from "./LoadingOverlay";
 import LoadingSpinner from "./LoadingSpinner";
-import Button from "./Button";
 import SQLInputField from "./SQLInputField";
 
 type Props = {
@@ -326,11 +326,12 @@ export default function AutoGenerateFactTableModal({
                     body={`Refresh list of ${schemaName.toLocaleLowerCase()}s`}
                     tipPosition="top"
                   >
-                    <button
-                      className="btn btn-link p-0 pl-1 text-secondary"
-                      disabled={refreshingSchema}
-                      onClick={async (e) => {
-                        e.preventDefault();
+                    <Button
+                      icon={<FaRedo />}
+                      // p="0"
+                      // pl="1"
+                      loading={refreshingSchema}
+                      onClick={async () => {
                         setRefreshingSchemaError("");
                         try {
                           await apiCall<{
@@ -348,9 +349,7 @@ export default function AutoGenerateFactTableModal({
                           setRefreshingSchemaError(e.message);
                         }
                       }}
-                    >
-                      {refreshingSchema ? <LoadingSpinner /> : <FaRedo />}
-                    </button>
+                    />
                   </Tooltip>
                 ) : null}
               </div>

@@ -125,7 +125,7 @@ export default function DataSourceSchemaChooser({
         <br />
         <a
           href="#"
-          className="btn btn-outline-primary"
+          className="radixBtnPls"
           onClick={(e) => {
             e.preventDefault();
             setValue("custom");

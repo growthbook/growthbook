@@ -146,7 +146,7 @@ export default function VercelIntegrationPage() {
                   e.preventDefault();
                   setEnvModalOpen({});
                 }}
-                className="btn btn-link btn-sm col-sm-5 text-left"
+                className="radixBtnPls"
               >
                 Create new environment
               </button>

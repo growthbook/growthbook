@@ -166,9 +166,7 @@ const DataSourceQueries = (): React.ReactElement => {
                 style={{ cursor: "pointer" }}
               >
                 <td>
-                  <button className="btn btn-link p-0 text-left">
-                    {title}
-                  </button>
+                  <button className="radixBtnPls">{title}</button>
                 </td>
                 <td>{query.queryType || "—"}</td>
                 <td>{datetime(query.createdAt)}</td>

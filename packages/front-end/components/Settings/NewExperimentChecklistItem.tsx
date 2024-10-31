@@ -121,7 +121,7 @@ export default function NewExperimentChecklistItem({
         <div>
           <button
             disabled={!newTaskInput.task}
-            className="btn btn-primary"
+            className="radixBtnPls"
             onClick={(e) => {
               e.preventDefault();
               addNewTask(newTaskInput);
@@ -130,7 +130,7 @@ export default function NewExperimentChecklistItem({
             Add Task
           </button>
           <button
-            className="btn btn-link"
+            className="radixBtnPls"
             onClick={(e) => {
               e.preventDefault();
               setNewTaskInput(undefined);

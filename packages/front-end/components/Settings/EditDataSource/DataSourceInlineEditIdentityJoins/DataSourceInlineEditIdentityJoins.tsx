@@ -111,7 +111,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
             <div>
               <button
                 disabled={addIsDisabled}
-                className="btn btn-outline-primary font-weight-bold"
+                className="radixBtnPls"
                 onClick={handleAdd}
               >
                 <FaPlus className="mr-1" /> Add
@@ -168,7 +168,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                     )}
 
                     <button
-                      className="btn ml-3 text-dark"
+                      className="radixBtnPls"
                       onClick={handleExpandCollapseForIndex(idx)}
                     >
                       <FaChevronRight

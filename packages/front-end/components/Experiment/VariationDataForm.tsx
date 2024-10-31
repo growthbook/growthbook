@@ -106,7 +106,7 @@ const VariationDataForm: FC<{
             />
             <div className="input-group-append">
               <button
-                className="btn btn-outline-primary"
+                className="radixBtnPls"
                 onClick={(e) => {
                   e.preventDefault();
                   addKey(newKey);

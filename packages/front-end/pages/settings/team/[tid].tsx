@@ -92,7 +92,7 @@ const TeamPage: FC = () => {
           )}
           <div className="ml-auto">
             <button
-              className="btn btn-primary"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 setPermissionModalOpen(true);

@@ -264,7 +264,7 @@ const VisualChangesetModal: FC<{
         ))}
 
         <button
-          className="btn btn-link mt-1"
+          className="radixBtnPls"
           onClick={(e) => {
             e.preventDefault();
             urlPatterns.append({

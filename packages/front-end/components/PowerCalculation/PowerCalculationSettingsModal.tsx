@@ -127,7 +127,7 @@ const SelectStep = ({
         <button
           disabled={isNextDisabled}
           onClick={onNext}
-          className="btn btn-primary"
+          className="radixBtnPls"
         >
           Next &gt;
         </button>
@@ -466,7 +466,7 @@ const SetParamsStep = ({
       includeCloseCta={false}
       cta="Submit"
       secondaryCTA={
-        <button className="btn btn-link" onClick={onBack}>
+        <button className="radixBtnPls" onClick={onBack}>
           &lt; Back
         </button>
       }
@@ -475,7 +475,7 @@ const SetParamsStep = ({
           disabled={
             !isValidPowerCalculationParams(engineType, form.getValues())
           }
-          className="btn btn-primary"
+          className="radixBtnPls"
           onClick={() =>
             onSubmit(
               ensureAndReturnPowerCalculationParams(

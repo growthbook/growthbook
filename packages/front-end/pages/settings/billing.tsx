@@ -90,7 +90,7 @@ const BillingPage: FC = () => {
                 You are currently on the <strong>Free Plan</strong>.
               </div>
               <button
-                className="btn btn-primary ml-auto"
+                className="radixBtnPls"
                 onClick={(e) => {
                   e.preventDefault();
                   setUpgradeModal(true);

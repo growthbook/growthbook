@@ -628,7 +628,7 @@ const ImportExperimentList: FC<{
             >
               <a
                 href="#"
-                className="ml-2 btn btn-link"
+                className="radixBtnPls"
                 onClick={async (e) => {
                   e.preventDefault();
                   await apiCall<{ id: string }>("/experiments/import", {

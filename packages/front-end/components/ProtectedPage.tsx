@@ -37,7 +37,7 @@ const LoggedInPageGuard = ({
                 Log Out
               </Button>
               <button
-                className="btn btn-link"
+                className="radixBtnPls"
                 onClick={(e) => {
                   e.preventDefault();
                   window.location.reload();

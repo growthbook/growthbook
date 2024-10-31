@@ -144,7 +144,7 @@ const RunQueriesButton: FC<{
       >
         {status === "running" && (
           <div
-            className="btn btn-danger p-0 position-absolute text-center"
+            className="radixBtnPls"
             style={{
               zIndex: 1,
               width: 22,

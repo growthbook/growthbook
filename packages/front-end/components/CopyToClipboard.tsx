@@ -63,7 +63,7 @@ const CopyToClipboard: FC<{
               </div>
             )}
             <button
-              className="btn btn-secondary"
+              className="radixBtnPls"
               onClick={(e) => {
                 ref.current?.select();
                 document.execCommand("copy");

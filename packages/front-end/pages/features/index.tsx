@@ -665,15 +665,13 @@ export default function FeaturesPage() {
             <div className="row">
               <Link href="/getstarted/feature-flag-guide">
                 {" "}
-                <button className="btn btn-outline-primary mr-2">
-                  Setup Instructions
-                </button>
+                <button className="radixBtnPls">Setup Instructions</button>
               </Link>
 
               {permissionsUtil.canViewFeatureModal(project) &&
                 canCreateFeatures && (
                   <button
-                    className="btn btn-primary float-right"
+                    className="radixBtnPls"
                     onClick={() => {
                       setModalOpen(true);
                       track("Viewed Feature Modal", {

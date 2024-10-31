@@ -617,7 +617,7 @@ const Admin: FC = () => {
       >
         <Tab display="Organizations" id="organizations" padding={false}>
           <button
-            className="btn btn-primary float-right"
+            className="radixBtnPls"
             onClick={(e) => {
               e.preventDefault();
               setOrgModalOpen(true);
@@ -643,7 +643,7 @@ const Admin: FC = () => {
                   type="search"
                 />
                 <div>
-                  <button type="submit" className="btn btn-primary ml-2">
+                  <button type="submit" className="radixBtnPls">
                     <FaSearch />
                   </button>
                 </div>
@@ -748,7 +748,7 @@ const Admin: FC = () => {
                   type="search"
                 />
                 <div>
-                  <button type="submit" className="btn btn-primary ml-2">
+                  <button type="submit" className="radixBtnPls">
                     <FaSearch />
                   </button>
                 </div>

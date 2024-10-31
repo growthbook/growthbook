@@ -89,7 +89,7 @@ export default function ResetPasswordPage(): ReactElement {
             Successfully reset password for <strong>{email}</strong>
           </div>
           <button
-            className="btn btn-primary"
+            className="radixBtnPls"
             onClick={(e) => {
               e.preventDefault();
               setLoading(true);

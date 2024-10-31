@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import Button from "@/components/Radix/Button";
 import styles from "./ConfirmModal.module.scss";
 
 type Props = {
@@ -70,19 +71,11 @@ const ConfirmModal = ({
               {children}
               <div>
                 {noText && (
-                  <button
-                    className="btn btn-outline-secondary no"
-                    onClick={closeModal}
-                  >
+                  <Button className="no" variant="outline" onClick={closeModal}>
                     {noText}
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className={`btn btn-${yesColor} yes`}
-                  onClick={onConfirm}
-                >
-                  {yesText}
-                </button>
+                <Button onClick={onConfirm}>{yesText}</Button>
               </div>
             </div>
           </div>

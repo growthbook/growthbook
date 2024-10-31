@@ -116,7 +116,7 @@ const SegmentForm: FC<{
             Want to use Fact Tables to create your segments instead?{" "}
             <a
               href="#"
-              className="ml-2 btn btn-primary btn-sm"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 setCreateFactSegment(true);
@@ -166,7 +166,7 @@ const SegmentForm: FC<{
             {sql && <Code language="sql" code={sql} expandable={true} />}
             <div>
               <button
-                className="btn btn-outline-primary"
+                className="radixBtnPls"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();

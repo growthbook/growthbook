@@ -24,7 +24,7 @@ export default function RetryInformationSchemaCard({
         >
           <button
             disabled={!canRunQueries}
-            className="btn btn-link"
+            className="radixBtnPls"
             onClick={async (e) => {
               e.preventDefault();
               refreshOrCreateInfoSchema("PUT");

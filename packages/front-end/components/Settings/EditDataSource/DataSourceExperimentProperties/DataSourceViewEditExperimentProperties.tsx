@@ -52,10 +52,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
 
         {canEdit && (
           <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold text-nowrap"
-              onClick={handleEdit}
-            >
+            <button className="radixBtnPls" onClick={handleEdit}>
               <FaPencilAlt className="mr-1" /> Edit
             </button>
           </div>

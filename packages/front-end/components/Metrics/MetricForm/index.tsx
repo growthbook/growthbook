@@ -897,7 +897,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     )}
                     <div>
                       <button
-                        className="btn btn-outline-primary"
+                        className="radixBtnPls"
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();
@@ -908,7 +908,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       </button>
                       {value.sql != defaultSqlTemplate && (
                         <button
-                          className="btn btn-outline-primary ml-2"
+                          className="radixBtnPls"
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();
@@ -1080,7 +1080,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           </div>
                           <div className="col-auto mb-1">
                             <button
-                              className="btn btn-danger"
+                              className="radixBtnPls"
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault();
@@ -1093,7 +1093,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         </div>
                       ))}
                       <button
-                        className="btn btn-outline-success"
+                        className="radixBtnPls"
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();

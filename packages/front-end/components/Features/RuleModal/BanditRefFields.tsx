@@ -109,7 +109,7 @@ export default function BanditRefFields({
                 : `You don't have any existing Bandits yet.`}{" "}
               <button
                 type="button"
-                className="btn btn-primary ml-auto"
+                className="radixBtnPls"
                 onClick={(e) => {
                   e.preventDefault();
                   changeRuleType("experiment-ref-new");

@@ -94,7 +94,7 @@ const SetupCompletedPage = (): React.ReactElement => {
         </Link>
       </div>
       <Link className="float-right mt-auto" href={"/getstarted"}>
-        <button className="btn btn-primary">Exit Setup</button>
+        <button className="radixBtnPls">Exit Setup</button>
       </Link>
     </div>
   );

@@ -77,7 +77,7 @@ export default function ImportSettings({
             Import your data from another feature flag and/or experimentation
             service.
           </p>
-          <Link href="/importing" className="btn btn-primary">
+          <Link href="/importing" className="radixBtnPls">
             <FaUpload className="mr-1" /> Import from another service
           </Link>
         </div>

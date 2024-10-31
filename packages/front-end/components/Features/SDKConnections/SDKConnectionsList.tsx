@@ -281,7 +281,7 @@ export default function SDKConnectionsList() {
                 GrowthBook into your front-end, back-end, or mobile application.
               </p>
               <button
-                className="btn btn-primary"
+                className="radixBtnPls"
                 onClick={(e) => {
                   e.preventDefault();
                   setModalOpen(true);

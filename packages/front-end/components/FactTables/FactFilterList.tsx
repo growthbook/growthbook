@@ -72,7 +72,7 @@ export default function FactFilterList({ factTable }: Props) {
             }
           >
             <button
-              className="btn btn-primary"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 if (!canAddAndEdit) return;

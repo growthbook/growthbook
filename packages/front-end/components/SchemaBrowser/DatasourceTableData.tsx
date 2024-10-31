@@ -118,7 +118,7 @@ export default function DatasourceSchema({
               tipPosition="top"
             >
               <button
-                className="btn btn-link p-0 text-secondary"
+                className="radixBtnPls"
                 disabled={fetching}
                 onClick={async (e) => {
                   e.preventDefault();

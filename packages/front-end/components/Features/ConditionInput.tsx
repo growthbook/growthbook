@@ -546,7 +546,7 @@ export default function ConditionInput(props: Props) {
                   {(conds.length > 1 || !props.require) && (
                     <div className="col-md-auto col-sm-12">
                       <button
-                        className="btn btn-link text-danger float-right"
+                        className="radixBtnPls"
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();

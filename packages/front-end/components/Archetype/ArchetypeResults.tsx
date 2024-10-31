@@ -142,7 +142,7 @@ const ArchetypeResults: FC<{
             <div className="col-12">
               <div className={styles.closeButton}>
                 <button
-                  className="btn btn-sm "
+                  className="radixBtnPls"
                   onClick={() => {
                     setShowExpandedResults(false);
                     setShowExpandedResultsId(null);

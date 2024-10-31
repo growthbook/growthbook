@@ -78,14 +78,14 @@ export default function InAppHelp() {
               <a
                 href="https://slack.growthbook.io/?ref=app-top-nav"
                 target="blank"
-                className="btn btn-primary font-weight-normal my-2 w-100"
+                className="radixBtnPls"
               >
                 Join The Slack Community <FaArrowRight className="ml-2" />
               </a>
               <a
                 href="https://docs.growthbook.io/"
                 target="blank"
-                className="btn btn-outline-primary font-weight-normal my-2 w-100"
+                className="radixBtnPls"
               >
                 View Docs <FaArrowRight className="ml-2" />
               </a>
@@ -99,7 +99,7 @@ export default function InAppHelp() {
                   </strong>
                 </p>
                 <button
-                  className="btn btn-premium font-weight-normal my-2 w-100"
+                  className="radixBtnPls"
                   onClick={() => setUpgradeModal(true)}
                 >
                   Start Free Trial <GBPremiumBadge />
@@ -110,7 +110,7 @@ export default function InAppHelp() {
         </div>
       )}
       <button
-        className="btn btn-primary d-flex align-items-center justify-content-center position-fixed rounded-circle"
+        className="radixBtnPls"
         onClick={() => {
           setShowFreeHelpWidget(!showFreeHelpWidget);
         }}

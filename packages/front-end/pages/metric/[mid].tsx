@@ -424,7 +424,7 @@ const MetricPage: FC = () => {
           <MoreMenu>
             {canDeleteMetric ? (
               <DeleteButton
-                className="btn dropdown-item py-2"
+                className="radixBtnPls"
                 text="Delete"
                 title="Delete this metric"
                 getConfirmationContent={getMetricUsage(metric)}
@@ -441,7 +441,7 @@ const MetricPage: FC = () => {
             ) : null}
             {canEditMetric ? (
               <Button
-                className="btn dropdown-item py-2"
+                className="radixBtnPls"
                 color=""
                 onClick={async () => {
                   const newStatus =
@@ -538,7 +538,7 @@ const MetricPage: FC = () => {
                           {canEditMetric && !editing && (
                             <div className="col-auto">
                               <button
-                                className="btn btn-outline-primary"
+                                className="radixBtnPls"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setEditing(true);

@@ -42,7 +42,7 @@ export default function UpgradeMessage({
         <div className={`${styles.headerMessage} text-dark mb-2`}>
           {headerMessage}
         </div>
-        <div className="btn btn-md btn-premium" style={{ minWidth: 145 }}>
+        <div className="radixBtnPls" style={{ minWidth: 145 }}>
           Learn more <GBPremiumBadge />
         </div>
       </div>

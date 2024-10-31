@@ -285,7 +285,7 @@ export default function FeatureVariationsInput({
                           {valueType !== "boolean" && setVariations && (
                             <a
                               role="button"
-                              className="btn btn-link p-0"
+                              className="radixBtnPls"
                               onClick={() => {
                                 const newWeights = distributeWeights(
                                   [...weights, 0],
@@ -317,10 +317,7 @@ export default function FeatureVariationsInput({
                           {valueType === "boolean" && (
                             <>
                               <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                <a
-                                  role="button"
-                                  className="btn btn-link p-0 disabled"
-                                >
+                                <a role="button" className="radixBtnPls">
                                   <GBAddCircle className="mr-2" />
                                   Add variation
                                 </a>

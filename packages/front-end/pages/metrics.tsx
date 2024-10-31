@@ -487,7 +487,7 @@ const MetricsPage = (): React.ReactElement => {
             if (metric.onDuplicate && envAllowsCreatingMetrics()) {
               moreMenuLinks.push(
                 <button
-                  className="btn dropdown-item py-2"
+                  className="radixBtnPls"
                   onClick={(e) => {
                     e.preventDefault();
                     metric.onDuplicate && metric.onDuplicate();
@@ -501,7 +501,7 @@ const MetricsPage = (): React.ReactElement => {
             if (!metric.managedBy && !metric.archived && metric.onEdit) {
               moreMenuLinks.push(
                 <button
-                  className="btn dropdown-item py-2"
+                  className="radixBtnPls"
                   onClick={(e) => {
                     e.preventDefault();
                     metric.onEdit?.();
@@ -515,7 +515,7 @@ const MetricsPage = (): React.ReactElement => {
             if (!metric.managedBy && metric.onArchive) {
               moreMenuLinks.push(
                 <button
-                  className="btn dropdown-item py-2"
+                  className="radixBtnPls"
                   onClick={async (e) => {
                     e.preventDefault();
                     await metric.onArchive?.(!metric.archived);

@@ -228,7 +228,7 @@ export default function RoleForm({
             </div>
             <div>
               <button
-                className="btn btn-link mr-2"
+                className="radixBtnPls"
                 onClick={async () => await router.push("/settings/team#roles")}
               >
                 Cancel

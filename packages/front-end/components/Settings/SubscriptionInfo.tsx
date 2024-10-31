@@ -127,7 +127,7 @@ export default function SubscriptionInfo() {
         {subscriptionStatus === "canceled" && canSubscribe && (
           <div className="col-auto">
             <button
-              className="btn btn-success"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 setUpgradeModal(true);

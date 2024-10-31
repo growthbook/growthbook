@@ -252,7 +252,7 @@ export const EventsPageContainer = () => {
       {hasFilters && (
         <div>
           <button
-            className="btn btn-outline-info ml-2"
+            className="radixBtnPls"
             onClick={(e) => {
               e.preventDefault();
               setEventType([]);

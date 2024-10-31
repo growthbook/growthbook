@@ -117,7 +117,7 @@ export default function SDKConnectionPage() {
               <div className="col-auto ml-auto">
                 <a
                   role="button"
-                  className="btn btn-outline-primary"
+                  className="radixBtnPls"
                   onClick={(e) => {
                     e.preventDefault();
                     setModalState({

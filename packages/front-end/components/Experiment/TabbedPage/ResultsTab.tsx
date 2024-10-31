@@ -232,7 +232,7 @@ export default function ResultsTab({
                         analyze the experiment results.
                       </p>
                       <button
-                        className="btn btn-primary"
+                        className="radixBtnPls"
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();
@@ -249,7 +249,7 @@ export default function ResultsTab({
                         metrics and stats engine to automatically analyze your
                         experiment results.
                       </p>
-                      <Link href="/datasources" className="btn btn-primary">
+                      <Link href="/datasources" className="radixBtnPls">
                         Connect to your Data
                       </Link>
                     </>
@@ -307,7 +307,7 @@ export default function ResultsTab({
             <div className="col-auto mr-2">
               {permissionsUtil.canCreateReport(experiment) ? (
                 <Button
-                  className="btn btn-outline-primary float-right"
+                  className="radixBtnPls"
                   color="outline-info"
                   stopPropagation={true}
                   onClick={async () => {

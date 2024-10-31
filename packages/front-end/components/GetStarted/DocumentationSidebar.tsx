@@ -225,7 +225,7 @@ const DocumentationSidebar = ({
       </ul>
       {canUpgrade && (
         <button
-          className="btn btn-primary ml-auto w-100"
+          className="radixBtnPls"
           onClick={(e) => {
             e.preventDefault();
             setUpgradeModal(true);

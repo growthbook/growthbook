@@ -335,7 +335,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                         });
                       }}
                       href="#"
-                      className="btn btn-outline-primary"
+                      className="radixBtnPls"
                     >
                       Save Archetype
                     </a>

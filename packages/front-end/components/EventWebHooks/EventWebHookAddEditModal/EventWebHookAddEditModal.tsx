@@ -25,6 +25,7 @@ import {
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
+import PagedModal from "@/components/Modal/PagedModal";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
@@ -106,7 +107,7 @@ const EventWebHookAddConfirm = ({ form }: { form: Form }) => {
       </p>
 
       <button
-        className="btn btn-outline-primary mr-2 mb-2"
+        className="radixBtnPls"
         disabled={state.type === "sent"}
         onClick={onTestWebhook}
       >
@@ -547,22 +548,18 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <Modal
+    <PagedModal
       trackingEventModalType=""
       header={modalTitle}
       cta={buttonText({ step, payloadType: form.watch("payloadType") })}
-      includeCloseCta={false}
-      open={isOpen}
-      error={error ?? undefined}
-      bodyClassName="mt-2"
       size="lg"
       secondaryCTA={
         step === "confirm" ? (
-          <button className="btn btn-link" onClick={() => setStep("create")}>
+          <button className="radixBtnPls" onClick={() => setStep("create")}>
             {"< Back"}
           </button>
         ) : (
-          <button className="btn btn-link" onClick={onClose}>
+          <button className="radixBtnPls" onClick={onClose}>
             Close
           </button>
         )
@@ -571,7 +568,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         <button
           disabled={!submitEnabled}
           onClick={handleSubmit}
-          className="btn btn-primary"
+          className="radixBtnPls"
         >
           {buttonText({ step, payloadType: form.watch("payloadType") })}
         </button>
@@ -587,6 +584,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           forcedParams={forcedParams}
         />
       )}
-    </Modal>
+    </PagedModal>
   );
 };

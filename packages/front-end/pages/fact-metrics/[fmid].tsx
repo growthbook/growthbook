@@ -432,7 +432,7 @@ export default function FactMetricPage() {
             )}
             {canEdit && (
               <button
-                className="btn dropdown-item"
+                className="radixBtnPls"
                 onClick={async () => {
                   await apiCall(`/fact-metrics/${factMetric.id}`, {
                     method: "PUT",

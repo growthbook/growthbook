@@ -132,7 +132,7 @@ const DimensionForm: FC<{
             {sql && <Code language="sql" code={sql} expandable={true} />}
             <div>
               <button
-                className="btn btn-outline-primary"
+                className="radixBtnPls"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();

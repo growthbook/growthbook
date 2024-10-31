@@ -224,7 +224,7 @@ export default function ExperimentHeader({
                 ? "Close"
                 : "Start Immediately"
             }
-            closeCtaClassName="btn btn-primary"
+            closeCtaclassName="radixBtnPls"
             onClickCloseCta={
               checklistIncomplete || !verifiedConnections.length
                 ? () => setShowStartExperiment(false)
@@ -233,7 +233,7 @@ export default function ExperimentHeader({
             secondaryCTA={
               checklistIncomplete || !verifiedConnections.length ? (
                 <button
-                  className="btn btn-link text-decoration-none"
+                  className="radixBtnPls"
                   onClick={async () => startExperiment()}
                 >
                   <span
@@ -246,7 +246,7 @@ export default function ExperimentHeader({
                 </button>
               ) : (
                 <button
-                  className="btn btn-link text-decoration-none"
+                  className="radixBtnPls"
                   onClick={() => setShowStartExperiment(false)}
                 >
                   <span
@@ -364,7 +364,7 @@ export default function ExperimentHeader({
                     body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
                     <button
-                      className="btn btn-teal"
+                      className="radixBtnPls"
                       onClick={(e) => {
                         e.preventDefault();
                         setShowStartExperiment(true);

@@ -316,7 +316,7 @@ export const DimensionIssues = ({
                 <div>
                   <a
                     href="#"
-                    className="btn btn-outline-primary"
+                    className="radixBtnPls"
                     onClick={() => {
                       track("Health Tab Onboarding Opened", {
                         source: "dimension-issues",

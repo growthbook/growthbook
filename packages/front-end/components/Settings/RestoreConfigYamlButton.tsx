@@ -302,7 +302,7 @@ export default function RestoreConfigYamlButton({
       )}
       <a
         href="#"
-        className="btn btn-primary"
+        className="radixBtnPls"
         onClick={(e) => {
           e.preventDefault();
           form.reset({

@@ -92,10 +92,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 
         {canEdit && (
           <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold"
-              onClick={handleAdd}
-            >
+            <button className="radixBtnPls" onClick={handleAdd}>
               <FaPlus className="mr-1" /> Add
             </button>
           </div>

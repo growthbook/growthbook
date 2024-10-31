@@ -340,7 +340,7 @@ export default function EditSavedGroupPage() {
           </div>
           <div className="">
             <button
-              className="btn btn-outline-primary"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 setAddItems(true);

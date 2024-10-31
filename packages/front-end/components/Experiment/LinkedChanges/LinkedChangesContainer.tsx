@@ -70,16 +70,13 @@ export default function LinkedChangesContainer({
             {canAddChanges ? (
               <div>
                 {hasFeature ? (
-                  <button
-                    className="btn p-0 btn-link link-purple align-self-center"
-                    onClick={() => onAddChange()}
-                  >
+                  <button className="radixBtnPls" onClick={() => onAddChange()}>
                     <FaPlusCircle className="mr-1" />
                     {addButtonCopy}
                   </button>
                 ) : (
                   <PremiumTooltip commercialFeature={type}>
-                    <div className="btn btn-link disabled">
+                    <div className="radixBtnPls">
                       <FaPlusCircle className="mr-1" />
                       {addButtonCopy}
                     </div>

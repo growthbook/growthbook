@@ -32,10 +32,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
 
           <div className="mb-3 mb-sm-0">
             {/* Actions */}
-            <button
-              onClick={onEdit}
-              className="btn btn-sm btn-outline-primary mr-1"
-            >
+            <button onClick={onEdit} className="radixBtnPls">
               <FaPencilAlt className="mr-1" />
               Edit
             </button>

@@ -91,7 +91,7 @@ export default function InlineForm({
             {saving && <LoadingSpinner />} Save Changes
           </button>
           <button
-            className="btn btn-link "
+            className="radixBtnPls"
             onClick={(e) => {
               e.preventDefault();
               cancel();

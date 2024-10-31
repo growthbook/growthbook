@@ -36,9 +36,7 @@ export default function PhaseSelector({
 
   function formatPhase({ value, label }: { value: string; label: string }) {
     if (value === "edit") {
-      return (
-        <div className="cursor-pointer btn btn-outline-primary">{label}</div>
-      );
+      return <div className="radixBtnPls">{label}</div>;
     }
 
     const phaseIndex = parseInt(value) || 0;

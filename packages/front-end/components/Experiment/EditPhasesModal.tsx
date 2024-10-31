@@ -123,7 +123,7 @@ export default function EditPhasesModal({
               ) : null}
               <td className="text-right" style={{ width: 125 }}>
                 <button
-                  className="btn btn-outline-primary"
+                  className="radixBtnPls"
                   onClick={(e) => {
                     e.preventDefault();
                     setEditPhase(i);
@@ -155,7 +155,7 @@ export default function EditPhasesModal({
       </table>
       {(experiment.status !== "running" || !hasLinkedChanges) && (
         <button
-          className="btn btn-primary"
+          className="radixBtnPls"
           onClick={(e) => {
             e.preventDefault();
             setEditPhase(-1);

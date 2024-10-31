@@ -147,7 +147,7 @@ const AnalysisSettings = ({
                 onClick={() =>
                   updateVariations(ensureAndReturn(currentVariations))
                 }
-                className="btn border border-primary text-primary"
+                className="radixBtnPls"
               >
                 Update
               </button>
@@ -604,17 +604,13 @@ export default function PowerCalculationContent({
           experiment duration.
         </div>
         <div className="col-auto pr-0">
-          <button
-            className="btn btn-outline-primary float-right"
-            onClick={edit}
-            type="button"
-          >
+          <button className="radixBtnPls" onClick={edit} type="button">
             Edit
           </button>
         </div>
         <div className="col-auto pl-1">
           <button
-            className="btn btn-primary float-right"
+            className="radixBtnPls"
             onClick={() => newCalculation()}
             type="button"
           >

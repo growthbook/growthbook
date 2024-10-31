@@ -46,7 +46,7 @@ export default function ExperimentVariationsInput({
             }}
           >
             <button
-              className="btn btn-outline-primary"
+              className="radixBtnPls"
               onClick={(e) => {
                 e.preventDefault();
                 const newVariations = [...variations];

@@ -90,7 +90,7 @@ const TagsPage: FC = () => {
                     <td>
                       {permissionsUtil.canCreateAndUpdateTag() ? (
                         <button
-                          className="btn btn-outline-primary tr-hover mr-2"
+                          className="radixBtnPls"
                           onClick={(e) => {
                             e.preventDefault();
                             setModalOpen(t);

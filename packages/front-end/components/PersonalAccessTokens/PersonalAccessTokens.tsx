@@ -50,7 +50,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
           />
         )}
         <button
-          className="btn btn-primary"
+          className="radixBtnPls"
           onClick={(e) => {
             e.preventDefault();
             setOpen(true);

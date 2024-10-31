@@ -793,7 +793,7 @@ export default function MetricsOverridesSelector({
           </div>
           <div className="col-auto">
             <button
-              className="btn btn-outline-primary"
+              className="radixBtnPls"
               disabled={disabled || !selectedMetricId}
               onClick={(e) => {
                 e.preventDefault();

@@ -89,7 +89,7 @@ export default function ExperimentCheckListModal({
             <h4>Pre-Launch Requirements</h4>
             {experimentLaunchChecklist?.length ? (
               <button
-                className="btn btn-primary"
+                className="radixBtnPls"
                 onClick={(e) => {
                   e.preventDefault();
                   setNewTaskInput({ task: "", completionType: "manual" });

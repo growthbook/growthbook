@@ -53,7 +53,7 @@ export default function SchemaBrowserWrapper({
               tipPosition="top"
             >
               <button
-                className="btn btn-link p-0 text-secondary"
+                className="radixBtnPls"
                 disabled={
                   informationSchema.status === "PENDING" || !canRunQueries
                 }

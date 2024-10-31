@@ -152,7 +152,7 @@ export default function ExperimentSummary({
           {experiment ? (
             <Link
               href={`/experiment/${experiment.id}#results`}
-              className="btn btn-outline-primary"
+              className="radixBtnPls"
             >
               View results
             </Link>

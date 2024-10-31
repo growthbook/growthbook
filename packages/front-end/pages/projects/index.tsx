@@ -118,7 +118,7 @@ const ProjectsPage: FC = () => {
                     <MoreMenu>
                       {canEdit ? (
                         <button
-                          className="btn dropdown-item"
+                          className="radixBtnPls"
                           onClick={() => {
                             setModalOpen(p);
                           }}

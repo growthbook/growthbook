@@ -155,7 +155,7 @@ const DataSourcePage: FC = () => {
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink docSection="env_prod" className="btn btn-primary">
+          <DocLink docSection="env_prod" className="radixBtnPls">
             View instructions for fixing
           </DocLink>
         </div>
@@ -202,7 +202,7 @@ const DataSourcePage: FC = () => {
                 <div>
                   {canUpdateConnectionParams ? (
                     <button
-                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
+                      className="radixBtnPls"
                       onClick={(e) => {
                         e.preventDefault();
                         setEditConn(true);
@@ -212,7 +212,7 @@ const DataSourcePage: FC = () => {
                     </button>
                   ) : null}
                   <DocLink
-                    className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
+                    className="radixBtnPls"
                     docSection={d.type as DocSection}
                     fallBackSection="datasources"
                   >
@@ -220,7 +220,7 @@ const DataSourcePage: FC = () => {
                   </DocLink>
                   {d?.properties?.supportsInformationSchema && (
                     <button
-                      className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                      className="radixBtnPls"
                       onClick={(e) => {
                         e.preventDefault();
                         setViewSchema(true);
@@ -230,7 +230,7 @@ const DataSourcePage: FC = () => {
                     </button>
                   )}
                   <Link
-                    className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                    className="radixBtnPls"
                     href={`/datasources/queries/${did}`}
                   >
                     <FaDatabase /> View Queries

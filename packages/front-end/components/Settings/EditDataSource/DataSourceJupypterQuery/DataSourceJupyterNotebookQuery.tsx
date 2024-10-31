@@ -35,7 +35,7 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
         {canEdit && (
           <div className="">
             <button
-              className="btn btn-outline-primary font-weight-bold"
+              className="radixBtnPls"
               onClick={() => {
                 setUiMode("edit");
               }}

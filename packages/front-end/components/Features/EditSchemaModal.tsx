@@ -362,7 +362,7 @@ function EditSimpleSchema({
                 </div>
                 <div>
                   <button
-                    className="btn btn-link text-danger ml-auto"
+                    className="radixBtnPls"
                     title="Delete Property"
                     onClick={(e) => {
                       e.preventDefault();
