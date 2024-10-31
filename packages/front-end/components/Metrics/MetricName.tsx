@@ -131,7 +131,7 @@ export default function MetricName({
               {!allJoinable && (
                 <div className="mb-2">
                   <HelperText status="error">
-                    Includes some metrics that are not joinable
+                    Includes metrics that are not joinable
                   </HelperText>
                 </div>
               )}

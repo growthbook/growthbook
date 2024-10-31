@@ -180,7 +180,7 @@ const MetricsSelector: FC<{
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) =>
       datasourceSettings && userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType)
+        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
@@ -223,7 +223,11 @@ const MetricsSelector: FC<{
                 metric,
                 joinable:
                   userIdType && userIdTypes.length
-                    ? isMetricJoinable(userIdTypes, userIdType)
+                    ? isMetricJoinable(
+                        userIdTypes,
+                        userIdType,
+                        datasourceSettings
+                      )
                     : true,
               };
             })
