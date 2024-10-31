@@ -23,7 +23,7 @@ export function SDKLanguageOption({
 }: {
   language: SDKLanguage;
   selected: boolean;
-  onClick: (language: React.MouseEvent) => void;
+  onClick: () => void;
 }) {
   return (
     <div
@@ -35,7 +35,10 @@ export function SDKLanguageOption({
         padding: 10,
         boxShadow: selected ? "0 0 0 1px var(--text-color-primary)" : "",
       }}
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
     >
       <SDKLanguageLogo language={language} showLabel={true} size={30} />
     </div>
@@ -66,12 +69,7 @@ export default function SDKLanguageSelector({
   const useTabs = !!setLanguageFilter;
 
   let selected = new Set(value);
-  const handleLanguageOptionClick = (
-    e: React.MouseEvent,
-    language: SDKLanguage
-  ) => {
-    e.preventDefault();
-
+  const handleLanguageOptionClick = (language: SDKLanguage) => {
     if (selected.has(language)) {
       if (!multiple) return;
       selected.delete(language);
@@ -167,7 +165,7 @@ export default function SDKLanguageSelector({
                 <SDKLanguageOption
                   key={l}
                   language={l}
-                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  onClick={() => handleLanguageOptionClick(l)}
                   selected={selected.has(l)}
                 />
               ))}
@@ -196,7 +194,7 @@ export default function SDKLanguageSelector({
                 <SDKLanguageOption
                   key={l}
                   language={l}
-                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  onClick={() => handleLanguageOptionClick(l)}
                   selected={selected.has(l)}
                 />
               ))}
@@ -218,7 +216,7 @@ export default function SDKLanguageSelector({
                 <SDKLanguageOption
                   key={l}
                   language={l}
-                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  onClick={() => handleLanguageOptionClick(l)}
                   selected={selected.has(l)}
                 />
               ))}
@@ -240,7 +238,7 @@ export default function SDKLanguageSelector({
                 <SDKLanguageOption
                   key={l}
                   language={l}
-                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  onClick={() => handleLanguageOptionClick(l)}
                   selected={selected.has(l)}
                 />
               ))}
@@ -262,7 +260,7 @@ export default function SDKLanguageSelector({
                 <SDKLanguageOption
                   key={l}
                   language={l}
-                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  onClick={() => handleLanguageOptionClick(l)}
                   selected={selected.has(l)}
                 />
               ))}
@@ -284,7 +282,7 @@ export default function SDKLanguageSelector({
                 <SDKLanguageOption
                   key={l}
                   language={l}
-                  onClick={(e) => handleLanguageOptionClick(e, l)}
+                  onClick={() => handleLanguageOptionClick(l)}
                   selected={selected.has(l)}
                 />
               ))}
@@ -300,7 +298,7 @@ export default function SDKLanguageSelector({
             )}
             <SDKLanguageOption
               language={"other"}
-              onClick={(e) => handleLanguageOptionClick(e, "other")}
+              onClick={() => handleLanguageOptionClick("other")}
               selected={selected.has("other")}
             />
           </div>

@@ -12,7 +12,7 @@ import {
 import clsx from "clsx";
 import type { SDKLanguage } from "back-end/types/sdk-connection";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { Box, Flex, Heading, Separator, Strong, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -107,15 +107,12 @@ export default function SDKConnectionsList() {
           Easily integrate GrowthBook into your app or website
         </Heading>
         <Text size="3" align="center">
-          Select your SDK to connect your front-end, back-end or mobile app.
+          Select one of our SDKs to connect your front-end, back-end or mobile
+          app.
         </Text>
       </Flex>
 
-      <Separator size="4" mt="7" mb="5" />
-
-      <Heading as="h3" size="2" mb="3">
-        <Strong>Select your SDK:</Strong>
-      </Heading>
+      <Separator size="4" mt="7" mb="6" />
 
       <Flex
         justify="start"
@@ -133,8 +130,7 @@ export default function SDKConnectionsList() {
             key={language}
             language={language}
             selected={false}
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setInitialModalSelectedLanguage(language);
               setModalOpen(true);
             }}
@@ -147,8 +143,9 @@ export default function SDKConnectionsList() {
           variant="ghost"
           onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
           size="sm"
+          textWeight="bold"
         >
-          <Strong>{showAllSdkLanguages ? "Show less" : "Show all"}</Strong>
+          {showAllSdkLanguages ? "Show less" : "Show all"}
         </Button>
       </Flex>
     </Box>
