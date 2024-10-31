@@ -52,7 +52,7 @@ const EnvironmentSelect: FC<{
           />
         </div>
         <Grid
-          columns="4"
+          columns={{ initial: "2", md: "4" }}
           flow="row"
           style={{ maxHeight: "168px" }}
           overflowY="auto"
