@@ -4933,13 +4933,24 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
+      const hasAggregateFilter =
+        getAggregateFilters({
+          columnRef: columnRef,
+          column: columnRef?.column || "",
+          ignoreInvalid: true,
+        }).length > 0;
+
+      const column = hasAggregateFilter
+        ? columnRef?.aggregateFilterColumn
+        : columnRef?.column;
+
       const value =
-        metric.metricType === "proportion" ||
+        (!hasAggregateFilter && metric.metricType === "proportion") ||
         !columnRef ||
-        columnRef.column === "$$distinctUsers" ||
-        columnRef.column === "$$count"
+        column === "$$distinctUsers" ||
+        column === "$$count"
           ? "1"
-          : `${alias}.${columnRef.column}`;
+          : `${alias}.${column}`;
 
       return {
         userIds,
