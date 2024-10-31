@@ -684,6 +684,10 @@ def get_bandit_result(
                 bandit_result.bandit_update_message == "successfully updated"
                 and bandit_result.bandit_weights
             ):
+                weights_were_updated = (
+                    bandit_settings.current_weights != bandit_result.bandit_weights
+                    and bandit_settings.reweight
+                )
                 return BanditResult(
                     singleVariationResults=single_variation_results,
                     currentWeights=bandit_settings.current_weights,
@@ -696,6 +700,7 @@ def get_bandit_result(
                     updateMessage=bandit_result.bandit_update_message,
                     error="",
                     reweight=bandit_settings.reweight,
+                    weightsWereUpdated=weights_were_updated,
                 )
         else:
             error_message = (

@@ -44,6 +44,7 @@ export interface BanditDateGraphDataPoint {
   [key: `${number}`]: number;
   date: Date;
   reweight?: boolean;
+  weightsWereUpdated?: boolean;
   updateMessage?: string;
   initial?: boolean;
   error?: string;
@@ -169,9 +170,14 @@ const getTooltipContents = (
       )}
 
       <div style={{ maxWidth: 330 }}>
-        {!!d.reweight && (
+        {!!d.reweight && !!d.weightsWereUpdated && (
           <HelperText status="info" my="2" size="md">
             Variation weights were recalculated
+          </HelperText>
+        )}
+        {!!d.reweight && !d.weightsWereUpdated && (
+          <HelperText status="info" my="2" size="md">
+            Variation weights were unable to update
           </HelperText>
         )}
 
@@ -321,6 +327,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const dataPoint: any = {
         date: new Date(event.date),
         reweight: !!event.banditResult?.reweight,
+        weightsWereUpdated: !!event.banditResult?.weightsWereUpdated,
         updateMessage:
           event.banditResult?.updateMessage &&
           event.banditResult?.updateMessage !== "successfully updated"

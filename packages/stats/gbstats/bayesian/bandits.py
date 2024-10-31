@@ -60,6 +60,7 @@ def get_error_bandit_result(
         updateMessage=update_message,
         error=error,
         reweight=reweight,
+        weightsWereUpdated=False,
     )
 
 
