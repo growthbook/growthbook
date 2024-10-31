@@ -8161,6 +8161,11 @@
   resolved "https://registry.npmjs.org/@types/minimist/-/minimist-1.2.2.tgz"
   integrity sha512-jhuKLIRrhvCPLqwPcx6INqmKeiA5EWrsCOPhrlFSrbrmU4ZMPjj5Ul/oLCMDO98XRUIwVm78xICz4EPCektzeQ==
 
+"@types/module-alias@^2.0.4":
+  version "2.0.4"
+  resolved "https://registry.yarnpkg.com/@types/module-alias/-/module-alias-2.0.4.tgz#c6a784be6bc2ff5424889e23084ac001454d5f00"
+  integrity sha512-5+G/QXO/DvHZw60FjvbDzO4JmlD/nG5m2/vVGt25VN1eeP3w2bCoks1Wa7VuptMPM1TxJdx6RjO70N9Fw0nZPA==
+
 "@types/ms@*":
   version "0.7.31"
   resolved "https://registry.npmjs.org/@types/ms/-/ms-0.7.31.tgz"
@@ -16214,6 +16219,11 @@ mocksse@^1.0.4:
   version "1.0.4"
   resolved "https://registry.npmjs.org/mocksse/-/mocksse-1.0.4.tgz"
   integrity sha512-W5DR/wwmx/EZUgjN1g+pvlhvFFtRJ3CqGRKqsK/B1hTxrjMb/t3JCbk6aomJD4WomrnueqMaTAhcAkIZJYd73w==
+
+module-alias@^2.2.3:
+  version "2.2.3"
+  resolved "https://registry.yarnpkg.com/module-alias/-/module-alias-2.2.3.tgz#ec2e85c68973bda6ab71ce7c93b763ec96053221"
+  integrity sha512-23g5BFj4zdQL/b6tor7Ji+QY4pEfNH784BMslY9Qb0UnJWRAt+lQGLYmRaM0KDBwIG23ffEBELhZDP2rhi9f/Q==
 
 module-details-from-path@^1.0.3:
   version "1.0.3"
