@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
-import { Container, Flex, Text } from "@radix-ui/themes";
+import { Container, Grid, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -51,9 +51,9 @@ const EnvironmentSelect: FC<{
             mb="5"
           />
         </div>
-        <Flex
-          direction="column"
-          wrap="wrap"
+        <Grid
+          columns="4"
+          flow="row"
           style={{ maxHeight: "168px" }}
           overflowY="auto"
         >
@@ -71,7 +71,7 @@ const EnvironmentSelect: FC<{
               mb="4"
             />
           ))}
-        </Flex>
+        </Grid>
       </Container>
     </div>
   );
