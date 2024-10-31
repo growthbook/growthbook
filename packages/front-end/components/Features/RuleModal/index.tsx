@@ -357,7 +357,8 @@ export default function RuleModal({
           guardrailMetrics: values.guardrailMetrics || [],
           activationMetric: "",
           name: values.name,
-          hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
+          hashVersion: (values.hashVersion ||
+            (hasSDKWithNoBucketingV2 ? 1 : 2)) as 1 | 2,
           owner: "",
           status:
             values.experimentType === "multi-armed-bandit"
