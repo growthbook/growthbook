@@ -2,7 +2,7 @@ from dataclasses import asdict
 import re
 import traceback
 import copy
-from typing import Any, Dict, Hashable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 
@@ -587,7 +587,7 @@ def process_single_metric(
 def create_bandit_statistics(
     reduced: pd.DataFrame,
     metric: MetricSettingsForStatsEngine,
-) -> Sequence[BanditStatistic]:
+) -> List[BanditStatistic]:
     num_variations = reduced.at[0, "variations"]
     s = reduced.iloc[0]
     stats = []
