@@ -374,13 +374,7 @@ const TopNav: FC<{
   const renderChangePassword = () => {
     if (!usingSSO()) {
       return (
-        <DropdownMenu.Item
-          className="dropdown-item"
-          onSelect={(e) => {
-            e.preventDefault();
-            setChangePasswordOpen(true);
-          }}
-        >
+        <DropdownMenu.Item onSelect={() => setChangePasswordOpen(true)}>
           Change Password
         </DropdownMenu.Item>
       );
