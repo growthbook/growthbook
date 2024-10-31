@@ -407,6 +407,7 @@ export function isOutdated({
   hasRegressionAdjustmentFeature,
   hasSequentialFeature,
   phase,
+  unjoinableMetrics,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
@@ -416,6 +417,7 @@ export function isOutdated({
   hasRegressionAdjustmentFeature: boolean;
   hasSequentialFeature: boolean;
   phase?: number;
+  unjoinableMetrics?: Set<string>;
 }): { outdated: boolean; reasons: string[] } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
@@ -473,7 +475,7 @@ export function isOutdated({
             metricGroups
           )
         )
-      ),
+      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
       Array.from(
         new Set(
           expandMetricGroups(
@@ -481,7 +483,7 @@ export function isOutdated({
             metricGroups
           )
         )
-      )
+      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true))
     )
   ) {
     reasons.push("Metrics changed");

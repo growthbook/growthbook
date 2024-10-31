@@ -6,7 +6,7 @@ import {
   FaFlask,
   FaTable,
 } from "react-icons/fa";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useMemo, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
@@ -15,6 +15,8 @@ import clsx from "clsx";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  isFactMetric,
+  isMetricJoinable,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -63,8 +65,17 @@ export default function AnalysisSettingsSummary({
     getDatasourceById,
     getSegmentById,
     getExperimentMetricById,
+    factTables,
     metricGroups,
   } = useDefinitions();
+
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
   const orgSettings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
@@ -112,6 +123,41 @@ export default function AnalysisSettingsSummary({
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
+  const allExpandedMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(experiment, false),
+        metricGroups
+      )
+    )
+  );
+
+  const unjoinableMetrics = useMemo(() => {
+    const unjoinables = new Set<string>();
+    allExpandedMetrics.forEach((m) => {
+      const metric = getExperimentMetricById(m);
+      if (!metric) return;
+      const userIdTypes = isFactMetric(metric)
+        ? factTables.find((f) => f.id === metric.numerator.factTableId)
+            ?.userIdTypes || []
+        : metric.userIdTypes || [];
+      const isJoinable =
+        userIdType && datasourceSettings
+          ? isMetricJoinable(userIdTypes, userIdType, datasourceSettings)
+          : true;
+      if (!isJoinable) {
+        unjoinables.add(m);
+      }
+    });
+    return unjoinables;
+  }, [
+    allExpandedMetrics,
+    factTables,
+    userIdType,
+    datasourceSettings,
+    getExperimentMetricById,
+  ]);
+
   const { outdated, reasons } = isOutdated({
     experiment,
     snapshot,
@@ -121,6 +167,7 @@ export default function AnalysisSettingsSummary({
     hasRegressionAdjustmentFeature,
     hasSequentialFeature,
     phase,
+    unjoinableMetrics,
   });
 
   const ds = getDatasourceById(experiment.datasource);
