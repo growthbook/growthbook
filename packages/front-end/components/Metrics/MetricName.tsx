@@ -137,7 +137,7 @@ export default function MetricName({
               )}
               {metrics && metrics.length > 0 ? (
                 <>
-                  <div>Group Metrics:</div>
+                  <div>Metrics in group:</div>
                   <ul className="ml-0 pl-3 mb-0">
                     {metrics.map((m, i) => (
                       <li
