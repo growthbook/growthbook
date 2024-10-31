@@ -592,8 +592,8 @@ def create_bandit_statistics(
     s = reduced.iloc[0]
     s0 = variation_statistic_from_metric_row(row=s, prefix="baseline", metric=metric)
     # for bandits we weight by period; iid data over periods no longer holds
-    # if isinstance(s0, ProportionStatistic):
-    #    s0 = SampleMeanStatistic(n=s0.n, sum=s0.sum, sum_squares=s0.sum)
+    if isinstance(s0, ProportionStatistic):
+        s0 = SampleMeanStatistic(n=s0.n, sum=s0.sum, sum_squares=s0.sum)
     stats = [s0]
     for i in range(1, num_variations):
         s1 = variation_statistic_from_metric_row(row=s, prefix=f"v{i}", metric=metric)
