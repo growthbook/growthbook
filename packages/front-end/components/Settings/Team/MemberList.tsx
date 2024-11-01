@@ -70,11 +70,18 @@ const MemberList: FC<{
       } as ExpandedMember;
     }) || [];
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    pagination,
+  } = useSearch({
     items: membersList || [],
     localStorageKey: "members",
     defaultSortField: "name",
     searchFields: ["name", "email"],
+    pageSize: 20,
   });
   return (
     <>
@@ -277,6 +284,7 @@ const MemberList: FC<{
             </tbody>
           </table>
         </div>
+        {pagination}
       </div>
     </>
   );
