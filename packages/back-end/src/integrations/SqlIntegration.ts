@@ -13,6 +13,7 @@ import {
   getMetricTemplateVariables,
   quantileMetricType,
   getColumnRefWhereClause,
+  getAggregateFilters,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -91,6 +92,7 @@ import { SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import {
+  ColumnRef,
   FactMetricInterface,
   FactTableInterface,
   MetricQuantileSettings,
@@ -707,18 +709,20 @@ export default abstract class SqlIntegration
     );
 
     const createHistogram = metric.metricType === "mean";
-    const finalValueColumn = this.capCoalesceValue(
-      "value",
+    const finalValueColumn = this.capCoalesceValue({
+      valueCol: "value",
       metric,
-      "cap",
-      "value_capped"
-    );
-    const finalDenominatorColumn = this.capCoalesceValue(
-      "denominator",
+      capTablePrefix: "cap",
+      capValueCol: "value_capped",
+      columnRef: metric.numerator,
+    });
+    const finalDenominatorColumn = this.capCoalesceValue({
+      valueCol: "denominator",
       metric,
-      "cap",
-      "denominator_capped"
-    );
+      capTablePrefix: "cap",
+      capValueCol: "denominator_capped",
+      columnRef: metric.denominator,
+    });
 
     const populationSQL = this.getMetricAnalysisPopulationCTEs({
       settings,
@@ -776,21 +780,20 @@ export default abstract class SqlIntegration
             , ${populationSQL ? "p" : "f"}.${baseIdType}
         )
         , __userMetricOverall as (
-          -- Re-sum across all users (NOTE DOES NOT WORK FOR CERTAIN AGGREGATIONS!)
           SELECT
             ${baseIdType}
-            , ${
-              metric.metricType === "proportion"
-                ? "MAX(COALESCE(value, 0))"
-                : "SUM(COALESCE(value, 0))"
-            } as value
+            , ${this.getReaggregateMetricColumn(
+              metric,
+              false,
+              "value"
+            )} as value
              ${
-               metricData.ratioMetric // ALL AGGREGATIONS?
-                 ? `,${
-                     metric.metricType === "proportion"
-                       ? "MAX(COALESCE(denominator, 0))"
-                       : "SUM(COALESCE(denominator, 0))"
-                   } as denominator`
+               metricData.ratioMetric
+                 ? `, ${this.getReaggregateMetricColumn(
+                     metric,
+                     true,
+                     "denominator"
+                   )} as denominator`
                  : ""
              }
           FROM
@@ -2046,24 +2049,27 @@ export default abstract class SqlIntegration
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
       !quantileMetric;
-    const capCoalesceMetric = this.capCoalesceValue(
-      `m.${alias}_value`,
+    const capCoalesceMetric = this.capCoalesceValue({
+      valueCol: `m.${alias}_value`,
       metric,
-      "cap",
-      `${alias}_value_cap`
-    );
-    const capCoalesceDenominator = this.capCoalesceValue(
-      `m.${alias}_denominator`,
+      capTablePrefix: "cap",
+      capValueCol: `${alias}_value_cap`,
+      columnRef: isFactMetric(metric) ? metric.numerator : null,
+    });
+    const capCoalesceDenominator = this.capCoalesceValue({
+      valueCol: `m.${alias}_denominator`,
       metric,
-      "cap",
-      `${alias}_denominator_cap`
-    );
-    const capCoalesceCovariate = this.capCoalesceValue(
-      `c.${alias}_value`,
+      capTablePrefix: "cap",
+      capValueCol: `${alias}_denominator_cap`,
+      columnRef: isFactMetric(metric) ? metric.denominator : null,
+    });
+    const capCoalesceCovariate = this.capCoalesceValue({
+      valueCol: `c.${alias}_value`,
       metric,
-      "cap",
-      `${alias}_value_cap`
-    );
+      capTablePrefix: "cap",
+      capValueCol: `${alias}_value_cap`,
+      columnRef: isFactMetric(metric) ? metric.numerator : null,
+    });
 
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
@@ -2769,17 +2775,24 @@ export default abstract class SqlIntegration
       !!denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1 &&
       !quantileMetric;
-    const capCoalesceMetric = this.capCoalesceValue("m.value", metric, "cap");
-    const capCoalesceDenominator = this.capCoalesceValue(
-      "d.value",
-      denominator,
-      "capd"
-    );
-    const capCoalesceCovariate = this.capCoalesceValue(
-      "c.value",
+    const capCoalesceMetric = this.capCoalesceValue({
+      valueCol: "m.value",
       metric,
-      "cap"
-    );
+      capTablePrefix: "cap",
+      columnRef: isFactMetric(metric) ? metric.numerator : null,
+    });
+    const capCoalesceDenominator = this.capCoalesceValue({
+      valueCol: "d.value",
+      metric: denominator,
+      capTablePrefix: "capd",
+      columnRef: isFactMetric(metric) ? metric.denominator : null,
+    });
+    const capCoalesceCovariate = this.capCoalesceValue({
+      valueCol: "c.value",
+      metric: metric,
+      capTablePrefix: "cap",
+      columnRef: isFactMetric(metric) ? metric.numerator : null,
+    });
 
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : [])
@@ -3609,12 +3622,19 @@ export default abstract class SqlIntegration
       `;
   }
 
-  private capCoalesceValue(
-    valueCol: string,
-    metric: ExperimentMetricInterface,
-    capTablePrefix: string = "c",
-    capValueCol: string = "value_cap"
-  ): string {
+  private capCoalesceValue({
+    valueCol,
+    metric,
+    capTablePrefix = "c",
+    capValueCol = "value_cap",
+    columnRef,
+  }: {
+    valueCol: string;
+    metric: ExperimentMetricInterface;
+    capTablePrefix?: string;
+    capValueCol?: string;
+    columnRef?: ColumnRef | null;
+  }): string {
     if (
       metric?.cappingSettings.type === "absolute" &&
       metric.cappingSettings.value &&
@@ -3636,6 +3656,16 @@ export default abstract class SqlIntegration
         ${capTablePrefix}.${capValueCol}
       )`;
     }
+
+    const filters = getAggregateFilters({
+      columnRef: columnRef || null,
+      column: valueCol,
+      ignoreInvalid: true,
+    });
+    if (filters.length) {
+      valueCol = `(CASE WHEN ${filters.join(" AND ")} THEN 1 ELSE NULL END)`;
+    }
+
     return `COALESCE(${valueCol}, 0)`;
   }
   getExperimentResultsQuery(): string {
@@ -4806,12 +4836,24 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // Fact Metrics
     if (isFactMetric(metric)) {
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const hasAggregateFilter =
+        getAggregateFilters({
+          columnRef: columnRef,
+          column: columnRef?.column || "",
+          ignoreInvalid: true,
+        }).length > 0;
+
+      const column = hasAggregateFilter
+        ? columnRef?.aggregateFilterColumn
+        : columnRef?.column;
+
       if (
-        metric.metricType === "proportion" ||
-        columnRef?.column === "$$distinctUsers"
+        !hasAggregateFilter &&
+        (metric.metricType === "proportion" || column === "$$distinctUsers")
       ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
-      } else if (columnRef?.column === "$$count") {
+      } else if (column === "$$count") {
         return `COUNT(${valueColumn})`;
       } else if (
         metric.metricType === "quantile" &&
@@ -4874,6 +4916,44 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
+  private getReaggregateMetricColumn(
+    metric: ExperimentMetricInterface,
+    useDenominator?: boolean,
+    valueColumn: string = "value"
+  ) {
+    if (quantileMetricType(metric)) {
+      throw new Error("Quantile metrics are not supported for reaggregation");
+    }
+    // Fact Metrics
+    if (isFactMetric(metric)) {
+      const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const hasAggregateFilter =
+        getAggregateFilters({
+          columnRef: columnRef,
+          column: columnRef?.column || "",
+          ignoreInvalid: true,
+        }).length > 0;
+
+      const column = hasAggregateFilter
+        ? columnRef?.aggregateFilterColumn
+        : columnRef?.column;
+
+      if (
+        !hasAggregateFilter &&
+        (metric.metricType === "proportion" || column === "$$distinctUsers")
+      ) {
+        return `MAX(COALESCE(${valueColumn}, 0))`;
+      }
+      {
+        return `SUM(COALESCE(${valueColumn}, 0))`;
+      }
+    }
+
+    // Non-fact Metrics
+    throw new Error("Non-fact metrics are not supported for reaggregation");
+  }
+
   private getMetricColumns(
     metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,
@@ -4890,13 +4970,24 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
+      const hasAggregateFilter =
+        getAggregateFilters({
+          columnRef: columnRef,
+          column: columnRef?.column || "",
+          ignoreInvalid: true,
+        }).length > 0;
+
+      const column = hasAggregateFilter
+        ? columnRef?.aggregateFilterColumn
+        : columnRef?.column;
+
       const value =
-        metric.metricType === "proportion" ||
+        (!hasAggregateFilter && metric.metricType === "proportion") ||
         !columnRef ||
-        columnRef.column === "$$distinctUsers" ||
-        columnRef.column === "$$count"
+        column === "$$distinctUsers" ||
+        column === "$$count"
           ? "1"
-          : `${alias}.${columnRef.column}`;
+          : `${alias}.${column}`;
 
       return {
         userIds,

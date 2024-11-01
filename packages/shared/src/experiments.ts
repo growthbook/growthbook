@@ -104,6 +104,43 @@ export function getColumnRefWhereClause(
   return [...where];
 }
 
+export function getAggregateFilters({
+  columnRef,
+  column,
+  ignoreInvalid = false,
+}: {
+  columnRef: Pick<
+    ColumnRef,
+    "aggregateFilter" | "aggregateFilterColumn" | "column"
+  > | null;
+  column: string;
+  ignoreInvalid?: boolean;
+}) {
+  if (!columnRef?.aggregateFilter) return [];
+  if (!columnRef.aggregateFilterColumn) return [];
+
+  // Only support distinctUsers for now
+  if (columnRef.column !== "$$distinctUsers") return [];
+
+  const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");
+
+  const filters: string[] = [];
+  parts.forEach((part) => {
+    if (!part) return;
+
+    // i.e. ">10" or "!=5.1"
+    const match = part.match(/^(=|!=|<>|<|<=|>|>=)(\d+(\.\d+)?)$/);
+    if (match) {
+      const [, operator, value] = match;
+      filters.push(`${column} ${operator} ${value}`);
+    } else if (!ignoreInvalid) {
+      throw new Error(`Invalid user filter: ${part}`);
+    }
+  });
+
+  return filters;
+}
+
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
   factTableMap: FactTableMap,
