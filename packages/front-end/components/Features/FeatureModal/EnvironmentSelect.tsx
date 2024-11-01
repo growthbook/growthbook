@@ -20,8 +20,6 @@ const EnvironmentSelect: FC<{
     (env) => env.enabled
   );
 
-  console.log(!permissionsUtil.canPublishFeature({ project }, ["test"]));
-
   return (
     <div className="form-group">
       <Container
@@ -45,7 +43,9 @@ const EnvironmentSelect: FC<{
             }
             setValue={(v) =>
               environments.forEach((env) => {
-                setValue(env, v === true);
+                if (permissionsUtil.canPublishFeature({ project }, [env.id])) {
+                  setValue(env, v === true);
+                }
               })
             }
             label="Select All"
