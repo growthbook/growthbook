@@ -20,6 +20,8 @@ const EnvironmentSelect: FC<{
     (env) => env.enabled
   );
 
+  console.log(!permissionsUtil.canPublishFeature({ project }, ["test"]));
+
   return (
     <div className="form-group">
       <Container
