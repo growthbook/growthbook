@@ -1,4 +1,3 @@
-import { isEqual } from "lodash";
 import { useRef, useState } from "react";
 import { FactTableInterface } from "back-end/types/fact-table";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
@@ -24,6 +23,7 @@ export default function EditFactTableSQLModal({
 }: Props) {
   const { getDatasourceById } = useDefinitions();
   const [eventName, setEventName] = useState(factTable.eventName);
+  // useState is not updated unitl a re-render, so use useRef instead for this
   const userIdTypes = useRef(factTable.userIdTypes);
 
   const selectedDataSource = getDatasourceById(factTable.datasource);
@@ -51,11 +51,13 @@ export default function EditFactTableSQLModal({
         setEventName(eventName || "");
       }}
       validateResponseOverride={(response) => {
+        if (!("timestamp" in response)) {
+          throw new Error("Must select a column named 'timestamp'");
+        }
+
         const possibleUserIdTypes =
           selectedDataSource?.settings?.userIdTypes?.map((t) => t.userIdType) ||
           [];
-
-        const currentUserIdTypes = userIdTypes.current;
 
         const cols = Object.keys(response);
         const newUserIdTypes: string[] = [];
@@ -67,15 +69,13 @@ export default function EditFactTableSQLModal({
 
         if (!newUserIdTypes.length) {
           throw new Error(
-            `You must select at least 1 identifier column from the list: ${possibleUserIdTypes.join(
+            `You must select at least 1 of the following identifier columns: ${possibleUserIdTypes.join(
               ", "
             )}`
           );
         }
 
-        if (!isEqual(newUserIdTypes, currentUserIdTypes)) {
-          userIdTypes.current = newUserIdTypes;
-        }
+        userIdTypes.current = newUserIdTypes;
       }}
     />
   );
