@@ -162,7 +162,6 @@ const ProjectPage: FC = () => {
             canEditRoles={canManageTeam}
             canDeleteMembers={false}
             canInviteMembers={false}
-            maxHeight={500}
           />
         </div>
 
