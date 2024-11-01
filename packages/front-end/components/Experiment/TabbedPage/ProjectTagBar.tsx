@@ -7,7 +7,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import InitialAvatar from "@/components/Avatar/InitialAvatar";
+import UserAvatar from "@/components/Avatar/InitialAvatar";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -109,7 +109,7 @@ export default function ProjectTagBar({
           <Text weight="medium">Owner: </Text>
           {ownerName ? (
             <span>
-              <InitialAvatar name={ownerName} size="sm" variant="soft" />{" "}
+              <UserAvatar name={ownerName} size="sm" variant="soft" />{" "}
               {ownerName}
             </span>
           ) : (

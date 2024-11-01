@@ -1,10 +1,17 @@
+import { ReactElement } from "react";
 import Avatar, { Props as AvatarProps } from "@/components/Radix/Avatar";
 
 type Props = {
   name: string;
+  icon?: ReactElement;
 } & Omit<AvatarProps, "children">;
 
-export default function InitialAvatar({ name, ...otherProps }: Props) {
+const getUserAvatar = (
+  name: string,
+  icon?: ReactElement
+): string | ReactElement => {
+  if (icon) return icon;
+
   const firstNameLetter = name?.charAt(0);
   const lastNameLetter = name?.split(" ")[1]?.charAt(0) || "";
   const userInitials =
@@ -12,5 +19,9 @@ export default function InitialAvatar({ name, ...otherProps }: Props) {
       ? name.toUpperCase()
       : `${firstNameLetter.toUpperCase()}${lastNameLetter?.toUpperCase()}`;
 
-  return <Avatar {...otherProps}>{userInitials}</Avatar>;
+  return userInitials;
+};
+
+export default function UserAvatar({ name, icon, ...otherProps }: Props) {
+  return <Avatar {...otherProps}>{getUserAvatar(name, icon)}</Avatar>;
 }
