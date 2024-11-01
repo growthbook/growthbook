@@ -6,7 +6,6 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
@@ -14,7 +13,7 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
@@ -227,33 +226,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         ? initialValue.variations
         : getDefaultVariations(initialNumVariations),
       phases: [
-        initialValue
-          ? {
-              coverage: initialValue.phases?.[0].coverage || 1,
-              dateStarted: getValidDate(
-                initialValue.phases?.[0]?.dateStarted ?? ""
-              )
-                .toISOString()
-                .substr(0, 16),
-              dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded ?? "")
-                .toISOString()
-                .substr(0, 16),
-              name: initialValue.phases?.[0].name || "Main",
-              reason: "",
-              variationWeights:
-                initialValue.phases?.[0].variationWeights ||
-                getEqualWeights(
-                  initialValue.variations ? initialValue.variations.length : 2
-                ),
-            }
-          : {
-              coverage: 1,
-              dateStarted: new Date().toISOString().substr(0, 16),
-              dateEnded: new Date().toISOString().substr(0, 16),
-              name: "Main",
-              reason: "",
-              variationWeights: [0.5, 0.5],
-            },
+        ...(initialValue?.phases?.length
+          ? initialValue?.phases || []
+          : [
+              {
+                coverage: 1,
+                dateStarted: new Date().toISOString().substr(0, 16),
+                dateEnded: new Date().toISOString().substr(0, 16),
+                name: "Main",
+                reason: "",
+                variationWeights: [0.5, 0.5],
+              },
+            ]),
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
