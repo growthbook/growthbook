@@ -6,6 +6,7 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
+import { getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
@@ -193,6 +194,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     : hashAttributes[0] || "id";
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
+  const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -229,8 +231,25 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         ...(initialValue?.phases?.[initialValue?.phases?.length - 1]
           ? [
               {
-                ...initialValue.phases[initialValue.phases.length - 1],
+                ...initialValue.phases[lastPhase],
+                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+                dateStarted: getValidDate(
+                  initialValue.phases?.[lastPhase]?.dateStarted ?? ""
+                )
+                  .toISOString()
+                  .substr(0, 16),
+                dateEnded: getValidDate(
+                  initialValue.phases?.[lastPhase]?.dateEnded ?? ""
+                )
+                  .toISOString()
+                  .substr(0, 16),
+                name: initialValue.phases?.[lastPhase]?.name || "Main",
                 reason: "",
+                variationWeights:
+                  initialValue.phases?.[lastPhase]?.variationWeights ||
+                  getEqualWeights(
+                    initialValue.variations ? initialValue.variations.length : 2
+                  ),
               },
             ]
           : [
