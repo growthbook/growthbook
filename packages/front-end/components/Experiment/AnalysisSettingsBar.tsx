@@ -138,12 +138,10 @@ export default function AnalysisSettingsBar({
                   snapshot={snapshot}
                   analysis={analysis}
                   setAnalysisSettings={setAnalysisSettings}
-                  loading={false}
                   mutate={mutate}
                   dropdownEnabled={
                     !manualSnapshot && snapshot?.dimension !== "pre:date"
                   }
-                  dimension={dimension}
                 />
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
                   vs
@@ -181,7 +179,6 @@ export default function AnalysisSettingsBar({
                 snapshot={snapshot}
                 analysis={analysis}
                 setAnalysisSettings={setAnalysisSettings}
-                loading={false}
                 mutate={mutate}
                 phase={phase}
               />
