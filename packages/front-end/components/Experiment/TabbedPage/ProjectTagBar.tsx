@@ -123,7 +123,7 @@ export default function ProjectTagBar({
           {experiment.tags?.length > 0 && (
             <SortedTags
               tags={experiment.tags}
-              skipFirstMargin={true}
+              useFlex
               shouldShowEllipsis={false}
             />
           )}{" "}

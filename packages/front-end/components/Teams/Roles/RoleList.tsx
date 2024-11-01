@@ -45,22 +45,18 @@ export default function RoleList() {
                     >
                       {r.id}
                     </Link>{" "}
-                    {isCustom ? (
-                      <Badge
-                        label="Custom"
-                        color="violet"
-                        variant="soft"
-                        ml="2"
-                      />
-                    ) : null}
-                    {isDeactivated ? (
-                      <Badge
-                        label="Deactivated"
-                        color="gray"
-                        variant="soft"
-                        ml="2"
-                      />
-                    ) : null}
+                    <div className="tags-container">
+                      {isCustom ? (
+                        <Badge label="Custom" color="violet" variant="soft" />
+                      ) : null}
+                      {isDeactivated ? (
+                        <Badge
+                          label="Deactivated"
+                          color="gray"
+                          variant="soft"
+                        />
+                      ) : null}
+                    </div>
                   </td>
                   <td>{r.description}</td>
                   <td>

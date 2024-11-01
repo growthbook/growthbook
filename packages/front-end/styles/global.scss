@@ -3267,7 +3267,7 @@ input:disabled {
   width: 100%;
 }
 .tags-container {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
