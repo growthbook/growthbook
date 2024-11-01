@@ -1,6 +1,6 @@
+import { Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Badge from "@/components/Radix/Badge";
 import Tag from "./Tag";
 
 export interface Props {
@@ -31,19 +31,16 @@ export default function SortedTags({
 
   const renderEllipsis = () => {
     const tags = sorted.slice(showEllipsisAtIndex);
-    const tagCopy = `${tags.length} more tag${tags.length === 1 ? "" : "s"}...`;
+    const moreTagsCopy = `${tags.length} more tag${
+      tags.length === 1 ? "" : "s"
+    }...`;
     const tagElements = renderTags(tags);
     return (
       <Tooltip
         body={<>{renderFlexContainer(tagElements, true)}</>}
         usePortal={true}
       >
-        <Badge
-          label={tagCopy}
-          color="violet"
-          variant="soft"
-          ml={useFlex ? undefined : "2"}
-        />
+        <Text ml={useFlex ? undefined : "2"}>{moreTagsCopy}</Text>
       </Tooltip>
     );
   };
