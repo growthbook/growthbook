@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
 import { Container, Grid, Text } from "@radix-ui/themes";
@@ -13,11 +13,17 @@ const EnvironmentSelect: FC<{
 }> = ({ environmentSettings, environments, setValue }) => {
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
-  const selectAllChecked = Object.values(environmentSettings).every(
-    (env) => env.enabled
+  const environmentsUserCanAccess = useMemo(() => {
+    return environments.filter((env) => {
+      return permissionsUtil.canPublishFeature({ project }, [env.id]);
+    });
+  }, [environments, permissionsUtil, project]);
+
+  const selectAllChecked = environmentsUserCanAccess.every(
+    (env) => environmentSettings[env.id]?.enabled
   );
-  const selectAllIndeterminate = Object.values(environmentSettings).some(
-    (env) => env.enabled
+  const selectAllIndeterminate = environmentsUserCanAccess.some(
+    (env) => environmentSettings[env.id]?.enabled
   );
 
   return (
@@ -42,10 +48,8 @@ const EnvironmentSelect: FC<{
                 : false
             }
             setValue={(v) =>
-              environments.forEach((env) => {
-                if (permissionsUtil.canPublishFeature({ project }, [env.id])) {
-                  setValue(env, v === true);
-                }
+              environmentsUserCanAccess.forEach((env) => {
+                setValue(env, v === true);
               })
             }
             label="Select All"

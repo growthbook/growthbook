@@ -47,7 +47,12 @@ export default function Checkbox({
 
   const TooltipWrapper = ({ children }) =>
     disabledMessage ? (
-      <Tooltip body={disabled ? disabledMessage : ""}>{children}</Tooltip>
+      <Tooltip
+        body={disabled ? disabledMessage : ""}
+        popperStyle={{ wordBreak: "normal" }}
+      >
+        {children}
+      </Tooltip>
     ) : (
       children
     );
