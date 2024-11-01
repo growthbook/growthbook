@@ -61,19 +61,25 @@ export default function ProjectTagBar({
               <Tooltip
                 body={<>This experiment is not in your current project.</>}
               >
-                {projectId ? (
-                  <strong>{projectName}</strong>
-                ) : (
-                  <em className="text-muted">None</em>
-                )}{" "}
+                {projectId && <strong>{projectName}</strong>}{" "}
                 <FaExclamationTriangle className="text-warning" />
               </Tooltip>
-            ) : projectId ? (
-              <strong>{projectName}</strong>
             ) : (
-              <em className="text-muted">None</em>
+              projectId && <strong>{projectName}</strong>
             )}
-            {editProject && (
+            {editProject && !projectId && (
+              <a
+                role="button"
+                className="cursor-pointer button-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editProject();
+                }}
+              >
+                +Add
+              </a>
+            )}
+            {editProject && projectId && (
               <a
                 role="button"
                 className="ml-2 cursor-pointer"
@@ -114,16 +120,26 @@ export default function ProjectTagBar({
       <div className="row">
         <div className="col-auto">
           <Text weight="medium">Tags: </Text>
-          {experiment.tags?.length > 0 ? (
+          {experiment.tags?.length > 0 && (
             <SortedTags
               tags={experiment.tags}
               skipFirstMargin={true}
               shouldShowEllipsis={false}
             />
-          ) : (
-            <em className="text-muted">None</em>
           )}{" "}
-          {editTags && (
+          {editTags && experiment.tags?.length === 0 && (
+            <a
+              role="button"
+              className="cursor-pointer button-link"
+              onClick={(e) => {
+                e.preventDefault();
+                editTags();
+              }}
+            >
+              +Add
+            </a>
+          )}
+          {editTags && experiment.tags?.length > 0 && (
             <a
               role="button"
               className="ml-1 cursor-pointer"
