@@ -53,7 +53,7 @@ export default function ColumnList({ factTable }: Props) {
     defaultSortField: "dateCreated",
     localStorageKey: "factColumns",
     searchFields: ["name^3", "description", "column^2"],
-    pageSize: 10,
+    pageSize: 5,
   });
 
   const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);

@@ -281,46 +281,45 @@ export default function FactTablePage() {
         />
       </div>
 
-      <div className="mb-5">
-        <h3>SQL Definition</h3>
-        <Code
-          code={factTable.sql}
-          language="sql"
-          containerClassName="m-0"
-          filename={
-            canEdit ? (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditSQLOpen(true);
-                }}
-              >
-                Edit SQL <GBEdit />
-              </a>
-            ) : (
-              "SQL"
-            )
-          }
-          expandable={true}
-        />
-        {usesEventName(factTable.sql) && (
-          <div className="p-2 bg-light border border-top-0">
-            <strong>eventName</strong> = <code>{factTable.eventName}</code>
-          </div>
-        )}
-      </div>
-
       <div className="row mb-4">
         <div className="col d-flex flex-column">
+          <h3>SQL Definition</h3>
+          <Code
+            code={factTable.sql}
+            language="sql"
+            containerClassName="m-0 flex-1"
+            className="flex-1"
+            filename={
+              canEdit ? (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditSQLOpen(true);
+                  }}
+                >
+                  Edit SQL <GBEdit />
+                </a>
+              ) : (
+                "SQL"
+              )
+            }
+          />
+          {usesEventName(factTable.sql) && (
+            <div className="p-2 bg-light border border-top-0">
+              <strong>eventName</strong> = <code>{factTable.eventName}</code>
+            </div>
+          )}
+        </div>
+        <div className="col d-flex flex-column">
           <h3>Columns</h3>
-          <div className="mb-1">
-            All of the columns returned by the Fact Table SQL.
-          </div>
-          <div className="appbox p-3 flex-1">
+          <div className="appbox p-3 flex-1 mb-0">
             <ColumnList factTable={factTable} />
           </div>
         </div>
+      </div>
+
+      <div className="row mb-4">
         <div className="col d-flex flex-column">
           <h3>Filters</h3>
           <div className="mb-1">
