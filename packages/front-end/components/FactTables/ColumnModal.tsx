@@ -163,7 +163,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       }) && (
         <Checkbox
           value={form.watch("alwaysInlineFilter") ?? false}
-          setValue={(v) => form.setValue("alwaysInlineFilter", v)}
+          setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
           label="Prompt all metrics to filter on this column"
           description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           mb="3"
