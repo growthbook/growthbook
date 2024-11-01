@@ -488,7 +488,7 @@ function TargetingForm({
               description="Do not persist variation assignments for this experiment (overrides your organization settings)"
               value={!!form.watch("disableStickyBucketing")}
               setValue={(v) => {
-                form.setValue("disableStickyBucketing", v);
+                form.setValue("disableStickyBucketing", v === true);
               }}
             />
           ) : null}

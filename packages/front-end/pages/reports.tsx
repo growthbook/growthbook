@@ -55,7 +55,13 @@ const ReportsPage = (): React.ReactElement => {
     },
     [onlyMyReports, userId]
   );
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    pagination,
+  } = useSearch({
     items: reports,
     localStorageKey: "reports",
     defaultSortField: "dateUpdated",
@@ -68,6 +74,7 @@ const ReportsPage = (): React.ReactElement => {
       "dateUpdated",
     ],
     filterResults,
+    pageSize: 20,
   });
 
   if (error) {
@@ -202,6 +209,7 @@ const ReportsPage = (): React.ReactElement => {
           )}
         </tbody>
       </table>
+      {pagination}
     </div>
   );
 };

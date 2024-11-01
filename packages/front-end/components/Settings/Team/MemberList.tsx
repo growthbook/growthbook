@@ -26,14 +26,12 @@ const MemberList: FC<{
   canEditRoles?: boolean;
   canDeleteMembers?: boolean;
   canInviteMembers?: boolean;
-  maxHeight?: number | null;
 }> = ({
   mutate,
   project,
   canEditRoles = true,
   canDeleteMembers = true,
   canInviteMembers = true,
-  maxHeight = null,
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
@@ -70,11 +68,18 @@ const MemberList: FC<{
       } as ExpandedMember;
     }) || [];
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    pagination,
+  } = useSearch({
     items: membersList || [],
     localStorageKey: "members",
     defaultSortField: "name",
     searchFields: ["name", "email"],
+    pageSize: 20,
   });
   return (
     <>
@@ -129,154 +134,144 @@ const MemberList: FC<{
             )}
           </div>
         </div>
-        <div
-          style={{
-            overflowY: "auto",
-            ...(maxHeight ? { maxHeight } : {}),
-          }}
-        >
-          <table className="table appbox gbtable">
-            <thead>
-              <tr>
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="email">Email</SortableTH>
-                <SortableTH field="dateCreated">Date Joined</SortableTH>
-                <SortableTH field="lastLoginDate">Last Login</SortableTH>
-                <th>{project ? "Project Role" : "Global Role"}</th>
-                {!project && <th>Project Roles</th>}
-                {environments.map((env) => (
-                  <th key={env.id}>{env.id}</th>
-                ))}
-                <SortableTH field="numTeams">Teams</SortableTH>
-                <th style={{ width: 50 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((member) => {
-                const roleInfo =
-                  (project &&
-                    member.projectRoles?.find((r) => r.project === project)) ||
-                  member;
-                return (
-                  <tr key={member.id}>
-                    <td>{member.name}</td>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        {member.managedByIdp ? (
-                          <Tooltip
-                            className="mr-2"
-                            body="This user is managed by an external identity provider."
-                          >
-                            <RxIdCard className="text-blue" />
-                          </Tooltip>
-                        ) : null}
-                        {member.email}
-                      </div>
+        <table className="table appbox gbtable">
+          <thead>
+            <tr>
+              <SortableTH field="name">Name</SortableTH>
+              <SortableTH field="email">Email</SortableTH>
+              <SortableTH field="dateCreated">Date Joined</SortableTH>
+              <SortableTH field="lastLoginDate">Last Login</SortableTH>
+              <th>{project ? "Project Role" : "Global Role"}</th>
+              {!project && <th>Project Roles</th>}
+              {environments.map((env) => (
+                <th key={env.id}>{env.id}</th>
+              ))}
+              <SortableTH field="numTeams">Teams</SortableTH>
+              <th style={{ width: 50 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((member) => {
+              const roleInfo =
+                (project &&
+                  member.projectRoles?.find((r) => r.project === project)) ||
+                member;
+              return (
+                <tr key={member.id}>
+                  <td>{member.name}</td>
+                  <td>
+                    <div className="d-flex align-items-center">
+                      {member.managedByIdp ? (
+                        <Tooltip
+                          className="mr-2"
+                          body="This user is managed by an external identity provider."
+                        >
+                          <RxIdCard className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                      {member.email}
+                    </div>
+                  </td>
+                  <td>{member.dateCreated && datetime(member.dateCreated)}</td>
+                  <td>{member.lastLoginDate && date(member.lastLoginDate)}</td>
+                  <td>{roleInfo.role}</td>
+                  {!project && (
+                    <td className="col-2">
+                      {member.projectRoles?.map((pr) => {
+                        const p = projects.find((p) => p.id === pr.project);
+                        if (p?.name) {
+                          return (
+                            <div key={`project-tags-${p.id}`}>
+                              <ProjectBadges
+                                resourceType="member"
+                                projectIds={[p.id]}
+                                className="badge-ellipsis short align-middle font-weight-normal"
+                              />{" "}
+                              — {pr.role}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
                     </td>
-                    <td>
-                      {member.dateCreated && datetime(member.dateCreated)}
-                    </td>
-                    <td>
-                      {member.lastLoginDate && date(member.lastLoginDate)}
-                    </td>
-                    <td>{roleInfo.role}</td>
-                    {!project && (
-                      <td className="col-2">
-                        {member.projectRoles?.map((pr) => {
-                          const p = projects.find((p) => p.id === pr.project);
-                          if (p?.name) {
-                            return (
-                              <div key={`project-tags-${p.id}`}>
-                                <ProjectBadges
-                                  resourceType="member"
-                                  projectIds={[p.id]}
-                                  className="badge-ellipsis short align-middle font-weight-normal"
-                                />{" "}
-                                — {pr.role}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })}
+                  )}
+                  {environments.map((env) => {
+                    const access = roleHasAccessToEnv(
+                      roleInfo,
+                      env.id,
+                      organization
+                    );
+                    return (
+                      <td key={env.id}>
+                        {access === "N/A" ? (
+                          <span className="text-muted">N/A</span>
+                        ) : access === "yes" ? (
+                          <FaCheck className="text-success" />
+                        ) : (
+                          <FaTimes className="text-danger" />
+                        )}
                       </td>
-                    )}
-                    {environments.map((env) => {
-                      const access = roleHasAccessToEnv(
-                        roleInfo,
-                        env.id,
-                        organization
-                      );
-                      return (
-                        <td key={env.id}>
-                          {access === "N/A" ? (
-                            <span className="text-muted">N/A</span>
-                          ) : access === "yes" ? (
-                            <FaCheck className="text-success" />
-                          ) : (
-                            <FaTimes className="text-danger" />
-                          )}
-                        </td>
-                      );
-                    })}
+                    );
+                  })}
 
-                    <td>{member.teams ? member.teams.length : 0}</td>
+                  <td>{member.teams ? member.teams.length : 0}</td>
 
-                    <td>
-                      {canEditRoles && member.id !== userId && (
-                        <>
-                          <MoreMenu>
+                  <td>
+                    {canEditRoles && member.id !== userId && (
+                      <>
+                        <MoreMenu>
+                          <button
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setRoleModal(member.id);
+                            }}
+                          >
+                            Edit Role
+                          </button>
+                          {canDeleteMembers && !usingSSO() && (
                             <button
                               className="dropdown-item"
                               onClick={(e) => {
                                 e.preventDefault();
-                                setRoleModal(member.id);
+                                setPasswordResetModal(member);
                               }}
                             >
-                              Edit Role
+                              Reset Password
                             </button>
-                            {canDeleteMembers && !usingSSO() && (
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setPasswordResetModal(member);
-                                }}
-                              >
-                                Reset Password
-                              </button>
-                            )}
-                            {canDeleteMembers && !member.managedByIdp && (
-                              <DeleteButton
-                                link={true}
-                                text="Remove User"
-                                useIcon={false}
-                                className="dropdown-item"
-                                displayName={member.email}
-                                onClick={async () => {
-                                  await apiCall(`/member/${member.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  mutate();
-                                }}
-                              />
-                            )}
-                          </MoreMenu>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={4} align={"center"}>
-                    No matching members found.
+                          )}
+                          {canDeleteMembers && !member.managedByIdp && (
+                            <DeleteButton
+                              link={true}
+                              text="Remove User"
+                              useIcon={false}
+                              className="dropdown-item"
+                              displayName={member.email}
+                              onClick={async () => {
+                                await apiCall(`/member/${member.id}`, {
+                                  method: "DELETE",
+                                });
+                                mutate();
+                              }}
+                            />
+                          )}
+                        </MoreMenu>
+                      </>
+                    )}
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+            {!items.length && isFiltered && (
+              <tr>
+                <td colSpan={4} align={"center"}>
+                  No matching members found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {pagination}
       </div>
     </>
   );
