@@ -255,8 +255,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
 
-  const lastPhase = (form.watch("phases")?.length ?? 1) - 1;
-
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
@@ -292,7 +290,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       validateSavedGroupTargeting(data.phases[0].savedGroups);
 
       validateAndFixCondition(data.phases[0].condition, (condition) => {
-        form.setValue(`phases.${lastPhase}.condition`, condition);
+        form.setValue("phases.0.condition", condition);
         forceConditionRender();
       });
 
@@ -511,14 +509,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   <Field
                     label="Start Date (UTC)"
                     type="datetime-local"
-                    {...form.register(`phases.${lastPhase}.dateStarted`)}
+                    {...form.register("phases.0.dateStarted")}
                   />
                 )}
                 {status === "stopped" && (
                   <Field
                     label="End Date (UTC)"
                     type="datetime-local"
-                    {...form.register(`phases.${lastPhase}.dateEnded`)}
+                    {...form.register("phases.0.dateEnded")}
                   />
                 )}
               </>
@@ -539,52 +537,39 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     environments={envs}
                     noSchedule={true}
                     prerequisiteValue={
-                      form.watch(`phases.${lastPhase}.prerequisites`) || []
+                      form.watch("phases.0.prerequisites") || []
                     }
                     setPrerequisiteValue={(prerequisites) =>
-                      form.setValue(
-                        `phases.${lastPhase}.prerequisites`,
-                        prerequisites
-                      )
+                      form.setValue("phases.0.prerequisites", prerequisites)
                     }
                     setPrerequisiteTargetingSdkIssues={
                       setPrerequisiteTargetingSdkIssues
                     }
-                    savedGroupValue={
-                      form.watch(`phases.${lastPhase}.savedGroups`) || []
-                    }
+                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
                     setSavedGroupValue={(savedGroups) =>
-                      form.setValue(
-                        `phases.${lastPhase}.savedGroups`,
-                        savedGroups
-                      )
+                      form.setValue("phases.0.savedGroups", savedGroups)
                     }
                     defaultConditionValue={
-                      form.watch(`phases.${lastPhase}.condition`) || ""
+                      form.watch("phases.0.condition") || ""
                     }
                     setConditionValue={(value) =>
-                      form.setValue(`phases.${lastPhase}.condition`, value)
+                      form.setValue("phases.0.condition", value)
                     }
                     conditionKey={conditionKey}
-                    namespaceFormPrefix={`phases.${lastPhase}.`}
-                    coverage={form.watch(`phases.${lastPhase}.coverage`)}
+                    namespaceFormPrefix={"phases.0."}
+                    coverage={form.watch("phases.0.coverage")}
                     setCoverage={(coverage) =>
-                      form.setValue(`phases.${lastPhase}.coverage`, coverage)
+                      form.setValue("phases.0.coverage", coverage)
                     }
                     setWeight={(i, weight) =>
-                      form.setValue(
-                        `phases.${lastPhase}.variationWeights.${i}`,
-                        weight
-                      )
+                      form.setValue(`phases.0.variationWeights.${i}`, weight)
                     }
                     variations={
                       form.watch("variations")?.map((v, i) => {
                         return {
                           value: v.key || "",
                           name: v.name,
-                          weight: form.watch(
-                            `phases.${lastPhase}.variationWeights.${i}`
-                          ),
+                          weight: form.watch(`phases.0.variationWeights.${i}`),
                           id: v.id,
                         };
                       }) ?? []
@@ -603,7 +588,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         })
                       );
                       form.setValue(
-                        `phases.${lastPhase}.variationWeights`,
+                        "phases.0.variationWeights",
                         v.map((v) => v.weight)
                       );
                     }}
@@ -635,52 +620,39 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     project={project}
                     environments={envs}
                     prerequisiteValue={
-                      form.watch(`phases.${lastPhase}.prerequisites`) || []
+                      form.watch("phases.0.prerequisites") || []
                     }
                     setPrerequisiteValue={(prerequisites) =>
-                      form.setValue(
-                        `phases.${lastPhase}.prerequisites`,
-                        prerequisites
-                      )
+                      form.setValue("phases.0.prerequisites", prerequisites)
                     }
                     setPrerequisiteTargetingSdkIssues={
                       setPrerequisiteTargetingSdkIssues
                     }
-                    savedGroupValue={
-                      form.watch(`phases.${lastPhase}.savedGroups`) || []
-                    }
+                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
                     setSavedGroupValue={(savedGroups) =>
-                      form.setValue(
-                        `phases.${lastPhase}.savedGroups`,
-                        savedGroups
-                      )
+                      form.setValue("phases.0.savedGroups", savedGroups)
                     }
                     defaultConditionValue={
-                      form.watch(`phases.${lastPhase}.condition`) || ""
+                      form.watch("phases.0.condition") || ""
                     }
                     setConditionValue={(value) =>
-                      form.setValue(`phases.${lastPhase}.condition`, value)
+                      form.setValue("phases.0.condition", value)
                     }
                     conditionKey={conditionKey}
-                    namespaceFormPrefix={`phases.${lastPhase}.`}
-                    coverage={form.watch(`phases.${lastPhase}.coverage`)}
+                    namespaceFormPrefix={"phases.0."}
+                    coverage={form.watch("phases.0.coverage")}
                     setCoverage={(coverage) =>
-                      form.setValue(`phases.${lastPhase}.coverage`, coverage)
+                      form.setValue("phases.0.coverage", coverage)
                     }
                     setWeight={(i, weight) =>
-                      form.setValue(
-                        `phases.${lastPhase}.variationWeights.${i}`,
-                        weight
-                      )
+                      form.setValue(`phases.0.variationWeights.${i}`, weight)
                     }
                     variations={
                       form.watch("variations")?.map((v, i) => {
                         return {
                           value: v.key || "",
                           name: v.name,
-                          weight: form.watch(
-                            `phases.${lastPhase}.variationWeights.${i}`
-                          ),
+                          weight: form.watch(`phases.0.variationWeights.${i}`),
                           id: v.id,
                         };
                       }) ?? []
@@ -699,7 +671,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         })
                       );
                       form.setValue(
-                        `phases.${lastPhase}.variationWeights`,
+                        "phases.0.variationWeights",
                         v.map((v) => v.weight)
                       );
                     }}
@@ -750,36 +722,26 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
                   <hr />
                   <SavedGroupTargetingField
-                    value={form.watch(`phases.${lastPhase}.savedGroups`) || []}
+                    value={form.watch("phases.0.savedGroups") || []}
                     setValue={(savedGroups) =>
-                      form.setValue(
-                        `phases.${lastPhase}.savedGroups`,
-                        savedGroups
-                      )
+                      form.setValue("phases.0.savedGroups", savedGroups)
                     }
                     project={project}
                   />
                   <hr />
                   <ConditionInput
-                    defaultValue={
-                      form.watch(`phases.${lastPhase}.condition`) || ""
-                    }
+                    defaultValue={form.watch("phases.0.condition") || ""}
                     onChange={(value) =>
-                      form.setValue(`phases.${lastPhase}.condition`, value)
+                      form.setValue("phases.0.condition", value)
                     }
                     key={conditionKey}
                     project={project}
                   />
                   <hr />
                   <PrerequisiteTargetingField
-                    value={
-                      form.watch(`phases.${lastPhase}.prerequisites`) || []
-                    }
+                    value={form.watch("phases.0.prerequisites") || []}
                     setValue={(prerequisites) =>
-                      form.setValue(
-                        `phases.${lastPhase}.prerequisites`,
-                        prerequisites
-                      )
+                      form.setValue("phases.0.prerequisites", prerequisites)
                     }
                     environments={envs}
                     project={form.watch("project")}
@@ -789,7 +751,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   />
                   <hr />
                   <NamespaceSelector
-                    formPrefix={`phases.${lastPhase}.`}
+                    formPrefix="phases.0."
                     form={form}
                     featureId={""}
                     trackingKey={""}
@@ -806,9 +768,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
               <FeatureVariationsInput
                 valueType="string"
-                coverage={form.watch(`phases.${lastPhase}.coverage`)}
+                coverage={form.watch("phases.0.coverage")}
                 setCoverage={(coverage) =>
-                  form.setValue(`phases.${lastPhase}.coverage`, coverage)
+                  form.setValue("phases.0.coverage", coverage)
                 }
                 coverageTooltip={
                   isNewExperiment
@@ -816,10 +778,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     : "This is just for documentation purposes and has no effect on the analysis."
                 }
                 setWeight={(i, weight) =>
-                  form.setValue(
-                    `phases.${lastPhase}.variationWeights.${i}`,
-                    weight
-                  )
+                  form.setValue(`phases.0.variationWeights.${i}`, weight)
                 }
                 valueAsId={true}
                 variations={
@@ -827,9 +786,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     return {
                       value: v.key || "",
                       name: v.name,
-                      weight: form.watch(
-                        `phases.${lastPhase}.variationWeights.${i}`
-                      ),
+                      weight: form.watch(`phases.0.variationWeights.${i}`),
                       id: v.id,
                     };
                   }) ?? []
@@ -848,7 +805,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     })
                   );
                   form.setValue(
-                    `phases.${lastPhase}.variationWeights`,
+                    "phases.0.variationWeights",
                     v.map((v) => v.weight)
                   );
                 }}
