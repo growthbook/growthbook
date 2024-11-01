@@ -54,7 +54,7 @@ const EnvironmentSelect: FC<{
         <Grid
           columns={{ initial: "2", md: "4" }}
           flow="row"
-          style={{ maxHeight: "168px" }}
+          style={{ maxHeight: "168px", wordBreak: "break-all" }}
           overflowY="auto"
         >
           {environments.map((env) => (
@@ -69,6 +69,7 @@ const EnvironmentSelect: FC<{
               key={env.id}
               weight="regular"
               mb="4"
+              mr="2"
             />
           ))}
         </Grid>
