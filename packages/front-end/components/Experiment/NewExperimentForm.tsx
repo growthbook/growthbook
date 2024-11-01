@@ -13,7 +13,7 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { generateTrackingKey } from "shared/experiments";
+import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase } from "lodash";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
@@ -235,7 +235,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 dateEnded: new Date().toISOString().substr(0, 16),
                 name: "Main",
                 reason: "",
-                variationWeights: [0.5, 0.5],
+                variationWeights: getEqualWeights(
+                  (initialValue?.variations
+                    ? initialValue.variations
+                    : getDefaultVariations(initialNumVariations)
+                  )?.length || 2
+                ),
               },
             ]),
       ],
