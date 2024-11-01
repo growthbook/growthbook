@@ -14,10 +14,6 @@ export const TAG_COLORS = [
   "gold",
 ] as const;
 
-export type TagColor = typeof TAG_COLORS[number];
-const isTagColor = (x: TagColor | string): x is TagColor =>
-  TAG_COLORS.includes(x as TagColor);
-
 type Props = {
   tag: string;
   color?: string;
@@ -31,8 +27,7 @@ export default function Tag({ tag, color, description, skipMargin }: Props) {
 
   const displayTitle = description ?? fullTag?.description ?? "";
 
-  const colorProp = color ? (isTagColor(color) ? color : "blue") : undefined;
-  const tagColor = fullTag?.color ?? colorProp ?? "blue";
+  const tagColor = color ?? fullTag?.color ?? "blue";
 
   return (
     <Badge
