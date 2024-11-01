@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { Buffer } from "node:buffer";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
@@ -340,12 +341,12 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
 
   const isVerified = crypto.verify(
     "sha256",
-    new Uint8Array(license.buffer),
+    license,
     {
       key: publicKey,
       padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
     },
-    new Uint8Array(signature.buffer)
+    signature
   );
 
   // License key signature is invalid, don't use it
@@ -390,12 +391,12 @@ function verifyLicenseInterface(license: LicenseInterface) {
   logger.info("Verifying license data: " + JSON.stringify(data));
   const isVerified = crypto.verify(
     "sha256",
-    new Uint8Array(dataBuffer.buffer),
+    dataBuffer,
     {
       key: publicKey,
       padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
     },
-    new Uint8Array(signature.buffer)
+    signature
   );
 
   // License key signature is invalid, don't use it
