@@ -505,7 +505,7 @@ describe("Experiments", () => {
             },
             column: "value",
           })
-        ).toThrowError("Invalid aggregate filter: %3");
+        ).toThrowError("Invalid user filter: %3");
       });
       it("ignores invalid filters when opted in", () => {
         expect(
