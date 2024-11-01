@@ -780,21 +780,20 @@ export default abstract class SqlIntegration
             , ${populationSQL ? "p" : "f"}.${baseIdType}
         )
         , __userMetricOverall as (
-          -- Re-sum across all users (NOTE DOES NOT WORK FOR CERTAIN AGGREGATIONS!)
           SELECT
             ${baseIdType}
-            , ${
-              metric.metricType === "proportion"
-                ? "MAX(COALESCE(value, 0))"
-                : "SUM(COALESCE(value, 0))"
-            } as value
+            , ${this.getReaggregateMetricColumn(
+              metric,
+              false,
+              "value"
+            )} as value
              ${
-               metricData.ratioMetric // ALL AGGREGATIONS?
-                 ? `,${
-                     metric.metricType === "proportion"
-                       ? "MAX(COALESCE(denominator, 0))"
-                       : "SUM(COALESCE(denominator, 0))"
-                   } as denominator`
+               metricData.ratioMetric
+                 ? `, ${this.getReaggregateMetricColumn(
+                     metric,
+                     true,
+                     "denominator"
+                   )} as denominator`
                  : ""
              }
           FROM
@@ -4915,6 +4914,44 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         return `MAX(COALESCE(value, 0))`;
       }
     }
+  }
+
+  private getReaggregateMetricColumn(
+    metric: ExperimentMetricInterface,
+    useDenominator?: boolean,
+    valueColumn: string = "value"
+  ) {
+    if (quantileMetricType(metric)) {
+      throw new Error("Quantile metrics are not supported for reaggregation");
+    }
+    // Fact Metrics
+    if (isFactMetric(metric)) {
+      const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const hasAggregateFilter =
+        getAggregateFilters({
+          columnRef: columnRef,
+          column: columnRef?.column || "",
+          ignoreInvalid: true,
+        }).length > 0;
+
+      const column = hasAggregateFilter
+        ? columnRef?.aggregateFilterColumn
+        : columnRef?.column;
+
+      if (
+        !hasAggregateFilter &&
+        (metric.metricType === "proportion" || column === "$$distinctUsers")
+      ) {
+        return `MAX(COALESCE(${valueColumn}, 0))`;
+      }
+      {
+        return `SUM(COALESCE(${valueColumn}, 0))`;
+      }
+    }
+
+    // Non-fact Metrics
+    throw new Error("Non-fact metrics are not supported for reaggregation");
   }
 
   private getMetricColumns(
