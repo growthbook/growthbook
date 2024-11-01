@@ -2,6 +2,7 @@ import React from "react";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Radix/Badge";
+import { RadixColor } from "@/components/Radix/HelperText";
 
 export const TAG_COLORS = [
   "blue",
@@ -30,15 +31,14 @@ export default function Tag({ tag, color, description, skipMargin }: Props) {
 
   const displayTitle = description ?? fullTag?.description ?? "";
 
-  const tagColor = color ?? fullTag?.color ?? "blue";
-  // If a tag is still using a hex code color, we'll find the closest radix color
-  const displayColor = isTagColor(tagColor) ? tagColor : "blue";
+  const colorProp = color ? (isTagColor(color) ? color : "blue") : undefined;
+  const tagColor = fullTag?.color ?? colorProp ?? "blue";
 
   return (
     <Badge
       title={displayTitle}
       label={tag}
-      color={displayColor}
+      color={tagColor as RadixColor}
       variant="soft"
       ml={skipMargin ? undefined : "2"}
     />
