@@ -1343,7 +1343,10 @@ export default function FactMetricModal({
                             label="Override organization-level settings"
                             value={form.watch("regressionAdjustmentOverride")}
                             setValue={(v) =>
-                              form.setValue("regressionAdjustmentOverride", v)
+                              form.setValue(
+                                "regressionAdjustmentOverride",
+                                v === true
+                              )
                             }
                             disabled={!hasRegressionAdjustmentFeature}
                           />
