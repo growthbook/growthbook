@@ -349,6 +349,7 @@ export default function RuleModal({
           ),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
+          disableStickyBucketing: values.disableStickyBucketing ?? false,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
           goalMetrics: values.goalMetrics || [],
@@ -356,7 +357,8 @@ export default function RuleModal({
           guardrailMetrics: values.guardrailMetrics || [],
           activationMetric: "",
           name: values.name,
-          hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
+          hashVersion: (values.hashVersion ||
+            (hasSDKWithNoBucketingV2 ? 1 : 2)) as 1 | 2,
           owner: "",
           status:
             values.experimentType === "multi-armed-bandit"
@@ -603,6 +605,9 @@ export default function RuleModal({
                           usePortal={true}
                         >
                           Bandit
+                          <span className="mr-auto badge badge-purple text-uppercase ml-2">
+                            Beta
+                          </span>
                         </PremiumTooltip>
                       ),
                       description: (
@@ -834,6 +839,7 @@ export default function RuleModal({
                   setVariations={(variations) =>
                     form.setValue("values", variations)
                   }
+                  orgStickyBucketing={orgStickyBucketing}
                 />
               </Page>
             ))

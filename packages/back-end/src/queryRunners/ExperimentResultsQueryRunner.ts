@@ -1,5 +1,6 @@
 import { orgHasPremiumFeature } from "enterprise";
 import {
+  expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   isFactMetric,
@@ -182,7 +183,11 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = getAllMetricIdsFromExperiment(snapshotSettings, false)
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const selectedMetrics = expandMetricGroups(
+    getAllMetricIdsFromExperiment(snapshotSettings, false),
+    allMetricGroups
+  )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {

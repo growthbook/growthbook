@@ -116,6 +116,7 @@ import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
+import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 
@@ -442,9 +443,13 @@ app.get(
   "/metrics/:id/experiments",
   metricsController.getMetricExperimentResults
 );
+app.get("/metrics/:id/northstar", metricsController.getMetricNorthstarData);
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
+
+// Metric Groups
+app.use(metricGroupRouter);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);
@@ -664,6 +669,13 @@ app.post(
   "/datasources/fetch-bigquery-datasets",
   datasourcesController.fetchBigQueryDatasets
 );
+
+if (IS_CLOUD) {
+  app.post(
+    "/datasource/create-inbuilt",
+    datasourcesController.postInbuiltDataSource
+  );
+}
 
 // Auto Fact Tables
 app.post(

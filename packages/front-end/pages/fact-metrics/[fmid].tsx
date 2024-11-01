@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { quantileMetricType } from "shared/experiments";
+import { getAggregateFilters, quantileMetricType } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -196,6 +196,15 @@ export default function FactMetricPage() {
     ? getDatasourceById(factMetric.datasource)
     : null;
 
+  const userFilters = getAggregateFilters({
+    columnRef: factMetric.numerator,
+    column:
+      factMetric.numerator.aggregateFilterColumn === "$$count"
+        ? `COUNT(*)`
+        : `SUM(${factMetric.numerator.aggregateFilterColumn})`,
+    ignoreInvalid: true,
+  });
+
   const numeratorData: DataListItem[] = [
     {
       label: `Fact Table`,
@@ -243,6 +252,13 @@ export default function FactMetricPage() {
           {
             label: "Per-User Aggregation",
             value: "SUM",
+          },
+        ]
+      : userFilters.length > 0
+      ? [
+          {
+            label: "User Filter",
+            value: userFilters.join(" AND "),
           },
         ]
       : []),
@@ -623,7 +639,7 @@ export default function FactMetricPage() {
                     </li>
                   )}
                   {factMetric.cappingSettings.type &&
-                    factMetric.cappingSettings.value && (
+                    !!factMetric.cappingSettings.value && (
                       <>
                         <li className="mb-2">
                           <span className="uppercase-title lg">

@@ -26,7 +26,7 @@ import DataList from "@/components/Radix/DataList";
 import Stepper from "@/components/Stepper/Stepper";
 
 export default function DesignSystemPage() {
-  const [checked, setChecked] = useState(false);
+  const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
   const [radioSelected, setRadioSelected] = useState("k1");
@@ -204,6 +204,13 @@ export default function DesignSystemPage() {
               setChecked(v);
             }}
             description="This is a description"
+          />
+          <Checkbox
+            label="Checkbox in Indeterminate State"
+            value={"indeterminate"}
+            setValue={(v) => {
+              setChecked(v);
+            }}
           />
           <Checkbox
             label="Checkbox With Warning (and description)"

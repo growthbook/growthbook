@@ -20,9 +20,13 @@ import {
 } from "back-end/types/experiment";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+} from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -34,6 +38,10 @@ export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
+}
+
+export function isMetricGroupId(id: string): boolean {
+  return !!id.match(/^mg_/);
 }
 
 export function isFactMetric(
@@ -94,6 +102,43 @@ export function getColumnRefWhereClause(
   });
 
   return [...where];
+}
+
+export function getAggregateFilters({
+  columnRef,
+  column,
+  ignoreInvalid = false,
+}: {
+  columnRef: Pick<
+    ColumnRef,
+    "aggregateFilter" | "aggregateFilterColumn" | "column"
+  > | null;
+  column: string;
+  ignoreInvalid?: boolean;
+}) {
+  if (!columnRef?.aggregateFilter) return [];
+  if (!columnRef.aggregateFilterColumn) return [];
+
+  // Only support distinctUsers for now
+  if (columnRef.column !== "$$distinctUsers") return [];
+
+  const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");
+
+  const filters: string[] = [];
+  parts.forEach((part) => {
+    if (!part) return;
+
+    // i.e. ">10" or "!=5.1"
+    const match = part.match(/^(=|!=|<>|<|<=|>|>=)(\d+(\.\d+)?)$/);
+    if (match) {
+      const [, operator, value] = match;
+      filters.push(`${column} ${operator} ${value}`);
+    } else if (!ignoreInvalid) {
+      throw new Error(`Invalid user filter: ${part}`);
+    }
+  });
+
+  return filters;
 }
 
 export function getMetricTemplateVariables(
@@ -710,4 +755,52 @@ export async function generateTrackingKey(
 
     return key;
   }
+}
+
+export function expandMetricGroups(
+  metricIds: string[],
+  metricGroups: MetricGroupInterface[]
+): string[] {
+  const metricGroupMap = new Map(metricGroups.map((mg) => [mg.id, mg]));
+  const expandedMetricIds: string[] = [];
+  metricIds.forEach((id) => {
+    if (metricGroupMap.has(id)) {
+      expandedMetricIds.push(...(metricGroupMap.get(id)?.metrics || []));
+    } else {
+      expandedMetricIds.push(id);
+    }
+  });
+  return expandedMetricIds;
+}
+
+export function isMetricJoinable(
+  metricIdTypes: string[],
+  userIdType: string,
+  settings?: DataSourceSettings
+): boolean {
+  if (metricIdTypes.includes(userIdType)) return true;
+
+  if (settings?.queries?.identityJoins) {
+    if (
+      settings.queries.identityJoins.some(
+        (j) =>
+          j.ids.includes(userIdType) &&
+          j.ids.some((jid) => metricIdTypes.includes(jid))
+      )
+    ) {
+      return true;
+    }
+  }
+
+  // legacy support for pageviewsQuery
+  if (settings?.queries?.pageviewsQuery) {
+    if (
+      ["user_id", "anonymous_id"].includes(userIdType) &&
+      metricIdTypes.some((m) => ["user_id", "anonymous_id"].includes(m))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }

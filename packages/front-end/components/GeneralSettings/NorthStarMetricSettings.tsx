@@ -26,6 +26,9 @@ export default function NorthStarMetricSettings() {
                       onChange={(metricIds) =>
                         setValue("northStar.metricIds", metricIds)
                       }
+                      includeFacts={true}
+                      includeGroups={false}
+                      excludeQuantiles={true}
                     />
                   </div>
                   <Field

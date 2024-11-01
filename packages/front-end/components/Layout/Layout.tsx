@@ -55,19 +55,20 @@ const navlinks: SidebarLinkProps[] = [
     href: "/bandits",
     Icon: GBBandit,
     path: /^bandit/,
+    beta: true,
     filter: ({ gb }) => !!gb?.isOn("bandits"),
   },
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasources|fact-)/,
+    path: /^(metric|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^(metric|fact-metric)/,
+        path: /^(metric$|metrics|fact-metric|metric-group)/,
       },
       {
         name: "Fact Tables",

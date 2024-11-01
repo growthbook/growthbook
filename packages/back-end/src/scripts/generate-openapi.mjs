@@ -21,7 +21,6 @@ async function run() {
   const spec = path.join(__dirname, "..", "..", "generated", "spec.yaml");
   const api = load(fs.readFileSync(spec));
   const dereferenced = await SwaggerParser.dereference(api);
-  console.log(api);
   const validators = [];
 
   // Step 2: Convert to Typescript types

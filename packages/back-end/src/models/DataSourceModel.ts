@@ -25,6 +25,8 @@ import { queueCreateInformationSchema } from "back-end/src/jobs/createInformatio
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { logger } from "back-end/src/util/logger";
+import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -138,6 +140,9 @@ export async function deleteDatasource(
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
+  if (datasource.type === "growthbook_clickhouse") {
+    await deleteClickhouseUser(datasource.id, organization);
+  }
   await DataSourceModel.deleteOne({
     id: datasource.id,
     organization,
@@ -223,6 +228,7 @@ export async function createDataSource(
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
+    logger.debug("queueCreateInformationSchema");
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 

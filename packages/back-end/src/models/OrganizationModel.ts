@@ -188,6 +188,7 @@ export async function createOrganization({
           defaultState: true,
         },
       ],
+      killswitchConfirmation: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },

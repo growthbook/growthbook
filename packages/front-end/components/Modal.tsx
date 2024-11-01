@@ -255,6 +255,7 @@ const Modal: FC<ModalProps> = ({
           >
             {close && includeCloseCta ? (
               <button
+                type="button"
                 className={closeCtaClassName}
                 onClick={async (e) => {
                   e.preventDefault();

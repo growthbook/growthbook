@@ -31,6 +31,7 @@ export const banditResult = z.object({
   updateMessage: z.string().optional(),
   error: z.string().optional(),
   reweight: z.boolean().optional(),
+  weightsWereUpdated: z.boolean().optional(),
 });
 
 export const banditEvent = z
