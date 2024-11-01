@@ -24,7 +24,7 @@ export const srmHealthCheck = ({
   srmThreshold: number;
   totalUsers: number;
 }): HealthStatus => {
-  if (totalUsers && totalUsers < 8 * numVariations) {
+  if (totalUsers && totalUsers < 5 * numVariations) {
     return "Not enough traffic";
   } else if (srm >= srmThreshold) {
     return "healthy";

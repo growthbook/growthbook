@@ -27,6 +27,7 @@ export default function NorthStarMetricSettings() {
                         setValue("northStar.metricIds", metricIds)
                       }
                       includeFacts={true}
+                      includeGroups={false}
                       excludeQuantiles={true}
                     />
                   </div>

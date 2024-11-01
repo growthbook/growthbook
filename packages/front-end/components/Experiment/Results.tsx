@@ -476,9 +476,11 @@ export function sortAndFilterMetricsByTags(
 
   // get all possible tags from the metric definitions
   const tagsInMetrics: Set<string> = new Set();
+  const allMetrics: ExperimentMetricInterface[] = [];
   metrics.forEach((metric) => {
     if (!metric) return;
     metricDefs[metric.id] = metric;
+    allMetrics.push(metric);
     metric.tags?.forEach((tag) => {
       tagsInMetrics.add(tag);
     });
@@ -509,14 +511,14 @@ export function sortAndFilterMetricsByTags(
   }
 
   // add any remaining metrics to the end
-  for (const metricId in metricDefs) {
-    const metric = metricDefs[metricId];
+  for (const i in allMetrics) {
+    const metric = allMetrics[i];
     if (filterByTag) {
       if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
-        sortedMetrics.push(metricId);
+        sortedMetrics.push(metric.id);
       }
     } else {
-      sortedMetrics.push(metricId);
+      sortedMetrics.push(metric.id);
     }
   }
 

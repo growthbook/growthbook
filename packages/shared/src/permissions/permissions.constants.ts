@@ -73,7 +73,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   DataSourceConfiguration: ["readData", "editDatasourceSettings", "runQueries"],
   RunQueries: ["readData", "runQueries"],
-  MetricsFullAccess: ["readData", "createMetrics", "runQueries"],
+  MetricsFullAccess: [
+    "readData",
+    "createMetrics",
+    "runQueries",
+    "createMetricGroups",
+  ],
   FactTablesFullAccess: [
     "readData",
     "manageFactTables",
@@ -493,6 +498,7 @@ export const GLOBAL_PERMISSIONS = [
   "createPresentations",
   "createDimensions",
   "createSegments",
+  "createMetricGroups",
   "organizationSettings",
   "superDeleteReport",
   "manageTeam",

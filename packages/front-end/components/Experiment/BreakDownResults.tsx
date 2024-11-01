@@ -10,7 +10,10 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -102,12 +105,35 @@ const BreakDownResults: FC<{
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
+  const {
+    getDimensionById,
+    getExperimentMetricById,
+    metricGroups,
+    ready,
+  } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
+
+  const {
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+  } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedSecondaries = expandMetricGroups(
+      secondaryMetrics,
+      metricGroups
+    );
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      metricGroups
+    );
+
+    return { expandedGoals, expandedSecondaries, expandedGuardrails };
+  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
@@ -131,14 +157,14 @@ const BreakDownResults: FC<{
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
-      setAdjustedPValuesOnResults(results, goalMetrics, pValueCorrection);
+      setAdjustedPValuesOnResults(results, expandedGoals, pValueCorrection);
       setAdjustedCIs(results, pValueThreshold);
     }
 
     const metricDefs = [
-      ...goalMetrics,
-      ...secondaryMetrics,
-      ...guardrailMetrics,
+      ...expandedGoals,
+      ...expandedSecondaries,
+      ...expandedGuardrails,
     ]
       .map((metricId) => getExperimentMetricById(metricId))
       .filter(isDefined);
@@ -166,8 +192,8 @@ const BreakDownResults: FC<{
         }
         const resultGroup = getMetricResultGroup(
           metricId,
-          goalMetrics,
-          secondaryMetrics
+          expandedGoals,
+          expandedSecondaries
         );
 
         const rows: ExperimentTableRow[] = results.map((d) => ({
@@ -189,9 +215,9 @@ const BreakDownResults: FC<{
       .filter((table) => table?.metric) as TableDef[];
   }, [
     results,
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
     metricOverrides,
     settingsForSnapshotMetrics,
     pValueCorrection,
@@ -239,8 +265,22 @@ const BreakDownResults: FC<{
         <span className="h3 mb-0">All Metrics</span>
       </div>
       {tables.map((table, i) => {
+        const metric = table.metric;
+        console.log(goalMetrics, metric);
         return (
           <>
+            <h5
+              className="ml-2 mt-3 position-relative"
+              style={{ marginBottom: -15, zIndex: 801 }}
+            >
+              {expandedGoals.includes(metric.id)
+                ? "Goal Metric"
+                : expandedSecondaries.includes(metric.id)
+                ? "Secondary Metric"
+                : expandedGuardrails.includes(metric.id)
+                ? "Guardrail Metric"
+                : null}
+            </h5>
             <ResultsTable
               key={i}
               dateCreated={reportDate}
