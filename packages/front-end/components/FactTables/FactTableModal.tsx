@@ -199,7 +199,7 @@ export default function FactTableModal({ existing, close }: Props) {
           />
         )}
 
-        {selectedDataSource && (
+        {selectedDataSource && !existing?.id && (
           <div className="form-group">
             <label>Query</label>
             {showAdditionalColumnMessage && (
@@ -232,7 +232,7 @@ export default function FactTableModal({ existing, close }: Props) {
           </div>
         )}
 
-        {selectedDataSource && (
+        {selectedDataSource && !existing?.id && (
           <>
             <a
               href="#"

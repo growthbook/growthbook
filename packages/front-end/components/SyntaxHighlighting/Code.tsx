@@ -60,6 +60,7 @@ export default function Code({
   highlightLine,
   startingLineNumber,
   showLineNumbers = true,
+  maxHeight,
 }: {
   code: string;
   language: Language;
@@ -72,6 +73,7 @@ export default function Code({
   highlightLine?: number;
   startingLineNumber?: number;
   showLineNumbers?: boolean;
+  maxHeight?: string;
 }) {
   language = language || "none";
   if (language === "sh") language = "bash";
@@ -93,6 +95,10 @@ export default function Code({
   };
   style['pre[class*="language-"]'].backgroundColor = codeBackgrounds[theme];
   style['pre[class*="language-"]'].border = "1px solid var(--border-color-200)";
+
+  if (maxHeight) {
+    style['pre[class*="language-"]'].maxHeight = maxHeight;
+  }
 
   const display =
     filename ||

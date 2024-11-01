@@ -282,13 +282,14 @@ export default function FactTablePage() {
       </div>
 
       <div className="row mb-4">
-        <div className="col d-flex flex-column">
+        <div className="col col-md-6 d-flex flex-column">
           <h3>SQL Definition</h3>
           <Code
             code={factTable.sql}
             language="sql"
             containerClassName="m-0 flex-1"
             className="flex-1"
+            maxHeight="405px"
             filename={
               canEdit ? (
                 <a
@@ -311,7 +312,7 @@ export default function FactTablePage() {
             </div>
           )}
         </div>
-        <div className="col d-flex flex-column">
+        <div className="col col-md-6 d-flex flex-column">
           <h3>Columns</h3>
           <div className="appbox p-3 flex-1 mb-0">
             <ColumnList factTable={factTable} />
