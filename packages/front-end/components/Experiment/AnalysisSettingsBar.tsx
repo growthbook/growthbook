@@ -88,7 +88,6 @@ export default function AnalysisSettingsBar({
     phase,
     setDimension,
     setSnapshotType,
-    loading,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = experiment
@@ -139,12 +138,10 @@ export default function AnalysisSettingsBar({
                   snapshot={snapshot}
                   analysis={analysis}
                   setAnalysisSettings={setAnalysisSettings}
-                  loading={!!loading}
                   mutate={mutate}
                   dropdownEnabled={
                     !manualSnapshot && snapshot?.dimension !== "pre:date"
                   }
-                  dimension={dimension}
                 />
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
                   vs
@@ -182,7 +179,6 @@ export default function AnalysisSettingsBar({
                 snapshot={snapshot}
                 analysis={analysis}
                 setAnalysisSettings={setAnalysisSettings}
-                loading={!!loading}
                 mutate={mutate}
                 phase={phase}
               />
