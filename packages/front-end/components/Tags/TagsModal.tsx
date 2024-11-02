@@ -5,6 +5,7 @@ import { Button, Container } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import { RadixColor } from "@/components/Radix/HelperText";
 import styles from "./TagsModal.module.scss";
 import Tag from "./Tag";
 
@@ -99,7 +100,7 @@ export default function TagsModal({
           <div>
             <Tag
               tag={form.watch("id")}
-              color={form.watch("color")}
+              color={form.watch("color") as RadixColor}
               description={form.watch("description")}
             />
           </div>

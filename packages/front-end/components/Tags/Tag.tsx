@@ -16,7 +16,7 @@ export const TAG_COLORS = [
 
 type Props = {
   tag: string;
-  color?: string;
+  color?: RadixColor;
   description?: string;
   skipMargin?: boolean;
 } & MarginProps;
