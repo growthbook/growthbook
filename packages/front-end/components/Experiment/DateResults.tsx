@@ -5,6 +5,7 @@ import {
 } from "back-end/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
+  expandMetricGroups,
   ExperimentMetricInterface,
   isExpectedDirection,
   isStatSig,
@@ -22,6 +23,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
+import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -54,7 +56,12 @@ const DateResults: FC<{
   statsEngine,
   differenceType,
 }) => {
-  const { getExperimentMetricById, getFactTableById, ready } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactTableById,
+    metricGroups,
+    ready,
+  } = useDefinitions();
 
   const pValueThreshold = usePValueThreshold();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -94,6 +101,24 @@ const DateResults: FC<{
     });
   }, [results, cumulative, variations]);
 
+  const {
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+  } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedSecondaries = expandMetricGroups(
+      secondaryMetrics,
+      metricGroups
+    );
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      metricGroups
+    );
+
+    return { expandedGoals, expandedSecondaries, expandedGuardrails };
+  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
     if (!ready) return [];
@@ -106,7 +131,9 @@ const DateResults: FC<{
     // Merge goal and guardrail metrics
     return (
       Array.from(
-        new Set(goalMetrics.concat(secondaryMetrics).concat(guardrailMetrics))
+        new Set(
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
+        )
       )
         .map((metricId) => {
           const metric = getExperimentMetricById(metricId);
@@ -225,11 +252,11 @@ const DateResults: FC<{
 
           return {
             metric,
-            resultGroup: goalMetrics.includes(metricId)
-              ? "goal"
-              : secondaryMetrics.includes(metricId)
-              ? "secondary"
-              : "guardrail",
+            resultGroup: getMetricResultGroup(
+              metric.id,
+              expandedGoals,
+              expandedSecondaries
+            ),
             datapoints,
           };
         })
@@ -245,9 +272,9 @@ const DateResults: FC<{
     displayCurrency,
     getExperimentMetricById,
     getFactTableById,
-    guardrailMetrics,
-    goalMetrics,
-    secondaryMetrics,
+    expandedGuardrails,
+    expandedGoals,
+    expandedSecondaries,
     pValueThreshold,
     statsEngine,
     variations,
@@ -285,6 +312,7 @@ const DateResults: FC<{
           label="Users"
           datapoints={users}
           formatter={formatNumber}
+          cumulative={cumulative}
         />
       </div>
       {metricSections && (

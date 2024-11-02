@@ -12,6 +12,7 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getSettingsForSnapshotMetrics,
+  updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -158,6 +159,21 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
 
+    let reweight =
+      experiment.type === "multi-armed-bandit" &&
+      experiment.banditStage === "exploit";
+
+    if (experiment.type === "multi-armed-bandit" && !reweight) {
+      // Quick check to see if we're about to enter "exploit" stage and will need to reweight
+      const tempChanges = updateExperimentBanditSettings({
+        experiment,
+        isScheduled: true,
+      });
+      if (tempChanges.banditStage === "exploit") {
+        reweight = true;
+      }
+    }
+
     const queryRunner = await createSnapshot({
       experiment,
       context,
@@ -172,15 +188,34 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       useCache: true,
       type: "standard",
       triggeredBy: "schedule",
+      reweight,
     });
     await queryRunner.waitForResults();
+    const currentSnapshot = queryRunner.model;
 
     logger.info(
       "Successfully Refreshed Results for experiment " + experimentId
     );
+
+    if (experiment.type === "multi-armed-bandit") {
+      const changes = updateExperimentBanditSettings({
+        experiment,
+        snapshot: currentSnapshot,
+        reweight:
+          currentSnapshot?.banditResult?.reweight &&
+          experiment.banditStage === "exploit",
+        isScheduled: true,
+      });
+      await updateExperiment({
+        context,
+        experiment,
+        changes,
+      });
+    }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future
+    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
+    if (experiment.type === "multi-armed-bandit") return;
     try {
       await updateExperiment({
         context,

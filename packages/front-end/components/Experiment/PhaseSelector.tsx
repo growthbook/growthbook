@@ -1,4 +1,5 @@
 import { date } from "shared/dates";
+import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -7,13 +8,28 @@ import { useSnapshot } from "./SnapshotProvider";
 export interface Props {
   mutateExperiment?: () => void;
   editPhases?: () => void;
+  phase?: number;
+  phases?: ExperimentPhaseStringDates[];
+  setPhase?: (p: number) => void;
+  isBandit?: boolean;
 }
 
-export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
-  const { phase, setPhase, experiment } = useSnapshot();
+export default function PhaseSelector({
+  mutateExperiment,
+  editPhases,
+  phase,
+  phases,
+  setPhase,
+  isBandit,
+}: Props) {
+  const {
+    phase: snapshotPhase,
+    setPhase: setSnapshotPhase,
+    experiment,
+  } = useSnapshot();
 
   const phaseOptions =
-    experiment?.phases?.map((phase, i) => ({
+    (phases ?? experiment?.phases)?.map((phase, i) => ({
       label: i + "",
       value: i + "",
     })) || [];
@@ -26,7 +42,7 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
     }
 
     const phaseIndex = parseInt(value) || 0;
-    const phase = experiment?.phases?.[phaseIndex];
+    const phase = (phases ?? experiment?.phases)?.[phaseIndex];
     if (!phase) return value;
 
     return (
@@ -37,9 +53,10 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
               <div className="tooltip-phase-label font-weight-bold">
                 {phaseIndex + 1}: {phase.name}
               </div>
-              <div className="mt-1">{phaseSummary(phase)}</div>
+              <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
             </>
           }
+          shouldDisplay={!isBandit}
           tipPosition="right"
           className="phase-selector-with-tooltip"
         >
@@ -60,7 +77,7 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
             {phase.dateEnded ? date(phase.dateEnded) : "now"}
           </span>
           <div className="phase-summary text-muted small">
-            {phaseSummary(phase)}
+            {phaseSummary(phase, isBandit)}
           </div>
         </div>
       </>
@@ -94,17 +111,17 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
       {selectOptions.length > 1 ? (
         <SelectField
           options={selectOptions}
-          value={phase + ""}
+          value={(phase !== undefined ? phase : snapshotPhase) + ""}
           onChange={(value) => {
             if (mutateExperiment && editPhases && value === "edit") {
               editPhases();
               return;
             }
-            setPhase(parseInt(value) || 0);
+            (setPhase ?? setSnapshotPhase)(parseInt(value) || 0);
           }}
           sort={false}
           labelClassName="mr-2"
-          containerClassName="phase-selector select-dropdown-underline pr-5"
+          containerClassName="phase-selector align-right select-dropdown-underline pr-1"
           isSearchable={false}
           formatOptionLabel={formatPhase}
         />

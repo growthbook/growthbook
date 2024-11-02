@@ -1,5 +1,6 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { ReactElement } from "react";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 
 export type RadioOptions = {
@@ -8,6 +9,7 @@ export type RadioOptions = {
   description?: string;
   error?: string;
   errorLevel?: "error" | "warning";
+  renderOnSelect?: ReactElement;
   disabled?: boolean;
 }[];
 
@@ -35,7 +37,7 @@ export default function RadioGroup({
   return (
     <Flex {...containerProps}>
       <Flex direction={"column"}>
-        <Text as="label" size="2" color={disabled ? "gray" : undefined}>
+        <Text size="2" color={disabled ? "gray" : undefined}>
           <RadixRadioGroup.Root
             value={value}
             onValueChange={(val) => setValue(val)}
@@ -50,6 +52,7 @@ export default function RadioGroup({
                 disabled,
                 error,
                 errorLevel = "error",
+                renderOnSelect,
               }) => {
                 const selected = value == selectedValue;
                 return (
@@ -57,16 +60,22 @@ export default function RadioGroup({
                     key={value}
                     value={value}
                     disabled={disabled}
+                    className={disabled ? "disabled" : undefined}
                   >
-                    <Text color={disabled ? "gray" : undefined}>
+                    <Text className={disabled ? "rt-TextDisabled" : undefined}>
                       <Flex direction="column" gap="1">
-                        <Text weight="bold">{label || value}</Text>
-                        {description && (
-                          <Text weight="regular">{description}</Text>
-                        )}
+                        <Text style={{ fontWeight: 500 }} className="main-text">
+                          {label || value}
+                        </Text>
+                        {description ? (
+                          <Text weight="regular" size="1">
+                            {description}
+                          </Text>
+                        ) : null}
                         {error && selected ? (
                           <HelperText status={errorLevel}>{error}</HelperText>
                         ) : null}
+                        {renderOnSelect && selected ? renderOnSelect : null}
                       </Flex>
                     </Text>
                   </RadixRadioGroup.Item>

@@ -6,7 +6,6 @@ import {
 } from "shared/sdk-versioning";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
@@ -99,10 +98,6 @@ const AddLinkedChangeRow = ({
             onClick={() => {
               if (isCTAClickable) {
                 setModal(true);
-                track(`Open ${type} modal`, {
-                  source: "add-linked-changes",
-                  action: "add",
-                });
               }
             }}
           >
@@ -110,13 +105,9 @@ const AddLinkedChangeRow = ({
           </b>
           {isCTAClickable ? (
             <div
-              className="btn btn-link p-0"
+              className="btn btn-link link-purple p-0"
               onClick={() => {
                 setModal(true);
-                track(`Open ${type} modal`, {
-                  source: "add-linked-changes",
-                  action: "add",
-                });
               }}
             >
               {cta}
@@ -185,7 +176,7 @@ export default function AddLinkedChanges({
   const sectionsToRender = possibleSections.filter((s) => sections[s].render);
 
   return (
-    <div className="appbox p-4 my-4">
+    <div className="appbox px-4 py-3 my-4">
       {sectionsToRender.length < possibleSections.length ? (
         <>
           <h4>Add Implementation</h4>

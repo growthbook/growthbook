@@ -46,6 +46,8 @@ import Tabs from "@/components/Tabs/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -201,11 +203,7 @@ export default function FeaturesPage() {
                   <br />
                   Value
                 </th>
-                <th>
-                  Overrides
-                  <br />
-                  Rules
-                </th>
+                <th>Rules</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
@@ -631,21 +629,16 @@ export default function FeaturesPage() {
           permissionsUtil.canViewFeatureModal(project) &&
           canCreateFeatures && (
             <div className="col-auto">
-              <button
-                className="btn btn-primary float-right"
+              <Button
                 onClick={() => {
                   setModalOpen(true);
                   track("Viewed Feature Modal", {
                     source: "feature-list",
                   });
                 }}
-                type="button"
               >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
                 Add Feature
-              </button>
+              </Button>
             </div>
           )}
       </div>
@@ -702,12 +695,12 @@ export default function FeaturesPage() {
         <Tabs newStyle={true} defaultTab="all-features">
           <Tab id="all-features" display="All Features" padding={false}>
             {renderFeaturesTable()}
-            <div className="alert alert-info mt-5">
+            <Callout status="info" mt="5" mb="3">
               Looking for <strong>Attributes</strong>,{" "}
               <strong>Namespaces</strong>, <strong>Environments</strong>, or{" "}
               <strong>Saved Groups</strong>? They have moved to the{" "}
               <Link href="/sdks">SDK Configuration</Link> tab.
-            </div>
+            </Callout>
           </Tab>
           <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
             <FeaturesDraftTable features={features} />

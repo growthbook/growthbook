@@ -8,10 +8,10 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
+import { getEqualWeights } from "shared/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -32,6 +32,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/components/Radix/RadioGroup";
+import Checkbox from "@/components/Radix/Checkbox";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -78,6 +79,8 @@ export default function EditTargetingModal({
     sdkConnectionsData?.connections,
     experiment.project
   );
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   const [
     prerequisiteTargetingSdkIssues,
@@ -225,8 +228,9 @@ export default function EditTargetingModal({
 
   return (
     <PagedModal
+      trackingEventModalType="make-changes"
       close={close}
-      header="Make Experiment Changes"
+      header={`Make ${isBandit ? "Bandit" : "Experiment"} Changes`}
       submit={onSubmit}
       cta={cta}
       ctaEnabled={ctaEnabled && canSubmit}
@@ -241,18 +245,20 @@ export default function EditTargetingModal({
       secondaryCTA={
         step === lastStepNumber ? (
           <div className="col ml-1 pl-0" style={{ minWidth: 520 }}>
-            <div className="d-flex m-0 pl-2 pr-2 py-1 alert alert-warning align-items-center">
+            <div className="d-flex m-0 px-2 py-1 alert alert-warning align-items-center">
               <div>
                 <strong>Warning:</strong> Changes made will apply to linked
                 Feature Flags, Visual Changes, and URL Redirects immediately
-                upon publishing.
+                upon publishing
               </div>
               <label
                 htmlFor="confirm-changes"
-                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-2 d-flex align-items-center justify-content-md-center"
+                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-1 d-flex align-items-center justify-content-md-center"
                 style={{ height: 35 }}
               >
-                <strong className="mr-2 user-select-none">Confirm</strong>
+                <strong className="mr-2 user-select-none text-dark">
+                  Confirm
+                </strong>
                 <input
                   id="confirm-changes"
                   type="checkbox"
@@ -268,14 +274,13 @@ export default function EditTargetingModal({
       <Page display="Type of Changes">
         <div className="px-3 py-2">
           <ChangeTypeSelector
+            experiment={experiment}
             changeType={changeType}
             setChangeType={setChangeType}
           />
 
           <div className="mt-4">
-            <label>
-              Current experiment targeting and traffic (for reference)
-            </label>
+            <label>Current targeting and traffic (for reference)</label>
             <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
               <TargetingInfo
                 experiment={experiment}
@@ -323,9 +328,11 @@ export default function EditTargetingModal({
 }
 
 function ChangeTypeSelector({
+  experiment,
   changeType,
   setChangeType,
 }: {
+  experiment: ExperimentInterfaceStringDates;
   changeType?: ChangeType;
   setChangeType: (changeType: ChangeType) => void;
 }) {
@@ -343,20 +350,26 @@ function ChangeTypeSelector({
       disabled: !namespaces?.length,
     },
     { label: "Traffic Percent", value: "traffic" },
-    { label: "Variation Weights", value: "weights" },
+    ...(experiment.type !== "multi-armed-bandit"
+      ? [{ label: "Variation Weights", value: "weights" }]
+      : []),
     {
       label: "Advanced: multiple changes at once",
       value: "advanced",
-      error: `When making multiple changes at the same time, it can be difficult to control for the impact of each change. 
+      ...(experiment.type !== "multi-armed-bandit"
+        ? {
+            error: `When making multiple changes at the same time, it can be difficult to control for the impact of each change. 
               The risk of introducing experimental bias increases. Proceed with caution.`,
-      errorLevel: "warning",
+            errorLevel: "warning",
+          }
+        : {}),
     },
   ];
 
   return (
     <div>
       <h5>What do you want to change?</h5>
-      <div className="ml-2">
+      <div className="mt-3">
         <RadioGroup
           value={changeType || ""}
           setValue={(v: ChangeType) => setChangeType(v)}
@@ -405,6 +418,7 @@ function TargetingForm({
     });
   }
 
+  const settings = useOrgSettings();
   const { getDatasourceById } = useDefinitions();
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
@@ -413,6 +427,12 @@ function TargetingForm({
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
+
+  const type = experiment.type;
+
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <div className="px-2 pt-2">
@@ -438,29 +458,40 @@ function TargetingForm({
               )
             }
           />
-          <div className="d-flex" style={{ gap: "2rem" }}>
-            <SelectField
-              containerClassName="flex-1"
-              label="Assign variation based on attribute"
-              labelClassName="font-weight-bold"
-              options={hashAttributeOptions}
-              sort={false}
-              value={form.watch("hashAttribute")}
-              onChange={(v) => {
-                form.setValue("hashAttribute", v);
-              }}
-              helpText={"The globally unique tracking key for the experiment"}
-            />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-            />
-          </div>
+          <SelectField
+            containerClassName="flex-1"
+            label="Assign variation based on attribute"
+            labelClassName="font-weight-bold"
+            options={hashAttributeOptions}
+            sort={false}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={"The globally unique tracking key for the experiment"}
+          />
+          <FallbackAttributeSelector
+            form={form}
+            attributeSchema={attributeSchema}
+          />
           <HashVersionSelector
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}
             project={experiment.project}
           />
+
+          {orgStickyBucketing && !isBandit ? (
+            <Checkbox
+              mt="4"
+              size="lg"
+              label="Disable Sticky Bucketing"
+              description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+              value={!!form.watch("disableStickyBucketing")}
+              setValue={(v) => {
+                form.setValue("disableStickyBucketing", v === true);
+              }}
+            />
+          ) : null}
         </>
       )}
 
@@ -538,8 +569,9 @@ function TargetingForm({
           showPreview={false}
           disableCoverage={changeType === "weights"}
           disableVariations={changeType === "traffic"}
+          hideVariations={type === "multi-armed-bandit"}
           label={
-            changeType === "traffic"
+            changeType === "traffic" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
               : changeType === "weights"
               ? "Variation Weights"

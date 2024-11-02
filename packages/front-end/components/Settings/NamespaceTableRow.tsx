@@ -145,7 +145,7 @@ export default function NamespaceTableRow({
                   <tr>
                     <th>Feature / Experiment</th>
                     <th>Environment</th>
-                    <th>Experiment Key</th>
+                    <th>Tracking Key</th>
                     <th>Range</th>
                   </tr>
                 </thead>

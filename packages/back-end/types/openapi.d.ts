@@ -119,11 +119,35 @@ export interface paths {
     /** Update a single experiment */
     post: operations["updateExperiment"];
   };
+  "/experiments/{id}/snapshot": {
+    /** Create Experiment Snapshot */
+    post: operations["postExperimentSnapshot"];
+    parameters: {
+        /** @description The experiment id of the experiment to update */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
     get: operations["getExperimentResults"];
     parameters: {
         /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/experiments/{id}/visual-changesets": {
+    /** Get all visual changesets */
+    get: operations["listVisualChangesets"];
+  };
+  "/snapshots/{id}": {
+    /** Get an experiment snapshot status */
+    get: operations["getExperimentSnapshot"];
+    parameters: {
+        /** @description The id of the requested resource (a snapshot ID, not experiment ID) */
       path: {
         id: string;
       };
@@ -142,10 +166,6 @@ export interface paths {
     put: operations["putMetric"];
     /** Deletes a metric */
     delete: operations["deleteMetric"];
-  };
-  "/experiments/{id}/visual-changesets": {
-    /** Get all visual changesets */
-    get: operations["listVisualChangesets"];
   };
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
@@ -511,7 +531,7 @@ export interface components {
               trackingKey?: string;
               hashAttribute?: string;
               fallbackAttribute?: string;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               namespace?: {
@@ -581,7 +601,7 @@ export interface components {
                 trackingKey?: string;
                 hashAttribute?: string;
                 fallbackAttribute?: string;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 namespace?: {
@@ -666,7 +686,7 @@ export interface components {
           trackingKey?: string;
           hashAttribute?: string;
           fallbackAttribute?: string;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           namespace?: {
@@ -736,7 +756,7 @@ export interface components {
             trackingKey?: string;
             hashAttribute?: string;
             fallbackAttribute?: string;
-            disableStickyBucketing?: any;
+            disableStickyBucketing?: boolean;
             bucketVersion?: number;
             minBucketVersion?: number;
             namespace?: {
@@ -805,7 +825,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -887,7 +907,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -963,7 +983,7 @@ export interface components {
       fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       variations: ({
@@ -1003,7 +1023,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -1061,6 +1084,11 @@ export interface components {
         excludeFromPayload: boolean;
       };
     };
+    ExperimentSnapshot: {
+      id: string;
+      experiment: string;
+      status: string;
+    };
     ExperimentMetric: {
       metricId: string;
       overrides: {
@@ -1080,7 +1108,10 @@ export interface components {
       queryFilter: string;
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
-      /** @enum {unknown} */
+      /**
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @enum {unknown}
+       */
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
@@ -1149,7 +1180,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -1588,7 +1622,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -1658,7 +1692,7 @@ export interface operations {
                           trackingKey?: string;
                           hashAttribute?: string;
                           fallbackAttribute?: string;
-                          disableStickyBucketing?: any;
+                          disableStickyBucketing?: boolean;
                           bucketVersion?: number;
                           minBucketVersion?: number;
                           namespace?: {
@@ -1798,7 +1832,7 @@ export interface operations {
                   trackingKey?: string;
                   hashAttribute?: string;
                   fallbackAttribute?: string;
-                  disableStickyBucketing?: any;
+                  disableStickyBucketing?: boolean;
                   bucketVersion?: number;
                   minBucketVersion?: number;
                   namespace?: {
@@ -1884,7 +1918,7 @@ export interface operations {
                     trackingKey?: string;
                     hashAttribute?: string;
                     fallbackAttribute?: string;
-                    disableStickyBucketing?: any;
+                    disableStickyBucketing?: boolean;
                     bucketVersion?: number;
                     minBucketVersion?: number;
                     namespace?: {
@@ -1978,7 +2012,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2048,7 +2082,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2165,7 +2199,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2235,7 +2269,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2364,7 +2398,7 @@ export interface operations {
                   trackingKey?: string;
                   hashAttribute?: string;
                   fallbackAttribute?: string;
-                  disableStickyBucketing?: any;
+                  disableStickyBucketing?: boolean;
                   bucketVersion?: number;
                   minBucketVersion?: number;
                   namespace?: {
@@ -2450,7 +2484,7 @@ export interface operations {
                     trackingKey?: string;
                     hashAttribute?: string;
                     fallbackAttribute?: string;
-                    disableStickyBucketing?: any;
+                    disableStickyBucketing?: boolean;
                     bucketVersion?: number;
                     minBucketVersion?: number;
                     namespace?: {
@@ -2544,7 +2578,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2614,7 +2648,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2735,7 +2769,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2805,7 +2839,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -3564,7 +3598,7 @@ export interface operations {
                 fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 variations: ({
@@ -3604,7 +3638,10 @@ export interface operations {
                   queryFilter: string;
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
-                  /** @enum {unknown} */
+                  /**
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @enum {unknown}
+                   */
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
@@ -3706,14 +3743,17 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -3785,7 +3825,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3825,7 +3865,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -3919,7 +3962,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3959,7 +4002,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4057,14 +4103,17 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -4136,7 +4185,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -4176,7 +4225,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4239,6 +4291,33 @@ export interface operations {
       };
     };
   };
+  postExperimentSnapshot: {
+    /** Create Experiment Snapshot */
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * @description Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual. 
+           * @enum {string}
+           */
+          triggeredBy?: "manual" | "schedule";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
+            };
+          };
+        };
+      };
+    };
+  };
   getExperimentResults: {
     /** Get results for an experiment */
     parameters: {
@@ -4270,7 +4349,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4349,6 +4431,65 @@ export interface operations {
                         })[];
                     })[];
                 })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  listVisualChangesets: {
+    /** Get all visual changesets */
+    parameters: {
+        /** @description The experiment id the visual changesets belong to */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            visualChangesets: ({
+                id?: string;
+                urlPatterns: ({
+                    include?: boolean;
+                    /** @enum {string} */
+                    type: "simple" | "regex";
+                    pattern: string;
+                  })[];
+                editorUrl: string;
+                experiment: string;
+                visualChanges: ({
+                    description?: string;
+                    css?: string;
+                    js?: string;
+                    variation: string;
+                    domMutations: ({
+                        selector: string;
+                        /** @enum {string} */
+                        action: "append" | "set" | "remove";
+                        attribute: string;
+                        value?: string;
+                        parentSelector?: string;
+                        insertBeforeSelector?: string;
+                      })[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  getExperimentSnapshot: {
+    /** Get an experiment snapshot status */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
             };
           };
         };
@@ -5016,49 +5157,6 @@ export interface operations {
       };
     };
   };
-  listVisualChangesets: {
-    /** Get all visual changesets */
-    parameters: {
-        /** @description The experiment id the visual changesets belong to */
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            visualChangesets: ({
-                id?: string;
-                urlPatterns: ({
-                    include?: boolean;
-                    /** @enum {string} */
-                    type: "simple" | "regex";
-                    pattern: string;
-                  })[];
-                editorUrl: string;
-                experiment: string;
-                visualChanges: ({
-                    description?: string;
-                    css?: string;
-                    js?: string;
-                    variation: string;
-                    domMutations: ({
-                        selector: string;
-                        /** @enum {string} */
-                        action: "append" | "set" | "remove";
-                        attribute: string;
-                        value?: string;
-                        parentSelector?: string;
-                        insertBeforeSelector?: string;
-                      })[];
-                  })[];
-              })[];
-          };
-        };
-      };
-    };
-  };
   getVisualChangeset: {
     /** Get a single visual changeset */
     parameters: {
@@ -5120,7 +5218,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -5160,7 +5258,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -7218,6 +7319,7 @@ export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatu
 export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
 export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
+export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
@@ -7258,13 +7360,15 @@ export type ListExperimentsResponse = operations["listExperiments"]["responses"]
 export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
+export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
+export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
-export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];

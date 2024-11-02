@@ -16,9 +16,9 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
+import OldButton from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
@@ -119,7 +119,7 @@ export default function SdkWebhooks({
           )}
         </td>
         <td>
-          <Button
+          <OldButton
             color="outline-primary"
             className="btn-sm"
             style={{ width: 80 }}
@@ -133,7 +133,7 @@ export default function SdkWebhooks({
           >
             <FaPaperPlane className="mr-1" />
             Test
-          </Button>
+          </OldButton>
         </td>
         <td className="px-0">
           <div className="col-auto mr-1">
@@ -176,7 +176,7 @@ export default function SdkWebhooks({
         for setup instructions
       </div>
       {canCreateWebhooks ? (
-        <>
+        <div className="d-flex align-items-center">
           <Tooltip
             body={
               disableWebhookCreate
@@ -184,19 +184,12 @@ export default function SdkWebhooks({
                 : ""
             }
           >
-            <button
-              className="btn btn-primary mb-2"
+            <Button
               disabled={disableWebhookCreate}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!disableWebhookCreate) setCreateWebhookModalOpen(true);
-              }}
+              onClick={() => setCreateWebhookModalOpen(true)}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
               Add Webhook
-            </button>
+            </Button>
           </Tooltip>
           <Tooltip
             body={
@@ -213,7 +206,7 @@ export default function SdkWebhooks({
               What is this? <FaInfoCircle />
             </span>
           </Tooltip>
-        </>
+        </div>
       ) : null}
     </>
   );

@@ -130,6 +130,7 @@ export default function SetupFlow() {
         Setup GrowthBook for {organization.name}
       </h1>
       <PagedModal
+        trackingEventModalType="setup-growthbook"
         header={""}
         submit={() => handleSubmit()}
         cta={"Finish Setup"}

@@ -82,9 +82,9 @@ export default function QueryStatsRow({
           commercialFeature="multi-metric-queries"
         >
           <div className="col-auto mb-2">
-            <em>
+            <span className="uppercase-title">
               Fact Optimized <MdInfoOutline className="text-info" />
-            </em>
+            </span>
             :{" "}
             <strong>
               {queries.length === 1
@@ -155,7 +155,8 @@ function BooleanQueryStatDisplay({
 
   return (
     <div className="col-auto mb-2">
-      <em>{stat}</em>: <strong>{display}</strong>
+      <span className="uppercase-title">{stat}</span>:{" "}
+      <strong>{display}</strong>
     </div>
   );
 }
@@ -184,7 +185,8 @@ export function NumericQueryStatDisplay({
 
   return (
     <div className="col-auto mb-2">
-      <em>{stat}</em>: <strong title={sum + ""}>{display}</strong>
+      <span className="uppercase-title">{stat}</span>:{" "}
+      <strong title={sum + ""}>{display}</strong>
     </div>
   );
 }

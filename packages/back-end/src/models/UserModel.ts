@@ -225,7 +225,7 @@ export async function getAllUserEmailsAcrossAllOrgs(): Promise<string[]> {
         "orgs.0": { $exists: true },
       },
     },
-  ]);
+  ]).allowDiskUse(true);
 
   return users.map((u) => u.email);
 }

@@ -573,6 +573,7 @@ engines.forEach((engine) => {
       },
       metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses,
       metricMap: allMetricMap,
+      metricGroups: [], // todo?
     });
 
     const unitsQueryParams: ExperimentUnitsQueryParams = {

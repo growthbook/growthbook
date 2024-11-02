@@ -16,6 +16,7 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   editTargeting: (() => void) | null;
+  source?: string;
 }
 
 export default function EditPhaseModal({
@@ -24,6 +25,7 @@ export default function EditPhaseModal({
   experiment,
   mutate,
   editTargeting,
+  source,
 }: Props) {
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
@@ -44,7 +46,8 @@ export default function EditPhaseModal({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="edit-phase-modal"
+      trackingEventModalSource={source}
       open={true}
       close={close}
       header={`Edit Analysis Phase #${i + 1}`}

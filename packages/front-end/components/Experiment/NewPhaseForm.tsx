@@ -5,9 +5,9 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
+import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
-import { getEqualWeights } from "@/services/utils";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -22,7 +22,8 @@ const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-}> = ({ experiment, close, mutate }) => {
+  source?: string;
+}> = ({ experiment, close, mutate, source }) => {
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -89,7 +90,8 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="new-phase-form"
+      trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
       close={close}
       open={true}
