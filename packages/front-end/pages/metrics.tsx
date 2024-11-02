@@ -1,4 +1,5 @@
 import React from "react";
+import { isProjectListValidForProject } from "shared/util";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import MetricsList from "@/components/Metrics/MetricsList";
@@ -10,10 +11,14 @@ import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/components/Radix/Button";
 
 const MetricsPage = (): React.ReactElement => {
-  const { metrics, factMetrics, datasources } = useDefinitions();
+  const { metrics, factMetrics, datasources, project } = useDefinitions();
 
-  const hasDatasource = datasources.length > 0;
-  const hasMetrics = metrics.length > 0 || factMetrics.length > 0;
+  const hasDatasource = datasources.some((d) =>
+    isProjectListValidForProject(d.projects, project)
+  );
+  const hasMetrics =
+    metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
+    factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
 
   const [showNewModal, setShowNewModal] = React.useState(false);
 

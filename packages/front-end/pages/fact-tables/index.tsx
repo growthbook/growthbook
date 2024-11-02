@@ -45,7 +45,10 @@ export default function FactTablesPage() {
   const { demoDataSourceId } = useDemoDataSourceProject();
 
   const hasDatasource = datasources.some(
-    (d) => d.properties?.queryLanguage === "sql" && d.id !== demoDataSourceId
+    (d) =>
+      d.properties?.queryLanguage === "sql" &&
+      d.id !== demoDataSourceId &&
+      isProjectListValidForProject(d.projects, project)
   );
 
   const permissionsUtil = usePermissionsUtil();

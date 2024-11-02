@@ -255,7 +255,7 @@ const MetricsList = (): React.ReactElement => {
     (m) => ({
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
-        : "Manual",
+        : "None",
       datasourceDescription: m.datasource
         ? getDatasourceById(m.datasource)?.description || undefined
         : undefined,
