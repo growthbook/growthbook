@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import numpy as np
 import random
+import copy
 from pydantic.dataclasses import dataclass
 from scipy.stats import chi2  # type: ignore
 
@@ -19,6 +20,16 @@ from gbstats.utils import (
 )
 from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
 from gbstats.models.settings import BanditWeightsSinglePeriod
+
+
+@dataclass
+class MCMCConfig:
+    mcmc_seed: int = 0
+    prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
+    a: float = 1
+    b: float = 1
+    burn: int = 1000
+    keep: int = 1000
 
 
 @dataclass
@@ -65,16 +76,30 @@ def get_error_bandit_result(
 
 
 class BanditsMCMC:
-    def __init__(self, variation_means: np.ndarray, variation_variances: np.ndarray):
+    def __init__(
+        self,
+        variation_means: np.ndarray,
+        variation_variances: np.ndarray,
+        config: MCMCConfig,
+        mu: float,
+        gamma_2: float,
+        alpha: np.ndarray,
+        print_stuff: bool,
+    ):
         self.variation_means = variation_means
         self.variation_variances = variation_variances
-        self.a = 1  # prior shape for inverse gamma
-        self.b = 1  # prior scale for inverse gamma
-        self.burn = 1000
-        self.keep = 1000
+        self.config = config
+        self.a = config.a
+        self.b = config.b
+        self.burn = config.burn
+        self.keep = config.keep
         self.iters = self.burn + self.keep
-        self.num_variations = len(self.variation_means)
-        self.seed = 20241024
+        self.num_variations = variation_means.size
+        self.seed = config.mcmc_seed
+        self.mu = mu
+        self.gamma_2 = gamma_2
+        self.alpha = alpha
+        self.print_stuff = print_stuff
 
     def run_mcmc(self):
         self.initalize_parameters()
@@ -82,9 +107,9 @@ class BanditsMCMC:
         self.run_all_iterations()
 
     def initalize_parameters(self):
-        self.alpha = self.variation_means.copy()
-        self.mu = float(np.mean(self.alpha))
-        self.gamma_2 = float(np.var(self.alpha, ddof=1))
+        self.alpha = copy.deepcopy(self.variation_means)
+        # self.mu = float(np.mean(self.alpha))
+        # self.gamma_2 = float(np.var(self.alpha, ddof=1))
 
     def create_storage_arrays(self):
         self.alpha_keep = np.empty((self.keep, self.num_variations))
@@ -93,6 +118,7 @@ class BanditsMCMC:
 
     def run_all_iterations(self):
         for iter in range(self.iters):
+            self.print_stuff_2 = self.print_stuff and iter > 29998
             self.update_parameters(iter)
             if iter >= self.burn:
                 storage_index = iter - self.burn
@@ -107,27 +133,44 @@ class BanditsMCMC:
             self.mu,
             self.gamma_2,
             self.seed + iter,
+            self.print_stuff_2,
         )
-        self.mu = self.update_mu(
-            self.alpha, self.gamma_2, self.seed + self.iters + iter
-        )
-        self.gamma_2 = self.update_gamma2(
-            self.mu, self.alpha, self.a, self.b, self.seed + 2 * self.iters + iter
-        )
+        # self.mu = self.update_mu(
+        #    self.alpha, self.gamma_2, self.config.prior_distribution.mean, self.config.prior_distribution.variance, self.config.prior_distribution.proper, self.seed + self.iters + iter
+        # )
+        # self.gamma_2 = self.update_gamma_2(
+        #    self.mu, self.alpha, self.a, self.b, self.seed + 2 * self.iters + iter
+        # )
 
     @staticmethod
-    def update_mu(alpha: np.ndarray, gamma_2: float, seed: int) -> float:
-        num_variations = len(alpha)
+    def update_mu(
+        alpha: np.ndarray,
+        gamma_2: float,
+        mu_0: float,
+        gamma_2_0: float,
+        proper: float,
+        seed: int,
+    ) -> float:
+        seed = random.randint(1, 10000000)
+        num_variations = alpha.size
+        prec = num_variations / gamma_2
+        precision_weighted_means = np.mean(alpha) * num_variations / gamma_2
+        if proper:
+            prec += +1 / gamma_2_0
+            precision_weighted_means += mu_0 / gamma_2_0
+        v = prec**-1
+        m = v * precision_weighted_means
         rng = np.random.default_rng(seed=seed)
-        return np.sqrt(gamma_2 / num_variations) * rng.normal(size=1) + np.mean(alpha)
+        return np.sqrt(v) * rng.normal(size=1) + m
 
     @staticmethod
-    def update_gamma2(
+    def update_gamma_2(
         mu: float, alpha: np.ndarray, a: float, b: float, seed: int
     ) -> float:
-        shape = a + 0.5 * len(alpha)
+        shape = a + 0.5 * alpha.size
         scale = b + 0.5 * np.sum((alpha - mu) ** 2)
         rng = np.random.default_rng(seed=seed)
+        seed = random.randint(1, 10000000)
         return float(1 / rng.gamma(size=1, shape=shape, scale=1 / scale))
 
     @staticmethod
@@ -137,16 +180,21 @@ class BanditsMCMC:
         mu: float,
         gamma_2: float,
         seed: int,
+        print_stuff: bool,
     ) -> np.ndarray:
-        num_variations = len(variation_means)
-        big_omega = (variation_variances + gamma_2) / (variation_variances * gamma_2)
-        little_omega = (variation_variances * mu + gamma_2 * variation_means) / (
-            variation_variances * gamma_2
-        )
-        v = 1 / big_omega
-        s = np.sqrt(v)
+        num_variations = variation_means.size
+        prec = 1 / variation_variances + 1 / gamma_2
+        precision_weighted_means = variation_means / variation_variances + mu / gamma_2
+        v_alpha = 1 / prec
+        s = np.sqrt(v_alpha)
+        seed = random.randint(1, 10000000)
+        if print_stuff:
+            print(variation_means)
+            # print(precision_weighted_means) #s is the same, mu/gamma_2 is the same
         rng = np.random.default_rng(seed=seed)
-        return np.array(s * rng.normal(size=num_variations) + v * little_omega)
+        return np.array(
+            s * rng.normal(size=num_variations) + v_alpha * precision_weighted_means
+        )
 
 
 class Bandits(ABC):
