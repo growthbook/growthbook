@@ -825,7 +825,7 @@ class TestBandit(TestCase):
             self.assertEqual(lower_rounded, list(self.variation_results["lower"]))
             self.assertEqual(upper_rounded, list(self.variation_results["upper"]))
         else:
-            assert 1 > 2, "singleVariationResults do not exist"
+            self.assertTrue(self.r.singleVariationResults)
 
     def test_variation_weights(self):
         rng = np.random.default_rng(seed=self.bandit_analysis.bandit_weights_seed)
@@ -847,7 +847,7 @@ class TestBandit(TestCase):
             result_rounded = np.array([round(num, 4) for num in self.r.updatedWeights])
             self.assertTrue(np.array_equal(result_rounded, best_probs))
         else:
-            self.assertEqual(1, 2)
+            self.assertTrue(self.r.updatedWeights)
 
 
 if __name__ == "__main__":
