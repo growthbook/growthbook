@@ -129,7 +129,6 @@ const N_STAR_VALUES = [
 const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
   segment: true,
   rudderstack: true,
-  ga4: true,
   amplitude: true,
 };
 
@@ -3802,40 +3801,6 @@ export default abstract class SqlIntegration
               : `{{date endDateISO "yyyy-MM-dd"}}`;
 
             return `event_time BETWEEN '${start}' AND '${end}'`;
-          },
-          getAdditionalEvents: () => [],
-          getEventFilterWhereClause: (eventName: string) =>
-            `event_name = '${eventName}'`,
-        };
-      }
-      case "ga4": {
-        return {
-          trackedEventTableName: "events_*",
-          eventColumn: "event_name",
-          timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
-          userIdColumn: "user_id",
-          filterColumns: [
-            "geo.country as country",
-            "traffic_source.source as source",
-            "traffic_source.medium as medium",
-            "device.category as device",
-            "device.web_info.browser as browser",
-            "device.operating_system as os",
-          ],
-          anonymousIdColumn: "user_pseudo_id",
-          getTrackedEventTablePath: ({ schema }) =>
-            this.generateTablePath("events_*", schema),
-          // If dates are provided, format them, otherwise use Sql template variables
-          getDateLimitClause: (dates?: { start: Date; end: Date }) => {
-            const start = dates
-              ? `${formatDate(dates.start, "yyyyMMdd")}`
-              : `{{date startDateISO "yyyyMMdd"}}`;
-
-            const end = dates
-              ? `${formatDate(dates.end, "yyyyMMdd")}`
-              : `{{date endDateISO "yyyyMMdd"}}`;
-
-            return `((_TABLE_SUFFIX BETWEEN '${start}' AND '${end}') OR (_TABLE_SUFFIX BETWEEN 'intraday_${start}' AND 'intraday_${end}'))`;
           },
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>

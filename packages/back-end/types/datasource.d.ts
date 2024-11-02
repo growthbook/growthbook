@@ -60,11 +60,7 @@ export type SchemaFormat =
   | "clevertap"
   | "custom";
 
-export type AutoFactTableSchemas =
-  | "segment"
-  | "rudderstack"
-  | "amplitude"
-  | "ga4";
+export type AutoFactTableSchemas = "segment" | "rudderstack" | "amplitude";
 
 export type SchemaOption = {
   name: string;
