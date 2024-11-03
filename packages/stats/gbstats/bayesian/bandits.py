@@ -29,7 +29,7 @@ class MCMCConfig:
     a: float = 1
     b: float = 1
     burn: int = 1000
-    keep: int = 1000
+    keep: int = 2000
 
 
 @dataclass
@@ -39,6 +39,7 @@ class BanditConfig(BayesianConfig):
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
     weight_by_period: bool = True
+    pool_means: bool = False
 
 
 @dataclass
@@ -81,10 +82,6 @@ class BanditsMCMC:
         variation_means: np.ndarray,
         variation_variances: np.ndarray,
         config: MCMCConfig,
-        mu: float,
-        gamma_2: float,
-        alpha: np.ndarray,
-        print_stuff: bool,
     ):
         self.variation_means = variation_means
         self.variation_variances = variation_variances
@@ -96,10 +93,6 @@ class BanditsMCMC:
         self.iters = self.burn + self.keep
         self.num_variations = variation_means.size
         self.seed = config.mcmc_seed
-        self.mu = mu
-        self.gamma_2 = gamma_2
-        self.alpha = alpha
-        self.print_stuff = print_stuff
 
     def run_mcmc(self):
         self.initalize_parameters()
@@ -108,8 +101,8 @@ class BanditsMCMC:
 
     def initalize_parameters(self):
         self.alpha = copy.deepcopy(self.variation_means)
-        # self.mu = float(np.mean(self.alpha))
-        # self.gamma_2 = float(np.var(self.alpha, ddof=1))
+        self.mu = float(np.mean(self.alpha))
+        self.gamma_2 = float(np.var(self.alpha, ddof=1))
 
     def create_storage_arrays(self):
         self.alpha_keep = np.empty((self.keep, self.num_variations))
@@ -118,7 +111,6 @@ class BanditsMCMC:
 
     def run_all_iterations(self):
         for iter in range(self.iters):
-            self.print_stuff_2 = self.print_stuff and iter > 29998
             self.update_parameters(iter)
             if iter >= self.burn:
                 storage_index = iter - self.burn
@@ -133,14 +125,18 @@ class BanditsMCMC:
             self.mu,
             self.gamma_2,
             self.seed + iter,
-            self.print_stuff_2,
         )
-        # self.mu = self.update_mu(
-        #    self.alpha, self.gamma_2, self.config.prior_distribution.mean, self.config.prior_distribution.variance, self.config.prior_distribution.proper, self.seed + self.iters + iter
-        # )
-        # self.gamma_2 = self.update_gamma_2(
-        #    self.mu, self.alpha, self.a, self.b, self.seed + 2 * self.iters + iter
-        # )
+        self.mu = self.update_mu(
+            self.alpha,
+            self.gamma_2,
+            self.config.prior_distribution.mean,
+            self.config.prior_distribution.variance,
+            self.config.prior_distribution.proper,
+            self.seed + self.iters + iter,
+        )
+        self.gamma_2 = self.update_gamma_2(
+            self.mu, self.alpha, self.a, self.b, self.seed + 2 * self.iters + iter
+        )
 
     @staticmethod
     def update_mu(
@@ -180,7 +176,6 @@ class BanditsMCMC:
         mu: float,
         gamma_2: float,
         seed: int,
-        print_stuff: bool,
     ) -> np.ndarray:
         num_variations = variation_means.size
         prec = 1 / variation_variances + 1 / gamma_2
@@ -188,9 +183,6 @@ class BanditsMCMC:
         v_alpha = 1 / prec
         s = np.sqrt(v_alpha)
         seed = random.randint(1, 10000000)
-        if print_stuff:
-            print(variation_means)
-            # print(precision_weighted_means) #s is the same, mu/gamma_2 is the same
         rng = np.random.default_rng(seed=seed)
         return np.array(
             s * rng.normal(size=num_variations) + v_alpha * precision_weighted_means
@@ -359,12 +351,23 @@ class Bandits(ABC):
             if self.bandit_weights_seed
             else random.randint(0, 1000000)
         )
-        rng = np.random.default_rng(seed=seed)
-        y = rng.multivariate_normal(
-            mean=self.posterior_mean,
-            cov=np.diag(self.posterior_variance),
-            size=self.n_samples,
-        )
+        if self.config.pool_means:
+            prior_distribution = GaussianPrior(mean=0, variance=100, proper=True)
+            mcmc_config = MCMCConfig(
+                mcmc_seed=seed + 1, prior_distribution=prior_distribution
+            )
+            mcmc = BanditsMCMC(
+                self.variation_means, self.variation_variances, mcmc_config
+            )
+            mcmc.run_mcmc()
+            y = mcmc.alpha_keep
+        else:
+            rng = np.random.default_rng(seed=seed)
+            y = rng.multivariate_normal(
+                mean=self.posterior_mean,
+                cov=np.diag(self.posterior_variance),
+                size=self.n_samples,
+            )
         if self.inverse:
             best_rows = np.min(y, axis=1)
         else:
