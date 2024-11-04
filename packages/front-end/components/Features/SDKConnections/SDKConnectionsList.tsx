@@ -11,7 +11,7 @@ import {
 } from "shared/util";
 import clsx from "clsx";
 import type { SDKLanguage } from "back-end/types/sdk-connection";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -56,9 +56,12 @@ export default function SDKConnectionsList() {
     project
   );
 
-  const useNewEmptyStateLayout = useFeatureIsOn(
-    "sdk-connections-new-empty-state"
-  );
+  const gb = useGrowthBook();
+
+  let useNewEmptyStateLayout = false;
+  if (data && connections.length === 0 && canCreateSDKConnections) {
+    useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
+  }
 
   const [
     initialModalSelectedLanguage,
