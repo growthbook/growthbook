@@ -116,6 +116,10 @@
 
   --radio-button-fill: #6e56cf;
   --file-picker-browse: #{colors.$gray-600};
+
+  --step-completed-background: #218358;
+  --step-completed-color: #fbfefc;
+  --step-color: #6550b9;
 }
 
 @mixin dark-theme {
@@ -237,6 +241,10 @@
 
   --radio-button-fill: #6e56cf;
   --file-picker-browse: #{colors.$gray-400};
+
+  --step-completed-background: #3dd68c;
+  --step-completed-color: #0e1512;
+  --step-color: #baa7ff;
 }
 
 .theme--light,

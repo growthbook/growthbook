@@ -70,6 +70,8 @@ export default function ExperimentRefSummary({
 
   const { namespaces } = useOrgSettings();
 
+  const isBandit = experiment?.type === "multi-armed-bandit";
+
   if (!experiment) {
     return (
       <ExperimentSkipped
@@ -146,16 +148,18 @@ export default function ExperimentRefSummary({
     <div>
       {experiment.status === "draft" && (
         <div className="alert alert-warning">
-          The experiment is in a <strong>draft</strong> state and has not been
-          started yet. This rule will be skipped.
+          This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
+          <strong>draft</strong> state and has not been started yet. This rule
+          will be skipped.
         </div>
       )}
       {experiment.status === "stopped" && (
         <div className="alert alert-info">
-          This experiment is stopped and a <strong>Temporary Rollout</strong> is
-          enabled. All users in the experiment will receive the winning
-          variation. If no longer needed, you can stop it from the Experiment
-          page.
+          This {isBandit ? "Bandit" : "Experiment"} is stopped and a{" "}
+          <strong>Temporary Rollout</strong> is enabled. All users in the{" "}
+          {isBandit ? "Bandit" : "Experiment"} will receive the winning
+          variation. If no longer needed, you can stop it from the{" "}
+          {isBandit ? "Bandit" : "Experiment"} page.
         </div>
       )}
       {hasCondition && (
@@ -212,7 +216,7 @@ export default function ExperimentRefSummary({
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {percentFormatter.format(effectiveCoverage)}
           </span>{" "}
-          of users in the experiment
+          of users in the {isBandit ? "Bandit" : "Experiment"}
           {hasNamespace && (
             <>
               <span> (</span>
@@ -232,84 +236,84 @@ export default function ExperimentRefSummary({
         <ForceSummary feature={feature} value={releasedValue.value} />
       ) : (
         <>
-          {experiment.type !== "multi-armed-bandit" && (
-            <>
-              <strong>SERVE</strong>
-              <table className="table mt-1 mb-3 bg-light gbtable">
-                <tbody>
-                  {experiment.variations.map((variation, j) => {
-                    const value =
-                      variations.find((v) => v.variationId === variation.id)
-                        ?.value ?? "null";
+          <strong>SERVE</strong>
+          <table className="table mt-1 mb-3 bg-light gbtable">
+            <tbody>
+              {experiment.variations.map((variation, j) => {
+                const value =
+                  variations.find((v) => v.variationId === variation.id)
+                    ?.value ?? "null";
 
-                    const weight = phase.variationWeights?.[j] || 0;
+                const weight = phase.variationWeights?.[j] || 0;
 
-                    return (
-                      <tr key={j}>
-                        <td
-                          className="text-muted position-relative"
-                          style={{ fontSize: "0.9em", width: 25 }}
-                        >
+                return (
+                  <tr key={j}>
+                    <td
+                      className="text-muted position-relative"
+                      style={{ fontSize: "0.9em", width: 25 }}
+                    >
+                      <div
+                        style={{
+                          width: "6px",
+                          position: "absolute",
+                          top: 0,
+                          bottom: 0,
+                          left: 0,
+                          backgroundColor: getVariationColor(j, true),
+                        }}
+                      />
+                      {j}.
+                    </td>
+                    <td>
+                      <ValueDisplay value={value} type={type} />
+                      <ValidateValue value={value} feature={feature} />
+                    </td>
+                    <td>{variation.name}</td>
+                    {!isBandit && (
+                      <td>
+                        <div className="d-flex">
                           <div
                             style={{
-                              width: "6px",
-                              position: "absolute",
-                              top: 0,
-                              bottom: 0,
-                              left: 0,
-                              backgroundColor: getVariationColor(j),
+                              width: "4em",
+                              maxWidth: "4em",
+                              margin: "0 0 0 auto",
                             }}
-                          />
-                          {j}.
-                        </td>
-                        <td>
-                          <ValueDisplay value={value} type={type} />
-                          <ValidateValue value={value} feature={feature} />
-                        </td>
-                        <td>{variation.name}</td>
-                        <td>
-                          <div className="d-flex">
-                            <div
-                              style={{
-                                width: "4em",
-                                maxWidth: "4em",
-                                margin: "0 0 0 auto",
-                              }}
-                            >
-                              {percentFormatter.format(weight)}
-                            </div>
+                          >
+                            {percentFormatter.format(weight)}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr>
-                    <td colSpan={4}>
-                      <ExperimentSplitVisual
-                        values={experiment.variations.map((variation, j) => {
-                          return {
-                            name: variation.name,
-                            value:
-                              variations.find(
-                                (v) => v.variationId === variation.id
-                              )?.value ?? "null",
-                            weight: phase.variationWeights?.[j] || 0,
-                          };
-                        })}
-                        coverage={effectiveCoverage}
-                        label="Traffic split"
-                        unallocated="Not included (skips this rule)"
-                        type={type}
-                        showValues={false}
-                        stackLeft={true}
-                        showPercentages={true}
-                      />
-                    </td>
+                        </div>
+                      </td>
+                    )}
                   </tr>
-                </tbody>
-              </table>
-            </>
-          )}
+                );
+              })}
+              {!isBandit && (
+                <tr>
+                  <td colSpan={4}>
+                    <ExperimentSplitVisual
+                      values={experiment.variations.map((variation, j) => {
+                        return {
+                          name: variation.name,
+                          value:
+                            variations.find(
+                              (v) => v.variationId === variation.id
+                            )?.value ?? "null",
+                          weight: phase.variationWeights?.[j] || 0,
+                        };
+                      })}
+                      coverage={effectiveCoverage}
+                      label="Traffic split"
+                      unallocated="Not included (skips this rule)"
+                      type={type}
+                      showValues={false}
+                      stackLeft={true}
+                      showPercentages={true}
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
           <div className="row align-items-center">
             <div className="col-auto">
               <strong>TRACK</strong>
@@ -320,14 +324,6 @@ export default function ExperimentRefSummary({
               <span className="mr-1 border px-2 py-1 bg-light rounded">
                 {experiment.trackingKey}
               </span>{" "}
-            </div>
-            <div className="col-auto">
-              <Link
-                href={`/experiment/${experiment.id}`}
-                className="btn btn-outline-primary"
-              >
-                View details and results
-              </Link>
             </div>
           </div>
         </>

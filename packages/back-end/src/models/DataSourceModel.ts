@@ -25,6 +25,8 @@ import { queueCreateInformationSchema } from "back-end/src/jobs/createInformatio
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { logger } from "back-end/src/util/logger";
+import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -36,7 +38,7 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   },
   dateCreated: Date,
   dateUpdated: Date,
-  type: { type: String },
+  type: { type: String, index: true },
   params: String,
   projects: {
     type: [String],
@@ -88,6 +90,13 @@ export async function getDataSourcesByOrganization(
     context.permissions.canReadMultiProjectResource(ds.projects)
   );
 }
+// WARNING: This does not restrict by organization
+export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    type: "growthbook_clickhouse",
+  });
+  return docs.map(toInterface);
+}
 
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
@@ -124,12 +133,18 @@ export async function removeProjectFromDatasources(
   );
 }
 
-export async function deleteDatasourceById(id: string, organization: string) {
+export async function deleteDatasource(
+  datasource: DataSourceInterface,
+  organization: string
+) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
+  if (datasource.type === "growthbook_clickhouse") {
+    await deleteClickhouseUser(datasource.id, organization);
+  }
   await DataSourceModel.deleteOne({
-    id,
+    id: datasource.id,
     organization,
   });
 }
@@ -213,6 +228,7 @@ export async function createDataSource(
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
+    logger.debug("queueCreateInformationSchema");
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 

@@ -28,6 +28,8 @@ interface Props
   significant: boolean;
   showAxis?: boolean;
   axisOnly?: boolean;
+  zeroLineWidth?: number;
+  zeroLineOffset?: number;
   metricForFormatting?: ExperimentMetricInterface | null;
   className?: string;
   rowStatus?: string;
@@ -60,6 +62,8 @@ const AlignedGraph: FC<Props> = ({
   significant = false,
   showAxis = false,
   axisOnly = false,
+  zeroLineWidth = 3,
+  zeroLineOffset = 1,
   metricForFormatting,
   graphWidth = 500,
   height = 30,
@@ -79,7 +83,6 @@ const AlignedGraph: FC<Props> = ({
 
   const axisColor = "var(--text-link-hover-color)";
   const zeroLineColor = "#0077b6";
-  const zeroLineWidth = 3;
   const gridColor = "#0077b633";
   let barColor = "#aaa";
   let sigBarColorPos = "#52be5b";
@@ -284,7 +287,7 @@ const AlignedGraph: FC<Props> = ({
                   <AxisLeft
                     key={`test`}
                     orientation={Orientation.left}
-                    left={xScale(0) - zeroLineWidth / 2 + 1}
+                    left={xScale(0) - zeroLineWidth / 2 + zeroLineOffset}
                     scale={yScale}
                     tickFormat={tickFormat}
                     stroke={zeroLineColor}

@@ -293,6 +293,7 @@ const BreakDownResults: FC<{
               )}
               metricFilter={metricFilter}
               isTabActive={true}
+              isBandit={isBandit}
             />
             <div className="mb-5" />
           </>

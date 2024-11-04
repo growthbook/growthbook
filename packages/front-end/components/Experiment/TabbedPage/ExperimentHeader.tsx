@@ -1,13 +1,14 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaAngleRight, FaExclamationTriangle, FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import {
-  experimentHasLinkedChanges,
+  experimentHasLiveLinkedChanges,
   getAffectedEnvsForExperiment,
 } from "shared/util";
 import React, { ReactNode, useState } from "react";
@@ -63,6 +64,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   healthNotificationCount: number;
   verifiedConnections: SDKConnectionInterface[];
+  linkedFeatures: LinkedFeatureInfo[];
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -106,6 +108,7 @@ export default function ExperimentHeader({
   editPhases,
   healthNotificationCount,
   verifiedConnections,
+  linkedFeatures,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -333,7 +336,7 @@ export default function ExperimentHeader({
             </div>
 
             {canRunExperiment ? (
-              <div className="ml-2">
+              <div className="ml-2 flex-shrink-0">
                 {experiment.status === "running" ? (
                   <ExperimentActionButtons
                     editResult={editResult}
@@ -352,9 +355,13 @@ export default function ExperimentHeader({
                 ) : experiment.status === "draft" ? (
                   <Tooltip
                     shouldDisplay={
-                      isBandit && !experimentHasLinkedChanges(experiment)
+                      isBandit &&
+                      !experimentHasLiveLinkedChanges(
+                        experiment,
+                        linkedFeatures
+                      )
                     }
-                    body="Add at least one Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
                     <button
                       className="btn btn-teal"
@@ -363,7 +370,11 @@ export default function ExperimentHeader({
                         setShowStartExperiment(true);
                       }}
                       disabled={
-                        isBandit && !experimentHasLinkedChanges(experiment)
+                        isBandit &&
+                        !experimentHasLiveLinkedChanges(
+                          experiment,
+                          linkedFeatures
+                        )
                       }
                     >
                       Start Experiment <MdRocketLaunch />

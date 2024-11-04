@@ -34,6 +34,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/components/Radix/HelperText";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -399,32 +400,41 @@ const AnalysisForm: FC<{
         />
         {datasource?.properties?.exposureQueries && (
           <SelectField
-            label="Experiment Assignment Table"
+            label={
+              <>
+                Experiment Assignment Table{" "}
+                <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+              </>
+            }
             labelClassName="font-weight-bold"
-            value={form.watch("exposureQueryId")}
+            value={form.watch("exposureQueryId") ?? ""}
             onChange={(v) => form.setValue("exposureQueryId", v)}
+            required
             disabled={isBandit && experiment.status !== "draft"}
             initialOption="Choose..."
-            required
-            options={exposureQueries.map((q) => {
+            options={exposureQueries?.map((q) => {
               return {
                 label: q.name,
                 value: q.id,
               };
             })}
-            helpText={
-              <>
-                <div>
-                  Should correspond to the Identifier Type used to randomize
-                  units for this experiment
-                </div>
-                {exposureQuery?.userIdType ? (
-                  <>
-                    Identifier Type: <code>{exposureQuery?.userIdType}</code>
-                  </>
-                ) : null}
-              </>
-            }
+            formatOptionLabel={({ label, value }) => {
+              const userIdType = exposureQueries?.find((e) => e.id === value)
+                ?.userIdType;
+              return (
+                <>
+                  {label}
+                  {userIdType ? (
+                    <span
+                      className="text-muted small float-right position-relative"
+                      style={{ top: 3 }}
+                    >
+                      Identifier Type: <code>{userIdType}</code>
+                    </span>
+                  ) : null}
+                </>
+              );
+            }}
           />
         )}
         {datasource && (

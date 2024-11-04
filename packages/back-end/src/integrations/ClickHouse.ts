@@ -85,6 +85,10 @@ export default class ClickHouse extends SqlIntegration {
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `if(${condition}, ${ifTrue}, ${ifFalse})`;
   }
+  castToDate(col: string): string {
+    const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
+    return `CAST(${col} AS ${columType})`;
+  }
   castToString(col: string): string {
     return `toString(${col})`;
   }

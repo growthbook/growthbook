@@ -32,7 +32,7 @@ import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
-import RuleModal from "@/components/Features/RuleModal";
+import RuleModal from "@/components/Features/RuleModal/index";
 import ForceSummary from "@/components/Features/ForceSummary";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -73,6 +73,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -352,7 +353,7 @@ export default function FeaturesOverview({
         <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
           <div className="mb-2">
             When disabled, this feature will evaluate to <code>null</code>. The
-            default value and override rules will be ignored.
+            default value and rules will be ignored.
           </div>
           {prerequisites.length > 0 ? (
             <table className="table border bg-white mb-2 w-100">
@@ -1028,10 +1029,10 @@ export default function FeaturesOverview({
 
           {environments.length > 0 && (
             <>
-              <h3>Override Rules</h3>
+              <h3>Rules</h3>
               <p>
-                Add powerful logic on top of your feature. The first matching
-                rule applies and overrides the default value.
+                Add powerful logic on top of your feature. The first rule that
+                matches will be applied and override the Default Value.
               </p>
 
               <div className="mb-0">
@@ -1054,7 +1055,7 @@ export default function FeaturesOverview({
                         count={rules.length}
                         padding={false}
                       >
-                        <div className="border mb-4 border-top-0">
+                        <div className="mb-4 border border-top-0">
                           {rules.length > 0 ? (
                             <RuleList
                               environment={e.id}
@@ -1068,10 +1069,29 @@ export default function FeaturesOverview({
                               experimentsMap={experimentsMap}
                             />
                           ) : (
-                            <div className="p-3 bg-white">
-                              <em>
-                                No override rules for this environment yet
-                              </em>
+                            <div className="p-3 bg-white border-bottom">
+                              <em>No rules for this environment yet</em>
+                            </div>
+                          )}
+
+                          {canEditDrafts && !isLocked && (
+                            <div className="p-3 d-flex align-items-center">
+                              <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
+                              <div className="flex-1" />
+                              <Button
+                                onClick={() => {
+                                  setRuleModal({
+                                    environment: env,
+                                    i: getRules(feature, env).length,
+                                  });
+                                  track("Viewed Rule Modal", {
+                                    source: "add-rule",
+                                    type: "force",
+                                  });
+                                }}
+                              >
+                                Add Rule
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -1079,115 +1099,6 @@ export default function FeaturesOverview({
                     );
                   })}
                 </ControlledTabs>
-
-                {canEditDrafts && !isLocked && <h4>Add Rules</h4>}
-
-                {canEditDrafts && !isLocked && (
-                  <div className="row">
-                    <div className="col mb-3">
-                      <div
-                        className="bg-white border p-3 d-flex flex-column"
-                        style={{ height: "100%" }}
-                      >
-                        <h4>Forced Value</h4>
-                        <p>
-                          Target groups of users and give them all the same
-                          value.
-                        </p>
-                        <div style={{ flex: 1 }} />
-                        <div>
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => {
-                              setRuleModal({
-                                environment: env,
-                                i: getRules(feature, env).length,
-                                defaultType: "force",
-                              });
-                              track("Viewed Rule Modal", {
-                                source: "add-rule",
-                                type: "force",
-                              });
-                            }}
-                          >
-                            <span className="h4 pr-2 m-0 d-inline-block align-top">
-                              <GBAddCircle />
-                            </span>
-                            Add Forced Rule
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col mb-3">
-                      <div
-                        className="bg-white border p-3 d-flex flex-column"
-                        style={{ height: "100%" }}
-                      >
-                        <h4>Percentage Rollout</h4>
-                        <p>
-                          Release to a small percent of users while you monitor
-                          logs.
-                        </p>
-                        <div style={{ flex: 1 }} />
-                        <div>
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => {
-                              setRuleModal({
-                                environment: env,
-                                i: getRules(feature, env).length,
-                                defaultType: "rollout",
-                              });
-                              track("Viewed Rule Modal", {
-                                source: "add-rule",
-                                type: "rollout",
-                              });
-                            }}
-                          >
-                            <span className="h4 pr-2 m-0 d-inline-block align-top">
-                              <GBAddCircle />
-                            </span>
-                            Add Rollout Rule
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col mb-3">
-                      <div
-                        className="bg-white border p-3 d-flex flex-column"
-                        style={{ height: "100%" }}
-                      >
-                        <h4>A/B Experiment</h4>
-                        <p>
-                          Measure the impact of this feature on your key
-                          metrics.
-                        </p>
-                        <div style={{ flex: 1 }} />
-                        <div>
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => {
-                              setRuleModal({
-                                environment: env,
-                                i: getRules(feature, env).length,
-                                defaultType: "experiment-ref-new",
-                              });
-                              track("Viewed Rule Modal", {
-                                source: "add-rule",
-                                type: "experiment",
-                              });
-                            }}
-                          >
-                            <span className="h4 pr-2 m-0 d-inline-block align-top">
-                              <GBAddCircle />
-                            </span>
-                            Add Experiment Rule
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </>
           )}

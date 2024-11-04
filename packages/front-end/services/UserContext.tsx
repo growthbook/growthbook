@@ -41,7 +41,7 @@ import {
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
-import track from "@/services/track";
+import track, { getJitsuClient } from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 import { sha256 } from "@/services/utils";
 
@@ -190,6 +190,7 @@ let currentUser: null | {
   org: string;
   role: string;
   effectiveAccountPlan: string;
+  orgCreationDate: string;
 } = null;
 export function getCurrentUser() {
   return currentUser;
@@ -278,8 +279,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       id: data?.userId || "",
       role: user?.role || "",
       effectiveAccountPlan: currentOrg?.effectiveAccountPlan ?? "",
+      orgCreationDate: currentOrg?.organization?.dateCreated
+        ? getValidDate(currentOrg.organization.dateCreated).toISOString()
+        : "",
     };
-  }, [orgId, currentOrg?.effectiveAccountPlan, data?.userId, user?.role]);
+  }, [
+    orgId,
+    currentOrg?.effectiveAccountPlan,
+    currentOrg?.organization,
+    data?.userId,
+    user?.role,
+  ]);
 
   useEffect(() => {
     if (orgId && data?.userId) {
@@ -291,7 +301,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const growthbook = useGrowthBook<AppFeatures>();
 
   useEffect(() => {
+    let anonymous_id = "";
+    // This is an undocumented way to get the anonymous id from Jitsu
+    // Lots of type guards added to avoid breaking if we update Jitsu in the future
+    const jitsu = getJitsuClient();
+    if (
+      jitsu &&
+      "getAnonymousId" in jitsu &&
+      typeof jitsu.getAnonymousId === "function"
+    ) {
+      const _anonymous_id = jitsu.getAnonymousId();
+      if (typeof _anonymous_id === "string") {
+        anonymous_id = _anonymous_id;
+      }
+    }
+
     growthbook?.setAttributes({
+      anonymous_id,
       id: data?.userId || "",
       name: data?.userName || "",
       superAdmin: data?.superAdmin || false,

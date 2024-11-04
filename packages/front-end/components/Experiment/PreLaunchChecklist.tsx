@@ -6,7 +6,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
-import { hasVisualChanges } from "shared/util";
+import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
@@ -76,6 +76,8 @@ export function PreLaunchChecklist({
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   //Merge the GB checklist items with org's custom checklist items
   const checklist: CheckListItem[] = useMemo(() => {
     function isChecklistItemComplete(
@@ -110,6 +112,10 @@ export function PreLaunchChecklist({
       return manualChecklistStatus[index].status === "complete";
     }
     const items: CheckListItem[] = [];
+    const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
+      experiment,
+      linkedFeatures
+    );
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
@@ -117,8 +123,10 @@ export function PreLaunchChecklist({
     items.push({
       display: (
         <>
-          Add at least one{" "}
-          {openSetupTab && !hasLinkedChanges ? (
+          Add at least one{isBandit && " live"}{" "}
+          {openSetupTab &&
+          ((isBandit && !hasLiveLinkedChanges) ||
+            (!isBandit && hasLinkedChanges)) ? (
             <a className="a" role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
@@ -128,11 +136,14 @@ export function PreLaunchChecklist({
           .
         </>
       ),
-      status: hasLinkedChanges ? "complete" : "incomplete",
+      status:
+        (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges)
+          ? "complete"
+          : "incomplete",
       type: "auto",
     });
 
-    if (experiment.type === "multi-armed-bandit") {
+    if (isBandit) {
       items.push({
         display: (
           <>
@@ -234,7 +245,7 @@ export function PreLaunchChecklist({
       type: "auto",
     });
 
-    if (experiment.type === "multi-armed-bandit") {
+    if (isBandit) {
       items.push({
         type: "auto",
         status: usingStickyBucketing ? "complete" : "incomplete",
@@ -309,22 +320,13 @@ export function PreLaunchChecklist({
   }, [
     data,
     editTargeting,
-    experiment.description,
-    experiment.hasURLRedirects,
-    experiment.hasVisualChangesets,
-    experiment.hypothesis,
-    experiment.manualLaunchChecklist,
-    experiment.phases.length,
-    experiment.project,
-    experiment.tags?.length,
-    experiment.variations,
-    experiment.type,
-    experiment.goalMetrics,
+    experiment,
     linkedFeatures,
     openSetupTab,
     visualChangesets,
     usingStickyBucketing,
     canEditExperiment,
+    isBandit,
   ]);
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {

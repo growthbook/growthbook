@@ -92,6 +92,11 @@ export default function TrafficAndTargeting({
                     </HashVersionTooltip>
                   }
                 </div>
+                {experiment.disableStickyBucketing ? (
+                  <div className="mt-1">
+                    Sticky bucketing: <em>disabled</em>
+                  </div>
+                ) : null}
               </div>
 
               <div className="col-4">

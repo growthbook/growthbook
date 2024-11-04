@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -91,6 +92,20 @@ export function experimentHasLinkedChanges(
   if (exp.hasURLRedirects) return true;
   if (exp.linkedFeatures && exp.linkedFeatures.length > 0) return true;
   return false;
+}
+
+export function experimentHasLiveLinkedChanges(
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
+  linkedFeatures: LinkedFeatureInfo[]
+) {
+  if (!experimentHasLinkedChanges(exp)) return false;
+  if (linkedFeatures.length > 0) {
+    if (linkedFeatures.some((feature) => feature.state === "live")) {
+      return true;
+    }
+    return false;
+  }
+  return true;
 }
 
 export function includeExperimentInPayload(
