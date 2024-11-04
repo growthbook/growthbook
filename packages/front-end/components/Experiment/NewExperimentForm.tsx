@@ -228,7 +228,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         ? initialValue.variations
         : getDefaultVariations(initialNumVariations),
       phases: [
-        ...(initialValue?.phases?.[initialValue?.phases?.length - 1]
+        ...(initialValue?.phases?.[lastPhase]
           ? [
               {
                 ...initialValue.phases[lastPhase],
