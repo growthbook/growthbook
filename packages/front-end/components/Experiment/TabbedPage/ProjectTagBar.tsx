@@ -7,7 +7,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/InitialAvatar";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
