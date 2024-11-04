@@ -6,13 +6,18 @@ import {
   FaFlask,
   FaTable,
 } from "react-icons/fa";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useMemo, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import clsx from "clsx";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getAllMetricIdsFromExperiment,
+  isFactMetric,
+  isMetricJoinable,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
@@ -60,7 +65,17 @@ export default function AnalysisSettingsSummary({
     getDatasourceById,
     getSegmentById,
     getExperimentMetricById,
+    factTables,
+    metricGroups,
   } = useDefinitions();
+
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
   const orgSettings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
@@ -108,15 +123,52 @@ export default function AnalysisSettingsSummary({
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  const { outdated, reasons } = isOutdated(
+  const allExpandedMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(experiment, false),
+        metricGroups
+      )
+    )
+  );
+
+  const unjoinableMetrics = useMemo(() => {
+    const unjoinables = new Set<string>();
+    allExpandedMetrics.forEach((m) => {
+      const metric = getExperimentMetricById(m);
+      if (!metric) return;
+      const userIdTypes = isFactMetric(metric)
+        ? factTables.find((f) => f.id === metric.numerator.factTableId)
+            ?.userIdTypes || []
+        : metric.userIdTypes || [];
+      const isJoinable =
+        userIdType && datasourceSettings
+          ? isMetricJoinable(userIdTypes, userIdType, datasourceSettings)
+          : true;
+      if (!isJoinable) {
+        unjoinables.add(m);
+      }
+    });
+    return unjoinables;
+  }, [
+    allExpandedMetrics,
+    factTables,
+    userIdType,
+    datasourceSettings,
+    getExperimentMetricById,
+  ]);
+
+  const { outdated, reasons } = isOutdated({
     experiment,
     snapshot,
+    metricGroups,
     orgSettings,
     statsEngine,
     hasRegressionAdjustmentFeature,
     hasSequentialFeature,
-    phase
-  );
+    phase,
+    unjoinableMetrics,
+  });
 
   const ds = getDatasourceById(experiment.datasource);
   const assignmentQuery = ds?.settings?.queries?.exposure?.find(
@@ -129,20 +181,26 @@ export default function AnalysisSettingsSummary({
   );
 
   const goals: string[] = [];
-  experiment.goalMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) goals.push(name);
-  });
+  expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) goals.push(name);
+    }
+  );
   const secondary: string[] = [];
-  experiment.secondaryMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) secondary.push(name);
-  });
+  expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) secondary.push(name);
+    }
+  );
   const guardrails: string[] = [];
-  experiment.guardrailMetrics?.forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
-    if (name) guardrails.push(name);
-  });
+  expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
+    (m) => {
+      const name = getExperimentMetricById(m)?.name;
+      if (name) guardrails.push(name);
+    }
+  );
 
   const numMetrics = goals.length + secondary.length + guardrails.length;
 

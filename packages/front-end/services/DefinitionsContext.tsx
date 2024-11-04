@@ -18,8 +18,10 @@ import {
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { findClosestRadixColor } from "./tags";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -29,6 +31,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
+  metricGroups: MetricGroupInterface[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
   _factTablesIncludingArchived: FactTableInterface[];
@@ -53,6 +56,7 @@ type DefinitionContextValue = Definitions & {
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getMetricGroupById: (id: string) => null | MetricGroupInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -74,6 +78,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  metricGroups: [],
   projects: [],
   factTables: [],
   _factTablesIncludingArchived: [],
@@ -89,6 +94,7 @@ const defaultValue: DefinitionContextValue = {
   getFactTableById: () => null,
   getFactMetricById: () => null,
   getExperimentMetricById: () => null,
+  getMetricGroupById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -146,6 +152,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metrics;
   }, [data?.metrics]);
 
+  const metricGroups = useMemo(() => {
+    if (!data || !data.metricGroups) {
+      return [];
+    }
+    return data.metricGroups;
+  }, [data?.metricGroups]);
+
   const activeFactMetrics = useMemo(() => {
     if (!data || !data.factMetrics) {
       return [];
@@ -189,15 +202,30 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.factTables;
   }, [data?.factTables]);
 
+  const allTags = useMemo(() => {
+    if (!data || !data.tags) {
+      return [];
+    }
+
+    return data.tags.map((tag) => {
+      if (tag.color.charAt(0) === "#") {
+        return { ...tag, color: findClosestRadixColor(tag.color) as string };
+      }
+
+      return tag;
+    });
+  }, [data?.tags]);
+
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
-  const getTagById = useGetById(data?.tags);
+  const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+  const getMetricGroupById = useGetById(data?.metricGroups);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -215,6 +243,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
+    //console.log("data is", data);
     const filteredProject =
       data.projects && data.projects.map((p) => p.id).includes(project)
         ? project
@@ -226,8 +255,9 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
-      tags: data.tags,
+      tags: allTags,
       savedGroups: data.savedGroups,
+      metricGroups: metricGroups,
       projects: data.projects,
       project: filteredProject,
       factTables: activeFactTables,
@@ -245,6 +275,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getFactTableById,
       getFactMetricById,
       getExperimentMetricById,
+      getMetricGroupById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
@@ -256,7 +287,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
               tags: data.tags.concat(
                 newTags.map((t) => ({
                   id: t,
-                  color: "#029dd1",
+                  color: "blue",
                   description: "",
                 }))
               ),

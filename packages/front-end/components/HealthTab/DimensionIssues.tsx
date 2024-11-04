@@ -136,7 +136,7 @@ export const DimensionIssues = ({
 
         return acc;
       },
-      ([] as IssueValue[]) ?? []
+      [] as IssueValue[]
     );
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];

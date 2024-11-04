@@ -1,12 +1,23 @@
 import { useForm } from "react-hook-form";
-import { HexColorPicker } from "react-colorful";
 import React from "react";
 import { TagInterface } from "back-end/types/tag";
+import { Button, Container } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import { RadixColor } from "@/components/Radix/HelperText";
 import styles from "./TagsModal.module.scss";
 import Tag from "./Tag";
+
+export const TAG_COLORS = [
+  "blue",
+  "teal",
+  "pink",
+  "orange",
+  "lime",
+  "gray",
+  "gold",
+] as const;
 
 export default function TagsModal({
   existing,
@@ -20,23 +31,11 @@ export default function TagsModal({
   const form = useForm<TagInterface>({
     defaultValues: {
       id: existing?.id || "",
-      color: existing?.color || "#029dd1",
+      color: existing?.color || "blue",
       description: existing?.description || "",
     },
   });
   const { apiCall } = useAuth();
-
-  const tagColors = [
-    { value: "#029dd1", label: "light-blue" },
-    { value: "#0047bd", label: "blue" },
-    { value: "#F170AC", label: "pink" },
-    { value: "#D64538", label: "red" },
-    { value: "#fc8414", label: "orange" },
-    { value: "#e2d221", label: "yellow" },
-    { value: "#9edd63", label: "lime" },
-    { value: "#28A66B", label: "green" },
-    { value: "#20C9B9", label: "teal" },
-  ];
 
   return (
     <Modal
@@ -56,8 +55,6 @@ export default function TagsModal({
       <div className="colorpicker tagmodal">
         {!existing?.id && (
           <Field
-            // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
-            name="Name"
             label="Name"
             minLength={2}
             maxLength={64}
@@ -68,31 +65,31 @@ export default function TagsModal({
         )}
         <label>Color:</label>
         <div className={styles.picker}>
-          <HexColorPicker
-            onChange={(c) => {
-              form.setValue("color", c);
+          <Container
+            style={{
+              background: "var(--color-background)",
+              borderRadius: "var(--radius-3)",
             }}
-            style={{ margin: "0 auto" }}
-            color={form.watch("color") || ""}
-            id="tagcolor"
-          />
-          <div className={styles.picker__swatches}>
-            {tagColors.map((c) => (
-              <button
-                key={c.value}
-                className={styles.picker__swatch}
-                style={{ background: c.value }}
+            p="4"
+          >
+            {TAG_COLORS.map((c) => (
+              <Button
+                key={c}
+                radius="full"
+                color={c}
                 onClick={(e) => {
                   e.preventDefault();
-                  form.setValue("color", c.value);
+                  form.setValue("color", c);
                 }}
+                mr="2"
+                mt="1"
+                mb="1"
+                style={{ height: "32px", width: "32px" }}
               />
             ))}
-          </div>
+          </Container>
         </div>
         <Field
-          // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
-          name="Name"
           label="Description"
           textarea
           maxLength={256}
@@ -103,7 +100,7 @@ export default function TagsModal({
           <div>
             <Tag
               tag={form.watch("id")}
-              color={form.watch("color")}
+              color={form.watch("color") as RadixColor}
               description={form.watch("description")}
             />
           </div>

@@ -302,7 +302,6 @@ export default function ReportPage() {
                     phase={0}
                     setDifferenceType={() => {}}
                     setAnalysisSettings={() => {}}
-                    loading={false}
                     mutate={() => {}}
                   />
                 </div>

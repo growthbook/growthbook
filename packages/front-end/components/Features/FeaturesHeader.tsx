@@ -316,18 +316,6 @@ export default function FeaturesHeader({
               )}
 
               <div className="col-auto">
-                Tags: <SortedTags tags={feature.tags || []} />
-                {canEdit && (
-                  <a
-                    className="ml-1 cursor-pointer"
-                    onClick={() => setEditTagsModal(true)}
-                  >
-                    <GBEdit />
-                  </a>
-                )}
-              </div>
-
-              <div className="col-auto">
                 Type: {feature.valueType || "unknown"}
               </div>
 
@@ -356,6 +344,24 @@ export default function FeaturesHeader({
               </div>
               <div className="col-auto">
                 <WatchButton item={feature.id} itemType="feature" type="link" />
+              </div>
+            </div>
+            <div className="row mb-2">
+              <div className="col-auto">
+                Tags:{" "}
+                <SortedTags
+                  tags={feature.tags || []}
+                  useFlex
+                  shouldShowEllipsis={false}
+                />
+                {canEdit && (
+                  <a
+                    className="ml-1 cursor-pointer"
+                    onClick={() => setEditTagsModal(true)}
+                  >
+                    <GBEdit />
+                  </a>
+                )}
               </div>
             </div>
             <div>

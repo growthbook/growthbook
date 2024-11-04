@@ -452,6 +452,7 @@ export function getMetricsAndQueryDataForStatsEngine(
       // Multi-metric query
       if (key.match(/group_/)) {
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
+        if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
         for (let i = 0; i < 100; i++) {
           const prefix = `m${i}_`;

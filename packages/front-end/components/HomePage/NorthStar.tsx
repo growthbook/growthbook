@@ -168,10 +168,31 @@ const NorthStar: FC<{
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               includeFacts={true}
+              includeGroups={false}
               excludeQuantiles={true}
             />
           </div>
           <Field label="Title" {...form.register("title")} />
+          {/*<Field*/}
+          {/*  label="Date window"*/}
+          {/*  initialOption="90"*/}
+          {/*  {...form.register("window")}*/}
+          {/*  options={[*/}
+          {/*    { value: "30", display: "30 days" },*/}
+          {/*    { value: "60", display: "60 days" },*/}
+          {/*    { value: "90", display: "90 days" },*/}
+          {/*    { value: "182", display: "6 months" },*/}
+          {/*    { value: "365", display: "1 year" },*/}
+          {/*  ]}*/}
+          {/*/>*/}
+          {/*<Field*/}
+          {/*  label="Resolution"*/}
+          {/*  {...form.register("resolution")}*/}
+          {/*  options={[*/}
+          {/*    { value: "day", display: "day" },*/}
+          {/*    { value: "week", display: "week" },*/}
+          {/*  ]}*/}
+          {/*/>*/}
         </Modal>
       )}
     </>
