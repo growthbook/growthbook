@@ -143,7 +143,6 @@ export default function SDKConnectionsList() {
           variant="ghost"
           onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
           size="sm"
-          textWeight="bold"
         >
           {showAllSdkLanguages ? "Show less" : "Show all"}
         </Button>
