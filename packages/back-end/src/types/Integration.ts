@@ -194,6 +194,11 @@ export interface ExperimentFactMetricsQueryParams
   useUnitsTable: boolean;
 }
 
+export interface ExperimentPipelineFactMetricsQueryParams
+  extends ExperimentFactMetricsQueryParams {
+    lookbackDate: Date;
+  }
+
 export interface ExperimentAggregateUnitsQueryParams
   extends ExperimentBaseQueryParams {
   useUnitsTable: boolean;
@@ -213,7 +218,7 @@ export interface ExperimentPipelineCreateMetricsTableParams {
 
 export interface ExperimentPipelineDeleteMetricsTableParams {
   tableName: string;
-  lookbackDate: string;
+  lookbackDate: Date;
 }
 
 export interface ExperimentPipelineReplaceUnitsTableParams extends ExperimentBaseQueryParams {

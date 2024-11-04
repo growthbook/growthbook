@@ -386,7 +386,7 @@ export const startExperimentResultQueries = async (
   return queries;
 };
 
-export class ExperimentResultsQueryRunner extends QueryRunner<
+export class ExperimentPipelineQueryRunner extends QueryRunner<
   ExperimentSnapshotInterface,
   ExperimentResultsQueryParams,
   SnapshotResult
