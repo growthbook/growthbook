@@ -28,7 +28,7 @@ import {
 } from "@radix-ui/colors";
 import { RadixColor } from "@/components/Radix/HelperText";
 
-const TAG_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {
+export const TAG_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {
   gray: gray.gray11,
   gold: gold.gold11,
   bronze: bronze.bronze11,
