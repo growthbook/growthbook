@@ -73,7 +73,7 @@ const TagsInput: FC<{
         display: "flex",
         // add a colored dot:
         ":before": {
-          backgroundColor: displayColor,
+          backgroundColor: data.color,
           borderRadius: 10,
           content: '" "',
           display: "block",
