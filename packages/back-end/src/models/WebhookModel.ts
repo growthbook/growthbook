@@ -247,5 +247,8 @@ export async function findLegacySdkWebhookById(
 }
 
 export async function countSdkWebhooksByOrg(organization: string) {
-  return await WebhookModel.countDocuments({ organization }).exec();
+  return await WebhookModel.countDocuments({
+    organization,
+    useSdkMode: true,
+  }).exec();
 }
