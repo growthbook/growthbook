@@ -1,0 +1,33 @@
+name: JSR
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/sdk-js/**"
+
+defaults:
+  run:
+    working-directory: ./packages/sdk-js
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # The OIDC ID token is used for authentication with JSR.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: borales/actions-yarn@v4
+        with:
+          cmd: install
+          dir: ./packages/sdk-js
+      - name: Remove global declaration type (JSR compatibility)
+        run: |
+          sed -i '/import "\.\/globals";/d' src/types/growthbook.ts
+      - name: Publish to JSR
+        run: npx jsr publish --allow-dirty

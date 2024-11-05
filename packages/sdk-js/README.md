@@ -8,7 +8,7 @@ This is the Javascript client library that lets you evaluate feature flags and r
 
 - **No external dependencies**
 - **Lightweight and fast**
-- Supports both **modern browsers and Node.js**
+- Supports **modern browsers, Node.js, and Deno**
 - Local targeting and evaluation, **no HTTP requests**
 - **No flickering** when running A/B tests
 - Written in **Typescript** with 100% test coverage
@@ -27,6 +27,12 @@ or
 
 ```
 npm i --save @growthbook/growthbook
+```
+
+or
+
+```
+deno add jsr:@growthbook/growthbook
 ```
 
 or use directly in your HTML without installing first:
