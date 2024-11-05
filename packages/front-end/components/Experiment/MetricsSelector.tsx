@@ -252,7 +252,7 @@ const MetricsSelector: FC<{
               (d) =>
                 d.startsWith("met_") ||
                 d.startsWith("mg_") ||
-                d.startsWith("fact_")
+                d.startsWith("fact__")
             )
           ) {
             e.preventDefault();
