@@ -9,13 +9,21 @@ Bandits are run very similarly to Experiments in GrowthBook. There are three key
 - We require you to select a **Decision Metric** to optimize towards
 - You have to decide the exploration window and update cadence for your Bandits
 
-### Pre-requisite: Sticky Bucketing
+### Prerequisite: Sticky Bucketing
 
 All GrowthBook Bandits (at least while in Beta) require you to enable [Sticky Bucketing](/app/sticky-bucketing). which ensures users are consistently assigned the same variation even if they return to the experiment later and the variation traffic has changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
 
 Furthermore, you should set up your Sticky Bucketing service to store variations in the same place that you store and track your user identities. For example, if you plan on running a bandit using cookie-based identifiers, we strongly recommend using a cookie-based Sticky Bucketing approach to ensure that both the hash attribute and the sticky bucketing identifiers are kept in sync.
 
 Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide to set up Sticky Bucketing in your SDK and enable it in GrowthBook.
+
+### Prerequisite: Double check SDK cache settings
+
+Bandits optimize towards winning variations by making frequent changes to variation weights. Therefore it is important to ensure that your SDK implementation is able to receive updates in a timely fashion.
+
+- If you are using the [HTML Script Tag](https://docs.growthbook.io/lib/script-tag), variation weights have a maximum staleness of 4 hours, which is sufficient for most scenarios.
+- Similarly, most of our SDKs have an internal cache with a default `maxAge` or `TTL` of 4 hours.
+- If you are applying any sort of network-level payload caching (such as a custom CDN or caching proxy), please ensure appropriate cache TTL and/or ejection policies are in place.
 
 ## Creating a Bandit
 
