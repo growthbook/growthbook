@@ -74,6 +74,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -81,7 +82,6 @@ import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import JSONSchemaDescription from "./JSONSchemaDescription";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -346,1020 +346,1021 @@ export default function FeaturesOverview({
 
   return (
     <>
-    <div className="contents container-fluid pagecontents mt-2">
-      <h2 className="mb-3">Overview</h2>
+      <div className="contents container-fluid pagecontents mt-2">
+        <h2 className="mb-3">Overview</h2>
 
-      <div className="box">
-        <div className="mh-350px fade-mask-vertical-1rem px-4 py-3" style={{ overflowY: "auto" }}>
-        <MarkdownInlineEdit
-          value={feature.description || ""}
-          save={async (description) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({
-                description,
-              }),
-            });
-            track("Update Feature Description");
-            mutate();
-          }}
-          canCreate={canEdit}
-          canEdit={canEdit}
-          label="description"
-          header="Description"
-          headerClassName="h4"
-          containerClassName="mb-1"
-        />
-        </div>
-    </div>
-
-    <div className="mt-3">
-      <CustomMarkdown page={"feature"} variables={variables}/>
-    </div>
-    <h3 className="mt-4 mb-3">Enabled Environments</h3>
-    <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-      <div className="mb-2">
-        When disabled, this feature will evaluate to <code>null</code>. The
-        default value and rules will be ignored.
-      </div>
-      {prerequisites.length > 0 ? (
-        <table className="table border bg-white mb-2 w-100">
-          <thead>
-          <tr className="bg-light">
-            <th
-              className="pl-3 align-bottom font-weight-bold border-right"
-              style={{minWidth: 350}}
-            />
-            {envs.map((env) => (
-              <th
-                key={env}
-                className="text-center align-bottom font-weight-bolder"
-                style={{minWidth: 120}}
-              >
-                {env}
-              </th>
-            ))}
-            {envs.length === 0 ? (
-              <th className="text-center align-bottom">
-                <span className="font-italic">No environments</span>
-                <Tooltip
-                  className="ml-1"
-                  popperClassName="text-left font-weight-normal"
-                  body={
-                    <>
-                      <div className="text-warning-orange mb-2">
-                        <FaExclamationTriangle/> This feature has no
-                        associated environments
-                      </div>
-                      <div>
-                        Ensure that this feature&apos;s project is
-                        included in at least one environment to use it.
-                      </div>
-                    </>
-                  }
-                />
-                <div
-                  className="float-right small position-relative"
-                  style={{top: 5}}
-                >
-                  <Link href="/environments">Manage Environments</Link>
-                </div>
-              </th>
-            ) : (
-              <th className="w-100"/>
-            )}
-          </tr>
-          </thead>
-          <tbody>
-          <tr>
-            <td
-              className="pl-3 align-bottom font-weight-bold border-right"
-              style={{minWidth: 350}}
-            >
-              Kill Switch
-            </td>
-            {envs.map((env) => (
-              <td
-                key={env}
-                className="text-center align-bottom pb-2"
-                style={{minWidth: 120}}
-              >
-                <EnvironmentToggle
-                  feature={feature}
-                  environment={env}
-                  mutate={() => {
-                    mutate();
-                  }}
-                  id={`${env}_toggle`}
-                  className="mr-0"
-                />
-              </td>
-            ))}
-            <td className="w-100"/>
-          </tr>
-          {prerequisites.map(({...item}, i) => {
-            const parentFeature = features.find((f) => f.id === item.id);
-            return (
-              <PrerequisiteStatusRow
-                key={i}
-                i={i}
-                feature={feature}
-                features={features}
-                parentFeature={parentFeature}
-                prerequisite={item}
-                environments={environments}
-                mutate={mutate}
-                setPrerequisiteModal={setPrerequisiteModal}
-              />
-            );
-          })}
-          </tbody>
-          <tbody>
-          <tr className="bg-light">
-            <td className="pl-3 font-weight-bold border-right">
-              Summary
-            </td>
-            {envs.length > 0 && (
-              <PrerequisiteStatesCols
-                prereqStates={prereqStates ?? undefined}
-                envs={envs}
-                isSummaryRow={true}
-              />
-            )}
-            <td/>
-          </tr>
-          </tbody>
-        </table>
-      ) : (
-        <div className="row mt-3">
-          {environments.length > 0 ? (
-            environments.map((en) => (
-              <div className="col-auto" key={en.id}>
-                <label
-                  className="font-weight-bold mr-2 mb-0"
-                  htmlFor={`${en.id}_toggle`}
-                >
-                  {en.id}:{" "}
-                </label>
-                <EnvironmentToggle
-                  feature={feature}
-                  environment={en.id}
-                  mutate={() => {
-                    mutate();
-                  }}
-                  id={`${en.id}_toggle`}
-                />
-              </div>
-            ))
-          ) : (
-            <div className="alert alert-warning pt-3 pb-2 w-100">
-              <div className="h4 mb-3">
-                <FaExclamationTriangle/> This feature has no associated
-                environments
-              </div>
-              <div className="mb-2">
-                Ensure that this feature&apos;s project is included in at
-                least one environment to use it.{" "}
-                <Link href="/environments">Manage Environments</Link>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {hasConditionalState && (
-        <PrerequisiteAlerts
-          environments={envs}
-          type="feature"
-          project={projectId ?? ""}
-        />
-      )}
-
-      {canEdit && (
-        <PremiumTooltip
-          commercialFeature="prerequisites"
-          className="d-inline-flex align-items-center mt-3"
-        >
-          <button
-            className="btn d-inline-block px-1 font-weight-bold link-purple"
-            disabled={!hasPrerequisitesCommercialFeature}
-            onClick={() => {
-              setPrerequisiteModal({
-                i: getPrerequisites(feature).length,
-              });
-              track("Viewed prerequisite feature modal", {
-                source: "add-prerequisite",
-              });
-            }}
-          >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle/>
-                </span>
-            Add Prerequisite Feature
-          </button>
-        </PremiumTooltip>
-      )}
-    </div>
-    {dependents > 0 && (
-      <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-        <h4>
-          Dependents
+        <div className="box">
           <div
-            className="ml-2 d-inline-block badge-warning font-weight-bold text-center"
-            style={{
-              width: 24,
-              height: 24,
-              lineHeight: "24px",
-              fontSize: "14px",
-              borderRadius: 30,
-            }}
+            className="mh-350px fade-mask-vertical-1rem px-4 py-3"
+            style={{ overflowY: "auto" }}
           >
-            {dependents}
+            <MarkdownInlineEdit
+              value={feature.description || ""}
+              save={async (description) => {
+                await apiCall(`/feature/${feature.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    description,
+                  }),
+                });
+                track("Update Feature Description");
+                mutate();
+              }}
+              canCreate={canEdit}
+              canEdit={canEdit}
+              label="description"
+              header="Description"
+              headerClassName="h4"
+              containerClassName="mb-1"
+            />
           </div>
-        </h4>
-        <div className="mb-2">
-          {dependents === 1
-            ? `Another ${
-              dependentFeatures.length ? "feature" : "experiment"
-            } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-            : `Other ${
-              dependentFeatures.length
-                ? dependentExperiments.length
-                  ? "features and experiments"
-                  : "features"
-                : "experiments"
-            } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
         </div>
-        <hr className="mb-2"/>
-        {showDependents ? (
-          <div className="mt-3">
-            {dependentFeatures.length > 0 && (
-              <>
-                <label>Dependent Features</label>
-                <ul className="pl-4">
-                  {dependentFeatures.map((fid, i) => (
-                    <li className="my-1" key={i}>
-                      <a
-                        href={`/features/${fid}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {fid}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {dependentExperiments.length > 0 && (
-              <>
-                <label>Dependent Experiments</label>
-                <ul className="pl-4">
-                  {dependentExperiments.map((exp, i) => (
-                    <li className="my-1" key={i}>
-                      <a
-                        href={`/experiment/${exp.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {exp.name}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <a
-              role="button"
-              className="d-inline-block a link-purple mt-1"
-              onClick={() => setShowDependents(false)}
-            >
-              <BiHide/> Hide details
-            </a>
+
+        <div className="mt-3">
+          <CustomMarkdown page={"feature"} variables={variables} />
+        </div>
+        <h3 className="mt-4 mb-3">Enabled Environments</h3>
+        <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+          <div className="mb-2">
+            When disabled, this feature will evaluate to <code>null</code>. The
+            default value and rules will be ignored.
           </div>
-        ) : (
-          <>
-            <a
-              role="button"
-              className="d-inline-block a link-purple"
-              onClick={() => setShowDependents(true)}
-            >
-              <BiShow/> Show details
-            </a>
-          </>
-        )}
-      </div>
-    )}
-
-    {feature.valueType === "json" && (
-      <div>
-        <h3>
-          JSON Validation{" "}
-          <Tooltip
-            body={
-              "Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
-            }
-          />
-          <span
-            className="badge badge-dark ml-2"
-            style={{fontStyle: "normal", fontSize: "0.7em"}}
-          >
-                ENTERPRISE
-              </span>
-        </h3>
-        <div className="appbox mb-4 p-3 card">
-          {hasJsonValidator && jsonSchema ? (
-            <>
-              <div className="d-flex align-items-center">
-                <strong>
-                  {validationEnabled ? "Enabled" : "Disabled"}
-                </strong>
-
-                {schemaDateUpdated && (
-                  <div className="text-muted ml-3">
-                    Updated{" "}
-                    {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
-                  </div>
-                )}
-
-                {validationEnabled ? (
-                  <div className="ml-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowSchema(!showSchema);
-                      }}
-                    >
-                      <small>
-                        {showSchema
-                          ? "Hide JSON Schema"
-                          : "Show JSON Schema"}
-                      </small>
-                    </a>
-                  </div>
-                ) : null}
-              </div>
-              {validationEnabled ? (
-                <JSONSchemaDescription jsonSchema={jsonSchema}/>
-              ) : null}
-              {showSchema && validationEnabled && (
-                <div className="mt-4">
-                  <Code
-                    language="json"
-                    code={JSON.stringify(jsonSchema, null, 2)}
+          {prerequisites.length > 0 ? (
+            <table className="table border bg-white mb-2 w-100">
+              <thead>
+                <tr className="bg-light">
+                  <th
+                    className="pl-3 align-bottom font-weight-bold border-right"
+                    style={{ minWidth: 350 }}
                   />
+                  {envs.map((env) => (
+                    <th
+                      key={env}
+                      className="text-center align-bottom font-weight-bolder"
+                      style={{ minWidth: 120 }}
+                    >
+                      {env}
+                    </th>
+                  ))}
+                  {envs.length === 0 ? (
+                    <th className="text-center align-bottom">
+                      <span className="font-italic">No environments</span>
+                      <Tooltip
+                        className="ml-1"
+                        popperClassName="text-left font-weight-normal"
+                        body={
+                          <>
+                            <div className="text-warning-orange mb-2">
+                              <FaExclamationTriangle /> This feature has no
+                              associated environments
+                            </div>
+                            <div>
+                              Ensure that this feature&apos;s project is
+                              included in at least one environment to use it.
+                            </div>
+                          </>
+                        }
+                      />
+                      <div
+                        className="float-right small position-relative"
+                        style={{ top: 5 }}
+                      >
+                        <Link href="/environments">Manage Environments</Link>
+                      </div>
+                    </th>
+                  ) : (
+                    <th className="w-100" />
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td
+                    className="pl-3 align-bottom font-weight-bold border-right"
+                    style={{ minWidth: 350 }}
+                  >
+                    Kill Switch
+                  </td>
+                  {envs.map((env) => (
+                    <td
+                      key={env}
+                      className="text-center align-bottom pb-2"
+                      style={{ minWidth: 120 }}
+                    >
+                      <EnvironmentToggle
+                        feature={feature}
+                        environment={env}
+                        mutate={() => {
+                          mutate();
+                        }}
+                        id={`${env}_toggle`}
+                        className="mr-0"
+                      />
+                    </td>
+                  ))}
+                  <td className="w-100" />
+                </tr>
+                {prerequisites.map(({ ...item }, i) => {
+                  const parentFeature = features.find((f) => f.id === item.id);
+                  return (
+                    <PrerequisiteStatusRow
+                      key={i}
+                      i={i}
+                      feature={feature}
+                      features={features}
+                      parentFeature={parentFeature}
+                      prerequisite={item}
+                      environments={environments}
+                      mutate={mutate}
+                      setPrerequisiteModal={setPrerequisiteModal}
+                    />
+                  );
+                })}
+              </tbody>
+              <tbody>
+                <tr className="bg-light">
+                  <td className="pl-3 font-weight-bold border-right">
+                    Summary
+                  </td>
+                  {envs.length > 0 && (
+                    <PrerequisiteStatesCols
+                      prereqStates={prereqStates ?? undefined}
+                      envs={envs}
+                      isSummaryRow={true}
+                    />
+                  )}
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <div className="row mt-3">
+              {environments.length > 0 ? (
+                environments.map((en) => (
+                  <div className="col-auto" key={en.id}>
+                    <label
+                      className="font-weight-bold mr-2 mb-0"
+                      htmlFor={`${en.id}_toggle`}
+                    >
+                      {en.id}:{" "}
+                    </label>
+                    <EnvironmentToggle
+                      feature={feature}
+                      environment={en.id}
+                      mutate={() => {
+                        mutate();
+                      }}
+                      id={`${en.id}_toggle`}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="alert alert-warning pt-3 pb-2 w-100">
+                  <div className="h4 mb-3">
+                    <FaExclamationTriangle /> This feature has no associated
+                    environments
+                  </div>
+                  <div className="mb-2">
+                    Ensure that this feature&apos;s project is included in at
+                    least one environment to use it.{" "}
+                    <Link href="/environments">Manage Environments</Link>
+                  </div>
                 </div>
               )}
-            </>
-          ) : (
-            <div>
-              <em>No validation added.</em>
             </div>
           )}
 
-          {hasJsonValidator && canEdit && (
-            <div className="mt-3">
-              <a
-                href="#"
-                className="text-purple"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditValidator(true);
+          {hasConditionalState && (
+            <PrerequisiteAlerts
+              environments={envs}
+              type="feature"
+              project={projectId ?? ""}
+            />
+          )}
+
+          {canEdit && (
+            <PremiumTooltip
+              commercialFeature="prerequisites"
+              className="d-inline-flex align-items-center mt-3"
+            >
+              <button
+                className="btn d-inline-block px-1 font-weight-bold link-purple"
+                disabled={!hasPrerequisitesCommercialFeature}
+                onClick={() => {
+                  setPrerequisiteModal({
+                    i: getPrerequisites(feature).length,
+                  });
+                  track("Viewed prerequisite feature modal", {
+                    source: "add-prerequisite",
+                  });
                 }}
               >
-                {validationEnabled ? <GBEdit/> : <GBAddCircle/>}{" "}
-                {validationEnabled ? "Edit" : "Add"} JSON Validation
-              </a>
-            </div>
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Prerequisite Feature
+              </button>
+            </PremiumTooltip>
           )}
         </div>
-      </div>
-    )}
-
-    {revision && (
-      <>
-        <div className="row mb-2 align-items-center">
-          <div className="col-auto">
-            <h3 className="mb-0">Rules and Values</h3>
-          </div>
-          <div className="col-auto">
-            <RevisionDropdown
-              feature={feature}
-              version={currentVersion}
-              setVersion={setVersion}
-              revisions={revisions || []}
-            />
-          </div>
-          <div className="col-auto">
-            <a
-              title="Copy a link to this revision"
-              href={`/features/${fid}?v=${version}`}
-              className="position-relative"
-              onClick={(e) => {
-                if (!copySupported) return;
-
-                e.preventDefault();
-                const url =
-                  window.location.href.replace(/[?#].*/, "") +
-                  `?v=${version}`;
-                performCopy(url);
-              }}
-            >
-              <FaLink/>
-              {copySuccess ? (
-                <SimpleTooltip position="right">
-                  Copied to clipboard!
-                </SimpleTooltip>
-              ) : null}
-            </a>
-          </div>
-        </div>
-        {isLive ? (
-          <div
-            className="px-3 py-2 alert alert-success mb-0"
-            style={{
-              borderBottomLeftRadius: 0,
-              borderBottomRightRadius: 0,
-            }}
-          >
-            <div className="d-flex align-items-center">
-              <strong className="mr-3">
-                <MdRocketLaunch/> Live Revision
-              </strong>
-              <div className="mr-3">
-                {!isLocked ? (
-                  "Changes you make below will start a new draft"
-                ) : (
+        {dependents > 0 && (
+          <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+            <h4>
+              Dependents
+              <div
+                className="ml-2 d-inline-block badge-warning font-weight-bold text-center"
+                style={{
+                  width: 24,
+                  height: 24,
+                  lineHeight: "24px",
+                  fontSize: "14px",
+                  borderRadius: 30,
+                }}
+              >
+                {dependents}
+              </div>
+            </h4>
+            <div className="mb-2">
+              {dependents === 1
+                ? `Another ${
+                    dependentFeatures.length ? "feature" : "experiment"
+                  } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                : `Other ${
+                    dependentFeatures.length
+                      ? dependentExperiments.length
+                        ? "features and experiments"
+                        : "features"
+                      : "experiments"
+                  } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+            </div>
+            <hr className="mb-2" />
+            {showDependents ? (
+              <div className="mt-3">
+                {dependentFeatures.length > 0 && (
                   <>
-                    There is already an active draft. Switch to that to make
-                    changes.
+                    <label>Dependent Features</label>
+                    <ul className="pl-4">
+                      {dependentFeatures.map((fid, i) => (
+                        <li className="my-1" key={i}>
+                          <a
+                            href={`/features/${fid}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {fid}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
                   </>
                 )}
+                {dependentExperiments.length > 0 && (
+                  <>
+                    <label>Dependent Experiments</label>
+                    <ul className="pl-4">
+                      {dependentExperiments.map((exp, i) => (
+                        <li className="my-1" key={i}>
+                          <a
+                            href={`/experiment/${exp.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {exp.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                <a
+                  role="button"
+                  className="d-inline-block a link-purple mt-1"
+                  onClick={() => setShowDependents(false)}
+                >
+                  <BiHide /> Hide details
+                </a>
               </div>
-              <div className="ml-auto"></div>
-              {canEditDrafts && drafts.length > 0 && (
-                <div>
-                  <a
-                    role="button"
-                    className="a font-weight-bold link-purple"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setVersion(drafts[0].version);
-                    }}
-                  >
-                    <FaExchangeAlt/> Switch to Draft
-                  </a>
-                </div>
-              )}
-              {canEditDrafts && revision.version > 1 && (
-                <div className="ml-4">
-                  <a
-                    href="#"
-                    className="font-weight-bold text-danger"
-                    onClick={(e) => {
-                      e.preventDefault();
-
-                      // Get highest revision number that is published and less than the current revision
-                      const previousRevision = revisions
-                        .filter(
-                          (r) =>
-                            r.status === "published" &&
-                            r.version < feature.version
-                        )
-                        .sort((a, b) => b.version - a.version)[0];
-
-                      if (previousRevision) {
-                        setRevertIndex(previousRevision.version);
-                      }
-                    }}
-                  >
-                    <MdHistory/> Revert to Previous
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : isLocked ? (
-          <div
-            className="px-3 py-2 alert-secondary mb-0"
-            style={{
-              borderBottomLeftRadius: 0,
-              borderBottomRightRadius: 0,
-            }}
-          >
-            <div className="d-flex align-items-center">
-              <strong className="mr-3">
-                <FaLock/> Revision Locked
-              </strong>
-              <div className="mr-2">
-                This revision is no longer active and cannot be modified.
-              </div>
-              <div className="ml-auto"></div>
-              {canEditDrafts && (
-                <div>
-                  <a
-                    role="button"
-                    className="a font-weight-bold link-purple"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setRevertIndex(revision.version);
-                    }}
-                    title="Create a new Draft based on this revision"
-                  >
-                    <MdHistory/> Revert to this Revision
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : isDraft ? (
-          <div
-            className="px-3 py-2 alert alert-warning mb-0"
-            style={{
-              borderBottomLeftRadius: 0,
-              borderBottomRightRadius: 0,
-            }}
-          >
-            <div className="d-flex align-items-center">
-              <strong className="mr-3">
-                <FaDraftingCompass/> Draft Revision
-              </strong>
-              <div className="mr-3">
-                {requireReviews
-                  ? "Make changes below and request review when you are ready"
-                  : "Make changes below and publish when you are ready"}
-              </div>
-              <div className="ml-auto"></div>
-              {mergeResult?.success && requireReviews && (
-                <div>
-                  <Tooltip
-                    body={
-                      !revisionHasChanges
-                        ? "Draft is identical to the live version. Make changes first before requesting review"
-                        : ""
-                    }
-                  >
-                    <a
-                      href="#"
-                      className={clsx(
-                        "font-weight-bold",
-                        !revisionHasChanges ? "text-muted" : "text-purple"
-                      )}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setReviewModal(true);
-                      }}
-                    >
-                      {renderDraftBannerCopy()}
-                    </a>
-                  </Tooltip>
-                </div>
-              )}
-              {mergeResult?.success && !requireReviews && (
-                <div>
-                  <Tooltip
-                    body={
-                      !revisionHasChanges
-                        ? "Draft is identical to the live version. Make changes first before publishing"
-                        : !hasDraftPublishPermission
-                          ? "You do not have permission to publish this draft."
-                          : ""
-                    }
-                  >
-                    <a
-                      role="button"
-                      className={clsx(
-                        "a font-weight-bold",
-                        !hasDraftPublishPermission || !revisionHasChanges
-                          ? "text-muted"
-                          : "link-purple"
-                      )}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setDraftModal(true);
-                      }}
-                    >
-                      <MdRocketLaunch/> Review and Publish
-                    </a>
-                  </Tooltip>
-                </div>
-              )}
-              {canEditDrafts && mergeResult && !mergeResult.success && (
-                <div>
-                  <Tooltip
-                    body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
-                    <a
-                      role="button"
-                      className="a font-weight-bold link-purple"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setConflictModal(true);
-                      }}
-                    >
-                      <FaPlusMinus/> Fix Conflicts
-                    </a>
-                  </Tooltip>
-                </div>
-              )}
-              {canEditDrafts && (
-                <div className="ml-4">
-                  <a
-                    href="#"
-                    className="font-weight-bold text-danger"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setConfirmDiscard(true);
-                    }}
-                  >
-                    <FaTimes/> Discard Draft
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </>
-    )}
-    <div
-      className={revision ? "appbox mb-4 px-3 pt-3" : ""}
-      style={{
-        borderTopRightRadius: 0,
-        borderTopLeftRadius: 0,
-      }}
-    >
-      {revision && (
-        <div className="row mb-3">
-          <div className="col-auto">
-            <span className="text-muted">Revision created by</span>{" "}
-            <EventUser user={revision.createdBy} display="name"/>{" "}
-            <span className="text-muted">on</span>{" "}
-            {datetime(revision.dateCreated)}
-          </div>
-          <div className="col-auto">
-            <span className="text-muted">Revision Comment:</span>{" "}
-            {revision.comment || <em>None</em>}
-            {canEditDrafts && (
-              <a
-                href="#"
-                className="ml-1"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditCommentModal(true);
-                }}
-              >
-                <GBEdit/>
-              </a>
+            ) : (
+              <>
+                <a
+                  role="button"
+                  className="d-inline-block a link-purple"
+                  onClick={() => setShowDependents(true)}
+                >
+                  <BiShow /> Show details
+                </a>
+              </>
             )}
           </div>
-          <div className="ml-auto"></div>
-          {revision.status === "published" && revision.datePublished && (
-            <div className="col-auto">
-              <span className="text-muted">Published on</span>{" "}
-              {datetime(revision.datePublished)}
-            </div>
-          )}
-          {revision.status === "draft" && (
-            <div className="col-auto">
-              <span className="text-muted">Last updated</span>{" "}
-              {ago(revision.dateUpdated)}
-            </div>
-          )}
-          <div className="col-auto">
-            {renderStatusCopy()}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setLogModal(true);
-              }}
-            >
-              <FaList/> View Log
-            </a>
-          </div>
-        </div>
-      )}
-
-      <h3>
-        Default Value
-        {canEdit && !isLocked && canEditDrafts && (
-          <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
-            <GBEdit/>
-          </a>
         )}
-      </h3>
-      <div className="appbox mb-4 p-3">
-        <ForceSummary
-          value={getFeatureDefaultValue(feature)}
-          feature={feature}
-        />
-      </div>
 
-      {environments.length > 0 && (
-        <>
-          <h3>Rules</h3>
-          <p>
-            Add powerful logic on top of your feature. The first rule that
-            matches will be applied and override the Default Value.
-          </p>
+        {feature.valueType === "json" && (
+          <div>
+            <h3>
+              JSON Validation{" "}
+              <Tooltip
+                body={
+                  "Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
+                }
+              />
+              <span
+                className="badge badge-dark ml-2"
+                style={{ fontStyle: "normal", fontSize: "0.7em" }}
+              >
+                ENTERPRISE
+              </span>
+            </h3>
+            <div className="appbox mb-4 p-3 card">
+              {hasJsonValidator && jsonSchema ? (
+                <>
+                  <div className="d-flex align-items-center">
+                    <strong>
+                      {validationEnabled ? "Enabled" : "Disabled"}
+                    </strong>
 
-          <div className="mb-0">
-            <ControlledTabs
-              setActive={(v) => {
-                setEnv(v || "");
-              }}
-              active={env}
-              showActiveCount={true}
-              newStyle={false}
-              buttonsClassName="px-3 py-2 h4"
-            >
-              {environments.map((e) => {
-                const rules = getRules(feature, e.id);
-                return (
-                  <Tab
-                    key={e.id}
-                    id={e.id}
-                    display={e.id}
-                    count={rules.length}
-                    padding={false}
-                  >
-                    <div className="mb-4 border border-top-0">
-                      {rules.length > 0 ? (
-                        <RuleList
-                          environment={e.id}
-                          feature={feature}
-                          mutate={mutate}
-                          setRuleModal={setRuleModal}
-                          setCopyRuleModal={setCopyRuleModal}
-                          version={currentVersion}
-                          setVersion={setVersion}
-                          locked={isLocked}
-                          experimentsMap={experimentsMap}
-                        />
-                      ) : (
-                        <div className="p-3 bg-white border-bottom">
-                          <em>No rules for this environment yet</em>
-                        </div>
-                      )}
+                    {schemaDateUpdated && (
+                      <div className="text-muted ml-3">
+                        Updated{" "}
+                        {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
+                      </div>
+                    )}
 
-                      {canEditDrafts && !isLocked && (
-                        <div className="p-3 d-flex align-items-center">
-                          <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
-                          <div className="flex-1"/>
-                          <Button
-                            onClick={() => {
-                              setRuleModal({
-                                environment: env,
-                                i: getRules(feature, env).length,
-                              });
-                              track("Viewed Rule Modal", {
-                                source: "add-rule",
-                                type: "force",
-                              });
-                            }}
-                          >
-                            Add Rule
-                          </Button>
-                        </div>
-                      )}
+                    {validationEnabled ? (
+                      <div className="ml-auto">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowSchema(!showSchema);
+                          }}
+                        >
+                          <small>
+                            {showSchema
+                              ? "Hide JSON Schema"
+                              : "Show JSON Schema"}
+                          </small>
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                  {validationEnabled ? (
+                    <JSONSchemaDescription jsonSchema={jsonSchema} />
+                  ) : null}
+                  {showSchema && validationEnabled && (
+                    <div className="mt-4">
+                      <Code
+                        language="json"
+                        code={JSON.stringify(jsonSchema, null, 2)}
+                      />
                     </div>
-                  </Tab>
-                );
-              })}
-            </ControlledTabs>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <em>No validation added.</em>
+                </div>
+              )}
+
+              {hasJsonValidator && canEdit && (
+                <div className="mt-3">
+                  <a
+                    href="#"
+                    className="text-purple"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditValidator(true);
+                    }}
+                  >
+                    {validationEnabled ? <GBEdit /> : <GBAddCircle />}{" "}
+                    {validationEnabled ? "Edit" : "Add"} JSON Validation
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
-        </>
-      )}
-    </div>
+        )}
 
-    {environments.length > 0 && (
-      <div className="mb-4">
-        <h3>Test Feature Rules</h3>
-        <AssignmentTester
-          feature={feature}
-          version={currentVersion}
-          project={feature.project}
-        />
-      </div>
-    )}
-
-    <div className="mb-4">
-      <h3>Comments</h3>
-      <DiscussionThread
-        type="feature"
-        id={feature.id}
-        projects={feature.project ? [feature.project] : []}
-      />
-    </div>
-
-    {/* Modals */}
-
-    {edit && (
-      <EditDefaultValueModal
-        close={() => setEdit(false)}
-        feature={feature}
-        mutate={mutate}
-        version={currentVersion}
-        setVersion={setVersion}
-      />
-    )}
-    {editOwnerModal && (
-      <EditOwnerModal
-        cancel={() => setEditOwnerModal(false)}
-        owner={feature.owner}
-        save={async (owner) => {
-          await apiCall(`/feature/${feature.id}`, {
-            method: "PUT",
-            body: JSON.stringify({owner}),
-          });
-        }}
-        mutate={mutate}
-      />
-    )}
-    {editValidator && (
-      <EditSchemaModal
-        close={() => setEditValidator(false)}
-        feature={feature}
-        mutate={mutate}
-      />
-    )}
-    {ruleModal !== null && (
-      <RuleModal
-        feature={feature}
-        close={() => setRuleModal(null)}
-        i={ruleModal.i}
-        environment={ruleModal.environment}
-        mutate={mutate}
-        defaultType={ruleModal.defaultType || ""}
-        version={currentVersion}
-        setVersion={setVersion}
-        revisions={revisions}
-      />
-    )}
-    {copyRuleModal !== null && (
-      <CopyRuleModal
-        feature={feature}
-        environment={copyRuleModal.environment}
-        version={currentVersion}
-        setVersion={setVersion}
-        rules={copyRuleModal.rules}
-        cancel={() => setCopyRuleModal(null)}
-        mutate={mutate}
-      />
-    )}
-    {editProjectModal && (
-      <EditProjectForm
-        label={
+        {revision && (
           <>
-            Projects{" "}
-            <Tooltip
-              body={
-                "The dropdown below has been filtered to only include projects where you have permission to update Features"
-              }
-            />
+            <div className="row mb-2 align-items-center">
+              <div className="col-auto">
+                <h3 className="mb-0">Rules and Values</h3>
+              </div>
+              <div className="col-auto">
+                <RevisionDropdown
+                  feature={feature}
+                  version={currentVersion}
+                  setVersion={setVersion}
+                  revisions={revisions || []}
+                />
+              </div>
+              <div className="col-auto">
+                <a
+                  title="Copy a link to this revision"
+                  href={`/features/${fid}?v=${version}`}
+                  className="position-relative"
+                  onClick={(e) => {
+                    if (!copySupported) return;
+
+                    e.preventDefault();
+                    const url =
+                      window.location.href.replace(/[?#].*/, "") +
+                      `?v=${version}`;
+                    performCopy(url);
+                  }}
+                >
+                  <FaLink />
+                  {copySuccess ? (
+                    <SimpleTooltip position="right">
+                      Copied to clipboard!
+                    </SimpleTooltip>
+                  ) : null}
+                </a>
+              </div>
+            </div>
+            {isLive ? (
+              <div
+                className="px-3 py-2 alert alert-success mb-0"
+                style={{
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                }}
+              >
+                <div className="d-flex align-items-center">
+                  <strong className="mr-3">
+                    <MdRocketLaunch /> Live Revision
+                  </strong>
+                  <div className="mr-3">
+                    {!isLocked ? (
+                      "Changes you make below will start a new draft"
+                    ) : (
+                      <>
+                        There is already an active draft. Switch to that to make
+                        changes.
+                      </>
+                    )}
+                  </div>
+                  <div className="ml-auto"></div>
+                  {canEditDrafts && drafts.length > 0 && (
+                    <div>
+                      <a
+                        role="button"
+                        className="a font-weight-bold link-purple"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setVersion(drafts[0].version);
+                        }}
+                      >
+                        <FaExchangeAlt /> Switch to Draft
+                      </a>
+                    </div>
+                  )}
+                  {canEditDrafts && revision.version > 1 && (
+                    <div className="ml-4">
+                      <a
+                        href="#"
+                        className="font-weight-bold text-danger"
+                        onClick={(e) => {
+                          e.preventDefault();
+
+                          // Get highest revision number that is published and less than the current revision
+                          const previousRevision = revisions
+                            .filter(
+                              (r) =>
+                                r.status === "published" &&
+                                r.version < feature.version
+                            )
+                            .sort((a, b) => b.version - a.version)[0];
+
+                          if (previousRevision) {
+                            setRevertIndex(previousRevision.version);
+                          }
+                        }}
+                      >
+                        <MdHistory /> Revert to Previous
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : isLocked ? (
+              <div
+                className="px-3 py-2 alert-secondary mb-0"
+                style={{
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                }}
+              >
+                <div className="d-flex align-items-center">
+                  <strong className="mr-3">
+                    <FaLock /> Revision Locked
+                  </strong>
+                  <div className="mr-2">
+                    This revision is no longer active and cannot be modified.
+                  </div>
+                  <div className="ml-auto"></div>
+                  {canEditDrafts && (
+                    <div>
+                      <a
+                        role="button"
+                        className="a font-weight-bold link-purple"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setRevertIndex(revision.version);
+                        }}
+                        title="Create a new Draft based on this revision"
+                      >
+                        <MdHistory /> Revert to this Revision
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : isDraft ? (
+              <div
+                className="px-3 py-2 alert alert-warning mb-0"
+                style={{
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                }}
+              >
+                <div className="d-flex align-items-center">
+                  <strong className="mr-3">
+                    <FaDraftingCompass /> Draft Revision
+                  </strong>
+                  <div className="mr-3">
+                    {requireReviews
+                      ? "Make changes below and request review when you are ready"
+                      : "Make changes below and publish when you are ready"}
+                  </div>
+                  <div className="ml-auto"></div>
+                  {mergeResult?.success && requireReviews && (
+                    <div>
+                      <Tooltip
+                        body={
+                          !revisionHasChanges
+                            ? "Draft is identical to the live version. Make changes first before requesting review"
+                            : ""
+                        }
+                      >
+                        <a
+                          href="#"
+                          className={clsx(
+                            "font-weight-bold",
+                            !revisionHasChanges ? "text-muted" : "text-purple"
+                          )}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setReviewModal(true);
+                          }}
+                        >
+                          {renderDraftBannerCopy()}
+                        </a>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {mergeResult?.success && !requireReviews && (
+                    <div>
+                      <Tooltip
+                        body={
+                          !revisionHasChanges
+                            ? "Draft is identical to the live version. Make changes first before publishing"
+                            : !hasDraftPublishPermission
+                            ? "You do not have permission to publish this draft."
+                            : ""
+                        }
+                      >
+                        <a
+                          role="button"
+                          className={clsx(
+                            "a font-weight-bold",
+                            !hasDraftPublishPermission || !revisionHasChanges
+                              ? "text-muted"
+                              : "link-purple"
+                          )}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setDraftModal(true);
+                          }}
+                        >
+                          <MdRocketLaunch /> Review and Publish
+                        </a>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {canEditDrafts && mergeResult && !mergeResult.success && (
+                    <div>
+                      <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
+                        <a
+                          role="button"
+                          className="a font-weight-bold link-purple"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setConflictModal(true);
+                          }}
+                        >
+                          <FaPlusMinus /> Fix Conflicts
+                        </a>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {canEditDrafts && (
+                    <div className="ml-4">
+                      <a
+                        href="#"
+                        className="font-weight-bold text-danger"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setConfirmDiscard(true);
+                        }}
+                      >
+                        <FaTimes /> Discard Draft
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </>
-        }
-        permissionRequired={(project) =>
-          permissionsUtil.canUpdateFeature({project}, {})
-        }
-        apiEndpoint={`/feature/${feature.id}`}
-        cancel={() => setEditProjectModal(false)}
-        mutate={mutate}
-        method="PUT"
-        current={feature.project}
-        additionalMessage={
-          <div className="alert alert-danger">
-            Changing the project may prevent this Feature Flag and any
-            linked Experiments from being sent to users.
+        )}
+        <div
+          className={revision ? "appbox mb-4 px-3 pt-3" : ""}
+          style={{
+            borderTopRightRadius: 0,
+            borderTopLeftRadius: 0,
+          }}
+        >
+          {revision && (
+            <div className="row mb-3">
+              <div className="col-auto">
+                <span className="text-muted">Revision created by</span>{" "}
+                <EventUser user={revision.createdBy} display="name" />{" "}
+                <span className="text-muted">on</span>{" "}
+                {datetime(revision.dateCreated)}
+              </div>
+              <div className="col-auto">
+                <span className="text-muted">Revision Comment:</span>{" "}
+                {revision.comment || <em>None</em>}
+                {canEditDrafts && (
+                  <a
+                    href="#"
+                    className="ml-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditCommentModal(true);
+                    }}
+                  >
+                    <GBEdit />
+                  </a>
+                )}
+              </div>
+              <div className="ml-auto"></div>
+              {revision.status === "published" && revision.datePublished && (
+                <div className="col-auto">
+                  <span className="text-muted">Published on</span>{" "}
+                  {datetime(revision.datePublished)}
+                </div>
+              )}
+              {revision.status === "draft" && (
+                <div className="col-auto">
+                  <span className="text-muted">Last updated</span>{" "}
+                  {ago(revision.dateUpdated)}
+                </div>
+              )}
+              <div className="col-auto">
+                {renderStatusCopy()}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLogModal(true);
+                  }}
+                >
+                  <FaList /> View Log
+                </a>
+              </div>
+            </div>
+          )}
+
+          <h3>
+            Default Value
+            {canEdit && !isLocked && canEditDrafts && (
+              <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+                <GBEdit />
+              </a>
+            )}
+          </h3>
+          <div className="appbox mb-4 p-3">
+            <ForceSummary
+              value={getFeatureDefaultValue(feature)}
+              feature={feature}
+            />
           </div>
-        }
-      />
-    )}
-    {revertIndex > 0 && (
-      <RevertModal
-        close={() => setRevertIndex(0)}
-        feature={baseFeature}
-        revision={
-          revisions.find(
-            (r) => r.version === revertIndex
-          ) as FeatureRevisionInterface
-        }
-        mutate={mutate}
-        setVersion={setVersion}
-      />
-    )}
-    {logModal && revision && (
-      <Modal
-        trackingEventModalType=""
-        open={true}
-        close={() => setLogModal(false)}
-        header="Revision Log"
-        closeCta={"Close"}
-        size="lg"
-      >
-        <h3>Revision {revision.version}</h3>
-        <Revisionlog feature={feature} revision={revision}/>
-      </Modal>
-    )}
-    {editTagsModal && (
-      <EditTagsForm
-        tags={feature.tags || []}
-        save={async (tags) => {
-          await apiCall(`/feature/${feature.id}`, {
-            method: "PUT",
-            body: JSON.stringify({tags}),
-          });
-        }}
-        cancel={() => setEditTagsModal(false)}
-        mutate={mutate}
-      />
-    )}
-    {reviewModal && revision && (
-      <RequestReviewModal
-        feature={baseFeature}
-        revisions={revisions}
-        version={revision.version}
-        close={() => setReviewModal(false)}
-        mutate={mutate}
-        onDiscard={() => {
-          // When discarding a draft, switch back to the live version
-          setVersion(feature.version);
-        }}
-      />
-    )}
-    {draftModal && revision && (
-      <DraftModal
-        feature={baseFeature}
-        revisions={revisions}
-        version={revision.version}
-        close={() => setDraftModal(false)}
-        mutate={mutate}
-        onDiscard={() => {
-          // When discarding a draft, switch back to the live version
-          setVersion(feature.version);
-        }}
-      />
-    )}
-    {conflictModal && revision && (
-      <FixConflictsModal
-        feature={baseFeature}
-        revisions={revisions}
-        version={revision.version}
-        close={() => setConflictModal(false)}
-        mutate={mutate}
-      />
-    )}
-    {confirmDiscard && (
-      <Modal
-        trackingEventModalType=""
-        open={true}
-        close={() => setConfirmDiscard(false)}
-        header="Discard Draft"
-        cta={"Discard"}
-        submitColor="danger"
-        closeCta={"Cancel"}
-        submit={async () => {
-          try {
-            await apiCall(
-              `/feature/${feature.id}/${revision.version}/discard`,
-              {
-                method: "POST",
+
+          {environments.length > 0 && (
+            <>
+              <h3>Rules</h3>
+              <p>
+                Add powerful logic on top of your feature. The first rule that
+                matches will be applied and override the Default Value.
+              </p>
+
+              <div className="mb-0">
+                <ControlledTabs
+                  setActive={(v) => {
+                    setEnv(v || "");
+                  }}
+                  active={env}
+                  showActiveCount={true}
+                  newStyle={false}
+                  buttonsClassName="px-3 py-2 h4"
+                >
+                  {environments.map((e) => {
+                    const rules = getRules(feature, e.id);
+                    return (
+                      <Tab
+                        key={e.id}
+                        id={e.id}
+                        display={e.id}
+                        count={rules.length}
+                        padding={false}
+                      >
+                        <div className="mb-4 border border-top-0">
+                          {rules.length > 0 ? (
+                            <RuleList
+                              environment={e.id}
+                              feature={feature}
+                              mutate={mutate}
+                              setRuleModal={setRuleModal}
+                              setCopyRuleModal={setCopyRuleModal}
+                              version={currentVersion}
+                              setVersion={setVersion}
+                              locked={isLocked}
+                              experimentsMap={experimentsMap}
+                            />
+                          ) : (
+                            <div className="p-3 bg-white border-bottom">
+                              <em>No rules for this environment yet</em>
+                            </div>
+                          )}
+
+                          {canEditDrafts && !isLocked && (
+                            <div className="p-3 d-flex align-items-center">
+                              <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
+                              <div className="flex-1" />
+                              <Button
+                                onClick={() => {
+                                  setRuleModal({
+                                    environment: env,
+                                    i: getRules(feature, env).length,
+                                  });
+                                  track("Viewed Rule Modal", {
+                                    source: "add-rule",
+                                    type: "force",
+                                  });
+                                }}
+                              >
+                                Add Rule
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </Tab>
+                    );
+                  })}
+                </ControlledTabs>
+              </div>
+            </>
+          )}
+        </div>
+
+        {environments.length > 0 && (
+          <div className="mb-4">
+            <h3>Test Feature Rules</h3>
+            <AssignmentTester
+              feature={feature}
+              version={currentVersion}
+              project={feature.project}
+            />
+          </div>
+        )}
+
+        <div className="mb-4">
+          <h3>Comments</h3>
+          <DiscussionThread
+            type="feature"
+            id={feature.id}
+            projects={feature.project ? [feature.project] : []}
+          />
+        </div>
+
+        {/* Modals */}
+
+        {edit && (
+          <EditDefaultValueModal
+            close={() => setEdit(false)}
+            feature={feature}
+            mutate={mutate}
+            version={currentVersion}
+            setVersion={setVersion}
+          />
+        )}
+        {editOwnerModal && (
+          <EditOwnerModal
+            cancel={() => setEditOwnerModal(false)}
+            owner={feature.owner}
+            save={async (owner) => {
+              await apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ owner }),
+              });
+            }}
+            mutate={mutate}
+          />
+        )}
+        {editValidator && (
+          <EditSchemaModal
+            close={() => setEditValidator(false)}
+            feature={feature}
+            mutate={mutate}
+          />
+        )}
+        {ruleModal !== null && (
+          <RuleModal
+            feature={feature}
+            close={() => setRuleModal(null)}
+            i={ruleModal.i}
+            environment={ruleModal.environment}
+            mutate={mutate}
+            defaultType={ruleModal.defaultType || ""}
+            version={currentVersion}
+            setVersion={setVersion}
+            revisions={revisions}
+          />
+        )}
+        {copyRuleModal !== null && (
+          <CopyRuleModal
+            feature={feature}
+            environment={copyRuleModal.environment}
+            version={currentVersion}
+            setVersion={setVersion}
+            rules={copyRuleModal.rules}
+            cancel={() => setCopyRuleModal(null)}
+            mutate={mutate}
+          />
+        )}
+        {editProjectModal && (
+          <EditProjectForm
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={
+                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
+                  }
+                />
+              </>
+            }
+            permissionRequired={(project) =>
+              permissionsUtil.canUpdateFeature({ project }, {})
+            }
+            apiEndpoint={`/feature/${feature.id}`}
+            cancel={() => setEditProjectModal(false)}
+            mutate={mutate}
+            method="PUT"
+            current={feature.project}
+            additionalMessage={
+              <div className="alert alert-danger">
+                Changing the project may prevent this Feature Flag and any
+                linked Experiments from being sent to users.
+              </div>
+            }
+          />
+        )}
+        {revertIndex > 0 && (
+          <RevertModal
+            close={() => setRevertIndex(0)}
+            feature={baseFeature}
+            revision={
+              revisions.find(
+                (r) => r.version === revertIndex
+              ) as FeatureRevisionInterface
+            }
+            mutate={mutate}
+            setVersion={setVersion}
+          />
+        )}
+        {logModal && revision && (
+          <Modal
+            trackingEventModalType=""
+            open={true}
+            close={() => setLogModal(false)}
+            header="Revision Log"
+            closeCta={"Close"}
+            size="lg"
+          >
+            <h3>Revision {revision.version}</h3>
+            <Revisionlog feature={feature} revision={revision} />
+          </Modal>
+        )}
+        {editTagsModal && (
+          <EditTagsForm
+            tags={feature.tags || []}
+            save={async (tags) => {
+              await apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ tags }),
+              });
+            }}
+            cancel={() => setEditTagsModal(false)}
+            mutate={mutate}
+          />
+        )}
+        {reviewModal && revision && (
+          <RequestReviewModal
+            feature={baseFeature}
+            revisions={revisions}
+            version={revision.version}
+            close={() => setReviewModal(false)}
+            mutate={mutate}
+            onDiscard={() => {
+              // When discarding a draft, switch back to the live version
+              setVersion(feature.version);
+            }}
+          />
+        )}
+        {draftModal && revision && (
+          <DraftModal
+            feature={baseFeature}
+            revisions={revisions}
+            version={revision.version}
+            close={() => setDraftModal(false)}
+            mutate={mutate}
+            onDiscard={() => {
+              // When discarding a draft, switch back to the live version
+              setVersion(feature.version);
+            }}
+          />
+        )}
+        {conflictModal && revision && (
+          <FixConflictsModal
+            feature={baseFeature}
+            revisions={revisions}
+            version={revision.version}
+            close={() => setConflictModal(false)}
+            mutate={mutate}
+          />
+        )}
+        {confirmDiscard && (
+          <Modal
+            trackingEventModalType=""
+            open={true}
+            close={() => setConfirmDiscard(false)}
+            header="Discard Draft"
+            cta={"Discard"}
+            submitColor="danger"
+            closeCta={"Cancel"}
+            submit={async () => {
+              try {
+                await apiCall(
+                  `/feature/${feature.id}/${revision.version}/discard`,
+                  {
+                    method: "POST",
+                  }
+                );
+              } catch (e) {
+                await mutate();
+                throw e;
               }
-            );
-          } catch (e) {
-            await mutate();
-            throw e;
-          }
-          await mutate();
-          setVersion(feature.version);
-        }}
-      >
-        <p>
-          Are you sure you want to discard this draft? This action cannot be
-          undone.
-        </p>
-      </Modal>
-    )}
-    {editCommentModel && revision && (
-      <EditRevisionCommentModal
-        close={() => setEditCommentModal(false)}
-        feature={feature}
-        mutate={mutate}
-        revision={revision}
-      />
-    )}
-    {prerequisiteModal !== null && (
-      <PrerequisiteModal
-        feature={feature}
-        close={() => setPrerequisiteModal(null)}
-        i={prerequisiteModal.i}
-        mutate={mutate}
-        revisions={revisions}
-        version={currentVersion}
-      />
-    )}
-    </div>
-</>
-)
-  ;
+              await mutate();
+              setVersion(feature.version);
+            }}
+          >
+            <p>
+              Are you sure you want to discard this draft? This action cannot be
+              undone.
+            </p>
+          </Modal>
+        )}
+        {editCommentModel && revision && (
+          <EditRevisionCommentModal
+            close={() => setEditCommentModal(false)}
+            feature={feature}
+            mutate={mutate}
+            revision={revision}
+          />
+        )}
+        {prerequisiteModal !== null && (
+          <PrerequisiteModal
+            feature={feature}
+            close={() => setPrerequisiteModal(null)}
+            i={prerequisiteModal.i}
+            mutate={mutate}
+            revisions={revisions}
+            version={currentVersion}
+          />
+        )}
+      </div>
+    </>
+  );
 }

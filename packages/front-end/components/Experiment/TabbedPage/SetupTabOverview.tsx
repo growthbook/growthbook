@@ -60,7 +60,10 @@ export default function SetupTabOverview({
       ) : null}
 
       <div className="box">
-        <div className="mh-350px fade-mask-vertical-1rem px-4 py-3" style={{ overflowY: "auto" }}>
+        <div
+          className="mh-350px fade-mask-vertical-1rem px-4 py-3"
+          style={{ overflowY: "auto" }}
+        >
           <MarkdownInlineEdit
             value={experiment.description ?? ""}
             save={async (description) => {
