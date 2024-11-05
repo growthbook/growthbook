@@ -179,6 +179,12 @@ pre {
 .mh-50 {
   max-height: 50% !important;
 }
+.mh-250px {
+  max-height: 250px !important;
+}
+.mh-350px {
+  max-height: 350px !important;
+}
 
 // default bootstrap overrides:
 .btn:focus {
@@ -1924,6 +1930,15 @@ main.main.report {
 .fade-mask-1rem {
   mask-image: linear-gradient(
     to right,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
+.fade-mask-vertical-1rem {
+  mask-image: linear-gradient(
+    to top,
     transparent 0%,
     black 1rem,
     black calc(100% - 1rem),
