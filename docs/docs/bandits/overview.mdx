@@ -1,5 +1,5 @@
 ---
-title: Bandits 
+title: Bandits
 slug: /bandits/overview
 ---
 
@@ -77,6 +77,11 @@ In practice, GrowthBook ensures that each variation has at least 1% of traffic, 
 
 Frequently asked questions:
 
-1. Can I ran a Bandit using the frequentist engine? No. Currently Bandits are available only under the Bayesian engine, where Thompson sampling is easy to employ.
-2. I usually use the frequentist engine, and I want to translate my frequentist p-value threshold into a success criteria for the Bayesian engine. What should I do? While the frequentist p-value and the Bayesian chance-to-win are very different concepts, they are often conceptualized similarly by their practitioners. One simple approach is to adjust your settings so that your Bayesian chance to win (default is 95%) is equal to 1 minus your half of your p-value threshold.
-3. How can I use power analysis for a Bandit? GrowthBook power results should be conservative for your Bandit. In many settings, Bandit power will be higher than fixed weight power, however power in Bandits is much more complicated concept.
+1. **Can I ran a Bandit using the frequentist engine?**<br />
+   No. Currently Bandits are available only under the Bayesian engine, where Thompson sampling is easy to employ.
+
+2. **I usually use the frequentist engine, and I want to translate my frequentist p-value threshold into a success criteria for the Bayesian engine. What should I do?**<br />
+   While the frequentist p-value and the Bayesian chance-to-win are very different concepts, they are often conceptualized similarly by their practitioners. One simple approach is to adjust your settings so that your Bayesian chance to win (default is 95%) is equal to 1 minus your half of your p-value threshold.
+
+3. **How can I use power analysis for a Bandit?**<br />
+   GrowthBook power results should be conservative for your Bandit. In many settings, Bandit power will be higher than fixed weight power, however power in Bandits is much more complicated concept.
