@@ -9,15 +9,19 @@ Bandits are run similarly to Experiments in GrowthBook. There are three key diff
 - We require you to select a **Decision Metric** to optimize towards
 - You have to decide the exploration window and update cadence for your Bandits
 
-### Prerequisite: Sticky Bucketing
+## Prerequisite: Sticky Bucketing
 
 All GrowthBook Bandits (at least while in Beta) require you to enable [Sticky Bucketing](/app/sticky-bucketing). This ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
 
+:::note
+
 Furthermore, you should set up your Sticky Bucketing service to store variations in the same place that you store and track your user identities. For example, if you plan on running a bandit using cookie-based identifiers, we strongly recommend using a cookie-based Sticky Bucketing approach to ensure that both the hash attribute and the sticky bucketing identifiers are kept in sync.
+
+:::
 
 Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide to set up Sticky Bucketing in your SDK and enable it in GrowthBook.
 
-### Prerequisite: Double check SDK cache settings
+## Prerequisite: Double check SDK cache settings
 
 Bandits optimize towards winning variations by making frequent changes to variation weights. Therefore it is important to ensure that your SDK implementation is able to receive updates in a timely fashion.
 
@@ -38,12 +42,6 @@ Once Sticky Bucketing is enabled, you can now create a new Bandit from the Bandi
 />
 
 First, select the assignment Attribute used to randomize users into variations and that maps to the metrics you will use to track user behavior.
-
-:::note
-
-Bandits work best when your assignment Attribute (randomization ID) is consistent with the service you use for sticky bucketing. If you use a cookie-based sticky bucketing approach, we strongly recommend using a cookie-based identifier type for randomization (e.g. anonymous IDs), or else you may have Multiple Exposures problems in your Bandit.
-
-:::
 
 ### 2. Setting the Number of Variations
 
@@ -66,16 +64,16 @@ An ideal decision metric has the following properties:
 
 ### 4. Set the exploration window and update cadence
 
-The Bandit needs to know how long it should collect data for before beginning to update variation weights. This is called the **Exploration Window**. After the Exploration Window, the Bandit will begin to update variation weights at a set **Update Cadence**.
+The Bandit needs to know how long it should collect data for before beginning to update variation weights. This is called the **Exploration Window**. After the Exploration Window, the bandit will begin to update variation weights at a set **Update Cadence**.
 
 **Exploration Window**
 
-Your Exploration Window should be long enough that you get enough traffic into each arm before the Bandit begins optimizing traffic. We _require_ at least 100 users per variation before we make any updates to our Bandit.
+Your Exploration Window should be long enough that you get enough traffic into each arm before the Bandit begins optimizing traffic. We _require_ at least 100 users per variation before the bandit updates variation weights.
 
 You should make your Exploration Window long enough to:
 
-- Get a good number of conversions or metric values to begin estimating your Decision Metric. We recommend having at least 40 conversions per variation before you begin updating your Bandit. If your conversion rate tends to be around 10%, then we recommend picking a window long enough to get 400 units per variation.
-- Get a decent mix of different units into your experiment (e.g. running a 8 hour Exploration Window may capture only users in particular time zones before it begins updating).
+- Get a good number of conversions or metric values to begin estimating your Decision Metric. We recommend having at least 40 conversions per variation before you begin updating your bandit. If your conversion rate tends to be around 10%, then we recommend picking a window long enough to get 400 units per variation.
+- Get a decent mix of different units into your experiment (e.g. running a 8 hour Exploration Window may only capture users in particular time zones before it begins updating).
 
 **Update Cadence**
 

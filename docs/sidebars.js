@@ -280,7 +280,7 @@ const sidebars = {
       items: [
         {
           type: "category",
-          label: "Ways to Run Experiments",
+          label: "Creating Experiments",
           collapsed: true,
           items: [
             {
@@ -302,7 +302,7 @@ const sidebars = {
         },
         {
           type: "category",
-          label: "Experiments",
+          label: "Analyzing Experiments",
           collapsed: true,
           items: [
             {
