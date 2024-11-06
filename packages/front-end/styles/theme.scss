@@ -31,6 +31,8 @@
   --form-switch-background: #{colors.$gray-300};
   --form-switch-background-active: #{colors.$purple};
 
+  --markdown-code-background: #f6f8fa;
+
   --alert-success-background: #d4edda;
   --alert-success-border-color: #c3e6cb;
   --alert-success-color: #155724;
@@ -155,6 +157,8 @@
   --form-multivalue-text-color: #{colors.$black};
   --form-switch-background: #{colors.$gray-800};
   --form-switch-background-active: #{colors.$highlight-purple};
+
+  --markdown-code-background: #05054920;
 
   --alert-success-background: #{darken(#155724, 8%)};
   --alert-success-border-color: #{darken(#155724, 0%)};

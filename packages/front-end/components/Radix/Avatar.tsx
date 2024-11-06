@@ -1,7 +1,7 @@
 import { Avatar as RadixAvatar, AvatarProps } from "@radix-ui/themes";
-import { ReactNode } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { ReactNode } from "react";
 import styles from "./RadixOverrides.module.scss";
 
 export type Size = "sm" | "md" | "lg";
@@ -17,7 +17,7 @@ export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
   }
 }
 
-type Props = {
+export type Props = {
   size?: Size;
   color?: AvatarProps["color"];
   variant?: "solid" | "soft";

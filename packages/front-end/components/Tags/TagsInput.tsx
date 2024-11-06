@@ -4,6 +4,7 @@ import { TagInterface } from "back-end/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { TAG_COLORS_MAP } from "@/services/tags";
 import { isLight } from "./Tag";
 
 export interface ColorOption {
@@ -14,6 +15,8 @@ export interface ColorOption {
   readonly isFixed?: boolean;
   readonly isDisabled?: boolean;
 }
+
+const DEFAULT_TAG_COLOR = TAG_COLORS_MAP["blue"];
 
 const TagsInput: FC<{
   onChange: (tags: string[]) => void;
@@ -109,10 +112,12 @@ const TagsInput: FC<{
     <MultiSelectField
       options={
         tagOptions.map((t) => {
+          // Converts Radix color to hex color to make it compatible with MultiSelectField
+          const hexColor = TAG_COLORS_MAP[t.color] ?? DEFAULT_TAG_COLOR;
           return {
             value: t.id,
             label: t.id,
-            color: t.color || "var(--form-multivalue-text-color)",
+            color: hexColor || "var(--form-multivalue-text-color)",
             tooltip: t.description,
           };
         }) ?? []

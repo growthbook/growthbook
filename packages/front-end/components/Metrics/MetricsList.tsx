@@ -281,7 +281,13 @@ const MetricsList = (): React.ReactElement => {
     [showArchived, recentlyArchived, tagsFilter.tags]
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    pagination,
+  } = useSearch({
     items: filteredMetrics,
     defaultSortField: "name",
     localStorageKey: "metrics",
@@ -320,6 +326,7 @@ const MetricsList = (): React.ReactElement => {
       datasource: (item) => [item.datasource, item.datasourceName],
     },
     filterResults,
+    pageSize: 20,
   });
 
   if (!ready) {
@@ -646,6 +653,7 @@ const MetricsList = (): React.ReactElement => {
           )}
         </tbody>
       </table>
+      {pagination}
     </div>
   );
 };

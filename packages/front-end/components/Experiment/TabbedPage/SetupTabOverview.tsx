@@ -59,23 +59,28 @@ export default function SetupTabOverview({
         />
       ) : null}
 
-      <div className="box px-4 py-3">
-        <MarkdownInlineEdit
-          value={experiment.description ?? ""}
-          save={async (description) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ description }),
-            });
-            mutate();
-          }}
-          canCreate={canEditExperiment}
-          canEdit={canEditExperiment}
-          label="description"
-          header="Description"
-          headerClassName="h4"
-          containerClassName="mb-1"
-        />
+      <div className="box">
+        <div
+          className="mh-350px fade-mask-vertical-1rem px-4 py-3"
+          style={{ overflowY: "auto" }}
+        >
+          <MarkdownInlineEdit
+            value={experiment.description ?? ""}
+            save={async (description) => {
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({ description }),
+              });
+              mutate();
+            }}
+            canCreate={canEditExperiment}
+            canEdit={canEditExperiment}
+            label="description"
+            header="Description"
+            headerClassName="h4"
+            containerClassName="mb-1"
+          />
+        </div>
       </div>
 
       {!isBandit && (

@@ -266,13 +266,9 @@ const BreakDownResults: FC<{
       </div>
       {tables.map((table, i) => {
         const metric = table.metric;
-        console.log(goalMetrics, metric);
         return (
           <>
-            <h5
-              className="ml-2 mt-3 position-relative"
-              style={{ marginBottom: -15, zIndex: 801 }}
-            >
+            <h5 className="ml-2 mt-3 position-relative">
               {expandedGoals.includes(metric.id)
                 ? "Goal Metric"
                 : expandedSecondaries.includes(metric.id)

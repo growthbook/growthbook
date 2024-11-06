@@ -53,7 +53,7 @@ export default function ScheduleInputs(props: Props) {
         description="Enable/disable rule based on selected date and time"
         value={props.scheduleToggleEnabled}
         setValue={(v) => {
-          props.setScheduleToggleEnabled(v);
+          props.setScheduleToggleEnabled(v === true);
 
           if (!rules.length) {
             setRules([
