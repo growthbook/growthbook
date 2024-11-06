@@ -255,6 +255,7 @@ export default function EditSavedGroupPage() {
               text="Delete"
               title="Delete this Saved Group"
               getConfirmationContent={getConfirmationContent}
+              canDelete={(featuresReferencingSavedGroup?.size || 0) === 0}
               onClick={async () => {
                 await apiCall(`/saved-groups/${savedGroup.id}`, {
                   method: "DELETE",
