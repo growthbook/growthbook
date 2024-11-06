@@ -52,6 +52,7 @@ export default function ExperimentRefNewFields({
   setConditionValue,
   conditionKey,
   namespaceFormPrefix = "",
+  noSchedule,
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
   coverage,
@@ -81,6 +82,7 @@ export default function ExperimentRefNewFields({
   setConditionValue: (s: string) => void;
   conditionKey: number;
   namespaceFormPrefix?: string;
+  noSchedule?: boolean;
   scheduleToggleEnabled?: boolean;
   setScheduleToggleEnabled?: (b: boolean) => void;
   coverage: number;
@@ -260,7 +262,9 @@ export default function ExperimentRefNewFields({
                 changes before starting.
               </small>
             </div>
-            {!form.watch("autoStart") && setScheduleToggleEnabled ? (
+            {!noSchedule &&
+            !form.watch("autoStart") &&
+            setScheduleToggleEnabled ? (
               <div>
                 <hr />
                 <ScheduleInputs
