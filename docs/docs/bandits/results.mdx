@@ -21,7 +21,7 @@ The chart to the right of the columns displays credible intervals for mean reven
 The black vertical lines indicate the estimated mean revenue for each variation and are equal to the values in the **Mean** column.
 The colored bands around the black lines represent 95% credible intervals for mean revenue by variation.
 The leaderboard helps visualize how user traffic allocations connect to the variation means. 
-Variation 2 has the smallest number of users (2,575) and the lowest mean revenue ($31.95).
+Variation 2 has the smallest number of users (2,575) and the lowest mean revenue (\$31.95).
 The other variations are roughly similar in terms of mean revenue, with control being slightly ahead.
 
 ## Graphs of Performance Over Time
@@ -69,8 +69,12 @@ Again, we caution that these results may be biased, and should be interpreted wi
 ## Debugging Issues
 
 [Sticky bucketing](/app/sticky-bucketing) is a feature that ensures that users are consistently assigned to the same variation throughout the experiment.
-This is important for bandits, as it ensures that the same user is not assigned to different variations over time.
-Sticky bucketing helps avoid multiple exposures, which can bias not only the variation estimates, but also the variation weights.
-Sticky bucketing is enforced at the device id level.
-If a user logs into multiple devices, each device will count as a separate experimental unit, and can trigger a multiple exposures warning.
-If you are receiving multiple exposures warnings, you may want to check if multiple devices are mapped to the same user. Additionally, you want to ensure you have [correctly set up sticky bucketing](/bandits/config#prerequisite-sticky-bucketing).
+This is important for bandits, as it ensures that the same user is not assigned to different variations over time as the variation weights change.
+
+Sticky bucketing helps avoid multiple exposures, which can cause bias in the results as well as inconsistent user experiences. Evidence of multiple exposures likely indicates that your Sticky Bucketing is not set up at the same level as your randomization attribute for the Bandit. For more on this topic, see the section on [correctly set up sticky bucketing](/bandits/config#prerequisite-sticky-bucketing).
+
+### What can cause multiple exposures?
+
+Imagine you are randomizing by a logged-in User ID. However, your sticky bucketing service is stored in a cookie. When the user first hits the bandit, we hash their User ID to a number from 0 to 1, and assign them the corresponding variation. We also store this in a cookie on the user's device.
+
+A day passes and the bandit updates the variation weights. Now, when the User ID returns on their phone, they get the same hash value from 0 to 1, but because the variation weights have changed, that value maps to a different variation. Furthermore, because they are on their phone, they do not have access to the cookie where their sticky bucket is stored. Then, they will be assigned to a new variation on their phone, triggering a multiple exposures warning.

@@ -11,7 +11,7 @@ Bandits are currently in Beta, and are available only to Pro and Enterprise cust
 
 :::
 
-### What Are Bandits?
+### What are Bandits?
 
 Bandits, also known as multi-armed bandits, are a type of experiment where the traffic assigned to each variation changes during the experiment. This is in contrast to standard experiments, where the percentages of traffic assigned to variations are static during the experiment.
 
@@ -29,9 +29,9 @@ Bandits therefore are extremely powerful, but they come with trade-offs:
 - They can introduce certain biases in estimating the true effect of variations
 - They can, in some cases, actually do worse at picking the best variation than traditional experimentation.
 
-[Get started with our Bandit set-up guide!](/bandits/config#prerequisite)
+[Get started with our Bandit setup guide!](/bandits/config)
 
-### When Should I Run a Bandit?
+### When should I run a Bandit?
 
 You should run a bandit when:
 
@@ -40,12 +40,12 @@ You should run a bandit when:
 - You have many arms you want to test against one another, and care less about learning about user behavior on several metrics
 - You are able to properly ensure consistent user experiences with [Sticky Bucketing](/bandits/config#prerequisite-sticky-bucketing)
 
-### Why Should I Run a Bandit?
+### Why should I run a Bandit?
 
 1. Bandits can **reduce the cost of experimentation**. By allocating larger percentages of traffic to better performing arms, you avoid driving traffic to losing variations.
-2. Bandits can **identify the best variation among many more quickly** than a standard Experiment. With ten variations, a Bandit may be able to quickly determine that several are poor performers. Sending traffic to the higher higher performing variations improves your ability to distinguish those high performers.
+2. Bandits can quickly determine which variations are underperforming and direct traffic to the top performers, allowing you to **identify the best variation more quickly** than a standard experiment. With ten variations, a bandit may be able to quickly determine that several are poor performers. Sending traffic to the higher higher performing variations improves your ability to distinguish those high performers.
 
-### Why Should I Run a Standard Experiment Instead?
+### Why should I run a standard Experiment instead?
 
 1. Bandits require a **single decision metric** to optimize towards. If you have multiple metrics you care about, or if you want to understand the effect of each variation on multiple metrics, a standard Experiment may be better. Furthermore, a Bandit is more powerful if the decision metric is easy to measure right after experiment exposure. If you have a long sales cycle, or if you care about long-term effects, a standard Experiment may be better.
 
@@ -66,9 +66,9 @@ While Experiments and Bandits can be used in a host of overlapping cases, there 
 | Changing Variation Weights | No                                                              | Yes                                                                                                  |
 | Consistent User Assignment | Yes                                                             | Yes (with [Sticky Bucketing](/app/sticky-bucketing))                                                 |
 
-### GrowthBook's Bandit Implementation
+### GrowthBook's Bandit implementation
 
-Our Bandit uses Thompson sampling, a Bayesian algorithm that balances exploration and exploitation that is commonly used for Bandits in online experimentation.
+GrowthBook's Bandit uses Thompson sampling, a Bayesian algorithm that balances _exploration_ (trying out different variations) and _exploitation_ (focusing on the best-performing variations).
 
 Thompson sampling allocates traffic proportionally to the probability that an arm is best.
 
