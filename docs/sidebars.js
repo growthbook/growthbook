@@ -279,48 +279,36 @@ const sidebars = {
       },
       items: [
         {
-          type: "category",
-          label: "Creating Experiments",
-          collapsed: true,
-          items: [
-            {
-              type: "doc",
-              id: "feature-flag-experiments",
-              label: "In Code (Feature Flags)",
-            },
-            {
-              type: "doc",
-              id: "visual-editor",
-              label: "Visual Editor",
-            },
-            {
-              type: "doc",
-              id: "running-experiments/url-redirects",
-              label: "URL Redirects",
-            },
-          ],
+          type: "doc",
+          id: "feature-flag-experiments",
+          label: "Feature Flag Experiments",
         },
         {
-          type: "category",
-          label: "Analyzing Experiments",
-          collapsed: true,
-          items: [
-            {
-              type: "doc",
-              id: "experimentation-analysis/experiment-configuration",
-              label: "Configuring Experiments",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/experiment-results",
-              label: "Understanding Results",
-            },
-            {
-              type: "doc",
-              id: "running-experiments/making-changes",
-              label: "Making Changes",
-            },
-          ],
+          type: "doc",
+          id: "visual-editor",
+          label: "Visual Editor",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/url-redirects",
+          label: "URL Redirects",
+        },
+
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-configuration",
+          label: "Experiment Settings",
+        },
+
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-results",
+          label: "Experiment Results",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/making-changes",
+          label: "Make Changes to Experiments",
         },
         {
           type: "category",
@@ -358,6 +346,11 @@ const sidebars = {
           type: "doc",
           id: "running-experiments/pre-launch-checklist",
           label: "Pre-Launch Checklists",
+        },
+        {
+          type: "doc",
+          id: "importing-experiments",
+          label: "Importing External Experiments",
         },
         {
           type: "category",
