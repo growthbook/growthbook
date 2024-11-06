@@ -266,7 +266,7 @@ const sidebars = {
           type: "doc",
           id: "experimentation-analysis/metrics",
           label: "Metrics",
-        }
+        },
       ],
     },
     {
@@ -298,7 +298,7 @@ const sidebars = {
               id: "running-experiments/url-redirects",
               label: "URL Redirects",
             },
-          ]
+          ],
         },
         {
           type: "category",
@@ -320,7 +320,7 @@ const sidebars = {
               id: "running-experiments/making-changes",
               label: "Making Changes",
             },
-          ]
+          ],
         },
         {
           type: "category",
@@ -342,7 +342,7 @@ const sidebars = {
               id: "bandits/results",
               label: "Understanding Results",
             },
-          ]
+          ],
         },
         {
           type: "doc",
