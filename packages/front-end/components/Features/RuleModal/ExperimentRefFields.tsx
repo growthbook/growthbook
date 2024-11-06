@@ -1,8 +1,10 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import Link from "next/link";
+import React from "react";
+import { PiClock } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -10,22 +12,32 @@ import {
   getDefaultVariationValue,
   getFeatureDefaultValue,
   getRules,
+  NewExperimentRefRule,
 } from "@/services/features";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/components/Radix/Callout";
+import ScheduleInputs from "@/components/Features/ScheduleInputs";
 
 export default function ExperimentRefFields({
   feature,
   environment,
   i,
+  defaultValues,
   changeRuleType,
+  noSchedule,
+  scheduleToggleEnabled,
+  setScheduleToggleEnabled,
 }: {
   feature: FeatureInterface;
   environment: string;
   i: number;
+  defaultValues?: FeatureRule | NewExperimentRefRule;
   changeRuleType: (v: string) => void;
+  noSchedule?: boolean;
+  scheduleToggleEnabled?: boolean;
+  setScheduleToggleEnabled?: (b: boolean) => void;
 }) {
   const form = useFormContext();
 
@@ -89,11 +101,17 @@ export default function ExperimentRefFields({
                     <div className="ml-4 text-muted">
                       Created: {date(exp.dateCreated)}
                     </div>
-                    <div className="ml-auto">
+                    <div className="ml-auto d-flex align-items-center">
                       <StatusIndicator
                         archived={exp.archived}
                         status={exp.status}
                       />
+                      {!noSchedule ? (
+                        <div className="small text-muted ml-3">
+                          <PiClock size={14} className="mr-1" />
+                          Scheduled
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -164,6 +182,17 @@ export default function ExperimentRefFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+
+      {!noSchedule && setScheduleToggleEnabled ? (
+        <div className="mt-4 mb-3">
+          <ScheduleInputs
+            defaultValue={defaultValues?.scheduleRules || []}
+            onChange={(value) => form.setValue("scheduleRules", value)}
+            scheduleToggleEnabled={!!scheduleToggleEnabled}
+            setScheduleToggleEnabled={setScheduleToggleEnabled}
+          />
+        </div>
+      ) : null}
     </>
   );
 }

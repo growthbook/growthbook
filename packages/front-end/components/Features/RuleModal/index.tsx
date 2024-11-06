@@ -131,10 +131,11 @@ export default function RuleModal({
     defaultValues,
   });
 
+  const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
+    (scheduleRule) => scheduleRule.timestamp !== null
+  );
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
-    (defaultValues.scheduleRules || []).some(
-      (scheduleRule) => scheduleRule.timestamp !== null
-    )
+    defaultHasSchedule
   );
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -771,7 +772,11 @@ export default function RuleModal({
             feature={feature}
             environment={environment}
             i={i}
+            defaultValues={defaultValues}
             changeRuleType={changeRuleType}
+            noSchedule={!defaultHasSchedule}
+            scheduleToggleEnabled={scheduleToggleEnabled}
+            setScheduleToggleEnabled={setScheduleToggleEnabled}
           />
         ) : null}
 
