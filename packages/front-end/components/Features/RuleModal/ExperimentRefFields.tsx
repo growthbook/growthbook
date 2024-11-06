@@ -1,9 +1,10 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FaClock, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import Link from "next/link";
 import React from "react";
+import { PiClock } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -107,7 +108,7 @@ export default function ExperimentRefFields({
                       />
                       {!noSchedule ? (
                         <div className="small text-muted ml-3">
-                          <FaClock className="mr-1" />
+                          <PiClock size={14} className="mr-1" />
                           Scheduled
                         </div>
                       ) : null}
