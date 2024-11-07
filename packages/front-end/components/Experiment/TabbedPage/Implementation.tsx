@@ -132,10 +132,10 @@ export default function Implementation({
 
       {experiment.status !== "draft" && !hasLinkedChanges ? (
         <Callout status="info" mb="4">
-          This experiment has no directly linked feature flag, visual editor
-          changes, or redirects.{" "}
+          This experiment has no linked GrowthBook implementation (linked
+          feature flag, visual editor changes, or URL redirect).{" "}
           {experiment.status === "stopped"
-            ? "The implementation was either deleted or implementation, traffic, and targeting were managed by an external system."
+            ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
             : "Randomization, targeting, and implementation may be managed by an external system."}
         </Callout>
       ) : null}
