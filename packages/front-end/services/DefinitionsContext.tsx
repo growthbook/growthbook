@@ -10,6 +10,7 @@ import {
   FC,
   ReactNode,
   useCallback,
+  ReactElement,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
 import {
@@ -21,6 +22,7 @@ import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
 
 type Definitions = {
@@ -308,3 +310,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     </DefinitionsContext.Provider>
   );
 };
+
+export function DefinitionsGuard({ children }: { children: ReactElement }) {
+  const { ready, error } = useDefinitions();
+
+  if (!error && !ready) {
+    return <LoadingOverlay />;
+  }
+
+  return children;
+}
