@@ -20,8 +20,8 @@ import track from "@/services/track";
 import {
   createInitialResources,
   getInitialDatasourceResources,
-  getInitialSettings,
-} from "@/services/datasources";
+} from "@/services/initial-resources";
+import { getInitialSettings } from "@/services/datasources";
 import {
   eventSchemas,
   dataSourceConnections,
