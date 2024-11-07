@@ -34,12 +34,22 @@ Sticky Bucketing is a GrowthBook Pro and Enterprise feature.
 
 ### 1. Configure the script tag
 
-Using Sticky Bucketing with our [HTML Script Tag](https://docs.growthbook.io/lib/script-tag) is simple. Simply add either of these properties to your script tag:
+Using Sticky Bucketing with our [HTML Script Tag](https://docs.growthbook.io/lib/script-tag) is simple. Add either of these properties to your script tag:
 
 - `data-use-sticky-bucket-service="cookie"` or
 - `data-use-sticky-bucket-service="localStorage"`
 
-The sticky bucket assignments will be store in either Cookies or browser LocalStorage, respectively.
+The sticky bucket assignments will be stored in either cookies or browser LocalStorage, respectively. Both of these implementations are session-based, but cookies are transportable and are generally more commonly used.
+
+For example:
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY_HERE"
+  data-use-sticky-bucket-service="cookie"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
 
 Further details are available [here](https://docs.growthbook.io/lib/script-tag#sticky-bucketing).
 
