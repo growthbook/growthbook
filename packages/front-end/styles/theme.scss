@@ -124,8 +124,8 @@
   --step-color: #6550b9;
 
   // radix color-scheme;
-  --color-text-high: var(--indigo-12);
-  --color-text-mid: rgba(31, 45, 92, 0.5);
+  --color-text-high: #{colors.$radix-text-color-light};
+  --color-text-mid: #{opacify(colors.$radix-text-color-light, 0.15)};
 }
 
 @mixin dark-theme {
@@ -256,7 +256,7 @@
 
   // radix color-scheme;
   --color-text-high: #ffffff;
-  --color-text-mid: rgba(255, 255, 255, 15%);
+  --color-text-mid: #{opacify(#ffffff, 0.15)};
 }
 
 .theme--light,
