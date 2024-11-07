@@ -595,6 +595,11 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/contentful",
+          label: "Contentful CMS",
+        },
+        {
+          type: "doc",
           id: "guide/nextjs-and-vercel-feature-flags",
           label: "Next.js + Vercel Feature Flags",
         },
