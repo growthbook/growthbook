@@ -247,7 +247,14 @@ const MetricsSelector: FC<{
         try {
           const clipboard = e.clipboardData;
           const data = JSON.parse(clipboard.getData("Text"));
-          if (data.every((d) => d.startsWith("met_") || d.startsWith("mg_"))) {
+          if (
+            data.every(
+              (d) =>
+                d.startsWith("met_") ||
+                d.startsWith("mg_") ||
+                d.startsWith("fact__")
+            )
+          ) {
             e.preventDefault();
             e.stopPropagation();
             onChange(data);

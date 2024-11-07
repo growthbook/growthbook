@@ -77,7 +77,6 @@ export default function MetricGroupDetails({
 
   return (
     <DndContext
-      key={Math.random()}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {

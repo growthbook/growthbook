@@ -209,7 +209,9 @@ export default function SchemaBrowser({
                               }
                             }}
                             trigger={
-                              datasource.type === ("bigquery" || "postgres") ? (
+                              ["bigquery", "postgres"].includes(
+                                datasource.type
+                              ) ? (
                                 <>
                                   <FaAngleRight />
                                   {`${database.databaseName}.${schema.schemaName}`}
@@ -222,7 +224,9 @@ export default function SchemaBrowser({
                               )
                             }
                             triggerWhenOpen={
-                              datasource.type === ("bigquery" || "postgres") ? (
+                              ["bigquery", "postgres"].includes(
+                                datasource.type
+                              ) ? (
                                 <>
                                   <FaAngleDown />
                                   {`${database.databaseName}.${schema.schemaName}`}
