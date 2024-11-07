@@ -29,6 +29,35 @@ import {
 import { RadixColor } from "@/components/Radix/HelperText";
 
 export const TAG_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {
+  gray: gray.gray3,
+  gold: gold.gold3,
+  bronze: bronze.bronze3,
+  brown: brown.brown3,
+  yellow: yellow.yellow3,
+  amber: amber.amber3,
+  orange: orange.orange3,
+  tomato: tomato.tomato3,
+  red: red.red3,
+  ruby: ruby.ruby3,
+  crimson: crimson.crimson3,
+  pink: pink.pink3,
+  plum: plum.plum3,
+  purple: purple.purple3,
+  violet: violet.violet3,
+  iris: iris.iris3,
+  indigo: indigo.indigo3,
+  blue: blue.blue3,
+  cyan: cyan.cyan3,
+  teal: teal.teal3,
+  jade: jade.jade3,
+  green: green.green3,
+  grass: grass.grass3,
+  lime: lime.lime3,
+  mint: mint.mint3,
+  sky: sky.sky3,
+};
+
+export const TAG_TEXT_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {
   gray: gray.gray11,
   gold: gold.gold11,
   bronze: bronze.bronze11,

@@ -4,7 +4,7 @@ import { TagInterface } from "back-end/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { TAG_COLORS_MAP } from "@/services/tags";
+import { TAG_COLORS_MAP, TAG_TEXT_COLORS_MAP } from "@/services/tags";
 import { isLight } from "./Tag";
 
 export interface ColorOption {
@@ -17,6 +17,19 @@ export interface ColorOption {
 }
 
 const DEFAULT_TAG_COLOR = TAG_COLORS_MAP["blue"];
+
+// Converts Radix color to hex color to make it compatible with MultiSelectField
+function getTagColor(color: string): string {
+  return TAG_COLORS_MAP[color] ?? DEFAULT_TAG_COLOR;
+}
+
+function getTagTextColor(color: string): string {
+  const displayColor = TAG_COLORS_MAP[color] ?? DEFAULT_TAG_COLOR;
+  const textColor =
+    TAG_TEXT_COLORS_MAP[color] ??
+    (isLight(displayColor) ? "#000000" : "#ffffff");
+  return textColor;
+}
 
 const TagsInput: FC<{
   onChange: (tags: string[]) => void;
@@ -57,7 +70,7 @@ const TagsInput: FC<{
 
   const tagStyles: StylesConfig<ColorOption, true> = {
     option: (styles, { data, isDisabled, isFocused, isSelected }) => {
-      const displayColor = data.color ?? "#029dd1";
+      const displayColor = getTagColor(data.color) ?? "#029dd1";
       return {
         ...styles,
         backgroundColor: isDisabled
@@ -73,7 +86,7 @@ const TagsInput: FC<{
         display: "flex",
         // add a colored dot:
         ":before": {
-          backgroundColor: data.color,
+          backgroundColor: displayColor,
           borderRadius: 10,
           content: '" "',
           display: "block",
@@ -91,19 +104,19 @@ const TagsInput: FC<{
       return {
         ...styles,
         borderRadius: 4,
-        backgroundColor: data.color,
-        color: isLight(data.color) ? "#000000" : "#ffffff",
+        backgroundColor: getTagColor(data.color),
+        color: getTagTextColor(data.color),
       };
     },
     multiValueLabel: (styles, { data }) => ({
       ...styles,
-      color: isLight(data.color) ? "#000000" : "#ffffff",
+      color: getTagTextColor(data.color),
     }),
     multiValueRemove: (styles, { data }) => ({
       ...styles,
-      color: isLight(data.color) ? "#000000" : "#ffffff",
+      color: getTagTextColor(data.color),
       ":hover": {
-        backgroundColor: data.color + "cc",
+        backgroundColor: getTagColor(data.color) + "cc",
       },
     }),
   };
@@ -112,12 +125,10 @@ const TagsInput: FC<{
     <MultiSelectField
       options={
         tagOptions.map((t) => {
-          // Converts Radix color to hex color to make it compatible with MultiSelectField
-          const hexColor = TAG_COLORS_MAP[t.color] ?? DEFAULT_TAG_COLOR;
           return {
             value: t.id,
             label: t.id,
-            color: hexColor || "var(--form-multivalue-text-color)",
+            color: t.color || "var(--form-multivalue-text-color)",
             tooltip: t.description,
           };
         }) ?? []
