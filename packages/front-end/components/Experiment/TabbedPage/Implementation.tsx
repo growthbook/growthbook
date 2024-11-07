@@ -136,7 +136,7 @@ export default function Implementation({
           feature flag, visual editor changes, or URL redirect).{" "}
           {experiment.status === "stopped"
             ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
-            : "Randomization, targeting, and implementation may be managed by an external system."}
+            : "The implementation, traffic, and targeting may be managed by an external system."}
         </Callout>
       ) : null}
 
