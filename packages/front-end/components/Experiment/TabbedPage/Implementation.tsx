@@ -64,8 +64,6 @@ export default function Implementation({
 
   const showEditVariations = editVariations && safeToEdit;
 
-  const isBandit = experiment.type === "multi-armed-bandit";
-
   return (
     <div className="my-4">
       <h2>Implementation</h2>
@@ -120,43 +118,33 @@ export default function Implementation({
             canAddChanges={canAddLinkedChanges}
             mutate={mutate}
           />
-          <AddLinkedChanges
-            experiment={experiment}
-            numLinkedChanges={0}
-            hasLinkedFeatures={linkedFeatures.length > 0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          />
         </>
-      ) : (
-        <>
-          {experiment.status === "draft" ? (
-            <AddLinkedChanges
-              experiment={experiment}
-              numLinkedChanges={0}
-              setFeatureModal={setFeatureModal}
-              setVisualEditorModal={setVisualEditorModal}
-              setUrlRedirectModal={setUrlRedirectModal}
-            />
-          ) : (
-            <Callout status="info" mb="4">
-              This experiment has no directly linked feature flag, visual editor
-              changes, or redirects. Randomization, targeting, and
-              implementation is either being managed by an external system or
-              via legacy Feature Flags in GrowthBook.
-            </Callout>
-          )}
-        </>
-      )}
+      ) : null}
 
-      {(hasLinkedChanges || isBandit) && (
-        <TrafficAndTargeting
-          experiment={experiment}
-          editTargeting={editTargeting}
-          phaseIndex={phases.length - 1}
-        />
-      )}
+      <AddLinkedChanges
+        experiment={experiment}
+        numLinkedChanges={0}
+        hasLinkedFeatures={linkedFeatures.length > 0}
+        setFeatureModal={setFeatureModal}
+        setVisualEditorModal={setVisualEditorModal}
+        setUrlRedirectModal={setUrlRedirectModal}
+      />
+
+      {experiment.status !== "draft" && !hasLinkedChanges ? (
+        <Callout status="info" mb="4">
+          This experiment has no directly linked feature flag, visual editor
+          changes, or redirects.{" "}
+          {experiment.status === "stopped"
+            ? "The implementation was either deleted or implementation, traffic, and targeting were managed by an external system."
+            : "Randomization, targeting, and implementation may be managed by an external system."}
+        </Callout>
+      ) : null}
+
+      <TrafficAndTargeting
+        experiment={experiment}
+        editTargeting={editTargeting}
+        phaseIndex={phases.length - 1}
+      />
 
       <AnalysisSettings experiment={experiment} mutate={mutate} />
     </div>
