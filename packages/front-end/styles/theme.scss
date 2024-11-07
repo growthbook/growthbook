@@ -122,6 +122,10 @@
   --step-completed-background: #218358;
   --step-completed-color: #fbfefc;
   --step-color: #6550b9;
+
+  // radix color-scheme;
+  --color-text-high: var(--indigo-12);
+  --color-text-mid: rgba(31, 45, 92, 0.5);
 }
 
 @mixin dark-theme {
@@ -249,6 +253,10 @@
   --step-completed-background: #3dd68c;
   --step-completed-color: #0e1512;
   --step-color: #baa7ff;
+
+  // radix color-scheme;
+  --color-text-high: #ffffff;
+  --color-text-mid: rgba(255, 255, 255, 15%);
 }
 
 .theme--light,
