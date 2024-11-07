@@ -256,7 +256,7 @@ export default function FactTablesPage() {
 
           <Separator size="4" mb="9" mt="9" />
 
-          <Flex gap="9" justify={"center"}>
+          <Flex gap="9" justify={"center"} wrap="wrap">
             <Box>
               <h3>Raw Event Stream Example</h3>
               <Flex gap="2">
@@ -283,7 +283,7 @@ export default function FactTablesPage() {
                 </Flex>
               </Flex>
             </Box>
-            <Box>
+            <Box className="d-none d-lg-block">
               <Separator orientation="vertical" size="4" />
             </Box>
             <Box>
