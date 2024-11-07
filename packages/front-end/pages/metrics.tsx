@@ -1,7 +1,6 @@
 import React from "react";
 import { isProjectListValidForProject } from "shared/util";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
+import { Box, Tabs } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -23,52 +22,49 @@ const MetricsPage = (): React.ReactElement => {
   const [showNewModal, setShowNewModal] = React.useState(false);
 
   return (
-    <div className="container-fluid pagecontents">
+    <div className="container pagecontents">
       {showNewModal && (
         <NewMetricModal
           close={() => setShowNewModal(false)}
           source={"metrics-empty-state"}
         />
       )}
+      <h1 className="mb-4">Metrics</h1>
       {!hasMetrics ? (
-        <div className="container">
-          <h1>Metrics</h1>
-          <div className="appbox p-5 text-center">
-            <h2>Define What Success Looks Like</h2>
-            <p>
-              Metrics are defined with SQL on top of your data warehouse. Use
-              them as goals and guardrails in experiments to measure success.
-            </p>
-            <div className="mt-3">
-              {!hasDatasource ? (
-                <LinkButton href="/datasources">Connect Data Source</LinkButton>
-              ) : (
-                <Button onClick={() => setShowNewModal(true)}>
-                  Add Metric
-                </Button>
-              )}
-            </div>
+        <div className="appbox p-5 text-center">
+          <h2>Define What Success Looks Like</h2>
+          <p>
+            Metrics are defined with SQL on top of your data warehouse. Use them
+            as goals and guardrails in experiments to measure success.
+          </p>
+          <div className="mt-3">
+            {!hasDatasource ? (
+              <LinkButton href="/datasources">Connect Data Source</LinkButton>
+            ) : (
+              <Button onClick={() => setShowNewModal(true)}>Add Metric</Button>
+            )}
           </div>
         </div>
       ) : (
-        <Tabs defaultTab="metrics" newStyle={true}>
-          <Tab anchor="metrics" id="metrics" display="Metrics" padding={false}>
-            <MetricsList />
-          </Tab>
-          <Tab
-            anchor="metricgroups"
-            id="metricgroups"
-            display={
+        <Tabs.Root defaultValue="metrics">
+          <Tabs.List>
+            <Tabs.Trigger value="metrics">Individual Metrics</Tabs.Trigger>
+            <Tabs.Trigger value="metricgroups">
               <PremiumTooltip commercialFeature="metric-groups">
                 Metric Groups
               </PremiumTooltip>
-            }
-            padding={false}
-            lazy
-          >
-            <MetricGroupsList />
-          </Tab>
-        </Tabs>
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Box pt="4">
+            <Tabs.Content value="metrics">
+              <MetricsList />
+            </Tabs.Content>
+
+            <Tabs.Content value="metricgroups">
+              <MetricGroupsList />
+            </Tabs.Content>
+          </Box>
+        </Tabs.Root>
       )}
     </div>
   );
