@@ -483,7 +483,7 @@ export default function DesignSystemPage() {
             <SelectItem value="carrot-cake">Carrot Cake</SelectItem>
           </Select>
           <Select
-            label="Select with an error"
+            label="Disabled Select"
             defaultValue="carrot"
             value={selectValue}
             setValue={setSelectValue}
