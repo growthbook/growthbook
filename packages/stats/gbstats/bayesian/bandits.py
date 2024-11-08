@@ -18,16 +18,17 @@ from gbstats.utils import (
     variance_of_ratios,
     gaussian_credible_interval,
 )
-from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
+from gbstats.bayesian.tests import BayesianConfig, GaussianPrior, InverseGammaPrior
 from gbstats.models.settings import BanditWeightsSinglePeriod
 
 
 @dataclass
-class MCMCConfig:
+class PooledMCMCConfig:
     mcmc_seed: int = 0
-    prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
-    a: float = 1
-    b: float = 1
+    prior_mean_distribution: GaussianPrior = field(default_factory=GaussianPrior)
+    prior_variance_distribution: InverseGammaPrior = field(
+        default_factory=InverseGammaPrior
+    )
     burn: int = 1000
     keep: int = 2000
 
@@ -39,7 +40,7 @@ class BanditConfig(BayesianConfig):
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
     weight_by_period: bool = True
-    pool_means: bool = False
+    pooled_mcmc_config: Optional[PooledMCMCConfig] = None
 
 
 @dataclass
@@ -81,13 +82,13 @@ class BanditsMCMC:
         self,
         variation_means: np.ndarray,
         variation_variances: np.ndarray,
-        config: MCMCConfig,
+        config: PooledMCMCConfig,
     ):
         self.variation_means = variation_means
         self.variation_variances = variation_variances
         self.config = config
-        self.a = config.a
-        self.b = config.b
+        self.a = config.prior_variance_distribution.shape
+        self.b = config.prior_variance_distribution.scale
         self.burn = config.burn
         self.keep = config.keep
         self.iters = self.burn + self.keep
@@ -129,9 +130,9 @@ class BanditsMCMC:
         self.mu = self.update_mu(
             self.alpha,
             self.gamma_2,
-            self.config.prior_distribution.mean,
-            self.config.prior_distribution.variance,
-            self.config.prior_distribution.proper,
+            self.config.prior_mean_distribution.mean,
+            self.config.prior_mean_distribution.variance,
+            self.config.prior_mean_distribution.proper,
             self.seed + self.iters + iter,
         )
         self.gamma_2 = self.update_gamma_2(
@@ -351,16 +352,20 @@ class Bandits(ABC):
             if self.bandit_weights_seed
             else random.randint(0, 1000000)
         )
-        if self.config.pool_means:
-            prior_distribution = GaussianPrior(mean=0, variance=100, proper=True)
-            mcmc_config = MCMCConfig(
-                mcmc_seed=seed + 1, prior_distribution=prior_distribution
-            )
+        if self.config.pooled_mcmc_config:
             mcmc = BanditsMCMC(
-                self.variation_means, self.variation_variances, mcmc_config
+                self.variation_means,
+                self.variation_variances,
+                self.config.pooled_mcmc_config,
             )
             mcmc.run_mcmc()
             y = mcmc.alpha_keep
+            post_means = np.mean(y, axis=0)
+            post_vars = np.var(y, axis=0)
+            credible_intervals = [
+                gaussian_credible_interval(mn, s, self.config.alpha)
+                for mn, s in zip(post_means, np.sqrt(post_vars))
+            ]
         else:
             rng = np.random.default_rng(seed=seed)
             y = rng.multivariate_normal(
@@ -368,6 +373,10 @@ class Bandits(ABC):
                 cov=np.diag(self.posterior_variance),
                 size=self.n_samples,
             )
+            credible_intervals = [
+                gaussian_credible_interval(mn, s, self.config.alpha)
+                for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
+            ]
         if self.inverse:
             best_rows = np.min(y, axis=1)
         else:
@@ -380,10 +389,6 @@ class Bandits(ABC):
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
-        credible_intervals = [
-            gaussian_credible_interval(mn, s, self.config.alpha)
-            for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
-        ]
         enough_units = all(self.variation_counts >= 100)
         return BanditResponse(
             users=self.variation_counts.tolist(),
