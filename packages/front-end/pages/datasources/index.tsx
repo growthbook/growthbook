@@ -3,7 +3,6 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DocLink } from "@/components/DocLink";
 import DataSources from "@/components/Settings/DataSources";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -18,7 +17,6 @@ import { dataSourceConnections } from "@/services/eventSchema";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import LinkButton from "@/components/Radix/LinkButton";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
-import EventSourceList from "@/components/Settings/EventSourceList";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 
 const DataSourcesPage: FC = () => {
@@ -45,19 +43,12 @@ const DataSourcesPage: FC = () => {
     : datasources
   ).filter((ds) => !ds.projects?.includes(demoProjectId || ""));
 
-  const gb = useGrowthBook();
-
   const [
     newModalData,
     setNewModalData,
   ] = useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const permissionsUtil = usePermissionsUtil();
-
-  let datasourceFirst = false;
-  if (!filteredDatasources.length) {
-    datasourceFirst = gb.isOn("datasource-first");
-  }
 
   return (
     <div className="container-fluid pagecontents">
@@ -73,7 +64,6 @@ const DataSourcesPage: FC = () => {
             setNewModalData(null);
           }}
           showImportSampleData={false}
-          datasourceFirst={datasourceFirst}
         />
       )}
       <div className="d-flex align-items-center mb-3">
@@ -140,56 +130,37 @@ const DataSourcesPage: FC = () => {
           </div>
           <hr className="my-4" />
           <div className="mb-3 d-flex flex-column align-items-center justify-content-center w-100">
-            {datasourceFirst ? (
-              <>
-                <div className="mb-3">
-                  <h3>Where do you store your analytics data? Pick One:</h3>
-                </div>
+            <div className="mb-3">
+              <h3>Where do you store your analytics data? Pick One:</h3>
+            </div>
 
-                <DataSourceTypeSelector
-                  value=""
-                  setValue={(value) => {
-                    const option = dataSourceConnections.find(
-                      (o) => o.type === value
-                    );
-                    if (!option) return;
+            <DataSourceTypeSelector
+              value=""
+              setValue={(value) => {
+                const option = dataSourceConnections.find(
+                  (o) => o.type === value
+                );
+                if (!option) return;
 
-                    setNewModalData({
-                      type: option.type,
-                      params: option.default,
-                    } as Partial<DataSourceInterfaceWithParams>);
+                setNewModalData({
+                  type: option.type,
+                  params: option.default,
+                } as Partial<DataSourceInterfaceWithParams>);
 
-                    track("Data Source Type Selected", {
-                      type: value,
-                      newDatasourceForm: true,
-                    });
-                  }}
-                />
+                track("Data Source Type Selected", {
+                  type: value,
+                  newDatasourceForm: true,
+                });
+              }}
+            />
 
-                <Callout status="info" mt="5">
-                  Don&apos;t have a data warehouse yet? We recommend using
-                  BigQuery with Google Analytics.{" "}
-                  <DocLink docSection="ga4BigQuery">
-                    Learn more <FaExternalLinkAlt />
-                  </DocLink>
-                </Callout>
-              </>
-            ) : (
-              <div style={{ maxWidth: 800 }}>
-                <div className="mb-3 text-center">
-                  <h3>What do you use to track analytics events? Pick One:</h3>
-                </div>
-                <EventSourceList
-                  onSelect={(schema) => {
-                    setNewModalData({
-                      settings: {
-                        schemaFormat: schema.value,
-                      },
-                    } as Partial<DataSourceInterfaceWithParams>);
-                  }}
-                />
-              </div>
-            )}
+            <Callout status="info" mt="5">
+              Don&apos;t have a data warehouse yet? We recommend using BigQuery
+              with Google Analytics.{" "}
+              <DocLink docSection="ga4BigQuery">
+                Learn more <FaExternalLinkAlt />
+              </DocLink>
+            </Callout>
           </div>
           <hr className="my-5" />
           <div className="d-flex align-items-center justify-content-center w-100">

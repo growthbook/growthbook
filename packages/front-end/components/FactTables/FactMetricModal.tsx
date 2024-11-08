@@ -1,7 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { ReactElement, useEffect, useState } from "react";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -51,7 +50,6 @@ import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/Metric
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHours";
-import { AppFeatures } from "@/types/app-features";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import Checkbox from "@/components/Radix/Checkbox";
 import Callout from "@/components/Radix/Callout";
@@ -761,15 +759,14 @@ export default function FactMetricModal({
   source,
   datasource,
 }: Props) {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const settings = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
 
-  const showSQLPreview = growthbook.isOn("fact-metric-sql-preview");
+  // TODO: We may want to hide this from non-technical users in the future
+  const showSQLPreview = true;
 
   const [showExperimentSQL, setShowExperimentSQL] = useState(false);
 

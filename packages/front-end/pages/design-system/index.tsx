@@ -25,6 +25,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DataList from "@/components/Radix/DataList";
 import Stepper from "@/components/Stepper/Stepper";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
+import Metadata from "@/components/Radix/Metadata";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -547,6 +548,13 @@ export default function DesignSystemPage() {
             { label: "Step 3", enabled: true },
           ]}
         />
+      </div>
+      <div className="appbox p-3">
+        <h3>Metadata</h3>
+        <Flex gap="3">
+          <Metadata label="Title" value="Data" />
+          <Metadata label="Title1" value="Data1" />
+        </Flex>
       </div>
     </div>
   );
