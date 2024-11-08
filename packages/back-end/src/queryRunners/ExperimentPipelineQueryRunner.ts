@@ -31,9 +31,8 @@ import {
   ExperimentDimension,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
-  ExperimentMetricStats,
-  ExperimentQueryResponses,
-  ExperimentResults,
+  ExperimentPipelineFactMetricsParams,
+  ExperimentPipelineReplaceUnitsTableParams,
   ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
@@ -207,28 +206,27 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
-  // Settings for units table
-  const useUnitsTable =
-    (integration.getSourceProperties().supportsWritingTables &&
-      settings.pipelineSettings?.allowWriting &&
-      !!settings.pipelineSettings?.writeDataset &&
-      hasPipelineModeFeature) ??
-    false;
-  let unitQuery: QueryPointer | null = null;
-  const unitsTableFullName =
-    useUnitsTable && !!integration.generateTablePath
-      ? integration.generateTablePath(
-          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
-          settings.pipelineSettings?.writeDataset,
-          settings.pipelineSettings?.writeDatabase,
-          true
-        )
-      : "";
+  // Can run pipeline mode
+  const cannotRun = !integration.getSourceProperties().supportsWritingTables ||
+      !settings.pipelineSettings?.allowWriting ||
+      !settings.pipelineSettings?.writeDataset ||
+      !hasPipelineModeFeature;
+  if (cannotRun) {
+    throw new Error ("Cannot run pipeline mode. Datasource not configured correctly.")
+  }
+  if (!integration.generateTablePath) {
+    throw new Error("Table path generator not specified.");
+  }
+  const unitsTableFullName = integration.generateTablePath(
+      `${UNITS_TABLE_PREFIX}_${queryParentId}`,
+      settings.pipelineSettings?.writeDataset,
+      settings.pipelineSettings?.writeDatabase,
+      true
+    );
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
-  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
+  if (exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
       .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
       .map((dm) => ({
@@ -238,34 +236,32 @@ export const startExperimentResultQueries = async (
       }));
   }
 
-  const unitQueryParams: ExperimentUnitsQueryParams = {
+  // TODO customize lookback date? What altitude is this set at? 
+  // What timestamp to use?
+  const todayMinusLookback = new Date();
+  todayMinusLookback.setHours(todayMinusLookback.getHours() - 2);
+  const lookbackDate = todayMinusLookback;
+
+  // 1. Create or replace units table
+  const unitQueryParams: ExperimentPipelineReplaceUnitsTableParams = {
     activationMetric: activationMetric,
     dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
-    includeIdJoins: true,
     factTableMap: params.factTableMap,
+    lookbackDate,
   };
-
-  if (useUnitsTable) {
-    // The Mixpanel integration does not support writing tables
-    if (!integration.generateTablePath) {
-      throw new Error(
-        "Unable to generate table; table path generator not specified."
-      );
-    }
-    unitQuery = await startQuery({
-      name: queryParentId,
-      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
-      dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runExperimentUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
-      queryType: "experimentUnits",
-    });
-    queries.push(unitQuery);
-  }
+  const unitQuery = await startQuery({
+    name: queryParentId,
+    query: integration.getExperimentPipelineUnitsQuery(unitQueryParams),
+    dependencies: [],
+    run: (query, setExternalId) =>
+      integration.runExperimentPipelineUnitsQuery(query, setExternalId),
+    process: (rows) => rows,
+    queryType: "experimentPipelineUnits",
+  });
+  queries.push(unitQuery);
 
   const { groups, singles } = getFactMetricGroups(
     selectedMetrics,
@@ -274,44 +270,64 @@ export const startExperimentResultQueries = async (
     org
   );
 
+  // CREATE OR REPLACE METRIC TABLES
   for (const m of singles) {
-    const denominatorMetrics: MetricInterface[] = [];
-    if (!isFactMetric(m) && m.denominator) {
-      denominatorMetrics.push(
-        ...expandDenominatorMetrics(
-          m.denominator,
-          metricMap as Map<string, MetricInterface>
-        )
-          .map((m) => metricMap.get(m) as MetricInterface)
-          .filter(Boolean)
-      );
-    }
-    const queryParams: ExperimentMetricQueryParams = {
-      activationMetric,
-      denominatorMetrics,
-      dimensions: dimensionObj ? [dimensionObj] : [],
-      metric: m,
-      segment: segmentObj,
-      settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
-      unitsTableFullName: unitsTableFullName,
-      factTableMap: params.factTableMap,
-    };
-    queries.push(
-      await startQuery({
-        name: m.id,
-        query: integration.getExperimentMetricQuery(queryParams),
-        dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
-          integration.runExperimentMetricQuery(query, setExternalId),
-        process: (rows) => rows,
-        queryType: "experimentMetric",
-      })
-    );
+    console.log(`Skipping query for single metric ${m.id}`);
+    // const denominatorMetrics: MetricInterface[] = [];
+    // if (!isFactMetric(m) && m.denominator) {
+    //   denominatorMetrics.push(
+    //     ...expandDenominatorMetrics(
+    //       m.denominator,
+    //       metricMap as Map<string, MetricInterface>
+    //     )
+    //       .map((m) => metricMap.get(m) as MetricInterface)
+    //       .filter(Boolean)
+    //   );
+    // }
+    // const queryParams: ExperimentMetricQueryParams = {
+    //   activationMetric,
+    //   denominatorMetrics,
+    //   dimensions: dimensionObj ? [dimensionObj] : [],
+    //   metric: m,
+    //   segment: segmentObj,
+    //   settings: snapshotSettings,
+    //   useUnitsTable: !!unitQuery,
+    //   unitsTableFullName: unitsTableFullName,
+    //   factTableMap: params.factTableMap,
+    // };
+    // queries.push(
+    //   await startQuery({
+    //     name: m.id,
+    //     query: integration.getExperimentMetricQuery(queryParams),
+    //     dependencies: unitQuery ? [unitQuery.query] : [],
+    //     run: (query, setExternalId) =>
+    //       integration.runExperimentMetricQuery(query, setExternalId),
+    //     process: (rows) => rows,
+    //     queryType: "experimentMetric",
+    //   })
+    // );
   }
 
+  // TODO MAIN QUESTION HERE
+  // Do we want to keep around separate fact tables? makes it easier to re-set
+  // one if it needs to be refreshed or you need to add a metric, but
+  // seems like more faffing about and more overhead
+
+  // depends on ability to add new columns
+  // alter logic needs to be added
+
+
+  // 2. Update final metric Tables
+  const groupMetricQueries = [];
   for (const [i, m] of groups.entries()) {
-    const queryParams: ExperimentFactMetricsQueryParams = {
+    const metricTableFullName = integration.generateTablePath(
+      `${UNITS_TABLE_PREFIX}_factgroup_${i}_${queryParentId}`,
+      settings.pipelineSettings?.writeDataset,
+      settings.pipelineSettings?.writeDatabase,
+      true
+    );
+
+    const queryParams: ExperimentPipelineFactMetricsParams = {
       activationMetric,
       dimensions: dimensionObj ? [dimensionObj] : [],
       metrics: m,
@@ -320,69 +336,64 @@ export const startExperimentResultQueries = async (
       useUnitsTable: !!unitQuery,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
+      tableName: metricTableFullName,
+      lookbackDate,
     };
 
     if (
-      !integration.getExperimentFactMetricsQuery ||
+      !integration.runExperimentFactMetricsQuery ||
       !integration.runExperimentFactMetricsQuery
     ) {
       throw new Error("Integration does not support multi-metric queries");
     }
 
-    queries.push(
-      await startQuery({
-        name: `group_${i}`,
-        query: integration.getExperimentFactMetricsQuery(queryParams),
-        dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
-          (integration as SqlIntegration).runExperimentFactMetricsQuery(
-            query,
-            setExternalId
-          ),
-        process: (rows) => rows,
-        queryType: "experimentMultiMetric",
-      })
-    );
-  }
-
-  let trafficQuery: QueryPointer | null = null;
-  if (runTrafficQuery) {
-    trafficQuery = await startQuery({
-      name: TRAFFIC_QUERY_NAME,
-      query: integration.getExperimentAggregateUnitsQuery({
-        ...unitQueryParams,
-        dimensions: dimensionsForTraffic,
-        useUnitsTable: !!unitQuery,
-      }),
-      dependencies: unitQuery ? [unitQuery.query] : [],
+    const groupTrimMetricQuery = await startQuery({
+      name: `delete_group_${i}`,
+      query: integration.getExperimentPipelineTrimMetricsQuery(queryParams),
+      // don't run unless metrics query succeeds
+      dependencies: [unitQuery.query],
       run: (query, setExternalId) =>
-        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+        integration.runExperimentFactMetricsQuery(
+          query,
+          setExternalId
+        ),
       process: (rows) => rows,
-      queryType: "experimentTraffic",
-    });
-    queries.push(trafficQuery);
-  }
-
-  const dropUnitsTable =
-    integration.getSourceProperties().dropUnitsTable &&
-    settings.pipelineSettings?.unitsTableDeletion;
-  if (useUnitsTable && dropUnitsTable) {
-    const dropUnitsTableQuery = await startQuery({
-      name: `drop_${queryParentId}`,
-      query: integration.getDropUnitsTableQuery({
-        fullTablePath: unitsTableFullName,
-      }),
-      dependencies: [],
-      // all other queries in model must succeed or fail first
-      runAtEnd: true,
+      queryType: "experimentPipelineTrimMetric",
+    })
+    queries.push(groupTrimMetricQuery);
+      
+    const groupComputeMetricQuery = await startQuery({
+      name: `run_group_${i}`,
+      query: integration.getExperimentPipelineFactMetricsQuery(queryParams),
+      dependencies: [groupTrimMetricQuery.query],
       run: (query, setExternalId) =>
-        integration.runDropTableQuery(query, setExternalId),
+        integration.runExperimentPipelineFactMetricsQuery(
+          query,
+          setExternalId
+        ),
       process: (rows) => rows,
-      queryType: "experimentDropUnitsTable",
+      queryType: "experimentPipelineMultiMetric",
     });
-    queries.push(dropUnitsTableQuery);
+    queries.push(groupComputeMetricQuery);
   }
 
+  // TODO, join results into one query really wide?
+  const trafficQuery = await startQuery({
+    name: TRAFFIC_QUERY_NAME,
+    query: integration.getExperimentAggregateUnitsQuery({
+      ...unitQueryParams,
+      dimensions: dimensionsForTraffic,
+      useUnitsTable: !!unitQuery,
+    }),
+    dependencies: unitQuery ? [unitQuery.query] : [],
+    run: (query, setExternalId) =>
+      integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+    process: (rows) => rows,
+    queryType: "experimentTraffic",
+  });
+  queries.push(trafficQuery);
+
+  // TODO delete units table?
   return queries;
 };
 
@@ -413,12 +424,12 @@ export class ExperimentPipelineQueryRunner extends QueryRunner<
         this.startQuery.bind(this)
       );
     } else {
-      return this.startLegacyQueries(params);
+      throw new Error("Pipeline does not support separate queries");
     }
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const analysesResults = await analyzeExperimentResults({
+    const { results } = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: this.model.settings,
       analysisSettings: this.model.analyses.map((a) => a.settings),
@@ -432,17 +443,17 @@ export class ExperimentPipelineQueryRunner extends QueryRunner<
       unknownVariations: [],
     };
 
-    analysesResults.forEach((results, i) => {
+    results.forEach((result, i) => {
       const analysis = this.model.analyses[i];
       if (!analysis) return;
 
-      analysis.results = results.dimensions || [];
+      analysis.results = result.dimensions || [];
       analysis.status = "success";
       analysis.error = "";
 
       // TODO: do this once, not per analysis
-      result.unknownVariations = results.unknownVariations || [];
-      result.multipleExposures = results.multipleExposures ?? 0;
+      result.unknownVariations = result.unknownVariations || [];
+      result.multipleExposures = result.multipleExposures ?? 0;
     });
 
     // Run health checks
@@ -499,128 +510,5 @@ export class ExperimentPipelineQueryRunner extends QueryRunner<
       ...this.model,
       ...updates,
     };
-  }
-
-  private async startLegacyQueries(
-    params: ExperimentResultsQueryParams
-  ): Promise<Queries> {
-    const snapshotSettings = params.snapshotSettings;
-    const metricMap = params.metricMap;
-
-    const activationMetric = snapshotSettings.activationMetric
-      ? metricMap.get(snapshotSettings.activationMetric) ?? null
-      : null;
-
-    // Only include metrics tied to this experiment (both goal and guardrail metrics)
-    const selectedMetrics = getAllMetricIdsFromExperiment(
-      snapshotSettings,
-      false
-    )
-      .map((m) => metricMap.get(m))
-      .filter((m) => m) as ExperimentMetricInterface[];
-    if (!selectedMetrics.length) {
-      throw new Error("Experiment must have at least 1 metric selected.");
-    }
-
-    const dimensionObj = await parseDimensionId(
-      snapshotSettings.dimensions[0]?.id,
-      this.model.organization
-    );
-
-    const dimension =
-      dimensionObj?.type === "user" ? dimensionObj.dimension : null;
-    const query = this.integration.getExperimentResultsQuery(
-      snapshotSettings,
-      selectedMetrics,
-      activationMetric,
-      dimension
-    );
-
-    return [
-      await this.startQuery({
-        queryType: "experimentResults",
-        name: "results",
-        query: query,
-        dependencies: [],
-        run: async () => {
-          const rows = (await this.integration.getExperimentResults(
-            snapshotSettings,
-            selectedMetrics,
-            activationMetric,
-            dimension
-            // eslint-disable-next-line
-          )) as any[];
-          return { rows: rows };
-        },
-        process: (rows: ExperimentQueryResponses) =>
-          this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
-      }),
-    ];
-  }
-
-  private processLegacyExperimentResultsResponse(
-    snapshotSettings: ExperimentSnapshotSettings,
-    rows: ExperimentQueryResponses
-  ): ExperimentResults {
-    const ret: ExperimentResults = {
-      dimensions: [],
-      unknownVariations: [],
-    };
-
-    const variationMap = new Map<string, number>();
-    snapshotSettings.variations.forEach((v, i) => variationMap.set(v.id, i));
-
-    const unknownVariations: Map<string, number> = new Map();
-    let totalUsers = 0;
-
-    const dimensionMap = new Map<string, number>();
-
-    rows.forEach(({ dimension, metrics, users, variation }) => {
-      let i = 0;
-      if (dimensionMap.has(dimension)) {
-        i = dimensionMap.get(dimension) || 0;
-      } else {
-        i = ret.dimensions.length;
-        ret.dimensions.push({
-          dimension,
-          variations: [],
-        });
-        dimensionMap.set(dimension, i);
-      }
-
-      const numUsers = users || 0;
-      totalUsers += numUsers;
-
-      const varIndex = variationMap.get(variation + "");
-      if (
-        typeof varIndex === "undefined" ||
-        varIndex < 0 ||
-        varIndex >= snapshotSettings.variations.length
-      ) {
-        unknownVariations.set(variation, numUsers);
-        return;
-      }
-
-      const metricData: { [key: string]: ExperimentMetricStats } = {};
-      metrics.forEach(({ metric, ...stats }) => {
-        metricData[metric] = stats;
-      });
-
-      ret.dimensions[i].variations.push({
-        variation: varIndex,
-        users: numUsers,
-        metrics: metricData,
-      });
-    });
-
-    unknownVariations.forEach((users, variation) => {
-      // Ignore unknown variations with an insignificant number of users
-      // This protects against random typos causing false positives
-      if (totalUsers > 0 && users / totalUsers >= 0.02) {
-        ret.unknownVariations.push(variation);
-      }
-    });
-
-    return ret;
   }
 }

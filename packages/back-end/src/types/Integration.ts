@@ -194,35 +194,29 @@ export interface ExperimentFactMetricsQueryParams
   useUnitsTable: boolean;
 }
 
-export interface ExperimentPipelineFactMetricsQueryParams
-  extends ExperimentFactMetricsQueryParams {
-    lookbackDate: Date;
-  }
+export interface ExperimentPipelineFactMetricsParams extends ExperimentBaseQueryParams {
+  tableName: string;
+  lookbackDate: Date;
+  metricGroups: FactMetricInterface[][];
+}
 
 export interface ExperimentAggregateUnitsQueryParams
   extends ExperimentBaseQueryParams {
   useUnitsTable: boolean;
 }
 
-export interface ExperimentPipelineCreateUnitsTableParams {
+export interface ExperimentPipelineCreateMetricsParams {
   tableName: string;
-  dimensions: string[];
+  factMetricParams: ExperimentPipelineFactMetricsParams[];
 }
 
-export interface ExperimentPipelineCreateMetricsTableParams {
-  tableName: string;
-  dimensions: string[];
-  metrics: string[];
-}
-
-
-export interface ExperimentPipelineDeleteMetricsTableParams {
+export interface ExperimentPipelineTrimMetricsParams {
   tableName: string;
   lookbackDate: Date;
 }
 
-export interface ExperimentPipelineReplaceUnitsTableParams extends ExperimentBaseQueryParams {
-  tableName: string;
+export interface ExperimentPipelineUnitsParams
+  extends ExperimentBaseQueryParams {
   lookbackDate: Date;
 }
 
@@ -444,10 +438,9 @@ export type MetricAnalysisQueryResponse = QueryResponse<MetricAnalysisQueryRespo
 export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMetricsQueryResponseRows>;
-export type ExperimentUnitsQueryResponse = QueryResponse;
+export type EmptyQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
-export type DropTableQueryResponse = QueryResponse;
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
 >;
@@ -576,7 +569,7 @@ export interface SourceIntegrationInterface {
   runDropTableQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<DropTableQueryResponse>;
+  ): Promise<EmptyQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams
@@ -611,7 +604,7 @@ export interface SourceIntegrationInterface {
   runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<ExperimentUnitsQueryResponse>;
+  ): Promise<EmptyQueryResponse>;
   runPastExperimentQuery(
     query: string,
     setExternalId: ExternalIdCallback
@@ -649,4 +642,33 @@ export interface SourceIntegrationInterface {
     requireSchema?: boolean
   ): string;
   cancelQuery?(externalId: string): Promise<void>;
+  // Pipeline Incremental Refresh queries
+  getExperimentPipelineUnitsQuery(
+    params: ExperimentPipelineUnitsParams
+  ): string;
+  runExperimentPipelineUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<EmptyQueryResponse>;
+  getExperimentPipelineTrimMetricsQuery(
+    params: ExperimentPipelineTrimMetricsParams
+  ): string;
+  runExperimentPipelineTrimMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<EmptyQueryResponse>;
+  getExperimentPipelineFactMetricsQuery(
+    params: ExperimentPipelineFactMetricsParams
+  ): string;
+  runExperimentPipelineFactMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<EmptyQueryResponse>;
+  getExperimentPipelineStatisticsQuery(
+    params: ExperimentPipelineFactMetricsParams
+  ): string;
+  runExperimentPipelineStatisticsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentFactMetricsQueryResponse>;
 }
