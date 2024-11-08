@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { ReactElement } from "react";
+import { Link } from "@radix-ui/themes";
 import { GBEdit } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -28,7 +29,7 @@ export default function HeaderWithEdit({
         {children}{" "}
         {edit ? (
           <span className="ml-1">
-            <a
+            <Link
               className={editClassName}
               role="button"
               onClick={(e) => {
@@ -37,8 +38,8 @@ export default function HeaderWithEdit({
                 edit();
               }}
             >
-              <GBEdit />
-            </a>
+              <GBEdit className="cursor-pointer" />
+            </Link>
           </span>
         ) : disabledMessage ? (
           <span className="ml-1 text-muted">
