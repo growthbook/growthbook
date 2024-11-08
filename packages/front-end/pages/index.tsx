@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -23,8 +22,6 @@ export default function Home(): React.ReactElement {
 
   const { organization } = useUser();
 
-  const gb = useGrowthBook();
-
   useEffect(() => {
     if (!organization) return;
     if (featuresLoading || experimentsLoading) {
@@ -43,11 +40,7 @@ export default function Home(): React.ReactElement {
     } else if (hasExperiments) {
       router.replace("/experiments");
     } else {
-      if (gb.isOn("use-new-setup-flow")) {
-        router.replace("/setup");
-      } else {
-        router.replace("/getstarted");
-      }
+      router.replace("/getstarted");
     }
   }, [
     organization,
