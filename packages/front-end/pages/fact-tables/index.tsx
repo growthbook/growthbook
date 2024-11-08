@@ -2,14 +2,15 @@ import { isProjectListValidForProject } from "shared/util";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { date } from "shared/dates";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { MdInfoOutline } from "react-icons/md";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PageHead from "@/components/Layout/PageHead";
 import TagsFilter, {
   filterByTags,
@@ -79,8 +80,6 @@ export default function FactTablesPage() {
   }, [factTables.length, datasources, project]);
 
   const permissionsUtil = usePermissionsUtil();
-
-  const [aboutOpen, setAboutOpen] = useLocalStorage("aboutFactTables", true);
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -159,164 +158,236 @@ export default function FactTablesPage() {
         <FactTableModal close={() => setCreateFactOpen(false)} />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <h1>Fact Tables</h1>
-      <div className="mb-3">
-        <a
-          className="font-weight-bold"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setAboutOpen(!aboutOpen);
-          }}
-        >
-          About Fact Tables {aboutOpen ? <FaAngleDown /> : <FaAngleRight />}
-        </a>
-        {aboutOpen && (
-          <div className="appbox bg-light px-3 pt-3 mb-5">
-            <p>
-              With Fact Tables, you can better organize your metrics, cut down
-              on repetitive copy/pasting, and unlock massive SQL cost savings{" "}
-              <Tooltip
-                body={
-                  <>
-                    <p>
-                      <strong>Enterprise-Only</strong> GrowthBook calculates
-                      multiple metrics in a single database query when they
-                      share the same Fact Table.
-                    </p>
-                    <p>
-                      For warehouses like BigQuery that charge based on data
-                      scanned, this can drastically reduce the costs, especially
-                      when an experiment has many metrics.
-                    </p>
-                  </>
-                }
-              />
-            </p>
-            <p>
-              Learn more about the various parts that make up Fact Tables with
-              an example:
-            </p>
-            <table className="table w-auto gbtable appbox">
-              <tbody>
-                <tr>
-                  <th>Fact Table SQL</th>
-                  <td>
-                    A base SQL definition for an event with relevant columns
-                    selected
-                  </td>
-                  <td>
-                    <InlineCode language="sql" code="SELECT * FROM orders" />
-                  </td>
-                </tr>
-                <tr>
-                  <th>Filters</th>
-                  <td>
-                    Reusable SQL snippets to filter rows in the Fact Table
-                  </td>
-                  <td>
-                    <InlineCode language="sql" code="device_type = 'mobile'" />
-                  </td>
-                </tr>
-                <tr>
-                  <th>Metrics</th>
-                  <td style={{ verticalAlign: "top" }}>
-                    Used in experiments as Goals or Guardrails
-                  </td>
-                  <td>
-                    <InlineCode
-                      language="sql"
-                      code={`SELECT SUM(revenue)\nFROM   [factTables.Orders]\nWHERE  [filters.Mobile]`}
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <h1 className="mb-4">Fact Tables</h1>
 
-      <div className="row mb-2 align-items-center">
-        {filteredFactTables.length > 0 && (
-          <>
-            <div className="col-lg-3 col-md-4 col-6">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </div>
-            {hasArchivedFactTables && (
-              <div className="col-auto text-muted">
-                <Toggle
-                  value={showArchived}
-                  setValue={setShowArchived}
-                  id="show-archived"
-                  label="show archived"
-                />
-                Show archived
-              </div>
-            )}
-            <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            <div className="ml-auto"></div>
-          </>
-        )}
-        <div className="col-auto">
-          {initialFactTableData && canCreate && (
-            <Button
-              variant="outline"
-              mr="2"
-              onClick={async () => {
-                setAutoGenerateError(null);
-                await createInitialResources({
-                  ...initialFactTableData,
-                  apiCall,
-                  settings,
-                  metricDefaults,
-                });
-                await mutateDefinitions();
-              }}
-              setError={(error) => {
-                setAutoGenerateError(error);
-              }}
-            >
-              Auto-generate Fact Tables
-            </Button>
-          )}
-          {hasDatasource ? (
+      {!filteredFactTables.length ? (
+        <div className="appbox p-5 text-center">
+          <h2>A SQL Foundation for your Metrics</h2>
+          <p>
+            With Fact Tables, you can better organize your metrics, cut down on
+            repetitive copy/pasting, and unlock massive{" "}
             <Tooltip
               body={
-                !canCreate
-                  ? `You don't have permission to create fact tables ${
-                      project ? "in this project" : ""
-                    }`
-                  : ""
+                <div style={{ textAlign: "left" }}>
+                  <p>
+                    <strong>Enterprise-Only</strong> GrowthBook calculates
+                    multiple metrics in a single database query when they share
+                    the same Fact Table.
+                  </p>
+                  <p>
+                    For warehouses like BigQuery that charge based on data
+                    scanned, this can drastically reduce the costs, especially
+                    when an experiment has many metrics.
+                  </p>
+                </div>
               }
             >
-              <Button
-                onClick={() => {
-                  if (!canCreate) return;
-                  setCreateFactOpen(true);
+              <span
+                style={{
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
                 }}
-                disabled={!canCreate}
               >
-                Add Fact Table
-              </Button>
+                SQL cost savings <MdInfoOutline />
+              </span>
             </Tooltip>
-          ) : null}
+          </p>
+          <div className="mt-3">
+            {!hasDatasource ? (
+              <LinkButton href="/datasources">Connect Data Source</LinkButton>
+            ) : initialFactTableData && canCreate ? (
+              <div>
+                <Button
+                  onClick={async () => {
+                    setAutoGenerateError(null);
+                    await createInitialResources({
+                      ...initialFactTableData,
+                      apiCall,
+                      settings,
+                      metricDefaults,
+                    });
+                    await mutateDefinitions();
+                  }}
+                  setError={(error) => {
+                    setAutoGenerateError(error);
+                  }}
+                >
+                  Auto-Generate Fact Tables
+                </Button>
+
+                <div className="mt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCreateFactOpen(true)}
+                  >
+                    Add Fact Table Manually
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Tooltip
+                body={
+                  !canCreate
+                    ? `You don't have permission to create fact tables ${
+                        project ? "in this project" : ""
+                      }`
+                    : ""
+                }
+              >
+                <Button
+                  onClick={() => {
+                    if (!canCreate) return;
+                    setCreateFactOpen(true);
+                  }}
+                  disabled={!canCreate}
+                >
+                  Add Fact Table
+                </Button>
+              </Tooltip>
+            )}
+          </div>
+
+          {autoGenerateError && (
+            <Callout status="error" mb="3">
+              {autoGenerateError}
+            </Callout>
+          )}
+
+          <Separator size="4" mb="9" mt="9" />
+
+          <Flex gap="9" justify={"center"} wrap="wrap">
+            <Box>
+              <h3>Raw Event Stream Example</h3>
+              <Flex gap="2">
+                <Flex direction="column" gap="1">
+                  <div>Fact Table</div>
+                  <Box className="border px-3 py-2 bg-white">
+                    <InlineCode
+                      language="sql"
+                      code={`SELECT\n  timestamp,\n  user_id,\n  event_name,\n  device_type\nFROM\n  events`}
+                    />
+                  </Box>
+                </Flex>
+                <Box p="2" style={{ alignSelf: "center" }}>
+                  <FaArrowRight />
+                </Box>
+                <Flex direction="column" gap="1">
+                  <div>Metrics</div>
+                  <Box className="border p-2 bg-white">Mobile Sign Ups</Box>
+                  <Box className="border p-2 bg-white">Downloads per User</Box>
+                  <Box className="border p-2 bg-white">
+                    Form Completion Rate
+                  </Box>
+                  <Box className="border p-2 bg-white">Pages per Session</Box>
+                </Flex>
+              </Flex>
+            </Box>
+            <Box className="d-none d-lg-block">
+              <Separator orientation="vertical" size="4" />
+            </Box>
+            <Box>
+              <h3>Modeled Table Example</h3>
+              <Flex gap="2">
+                <Flex direction="column" gap="1">
+                  <div>Fact Table</div>
+                  <Box className="border px-3 py-2 bg-white">
+                    <InlineCode
+                      language="sql"
+                      code={`SELECT\n  timestamp,\n  user_id,\n  amount,\n  numItems\nFROM\n  orders`}
+                    />
+                  </Box>
+                </Flex>
+                <Box p="2" style={{ alignSelf: "center" }}>
+                  <FaArrowRight />
+                </Box>
+                <Flex direction="column" gap="1">
+                  <div>Metrics</div>
+                  <Box className="border p-2 bg-white">Conversion Rate</Box>
+                  <Box className="border p-2 bg-white">Revenue per User</Box>
+                  <Box className="border p-2 bg-white">Average Order Value</Box>
+                  <Box className="border p-2 bg-white">
+                    Orders with 5+ Items
+                  </Box>
+                </Flex>
+              </Flex>
+            </Box>
+          </Flex>
         </div>
-      </div>
-
-      {autoGenerateError && (
-        <Callout status="error" mb="3">
-          {autoGenerateError}
-        </Callout>
-      )}
-
-      {filteredFactTables.length > 0 && (
-        <>
+      ) : (
+        <div>
+          <div className="row mb-2 align-items-center">
+            {filteredFactTables.length > 0 && (
+              <>
+                <div className="col-lg-3 col-md-4 col-6">
+                  <Field
+                    placeholder="Search..."
+                    type="search"
+                    {...searchInputProps}
+                  />
+                </div>
+                {hasArchivedFactTables && (
+                  <div className="col-auto text-muted">
+                    <Toggle
+                      value={showArchived}
+                      setValue={setShowArchived}
+                      id="show-archived"
+                      label="show archived"
+                    />
+                    Show archived
+                  </div>
+                )}
+                <div className="col-auto">
+                  <TagsFilter filter={tagsFilter} items={items} />
+                </div>
+                <div className="ml-auto"></div>
+              </>
+            )}
+            <div className="col-auto">
+              {initialFactTableData && canCreate && (
+                <Button
+                  variant="outline"
+                  mr="2"
+                  onClick={async () => {
+                    setAutoGenerateError(null);
+                    await createInitialResources({
+                      ...initialFactTableData,
+                      apiCall,
+                      settings,
+                      metricDefaults,
+                    });
+                    await mutateDefinitions();
+                  }}
+                  setError={(error) => {
+                    setAutoGenerateError(error);
+                  }}
+                >
+                  Auto-generate Fact Tables
+                </Button>
+              )}
+              {hasDatasource ? (
+                <Tooltip
+                  body={
+                    !canCreate
+                      ? `You don't have permission to create fact tables ${
+                          project ? "in this project" : ""
+                        }`
+                      : ""
+                  }
+                >
+                  <Button
+                    onClick={() => {
+                      if (!canCreate) return;
+                      setCreateFactOpen(true);
+                    }}
+                    disabled={!canCreate}
+                  >
+                    Add Fact Table
+                  </Button>
+                </Tooltip>
+              ) : null}
+            </div>
+          </div>
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
@@ -395,19 +466,7 @@ export default function FactTablesPage() {
               )}
             </tbody>
           </table>
-        </>
-      )}
-      {!hasDatasource && (
-        <>
-          <Callout status="info">
-            You must first connect GrowthBook to a SQL data source before you
-            can create Fact Tables.
-          </Callout>
-
-          <div className="mt-3">
-            <LinkButton href="/datasources">Connect Data Source</LinkButton>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
