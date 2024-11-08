@@ -465,7 +465,7 @@ export default function DesignSystemPage() {
             <SelectItem value="carrot">Carrot</SelectItem>
             <SelectSeparator />
             <SelectItem value="apple-pie" disabled>
-              Apple Pie
+              Apple Pie (disabled)
             </SelectItem>
             <SelectItem value="carrot-cake">Carrot Cake</SelectItem>
           </Select>
