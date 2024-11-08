@@ -93,22 +93,24 @@ export default function ProjectTagBar({
         {RenderToolTipsAndValue()}
         {editProject && !projectId && (
           <Link
+            className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               editProject();
             }}
           >
-            +Add
+            <span className="cursor-pointer">+Add</span>
           </Link>
         )}
         {editProject && projectId && (
           <Link
+            className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               editProject();
             }}
           >
-            <GBEdit />
+            <GBEdit className="cursor-pointer" />
           </Link>
         )}
       </Flex>
@@ -119,48 +121,52 @@ export default function ProjectTagBar({
       <Metadata label="Project" value={renderProjectMetaDataValue()} />
     ) : null;
   };
-
+  const renderTagsValue = () => {
+    return (
+      <Flex gap="1">
+        {experiment.tags?.length > 0 && (
+          <SortedTags
+            tags={experiment.tags}
+            useFlex
+            shouldShowEllipsis={false}
+          />
+        )}
+        {editTags && experiment.tags?.length === 0 && (
+          <Link
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              editTags();
+            }}
+          >
+            <span className="cursor-pointer">+Add</span>
+          </Link>
+        )}
+        {editTags && experiment.tags?.length > 0 && (
+          <Link
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              editTags();
+            }}
+          >
+            <GBEdit />
+          </Link>
+        )}
+      </Flex>
+    );
+  };
   return (
     <div className="pb-3">
       <Flex gap="3" mt="2" mb="1">
         {renderProject()}
         <Metadata label="Experiment Key" value={trackingKey || "None"} />
         <Metadata label="Created" value={createdDate} />
-        <Metadata label="Owner" value={ownerName || "None"} />
         <Metadata label="Owner" value={renderOwner()} />
       </Flex>
       <div className="row">
         <div className="col-auto">
-          <Text weight="medium">Tags: </Text>
-          {experiment.tags?.length > 0 && (
-            <SortedTags
-              tags={experiment.tags}
-              useFlex
-              shouldShowEllipsis={false}
-            />
-          )}{" "}
-          {editTags && experiment.tags?.length === 0 && (
-            <Link
-              onClick={(e) => {
-                e.preventDefault();
-                editTags();
-              }}
-            >
-              +Add
-            </Link>
-          )}
-          {editTags && experiment.tags?.length > 0 && (
-            <Link
-              role="button"
-              className="ml-1 cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                editTags();
-              }}
-            >
-              <GBEdit />
-            </Link>
-          )}
+          <Metadata label="Tags" value={renderTagsValue()} />
         </div>
       </div>
     </div>
