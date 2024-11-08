@@ -37,6 +37,9 @@ export default function TagsModal({
   });
   const { apiCall } = useAuth();
 
+  // Add the existing color to the list of options if it's not already there
+  // Necessary for hex colors that were converted to Radix colors that we don't
+  // allow for new tags
   const colorOptions = existing.color
     ? [...new Set([...TAG_COLORS, existing.color])]
     : TAG_COLORS;
