@@ -169,12 +169,6 @@ const NewDataSourceForm: FC<{
   ) || {
     label: "Custom",
     value: "custom",
-    intro: (
-      <>
-        Connect to your data warehouse and manually configure GrowthBook with
-        SQL queries
-      </>
-    ),
   };
 
   // Filter out demo datasource from available projects
@@ -502,6 +496,17 @@ const NewDataSourceForm: FC<{
       </div>
     );
   } else if (step === "connection") {
+    const datasourceInfo = dataSourceConnections.find(
+      (d) => d.type === connectionInfo.type
+    );
+
+    const headerParts: string[] = [
+      datasourceInfo?.display || connectionInfo.type || "",
+    ];
+    if (connectionInfo.type !== "mixpanel") {
+      headerParts.push(selectedSchema.label);
+    }
+
     stepContents = (
       <div>
         <div className="mb-3">
@@ -511,7 +516,11 @@ const NewDataSourceForm: FC<{
               onClick={(e) => {
                 e.preventDefault();
                 setLastError("");
-                setStep("eventTracker");
+                if (connectionInfo.type === "mixpanel") {
+                  setStep("initial");
+                } else {
+                  setStep("eventTracker");
+                }
               }}
             >
               <span style={{ position: "relative", top: "-1px" }}>
@@ -521,19 +530,30 @@ const NewDataSourceForm: FC<{
             </a>
           )}
         </div>
-        <h3>
-          {connectionInfo.type ? (
-            <>
-              {dataSourceConnections.find((d) => d.type === connectionInfo.type)
-                ?.display || connectionInfo.type}{" "}
-              &gt;{" "}
-            </>
-          ) : null}
-          {selectedSchema.label}
-        </h3>
-        {selectedSchema && selectedSchema.intro && (
-          <div className="mb-4">{selectedSchema.intro}</div>
-        )}
+        <h3>{headerParts.join(" > ")}</h3>
+
+        {datasourceInfo ? (
+          <Callout status="info" mb="3">
+            View docs on connecting{" "}
+            {selectedSchema.helpLink ? (
+              <>
+                <a
+                  href={selectedSchema.helpLink}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {selectedSchema.label} to {datasourceInfo.display}{" "}
+                  <FaExternalLinkAlt />
+                </a>{" "}
+                or{" "}
+              </>
+            ) : null}
+            <DocLink docSection={datasourceInfo.docs}>
+              {datasourceInfo.display} to GrowthBook <FaExternalLinkAlt />
+            </DocLink>{" "}
+          </Callout>
+        ) : null}
+
         <div className="form-group">
           <label>Name</label>
           <input
