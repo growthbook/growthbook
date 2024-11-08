@@ -150,7 +150,7 @@ export default function ProjectTagBar({
               editTags();
             }}
           >
-            <GBEdit />
+            <GBEdit className="cursor-pointer" />
           </Link>
         )}
       </Flex>
