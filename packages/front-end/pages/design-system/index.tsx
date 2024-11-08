@@ -1,4 +1,4 @@
-import { Flex, Slider } from "@radix-ui/themes";
+import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -24,6 +24,7 @@ import RadioCards from "@/components/Radix/RadioCards";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DataList from "@/components/Radix/DataList";
 import Stepper from "@/components/Stepper/Stepper";
+import Link from "@/components/Radix/Link";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -174,6 +175,47 @@ export default function DesignSystemPage() {
           >
             A disabled link
           </LinkButton>
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Link</h3>
+        <Flex direction="column" gap="3">
+          <Box>
+            Here we have <Link href="#">a link</Link> within a sentence.
+          </Box>
+          <Box>
+            <Link href="#" weight="bold">
+              Bold link
+            </Link>
+          </Box>
+          <Box>
+            <Link href="#" weight="bold" underline="none">
+              Link without underline affordance
+            </Link>
+          </Box>
+          <Box>
+            And you can{" "}
+            <Link color="gray" href="#">
+              override
+            </Link>{" "}
+            the{" "}
+            <Link color="sky" href="#">
+              link color
+            </Link>{" "}
+            with{" "}
+            <Link color="sky" href="#">
+              Radix colors
+            </Link>
+            .
+          </Box>
+          <Box>
+            And we also have{" "}
+            <Link href="#" color="dark" weight="bold">
+              a custom dark/white color
+            </Link>
+            .
+          </Box>
         </Flex>
       </div>
 
