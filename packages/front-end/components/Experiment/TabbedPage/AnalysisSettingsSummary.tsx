@@ -321,17 +321,17 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto">
           {!(isBandit && experiment.status === "running") &&
           canEditAnalysisSettings ? (
-            <Link
-              onClick={(e) => {
-                e.preventDefault();
-                setAnalysisModal(true);
-              }}
-            >
-              <span className="text-dark cursor-pointer">
-                Analysis Settings
-              </span>
-              <GBEdit className="ml-2 cursor-pointer" />
-            </Link>
+            <div className="cursor-pointer">
+              <Link
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAnalysisModal(true);
+                }}
+              >
+                <span className="text-dark">Analysis Settings</span>
+                <GBEdit className="ml-2" />
+              </Link>
+            </div>
           ) : (
             <span>Analysis Settings</span>
           )}
