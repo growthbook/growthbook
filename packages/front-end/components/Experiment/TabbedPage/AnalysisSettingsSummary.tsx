@@ -327,7 +327,9 @@ export default function AnalysisSettingsSummary({
                 setAnalysisModal(true);
               }}
             >
-              <span className="text-dark">Analysis Settings</span>
+              <span className="text-dark cursor-pointer">
+                Analysis Settings
+              </span>
               <GBEdit className="ml-2 cursor-pointer" />
             </Link>
           ) : (
