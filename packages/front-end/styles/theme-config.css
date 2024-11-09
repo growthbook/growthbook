@@ -15,6 +15,7 @@
 .light-theme {
   --color-page-background: #f5f7fa;
   --color-background: #faf8ff;
+  --color-panel-solid: #ffffff;
 
   --color-text-high: #1f2d5c;
   --color-text-mid: rgba(31, 45, 92, 0.85);
@@ -22,7 +23,8 @@
 .dark,
 .dark-theme {
   --color-background: #10172e;
+  --color-panel-solid: #1c2339;
 
-  --color-text-high: white;
+  --color-text-high: #ffffff;
   --color-text-mid: rgba(255, 255, 255, 0.85);
 }

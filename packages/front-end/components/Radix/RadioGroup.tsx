@@ -64,7 +64,7 @@ export default function RadioGroup({
                   >
                     <Text className={disabled ? "rt-TextDisabled" : undefined}>
                       <Flex direction="column" gap="1">
-                        <Text style={{ fontWeight: 500 }} className="main-text">
+                        <Text weight="medium" className="main-text">
                           {label || value}
                         </Text>
                         {description ? (
