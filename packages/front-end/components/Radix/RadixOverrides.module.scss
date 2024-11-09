@@ -11,6 +11,10 @@
 }
 
 .link {
+  // Ensures consistent underline color between button and link
+  // Can be removed when bootstrap is removed.
+  text-decoration-color: inherit;
+
   &:hover {
     color: var(--accent-10);
   }

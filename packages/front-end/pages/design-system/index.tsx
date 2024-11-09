@@ -210,11 +210,19 @@ export default function DesignSystemPage() {
             .
           </Box>
           <Box>
-            And we also have{" "}
+            We also have{" "}
             <Link href="#" color="dark" weight="bold">
               a custom dark/white color
             </Link>
             .
+          </Box>
+
+          <Box>
+            Here&apos;s the Link without href where it{" "}
+            <Link onClick={() => alert("Hello there")}>
+              automatically adapts to a button
+            </Link>{" "}
+            while keeping the same style.
           </Box>
         </Flex>
       </div>
