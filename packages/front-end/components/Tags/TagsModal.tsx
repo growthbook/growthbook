@@ -1,12 +1,12 @@
 import { useForm } from "react-hook-form";
 import React from "react";
 import { TagInterface } from "back-end/types/tag";
-import { Button, Container } from "@radix-ui/themes";
+import { Text, Container } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/components/Radix/HelperText";
-import styles from "./TagsModal.module.scss";
+import { Select, SelectItem } from "@/components/Radix/Select";
 import Tag from "./Tag";
 
 export const TAG_COLORS = [
@@ -37,6 +37,13 @@ export default function TagsModal({
   });
   const { apiCall } = useAuth();
 
+  // Add the existing color to the list of options if it's not already there
+  // Necessary for hex colors that were converted to Radix colors that we don't
+  // allow for new tags
+  const colorOptions = existing.color
+    ? [...new Set([...TAG_COLORS, existing.color])]
+    : TAG_COLORS;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -52,59 +59,56 @@ export default function TagsModal({
         await onSuccess();
       })}
     >
-      <div className="colorpicker tagmodal">
+      <div>
         {!existing?.id && (
-          <Field
-            label="Name"
-            minLength={2}
-            maxLength={64}
-            className=""
-            required
-            {...form.register("id")}
-          />
-        )}
-        <label>Color:</label>
-        <div className={styles.picker}>
-          <Container
-            style={{
-              background: "var(--color-background)",
-              borderRadius: "var(--radius-3)",
-            }}
-            p="4"
-          >
-            {TAG_COLORS.map((c) => (
-              <Button
-                key={c}
-                radius="full"
-                color={c}
-                onClick={(e) => {
-                  e.preventDefault();
-                  form.setValue("color", c);
-                }}
-                mr="2"
-                mt="1"
-                mb="1"
-                style={{ height: "32px", width: "32px" }}
-              />
-            ))}
-          </Container>
-        </div>
-        <Field
-          label="Description"
-          textarea
-          maxLength={256}
-          {...form.register("description")}
-        />
-        <div>
-          <label>Preview</label>
-          <div>
-            <Tag
-              tag={form.watch("id")}
-              color={form.watch("color") as RadixColor}
-              description={form.watch("description")}
+          <Container mb="3">
+            <Text as="label" size="3" weight="medium">
+              Name
+            </Text>
+            <Field
+              minLength={2}
+              maxLength={64}
+              className=""
+              required
+              {...form.register("id")}
             />
+          </Container>
+        )}
+        <Select
+          label="Color"
+          value={form.watch("color")}
+          setValue={(v) => form.setValue("color", v)}
+          mb="3"
+        >
+          {colorOptions.map((c) => (
+            <SelectItem key={c} value={c}>
+              {c}
+            </SelectItem>
+          ))}
+        </Select>
+
+        <Container mb="3">
+          <Text as="label" size="3" weight="medium">
+            Description
+          </Text>
+          <Field textarea maxLength={256} {...form.register("description")} />
+        </Container>
+
+        <Container>
+          <Text as="label" size="3" weight="medium">
+            Preview
+          </Text>
+          <div>
+            {form.watch("id") && (
+              <Tag
+                tag={form.watch("id")}
+                color={form.watch("color") as RadixColor}
+                description={form.watch("description")}
+                skipMargin
+              />
+            )}
           </div>
-        </div>
+        </Container>
       </div>
     </Modal>
   );

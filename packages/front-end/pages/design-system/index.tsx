@@ -14,16 +14,17 @@ import LinkButton from "@/components/Radix/LinkButton";
 import Avatar from "@/components/Radix/Avatar";
 import Field from "@/components/Forms/Field";
 import {
-  Dropdown,
+  DropdownMenu,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/Dropdown";
+} from "@/components/Radix/DropdownMenu";
 import RadioCards from "@/components/Radix/RadioCards";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DataList from "@/components/Radix/DataList";
 import Stepper from "@/components/Stepper/Stepper";
+import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
 
 export default function DesignSystemPage() {
@@ -37,6 +38,7 @@ export default function DesignSystemPage() {
   >("1");
   const [sliderVal, setSliderVal] = useState(10);
   const [stepperStep, setStepperStep] = useState(0);
+  const [selectValue, setSelectValue] = useState("carrot");
 
   return (
     <div className="pagecontents container-fluid">
@@ -297,7 +299,7 @@ export default function DesignSystemPage() {
 
       <div className="appbox p-3">
         <h3>Dropdown</h3>
-        <Dropdown trigger="Dropdown button">
+        <DropdownMenu trigger="Dropdown button">
           <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
           <DropdownSubMenu trigger="Item 1">
             <DropdownMenuItem>Item 1.1</DropdownMenuItem>
@@ -313,7 +315,7 @@ export default function DesignSystemPage() {
           <DropdownMenuItem>Item 3</DropdownMenuItem>
           <DropdownMenuItem> Item 4</DropdownMenuItem>
           <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
-        </Dropdown>
+        </DropdownMenu>
       </div>
       <div className="appbox p-3">
         <h3>Radio Card</h3>
@@ -449,6 +451,52 @@ export default function DesignSystemPage() {
             },
           ]}
         />
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Select</h3>
+        <Flex direction="column" gap="3" maxWidth="300px">
+          <Select
+            label="Select"
+            defaultValue="carrot"
+            value={selectValue}
+            setValue={setSelectValue}
+          >
+            <SelectItem value="apple">Apple</SelectItem>
+            <SelectItem value="carrot">Carrot</SelectItem>
+            <SelectSeparator />
+            <SelectItem value="apple-pie" disabled>
+              Apple Pie (disabled)
+            </SelectItem>
+            <SelectItem value="carrot-cake">Carrot Cake</SelectItem>
+          </Select>
+          <Select
+            label="Select with an error"
+            defaultValue="carrot"
+            value={selectValue}
+            setValue={setSelectValue}
+            error="This is an error message"
+          >
+            <SelectItem value="apple">Apple</SelectItem>
+            <SelectItem value="carrot">Carrot</SelectItem>
+            <SelectSeparator />
+            <SelectItem value="apple-pie">Apple Pie</SelectItem>
+            <SelectItem value="carrot-cake">Carrot Cake</SelectItem>
+          </Select>
+          <Select
+            label="Disabled Select"
+            defaultValue="carrot"
+            value={selectValue}
+            setValue={setSelectValue}
+            disabled
+          >
+            <SelectItem value="apple">Apple</SelectItem>
+            <SelectItem value="carrot">Carrot</SelectItem>
+            <SelectSeparator />
+            <SelectItem value="apple-pie">Apple Pie</SelectItem>
+            <SelectItem value="carrot-cake">Carrot Cake</SelectItem>
+          </Select>
+        </Flex>
       </div>
 
       <div className="appbox p-3">
