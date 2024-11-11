@@ -253,11 +253,6 @@ const sidebars = {
           ],
         },
         {
-          type: "doc",
-          id: "experimentation-analysis/data-pipeline",
-          label: "Data Pipeline",
-        },
-        {
           type: "category",
           label: "Metrics and Fact Tables",
           collapsed: true,
@@ -283,6 +278,11 @@ const sidebars = {
               label: "Legacy Metrics",
             },
           ],
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/data-pipeline",
+          label: "Data Pipeline",
         },
       ],
     },
