@@ -305,7 +305,7 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "metrics/examples",
+          id: "metrics/metric-examples",
           label: "Metric Examples and Use Cases",
         },
         {
