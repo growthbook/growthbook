@@ -322,10 +322,10 @@ export default function FactTablePage() {
 
       <div className="row mb-4">
         <div className="col d-flex flex-column">
-          <h3>Filters</h3>
+          <h3>Row Filters</h3>
           <div className="mb-1">
-            Filters are re-usable SQL snippets that let you limit the rows that
-            are included in a Metric.
+            Row Filters are re-usable SQL snippets that let you limit the rows
+            that are included in a Metric.
           </div>
           <div className="appbox p-3 flex-1">
             <FactFilterList factTable={factTable} />

@@ -24,7 +24,7 @@ hide_table_of_contents: true
 
 **B**
 
-[Binomial Metric](/app/metrics#binomial-metrics): A binomial metric in GrowthBook is a type of metric that represents a binary outcome (yes/no or success/failure), such as whether a user converted or not, and is used to compute the proportion of users in an experiment variation who converted.
+[Binomial Metric](/app/metrics/legacy#binomial-metrics): A binomial metric in GrowthBook is a type of legacy metric that represents a binary outcome (yes/no or success/failure), such as whether a user converted or not, and is used to compute the proportion of users in an experiment variation who converted. The new name for this metric type is a Proportion Metric.
 
 **C**
 
@@ -38,7 +38,7 @@ hide_table_of_contents: true
 
 [Control](/using/fundamentals#control-or-baseline): The control in GrowthBook refers to the baseline or original version in an A/B test against which other variations are compared to determine their effectiveness.
 
-[Count Metric](/app/metrics#conversion-types): A count metric in GrowthBook is a type of metric that represents the number or magnitude of conversions (like pages per visit or points earned), where the value of each conversion event is summed together at the user level before taking an average per variation.
+[Count Metric](/app/metrics/legacy#conversion-types): A count metric in GrowthBook is a type of legacy metric that represents the number or magnitude of conversions (like pages per visit or points earned), where the value of each conversion event is summed together at the user level before taking an average per variation. The new name for this metric type is a Mean Metric.
 
 **D**
 
@@ -64,7 +64,7 @@ hide_table_of_contents: true
 
 **F**
 
-[Fact Table](/app/fact-tables): A Fact Table in GrowthBook is a feature that allows you to write SQL once for an event and from that, you can create multiple related metrics, simplifying the process of defining metrics and enabling advanced performance and cost optimizations.
+[Fact Table](/app/metrics): A Fact Table in GrowthBook is a feature that allows you to write SQL once for an event and from that, you can create multiple related metrics, simplifying the process of defining metrics and enabling advanced performance and cost optimizations.
 
 [Feature](/features/basics): Features in GrowthBook are configurable elements of your product that can be controlled via the GrowthBook UI, allowing you to change your application's behavior, run experiments, and gradually roll out new functionality to your users.
 
@@ -90,9 +90,11 @@ hide_table_of_contents: true
 
 **M**
 
-[Metric](/app/metrics): A Metric in GrowthBook is a key performance indicator that your experiments are trying to improve, defined via SQL or a simple query builder, and can be of various types like binomial, count, duration, and revenue.
+[Mean Metric](/app/metrics#mean-metrics): A Mean Metric in GrowthBook is a type of metric that measures an average value among all experiment users. For example, the average revenue per user.
 
-[Metric Query](/app/metrics#query-settings): A Metric Query in GrowthBook is a SQL or simple query that defines how to fetch data for a specific metric from your data source, returning one row per "conversion event" and supporting various types of identifiers.
+[Metric](/app/metrics): A Metric in GrowthBook is a key performance indicator that your experiments are trying to improve, defined via SQL or a simple query builder, and can be of various types like proportion, mean, quantile, or ratio.
+
+[Metric Query](/app/metrics/legacy#query-settings): A Metric Query in GrowthBook is a SQL or simple query that defines how to fetch data for a specific metric from your data source, returning one row per "conversion event" and supporting various types of identifiers.
 
 [Multiple Exposures](/using/experimenting#multiple-exposures): Multiple Exposures in GrowthBook refers to a situation where a substantial number of users in an experiment have been exposed to multiple variations, indicating a potential issue with the experiment assignment or tracking implementation.
 
@@ -106,13 +108,21 @@ hide_table_of_contents: true
 
 [Percentage Rollout](/features/rules#percentage-rollout): A Percentage Rollout in GrowthBook is a rule that allows you to gradually release a feature to a random sample of your users, useful for ensuring a new feature doesn't break your app or site and for controlling the exposure of your users to the new feature.
 
+[Proportion Metric](/app/metrics#proportion-metrics): A Proportion Metric in GrowthBook is a type of metric that measures the percent of experiment users who match a specific criteria (like the percent of users who purchased something).
+
 [Prerequisite Feature](/features/prerequisites): A Prerequisite Feature in GrowthBook is a feature that controls the state of other features, rules, and experiments based on its own state, allowing for grouping of related features, creating a hierarchy of features, and enabling features based on user bucketing.
 
 [Project](/using/growthbook-best-practices#projects): A Project in GrowthBook is a way to organizationally separate features, metrics, experiments, and data sources by team or product feature within an organization, allowing for focused views and management of specific sections of GrowthBook.
 
+**Q**
+
+[Quantile Metric](/app/metrics#quantile-metrics): A Quantile Metric in GrowthBook is a type of metric that measures a specific quantile (Median, P90, etc.) of a value. For example, P99 Latency or Median Revenue per User.
+
 **R**
 
-[Revenue Metric](/app/metrics#conversion-types): A Revenue Metric in GrowthBook is a type of metric that measures the amount of revenue earned (like revenue per user or average order value), where the value of each event is summed together at the user level before taking an average per variation.
+[Ratio Metric](/app/metrics#ratio-metrics): A Ratio Metric in GrowthBook is a type of metric that measures the ratio between two values. For example, Average Order Value (sum of revenue divided by number of orders).
+
+[Revenue Metric](/app/metrics/legacy#conversion-types): A Revenue Metric in GrowthBook is a type of legacy metric that measures the amount of revenue earned (like revenue per user or average order value), where the value of each event is summed together at the user level before taking an average per variation. The new name for this is a Mean Metric.
 
 [Rule](/features/basics#rules): A Feature Rule in GrowthBook is a tool to change the default value of a feature for specific users or groups, supporting different types like Forced Value, Percentage Rollout, and A/B Experiment, and providing fine-grained control over feature assignment.
 

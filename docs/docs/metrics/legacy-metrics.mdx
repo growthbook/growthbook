@@ -1,18 +1,18 @@
 ---
-title: Metrics
+title: Legacy Metrics
 description: Learn about defining the metrics you will use in your A/B test results
-sidebar_label: Metrics
-slug: /app/metrics
+sidebar_label: Legacy Metrics
+slug: /app/metrics/legacy
 ---
 
 import Anchor from '@site/src/components/Anchor'
 
-# Metrics
+# Legacy Metrics
 
 Metrics are what your experiments are trying to improve (or at least not hurt). GrowthBook has a very flexible and powerful way to define metrics.
 
 :::info
-There's a brand new way to define metrics in GrowthBook using **Fact Tables**. [Check out the docs](/app/fact-tables)
+This page describes Legacy Metrics. We highly recommend using **Fact Tables** to define metrics instead. [Check out the docs](/app/metrics)
 :::
 
 ## Conversion Types
@@ -173,7 +173,7 @@ For example, if you want to look at the Average Order Value (AOV), what you're r
 
 ##### Quantile Metrics
 
-[Quantile Metrics](/statistics/quantile) are available only as Fact Tables, as described [here](/app/fact-tables).
+[Quantile Metrics](/statistics/quantile) are available only as Fact Tables, as described [here](/app/metrics#quantile-metrics).
 
 ### 2. Javascript (Mixpanel only)
 
@@ -397,3 +397,43 @@ From this table, we can build many different metrics:
 | Active User Last 14d | Binomial        | SELECT user_id, timestamp FROM events                                           | n/a           |                     | 0               | Lookback - 14 day |
 
 If you wanted to only count purchases and purchase values made in the 72 hours after a user's first exposure to an experiment, then you could set the metric window to a conversion window of 72 hours. If you wanted to just count any user who made a purchase any time after experiment exposure, then set the metric window to none.
+
+## Migrating Legacy Metrics to Fact Tables
+
+We recommend using Fact Tables for all new metrics. Legacy metrics will continue to be supported, but they will not get any new features.
+
+If you would like to migrate existing legacy metrics to Fact Tables, there are a few differences to be aware of.
+
+### Reusable Definitions
+
+Metric definitions have been split up into a few different reusable pieces. It's a couple more steps to create your first metric, but it should drastically simplify adding subsequent ones and building out your metric library.
+
+- The SQL and supported user identifiers are defined in the **Fact Table**
+- The display formatting (e.g. currency vs duration) is attached to a Fact Table **Column**
+- Any WHERE clauses for metrics are defined as **Filters** (e.g. `device_type = 'mobile'`)
+
+Once these pieces are in place, defining Metrics is now much easier. The form went from 13+ steps down to just 4 and no longer requires any specialized SQL or database knowledge.
+
+### Metric SQL
+
+Before, SQL for a metric would select at most 1 numeric column and it had to be named `value`. With Fact Tables, you can have as many numeric columns as you want and there are no naming restrictions. This allows you to have 1 complex SQL definition be re-used across many related metrics.
+
+Also, Custom aggregations are no longer supported. Fact Tables only support a few pre-defined aggregations - `COUNT` and `SUM` (we may add more in the future). Using these pre-defined aggregations greatly simplifies the queries we run and enables advanced performance and cost optimizations.
+
+### Metric Types
+
+Metric types have changed.
+
+- Binomial Metrics have been renamed to **Proportion Metrics**
+- Count, Duration, and Revenue are all now just **Mean Metrics** (the display formatting is controlled by the Fact Table columns now)
+- Instead of just adding a denominator to any metric, there is now a dedicated type for **Ratio Metrics**.
+
+### Ratio Metrics
+
+There are a lot of changes to how Ratio Metrics are defined and how they behave.
+
+Ratio metrics are now self-contained. Previously, the denominator would just be a pointer to an entirely separate metric. This allowed some weird edge cases like the denominator itself being a ratio metric with it's own denominator. With Fact Tables, you define both the numerator and denominator in one flow and these nested denominator edge cases are no longer supported.
+
+During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. We plan to add a dedicated Funnel metric type in the future to support this use case.
+
+Lastly, Ratio metrics now have a single metric window and capping behavior. Previously, this would be controlled separately for the numerator and denominator. Because of this change, only "percentile" capping is allowed for ratio metrics.

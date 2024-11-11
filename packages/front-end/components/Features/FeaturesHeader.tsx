@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
+import { Text } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
@@ -28,6 +29,7 @@ import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 
 export default function FeaturesHeader({
   feature,
@@ -254,7 +256,7 @@ export default function FeaturesHeader({
           <div className="mb-2 row">
             {(projects.length > 0 || projectIsDeReferenced) && (
               <div className="col-auto">
-                Project:{" "}
+                <Text weight="medium">Project: </Text>
                 {projectIsDeReferenced ? (
                   <Tooltip
                     body={
@@ -271,18 +273,12 @@ export default function FeaturesHeader({
                   <Tooltip
                     body={<>This feature is not in your current project.</>}
                   >
-                    {projectId ? (
-                      <strong>{projectName}</strong>
-                    ) : (
-                      <em className="text-muted">None</em>
-                    )}{" "}
+                    {projectId ? <strong>{projectName}</strong> : null}{" "}
                     <FaExclamationTriangle className="text-warning" />
                   </Tooltip>
                 ) : projectId ? (
                   <strong>{projectName}</strong>
-                ) : (
-                  <em className="text-muted">None</em>
-                )}
+                ) : null}
                 {canEdit && canPublish && (
                   <Tooltip
                     shouldDisplay={dependents > 0}
@@ -298,25 +294,48 @@ export default function FeaturesHeader({
                       </>
                     }
                   >
-                    <a
-                      className="ml-2 cursor-pointer"
-                      onClick={() => {
-                        dependents === 0 && setEditProjectModal(true);
-                      }}
-                    >
-                      <GBEdit />
-                    </a>
+                    {projectId && (
+                      <a
+                        className="ml-2 cursor-pointer"
+                        onClick={() => {
+                          dependents === 0 && setEditProjectModal(true);
+                        }}
+                      >
+                        <GBEdit />
+                      </a>
+                    )}
+                    {!projectId && (
+                      <a
+                        role="button"
+                        className="cursor-pointer button-link"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          dependents === 0 && setEditProjectModal(true);
+                        }}
+                      >
+                        +Add
+                      </a>
+                    )}
                   </Tooltip>
                 )}
               </div>
             )}
 
             <div className="col-auto">
-              Type: {feature.valueType || "unknown"}
+              <Text weight="medium">Type: </Text>
+              {feature.valueType || "unknown"}
             </div>
 
             <div className="col-auto">
-              Owner: {feature.owner ? feature.owner : "None"}
+              <Text weight="medium">Owner: </Text>
+              {feature.owner ? (
+                <span>
+                  <UserAvatar name={feature.owner} size="sm" variant="soft" />{" "}
+                  {feature.owner}
+                </span>
+              ) : (
+                <em className="text-muted">None</em>
+              )}{" "}
               {canEdit && (
                 <a
                   className="ml-1 cursor-pointer"
@@ -344,7 +363,7 @@ export default function FeaturesHeader({
           </div>
           <div className="row mb-3">
             <div className="col-auto">
-              Tags:{" "}
+              <Text weight="medium">Tags: </Text>
               <SortedTags
                 tags={feature.tags || []}
                 useFlex
