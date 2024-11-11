@@ -300,13 +300,18 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "experimentation-analysis/fact-tables",
-          label: "Fact Tables",
+          id: "metrics/metrics",
+          label: "Metrics and Fact Tables",
         },
         {
           type: "doc",
-          id: "experimentation-analysis/metrics",
-          label: "Metrics",
+          id: "metrics/examples",
+          label: "Metric Examples and Use Cases",
+        },
+        {
+          type: "doc",
+          id: "metrics/legacy-metrics",
+          label: "Legacy Metrics",
         },
         {
           type: "doc",

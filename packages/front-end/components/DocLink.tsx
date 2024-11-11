@@ -8,7 +8,7 @@ const docSections = {
   experimentResults: "/app/experiment-results",
   stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
-  factTables: "/app/fact-tables",
+  factTables: "/app/metrics",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
   dashboard: "/app/experiment-configuration",
@@ -62,7 +62,7 @@ const docSections = {
   temporaryRollout: "/app/visual#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
-  autoMetrics: "/app/metrics/#auto-generate-metrics",
+  autoMetrics: "/app/metrics/legacy#auto-generate-metrics",
   targetingChanges:
     "/app/experiment-configuration#making-changes-while-running",
   shopify: "/integrations/shopify",
