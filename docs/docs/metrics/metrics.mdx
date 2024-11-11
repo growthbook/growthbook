@@ -1,7 +1,6 @@
 ---
 title: Metrics and Fact Tables
 description: Learn about defining metrics and fact tables within GrowthBook
-sidebar_label: Metrics and Fact Tables
 slug: /app/metrics
 ---
 
@@ -32,7 +31,7 @@ SELECT
   purchase_date as timestamp,
   user_id,
   anonymous_id,
-  -- Additional columns (depends on your event)
+  -- Additional columns (depends on your use case)
   amount,
   coupon_code,
   device_type
@@ -42,7 +41,7 @@ WHERE
   status = 'completed'
 ```
 
-Fact Tables work great for raw event streams, modeled tables, and pre-aggregated tables. Check out [Metric Examples and Use Cases](/app/metrics/examples) for more info on supporting these different data schemas.
+This is an example of a "modeled table", which represents a specific order event and has dedicated columns related to orders. GrowthBook also works great with raw event stream tables and even some pre-aggregated tables. Check out [Metric Examples and Use Cases](/app/metrics/examples) for more info and examples of these different data schemas and table types.
 
 ### Columns
 
@@ -51,16 +50,6 @@ When you create a Fact Table, we query the first few rows and inspect the return
 This process isn't perfect. For example, if the first few rows happen to have `null` as the value of a column, we can't tell if it's supposed to be a number, string, etc.. When this happens, we will show you a warning and you can manually specify the type.
 
 Any column can be used to create filters, but only numeric columns can be used as a metric value.
-
-#### Type Column
-
-It's common to have an important "type" column that you use to build out metrics. For example, if your Fact Table is a raw event stream, there will be a column like `event_type` to differentiate between a page view, button click, purchase, etc..
-
-After creating your Fact Table, you can edit a column and check the “Prompt all metrics” box. This helps GrowthBook better streamline the UI when creating metrics.
-
-![Event Type Filter](/images/metrics/inline-filter.png)
-
-When you check this box, GrowthBook will run a quick query looking for the top 100 values for this column in the past week. This will be used to power an auto-complete field in the UI when creating a metric.
 
 #### Number Formats
 
@@ -79,10 +68,6 @@ There are 4 types of metrics you can create within GrowthBook - Proportion, Mean
 Proportion Metrics measure the percent of users in an experiment who exist in a Fact Table (and match any filters you specify).
 
 For example, if you have an Orders Fact Table, you can create a Proportion Metric to see what percent of users purchased something. For this metric, we don't care how many times they purchased, just that they have at least 1 matching row.
-
-You can add **Row Filters** to limit which rows are considered. For example, adding a `Mobile` filter, you can see what percent of users completed a purchase on a mobile device.
-
-You can also add a **User Filter** to decide which users to include AFTER aggregating all of their rows together. For example, you can filter on `Count of Rows >= 3` to only include users who have at least 3 matching rows.
 
 ### Mean Metrics
 
@@ -128,15 +113,52 @@ When picking `Quantile` you have several default options or can select `Custom`.
 
 ## Filters
 
-Filters are reusable SQL snippets to filter the rows in the Fact Table. These let you easily create metric variants. For example, `Purchase`, `Mobile Purchase`, and `Desktop Purchase`
+The real power of Fact Tables comes with filtering. This allows you to easily create metric variants.
 
-Here's an example Filter SQL:
+There are 3 kinds of filtering available
+
+- Inline Filters
+- Row Filters
+- User Filters
+
+### Inline Filters
+
+It's common to have an important "type" column that you use to build out metrics. For example, if your Fact Table is a raw event stream, there will be a column like `event_type` to differentiate between a page view, button click, purchase, etc.. You will almost always want to filter metrics using this column.
+
+After creating your Fact Table, you can edit a column and check the “Prompt all metrics” box. This helps GrowthBook better streamline the UI when creating metrics.
+
+![Marking an Event Type column](/images/metrics/inline-filter.png)
+
+When you check this box, GrowthBook will run a quick query looking for the top 100 values for this column in the past week. This will be used to add an auto-complete field in the UI when creating a metric:
+
+![Event Type Filter UI](/images/metrics/event-type-filter-metric-form.png)
+
+Another example use of this checkbox is for a `Page Path` column in a `Page Views` Fact Table. This will streamline creation of metrics such as "Visited /checkout", "Visited /pricing", and more.
+
+If you select multiple values for an inline filter, they will be ORed together.
+
+### Row Filters
+
+Row Filters are reusable SQL snippets defined within a Fact Table. Once defined, they can be applied to any metric type.
+
+Here's an example Row Filter SQL:
 
 ```sql
 device_type = 'mobile'
 ```
 
 If a metric uses this Filter, GrowthBook will add it to the WHERE clause automatically. If there are multiple Filters, they will be ANDed together.
+
+### User Filters
+
+User Filters are different from both Inline and Row Filters in that they are applied AFTER aggregating by user.
+
+You can either filter on the `Count of Rows` or the `SUM` of a numeric column. This can be easier to understand with examples:
+
+- Count of rows: `>= 3`: Only include users with at least 3 rows in a Fact Table
+- SUM of a revenue column: `> 100`: Only include users who have spent at least $100 total across all of their orders.
+
+Only simple SQL comparison operators are supported: `<`, `>`, `<=`, `>=`, `=`, `<>`. User Filters can only be applied to Proportion metrics and the numerator of Ratio metrics (only when using `COUNT(DISTINCT 'User Identifier')`).
 
 ## Metric Windows
 

@@ -299,20 +299,33 @@ const sidebars = {
           label: "Data Pipeline",
         },
         {
-          type: "doc",
-          id: "metrics/metrics",
+          type: "category",
           label: "Metrics and Fact Tables",
+          collapsed: true,
+
+          link: {
+            type: "doc",
+            id: "metrics/metrics",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "metrics/metrics",
+              label: "Metrics Overview",
+            },
+            {
+              type: "doc",
+              id: "metrics/metric-examples",
+              label: "Metric Examples and Use Cases",
+            },
+            {
+              type: "doc",
+              id: "metrics/legacy-metrics",
+              label: "Legacy Metrics",
+            },
+          ],
         },
-        {
-          type: "doc",
-          id: "metrics/metric-examples",
-          label: "Metric Examples and Use Cases",
-        },
-        {
-          type: "doc",
-          id: "metrics/legacy-metrics",
-          label: "Legacy Metrics",
-        },
+
         {
           type: "doc",
           id: "experimentation-analysis/experiment-configuration",
