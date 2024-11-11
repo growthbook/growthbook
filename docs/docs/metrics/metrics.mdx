@@ -198,13 +198,13 @@ Larger companies who measure long run logged in behavior want to ensure their ex
 
 ## Advanced Settings
 
-#### What is the Goal?
+### What is the Goal?
 
 For the vast majority of metrics, the goal is to increase the value. But for some metrics like "Bounce Rate" and "Page Load Time", lower is actually better.
 
 Setting this to "decrease" basically inverts the "Chance to Beat Control" value in experiment results so that "beating" the control means decreasing the value. This will also reverse the red and green coloring on graphs.
 
-#### Capped Value
+### Capped Value
 
 Large outliers can have an outsized effect on experiment results. For example, if your normal revenue per user \$40 and someone happens to make a \$5000 order, whatever variation that person is in will be much more likely "win" any experiment because that one order is an outlier.
 
@@ -220,11 +220,11 @@ You can additionally choose to ignore zeros, which will compute the percentile w
 
 Because the percentile cap depends on the data in your experiment, it can be different from experiment to experiment, or even analysis to analysis. To find out what value was actually used for capping you can do the following: on the Experiment Results tab, click the three dot menu in the top right and select "View Queries". Each percentile capped metric will have a column with the `main_cap_value` that was used to cap that metric and represents the computed percentile of unit-level aggregate values.
 
-#### Metric Delay
+### Metric Delay
 
 Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, if your underlying table reports whether a user is retained on any given day, you could set a metric delay to `24` hours.
 
-##### Negative metric delays
+#### Negative metric delays
 
 The metric delay can also be negative to include some conversions **before** a user is put into an experiment. For example, a value of `-2` would mean conversions up to 2 hours before will be included. You might be wondering when this would ever be useful.
 
@@ -239,7 +239,7 @@ Keep in mind, these two things are answering slightly different questions.
 `How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
 The first question is more direct and often a more strict test of your hypothesis, but it may not be worth the extra running time.
 
-#### Bayesian Priors
+### Bayesian Priors
 
 Your organization can set default priors for Bayesian analyses that are used by all metrics.
 
