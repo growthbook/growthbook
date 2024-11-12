@@ -641,6 +641,11 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/deno-hono",
+          label: "Deno + Hono",
+        },
+        {
+          type: "doc",
           id: "guide/nextjs-and-vercel-feature-flags",
           label: "Next.js + Vercel Feature Flags",
         },
