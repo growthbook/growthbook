@@ -151,7 +151,7 @@ function CardLink({
   disabled?: boolean;
   compact?: boolean;
 }) {
-  const padding = { initial: "2", xs: "3", md: "5" };
+  const padding = { initial: "2", xs: "3", sm: "2", md: "5" };
 
   return (
     <Card asChild>

@@ -59,9 +59,14 @@
 
 .migrateArrowIcon,
 .chartIcon {
-  width: 35px;
-  height: 35px;
+  width: 25px;
+  height: 25px;
   flex-shrink: 0;
+
+  @media (min-width: 769px) {
+    width: 35px;
+    height: 35px;
+  }
 }
 
 .cardLink:hover .migrateArrowIcon {
