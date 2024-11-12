@@ -181,7 +181,10 @@ export const postDemoDatasourceProject = async (
 
   if (
     !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
-    !context.permissions.canCreateDataSource({ projects: [demoProjId] })
+    !context.permissions.canCreateDataSource({
+      projects: [demoProjId],
+      type: "postgres",
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -422,6 +425,8 @@ spacing and headings.`,
       metricMap: metricMap,
       factTableMap,
       useCache: true,
+      type: "standard",
+      triggeredBy: "manual",
     });
 
     res.status(200).json({

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { canInlineFilterColumn } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -28,7 +29,11 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { DataSourceInterface } from "back-end/types/datasource";
-import { runRefreshColumnsQuery } from "back-end/src/jobs/refreshFactTableColumns";
+import {
+  runRefreshColumnsQuery,
+  runColumnTopValuesQuery,
+} from "back-end/src/jobs/refreshFactTableColumns";
+import { logger } from "back-end/src/util/logger";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -104,13 +109,16 @@ export const postFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  data.columns = await runRefreshColumnsQuery(
-    context,
-    datasource,
-    data as FactTableInterface
-  );
-  if (!data.columns.length) {
-    throw new Error("SQL did not return any rows");
+  if (!data.columns?.length) {
+    data.columns = await runRefreshColumnsQuery(
+      context,
+      datasource,
+      data as FactTableInterface
+    );
+
+    if (!data.columns.length) {
+      throw new Error("SQL did not return any rows");
+    }
   }
 
   const factTable = await createFactTable(context, data);
@@ -255,6 +263,38 @@ export const putColumn = async (
 
   if (!context.permissions.canUpdateFactTable(factTable, {})) {
     context.permissions.throwPermissionError();
+  }
+
+  const col = factTable.columns.find((c) => c.column === req.params.column);
+  if (!col) {
+    throw new Error("Could not find column");
+  }
+
+  const updatedCol = { ...col, ...data };
+
+  // If we're just toggling prompting on, populate values
+  if (
+    !col.alwaysInlineFilter &&
+    data.alwaysInlineFilter &&
+    canInlineFilterColumn(factTable, updatedCol)
+  ) {
+    const datasource = await getDataSourceById(context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource");
+    }
+
+    if (context.permissions.canRunFactQueries(datasource)) {
+      runColumnTopValuesQuery(context, datasource, factTable, col)
+        .then(async (values) => {
+          if (!values.length) return;
+          await updateColumn(factTable, col.column, {
+            topValues: values,
+          });
+        })
+        .catch((e) => {
+          logger.warn("Failed to get top values for column", e);
+        });
+    }
   }
 
   await updateColumn(factTable, req.params.column, data);

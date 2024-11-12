@@ -1,11 +1,11 @@
 import React, { FC, useCallback, useState } from "react";
-import { FaBolt } from "react-icons/fa";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { docUrl, DocLink } from "@/components/DocLink";
+import Button from "@/components/Radix/Button";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
@@ -46,10 +46,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
             Beta
           </span>
           <div>
-            <button className="btn btn-primary" onClick={onCreateModalOpen}>
-              <FaBolt className="mr-1" />
-              Create an Event Webhook
-            </button>
+            <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
           </div>
         </div>
         <p>
@@ -86,16 +83,14 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               by environment, project, or tags.
             </p>
             <div className="d-flex">
-              <button
-                className="btn btn-outline-primary mr-2"
+              <Button
+                mr="2"
+                variant="outline"
                 onClick={() => window.open(docUrl("eventWebhooks"), "_blank")}
               >
                 Setup Instructions
-              </button>
-              <button className="btn btn-primary" onClick={onCreateModalOpen}>
-                <FaBolt className="mr-1" />
-                Create an Event Webhook
-              </button>
+              </Button>
+              <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
             </div>
           </div>
           <div className="col" />

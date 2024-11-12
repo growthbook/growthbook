@@ -75,6 +75,9 @@ tags:
   - name: experiments
     x-displayName: Experiments
     description: Experiments (A/B Tests)
+  - name: snapshots
+    x-displayName: Experiment Snapshots
+    description: Experiment Snapshots (the individual updates of an experiment)
   - name: dimensions
     x-displayName: Dimensions
     description: Dimensions used during experiment analysis
@@ -129,6 +132,9 @@ tags:
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: ExperimentSnapshot_model
+    x-displayName: ExperimentSnapshot
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
   - name: FactMetric_model
     x-displayName: FactMetric
     description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
@@ -437,13 +443,13 @@ paths:
                                 fallbackAttribute:
                                   type: string
                                 disableStickyBucketing:
-                                  type: boolean;
+                                  type: boolean
                                 bucketVersion:
                                   type: number
                                 minBucketVersion:
                                   type: number
                                 namespace:
-                                  type: obect
+                                  type: object
                                   required:
                                     - enabled
                                     - name
@@ -1332,7 +1338,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1351,6 +1357,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -1579,7 +1586,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1598,6 +1605,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -1727,6 +1735,50 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+  '/experiments/{id}/snapshot':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The experiment id of the experiment to update
+        schema:
+          type: string
+    post:
+      tags:
+        - experiments
+        - snapshots
+      summary: Create Experiment Snapshot
+      operationId: postExperimentSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234/snapshot \
+              -d '{"triggeredBy":"schedule"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                triggeredBy:
+                  type: string
+                  description: Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.
+                  enum:
+                    - manual
+                    - schedule
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - snapshot
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   '/experiments/{id}/results':
     parameters:
       - $ref: '#/components/parameters/id'
@@ -1760,6 +1812,68 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
+  '/experiments/{id}/visual-changesets':
+    get:
+      summary: Get all visual changesets
+      tags:
+        - visual-changesets
+      parameters:
+        - id: null
+          name: id
+          in: path
+          required: true
+          description: The experiment id the visual changesets belong to
+          schema:
+            type: string
+      operationId: listVisualChangesets
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - visualChangesets
+                    properties:
+                      visualChangesets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VisualChangeset'
+  '/snapshots/{id}':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 'The id of the requested resource (a snapshot ID, not experiment ID)'
+        schema:
+          type: string
+    get:
+      tags:
+        - snapshots
+      summary: Get an experiment snapshot status
+      operationId: getExperimentSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X GET https://api.growthbook.io/api/v1/snapshots/snp_1234 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - snapshot
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   /metrics:
     get:
       summary: Get all metrics
@@ -1834,7 +1948,7 @@ paths:
                   description: Description of the metric
                 type:
                   type: string
-                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics/legacy)'
                   enum:
                     - binomial
                     - count
@@ -1924,11 +2038,11 @@ paths:
                     conversionWindowStart:
                       type: number
                       deprecated: true
-                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
                       deprecated: true
-                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     priorSettings:
                       type: object
                       description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
@@ -1989,7 +2103,7 @@ paths:
                       description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
                     denominatorMetricId:
                       type: string
-                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics)'
                 sqlBuilder:
                   type: object
                   description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
@@ -2131,7 +2245,7 @@ paths:
                   description: Description of the metric
                 type:
                   type: string
-                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics/legacy)'
                   enum:
                     - binomial
                     - count
@@ -2221,11 +2335,11 @@ paths:
                     conversionWindowStart:
                       type: number
                       deprecated: true
-                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
                       deprecated: true
-                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     priorSettings:
                       type: object
                       description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
@@ -2283,7 +2397,7 @@ paths:
                       description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
                     denominatorMetricId:
                       type: string
-                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics)'
                 sqlBuilder:
                   type: object
                   description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed'
@@ -2380,39 +2494,6 @@ paths:
                 properties:
                   deletedId:
                     type: string
-  '/experiments/{id}/visual-changesets':
-    get:
-      summary: Get all visual changesets
-      tags:
-        - visual-changesets
-      parameters:
-        - id: null
-          name: id
-          in: path
-          required: true
-          description: The experiment id the visual changesets belong to
-          schema:
-            type: string
-      operationId: listVisualChangesets
-      x-codeSamples:
-        - lang: cURL
-          source: |
-            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
-              -u secret_abc123DEF456:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - type: object
-                    required:
-                      - visualChangesets
-                    properties:
-                      visualChangesets:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/VisualChangeset'
   '/visual-changesets/{id}':
     get:
       parameters:
@@ -3740,7 +3821,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
-              -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
+              -d '{"name":"Purchased", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -5174,13 +5255,13 @@ components:
         fallbackAttribute:
           type: string
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:
           type: number
         namespace:
-          type: obect
+          type: object
           required:
             - enabled
             - name
@@ -5380,7 +5461,7 @@ components:
             - 1
             - 2
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:
@@ -5500,6 +5581,19 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
+    ExperimentSnapshot:
+      type: object
+      required:
+        - id
+        - experiment
+        - status
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        status:
+          type: string
     ExperimentMetric:
       type: object
       required:
@@ -5558,6 +5652,7 @@ components:
           enum:
             - firstExposure
             - experimentDuration
+          description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
         statsEngine:
           enum:
             - bayesian
@@ -6367,6 +6462,7 @@ x-tagGroups:
       - data-sources
       - metrics
       - experiments
+      - snapshots
       - dimensions
       - segments
       - sdk-connections
@@ -6387,6 +6483,7 @@ x-tagGroups:
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model
       - ExperimentResults_model
+      - ExperimentSnapshot_model
       - FactMetric_model
       - FactTable_model
       - FactTableFilter_model

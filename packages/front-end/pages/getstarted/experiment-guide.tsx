@@ -87,9 +87,6 @@ const ExperimentGuide = (): React.ReactElement => {
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
-  const manualChecks = organization.getStartedChecklistItems;
-  const environmentsReviewed = manualChecks?.includes("environments");
-  const attributesSet = manualChecks?.includes("attributes");
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
     (d) => !d.projects?.includes(demoProjectId)
@@ -193,113 +190,6 @@ const ExperimentGuide = (): React.ReactElement => {
                 </Link>
                 <p className="mt-2">
                   Allow GrowthBook to communicate with your app.
-                </p>
-                <hr />
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-sm-auto">
-                {environmentsReviewed ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
-                    style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="mt-1"
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/environments"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: environmentsReviewed
-                      ? "line-through"
-                      : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Review or Add Environments",
-                      source: "experiments",
-                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
-                      stepKey: "environments",
-                    })
-                  }
-                >
-                  Review or Add Environments (Optional)
-                </Link>
-                <p className="mt-2">
-                  By default, GrowthBook comes with one
-                  environment—production—but you can add as many as you need.
-                </p>
-                <hr />
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-sm-auto">
-                {attributesSet ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
-                    style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/attributes"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: attributesSet ? "line-through" : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Customize Targeting Attributes",
-                      source: "experiments",
-                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
-                      stepKey: "attributes",
-                    })
-                  }
-                >
-                  Customize Targeting Attributes (Optional)
-                </Link>
-                <p className="mt-2">
-                  Define user attributes to use for targeting experiments and
-                  for use in randomization
                 </p>
                 <hr />
               </div>

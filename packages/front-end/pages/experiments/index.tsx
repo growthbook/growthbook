@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiShuffle } from "react-icons/pi";
+import { PiCaretDown, PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -16,14 +15,11 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
-import { GBAddCircle } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
-import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
-import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
@@ -35,6 +31,10 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/components/Radix/Button";
+import LinkButton from "@/components/Radix/LinkButton";
+import Dropdown from "@/components/Dropdown/Dropdown";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
 const NUM_PER_PAGE = 20;
 
@@ -51,7 +51,7 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 }
 
 const ExperimentsPage = (): React.ReactElement => {
-  const growthbook = useGrowthBook<AppFeatures>();
+  // const growthbook = useGrowthBook<AppFeatures>();
 
   const {
     ready,
@@ -68,7 +68,7 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tabs.includes("archived"));
+  } = useExperiments(project, tabs.includes("archived"), "standard");
 
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
@@ -76,6 +76,9 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
+    false
+  );
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -295,6 +298,34 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }
 
+  const addExperimentDropdownButton = (
+    <Dropdown
+      uuid="add-experiment"
+      className="py-0"
+      caret={false}
+      toggle={
+        <Button icon={<PiCaretDown />} iconPosition="right">
+          Add Experiment
+        </Button>
+      }
+    >
+      <div style={{ width: 220 }}>
+        <div
+          className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
+          onClick={() => setOpenNewExperimentModal(true)}
+        >
+          Create New Experiment
+        </div>
+        <div
+          className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
+          onClick={() => setOpenImportExperimentModal(true)}
+        >
+          Import Existing Experiment
+        </div>
+      </div>
+    </Dropdown>
+  );
+
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
@@ -305,62 +336,38 @@ const ExperimentsPage = (): React.ReactElement => {
             </div>
             <div style={{ flex: 1 }} />
             {settings.powerCalculatorEnabled && (
-              <Link
-                className="btn btn-outline-primary float-right"
-                type="button"
-                href="/power-calculator"
-              >
-                Power Calculator
-              </Link>
+              <div className="col-auto">
+                <LinkButton variant="outline" href="/power-calculator">
+                  Power Calculator
+                </LinkButton>
+              </div>
             )}
             {canAdd && (
-              <div className="col-auto">
-                <button
-                  className="btn btn-primary float-right"
-                  onClick={() => {
-                    setOpenNewExperimentModal(true);
-                  }}
-                >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
-                  Add Experiment
-                </button>
-              </div>
+              <div className="col-auto">{addExperimentDropdownButton}</div>
             )}
           </div>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <div
-              className="appbox d-flex flex-column align-items-center"
-              style={{ padding: "70px 305px 60px 305px" }}
-            >
-              <h1>Test Variations with Targeted Users</h1>
-              <p style={{ fontSize: "17px" }}>
-                Run unlimited tests with linked feature flags, URL redirects or
-                the Visual Editor. You can also easily import existing
-                experiments from other platforms.
-              </p>
-              <div className="row">
-                <Link href="/getstarted/experiment-guide">
-                  {" "}
-                  <button className="btn btn-outline-primary mr-2">
-                    Setup Instructions
-                  </button>
-                </Link>
-                {canAdd && (
-                  <button
-                    className="btn btn-primary float-right"
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Experiment
-                  </button>
-                )}
+            <div className="box py-4 text-center">
+              <div className="mx-auto" style={{ maxWidth: 650 }}>
+                <h1>Test Variations with Targeted Users</h1>
+                <p style={{ fontSize: "17px" }}>
+                  Run unlimited tests with linked feature flags, URL redirects
+                  or the Visual Editor. You can also easily import existing
+                  experiments from other platforms.
+                </p>
+              </div>
+              <div
+                className="d-flex justify-content-center"
+                style={{ gap: "1rem" }}
+              >
+                <LinkButton
+                  href="/getstarted/experiment-guide"
+                  variant="outline"
+                >
+                  Setup Instructions
+                </LinkButton>
+                {canAdd && addExperimentDropdownButton}
               </div>
             </div>
           ) : (
@@ -575,7 +582,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.archived ? (
                             ""
                           ) : e.status === "running" && phase ? (
-                            phaseSummary(phase)
+                            phaseSummary(phase, e.type === "multi-armed-bandit")
                           ) : e.status === "stopped" && e.results ? (
                             <ResultsIndicator results={e.results} />
                           ) : (
@@ -599,18 +606,19 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal &&
-        (growthbook?.isOn("new-experiment-modal") ? (
-          <AddExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ) : (
-          <ImportExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ))}
+      {openNewExperimentModal && (
+        <NewExperimentForm
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="bandits-list"
+          isNewExperiment={true}
+        />
+      )}
+      {openImportExperimentModal && (
+        <ImportExperimentModal
+          onClose={() => setOpenImportExperimentModal(false)}
+          source="experiment-list"
+        />
+      )}
     </>
   );
 };

@@ -23,6 +23,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FeaturedCard from "@/components/GetStarted/FeaturedCard";
+import LinkButton from "@/components/Radix/LinkButton";
 
 function WorkspaceLink({
   Icon,
@@ -346,13 +347,13 @@ const GetStartedPage = (): React.ReactElement => {
                     />
                   </a>
                   <a
-                    href="https://blog.growthbook.io/growthbook-version-3-2/"
+                    href="https://blog.growthbook.io/growthbook-version-3-3/"
                     target="_blank"
                     rel="noreferrer"
-                    key="3-2-release"
+                    key="3-3-release"
                   >
                     <FeaturedCard
-                      imgUrl={"/images/get-started/thumbnails/3.2-release.svg"}
+                      imgUrl={"/images/get-started/thumbnails/3.3-release.svg"}
                       lastCard
                     />
                   </a>
@@ -415,11 +416,9 @@ const GetStartedPage = (): React.ReactElement => {
           </div>
           <div className="col-auto pl-0">
             {canUseSetupFlow && (
-              <Link href="/setup">
-                <button className="btn btn-primary mb-3">
-                  Launch Setup Flow
-                </button>
-              </Link>
+              <LinkButton href="/setup" mt="2" mb="4">
+                Launch Setup Flow
+              </LinkButton>
             )}
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}

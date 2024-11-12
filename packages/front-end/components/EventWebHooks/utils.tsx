@@ -49,6 +49,10 @@ export const notificationEventNames = [
   "experiment.deleted",
   "experiment.warning",
   "experiment.info.significance",
+  // metrics
+  "metric.created",
+  "metric.updated",
+  "metric.deleted",
   // User
   "user.login",
 ] as const;

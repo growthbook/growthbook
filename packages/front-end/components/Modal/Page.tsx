@@ -1,7 +1,7 @@
 import { ReactNode, FC } from "react";
 
 const Page: FC<{
-  display: string;
+  display: string | ReactNode;
   enabled?: boolean;
   validate?: () => Promise<void>;
   customNext?: () => void;

@@ -1,21 +1,26 @@
 import clsx from "clsx";
-import {
+import React, {
   ReactElement,
   useState,
   Children,
   FC,
   isValidElement,
   ReactNode,
+  useCallback,
+  useEffect,
 } from "react";
 import { MdCheck } from "react-icons/md";
-import { PiCircleDashed } from "react-icons/pi";
+import { PiArrowLeft, PiCaretRight, PiCircleDashed } from "react-icons/pi";
+import { v4 as uuidv4 } from "uuid";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
+import track, { TrackEventProps } from "@/services/track";
 
 type Props = {
   header: string;
+  subHeader?: string | ReactNode;
   submitColor?: string;
-  cta?: string;
+  cta?: string | ReactNode;
   ctaEnabled?: boolean;
   forceCtaText?: boolean;
   closeCta?: string;
@@ -29,6 +34,7 @@ type Props = {
   submit: () => Promise<void>;
   children: ReactNode;
   backButton?: boolean;
+  onBackFirstStep?: () => void;
   step: number;
   setStep: (step: number) => void;
   secondaryCTA?: ReactElement;
@@ -37,6 +43,14 @@ type Props = {
   stickyFooter?: boolean;
   onSkip?: () => Promise<void>;
   skipped?: Set<number>;
+  hideNav?: boolean;
+  // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
+  trackingEventModalType: string;
+  // The source (likely page or component) causing the modal to be shown
+  trackingEventModalSource?: string;
+  // Currently the allowlist for what event props are valid is controlled outside of the codebase.
+  // Make sure you've checked that any props you pass here are in the list!
+  allowlistedTrackingEventProps?: TrackEventProps;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -49,19 +63,24 @@ const PagedModal: FC<Props> = (props) => {
     navStyle,
     navFill,
     backButton = false,
+    onBackFirstStep,
     cta,
     ctaEnabled = true,
     forceCtaText,
     inline,
     secondaryCTA,
     size,
-    // size = "md",
     className,
     bodyClassName,
     onSkip,
     skipped,
+    hideNav,
+    trackingEventModalType,
+    trackingEventModalSource,
+    allowlistedTrackingEventProps = {},
     ...passThrough
   } = props;
+  const [modalUuid] = useState(uuidv4());
 
   const [error, setError] = useState("");
   const style = navStyle ? navStyle : "default";
@@ -72,10 +91,8 @@ const PagedModal: FC<Props> = (props) => {
     customNext?: () => void;
   }[] = [];
   let content: ReactNode;
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
-  let nextStep: number = null;
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
-  let prevStep: number = null;
+  let nextStep: number | undefined = undefined;
+  let prevStep: number | undefined = undefined;
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
     const { display, enabled, validate, customNext } = child.props;
@@ -89,13 +106,12 @@ const PagedModal: FC<Props> = (props) => {
   });
 
   prevStep = step - 1;
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
-  if (prevStep < 0) prevStep = null;
+  if (prevStep < 0) prevStep = undefined;
 
   async function validateSteps(before?: number) {
     before = before ?? steps.length;
     for (let i = 0; i < before; i++) {
-      if (steps[i].enabled === false) continue;
+      if (!steps[i].enabled) continue;
       if (!steps[i].validate) continue;
       try {
         await steps[i].validate?.();
@@ -111,9 +127,55 @@ const PagedModal: FC<Props> = (props) => {
   const navFillClass =
     typeof navFill === "undefined" ? "nav-fill" : navFill ? "nav-fill" : "";
 
+  const sendTrackingEvent = useCallback(
+    (eventName: string, additionalProps?: Record<string, unknown>) => {
+      if (trackingEventModalType === "") {
+        return;
+      }
+      track(eventName, {
+        type: trackingEventModalType,
+        source: trackingEventModalSource,
+        eventGroupUuid: modalUuid,
+        ...allowlistedTrackingEventProps,
+        ...(additionalProps || {}),
+      });
+    },
+    [
+      trackingEventModalType,
+      trackingEventModalSource,
+      allowlistedTrackingEventProps,
+      modalUuid,
+    ]
+  );
+
+  useEffect(() => {
+    let pageName = "";
+    try {
+      const display: unknown = steps?.[step]?.display;
+      if (typeof display === "string") {
+        pageName = display;
+      } else {
+        const children = (display as ReactElement)?.props?.children;
+        if (children instanceof Array) {
+          pageName = children
+            .map((c) => (typeof c === "string" ? c : " "))
+            .join("")
+            .trim();
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    sendTrackingEvent("modal-page-change", {
+      step: step + 1,
+      steps: steps?.length,
+      pageName,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   return (
     <Modal
-      trackingEventModalType=""
       inline={inline}
       size={size}
       disabledMessage={disabledMessage}
@@ -121,6 +183,7 @@ const PagedModal: FC<Props> = (props) => {
       className={className}
       bodyClassName={bodyClassName}
       {...passThrough}
+      trackOnSubmit={!nextStep}
       submit={async () => {
         await validateSteps(nextStep);
         if (!nextStep) {
@@ -134,21 +197,31 @@ const PagedModal: FC<Props> = (props) => {
           setStep(nextStep);
         }
       }}
+      backCTA={
+        backButton && (step >= 1 || onBackFirstStep) ? (
+          <button
+            type="button"
+            className={`btn btn-link mr-3`}
+            onClick={(e) => {
+              e.preventDefault();
+              if (step <= 0 && onBackFirstStep) {
+                onBackFirstStep();
+              } else {
+                setStep(prevStep ?? 0);
+              }
+            }}
+          >
+            <PiArrowLeft className="mr-1" />
+            Back
+          </button>
+        ) : null
+      }
       secondaryCTA={
         secondaryCTA ? (
           secondaryCTA
-        ) : backButton && prevStep !== null ? (
-          <button
-            className={`btn btn-outline-primary mr-3`}
-            onClick={(e) => {
-              e.preventDefault();
-              setStep(prevStep);
-            }}
-          >
-            back
-          </button>
         ) : onSkip ? (
           <button
+            type="button"
             className={`btn btn-link mr-3`}
             onClick={(e) => {
               e.preventDefault();
@@ -161,32 +234,86 @@ const PagedModal: FC<Props> = (props) => {
       }
       error={error}
       autoCloseOnSubmit={false}
-      cta={forceCtaText || !nextStep ? cta : "Next"}
+      cta={
+        forceCtaText || !nextStep ? (
+          cta
+        ) : (
+          <>
+            Next{" "}
+            <PiCaretRight className="position-relative" style={{ top: -1 }} />
+          </>
+        )
+      }
       ctaEnabled={ctaEnabled}
+      trackingEventModalType={trackingEventModalType}
+      trackingEventModalSource={trackingEventModalSource}
+      allowlistedTrackingEventProps={allowlistedTrackingEventProps}
+      modalUuid={modalUuid}
     >
-      <nav
-        className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
-          style === "default" && "paged-modal-default"
-        }`}
-      >
-        {steps.map(({ display, enabled }, i) => {
-          if (navStyleClass === "nav-default") {
-            return (
-              <div
-                className={clsx(
-                  "step d-flex align-items-center justify-content-between",
-                  {
-                    active: step === i,
-                    completed: i < step && !skipped?.has(i),
-                    disabled: !enabled,
-                  }
-                )}
-                key={i}
-              >
+      {!hideNav ? (
+        <nav
+          className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
+            style === "default" && "paged-modal-default"
+          }`}
+        >
+          {steps.map(({ display, enabled }, i) => {
+            if (navStyleClass === "nav-default") {
+              return (
+                <div
+                  className={clsx(
+                    "step d-flex align-items-center justify-content-between",
+                    {
+                      active: step === i,
+                      completed: i < step && !skipped?.has(i),
+                      disabled: !enabled,
+                    }
+                  )}
+                  key={i}
+                >
+                  <a
+                    key={i}
+                    role="button"
+                    className="nav-link d-flex align-items-center"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setError("");
+                      try {
+                        await validateSteps(i);
+                        setStep(i);
+                      } catch (e) {
+                        setError(e.message);
+                      }
+                    }}
+                  >
+                    <span className="step-number rounded-circle">
+                      {i < step ? (
+                        skipped?.has(i) ? (
+                          <PiCircleDashed />
+                        ) : (
+                          <MdCheck />
+                        )
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    <div
+                      className="step-title ml-1"
+                      style={{ lineHeight: "18px" }}
+                    >
+                      {display}
+                    </div>
+                  </a>
+                </div>
+              );
+            } else {
+              return (
                 <a
                   key={i}
                   role="button"
-                  className={clsx("nav-link")}
+                  className={clsx("w-md-100 nav-item nav-link", {
+                    active: step === i,
+                    disabled: !enabled,
+                  })}
                   onClick={async (e) => {
                     e.preventDefault();
                     setError("");
@@ -198,47 +325,13 @@ const PagedModal: FC<Props> = (props) => {
                     }
                   }}
                 >
-                  <span className="step-number rounded-circle">
-                    {i < step ? (
-                      skipped?.has(i) ? (
-                        <PiCircleDashed />
-                      ) : (
-                        <MdCheck />
-                      )
-                    ) : (
-                      i + 1
-                    )}
-                  </span>
-                  <span className="step-title"> {display}</span>
+                  {i + 1}. {display}
                 </a>
-              </div>
-            );
-          } else {
-            return (
-              <a
-                key={i}
-                role="button"
-                className={clsx("w-md-100 nav-item nav-link", {
-                  active: step === i,
-                  disabled: !enabled,
-                })}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  setError("");
-                  try {
-                    await validateSteps(i);
-                    setStep(i);
-                  } catch (e) {
-                    setError(e.message);
-                  }
-                }}
-              >
-                {i + 1}. {display}
-              </a>
-            );
-          }
-        })}
-      </nav>
+              );
+            }
+          })}
+        </nav>
+      ) : null}
       {content}
     </Modal>
   );

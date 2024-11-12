@@ -1,9 +1,9 @@
 import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
+import { isMetricJoinable } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
-import { isMetricJoinable } from "./MetricsSelector";
 
 type MetricOption = {
   id: string;
@@ -94,7 +94,7 @@ const MetricSelector: FC<
     .filter((m) => !onlyBinomial || m.isBinomial)
     .filter((m) =>
       userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
+        ? isMetricJoinable(m.userIdTypes, userIdType)
         : true
     )
     .filter((m) => {

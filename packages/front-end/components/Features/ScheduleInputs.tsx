@@ -3,20 +3,19 @@ import clsx from "clsx";
 import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
+import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
-import UpgradeLabel from "@/components/Marketing/UpgradeLabel";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Checkbox from "@/components/Radix/Checkbox";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {
   defaultValue: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
-  setShowUpgradeModal: (value: boolean) => void;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (value: boolean) => void;
-  title?: string;
 }
 
 export default function ScheduleInputs(props: Props) {
@@ -34,6 +33,13 @@ export default function ScheduleInputs(props: Props) {
     return date instanceof Date && !isNaN(date.valueOf());
   }
 
+  const [date0, setDate0] = useState<string>(
+    format(getValidDate(rules?.[0]?.timestamp), "yyyy-MM-dd'T'HH:mm")
+  );
+  const [date1, setDate1] = useState<string>(
+    format(getValidDate(rules?.[1]?.timestamp), "yyyy-MM-dd'T'HH:mm")
+  );
+
   const onChange = (value: string | null, property: string, i: number) => {
     if (value && !dateIsValid(new Date(value))) {
       return;
@@ -41,48 +47,43 @@ export default function ScheduleInputs(props: Props) {
     const newRules = [...rules];
     newRules[i][property] = value;
     setRules(newRules);
+
+    // update input fields
+    if (i === 0) setDate0(value || "");
+    if (i === 1) setDate1(value || "");
   };
 
   return (
-    <div className="form-group">
-      <UpgradeLabel
-        showUpgradeModal={() => props.setShowUpgradeModal(true)}
-        commercialFeature="schedule-feature-flag"
-        upgradeMessage="enable feature flag scheduling"
-        labelText={
-          props.title ??
-          "Add scheduling to automatically enable/disable an override rule"
+    <div className="my-3">
+      <Checkbox
+        size="lg"
+        label={
+          <PremiumTooltip commercialFeature="schedule-feature-flag">
+            Apply Schedule
+          </PremiumTooltip>
         }
-      />
-      <div className="pb-2">
-        <Toggle
-          id="schedule-toggle"
-          value={props.scheduleToggleEnabled}
-          setValue={(v) => {
-            props.setScheduleToggleEnabled(v);
+        description="Enable/disable rule based on selected date and time"
+        value={props.scheduleToggleEnabled}
+        setValue={(v) => {
+          props.setScheduleToggleEnabled(v === true);
 
-            if (!rules.length) {
-              setRules([
-                {
-                  enabled: true,
-                  timestamp: null,
-                },
-                {
-                  enabled: false,
-                  timestamp: null,
-                },
-              ]);
-            }
-          }}
-          disabled={!canScheduleFeatureFlags}
-          type="featureValue"
-        />
-        <span className="text-muted pl-2">
-          <strong>{props.scheduleToggleEnabled ? "on" : "off"}</strong>
-        </span>
-      </div>
+          if (!rules.length) {
+            setRules([
+              {
+                enabled: true,
+                timestamp: null,
+              },
+              {
+                enabled: false,
+                timestamp: null,
+              },
+            ]);
+          }
+        }}
+        disabled={!canScheduleFeatureFlags}
+      />
       {rules.length > 0 && props.scheduleToggleEnabled && (
-        <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
+        <div className={`box mb-3 bg-light pt-2 px-3 ${styles.conditionbox}`}>
           <ul className={styles.conditionslist}>
             <li className={styles.listitem}>
               <div className="row align-items-center">
@@ -119,10 +120,7 @@ export default function ScheduleInputs(props: Props) {
                     <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                       <Field
                         type="datetime-local"
-                        value={format(
-                          new Date(rules[0].timestamp),
-                          "yyyy-MM-dd'T'HH:mm"
-                        )}
+                        value={date0}
                         onChange={(e) => {
                           onChange(e.target.value, "timestamp", 0);
                         }}
@@ -172,16 +170,13 @@ export default function ScheduleInputs(props: Props) {
                       <Field
                         type="datetime-local"
                         className={clsx(dateErrors && styles.error)}
-                        value={format(
-                          new Date(rules[1].timestamp),
-                          "yyyy-MM-dd'T'HH:mm"
-                        )}
+                        value={date1}
                         onChange={(e) => {
                           setDateErrors("");
                           if (
                             rules[0].timestamp &&
-                            new Date(e.target.value) <
-                              new Date(rules[0].timestamp)
+                            getValidDate(e.target.value) <
+                              getValidDate(rules[0].timestamp)
                           ) {
                             setDateErrors(
                               "End date must be greater than the previous rule date."

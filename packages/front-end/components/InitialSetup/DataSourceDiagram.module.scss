@@ -1,0 +1,59 @@
+.diagram {
+  div:not(:last-child):after {
+    content: "";
+    height: 1px;
+    background: black;
+    width: 50px;
+    position: absolute;
+    right: -50px;
+    top: 50%;
+  }
+}
+
+.rightArrow {
+  height: 0px;
+  border-top: 2px solid var(--border-color-100);
+  padding-top: 10px;
+  position: relative;
+  flex: 1;
+  font-size: 8px;
+  color: var(--border-color-100);
+  line-height: 10px;
+  text-align: center;
+  &:after {
+    content: "▶";
+    position: absolute;
+    top: -7px;
+    right: -2px;
+    font-size: 14px;
+  }
+  > span {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-color-main);
+  }
+}
+
+.leftArrow {
+  height: 0px;
+  border-top: 2px solid var(--border-color-100);
+  padding-top: 10px;
+  position: relative;
+  flex: 1;
+  font-size: 8px;
+  color: var(--border-color-100);
+  line-height: 10px;
+  text-align: center;
+  &:after {
+    content: "◀";
+    position: absolute;
+    top: -7px;
+    left: -2px;
+    font-size: 14px;
+  }
+  > span {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-color-main);
+  }
+}

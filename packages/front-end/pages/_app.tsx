@@ -1,10 +1,17 @@
+import Cookies from "js-cookie";
 import { AppProps } from "next/app";
 import "@/styles/global.scss";
+import "@/styles/global-radix-overrides.scss";
 import "@radix-ui/themes/styles.css";
 import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import {
+  Context,
+  GrowthBook,
+  GrowthBookProvider,
+  BrowserCookieStickyBucketService,
+} from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -12,9 +19,12 @@ import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
-import { DefinitionsProvider } from "@/services/DefinitionsContext";
+import {
+  DefinitionsGuard,
+  DefinitionsProvider,
+} from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import { initEnv } from "@/services/env";
+import { initEnv, isTelemetryEnabled } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "@/components/Layout/Layout";
@@ -24,6 +34,7 @@ import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
+import { GB_SDK_ID } from "@/services/utils";
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
@@ -37,22 +48,21 @@ type ModAppProps = AppProps & {
   };
 };
 
-export const growthbook = new GrowthBook<AppFeatures>({
+const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",
-  clientKey:
-    process.env.NODE_ENV === "production"
-      ? "sdk-ueFMOgZ2daLa0M"
-      : "sdk-UmQ03OkUDAu7Aox",
+  clientKey: GB_SDK_ID,
   enableDevMode: true,
-  subscribeToChanges: true,
-  realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.variationId,
     });
   },
-});
+  stickyBucketService: new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  }),
+};
+export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
 function App({
   Component,
@@ -82,18 +92,26 @@ function App({
 
   useEffect(() => {
     if (!ready) return;
+    if (isTelemetryEnabled()) {
+      gbContext.realtimeKey = "key_prod_cb40dfcb0eb98e44";
+    }
     track("App Load");
   }, [ready]);
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    growthbook.loadFeatures().catch(() => {
+    growthbook.init({ streaming: true }).catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    growthbook.setURL(window.location.href);
     track("page-load", {
       pathName: router.pathname,
     });
-  }, [router.pathname]);
+  }, [ready, router.pathname]);
 
   const renderPreAuth = () => {
     if (preAuthTopNav) {
@@ -130,6 +148,7 @@ function App({
       {ready ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
+            <div id="portal-root" />
             {preAuth ? (
               renderPreAuth()
             ) : (
@@ -145,7 +164,9 @@ function App({
                               <GuidedGetStartedBar />
                               <OrganizationMessagesContainer />
                               <DemoDataSourceGlobalBannerContainer />
-                              <Component {...pageProps} />
+                              <DefinitionsGuard>
+                                <Component {...pageProps} />
+                              </DefinitionsGuard>
                             </main>
                           </DefinitionsProvider>
                         </GetStartedProvider>

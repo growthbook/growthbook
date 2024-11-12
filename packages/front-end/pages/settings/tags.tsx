@@ -6,10 +6,10 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsModal from "@/components/Tags/TagsModal";
 import Tag from "@/components/Tags/Tag";
-import { GBAddCircle } from "@/components/Icons";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -131,18 +131,7 @@ const TagsPage: FC = () => {
         <></>
       )}
       {permissionsUtil.canCreateAndUpdateTag() ? (
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setModalOpen({});
-          }}
-        >
-          <span className="h4 pr-2 m-0 d-inline-block">
-            <GBAddCircle />
-          </span>{" "}
-          Add Tag
-        </button>
+        <Button onClick={() => setModalOpen({})}>Add Tag</Button>
       ) : null}
     </div>
   );

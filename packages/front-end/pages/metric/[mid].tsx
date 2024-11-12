@@ -7,7 +7,6 @@ import React, {
   ReactNode,
   ReactElement,
 } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaArchive, FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
@@ -62,7 +61,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 
@@ -107,7 +106,6 @@ const MetricPage: FC = () => {
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
-    experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
   const {
@@ -300,7 +298,6 @@ const MetricPage: FC = () => {
             setEditModalOpen(false);
           }}
           onSuccess={() => {
-            mutateDefinitions();
             mutate();
           }}
         />
@@ -318,6 +315,7 @@ const MetricPage: FC = () => {
               }),
             });
           }}
+          source="mid"
         />
       )}
       {editProjects && (

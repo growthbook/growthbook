@@ -17,6 +17,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Toggle from "@/components/Forms/Toggle";
+import RecommendedFactMetricsModal, {
+  getRecommendedFactMetrics,
+} from "@/components/FactTables/RecommendedFactMetricsModal";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -65,16 +68,30 @@ export default function FactMetricList({ factTable }: Props) {
   const canDelete = (factMetric: FactMetricInterface) =>
     permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    clear,
+    pagination,
+  } = useSearch({
     items: showArchived ? metrics : metrics.filter((m) => !m.archived) || [],
     defaultSortField: "name",
     localStorageKey: "factmetrics",
     searchFields: ["name^3", "description"],
+    pageSize: 10,
   });
 
   const canCreateMetrics = permissionsUtil.canCreateFactMetric({
     projects: factTable.projects,
   });
+
+  const recommendedMetrics = getRecommendedFactMetrics(factTable, metrics);
+  const [
+    showRecommendedMetricsModal,
+    setShowRecommendedMetricsModal,
+  ] = useState(false);
 
   return (
     <>
@@ -99,6 +116,31 @@ export default function FactMetricList({ factTable }: Props) {
           duplicate
           source="fact-table-duplicate"
         />
+      )}
+      {showRecommendedMetricsModal && (
+        <RecommendedFactMetricsModal
+          factTable={factTable}
+          metrics={recommendedMetrics}
+          close={() => setShowRecommendedMetricsModal(false)}
+        />
+      )}
+
+      {recommendedMetrics.length > 0 && canCreateMetrics && (
+        <div className="alert alert-info mt-3">
+          There {recommendedMetrics.length === 1 ? "is" : "are"}{" "}
+          <strong>{recommendedMetrics.length}</strong> metric
+          {recommendedMetrics.length === 1 ? "" : "s"} we recommend creating for
+          this fact table.{" "}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowRecommendedMetricsModal(true);
+            }}
+          >
+            View Recommendation{recommendedMetrics.length === 1 ? "" : "s"}
+          </a>
+        </div>
       )}
 
       <div className="row align-items-center">
@@ -259,6 +301,7 @@ export default function FactMetricList({ factTable }: Props) {
               )}
             </tbody>
           </table>
+          {pagination}
         </>
       )}
     </>

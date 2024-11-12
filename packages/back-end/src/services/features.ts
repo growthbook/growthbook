@@ -1347,7 +1347,7 @@ export function applySavedGroupHashing(
         salt,
         attributes,
         attribute,
-        doHash: attribute.hashAttribute,
+        doHash: shouldHash(attribute),
       });
     }
   });
@@ -1396,15 +1396,7 @@ any {
       // check if a new attribute is referenced, and whether we need to hash it
       // otherwise, inherit the previous attribute and hashing status
       attribute = attributes.find((a) => a.property === key) ?? attribute;
-      doHash = attribute
-        ? !!(
-            attribute?.datatype &&
-            ["secureString", "secureString[]"].includes(
-              attribute?.datatype ?? ""
-            ) &&
-            !["$inGroup", "$notInGroup"].includes(key)
-          )
-        : doHash;
+      doHash = attribute ? shouldHash(attribute, key) : doHash;
 
       newObj[key] = processVal({
         obj: obj[key],
@@ -1442,6 +1434,14 @@ any {
       return obj;
     }
   }
+}
+
+function shouldHash(attribute: SDKAttribute, operator?: string) {
+  return !!(
+    attribute?.datatype &&
+    ["secureString", "secureString[]"].includes(attribute?.datatype ?? "") &&
+    (!operator || !["$inGroup", "$notInGroup"].includes(operator))
+  );
 }
 
 export function sha256(str: string, salt: string): string {

@@ -27,11 +27,19 @@ export default function FactFilterList({ factTable }: Props) {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    clear,
+    pagination,
+  } = useSearch({
     items: factTable?.filters || [],
     defaultSortField: "name",
     localStorageKey: "factFilters",
     searchFields: ["name^3", "description", "value^2"],
+    pageSize: 10,
   });
 
   const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
@@ -126,6 +134,9 @@ export default function FactFilterList({ factTable }: Props) {
                           className="dropdown-item"
                           useIcon={false}
                           text="Delete"
+                          additionalMessage={
+                            "This will remove the filter from all metrics that are using it."
+                          }
                           onClick={async () => {
                             await apiCall(
                               `/fact-tables/${factTable.id}/filter/${filter.id}`,
@@ -159,6 +170,7 @@ export default function FactFilterList({ factTable }: Props) {
               )}
             </tbody>
           </table>
+          {pagination}
         </>
       )}
     </>
