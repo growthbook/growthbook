@@ -347,13 +347,13 @@ const GetStartedPage = (): React.ReactElement => {
                     />
                   </a>
                   <a
-                    href="https://blog.growthbook.io/growthbook-version-3-2/"
+                    href="https://blog.growthbook.io/growthbook-version-3-3/"
                     target="_blank"
                     rel="noreferrer"
-                    key="3-2-release"
+                    key="3-3-release"
                   >
                     <FeaturedCard
-                      imgUrl={"/images/get-started/thumbnails/3.2-release.svg"}
+                      imgUrl={"/images/get-started/thumbnails/3.3-release.svg"}
                       lastCard
                     />
                   </a>
