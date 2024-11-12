@@ -4,6 +4,7 @@ import { deleteEnvironmentValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsDelete } from "back-end/src/services/audit";
+import { removeEnvironmentFromFeatureRules } from "back-end/src/models/FeatureModel";
 
 export const deleteEnvironment = createApiRequestHandler(
   deleteEnvironmentValidator
@@ -29,6 +30,9 @@ export const deleteEnvironment = createApiRequestHandler(
     };
 
     await updateOrganization(org.id, updates);
+
+    // Asynchronously removes all feature rules that would be orphaned by deleting this environment
+    removeEnvironmentFromFeatureRules(req.context, id);
 
     await req.audit({
       event: "environment.delete",
