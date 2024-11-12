@@ -101,6 +101,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
+export const TEST_QUERY_SQL = "SELECT 1";
 
 const N_STAR_VALUES = [
   100,
@@ -182,7 +183,7 @@ export default abstract class SqlIntegration
   }
 
   async testConnection(): Promise<boolean> {
-    await this.runQuery("select 1");
+    await this.runQuery(TEST_QUERY_SQL);
     return true;
   }
 
