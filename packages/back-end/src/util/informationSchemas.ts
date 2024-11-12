@@ -87,7 +87,7 @@ export function formatInformationSchema(
       table = {
         tableName: row.table_name,
         path: tablePath,
-        numOfColumns: parseInt(row.column_count, 10),
+        numOfColumns: Number(row.column_count, 10),
         id: uniqid("tbl_"),
         dateCreated: date,
         dateUpdated: date,

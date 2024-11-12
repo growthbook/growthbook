@@ -31,9 +31,9 @@ export const getEvents = async (
 
   const eventTypes = JSON.parse(type || "[]");
 
-  const cappedPerPage = Math.min(parseInt(perPage), 100);
+  const cappedPerPage = Math.min(Number(perPage), 100);
   const events = await Event.getEventsForOrganization(context.org.id, {
-    page: parseInt(page),
+    page: Number(page),
     perPage: cappedPerPage,
     eventTypes,
     from,

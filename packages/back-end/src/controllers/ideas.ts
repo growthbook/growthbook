@@ -307,7 +307,7 @@ export async function getRecentIdeas(
 ) {
   const { org } = getContextFromReq(req);
   const { num } = req.params;
-  let intNum = parseInt(num);
+  let intNum = Number(num);
   if (intNum > 100) intNum = 100;
 
   try {

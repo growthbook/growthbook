@@ -379,7 +379,7 @@ function purchase(
     ),
   });
   trackExperiment(data, res, "confirmation-email", sim);
-  sim.dataTables.userRetention[parseInt(data.userId)] += normalInt(
+  sim.dataTables.userRetention[Number(data.userId)] += normalInt(
     res.value - 10,
     res.value + 10
   );

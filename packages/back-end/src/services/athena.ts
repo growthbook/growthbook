@@ -74,7 +74,7 @@ export async function runAthenaQuery(
   const { database, bucketUri, workGroup, catalog } = conn;
 
   const retryWaitTime =
-    (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
+    (Number(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
 
   const { QueryExecutionId } = await athena.startQueryExecution({
     QueryString: sql,

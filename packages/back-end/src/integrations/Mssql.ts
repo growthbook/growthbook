@@ -22,7 +22,7 @@ export default class Mssql extends SqlIntegration {
   async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource.id, {
       server: this.params.server,
-      port: parseInt(this.params.port + "", 10),
+      port: Number(this.params.port + "", 10),
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,

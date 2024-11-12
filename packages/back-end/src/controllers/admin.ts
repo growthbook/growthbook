@@ -33,7 +33,7 @@ export async function getOrganizations(
   const { page, search } = req.query;
 
   const { organizations, total } = await findAllOrganizations(
-    parseInt(page || "") || 1,
+    Number(page || "") || 1,
     search || ""
   );
 
@@ -246,10 +246,7 @@ export async function getMembers(
   const { page, search } = req.query;
 
   const organizationInfo: Record<string, object> = {};
-  const filteredUsers = await getAllUsersFiltered(
-    parseInt(page ?? "1"),
-    search
-  );
+  const filteredUsers = await getAllUsersFiltered(Number(page ?? "1"), search);
   if (filteredUsers?.length > 0) {
     const memberOrgs = await findOrganizationsByMemberIds(
       filteredUsers.map((u) => u.id)

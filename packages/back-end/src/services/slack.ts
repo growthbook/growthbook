@@ -19,7 +19,7 @@ export function verifySlackRequestSignature(
   }
 
   // Verify request happened recently to protect against replay attacks
-  const timestamp = parseInt(rawTimestamp);
+  const timestamp = Number(rawTimestamp);
   if (Math.abs(timestamp - Date.now() / 1000) > 60 * 5) {
     throw new Error("Invalid timestamp");
   }

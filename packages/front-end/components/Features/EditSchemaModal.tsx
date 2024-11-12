@@ -131,7 +131,7 @@ function EditSchemaField({
                   type="number"
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, min: parseInt(e.target.value) })
+                    onChange({ ...value, min: Number(e.target.value) })
                   }
                 />
               </div>
@@ -144,7 +144,7 @@ function EditSchemaField({
                   max={value.type === "string" ? 256 : undefined}
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, max: parseInt(e.target.value) })
+                    onChange({ ...value, max: Number(e.target.value) })
                   }
                 />
               </div>

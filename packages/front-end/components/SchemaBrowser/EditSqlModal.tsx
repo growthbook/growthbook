@@ -314,7 +314,7 @@ export default function EditSqlModal({
             {testQueryResults && (
               <div className="" style={{ flex: 1, maxHeight: "45%" }}>
                 <DisplayTestQueryResults
-                  duration={parseInt(testQueryResults.duration || "0")}
+                  duration={Number(testQueryResults.duration || "0")}
                   results={testQueryResults.results || []}
                   sql={testQueryResults.sql || ""}
                   error={testQueryResults.error || ""}

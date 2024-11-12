@@ -692,7 +692,7 @@ export default function ImportFromLaunchDarkly() {
                   type="number"
                   value={intervalCap}
                   helpText="Lower this if you are getting rate limited"
-                  onChange={(e) => setIntervalCap(parseInt(e.target.value))}
+                  onChange={(e) => setIntervalCap(Number(e.target.value))}
                 />
               </div>
             </div>

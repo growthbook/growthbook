@@ -18,7 +18,7 @@ function getProxySettings(): ProxyOptions {
   return {
     proxyProtocol: parsed.protocol.replace(":", ""),
     proxyHost: parsed.hostname,
-    proxyPort: (parsed.port ? parseInt(parsed.port) : 0) || undefined,
+    proxyPort: (parsed.port ? Number(parsed.port) : 0) || undefined,
     proxyUser: parsed.username || undefined,
     proxyPassword: parsed.password || undefined,
   };

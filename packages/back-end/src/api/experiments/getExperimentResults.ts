@@ -14,9 +14,7 @@ export const getExperimentResults = createApiRequestHandler(
       throw new Error("Could not find experiment with that id");
     }
 
-    const phase = parseInt(
-      req.query.phase ?? experiment.phases.length - 1 + ""
-    );
+    const phase = Number(req.query.phase ?? experiment.phases.length - 1 + "");
 
     const snapshot = await getLatestSnapshot({
       experiment: experiment.id,

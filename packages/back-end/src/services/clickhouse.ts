@@ -98,7 +98,7 @@ export async function createClickhouseUser(
   const url = new URL(CLICKHOUSE_HOST);
 
   const params = {
-    port: parseInt(url.port) || 9000,
+    port: Number(url.port) || 9000,
     url: url.toString(),
     user: user,
     password: password,

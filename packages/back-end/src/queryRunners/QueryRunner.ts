@@ -692,7 +692,7 @@ export abstract class QueryRunner<
   private async concurrencyLimitReached(): Promise<boolean> {
     if (!this.integration.datasource.settings.maxConcurrentQueries)
       return new Promise<boolean>((resolve) => resolve(false));
-    const numericConcurrencyLimit = parseInt(
+    const numericConcurrencyLimit = Number(
       this.integration.datasource.settings.maxConcurrentQueries
     );
     if (isNaN(numericConcurrencyLimit) || numericConcurrencyLimit === 0) {

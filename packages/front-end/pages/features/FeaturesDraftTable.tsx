@@ -76,16 +76,16 @@ export default function FeaturesDraftTable({ features }: Props) {
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
+        dateAndStatus = Number(`0${dateAndStatus}`);
         break;
       case "approved":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
+        dateAndStatus = Number(`0${dateAndStatus}`);
         break;
       case "pending-review":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
+        dateAndStatus = Number(`1${dateAndStatus}`);
         break;
       case "changes-requested":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
+        dateAndStatus = Number(`1${dateAndStatus}`);
         break;
     }
     return {

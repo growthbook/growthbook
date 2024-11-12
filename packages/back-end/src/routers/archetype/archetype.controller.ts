@@ -101,7 +101,7 @@ export const getArchetypeAndEval = async (
     throw new Error("Feature not found");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, Number(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }

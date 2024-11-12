@@ -65,7 +65,7 @@ export default function HashVersionSelector({
         ]}
         value={value + ""}
         setValue={(v) => {
-          onChange((parseInt(v) || 2) as 1 | 2);
+          onChange((Number(v) || 2) as 1 | 2);
         }}
       />
     </>

@@ -144,7 +144,7 @@ export default function SQLInputField({
           )}
           {testQueryResults && (
             <DisplayTestQueryResults
-              duration={parseInt(testQueryResults.duration || "0")}
+              duration={Number(testQueryResults.duration || "0")}
               results={testQueryResults.results || []}
               sql={testQueryResults.sql || ""}
               error={testQueryResults.error || ""}

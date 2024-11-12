@@ -162,11 +162,11 @@ const StopExperimentForm: FC<{
             containerClassName="col-lg"
             value={form.watch("winner") + ""}
             onChange={(v) => {
-              form.setValue("winner", parseInt(v) || 0);
+              form.setValue("winner", Number(v) || 0);
 
               form.setValue(
                 "releasedVariationId",
-                experiment.variations[parseInt(v)]?.id ||
+                experiment.variations[Number(v)]?.id ||
                   form.watch("releasedVariationId")
               );
             }}

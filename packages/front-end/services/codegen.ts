@@ -52,7 +52,7 @@ export function getTrackingCallback(
   if (t === "ga") {
     return `const action = ${experimentId}, label = ${variationId};
 ga("send", "event", "experiment", action, label, { 
-  dimension${parseInt(param) || "1"}: action + "::" + label
+  dimension${Number(param) || "1"}: action + "::" + label
 })`;
   }
   return `console.log({

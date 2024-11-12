@@ -151,7 +151,7 @@ export default function FeatureVariationsInput({
             value={numberOfVariations}
             onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
             onBlur={(e) => {
-              let n = parseInt(e?.target?.value ?? numberOfVariations);
+              let n = Number(e?.target?.value ?? numberOfVariations);
               n = Math.min(Math.max(2, n), 100);
               const newValues: SortableVariation[] = [];
               for (let i = 0; i < n; i++) {

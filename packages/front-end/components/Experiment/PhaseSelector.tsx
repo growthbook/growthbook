@@ -41,7 +41,7 @@ export default function PhaseSelector({
       );
     }
 
-    const phaseIndex = parseInt(value) || 0;
+    const phaseIndex = Number(value) || 0;
     const phase = (phases ?? experiment?.phases)?.[phaseIndex];
     if (!phase) return value;
 
@@ -117,7 +117,7 @@ export default function PhaseSelector({
               editPhases();
               return;
             }
-            (setPhase ?? setSnapshotPhase)(parseInt(value) || 0);
+            (setPhase ?? setSnapshotPhase)(Number(value) || 0);
           }}
           sort={false}
           labelClassName="mr-2"

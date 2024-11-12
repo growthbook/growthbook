@@ -1053,7 +1053,7 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
       : id;
     // Parse the 4 (number) out of '_4' (string)
     const num =
-      (numSuffix ? parseInt(numSuffix.match(/[\d]+/)?.[0] || "0") : 0) + 1;
+      (numSuffix ? Number(numSuffix.match(/[\d]+/)?.[0] || "0") : 0) + 1;
 
     return `${keyRoot}_${num}`;
   } catch (e) {

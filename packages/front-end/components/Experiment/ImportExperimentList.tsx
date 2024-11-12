@@ -81,7 +81,7 @@ const ImportExperimentList: FC<{
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
-        if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
+        if (minUsersFilter && e.users < (Number(minUsersFilter) || 0)) {
           return false;
         }
         if (alreadyImportedFilter) {
@@ -100,14 +100,14 @@ const ImportExperimentList: FC<{
 
         if (
           minLengthFilter &&
-          daysBetween(e.startDate, e.endDate) < (parseInt(minLengthFilter) || 0)
+          daysBetween(e.startDate, e.endDate) < (Number(minLengthFilter) || 0)
         ) {
           return false;
         }
 
         if (
           minVariationsFilter &&
-          e.numVariations < parseInt(minVariationsFilter)
+          e.numVariations < Number(minVariationsFilter)
         ) {
           return false;
         }

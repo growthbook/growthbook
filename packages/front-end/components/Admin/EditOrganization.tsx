@@ -190,7 +190,7 @@ const EditOrganization: FC<{
                 min={0}
                 className="form-control"
                 value={freeSeats}
-                onChange={(e) => setFreeSeats(parseInt(e.target.value))}
+                onChange={(e) => setFreeSeats(Number(e.target.value))}
               />
               <div>
                 <span className="text-muted small">

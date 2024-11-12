@@ -165,7 +165,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
       rows.forEach((row) => {
         const date = convertDate(row.dimensions?.[0] || "");
         const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
-        const users = parseInt(row.metrics?.[0]?.values?.[1] || "") || 0;
+        const users = Number(row.metrics?.[0]?.values?.[1] || "") || 0;
 
         let count: number;
         let mean: number;
@@ -323,7 +323,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     }
 
     return rows.map((row) => {
-      const users = parseInt(row.metrics?.[0]?.values?.[0] || "");
+      const users = Number(row.metrics?.[0]?.values?.[0] || "");
       return {
         dimension: "",
         variation:

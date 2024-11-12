@@ -29,13 +29,13 @@ export default function RevisionDropdown({
       value: r.version + "",
       label: r.version + "",
     }));
-  options.sort((a, b) => parseInt(b.value) - parseInt(a.value));
+  options.sort((a, b) => Number(b.value) - Number(a.value));
 
   return (
     <SelectField
       options={options}
       value={version + ""}
-      onChange={(version) => setVersion(parseInt(version))}
+      onChange={(version) => setVersion(Number(version))}
       sort={false}
       formatOptionLabel={({ value }, { context }) => {
         const revision = versions.get(value);

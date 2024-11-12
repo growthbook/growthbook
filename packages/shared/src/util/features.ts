@@ -1063,7 +1063,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
 
     if (type === "string") return value;
     if (type === "float") return parseFloat(value);
-    if (type === "integer") return parseInt(value);
+    if (type === "integer") return Number(value);
     else return value !== "false";
   };
 

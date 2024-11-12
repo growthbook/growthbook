@@ -219,7 +219,7 @@ function setAntiFlicker() {
   let timeoutMs =
     windowContext.antiFlickerTimeout ??
     (dataContext.antiFlickerTimeout
-      ? parseInt(dataContext.antiFlickerTimeout)
+      ? Number(dataContext.antiFlickerTimeout)
       : null) ??
     3500;
   if (!isFinite(timeoutMs)) {

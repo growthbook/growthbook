@@ -250,7 +250,7 @@ export function getQueryStringOverride(
     .split("&") // Split into key/value pairs
     .map((kv) => kv.split("=", 2))
     .filter(([k]) => k === id) // Look for key that matches the experiment id
-    .map(([, v]) => parseInt(v)); // Parse the value into an integer
+    .map(([, v]) => Number(v)); // Parse the value into an integer
 
   if (match.length > 0 && match[0] >= 0 && match[0] < numVariations)
     return match[0];

@@ -295,8 +295,8 @@ export const EventsPageContainer = () => {
           sort={false}
           value={"" + perPage}
           onChange={(v) => {
-            if (parseInt(v) === perPage) return;
-            setPerPage(parseInt(v));
+            if (Number(v) === perPage) return;
+            setPerPage(Number(v));
           }}
         />
       </div>
