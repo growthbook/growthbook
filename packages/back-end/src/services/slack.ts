@@ -1,5 +1,6 @@
 import { ServerResponse, IncomingMessage } from "http";
 import crypto from "crypto";
+import { safeParseInt } from "shared/util"
 import { WebClient } from "@slack/web-api";
 import { SLACK_SIGNING_SECRET } from "back-end/src/util/secrets";
 import { getUserByEmail } from "back-end/src/models/UserModel";
@@ -19,7 +20,7 @@ export function verifySlackRequestSignature(
   }
 
   // Verify request happened recently to protect against replay attacks
-  const timestamp = Number(rawTimestamp);
+  const timestamp = safeParseInt(rawTimestamp);
   if (Math.abs(timestamp - Date.now() / 1000) > 60 * 5) {
     throw new Error("Invalid timestamp");
   }

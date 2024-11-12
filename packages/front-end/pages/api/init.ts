@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import { NextApiRequest, NextApiResponse } from "next";
-import { stringToBoolean } from "shared/util";
+import { stringToBoolean, safeParseInt } from "shared/util";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";
@@ -111,7 +111,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     build,
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
-      ? Number(DEFAULT_CONVERSION_WINDOW_HOURS)
+      ? safeParseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
       : 72,
     telemetry:
       DISABLE_TELEMETRY === "debug"

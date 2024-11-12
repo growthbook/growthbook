@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { datetime } from "shared/dates";
+import { safeParseInt } from "shared/util"
 import SelectField from "@/components/Forms/SelectField";
 import EventUser from "@/components/Avatar/EventUser";
 
@@ -29,13 +30,13 @@ export default function RevisionDropdown({
       value: r.version + "",
       label: r.version + "",
     }));
-  options.sort((a, b) => Number(b.value) - Number(a.value));
+  options.sort((a, b) => safeParseInt(b.value) - safeParseInt(a.value));
 
   return (
     <SelectField
       options={options}
       value={version + ""}
-      onChange={(version) => setVersion(Number(version))}
+      onChange={(version) => setVersion(safeParseInt(version))}
       sort={false}
       formatOptionLabel={({ value }, { context }) => {
         const revision = versions.get(value);

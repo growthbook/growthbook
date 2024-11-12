@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { safeParseInt } from "shared/util"
 
 export type TrackingType = "mixpanel" | "ga" | "segment" | "custom";
 
@@ -52,7 +53,7 @@ export function getTrackingCallback(
   if (t === "ga") {
     return `const action = ${experimentId}, label = ${variationId};
 ga("send", "event", "experiment", action, label, { 
-  dimension${Number(param) || "1"}: action + "::" + label
+  dimension${safeParseInt(param) || "1"}: action + "::" + label
 })`;
   }
   return `console.log({

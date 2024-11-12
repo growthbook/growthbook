@@ -1,5 +1,6 @@
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { safeParseInt } from "shared/util"
 import { FormatDialect } from "back-end/src/util/sql";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
 import { QueryResponse } from "back-end/src/types/Integration";
@@ -22,7 +23,7 @@ export default class Mssql extends SqlIntegration {
   async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource.id, {
       server: this.params.server,
-      port: Number(this.params.port + "", 10),
+      port: safeParseInt(this.params.port + ""),
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,

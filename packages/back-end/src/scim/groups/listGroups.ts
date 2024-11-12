@@ -2,6 +2,7 @@ import { parse, filter } from "scim2-parse-filter";
 import { Response } from "express";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { expandOrgMembers } from "back-end/src/services/organizations";
+import { safeParseInt } from "shared/util"
 import { ScimListRequest, ScimListResponse } from "back-end/types/scim";
 import {
   COUNT_DEFAULT,
@@ -17,8 +18,8 @@ export async function listGroups(
 
   // startIndex queryParam is 1-based so we need to subtract 1
   const queryOptions = {
-    startIndex: startIndex ? Number(startIndex) - 1 : START_INDEX_DEFAULT,
-    count: count ? Number(count) : COUNT_DEFAULT,
+    startIndex: startIndex ? safeParseInt(startIndex) - 1 : START_INDEX_DEFAULT,
+    count: count ? safeParseInt(count) : COUNT_DEFAULT,
   };
 
   const org = req.organization;

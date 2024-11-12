@@ -1,5 +1,6 @@
 import React, { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { safeParseInt } from "shared/util"
 import {
   FaDatabase,
   FaExclamationTriangle,
@@ -335,7 +336,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         onChange={(v) => {
                           setValue("lookbackSelected", v);
                           if (v !== "custom") {
-                            setValue("lookbackDays", Number(v));
+                            setValue("lookbackDays", safeParseInt(v));
                           }
                         }}
                       />

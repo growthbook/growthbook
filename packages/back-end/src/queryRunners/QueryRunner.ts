@@ -6,6 +6,7 @@ import {
   QueryStatus,
   QueryType,
 } from "back-end/types/query";
+import { safeParseInt } from "shared/util"
 import {
   countRunningQueries,
   createNewQuery,
@@ -692,7 +693,7 @@ export abstract class QueryRunner<
   private async concurrencyLimitReached(): Promise<boolean> {
     if (!this.integration.datasource.settings.maxConcurrentQueries)
       return new Promise<boolean>((resolve) => resolve(false));
-    const numericConcurrencyLimit = Number(
+    const numericConcurrencyLimit = safeParseInt(
       this.integration.datasource.settings.maxConcurrentQueries
     );
     if (isNaN(numericConcurrencyLimit) || numericConcurrencyLimit === 0) {

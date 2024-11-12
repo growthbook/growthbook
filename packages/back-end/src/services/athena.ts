@@ -2,6 +2,7 @@ import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
 import { Athena, ResultSet } from "@aws-sdk/client-athena";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
 import { logger } from "back-end/src/util/logger";
+import { safeParseInt } from "shared/util"
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ExternalIdCallback,
@@ -74,7 +75,7 @@ export async function runAthenaQuery(
   const { database, bucketUri, workGroup, catalog } = conn;
 
   const retryWaitTime =
-    (Number(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
+    (safeParseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
 
   const { QueryExecutionId } = await athena.startQueryExecution({
     QueryString: sql,

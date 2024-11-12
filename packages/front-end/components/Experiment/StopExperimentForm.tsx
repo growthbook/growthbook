@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { safeParseInt } from "shared/util"
 import {
   ExperimentInterfaceStringDates,
   ExperimentResultsType,
@@ -162,11 +163,11 @@ const StopExperimentForm: FC<{
             containerClassName="col-lg"
             value={form.watch("winner") + ""}
             onChange={(v) => {
-              form.setValue("winner", Number(v) || 0);
+              form.setValue("winner", safeParseInt(v) || 0);
 
               form.setValue(
                 "releasedVariationId",
-                experiment.variations[Number(v)]?.id ||
+                experiment.variations[safeParseInt(v)]?.id ||
                   form.watch("releasedVariationId")
               );
             }}

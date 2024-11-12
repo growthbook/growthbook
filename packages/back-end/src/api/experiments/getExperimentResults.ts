@@ -4,6 +4,7 @@ import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentResultsValidator } from "back-end/src/validators/openapi";
+import { safeParseInt } from "shared/util";
 
 export const getExperimentResults = createApiRequestHandler(
   getExperimentResultsValidator
@@ -14,7 +15,9 @@ export const getExperimentResults = createApiRequestHandler(
       throw new Error("Could not find experiment with that id");
     }
 
-    const phase = Number(req.query.phase ?? experiment.phases.length - 1 + "");
+    const phase = safeParseInt(
+      req.query.phase ?? experiment.phases.length - 1 + ""
+    );
 
     const snapshot = await getLatestSnapshot({
       experiment: experiment.id,

@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { safeParseInt } from "shared/util"
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
@@ -177,7 +178,7 @@ export async function getExperimentsFrequencyMonth(
   const allData: { date: string; numExp: number }[] = [];
 
   // make the data array with all the months needed and 0 experiments.
-  for (let i = Number(num) - 1; i >= 0; i--) {
+  for (let i = safeParseInt(num) - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(1); // necessary because altering the month may result in an invalid date (ex: Feb 31)
     d.setMonth(d.getMonth() - i);
@@ -358,7 +359,7 @@ async function _getSnapshot({
 
   return await getLatestSnapshot({
     experiment: experimentObj.id,
-    phase: Number(phase),
+    phase: safeParseInt(phase),
     dimension,
     withResults,
     type,
@@ -1566,7 +1567,7 @@ export async function deleteExperimentPhase(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, phase } = req.params;
-  const phaseIndex = Number(phase);
+  const phaseIndex = safeParseInt(phase);
 
   const experiment = await getExperimentById(context, id);
   const changes: Changeset = {};
@@ -1645,7 +1646,7 @@ export async function putExperimentPhase(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const i = Number(req.params.phase);
+  const i = safeParseInt(req.params.phase);
   const phase = req.body;
 
   const changes: Changeset = {};

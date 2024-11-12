@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Toggle from "@/components/Forms/Toggle";
+import { safeParseInt } from "shared/util"
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -190,7 +191,7 @@ const EditOrganization: FC<{
                 min={0}
                 className="form-control"
                 value={freeSeats}
-                onChange={(e) => setFreeSeats(Number(e.target.value))}
+                onChange={(e) => setFreeSeats(safeParseInt(e.target.value))}
               />
               <div>
                 <span className="text-muted small">

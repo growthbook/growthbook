@@ -5,6 +5,7 @@ import {
   Schema,
   Table,
 } from "back-end/src/types/Integration";
+import { safeParseInt } from "shared/util"
 import { DataSourceType } from "back-end/types/datasource";
 
 type RowType = {
@@ -87,7 +88,7 @@ export function formatInformationSchema(
       table = {
         tableName: row.table_name,
         path: tablePath,
-        numOfColumns: Number(row.column_count, 10),
+        numOfColumns: safeParseInt(row.column_count),
         id: uniqid("tbl_"),
         dateCreated: date,
         dateUpdated: date,

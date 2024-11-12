@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { FilterQuery } from "mongoose";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { safeParseInt } from "shared/util"
 import {
   getIdeasByOrganization,
   createIdea,
@@ -307,7 +308,7 @@ export async function getRecentIdeas(
 ) {
   const { org } = getContextFromReq(req);
   const { num } = req.params;
-  let intNum = Number(num);
+  let intNum = safeParseInt(num);
   if (intNum > 100) intNum = 100;
 
   try {

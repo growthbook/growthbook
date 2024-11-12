@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { safeParseInt } from "shared/util"
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -81,7 +82,7 @@ const ImportExperimentList: FC<{
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
-        if (minUsersFilter && e.users < (Number(minUsersFilter) || 0)) {
+        if (minUsersFilter && e.users < (safeParseInt(minUsersFilter) || 0)) {
           return false;
         }
         if (alreadyImportedFilter) {
@@ -100,14 +101,14 @@ const ImportExperimentList: FC<{
 
         if (
           minLengthFilter &&
-          daysBetween(e.startDate, e.endDate) < (Number(minLengthFilter) || 0)
+          daysBetween(e.startDate, e.endDate) < (safeParseInt(minLengthFilter) || 0)
         ) {
           return false;
         }
 
         if (
           minVariationsFilter &&
-          e.numVariations < Number(minVariationsFilter)
+          e.numVariations < safeParseInt(minVariationsFilter)
         ) {
           return false;
         }

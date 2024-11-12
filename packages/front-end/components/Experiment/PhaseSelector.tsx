@@ -1,4 +1,5 @@
 import { date } from "shared/dates";
+import { safeParseInt } from "shared/util"
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -41,7 +42,7 @@ export default function PhaseSelector({
       );
     }
 
-    const phaseIndex = Number(value) || 0;
+    const phaseIndex = safeParseInt(value) || 0;
     const phase = (phases ?? experiment?.phases)?.[phaseIndex];
     if (!phase) return value;
 
@@ -117,7 +118,7 @@ export default function PhaseSelector({
               editPhases();
               return;
             }
-            (setPhase ?? setSnapshotPhase)(Number(value) || 0);
+            (setPhase ?? setSnapshotPhase)(safeParseInt(value) || 0);
           }}
           sort={false}
           labelClassName="mr-2"

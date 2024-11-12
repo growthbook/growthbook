@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState, useMemo } from "react";
+import { safeParseInt } from "shared/util"
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -38,7 +39,7 @@ export default function FeaturePage() {
   let extraQueryString = "";
   // Version being forced via querystring
   if ("v" in router.query) {
-    const v = Number(router.query.v as string);
+    const v = safeParseInt(router.query.v as string);
     if (v) {
       extraQueryString = `?v=${v}`;
     }
@@ -89,7 +90,7 @@ export default function FeaturePage() {
 
     // Version being forced via querystring
     if ("v" in router.query) {
-      const v = Number(router.query.v as string);
+      const v = safeParseInt(router.query.v as string);
       if (v && revisions.some((r) => r.version === v)) {
         setVersion(v);
         return;

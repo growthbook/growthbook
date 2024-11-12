@@ -2,6 +2,7 @@ import { createConnection } from "snowflake-sdk";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { QueryResponse } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
+import { safeParseInt } from "shared/util"
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -18,7 +19,7 @@ function getProxySettings(): ProxyOptions {
   return {
     proxyProtocol: parsed.protocol.replace(":", ""),
     proxyHost: parsed.hostname,
-    proxyPort: (parsed.port ? Number(parsed.port) : 0) || undefined,
+    proxyPort: (parsed.port ? safeParseInt(parsed.port) : 0) || undefined,
     proxyUser: parsed.username || undefined,
     proxyPassword: parsed.password || undefined,
   };

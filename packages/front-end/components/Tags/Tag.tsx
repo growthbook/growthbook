@@ -1,4 +1,5 @@
 import React from "react";
+import { safeParseInt } from "shared/util"
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Radix/Badge";
@@ -43,8 +44,8 @@ export default function Tag({ tag, color, description, skipMargin }: Props) {
 export function isLight(bgColor: string): boolean {
   if (!bgColor) return true;
   const color = bgColor.charAt(0) === "#" ? bgColor.substring(1, 7) : bgColor;
-  const r = Number(color.substring(0, 2), 16); // hexToR
-  const g = Number(color.substring(2, 4), 16); // hexToG
-  const b = Number(color.substring(4, 6), 16); // hexToB
+  const r = safeParseInt(color.substring(0, 2), 16); // hexToR
+  const g = safeParseInt(color.substring(2, 4), 16); // hexToG
+  const b = safeParseInt(color.substring(4, 6), 16); // hexToB
   return r * 0.299 + g * 0.587 + b * 0.114 > 186;
 }

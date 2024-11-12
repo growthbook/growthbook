@@ -1,4 +1,5 @@
 import React, { FC, useState } from "react";
+import { safeParseInt } from "shared/util"
 import { EventInterface, NotificationEventName } from "back-end/types/event";
 import { FaDownload, FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
@@ -295,8 +296,8 @@ export const EventsPageContainer = () => {
           sort={false}
           value={"" + perPage}
           onChange={(v) => {
-            if (Number(v) === perPage) return;
-            setPerPage(Number(v));
+            if (safeParseInt(v) === perPage) return;
+            setPerPage(safeParseInt(v));
           }}
         />
       </div>

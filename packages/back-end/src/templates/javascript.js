@@ -9,7 +9,7 @@ var t=/^[a-zA-Z:_][a-zA-Z0-9:_.-]*$/,e={revert:function(){}},n=new Map,r=new Set
 ,injectStyles=(css)=>{var s=document.createElement("style");s.innerHTML=css;document.head.appendChild(s); return function(){s.remove();}}
 ,genAnonId=(k)=>{k="GROWTHBOOK_ANONID";try{let id=localStorage.getItem(k);if(!id){id=Math.floor(Math.random()*1000000);localStorage.setItem(k,id);}return id;} catch (e) {return ""}}
 ,hashFnv32a=(str)=>{let hval=0x811c9dc5;const l=str.length;for(let i=0;i<l;i++){hval^=str.charCodeAt(i);hval+=(hval<<1)+(hval<<4)+(hval<<7)+(hval<<8)+(hval<<24);}return hval >>> 0} 
-,qaForce=(k)=>{let m=location.search.match(new RegExp('[&?]'+k+'=([0-9])\\b'));return m?Number(m[1]):-1}
+,qaForce=(k)=>{let m=location.search.match(new RegExp('[&?]'+k+'=([0-9])\\b'));return m?parseInt(m[1]):-1}
 ,choose=(k,u,w,f,d,x)=>{if(f>=0)return f;x=qaForce(k);if(x>=0)return x;if(!u||d)return -1;const n=(hashFnv32a(u+k)%1000)/1000;let c=0;for(let i=0;i<w.length;i++){c+=w[i];if(n<c)return i}return -1}
 ,included=(o,g)=>{g=conf('groups')||[];if(o.g&&!o.g.filter((n)=>g.includes(n)).length)return 0;if(o.u&&!location.href.match(new RegExp(o.u)))return 0;return 1}
 ,runUndo=()=>{undo.forEach(u=>u&&u());undo=[]}

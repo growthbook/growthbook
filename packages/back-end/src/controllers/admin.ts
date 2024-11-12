@@ -18,6 +18,7 @@ import {
 import { getOrganizationById } from "back-end/src/services/organizations";
 import { setLicenseKey } from "back-end/src/routers/organizations/organizations.controller";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { safeParseInt } from "shared/util"
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -33,7 +34,7 @@ export async function getOrganizations(
   const { page, search } = req.query;
 
   const { organizations, total } = await findAllOrganizations(
-    Number(page || "") || 1,
+    safeParseInt(page || "") || 1,
     search || ""
   );
 
@@ -246,7 +247,10 @@ export async function getMembers(
   const { page, search } = req.query;
 
   const organizationInfo: Record<string, object> = {};
-  const filteredUsers = await getAllUsersFiltered(Number(page ?? "1"), search);
+  const filteredUsers = await getAllUsersFiltered(
+    safeParseInt(page ?? "1"),
+    search
+  );
   if (filteredUsers?.length > 0) {
     const memberOrgs = await findOrganizationsByMemberIds(
       filteredUsers.map((u) => u.id)

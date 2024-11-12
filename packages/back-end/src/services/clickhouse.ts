@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
+import { safeParseInt } from "shared/util"
 import generator from "generate-password";
 import {
   CLICKHOUSE_HOST,
@@ -98,7 +99,7 @@ export async function createClickhouseUser(
   const url = new URL(CLICKHOUSE_HOST);
 
   const params = {
-    port: Number(url.port) || 9000,
+    port: safeParseInt(url.port) || 9000,
     url: url.toString(),
     user: user,
     password: password,

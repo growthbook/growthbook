@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { safeParseInt } from "shared/util"
 import {
   FeatureInterface,
   JSONSchemaDef,
@@ -131,7 +132,7 @@ function EditSchemaField({
                   type="number"
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, min: Number(e.target.value) })
+                    onChange({ ...value, min: safeParseInt(e.target.value) })
                   }
                 />
               </div>
@@ -144,7 +145,7 @@ function EditSchemaField({
                   max={value.type === "string" ? 256 : undefined}
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, max: Number(e.target.value) })
+                    onChange({ ...value, max: safeParseInt(e.target.value) })
                   }
                 />
               </div>

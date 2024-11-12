@@ -4,6 +4,7 @@ import { EventInterface } from "back-end/types/event";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { safeParseInt } from "shared/util"
 
 type GetEventsRequest = AuthRequest<
   null,
@@ -31,9 +32,9 @@ export const getEvents = async (
 
   const eventTypes = JSON.parse(type || "[]");
 
-  const cappedPerPage = Math.min(Number(perPage), 100);
+  const cappedPerPage = Math.min(safeParseInt(perPage), 100);
   const events = await Event.getEventsForOrganization(context.org.id, {
-    page: Number(page),
+    page: safeParseInt(page),
     perPage: cappedPerPage,
     eventTypes,
     from,

@@ -1,4 +1,5 @@
 import md5 from "md5";
+import { safeParseInt } from "shared/util"
 
 const colors = [
   "#ffed6f",
@@ -14,9 +15,9 @@ const colors = [
 ];
 
 function getTextColor(bg: string): string {
-  const red = Number(bg.slice(1, 3), 16);
-  const green = Number(bg.slice(3, 5), 16);
-  const blue = Number(bg.slice(5), 16);
+  const red = safeParseInt(bg.slice(1, 3), 16);
+  const green = safeParseInt(bg.slice(3, 5), 16);
+  const blue = safeParseInt(bg.slice(5), 16);
 
   if (red * 0.299 + green * 0.587 + blue * 0.114 > 186) {
     return "#000000";
@@ -44,7 +45,7 @@ export default function LetterAvatar({
     : defaultInitials;
 
   const bg = name
-    ? colors[Number(md5(name).slice(0, 3), 16) % colors.length]
+    ? colors[safeParseInt(md5(name).slice(0, 3), 16) % colors.length]
     : "#703fc7";
 
   const text = getTextColor(bg);

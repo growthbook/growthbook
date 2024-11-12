@@ -2,6 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { safeParseInt } from "shared/util"
 import { ago, datetime } from "shared/dates";
 import { EventUserLoggedIn } from "back-end/src/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
@@ -76,16 +77,16 @@ export default function FeaturesDraftTable({ features }: Props) {
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
-        dateAndStatus = Number(`0${dateAndStatus}`);
+        dateAndStatus = safeParseInt(`0${dateAndStatus}`);
         break;
       case "approved":
-        dateAndStatus = Number(`0${dateAndStatus}`);
+        dateAndStatus = safeParseInt(`0${dateAndStatus}`);
         break;
       case "pending-review":
-        dateAndStatus = Number(`1${dateAndStatus}`);
+        dateAndStatus = safeParseInt(`1${dateAndStatus}`);
         break;
       case "changes-requested":
-        dateAndStatus = Number(`1${dateAndStatus}`);
+        dateAndStatus = safeParseInt(`1${dateAndStatus}`);
         break;
     }
     return {
