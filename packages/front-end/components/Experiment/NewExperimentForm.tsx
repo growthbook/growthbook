@@ -371,7 +371,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
 
     // TODO remove if data correlates
-    track(isBandit ? "CreateBandit" : "Create Experiment", {
+    track(isBandit ? "Create Bandit" : "Create Experiment", {
       source,
       numTags: data.tags?.length || 0,
       numMetrics:
