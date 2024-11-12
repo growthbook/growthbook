@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
@@ -102,6 +102,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
+export const TEST_QUERY_SQL = "SELECT 1";
 
 const N_STAR_VALUES = [
   100,
@@ -183,7 +184,7 @@ export default abstract class SqlIntegration
   }
 
   async testConnection(): Promise<boolean> {
-    await this.runQuery("select 1");
+    await this.runQuery(TEST_QUERY_SQL);
     return true;
   }
 

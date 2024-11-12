@@ -1,8 +1,9 @@
 import { createConnection } from "snowflake-sdk";
+import { safeParseInt } from "shared/util";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { QueryResponse } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
-import { safeParseInt } from "shared/util"
+import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -45,11 +46,12 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     application: "GrowthBook_GrowthBook",
     accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
   });
-  // promise with timeout to prevent hanging
+  // promise with timeout to prevent hanging, esp. for test query
+  const connectionTimeout = sql === TEST_QUERY_SQL ? 30000 : 600000;
   await new Promise((resolve, reject) => {
     const promiseTimeout = setTimeout(() => {
       reject(new Error("Snowflake connection timeout"));
-    }, 30000);
+    }, connectionTimeout);
     connection.connect((err, conn) => {
       clearTimeout(promiseTimeout);
       if (err) {

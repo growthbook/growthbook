@@ -11,14 +11,14 @@ module.exports = {
           )
             context.report(
               node,
-              "Number.parseInt(...) is deprecated, please use Number(...)!"
+              "Number.parseInt(...) is deprecated, please use Math.trunc(Number(...)) or safeParseInt from the shared package!"
             );
         },
         CallExpression(node) {
           if (node.callee && node.callee.name === "parseInt")
             context.report(
               node,
-              "parseInt(...) is deprecated, please use Number(...)!"
+              "parseInt(...) is deprecated, please use Math.trunc(Number(...)) or safeParseInt from the shared package!"
             );
         },
       };
