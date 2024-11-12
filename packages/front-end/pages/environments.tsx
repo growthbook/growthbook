@@ -268,7 +268,18 @@ const EnvironmentsPage: FC = () => {
                           }
                         >
                           <DeleteButton
-                            deleteMessage="Are you you want to delete this environment?"
+                            deleteMessage={
+                              <>
+                                <div>
+                                  Are you sure you want to delete this
+                                  environment?
+                                </div>
+                                <div>
+                                  This will also delete any feature rules for
+                                  this environment.
+                                </div>
+                              </>
+                            }
                             displayName={e.id}
                             className="dropdown-item text-danger"
                             text="Delete"
