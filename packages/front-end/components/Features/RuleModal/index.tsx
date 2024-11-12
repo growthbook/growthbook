@@ -445,7 +445,7 @@ export default function RuleModal({
 
         track(
           values.experimentType === "multi-armed-bandit"
-            ? "CreateBandit"
+            ? "Create Bandit"
             : "Create Experiment",
           {
             source: "experiment-ref-new-rule-modal",
