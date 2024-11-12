@@ -297,6 +297,33 @@ export type WidenPrimitives<T> = T extends string
 export type FeatureEvalContext = {
   id?: string;
   evaluatedFeatures: Set<string>;
+  log: (msg: string, ctx: any) => void;
+  attributes: Attributes;
+  forcedFeatureValues: Map<string, any>;
+  forcedVariations?: Record<string, number>;
+  features: FeatureDefinitions;
+  enabled?: boolean;
+  url: string;
+  qaMode?: boolean;
+  savedGroups?: SavedGroupsValues;
+  /** @deprecated */
+  overrides?: Record<string, ExperimentOverride>;
+  /** @deprecated */
+  groups?: Record<string, boolean>;
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
+  stickyBucketIdentifierAttributes?: string[];
+  stickyBucketService?: StickyBucketService;
+  onExperimentEval: (experiment: Experiment<any>, result: Result<any>) => void;
+  onExperimentView: (
+    experiment: Experiment<any>,
+    result: Result<any>
+  ) => Promise<void>;
+  onFeatureUsage: (key: string, result: FeatureResult<any>) => void;
+
+  recordChangeId?: (changeId: string) => void;
 };
 
 export type DOMMutation = {
