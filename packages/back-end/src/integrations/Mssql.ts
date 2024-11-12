@@ -1,6 +1,6 @@
+import { safeParseInt } from "shared/util";
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { safeParseInt } from "shared/util"
 import { FormatDialect } from "back-end/src/util/sql";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
 import { QueryResponse } from "back-end/src/types/Integration";

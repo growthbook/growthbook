@@ -1,5 +1,10 @@
 import { useForm } from "react-hook-form";
-import { safeParseInt } from "shared/util"
+import {
+  safeParseInt,
+  getJSONValidator,
+  inferSimpleSchemaFromValue,
+  simpleToJSONSchema,
+} from "shared/util";
 import {
   FeatureInterface,
   JSONSchemaDef,
@@ -9,11 +14,6 @@ import {
 import React, { useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
-import {
-  getJSONValidator,
-  inferSimpleSchemaFromValue,
-  simpleToJSONSchema,
-} from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";

@@ -1,15 +1,15 @@
 import { Response } from "express";
-import { safeParseInt } from "shared/util"
+import {
+  safeParseInt,
+  getAffectedEnvsForExperiment,
+  getSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import {
-  getAffectedEnvsForExperiment,
-  getSnapshotAnalysis,
-  isDefined,
-} from "shared/util";
 import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,

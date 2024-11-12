@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
+import { safeParseInt } from "shared/util";
 import { expandOrgMembers } from "back-end/src/services/organizations";
-import { safeParseInt } from "shared/util"
 import {
   ScimListRequest,
   ScimListResponse,

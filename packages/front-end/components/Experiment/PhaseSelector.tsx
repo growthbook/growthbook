@@ -1,5 +1,5 @@
 import { date } from "shared/dates";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";

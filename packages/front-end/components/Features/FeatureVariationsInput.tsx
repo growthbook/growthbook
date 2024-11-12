@@ -1,5 +1,5 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";

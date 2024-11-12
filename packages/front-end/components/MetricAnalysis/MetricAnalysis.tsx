@@ -1,6 +1,6 @@
 import React, { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import {
   FaDatabase,
   FaExclamationTriangle,

@@ -1,4 +1,5 @@
 import EventEmitter from "events";
+import { safeParseInt } from "shared/util";
 import {
   Queries,
   QueryInterface,
@@ -6,7 +7,6 @@ import {
   QueryStatus,
   QueryType,
 } from "back-end/types/query";
-import { safeParseInt } from "shared/util"
 import {
   countRunningQueries,
   createNewQuery,

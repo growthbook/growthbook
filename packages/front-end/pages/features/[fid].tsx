@@ -1,16 +1,16 @@
 import { useRouter } from "next/router";
 import { useEffect, useState, useMemo } from "react";
-import { safeParseInt } from "shared/util"
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
+  safeParseInt,
   filterEnvironmentsByFeature,
   getDependentExperiments,
   getDependentFeatures,
   mergeRevision,
 } from "shared/util";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";

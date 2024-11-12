@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 
 export type TrackingType = "mixpanel" | "ga" | "segment" | "custom";
 

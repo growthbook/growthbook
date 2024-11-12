@@ -3,7 +3,7 @@ import { GrowthBook } from "@growthbook/growthbook";
 import normalSample from "@stdlib/random/base/normal";
 import { addDays } from "date-fns";
 import parseArgs from "minimist";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 
 type TableData = {
   userId: string;

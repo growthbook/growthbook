@@ -1,8 +1,8 @@
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
 import { Athena, ResultSet } from "@aws-sdk/client-athena";
+import { safeParseInt } from "shared/util";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
 import { logger } from "back-end/src/util/logger";
-import { safeParseInt } from "shared/util"
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ExternalIdCallback,

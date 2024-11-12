@@ -1,8 +1,8 @@
 import { parse, filter } from "scim2-parse-filter";
 import { Response } from "express";
+import { safeParseInt } from "shared/util";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { expandOrgMembers } from "back-end/src/services/organizations";
-import { safeParseInt } from "shared/util"
 import { ScimListRequest, ScimListResponse } from "back-end/types/scim";
 import {
   COUNT_DEFAULT,

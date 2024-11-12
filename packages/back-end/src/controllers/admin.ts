@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { safeParseInt } from "shared/util";
 import { OrganizationInterface } from "back-end/types/organization";
 import { UserInterface } from "back-end/types/user";
 import { getAllSSOConnections } from "back-end/src/models/SSOConnectionModel";
@@ -18,7 +19,6 @@ import {
 import { getOrganizationById } from "back-end/src/services/organizations";
 import { setLicenseKey } from "back-end/src/routers/organizations/organizations.controller";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { safeParseInt } from "shared/util"
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,

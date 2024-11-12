@@ -2,7 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { ago, datetime } from "shared/dates";
 import { EventUserLoggedIn } from "back-end/src/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";

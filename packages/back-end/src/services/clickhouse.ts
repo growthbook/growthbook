@@ -1,6 +1,6 @@
 import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import generator from "generate-password";
 import {
   CLICKHOUSE_HOST,

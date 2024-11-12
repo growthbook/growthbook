@@ -1,10 +1,10 @@
 import { useState, FC } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
+import { safeParseInt } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Toggle from "@/components/Forms/Toggle";
-import { safeParseInt } from "shared/util"
 
 const EditOrganization: FC<{
   onEdit: () => void;

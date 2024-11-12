@@ -1,10 +1,10 @@
 import type { Response } from "express";
+import { safeParseInt } from "shared/util";
 import * as Event from "back-end/src/models/EventModel";
 import { EventInterface } from "back-end/types/event";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { safeParseInt } from "shared/util"
 
 type GetEventsRequest = AuthRequest<
   null,

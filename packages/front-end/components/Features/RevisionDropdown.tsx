@@ -1,7 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { datetime } from "shared/dates";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import SelectField from "@/components/Forms/SelectField";
 import EventUser from "@/components/Avatar/EventUser";
 

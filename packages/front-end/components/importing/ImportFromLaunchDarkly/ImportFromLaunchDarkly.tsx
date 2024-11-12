@@ -10,7 +10,7 @@ import {
   FaRegWindowRestore,
 } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "back-end/types/organization";
 import Link from "next/link";

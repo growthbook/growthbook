@@ -1,7 +1,7 @@
 import { Response } from "express";
+import { safeParseInt } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { DiscussionParentType } from "back-end/types/discussion";
-import { safeParseInt } from "shared/util"
 import {
   addComment,
   getDiscussionByParent,

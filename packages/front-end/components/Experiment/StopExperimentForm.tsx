@@ -1,11 +1,10 @@
 import { FC } from "react";
-import { safeParseInt } from "shared/util"
+import { safeParseInt, experimentHasLinkedChanges } from "shared/util";
 import {
   ExperimentInterfaceStringDates,
   ExperimentResultsType,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { experimentHasLinkedChanges } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";

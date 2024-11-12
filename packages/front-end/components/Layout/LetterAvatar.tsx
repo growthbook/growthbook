@@ -1,5 +1,5 @@
 import md5 from "md5";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 
 const colors = [
   "#ffed6f",

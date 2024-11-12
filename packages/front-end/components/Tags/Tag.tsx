@@ -1,5 +1,5 @@
 import React from "react";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Radix/Badge";

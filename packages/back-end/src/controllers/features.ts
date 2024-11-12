@@ -1,8 +1,6 @@
 import { Request, Response } from "express";
-import { safeParseInt } from "shared/util"
-import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
 import {
+  safeParseInt,
   autoMerge,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -11,6 +9,8 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
 } from "shared/util";
+import { evaluateFeatures } from "@growthbook/proxy-eval";
+import { isEqual } from "lodash";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -1038,7 +1038,11 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, safeParseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -1422,7 +1426,11 @@ export async function postFeatureDefaultValue(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, safeParseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: environments,
@@ -1510,7 +1518,11 @@ export async function putFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, safeParseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -1615,7 +1627,11 @@ export async function postFeatureMoveRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, safeParseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];
@@ -1691,7 +1707,11 @@ export async function deleteFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, safeParseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];

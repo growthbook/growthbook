@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { safeParseInt } from "shared/util"
+import { safeParseInt, isProjectListValidForProject } from "shared/util";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -101,7 +100,8 @@ const ImportExperimentList: FC<{
 
         if (
           minLengthFilter &&
-          daysBetween(e.startDate, e.endDate) < (safeParseInt(minLengthFilter) || 0)
+          daysBetween(e.startDate, e.endDate) <
+            (safeParseInt(minLengthFilter) || 0)
         ) {
           return false;
         }

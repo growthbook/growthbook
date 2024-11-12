@@ -1,11 +1,11 @@
 import uniqid from "uniqid";
+import { safeParseInt } from "shared/util";
 import {
   InformationSchema,
   RawInformationSchema,
   Schema,
   Table,
 } from "back-end/src/types/Integration";
-import { safeParseInt } from "shared/util"
 import { DataSourceType } from "back-end/types/datasource";
 
 type RowType = {

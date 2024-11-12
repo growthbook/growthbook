@@ -26,7 +26,7 @@ import {
   mint,
   sky,
 } from "@radix-ui/colors";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { RadixColor } from "@/components/Radix/HelperText";
 
 export const TAG_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {

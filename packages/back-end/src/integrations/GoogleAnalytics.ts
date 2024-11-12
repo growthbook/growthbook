@@ -1,6 +1,6 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import cloneDeep from "lodash/cloneDeep";
-import { safeParseInt } from "shared/util"
+import { safeParseInt } from "shared/util";
 import { ReqContext } from "back-end/types/organization";
 import {
   SourceIntegrationInterface,

@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { FilterQuery } from "mongoose";
+import { safeParseInt } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { safeParseInt } from "shared/util"
 import {
   getIdeasByOrganization,
   createIdea,
