@@ -18,6 +18,7 @@ export type Props = {
   icon?: ReactNode;
   iconPosition?: "left" | "right";
   children: string | string[];
+  style?: React.CSSProperties;
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
