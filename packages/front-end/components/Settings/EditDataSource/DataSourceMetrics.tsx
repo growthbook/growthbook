@@ -13,11 +13,11 @@ import ProjectBadges from "@/components/ProjectBadges";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useCombinedMetrics } from "@/pages/metrics";
 import {
   MetricModal,
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
+import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<

@@ -2,7 +2,6 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { useCallback, useEffect, useState } from "react";
@@ -34,7 +33,6 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import Button from "@/components/Radix/Button";
 import ExperimentHeader from "./ExperimentHeader";
-import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
@@ -51,7 +49,6 @@ export interface Props {
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
-  idea?: IdeaInterface;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
@@ -72,7 +69,6 @@ export default function TabbedPage({
   duplicate,
   editProject,
   editTags,
-  idea,
   editVariations,
   visualChangesets,
   urlRedirects,
@@ -286,6 +282,8 @@ export default function TabbedPage({
         usersWatching={usersWatching}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
+        editProject={editProject}
+        editTags={editTags}
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
@@ -351,12 +349,6 @@ export default function TabbedPage({
             tab === "overview" ? "d-block" : "d-none d-print-block"
           )}
         >
-          <ProjectTagBar
-            experiment={experiment}
-            editProject={!viewingOldPhase ? editProject : undefined}
-            editTags={!viewingOldPhase ? editTags : undefined}
-            idea={idea}
-          />
           <SetupTabOverview
             experiment={experiment}
             mutate={mutate}

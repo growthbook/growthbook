@@ -194,6 +194,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     : hashAttributes[0] || "id";
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
+  const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -227,33 +228,45 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         ? initialValue.variations
         : getDefaultVariations(initialNumVariations),
       phases: [
-        initialValue
-          ? {
-              coverage: initialValue.phases?.[0].coverage || 1,
-              dateStarted: getValidDate(
-                initialValue.phases?.[0]?.dateStarted ?? ""
-              )
-                .toISOString()
-                .substr(0, 16),
-              dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded ?? "")
-                .toISOString()
-                .substr(0, 16),
-              name: initialValue.phases?.[0].name || "Main",
-              reason: "",
-              variationWeights:
-                initialValue.phases?.[0].variationWeights ||
-                getEqualWeights(
-                  initialValue.variations ? initialValue.variations.length : 2
+        ...(initialValue?.phases?.[lastPhase]
+          ? [
+              {
+                ...initialValue.phases[lastPhase],
+                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+                dateStarted: getValidDate(
+                  initialValue.phases?.[lastPhase]?.dateStarted ?? ""
+                )
+                  .toISOString()
+                  .substr(0, 16),
+                dateEnded: getValidDate(
+                  initialValue.phases?.[lastPhase]?.dateEnded ?? ""
+                )
+                  .toISOString()
+                  .substr(0, 16),
+                name: initialValue.phases?.[lastPhase]?.name || "Main",
+                reason: "",
+                variationWeights:
+                  initialValue.phases?.[lastPhase]?.variationWeights ||
+                  getEqualWeights(
+                    initialValue.variations ? initialValue.variations.length : 2
+                  ),
+              },
+            ]
+          : [
+              {
+                coverage: 1,
+                dateStarted: new Date().toISOString().substr(0, 16),
+                dateEnded: new Date().toISOString().substr(0, 16),
+                name: "Main",
+                reason: "",
+                variationWeights: getEqualWeights(
+                  (initialValue?.variations
+                    ? initialValue.variations
+                    : getDefaultVariations(initialNumVariations)
+                  )?.length || 2
                 ),
-            }
-          : {
-              coverage: 1,
-              dateStarted: new Date().toISOString().substr(0, 16),
-              dateEnded: new Date().toISOString().substr(0, 16),
-              name: "Main",
-              reason: "",
-              variationWeights: [0.5, 0.5],
-            },
+              },
+            ]),
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
@@ -399,6 +412,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   }
   const trackingEventModalType = kebabCase(header);
 
+  const nameFieldHandlers = form.register("name", {
+    setValueAs: (s) => s?.trim(),
+  });
+  const trackingKeyFieldHandlers = form.register("trackingKey");
+
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -433,8 +451,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
-              {...form.register("name", { setValueAs: (s) => s?.trim() })}
+              {...nameFieldHandlers}
               onChange={async (e) => {
+                // Ensure the name field is updated and then sync with trackingKey if possible
+                nameFieldHandlers.onChange(e);
+
                 if (!isNewExperiment) return;
                 if (!linkNameWithTrackingKey) return;
                 const val = e?.target?.value ?? form.watch("name");
@@ -455,11 +476,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             <Field
               label="Tracking Key"
-              {...form.register("trackingKey")}
               helpText={`Unique identifier for this ${
                 isBandit ? "Bandit" : "Experiment"
               }, used to track impressions and analyze results`}
-              onChange={() => setLinkNameWithTrackingKey(false)}
+              {...trackingKeyFieldHandlers}
+              onChange={(e) => {
+                trackingKeyFieldHandlers.onChange(e);
+                setLinkNameWithTrackingKey(false);
+              }}
             />
 
             {!isBandit && (
@@ -833,7 +857,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
                   onChange={(v) => form.setValue("datasource", v)}
-                  initialOption="Manual"
+                  placeholder="Select..."
                   options={datasources.map((d) => {
                     const isDefaultDataSource =
                       d.id === settings.defaultDataSource;

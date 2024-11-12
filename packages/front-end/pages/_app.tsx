@@ -19,7 +19,10 @@ import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
-import { DefinitionsProvider } from "@/services/DefinitionsContext";
+import {
+  DefinitionsGuard,
+  DefinitionsProvider,
+} from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { initEnv, isTelemetryEnabled } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -161,7 +164,9 @@ function App({
                               <GuidedGetStartedBar />
                               <OrganizationMessagesContainer />
                               <DemoDataSourceGlobalBannerContainer />
-                              <Component {...pageProps} />
+                              <DefinitionsGuard>
+                                <Component {...pageProps} />
+                              </DefinitionsGuard>
                             </main>
                           </DefinitionsProvider>
                         </GetStartedProvider>

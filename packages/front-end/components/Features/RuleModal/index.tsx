@@ -131,10 +131,11 @@ export default function RuleModal({
     defaultValues,
   });
 
+  const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
+    (scheduleRule) => scheduleRule.timestamp !== null
+  );
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
-    (defaultValues.scheduleRules || []).some(
-      (scheduleRule) => scheduleRule.timestamp !== null
-    )
+    defaultHasSchedule
   );
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -357,7 +358,8 @@ export default function RuleModal({
           guardrailMetrics: values.guardrailMetrics || [],
           activationMetric: "",
           name: values.name,
-          hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
+          hashVersion: (values.hashVersion ||
+            (hasSDKWithNoBucketingV2 ? 1 : 2)) as 1 | 2,
           owner: "",
           status:
             values.experimentType === "multi-armed-bandit"
@@ -604,6 +606,9 @@ export default function RuleModal({
                           usePortal={true}
                         >
                           Bandit
+                          <span className="mr-auto badge badge-purple text-uppercase ml-2">
+                            Beta
+                          </span>
                         </PremiumTooltip>
                       ),
                       description: (
@@ -767,7 +772,11 @@ export default function RuleModal({
             feature={feature}
             environment={environment}
             i={i}
+            defaultValues={defaultValues}
             changeRuleType={changeRuleType}
+            noSchedule={!defaultHasSchedule}
+            scheduleToggleEnabled={scheduleToggleEnabled}
+            setScheduleToggleEnabled={setScheduleToggleEnabled}
           />
         ) : null}
 

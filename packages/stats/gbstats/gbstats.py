@@ -590,17 +590,20 @@ def create_bandit_statistics(
 ) -> List[BanditStatistic]:
     num_variations = reduced.at[0, "variations"]
     s = reduced.iloc[0]
-    s0 = variation_statistic_from_metric_row(row=s, prefix="baseline", metric=metric)
-    # for bandits we weight by period; iid data over periods no longer holds
-    # if isinstance(s0, ProportionStatistic):
-    #    s0 = SampleMeanStatistic(n=s0.n, sum=s0.sum, sum_squares=s0.sum)
-    stats = [s0]
-    for i in range(1, num_variations):
-        s1 = variation_statistic_from_metric_row(row=s, prefix=f"v{i}", metric=metric)
-        if isinstance(s1, ProportionStatistic):
-            s1 = SampleMeanStatistic(n=s1.n, sum=s1.sum, sum_squares=s1.sum)
-        stats.append(s1)
-    return stats  # type: ignore
+    stats = []
+    for i in range(0, num_variations):
+        prefix = f"v{i}" if i > 0 else "baseline"
+        stat = variation_statistic_from_metric_row(row=s, prefix=prefix, metric=metric)
+
+        # recast proportion metrics in case they slipped through
+        # for bandits we weight by period; iid data over periods no longer holds
+        if isinstance(stat, ProportionStatistic):
+            stat = SampleMeanStatistic(n=stat.n, sum=stat.sum, sum_squares=stat.sum)
+        if isinstance(stat, QuantileStatistic):
+            raise ValueError("QuantileStatistic not supported for bandits")
+        stats.append(stat)
+
+    return stats
 
 
 def preprocess_bandits(
@@ -652,6 +655,7 @@ def get_bandit_result(
             return get_error_bandit_result(
                 single_variation_results=None,
                 update_message="not updated",
+                srm=1,
                 error="not all statistics are instance of type BanditStatistic",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
@@ -671,6 +675,7 @@ def get_bandit_result(
                 return get_error_bandit_result(
                     single_variation_results=single_variation_results,
                     update_message=bandit_result.bandit_update_message,
+                    srm=srm_p_value,
                     error="",
                     reweight=bandit_settings.reweight,
                     current_weights=bandit_settings.current_weights,
@@ -679,6 +684,10 @@ def get_bandit_result(
                 bandit_result.bandit_update_message == "successfully updated"
                 and bandit_result.bandit_weights
             ):
+                weights_were_updated = (
+                    bandit_settings.current_weights != bandit_result.bandit_weights
+                    and bandit_settings.reweight
+                )
                 return BanditResult(
                     singleVariationResults=single_variation_results,
                     currentWeights=bandit_settings.current_weights,
@@ -691,6 +700,7 @@ def get_bandit_result(
                     updateMessage=bandit_result.bandit_update_message,
                     error="",
                     reweight=bandit_settings.reweight,
+                    weightsWereUpdated=weights_were_updated,
                 )
         else:
             error_message = (
@@ -701,6 +711,7 @@ def get_bandit_result(
             return get_error_bandit_result(
                 single_variation_results=None,
                 update_message="not updated",
+                srm=1,
                 error=error_message,
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
@@ -708,6 +719,7 @@ def get_bandit_result(
     return get_error_bandit_result(
         single_variation_results=None,
         update_message="not updated",
+        srm=1,
         error="no data froms sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
@@ -789,15 +801,15 @@ def process_experiment_results(
                                 analyses=d.analyses,
                             )
                         )
-                else:
-                    if d.bandit_settings:
-                        bandit_result = get_error_bandit_result(
-                            single_variation_results=None,
-                            update_message="not updated",
-                            error="no rows",
-                            reweight=d.bandit_settings.reweight,
-                            current_weights=d.bandit_settings.current_weights,
-                        )
+    if d.bandit_settings and bandit_result is None:
+        bandit_result = get_error_bandit_result(
+            single_variation_results=None,
+            update_message="not updated",
+            error="no rows",
+            srm=1,
+            reweight=d.bandit_settings.reweight,
+            current_weights=d.bandit_settings.current_weights,
+        )
     return results, bandit_result
 
 

@@ -179,6 +179,12 @@ pre {
 .mh-50 {
   max-height: 50% !important;
 }
+.mh-250px {
+  max-height: 250px !important;
+}
+.mh-350px {
+  max-height: 350px !important;
+}
 
 // default bootstrap overrides:
 .btn:focus {
@@ -752,7 +758,8 @@ pre {
     font-weight: bold;
 
     &.results-ctw,
-    &.results-pval {
+    &.results-pval,
+    &.results-mean {
       color: var(--alert-success-color);
       background: linear-gradient(-40deg, #09ac1730, #09ac1716);
     }
@@ -762,7 +769,8 @@ pre {
     font-weight: bold;
 
     &.results-ctw,
-    &.results-pval {
+    &.results-pval,
+    &.results-mean {
       color: var(--alert-danger-color);
       background: linear-gradient(-40deg, #ce372930, #ce372916);
     }
@@ -1922,6 +1930,15 @@ main.main.report {
 .fade-mask-1rem {
   mask-image: linear-gradient(
     to right,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
+.fade-mask-vertical-1rem {
+  mask-image: linear-gradient(
+    to top,
     transparent 0%,
     black 1rem,
     black calc(100% - 1rem),
@@ -3265,7 +3282,7 @@ input:disabled {
   width: 100%;
 }
 .tags-container {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -3400,4 +3417,10 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
+}
+.text-color-high {
+  color: var(--text-color-high);
+}
+.text-color-mid {
+  color: var(--text-color-mid);
 }

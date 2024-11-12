@@ -167,6 +167,9 @@ const NorthStar: FC<{
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
+              includeFacts={true}
+              includeGroups={false}
+              excludeQuantiles={true}
             />
           </div>
           <Field label="Title" {...form.register("title")} />

@@ -252,8 +252,11 @@ const ExperimentsPage = (): React.ReactElement => {
       <div className="contents experiments container-fluid pagecontents">
         <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
-            <div className="col-auto">
+            <div className="col d-flex align-items-center">
               <h1>Bandits</h1>
+              <span className="mr-auto badge badge-purple text-uppercase ml-2">
+                Beta
+              </span>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (

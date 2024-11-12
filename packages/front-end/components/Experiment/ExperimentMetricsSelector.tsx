@@ -72,6 +72,7 @@ export default function ExperimentMetricsSelector({
             autoFocus={autoFocus}
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
+            includeGroups={!forceSingleGoalMetric}
             noPercentile={noPercentileGoalMetrics}
             disabled={disabled || goalDisabled}
           />

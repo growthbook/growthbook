@@ -87,6 +87,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
   createSegments: false,
+  createMetricGroups: false,
   manageApiKeys: false,
   manageBilling: false,
   manageNamespaces: false,
@@ -221,6 +222,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
     const id = currentOrg?.organization?.id || "";
+    if (!id) return;
     sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).then((hashedOrgId) => {
       setHashedOrganizationId(hashedOrgId);
     });

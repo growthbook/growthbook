@@ -80,10 +80,10 @@ const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
-const dataWareHouseTrack = (event: DataWarehouseTrackedEvent) => {
+const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
   if (!dataWarehouseUrl) return;
   try {
-    fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
+    await fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
       method: "POST",
       body: JSON.stringify(event),
       headers: {
@@ -197,7 +197,7 @@ export default function track(
     org: isCloud() ? org : "",
   };
 
-  dataWareHouseTrack({
+  void dataWareHouseTrack({
     event_name: event,
     properties_json: JSON.stringify(trackProps),
     device_id: getOrGenerateDeviceId(),

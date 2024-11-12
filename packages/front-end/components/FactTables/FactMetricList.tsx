@@ -68,11 +68,19 @@ export default function FactMetricList({ factTable }: Props) {
   const canDelete = (factMetric: FactMetricInterface) =>
     permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    clear,
+    pagination,
+  } = useSearch({
     items: showArchived ? metrics : metrics.filter((m) => !m.archived) || [],
     defaultSortField: "name",
     localStorageKey: "factmetrics",
     searchFields: ["name^3", "description"],
+    pageSize: 10,
   });
 
   const canCreateMetrics = permissionsUtil.canCreateFactMetric({
@@ -293,6 +301,7 @@ export default function FactMetricList({ factTable }: Props) {
               )}
             </tbody>
           </table>
+          {pagination}
         </>
       )}
     </>

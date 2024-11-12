@@ -5,11 +5,13 @@ import {
   FC,
   ReactNode,
   useCallback,
+  useEffect,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Pagination from "@/components/Pagination";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -55,6 +57,7 @@ export interface SearchProps<T> {
   };
   filterResults?: (items: T[]) => T[];
   updateSearchQueryOnChange?: boolean;
+  pageSize?: number;
 }
 
 export interface SearchReturn<T> {
@@ -70,6 +73,9 @@ export interface SearchReturn<T> {
     className?: string;
     children: ReactNode;
   }>;
+  page: number;
+  resetPage: () => void;
+  pagination: ReactNode;
 }
 
 export function useSearch<T>({
@@ -82,6 +88,7 @@ export function useSearch<T>({
   undefinedLast,
   searchTermFilters,
   updateSearchQueryOnChange,
+  pageSize,
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
     field: defaultSortField,
@@ -92,6 +99,8 @@ export function useSearch<T>({
   const { q } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
+
+  const [page, setPage] = useState(1);
 
   // We only want to re-create the Fuse instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
@@ -191,6 +200,19 @@ export function useSearch<T>({
     return sorted;
   }, [sort.field, sort.dir, filtered, isFiltered]);
 
+  const paginated = useMemo(() => {
+    if (!pageSize) return sorted;
+
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return sorted.slice(start, end);
+  }, [sorted, page, pageSize]);
+
+  // When a filter is applied, reset the page
+  useEffect(() => {
+    setPage(1);
+  }, [sorted.length]);
+
   const SortableTH = useMemo(() => {
     const th: FC<{
       field: keyof T;
@@ -241,7 +263,7 @@ export function useSearch<T>({
   }, []);
 
   return {
-    items: sorted,
+    items: paginated,
     isFiltered,
     clear,
     searchInputProps: {
@@ -249,6 +271,17 @@ export function useSearch<T>({
       onChange,
     },
     SortableTH,
+    page,
+    resetPage: () => setPage(1),
+    pagination:
+      pageSize && sorted.length > pageSize ? (
+        <Pagination
+          currentPage={page}
+          numItemsTotal={sorted.length}
+          onPageChange={setPage}
+          perPage={pageSize}
+        />
+      ) : null,
   };
 }
 

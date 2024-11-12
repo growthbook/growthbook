@@ -14,6 +14,7 @@ import VariationsTable from "@/components/Experiment/VariationsTable";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import Callout from "@/components/Radix/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -62,8 +63,6 @@ export default function Implementation({
     experiment.hasURLRedirects;
 
   const showEditVariations = editVariations && safeToEdit;
-
-  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <div className="my-4">
@@ -119,43 +118,33 @@ export default function Implementation({
             canAddChanges={canAddLinkedChanges}
             mutate={mutate}
           />
-          <AddLinkedChanges
-            experiment={experiment}
-            numLinkedChanges={0}
-            hasLinkedFeatures={linkedFeatures.length > 0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          />
         </>
-      ) : (
-        <>
-          {experiment.status === "draft" ? (
-            <AddLinkedChanges
-              experiment={experiment}
-              numLinkedChanges={0}
-              setFeatureModal={setFeatureModal}
-              setVisualEditorModal={setVisualEditorModal}
-              setUrlRedirectModal={setUrlRedirectModal}
-            />
-          ) : (
-            <div className="alert alert-info mb-3">
-              This experiment has no directly linked feature flag, visual editor
-              changes, or redirects. Randomization, targeting, and
-              implementation is either being managed by an external system or
-              via legacy Feature Flags in GrowthBook.
-            </div>
-          )}
-        </>
-      )}
+      ) : null}
 
-      {(hasLinkedChanges || isBandit) && (
-        <TrafficAndTargeting
-          experiment={experiment}
-          editTargeting={editTargeting}
-          phaseIndex={phases.length - 1}
-        />
-      )}
+      <AddLinkedChanges
+        experiment={experiment}
+        numLinkedChanges={0}
+        hasLinkedFeatures={linkedFeatures.length > 0}
+        setFeatureModal={setFeatureModal}
+        setVisualEditorModal={setVisualEditorModal}
+        setUrlRedirectModal={setUrlRedirectModal}
+      />
+
+      {experiment.status !== "draft" && !hasLinkedChanges ? (
+        <Callout status="info" mb="4">
+          This experiment has no linked GrowthBook implementation (linked
+          feature flag, visual editor changes, or URL redirect).{" "}
+          {experiment.status === "stopped"
+            ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
+            : "The implementation, traffic, and targeting may be managed by an external system."}
+        </Callout>
+      ) : null}
+
+      <TrafficAndTargeting
+        experiment={experiment}
+        editTargeting={editTargeting}
+        phaseIndex={phases.length - 1}
+      />
 
       <AnalysisSettings experiment={experiment} mutate={mutate} />
     </div>

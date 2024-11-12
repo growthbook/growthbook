@@ -363,7 +363,9 @@ export default function ResultsTable({
                         showMetricFilter={showMetricFilter}
                         setShowMetricFilter={setShowMetricFilter}
                       />
-                    ) : null}
+                    ) : (
+                      <span className="pl-1" />
+                    )}
                     <div
                       className="col-auto px-1"
                       style={{

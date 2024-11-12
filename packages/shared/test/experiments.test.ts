@@ -6,6 +6,7 @@ import {
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
+  getAggregateFilters,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -350,6 +351,196 @@ describe("Experiments", () => {
             escapeStringLiteral
           )
         ).toStrictEqual([`${column.column} = 'login'`]);
+      });
+    });
+    describe("getAggregateFilter", () => {
+      it("returns empty array for empty input", () => {
+        expect(
+          getAggregateFilters({
+            columnRef: null,
+            column: "value",
+          })
+        ).toStrictEqual([]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: ">10",
+              aggregateFilterColumn: "",
+            },
+            column: "value",
+          })
+        ).toStrictEqual([]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: "",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual([]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: " ",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual([]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: " , ",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual([]);
+      });
+      it("parses a single filter with different operators", () => {
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: "> 0",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual(["value > 0"]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: " < 5,",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual(["value < 5"]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: ">= 10",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual(["value >= 10"]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: "<= 15",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual(["value <= 15"]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: "=1.5",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual(["value = 1.5"]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: "!=0.15",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual(["value != 0.15"]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: "<> 0.15",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual(["value <> 0.15"]);
+      });
+      it("parses multiple filters", () => {
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              aggregateFilter:
+                ",> 0, < 5 , >= 10, <= 15, =1.5, !=0.15,,, <> 0.15",
+              column: "$$distinctUsers",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual([
+          "value > 0",
+          "value < 5",
+          "value >= 10",
+          "value <= 15",
+          "value = 1.5",
+          "value != 0.15",
+          "value <> 0.15",
+        ]);
+      });
+      it("throws by default", () => {
+        expect(() =>
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: ">5, %3, foobar,,,",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toThrowError("Invalid user filter: %3");
+      });
+      it("ignores invalid filters when opted in", () => {
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$distinctUsers",
+              aggregateFilter: ">5, %3, foobar,,,",
+              aggregateFilterColumn: "v",
+            },
+            column: "col",
+            ignoreInvalid: true,
+          })
+        ).toStrictEqual(["col > 5"]);
+      });
+      it("skips when column is not $$distinctUsers", () => {
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "col",
+              aggregateFilter: ">5",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual([]);
+        expect(
+          getAggregateFilters({
+            columnRef: {
+              column: "$$count",
+              aggregateFilter: ">5",
+              aggregateFilterColumn: "v",
+            },
+            column: "value",
+          })
+        ).toStrictEqual([]);
       });
     });
   });
