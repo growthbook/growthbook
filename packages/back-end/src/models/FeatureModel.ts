@@ -284,6 +284,24 @@ export async function getFeaturesByIds(
   );
 }
 
+export async function getAllFeaturesWithRulesForEnvironment(
+  context: ReqContext | ApiReqContext,
+  environment: string
+) {
+  const query = {
+    organization: context.org.id,
+    [`environmentSettings.${environment}`]: { $exists: true },
+  };
+
+  const features = (await FeatureModel.find(query)).map((m) =>
+    upgradeFeatureInterface(toInterface(m))
+  );
+  // TODO: do we want this permission check given that we probably need to update every instance
+  return features.filter((feature) =>
+    context.permissions.canReadSingleProjectResource(feature.project)
+  );
+}
+
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface
@@ -656,6 +674,20 @@ export async function archiveFeature(
   isArchived: boolean
 ) {
   return await updateFeature(context, feature, { archived: isArchived });
+}
+
+export async function syncEnvironmentSettings(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  sourceEnvironment: string,
+  destinationEnvironment: string
+) {
+  return await updateFeature(context, feature, {
+    environmentSettings: {
+      ...feature.environmentSettings,
+      [destinationEnvironment]: feature.environmentSettings[sourceEnvironment],
+    },
+  });
 }
 
 function setEnvironmentSettings(

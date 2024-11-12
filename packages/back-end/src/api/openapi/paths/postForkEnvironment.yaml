@@ -1,0 +1,54 @@
+summary: Creates a new environment as a fork of an existing environment
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - id
+          - forkBase
+          - synchronous
+        properties:
+          id:
+            type: string
+            description: The ID of the new environment
+          forkBase:
+            type: string
+            description: The ID of the environment to fork from
+          synchronous:
+            type: boolean
+            description: Whether this fork should be run synchronously. If true, the server may take a long time to respond, particularly if there are many features with rules in the forkBase environment.
+          description:
+            type: string
+            description: The description of the new environment
+          toggleOnList:
+            type: bool
+            description: Show toggle on feature list
+          defaultState:
+            type: bool
+            description: Default state for new features
+          projects:
+            type: array
+            items:
+              type: string
+tags:
+  - environments
+operationId: postForkEnvironment
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/environments/fork \
+         -d '{"id": "new-env", "forkBase": "existing-env", "description": "Fork of existing-env" }' \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - environment
+          properties:
+            environment:
+              $ref: "../schemas/Environment.yaml"

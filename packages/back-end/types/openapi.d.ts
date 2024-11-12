@@ -255,6 +255,10 @@ export interface paths {
     /** Deletes a single environment */
     delete: operations["deleteEnvironment"];
   };
+  "/environments/fork": {
+    /** Creates a new environment as a fork of an existing environment */
+    post: operations["postForkEnvironment"];
+  };
   "/fact-tables": {
     /** Get all fact tables */
     get: operations["listFactTables"];
@@ -6088,6 +6092,43 @@ export interface operations {
       };
     };
   };
+  postForkEnvironment: {
+    /** Creates a new environment as a fork of an existing environment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The ID of the new environment */
+          id: string;
+          /** @description The ID of the environment to fork from */
+          forkBase: string;
+          /** @description Whether this fork should be run synchronously. If true, the server may take a long time to respond, particularly if there are many features with rules in the forkBase environment. */
+          synchronous: boolean;
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: any;
+          /** @description Default state for new features */
+          defaultState?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
   listFactTables: {
     /** Get all fact tables */
     parameters: {
@@ -7400,6 +7441,7 @@ export type ListEnvironmentsResponse = operations["listEnvironments"]["responses
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type DeleteEnvironmentResponse = operations["deleteEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type PostForkEnvironmentResponse = operations["postForkEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
 export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
 export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];
