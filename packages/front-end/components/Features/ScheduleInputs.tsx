@@ -122,6 +122,7 @@ export default function ScheduleInputs(props: Props) {
                         ? getValidDate(rules[1].timestamp)
                         : undefined
                     }
+                    containerClassName=""
                   />
                   <span className="pl-2">
                     ({formatTimeZone(new Date(), "z")})
@@ -182,6 +183,7 @@ export default function ScheduleInputs(props: Props) {
                         ? getValidDate(rules[0].timestamp)
                         : undefined
                     }
+                    containerClassName=""
                   />
                   <span className="pl-2">
                     ({formatTimeZone(new Date(), "z")})
