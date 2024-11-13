@@ -275,7 +275,7 @@ export type UserContext = {
     StickyAssignmentsDocument
   >;
   forcedVariations?: Record<string, number>;
-  forcedFeatureValues?: Record<string, any>;
+  forcedFeatureValues?: Map<string, any>;
 };
 
 export type StackContext = {

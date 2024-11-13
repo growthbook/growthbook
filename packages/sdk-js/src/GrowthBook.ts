@@ -687,7 +687,12 @@ export class GrowthBook<
 
   private _generateUserContext(): UserContext {
     return {
-      attributes: this.getAttributes(),
+      attributes: this._options.user
+        ? {
+            ...this._options.user,
+            ...this.getAttributes(),
+          }
+        : this.getAttributes(),
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
       url: this._getContextUrl(),

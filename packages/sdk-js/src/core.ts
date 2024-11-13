@@ -48,16 +48,16 @@ export function evalFeature<V = unknown>(
   ctx.stack.id = id;
 
   // Global override
-  if (ctx.user.forcedFeatureValues && id in ctx.user.forcedFeatureValues) {
+  if (ctx.user.forcedFeatureValues && ctx.user.forcedFeatureValues.has(id)) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log("Global override", {
         id,
-        value: ctx.user.forcedFeatureValues[id],
+        value: ctx.user.forcedFeatureValues.get(id),
       });
     return getFeatureResult(
       ctx,
       id,
-      ctx.user.forcedFeatureValues[id],
+      ctx.user.forcedFeatureValues.get(id),
       "override"
     );
   }
