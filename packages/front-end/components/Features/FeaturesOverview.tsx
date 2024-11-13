@@ -40,7 +40,6 @@ import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import {
   getFeatureDefaultValue,
   getRules,
@@ -51,7 +50,6 @@ import {
   useFeaturesList,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
-import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
@@ -75,6 +73,8 @@ import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import Tabs from "@/components/Radix/Tabs";
+import Badge from "@/components/Radix/Badge";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -1066,25 +1066,26 @@ export default function FeaturesOverview({
               </p>
 
               <div className="mb-0">
-                <ControlledTabs
-                  setActive={(v) => {
-                    setEnv(v || "");
-                  }}
-                  active={env}
-                  showActiveCount={true}
-                  newStyle={false}
-                  buttonsClassName="px-3 py-2 h4"
-                >
-                  {environments.map((e) => {
+                <Tabs
+                  activeTab={env}
+                  onTabChange={(v) => setEnv(v)}
+                  tabs={environments.map((e) => {
                     const rules = getRules(feature, e.id);
-                    return (
-                      <Tab
-                        key={e.id}
-                        id={e.id}
-                        display={e.id}
-                        count={rules.length}
-                        padding={false}
-                      >
+                    return {
+                      slug: e.id,
+                      label: (
+                        <>
+                          {e.id}
+                          {rules.length > 0 && (
+                            <Badge
+                              label={`${rules.length}`}
+                              ml="1"
+                              variant="solid"
+                            />
+                          )}
+                        </>
+                      ),
+                      content: (
                         <div className="mb-4 border border-top-0">
                           {rules.length > 0 ? (
                             <RuleList
@@ -1125,10 +1126,10 @@ export default function FeaturesOverview({
                             </div>
                           )}
                         </div>
-                      </Tab>
-                    );
+                      ),
+                    };
                   })}
-                </ControlledTabs>
+                />
               </div>
             </>
           )}

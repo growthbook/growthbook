@@ -4,8 +4,9 @@ import useURLHash from "@/hooks/useURLHash";
 
 type TabConfig = {
   slug: string;
-  label: string;
+  label: ReactNode;
   content: ReactNode;
+  forceMount?: boolean;
 };
 
 type SharedProps = {
@@ -32,10 +33,9 @@ export default function Tabs(
   const { tabs } = props;
   const slugs = tabs.map((tab) => tab.slug);
 
-  const [activeTabSlug, setActiveTabSlug] = useURLHash(slugs);
+  const [activeURLHash, setActiveURLHash] = useURLHash(slugs);
 
   // If the tabs are controlled, use its values
-  // Otherwise, use the URL hash
   let radixProps = {};
   if ("activeTab" in props) {
     radixProps = {
@@ -44,8 +44,8 @@ export default function Tabs(
     };
   } else if (props.persistHash) {
     radixProps = {
-      value: activeTabSlug,
-      onValueChange: setActiveTabSlug,
+      value: activeURLHash ?? props.defaultTabSlug,
+      onValueChange: setActiveURLHash,
     };
   } else {
     radixProps = {
@@ -55,7 +55,7 @@ export default function Tabs(
 
   return (
     <RadixTabs.Root {...radixProps}>
-      <RadixTabs.List>
+      <RadixTabs.List wrap="wrap">
         {tabs.map((tab) => (
           <RadixTabs.Trigger value={tab.slug} key={`${tab.slug}-trigger`}>
             {tab.label}
@@ -64,7 +64,12 @@ export default function Tabs(
       </RadixTabs.List>
 
       {tabs.map((tab) => (
-        <RadixTabs.Content value={tab.slug} key={`${tab.slug}-content`}>
+        <RadixTabs.Content
+          {...(tab.forceMount ? { forceMount: true } : {})}
+          hidden={tab.forceMount && tab.slug !== props.activeTab}
+          value={tab.slug}
+          key={`${tab.slug}-content`}
+        >
           {tab.content}
         </RadixTabs.Content>
       ))}

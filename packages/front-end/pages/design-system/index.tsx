@@ -1,5 +1,5 @@
 import { Box, Flex, Slider } from "@radix-ui/themes";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { PiInfoFill } from "react-icons/pi";
@@ -41,6 +41,7 @@ export default function DesignSystemPage() {
   const [sliderVal, setSliderVal] = useState(10);
   const [stepperStep, setStepperStep] = useState(0);
   const [selectValue, setSelectValue] = useState("carrot");
+  const [activeTab, setActiveTab] = useState("tab1");
 
   return (
     <div className="pagecontents container-fluid">
@@ -631,20 +632,27 @@ export default function DesignSystemPage() {
           </Box>
 
           <Box>
-            Controlled tabs
+            Tabs are lazy loaded by default, but you can use forceMount to
+            disable this behavior (see console for output).
             <Tabs
-              activeTab="tab2"
-              onTabChange={(slug) => console.log(`Change to tab ${slug}`)}
+              activeTab={activeTab}
+              onTabChange={(slug) => setActiveTab(slug)}
               tabs={[
                 {
                   slug: "tab1",
                   label: "Tab 1",
-                  content: <div>Tab 1 content</div>,
+                  content: <TabContentExample number={1} />,
                 },
                 {
                   slug: "tab2",
                   label: "Tab 2",
-                  content: <div>Tab 2 content</div>,
+                  content: <TabContentExample number={2} />,
+                },
+                {
+                  slug: "tab3",
+                  label: "Tab 3 (forcibly mounted)",
+                  content: <TabContentExample number={3} />,
+                  forceMount: true,
                 },
               ]}
             />
@@ -656,3 +664,11 @@ export default function DesignSystemPage() {
 }
 DesignSystemPage.preAuth = true;
 DesignSystemPage.preAuthTopNav = true;
+
+function TabContentExample({ number }: { number: number }) {
+  useEffect(() => console.log(`Tab number ${number} content mounted`), [
+    number,
+  ]);
+
+  return <Box p="4">Tab number {number} content</Box>;
+}
