@@ -5,7 +5,7 @@ import type {
   AutoExperiment,
   AutoExperimentVariation,
   ClientKey,
-  Context,
+  Options,
   Experiment,
   FeatureApiResponse,
   FeatureDefinition,
@@ -19,11 +19,13 @@ import type {
   TrackingCallback,
   TrackingData,
   WidenPrimitives,
-  FeatureEvalContext,
+  EvalContext,
   InitOptions,
   InitResponse,
   InitSyncOptions,
   PrefetchOptions,
+  GlobalContext,
+  UserContext,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -32,7 +34,6 @@ import {
   loadSDKVersion,
   mergeQueryStrings,
   promiseTimeout,
-  toString,
 } from "./util";
 import {
   configureCache,
@@ -45,7 +46,7 @@ import {
   runExperiment,
   evalFeature as _evalFeature,
   getExperimentResult,
-  getHashAttribute,
+  getAllStickyBucketAssignmentDocs,
 } from "./core";
 
 const isBrowser =
@@ -58,14 +59,15 @@ export class GrowthBook<
   AppFeatures extends Record<string, any> = Record<string, any>
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
-  // _ctx below is a clone of this property that we use internally
-  private context: Context;
+  private context: Options;
   public debug: boolean;
   public ready: boolean;
   public version: string;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
-  private _ctx: Context;
+  private _options: Options;
+  private _globalCtx: GlobalContext;
+  private _userCtx: UserContext;
   private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
@@ -99,17 +101,17 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
 
-  constructor(context?: Context) {
-    context = context || {};
+  constructor(options?: Options) {
+    options = options || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
     this.version = SDK_VERSION;
-    this._ctx = this.context = context;
-    this._renderer = context.renderer || null;
+    this._options = this.context = options;
+    this._renderer = options.renderer || null;
     this._trackedExperiments = new Set();
     this._completedChangeIds = new Set();
     this._trackedFeatures = {};
-    this.debug = !!context.debug;
+    this.debug = !!options.debug;
     this._subscriptions = new Set();
     this._rtQueue = [];
     this._rtTimer = 0;
@@ -122,18 +124,18 @@ export class GrowthBook<
     this._initialized = false;
     this._redirectedUrl = "";
     this._deferredTrackingCalls = new Map();
-    this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
+    this._autoExperimentsAllowed = !options.disableExperimentsOnLoad;
 
-    if (context.remoteEval) {
-      if (context.decryptionKey) {
+    if (options.remoteEval) {
+      if (options.decryptionKey) {
         throw new Error("Encryption is not available for remoteEval");
       }
-      if (!context.clientKey) {
+      if (!options.clientKey) {
         throw new Error("Missing clientKey");
       }
       let isGbHost = false;
       try {
-        isGbHost = !!new URL(context.apiHost || "").hostname.match(
+        isGbHost = !!new URL(options.apiHost || "").hostname.match(
           /growthbook\.io$/i
         );
       } catch (e) {
@@ -143,31 +145,37 @@ export class GrowthBook<
         throw new Error("Cannot use remoteEval on GrowthBook Cloud");
       }
     } else {
-      if (context.cacheKeyAttributes) {
+      if (options.cacheKeyAttributes) {
         throw new Error("cacheKeyAttributes are only used for remoteEval");
       }
     }
 
-    if (context.features) {
+    this._globalCtx = this._generateGlobalContext();
+    this._userCtx = this._generateUserContext();
+
+    if (options.features) {
       this.ready = true;
     }
 
-    if (isBrowser && context.enableDevMode) {
+    if (isBrowser && options.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
 
-    if (context.experiments) {
+    if (options.experiments) {
       this.ready = true;
       this._updateAllAutoExperiments();
     }
 
     // Hydrate sticky bucket service
-    if (this._ctx.stickyBucketService && this._ctx.stickyBucketAssignmentDocs) {
-      for (const key in this._ctx.stickyBucketAssignmentDocs) {
-        const doc = this._ctx.stickyBucketAssignmentDocs[key];
+    if (
+      this._options.stickyBucketService &&
+      this._options.stickyBucketAssignmentDocs
+    ) {
+      for (const key in this._options.stickyBucketAssignmentDocs) {
+        const doc = this._options.stickyBucketAssignmentDocs[key];
         if (doc) {
-          this._ctx.stickyBucketService.saveAssignments(doc).catch(() => {
+          this._options.stickyBucketService.saveAssignments(doc).catch(() => {
             // Ignore hydration errors
           });
         }
@@ -186,13 +194,13 @@ export class GrowthBook<
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
-      this._ctx.features = data.features;
+      this._options.features = data.features;
     }
     if (data.savedGroups) {
-      this._ctx.savedGroups = data.savedGroups;
+      this._options.savedGroups = data.savedGroups;
     }
     if (data.experiments) {
-      this._ctx.experiments = data.experiments;
+      this._options.experiments = data.experiments;
       this._updateAllAutoExperiments();
     }
     this.ready = true;
@@ -209,8 +217,8 @@ export class GrowthBook<
     }
 
     if (
-      this._ctx.stickyBucketService &&
-      !this._ctx.stickyBucketAssignmentDocs
+      this._options.stickyBucketService &&
+      !this._options.stickyBucketAssignmentDocs
     ) {
       throw new Error(
         "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
@@ -220,17 +228,17 @@ export class GrowthBook<
     this._payload = payload;
     this._decryptedPayload = payload;
     if (payload.features) {
-      this._ctx.features = payload.features;
+      this._options.features = payload.features;
     }
     if (payload.experiments) {
-      this._ctx.experiments = payload.experiments;
+      this._options.experiments = payload.experiments;
       this._updateAllAutoExperiments();
     }
 
     this.ready = true;
 
     if (options.streaming) {
-      if (!this._ctx.clientKey) {
+      if (!this._options.clientKey) {
         throw new Error("Must specify clientKey to enable streaming");
       }
       startAutoRefresh(this, true);
@@ -251,7 +259,7 @@ export class GrowthBook<
     if (options.payload) {
       await this.setPayload(options.payload);
       if (options.streaming) {
-        if (!this._ctx.clientKey) {
+        if (!this._options.clientKey) {
           throw new Error("Must specify clientKey to enable streaming");
         }
         startAutoRefresh(this, true);
@@ -283,7 +291,7 @@ export class GrowthBook<
     options = options || {};
     if (options.autoRefresh) {
       // interpret deprecated autoRefresh option as subscribeToChanges
-      this._ctx.subscribeToChanges = true;
+      this._options.subscribeToChanges = true;
     }
     const { data } = await this._refresh({
       ...options,
@@ -317,19 +325,19 @@ export class GrowthBook<
     apiRequestHeaders?: Record<string, string>;
     streamingHostRequestHeaders?: Record<string, string>;
   } {
-    const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
+    const defaultHost = this._options.apiHost || "https://cdn.growthbook.io";
     return {
       apiHost: defaultHost.replace(/\/*$/, ""),
-      streamingHost: (this._ctx.streamingHost || defaultHost).replace(
+      streamingHost: (this._options.streamingHost || defaultHost).replace(
         /\/*$/,
         ""
       ),
-      apiRequestHeaders: this._ctx.apiHostRequestHeaders,
-      streamingHostRequestHeaders: this._ctx.streamingHostRequestHeaders,
+      apiRequestHeaders: this._options.apiHostRequestHeaders,
+      streamingHostRequestHeaders: this._options.streamingHostRequestHeaders,
     };
   }
   public getClientKey(): string {
-    return this._ctx.clientKey || "";
+    return this._options.clientKey || "";
   }
   public getPayload(): FeatureApiResponse {
     return (
@@ -344,11 +352,11 @@ export class GrowthBook<
   }
 
   public isRemoteEval(): boolean {
-    return this._ctx.remoteEval || false;
+    return this._options.remoteEval || false;
   }
 
   public getCacheKeyAttributes(): (keyof Attributes)[] | undefined {
-    return this._ctx.cacheKeyAttributes;
+    return this._options.cacheKeyAttributes;
   }
 
   private async _refresh({
@@ -360,16 +368,16 @@ export class GrowthBook<
     allowStale?: boolean;
     streaming?: boolean;
   }) {
-    if (!this._ctx.clientKey) {
+    if (!this._options.clientKey) {
       throw new Error("Missing clientKey");
     }
     // Trigger refresh in feature repository
     return refreshFeatures({
       instance: this,
       timeout,
-      skipCache: skipCache || this._ctx.disableCache,
+      skipCache: skipCache || this._options.disableCache,
       allowStale,
-      backgroundSync: streaming ?? this._ctx.backgroundSync ?? true,
+      backgroundSync: streaming ?? this._options.backgroundSync ?? true,
     });
   }
 
@@ -385,7 +393,7 @@ export class GrowthBook<
 
   /** @deprecated Use {@link setPayload} */
   public setFeatures(features: Record<string, FeatureDefinition>) {
-    this._ctx.features = features;
+    this._options.features = features;
     this.ready = true;
     this._render();
   }
@@ -398,7 +406,7 @@ export class GrowthBook<
   ): Promise<void> {
     const featuresJSON = await decrypt(
       encryptedString,
-      decryptionKey || this._ctx.decryptionKey,
+      decryptionKey || this._options.decryptionKey,
       subtle
     );
     this.setFeatures(
@@ -408,7 +416,7 @@ export class GrowthBook<
 
   /** @deprecated Use {@link setPayload} */
   public setExperiments(experiments: AutoExperiment[]): void {
-    this._ctx.experiments = experiments;
+    this._options.experiments = experiments;
     this.ready = true;
     this._updateAllAutoExperiments();
   }
@@ -421,7 +429,7 @@ export class GrowthBook<
   ): Promise<void> {
     const experimentsJSON = await decrypt(
       encryptedString,
-      decryptionKey || this._ctx.decryptionKey,
+      decryptionKey || this._options.decryptionKey,
       subtle
     );
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
@@ -438,7 +446,7 @@ export class GrowthBook<
         data.features = JSON.parse(
           await decrypt(
             data.encryptedFeatures,
-            decryptionKey || this._ctx.decryptionKey,
+            decryptionKey || this._options.decryptionKey,
             subtle
           )
         );
@@ -452,7 +460,7 @@ export class GrowthBook<
         data.experiments = JSON.parse(
           await decrypt(
             data.encryptedExperiments,
-            decryptionKey || this._ctx.decryptionKey,
+            decryptionKey || this._options.decryptionKey,
             subtle
           )
         );
@@ -466,7 +474,7 @@ export class GrowthBook<
         data.savedGroups = JSON.parse(
           await decrypt(
             data.encryptedSavedGroups,
-            decryptionKey || this._ctx.decryptionKey,
+            decryptionKey || this._options.decryptionKey,
             subtle
           )
         );
@@ -479,11 +487,11 @@ export class GrowthBook<
   }
 
   public async setAttributes(attributes: Attributes) {
-    this._ctx.attributes = attributes;
-    if (this._ctx.stickyBucketService) {
+    this._options.attributes = attributes;
+    if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
     }
-    if (this._ctx.remoteEval) {
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       return;
     }
@@ -492,15 +500,15 @@ export class GrowthBook<
   }
 
   public async updateAttributes(attributes: Attributes) {
-    return this.setAttributes({ ...this._ctx.attributes, ...attributes });
+    return this.setAttributes({ ...this._options.attributes, ...attributes });
   }
 
   public async setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
-    if (this._ctx.stickyBucketService) {
+    if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
     }
-    if (this._ctx.remoteEval) {
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       return;
     }
@@ -509,8 +517,8 @@ export class GrowthBook<
   }
 
   public async setForcedVariations(vars: Record<string, number>) {
-    this._ctx.forcedVariations = vars || {};
-    if (this._ctx.remoteEval) {
+    this._options.forcedVariations = vars || {};
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       return;
     }
@@ -525,10 +533,10 @@ export class GrowthBook<
   }
 
   public async setURL(url: string) {
-    if (url === this._ctx.url) return;
-    this._ctx.url = url;
+    if (url === this._options.url) return;
+    this._options.url = url;
     this._redirectedUrl = "";
-    if (this._ctx.remoteEval) {
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       this._updateAllAutoExperiments(true);
       return;
@@ -537,11 +545,11 @@ export class GrowthBook<
   }
 
   public getAttributes() {
-    return { ...this._ctx.attributes, ...this._attributeOverrides };
+    return { ...this._options.attributes, ...this._attributeOverrides };
   }
 
   public getForcedVariations() {
-    return this._ctx.forcedVariations || {};
+    return this._options.forcedVariations || {};
   }
 
   public getForcedFeatures() {
@@ -550,19 +558,19 @@ export class GrowthBook<
   }
 
   public getStickyBucketAssignmentDocs() {
-    return this._ctx.stickyBucketAssignmentDocs || {};
+    return this._options.stickyBucketAssignmentDocs || {};
   }
 
   public getUrl() {
-    return this._ctx.url || "";
+    return this._options.url || "";
   }
 
   public getFeatures() {
-    return this._ctx.features || {};
+    return this._options.features || {};
   }
 
   public getExperiments() {
-    return this._ctx.experiments || [];
+    return this._options.experiments || [];
   }
 
   public getCompletedChangeIds(): string[] {
@@ -577,11 +585,13 @@ export class GrowthBook<
   }
 
   private _canSubscribe() {
-    return (this._ctx.backgroundSync ?? true) && this._ctx.subscribeToChanges;
+    return (
+      (this._options.backgroundSync ?? true) && this._options.subscribeToChanges
+    );
   }
 
   private async _refreshForRemoteEval() {
-    if (!this._ctx.remoteEval) return;
+    if (!this._options.remoteEval) return;
     if (!this._initialized) return;
     const res = await this._refresh({
       allowStale: false,
@@ -627,9 +637,9 @@ export class GrowthBook<
   }
 
   public forceVariation(key: string, variation: number) {
-    this._ctx.forcedVariations = this._ctx.forcedVariations || {};
-    this._ctx.forcedVariations[key] = variation;
-    if (this._ctx.remoteEval) {
+    this._options.forcedVariations = this._options.forcedVariations || {};
+    this._options.forcedVariations[key] = variation;
+    if (this._options.remoteEval) {
       this._refreshForRemoteEval();
       return;
     }
@@ -645,8 +655,10 @@ export class GrowthBook<
 
   public triggerExperiment(key: string) {
     this._triggeredExpKeys.add(key);
-    if (!this._ctx.experiments) return null;
-    const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
+    if (!this._options.experiments) return null;
+    const experiments = this._options.experiments.filter(
+      (exp) => exp.key === key
+    );
     return experiments
       .map((exp) => {
         return this._runAutoExperiment(exp);
@@ -659,24 +671,44 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  private _getEvalContext(): FeatureEvalContext {
+  private _getEvalContext(): EvalContext {
+    // TODO: instead of re-generating each time, only update the context when needed
+    this._userCtx = this._generateUserContext();
+    this._globalCtx = this._generateGlobalContext();
+
+    return {
+      user: this._userCtx,
+      global: this._globalCtx,
+      stack: {
+        evaluatedFeatures: new Set(),
+      },
+    };
+  }
+
+  private _generateUserContext(): UserContext {
     return {
       attributes: this.getAttributes(),
+      blockedChangeIds: this._options.blockedChangeIds,
+      stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
+      url: this._getContextUrl(),
       forcedVariations: this.getForcedVariations(),
       forcedFeatureValues: this.getForcedFeatures(),
+      stickyBucketService: this._options.stickyBucketService,
+    };
+  }
+  private _generateGlobalContext(): GlobalContext {
+    return {
       url: this._getContextUrl(),
       features: this.getFeatures(),
-      evaluatedFeatures: new Set(),
+      experiments: this.getExperiments(),
       log: this.log.bind(this),
-      enabled: this._ctx.enabled,
-      qaMode: this._ctx.qaMode,
-      savedGroups: this._ctx.savedGroups,
-      stickyBucketAssignmentDocs: this._ctx.stickyBucketAssignmentDocs,
-      stickyBucketIdentifierAttributes: this._ctx
+      enabled: this._options.enabled,
+      qaMode: this._options.qaMode,
+      savedGroups: this._options.savedGroups,
+      stickyBucketIdentifierAttributes: this._options
         .stickyBucketIdentifierAttributes,
-      stickyBucketService: this._ctx.stickyBucketService,
-      groups: this._ctx.groups,
-      overrides: this._ctx.overrides,
+      groups: this._options.groups,
+      overrides: this._options.overrides,
       onExperimentEval: (exp, res) => {
         this._fireSubscriptions(exp, res);
       },
@@ -703,7 +735,7 @@ export class GrowthBook<
     )
       return null;
 
-    // Check if this particular experiment is blocked by context settings
+    // Check if this particular experiment is blocked by options settings
     // For example, if all visualEditor experiments are disabled
     const isBlocked = this._isAutoExperimentBlockedByContext(experiment);
     if (isBlocked) {
@@ -779,12 +811,12 @@ export class GrowthBook<
                 ? [
                     promiseTimeout(
                       trackingCall,
-                      this._ctx.maxNavigateDelay ?? 1000
+                      this._options.maxNavigateDelay ?? 1000
                     ),
                   ]
                 : []),
               new Promise((resolve) =>
-                window.setTimeout(resolve, this._ctx.navigateDelay ?? delay)
+                window.setTimeout(resolve, this._options.navigateDelay ?? delay)
               ),
             ]).then(() => {
               try {
@@ -802,8 +834,8 @@ export class GrowthBook<
           }
         }
       } else if (changeType === "visual") {
-        const undo = this._ctx.applyDomChangesCallback
-          ? this._ctx.applyDomChangesCallback(result.value)
+        const undo = this._options.applyDomChangesCallback
+          ? this._options.applyDomChangesCallback(result.value)
           : this._applyDOMChanges(result.value);
         if (undo) {
           this._activeAutoExperiments.set(experiment, {
@@ -828,7 +860,7 @@ export class GrowthBook<
   private _updateAllAutoExperiments(forceRerun?: boolean) {
     if (!this._autoExperimentsAllowed) return;
 
-    const experiments = this._ctx.experiments || [];
+    const experiments = this._options.experiments || [];
 
     // Stop any experiments that are no longer defined
     const keys = new Set(experiments);
@@ -885,9 +917,9 @@ export class GrowthBook<
     this._trackedFeatures[key] = stringifiedValue;
 
     // Fire user-supplied callback
-    if (this._ctx.onFeatureUsage) {
+    if (this._options.onFeatureUsage) {
       try {
-        this._ctx.onFeatureUsage(key, res);
+        this._options.onFeatureUsage(key, res);
       } catch (e) {
         // Ignore feature usage callback errors
       }
@@ -907,12 +939,12 @@ export class GrowthBook<
         this._rtQueue = [];
 
         // Skip logging if a real-time usage key is not configured
-        if (!this._ctx.realtimeKey) return;
+        if (!this._options.realtimeKey) return;
 
         window
           .fetch(
             `https://rt.growthbook.io/?key=${
-              this._ctx.realtimeKey
+              this._options.realtimeKey
             }&events=${encodeURIComponent(JSON.stringify(q))}`,
 
             {
@@ -923,7 +955,7 @@ export class GrowthBook<
           .catch(() => {
             // TODO: retry in case of network errors?
           });
-      }, this._ctx.realtimeInterval || 2000);
+      }, this._options.realtimeInterval || 2000);
     }
   }
 
@@ -964,7 +996,7 @@ export class GrowthBook<
 
   log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
-    if (this._ctx.log) this._ctx.log(msg, ctx);
+    if (this._options.log) this._options.log(msg, ctx);
     else console.log(msg, ctx);
   }
 
@@ -983,7 +1015,7 @@ export class GrowthBook<
   }
 
   public async fireDeferredTrackingCalls() {
-    if (!this._ctx.trackingCallback) return;
+    if (!this._options.trackingCallback) return;
 
     const promises: ReturnType<TrackingCallback>[] = [];
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
@@ -998,7 +1030,7 @@ export class GrowthBook<
   }
 
   public setTrackingCallback(callback: TrackingCallback) {
-    this._ctx.trackingCallback = callback;
+    this._options.trackingCallback = callback;
     this.fireDeferredTrackingCalls();
   }
 
@@ -1017,7 +1049,7 @@ export class GrowthBook<
   private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
     const k = this._getTrackKey(experiment, result);
 
-    if (!this._ctx.trackingCallback) {
+    if (!this._options.trackingCallback) {
       // Add to deferred tracking if it hasn't already been added
       if (!this._deferredTrackingCalls.has(k)) {
         this._deferredTrackingCalls.set(k, { experiment, result });
@@ -1030,14 +1062,14 @@ export class GrowthBook<
     this._trackedExperiments.add(k);
 
     try {
-      await this._ctx.trackingCallback(experiment, result);
+      await this._options.trackingCallback(experiment, result);
     } catch (e) {
       console.error(e);
     }
   }
 
   private _getContextUrl() {
-    return this._ctx.url || (isBrowser ? window.location.href : "");
+    return this._options.url || (isBrowser ? window.location.href : "");
   }
 
   private _isAutoExperimentBlockedByContext(
@@ -1045,15 +1077,15 @@ export class GrowthBook<
   ): boolean {
     const changeType = getAutoExperimentChangeType(experiment);
     if (changeType === "visual") {
-      if (this._ctx.disableVisualExperiments) return true;
+      if (this._options.disableVisualExperiments) return true;
 
-      if (this._ctx.disableJsInjection) {
+      if (this._options.disableJsInjection) {
         if (experiment.variations.some((v) => v.js)) {
           return true;
         }
       }
     } else if (changeType === "redirect") {
-      if (this._ctx.disableUrlRedirectExperiments) return true;
+      if (this._options.disableUrlRedirectExperiments) return true;
 
       // Validate URLs
       try {
@@ -1063,7 +1095,7 @@ export class GrowthBook<
           const url = new URL(v.urlRedirect);
 
           // If we're blocking cross origin redirects, block if the protocol or host is different
-          if (this._ctx.disableCrossOriginUrlRedirectExperiments) {
+          if (this._options.disableCrossOriginUrlRedirectExperiments) {
             if (url.protocol !== current.protocol) return true;
             if (url.host !== current.host) return true;
           }
@@ -1083,7 +1115,7 @@ export class GrowthBook<
 
     if (
       experiment.changeId &&
-      (this._ctx.blockedChangeIds || []).includes(experiment.changeId)
+      (this._options.blockedChangeIds || []).includes(experiment.changeId)
     ) {
       return true;
     }
@@ -1099,9 +1131,9 @@ export class GrowthBook<
     navigate: null | ((url: string) => void | Promise<void>);
     delay: number;
   } {
-    if (this._ctx.navigate) {
+    if (this._options.navigate) {
       return {
-        navigate: this._ctx.navigate,
+        navigate: this._options.navigate,
         delay: 0,
       };
     } else if (isBrowser) {
@@ -1130,8 +1162,8 @@ export class GrowthBook<
     if (changes.js) {
       const script = document.createElement("script");
       script.innerHTML = changes.js;
-      if (this._ctx.jsInjectionNonce) {
-        script.nonce = this._ctx.jsInjectionNonce;
+      if (this._options.jsInjectionNonce) {
+        script.nonce = this._options.jsInjectionNonce;
       }
       document.head.appendChild(script);
       undo.push(() => script.remove());
@@ -1146,54 +1178,17 @@ export class GrowthBook<
     };
   }
 
-  private _deriveStickyBucketIdentifierAttributes(data?: FeatureApiResponse) {
-    const attributes = new Set<string>();
-    const features = data && data.features ? data.features : this.getFeatures();
-    const experiments =
-      data && data.experiments ? data.experiments : this.getExperiments();
-    Object.keys(features).forEach((id) => {
-      const feature = features[id];
-      if (feature.rules) {
-        for (const rule of feature.rules) {
-          if (rule.variations) {
-            attributes.add(rule.hashAttribute || "id");
-            if (rule.fallbackAttribute) {
-              attributes.add(rule.fallbackAttribute);
-            }
-          }
-        }
-      }
-    });
-    experiments.map((experiment) => {
-      attributes.add(experiment.hashAttribute || "id");
-      if (experiment.fallbackAttribute) {
-        attributes.add(experiment.fallbackAttribute);
-      }
-    });
-    return Array.from(attributes);
-  }
-
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
-    if (this._ctx.stickyBucketService) {
-      const attributes = this._getStickyBucketAttributes(data);
-      this._ctx.stickyBucketAssignmentDocs = await this._ctx.stickyBucketService.getAllAssignments(
-        attributes
-      );
+    if (this._options.stickyBucketService) {
+      const ctx = this._getEvalContext();
+      const docs = await getAllStickyBucketAssignmentDocs(ctx, data);
+      this._options.stickyBucketAssignmentDocs = docs;
     }
   }
 
-  private _getStickyBucketAttributes(
-    data?: FeatureApiResponse
-  ): Record<string, string> {
-    const attributes: Record<string, string> = {};
-    this._ctx.stickyBucketIdentifierAttributes = this._deriveStickyBucketIdentifierAttributes(
-      data
-    );
-    this._ctx.stickyBucketIdentifierAttributes.forEach((attr) => {
-      const { hashValue } = getHashAttribute(this._getEvalContext(), attr);
-      attributes[attr] = toString(hashValue);
-    });
-    return attributes;
+  public getMultiUserInstance(): GrowthBookMultiUser {
+    this._globalCtx = this._generateGlobalContext();
+    return new GrowthBookMultiUser(this._globalCtx);
   }
 }
 
@@ -1209,4 +1204,68 @@ export async function prefetchPayload(options: PrefetchOptions) {
   });
 
   instance.destroy();
+}
+
+export class GrowthBookMultiUser<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AppFeatures extends Record<string, any> = Record<string, any>
+> {
+  private _globalCtx: GlobalContext;
+  constructor(globalContext: GlobalContext) {
+    this._globalCtx = globalContext;
+  }
+
+  // Feature Methods
+  public async isOn<K extends string & keyof AppFeatures = string>(
+    key: K,
+    userContext: UserContext
+  ): Promise<boolean> {
+    const res = await this.evalFeature(key, userContext);
+    return res.on;
+  }
+  public async isOff<K extends string & keyof AppFeatures = string>(
+    key: K,
+    userContext: UserContext
+  ): Promise<boolean> {
+    const res = await this.evalFeature(key, userContext);
+    return res.off;
+  }
+  public async getFeatureValue<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(
+    key: K,
+    defaultValue: V,
+    userContext: UserContext
+  ): Promise<WidenPrimitives<V>> {
+    const res = await this.evalFeature<WidenPrimitives<V>, K>(key, userContext);
+    const value = res.value;
+    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
+  }
+  public async evalFeature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(key: string, userContext: UserContext): Promise<FeatureResult<V | null>> {
+    const ctx = await this._getEvalContext(userContext);
+    return _evalFeature<V>(key, ctx);
+  }
+
+  private async _getEvalContext(
+    userContext: UserContext
+  ): Promise<EvalContext> {
+    const ctx: EvalContext = {
+      global: this._globalCtx,
+      user: userContext,
+      stack: {
+        evaluatedFeatures: new Set(),
+      },
+    };
+
+    if (ctx.user.stickyBucketService && !ctx.user.stickyBucketAssignmentDocs) {
+      const docs = await getAllStickyBucketAssignmentDocs(ctx);
+      ctx.user.stickyBucketAssignmentDocs = docs;
+    }
+
+    return ctx;
+  }
 }

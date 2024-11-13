@@ -174,26 +174,18 @@ export type ApplyDomChangesCallback = (
 
 export type RenderFunction = () => void;
 
-export interface Context {
+// Constructor Options
+type GlobalConstructorOptions = {
   enabled?: boolean;
-  attributes?: Attributes;
-  url?: string;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
-  forcedVariations?: Record<string, number>;
-  blockedChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
   jsInjectionNonce?: string;
   disableUrlRedirectExperiments?: boolean;
   disableCrossOriginUrlRedirectExperiments?: boolean;
   disableExperimentsOnLoad?: boolean;
-  stickyBucketAssignmentDocs?: Record<
-    StickyAttributeKey,
-    StickyAssignmentsDocument
-  >;
   stickyBucketIdentifierAttributes?: string[];
-  stickyBucketService?: StickyBucketService;
   debug?: boolean;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
@@ -239,10 +231,66 @@ export interface Context {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
-}
+};
+export type Options = GlobalConstructorOptions & UserContext;
+
+// Contexts
+export type GlobalContext = {
+  log: (msg: string, ctx: any) => void;
+  features: FeatureDefinitions;
+  experiments?: AutoExperiment[];
+  enabled?: boolean;
+  url: string;
+  qaMode?: boolean;
+  savedGroups?: SavedGroupsValues;
+  stickyBucketIdentifierAttributes?: string[];
+  onExperimentEval: (experiment: Experiment<any>, result: Result<any>) => void;
+  onExperimentView: (
+    experiment: Experiment<any>,
+    result: Result<any>
+  ) => Promise<void>;
+  onFeatureUsage: (key: string, result: FeatureResult<any>) => void;
+  recordChangeId?: (changeId: string) => void;
+
+  /** @deprecated */
+  overrides?: Record<string, ExperimentOverride>;
+  /** @deprecated */
+  groups?: Record<string, boolean>;
+  /** @deprecated */
+  user?: {
+    id?: string;
+    anonId?: string;
+    [key: string]: string | undefined;
+  };
+};
+
+// Some global fields can be overridden by the user, others are always user-level
+export type UserContext = {
+  attributes?: Attributes;
+  url?: string;
+  blockedChangeIds?: string[];
+  stickyBucketService?: StickyBucketService;
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Record<string, any>;
+};
+
+export type StackContext = {
+  id?: string;
+  evaluatedFeatures: Set<string>;
+};
+
+export type EvalContext = {
+  global: GlobalContext;
+  user: UserContext;
+  stack: StackContext;
+};
 
 export type PrefetchOptions = Pick<
-  Context,
+  Options,
   | "decryptionKey"
   | "apiHost"
   | "apiHostRequestHeaders"
@@ -293,38 +341,6 @@ export type WidenPrimitives<T> = T extends string
   : T extends boolean
   ? boolean
   : T;
-
-export type FeatureEvalContext = {
-  id?: string;
-  evaluatedFeatures: Set<string>;
-  log: (msg: string, ctx: any) => void;
-  attributes: Attributes;
-  forcedFeatureValues: Map<string, any>;
-  forcedVariations?: Record<string, number>;
-  features: FeatureDefinitions;
-  enabled?: boolean;
-  url: string;
-  qaMode?: boolean;
-  savedGroups?: SavedGroupsValues;
-  /** @deprecated */
-  overrides?: Record<string, ExperimentOverride>;
-  /** @deprecated */
-  groups?: Record<string, boolean>;
-  stickyBucketAssignmentDocs?: Record<
-    StickyAttributeKey,
-    StickyAssignmentsDocument
-  >;
-  stickyBucketIdentifierAttributes?: string[];
-  stickyBucketService?: StickyBucketService;
-  onExperimentEval: (experiment: Experiment<any>, result: Result<any>) => void;
-  onExperimentView: (
-    experiment: Experiment<any>,
-    result: Result<any>
-  ) => Promise<void>;
-  onFeatureUsage: (key: string, result: FeatureResult<any>) => void;
-
-  recordChangeId?: (changeId: string) => void;
-};
 
 export type DOMMutation = {
   selector: string;

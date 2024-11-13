@@ -1,5 +1,7 @@
 export type {
-  Context,
+  Options as Context,
+  Options,
+  UserContext,
   Attributes,
   Polyfills,
   CacheSettings,
@@ -43,6 +45,7 @@ export type {
   InitSyncOptions,
   Helpers,
   GrowthBookPayload,
+  SavedGroupsValues,
 } from "./types/growthbook";
 
 export type {

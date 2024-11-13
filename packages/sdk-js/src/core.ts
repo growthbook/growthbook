@@ -1,5 +1,5 @@
 import {
-  FeatureEvalContext,
+  EvalContext,
   FeatureDefinition,
   FeatureResult,
   Experiment,
@@ -12,6 +12,7 @@ import {
   StickyAssignments,
   StickyAttributeKey,
   StickyAssignmentsDocument,
+  FeatureApiResponse,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -30,42 +31,46 @@ import {
 
 export function evalFeature<V = unknown>(
   id: string,
-  ctx: FeatureEvalContext
+  ctx: EvalContext
 ): FeatureResult<V | null> {
-  if (ctx.evaluatedFeatures.has(id)) {
+  if (ctx.stack.evaluatedFeatures.has(id)) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log(`evalFeature: circular dependency detected: ${ctx.id} -> ${id}`, {
-        from: ctx.id,
-        to: id,
-      });
+      ctx.global.log(
+        `evalFeature: circular dependency detected: ${ctx.stack.id} -> ${id}`,
+        {
+          from: ctx.stack.id,
+          to: id,
+        }
+      );
     return getFeatureResult(ctx, id, null, "cyclicPrerequisite");
   }
-  ctx.evaluatedFeatures.add(id);
-  ctx.id = id;
+  ctx.stack.evaluatedFeatures.add(id);
+  ctx.stack.id = id;
 
   // Global override
-  if (ctx.forcedFeatureValues.has(id)) {
+  if (ctx.user.forcedFeatureValues && id in ctx.user.forcedFeatureValues) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Global override", {
+      ctx.global.log("Global override", {
         id,
-        value: ctx.forcedFeatureValues.get(id),
+        value: ctx.user.forcedFeatureValues[id],
       });
     return getFeatureResult(
       ctx,
       id,
-      ctx.forcedFeatureValues.get(id),
+      ctx.user.forcedFeatureValues[id],
       "override"
     );
   }
 
   // Unknown feature id
-  if (!ctx.features || !ctx.features[id]) {
-    process.env.NODE_ENV !== "production" && ctx.log("Unknown feature", { id });
+  if (!ctx.global.features || !ctx.global.features[id]) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log("Unknown feature", { id });
     return getFeatureResult(ctx, id, null, "unknownFeature");
   }
 
   // Get the feature
-  const feature: FeatureDefinition<V> = ctx.features[id];
+  const feature: FeatureDefinition<V> = ctx.global.features[id];
 
   // Loop through the rules
   if (feature.rules) {
@@ -88,15 +93,18 @@ export function evalFeature<V = unknown>(
             // blocking prerequisite eval failed: feature evaluation fails
             if (parentCondition.gate) {
               process.env.NODE_ENV !== "production" &&
-                ctx.log("Feature blocked by prerequisite", { id, rule });
+                ctx.global.log("Feature blocked by prerequisite", { id, rule });
               return getFeatureResult(ctx, id, null, "prerequisite");
             }
             // non-blocking prerequisite eval failed: break out of parentConditions loop, jump to the next rule
             process.env.NODE_ENV !== "production" &&
-              ctx.log("Skip rule because prerequisite evaluation fails", {
-                id,
-                rule,
-              });
+              ctx.global.log(
+                "Skip rule because prerequisite evaluation fails",
+                {
+                  id,
+                  rule,
+                }
+              );
             continue rules;
           }
         }
@@ -105,7 +113,7 @@ export function evalFeature<V = unknown>(
       // If there are filters for who is included (e.g. namespaces)
       if (rule.filters && isFilteredOut(rule.filters, ctx)) {
         process.env.NODE_ENV !== "production" &&
-          ctx.log("Skip rule because of filters", {
+          ctx.global.log("Skip rule because of filters", {
             id,
             rule,
           });
@@ -117,7 +125,7 @@ export function evalFeature<V = unknown>(
         // If it's a conditional rule, skip if the condition doesn't pass
         if (rule.condition && !conditionPasses(rule.condition, ctx)) {
           process.env.NODE_ENV !== "production" &&
-            ctx.log("Skip rule because of condition ff", {
+            ctx.global.log("Skip rule because of condition ff", {
               id,
               rule,
             });
@@ -130,7 +138,7 @@ export function evalFeature<V = unknown>(
             ctx,
             rule.seed || id,
             rule.hashAttribute,
-            ctx.stickyBucketService && !rule.disableStickyBucketing
+            ctx.user.stickyBucketService && !rule.disableStickyBucketing
               ? rule.fallbackAttribute
               : undefined,
             rule.range,
@@ -139,7 +147,7 @@ export function evalFeature<V = unknown>(
           )
         ) {
           process.env.NODE_ENV !== "production" &&
-            ctx.log("Skip rule because user not included in rollout", {
+            ctx.global.log("Skip rule because user not included in rollout", {
               id,
               rule,
             });
@@ -147,7 +155,7 @@ export function evalFeature<V = unknown>(
         }
 
         process.env.NODE_ENV !== "production" &&
-          ctx.log("Force value from rule", {
+          ctx.global.log("Force value from rule", {
             id,
             rule,
           });
@@ -155,7 +163,7 @@ export function evalFeature<V = unknown>(
         // If this was a remotely evaluated experiment, fire the tracking callbacks
         if (rule.tracks) {
           rule.tracks.forEach((t) => {
-            ctx.onExperimentView(t.experiment, t.result);
+            ctx.global.onExperimentView(t.experiment, t.result);
           });
         }
 
@@ -163,7 +171,7 @@ export function evalFeature<V = unknown>(
       }
       if (!rule.variations) {
         process.env.NODE_ENV !== "production" &&
-          ctx.log("Skip invalid rule", {
+          ctx.global.log("Skip invalid rule", {
             id,
             rule,
           });
@@ -199,7 +207,7 @@ export function evalFeature<V = unknown>(
 
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
-      ctx.onExperimentEval(exp, result);
+      ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
           ctx,
@@ -215,7 +223,7 @@ export function evalFeature<V = unknown>(
   }
 
   process.env.NODE_ENV !== "production" &&
-    ctx.log("Use default value", {
+    ctx.global.log("Use default value", {
       id,
       value: feature.defaultValue,
     });
@@ -232,7 +240,7 @@ export function evalFeature<V = unknown>(
 export function runExperiment<T>(
   experiment: Experiment<T>,
   featureId: string | null,
-  ctx: FeatureEvalContext
+  ctx: EvalContext
 ): {
   result: Result<T>;
   trackingCall?: Promise<void>;
@@ -243,16 +251,16 @@ export function runExperiment<T>(
   // 1. If experiment has less than 2 variations, return immediately
   if (numVariations < 2) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Invalid experiment", { id: key });
+      ctx.global.log("Invalid experiment", { id: key });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
   }
 
   // 2. If the context is disabled, return immediately
-  if (ctx.enabled === false) {
+  if (ctx.global.enabled === false) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Context disabled", { id: key });
+      ctx.global.log("Context disabled", { id: key });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -264,10 +272,10 @@ export function runExperiment<T>(
   // 2.6 New, more powerful URL targeting
   if (
     experiment.urlPatterns &&
-    !isURLTargeted(ctx.url, experiment.urlPatterns)
+    !isURLTargeted(ctx.user.url || "", experiment.urlPatterns)
   ) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because of url targeting", {
+      ctx.global.log("Skip because of url targeting", {
         id: key,
       });
     return {
@@ -276,10 +284,14 @@ export function runExperiment<T>(
   }
 
   // 3. If a variation is forced from a querystring, return the forced variation
-  const qsOverride = getQueryStringOverride(key, ctx.url, numVariations);
+  const qsOverride = getQueryStringOverride(
+    key,
+    ctx.user.url || "",
+    numVariations
+  );
   if (qsOverride !== null) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Force via querystring", {
+      ctx.global.log("Force via querystring", {
         id: key,
         variation: qsOverride,
       });
@@ -295,10 +307,10 @@ export function runExperiment<T>(
   }
 
   // 4. If a variation is forced in the context, return the forced variation
-  if (ctx.forcedVariations && key in ctx.forcedVariations) {
-    const variation = ctx.forcedVariations[key];
+  if (ctx.user.forcedVariations && key in ctx.user.forcedVariations) {
+    const variation = ctx.user.forcedVariations[key];
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Force via dev tools", {
+      ctx.global.log("Force via dev tools", {
         id: key,
         variation,
       });
@@ -310,7 +322,7 @@ export function runExperiment<T>(
   // 5. Exclude if a draft experiment or not active
   if (experiment.status === "draft" || experiment.active === false) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because inactive", {
+      ctx.global.log("Skip because inactive", {
         id: key,
       });
     return {
@@ -322,13 +334,13 @@ export function runExperiment<T>(
   const { hashAttribute, hashValue } = getHashAttribute(
     ctx,
     experiment.hashAttribute,
-    ctx.stickyBucketService && !experiment.disableStickyBucketing
+    ctx.user.stickyBucketService && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
       : undefined
   );
   if (!hashValue) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because missing hashAttribute", {
+      ctx.global.log("Skip because missing hashAttribute", {
         id: key,
       });
     return {
@@ -340,7 +352,7 @@ export function runExperiment<T>(
 
   let foundStickyBucket = false;
   let stickyBucketVersionIsBlocked = false;
-  if (ctx.stickyBucketService && !experiment.disableStickyBucketing) {
+  if (ctx.user.stickyBucketService && !experiment.disableStickyBucketing) {
     const { variation, versionIsBlocked } = getStickyBucketVariation({
       ctx,
       expKey: experiment.key,
@@ -361,7 +373,7 @@ export function runExperiment<T>(
     if (experiment.filters) {
       if (isFilteredOut(experiment.filters, ctx)) {
         process.env.NODE_ENV !== "production" &&
-          ctx.log("Skip because of filters", {
+          ctx.global.log("Skip because of filters", {
             id: key,
           });
         return {
@@ -373,7 +385,7 @@ export function runExperiment<T>(
       !inNamespace(hashValue, experiment.namespace)
     ) {
       process.env.NODE_ENV !== "production" &&
-        ctx.log("Skip because of namespace", {
+        ctx.global.log("Skip because of namespace", {
           id: key,
         });
       return {
@@ -384,7 +396,7 @@ export function runExperiment<T>(
     // 7.5. Exclude if experiment.include returns false or throws
     if (experiment.include && !isIncluded(experiment.include)) {
       process.env.NODE_ENV !== "production" &&
-        ctx.log("Skip because of include function", {
+        ctx.global.log("Skip because of include function", {
           id: key,
         });
       return {
@@ -395,7 +407,7 @@ export function runExperiment<T>(
     // 8. Exclude if condition is false
     if (experiment.condition && !conditionPasses(experiment.condition, ctx)) {
       process.env.NODE_ENV !== "production" &&
-        ctx.log("Skip because of condition exp", {
+        ctx.global.log("Skip because of condition exp", {
           id: key,
         });
       return {
@@ -417,7 +429,7 @@ export function runExperiment<T>(
         const evalObj = { value: parentResult.value };
         if (!evalCondition(evalObj, parentCondition.condition || {})) {
           process.env.NODE_ENV !== "production" &&
-            ctx.log("Skip because prerequisite evaluation fails", {
+            ctx.global.log("Skip because prerequisite evaluation fails", {
               id: key,
             });
           return {
@@ -433,7 +445,7 @@ export function runExperiment<T>(
       !hasGroupOverlap(experiment.groups as string[], ctx)
     ) {
       process.env.NODE_ENV !== "production" &&
-        ctx.log("Skip because of groups", {
+        ctx.global.log("Skip because of groups", {
           id: key,
         });
       return {
@@ -445,7 +457,7 @@ export function runExperiment<T>(
   // 8.2. Old style URL targeting
   if (experiment.url && !urlIsValid(experiment.url as RegExp, ctx)) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because of url", {
+      ctx.global.log("Skip because of url", {
         id: key,
       });
     return {
@@ -461,7 +473,7 @@ export function runExperiment<T>(
   );
   if (n === null) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because of invalid hash version", {
+      ctx.global.log("Skip because of invalid hash version", {
         id: key,
       });
     return {
@@ -483,7 +495,7 @@ export function runExperiment<T>(
   // 9.5 Unenroll if any prior sticky buckets are blocked by version
   if (stickyBucketVersionIsBlocked) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because sticky bucket version is blocked", {
+      ctx.global.log("Skip because sticky bucket version is blocked", {
         id: key,
       });
     return {
@@ -502,7 +514,7 @@ export function runExperiment<T>(
   // 10. Return if not in experiment
   if (assigned < 0) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because of coverage", {
+      ctx.global.log("Skip because of coverage", {
         id: key,
       });
     return {
@@ -513,7 +525,7 @@ export function runExperiment<T>(
   // 11. Experiment has a forced variation
   if ("force" in experiment) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Force variation", {
+      ctx.global.log("Force variation", {
         id: key,
         variation: experiment.force,
       });
@@ -529,9 +541,9 @@ export function runExperiment<T>(
   }
 
   // 12. Exclude if in QA mode
-  if (ctx.qaMode) {
+  if (ctx.global.qaMode) {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because QA mode", {
+      ctx.global.log("Skip because QA mode", {
         id: key,
       });
     return {
@@ -542,7 +554,7 @@ export function runExperiment<T>(
   // 12.5. Exclude if experiment is stopped
   if (experiment.status === "stopped") {
     process.env.NODE_ENV !== "production" &&
-      ctx.log("Skip because stopped", {
+      ctx.global.log("Skip because stopped", {
         id: key,
       });
     return {
@@ -562,7 +574,7 @@ export function runExperiment<T>(
   );
 
   // 13.5. Persist sticky bucket
-  if (ctx.stickyBucketService && !experiment.disableStickyBucketing) {
+  if (ctx.user.stickyBucketService && !experiment.disableStickyBucketing) {
     const { changed, key: attrKey, doc } = generateStickyBucketAssignmentDoc(
       ctx,
       hashAttribute,
@@ -576,26 +588,27 @@ export function runExperiment<T>(
     );
     if (changed) {
       // update local docs
-      ctx.stickyBucketAssignmentDocs = ctx.stickyBucketAssignmentDocs || {};
-      ctx.stickyBucketAssignmentDocs[attrKey] = doc;
+      ctx.user.stickyBucketAssignmentDocs =
+        ctx.user.stickyBucketAssignmentDocs || {};
+      ctx.user.stickyBucketAssignmentDocs[attrKey] = doc;
       // save doc
-      ctx.stickyBucketService.saveAssignments(doc);
+      ctx.user.stickyBucketService.saveAssignments(doc);
     }
   }
 
   // 14. Fire the tracking callback
   // Store the promise in case we're awaiting it (ex: browser url redirects)
-  const trackingCall = ctx.onExperimentView(experiment, result);
+  const trackingCall = ctx.global.onExperimentView(experiment, result);
 
   // 14.1 Keep track of completed changeIds
   "changeId" in experiment &&
     experiment.changeId &&
-    ctx.recordChangeId &&
-    ctx.recordChangeId(experiment.changeId as string);
+    ctx.global.recordChangeId &&
+    ctx.global.recordChangeId(experiment.changeId as string);
 
   // 15. Return the result
   process.env.NODE_ENV !== "production" &&
-    ctx.log("In experiment", {
+    ctx.global.log("In experiment", {
       id: key,
       variation: result.variationId,
     });
@@ -603,7 +616,7 @@ export function runExperiment<T>(
 }
 
 function getFeatureResult<T>(
-  ctx: FeatureEvalContext,
+  ctx: EvalContext,
   key: string,
   value: T,
   source: FeatureResultSource,
@@ -622,19 +635,23 @@ function getFeatureResult<T>(
   if (result) ret.experimentResult = result;
 
   // Track the usage of this feature in real-time
-  ctx.onFeatureUsage(key, ret);
+  ctx.global.onFeatureUsage(key, ret);
 
   return ret;
 }
 
 function conditionPasses(
   condition: ConditionInterface,
-  ctx: FeatureEvalContext
+  ctx: EvalContext
 ): boolean {
-  return evalCondition(ctx.attributes, condition, ctx.savedGroups || {});
+  return evalCondition(
+    ctx.user.attributes || {},
+    condition,
+    ctx.global.savedGroups || {}
+  );
 }
 
-function isFilteredOut(filters: Filter[], ctx: FeatureEvalContext): boolean {
+function isFilteredOut(filters: Filter[], ctx: EvalContext): boolean {
   return filters.some((filter) => {
     const { hashValue } = getHashAttribute(ctx, filter.attribute);
     if (!hashValue) return true;
@@ -645,7 +662,7 @@ function isFilteredOut(filters: Filter[], ctx: FeatureEvalContext): boolean {
 }
 
 function isIncludedInRollout(
-  ctx: FeatureEvalContext,
+  ctx: EvalContext,
   seed: string,
   hashAttribute: string | undefined,
   fallbackAttribute: string | undefined,
@@ -673,7 +690,7 @@ function isIncludedInRollout(
 }
 
 export function getExperimentResult<T>(
-  ctx: FeatureEvalContext,
+  ctx: EvalContext,
   experiment: Experiment<T>,
   variationIndex: number,
   hashUsed: boolean,
@@ -691,7 +708,7 @@ export function getExperimentResult<T>(
   const { hashAttribute, hashValue } = getHashAttribute(
     ctx,
     experiment.hashAttribute,
-    ctx.stickyBucketService && !experiment.disableStickyBucketing
+    ctx.user.stickyBucketService && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
       : undefined
   );
@@ -721,10 +738,10 @@ export function getExperimentResult<T>(
 
 function mergeOverrides<T>(
   experiment: Experiment<T>,
-  ctx: FeatureEvalContext
+  ctx: EvalContext
 ): Experiment<T> {
   const key = experiment.key;
-  const o = ctx.overrides;
+  const o = ctx.global.overrides;
   if (o && o[key]) {
     experiment = Object.assign({}, experiment, o[key]);
     if (typeof experiment.url === "string") {
@@ -739,7 +756,7 @@ function mergeOverrides<T>(
 }
 
 export function getHashAttribute(
-  ctx: FeatureEvalContext,
+  ctx: EvalContext,
   attr?: string,
   fallback?: string
 ) {
@@ -747,14 +764,14 @@ export function getHashAttribute(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let hashValue: any = "";
 
-  if (ctx.attributes[hashAttribute]) {
-    hashValue = ctx.attributes[hashAttribute];
+  if (ctx.user.attributes && ctx.user.attributes[hashAttribute]) {
+    hashValue = ctx.user.attributes[hashAttribute];
   }
 
   // if no match, try fallback
-  if (!hashValue && fallback) {
-    if (ctx.attributes[fallback]) {
-      hashValue = ctx.attributes[fallback];
+  if (ctx.user.attributes && !hashValue && fallback) {
+    if (ctx.user.attributes[fallback]) {
+      hashValue = ctx.user.attributes[fallback];
     }
     if (hashValue) {
       hashAttribute = fallback;
@@ -764,8 +781,8 @@ export function getHashAttribute(
   return { hashAttribute, hashValue };
 }
 
-function urlIsValid(urlRegex: RegExp, ctx: FeatureEvalContext): boolean {
-  const url = ctx.url;
+function urlIsValid(urlRegex: RegExp, ctx: EvalContext): boolean {
+  const url = ctx.user.url;
   if (!url) return false;
 
   const pathOnly = url.replace(/^https?:\/\//, "").replace(/^[^/]*\//, "/");
@@ -775,11 +792,8 @@ function urlIsValid(urlRegex: RegExp, ctx: FeatureEvalContext): boolean {
   return false;
 }
 
-function hasGroupOverlap(
-  expGroups: string[],
-  ctx: FeatureEvalContext
-): boolean {
-  const groups = ctx.groups || {};
+function hasGroupOverlap(expGroups: string[], ctx: EvalContext): boolean {
+  const groups = ctx.global.groups || {};
   for (let i = 0; i < expGroups.length; i++) {
     if (groups[expGroups[i]]) return true;
   }
@@ -795,7 +809,7 @@ function getStickyBucketVariation({
   expMinBucketVersion,
   expMeta,
 }: {
-  ctx: FeatureEvalContext;
+  ctx: EvalContext;
   expKey: string;
   expBucketVersion?: number;
   expHashAttribute?: string;
@@ -850,11 +864,11 @@ function getStickyBucketExperimentKey(
 }
 
 function getStickyBucketAssignments(
-  ctx: FeatureEvalContext,
+  ctx: EvalContext,
   expHashAttribute: string,
   expFallbackAttribute?: string
 ): StickyAssignments {
-  if (!ctx.stickyBucketAssignmentDocs) return {};
+  if (!ctx.user.stickyBucketAssignmentDocs) return {};
   const { hashAttribute, hashValue } = getHashAttribute(ctx, expHashAttribute);
   const hashKey = `${hashAttribute}||${toString(hashValue)}`;
 
@@ -867,23 +881,23 @@ function getStickyBucketAssignments(
     : null;
 
   const assignments: StickyAssignments = {};
-  if (fallbackKey && ctx.stickyBucketAssignmentDocs[fallbackKey]) {
+  if (fallbackKey && ctx.user.stickyBucketAssignmentDocs[fallbackKey]) {
     Object.assign(
       assignments,
-      ctx.stickyBucketAssignmentDocs[fallbackKey].assignments || {}
+      ctx.user.stickyBucketAssignmentDocs[fallbackKey].assignments || {}
     );
   }
-  if (ctx.stickyBucketAssignmentDocs[hashKey]) {
+  if (ctx.user.stickyBucketAssignmentDocs[hashKey]) {
     Object.assign(
       assignments,
-      ctx.stickyBucketAssignmentDocs[hashKey].assignments || {}
+      ctx.user.stickyBucketAssignmentDocs[hashKey].assignments || {}
     );
   }
   return assignments;
 }
 
 function generateStickyBucketAssignmentDoc(
-  ctx: FeatureEvalContext,
+  ctx: EvalContext,
   attributeName: string,
   attributeValue: string,
   assignments: StickyAssignments
@@ -894,8 +908,9 @@ function generateStickyBucketAssignmentDoc(
 } {
   const key = `${attributeName}||${attributeValue}`;
   const existingAssignments =
-    ctx.stickyBucketAssignmentDocs && ctx.stickyBucketAssignmentDocs[key]
-      ? ctx.stickyBucketAssignmentDocs[key].assignments || {}
+    ctx.user.stickyBucketAssignmentDocs &&
+    ctx.user.stickyBucketAssignmentDocs[key]
+      ? ctx.user.stickyBucketAssignmentDocs[key].assignments || {}
       : {};
   const newAssignments = { ...existingAssignments, ...assignments };
   const changed =
@@ -910,4 +925,59 @@ function generateStickyBucketAssignmentDoc(
     },
     changed,
   };
+}
+
+function deriveStickyBucketIdentifierAttributes(
+  ctx: EvalContext,
+  data?: FeatureApiResponse
+) {
+  const attributes = new Set<string>();
+  const features = data && data.features ? data.features : ctx.global.features;
+  const experiments =
+    data && data.experiments ? data.experiments : ctx.global.experiments || [];
+  Object.keys(features).forEach((id) => {
+    const feature = features[id];
+    if (feature.rules) {
+      for (const rule of feature.rules) {
+        if (rule.variations) {
+          attributes.add(rule.hashAttribute || "id");
+          if (rule.fallbackAttribute) {
+            attributes.add(rule.fallbackAttribute);
+          }
+        }
+      }
+    }
+  });
+  experiments.map((experiment) => {
+    attributes.add(experiment.hashAttribute || "id");
+    if (experiment.fallbackAttribute) {
+      attributes.add(experiment.fallbackAttribute);
+    }
+  });
+  return Array.from(attributes);
+}
+
+export async function getAllStickyBucketAssignmentDocs(
+  ctx: EvalContext,
+  data?: FeatureApiResponse
+) {
+  if (ctx.user.stickyBucketService) {
+    const attributes = getStickyBucketAttributes(ctx, data);
+    return ctx.user.stickyBucketService.getAllAssignments(attributes);
+  }
+}
+
+function getStickyBucketAttributes(
+  ctx: EvalContext,
+  data?: FeatureApiResponse
+): Record<string, string> {
+  const attributes: Record<string, string> = {};
+  const stickyBucketIdentifierAttributes =
+    ctx.global.stickyBucketIdentifierAttributes ||
+    deriveStickyBucketIdentifierAttributes(ctx, data);
+  stickyBucketIdentifierAttributes.forEach((attr) => {
+    const { hashValue } = getHashAttribute(ctx, attr);
+    attributes[attr] = toString(hashValue);
+  });
+  return attributes;
 }
