@@ -27,6 +27,7 @@ import Stepper from "@/components/Stepper/Stepper";
 import Link from "@/components/Radix/Link";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
+import Tabs from "@/components/Radix/Tabs";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -604,6 +605,50 @@ export default function DesignSystemPage() {
         <Flex gap="3">
           <Metadata label="Title" value="Data" />
           <Metadata label="Title1" value="Data1" />
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Tabs</h3>
+        <Flex direction="column" gap="3">
+          <Box>
+            Uncontrolled tabs with persistance in the URL
+            <Tabs
+              defaultTabSlug="tab1"
+              tabs={[
+                {
+                  slug: "tab1",
+                  label: "Tab 1",
+                  content: <div>Tab 1 content</div>,
+                },
+                {
+                  slug: "tab2",
+                  label: "Tab 2",
+                  content: <div>Tab 2 content</div>,
+                },
+              ]}
+            />
+          </Box>
+
+          <Box>
+            Controlled tabs
+            <Tabs
+              activeTab="tab2"
+              onTabChange={(slug) => console.log(`Change to tab ${slug}`)}
+              tabs={[
+                {
+                  slug: "tab1",
+                  label: "Tab 1",
+                  content: <div>Tab 1 content</div>,
+                },
+                {
+                  slug: "tab2",
+                  label: "Tab 2",
+                  content: <div>Tab 2 content</div>,
+                },
+              ]}
+            />
+          </Box>
         </Flex>
       </div>
     </div>
