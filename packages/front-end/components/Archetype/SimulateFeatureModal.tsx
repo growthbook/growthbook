@@ -70,13 +70,14 @@ const SimulateFeatureModal: FC<{
             <div className="col mb-3">
               <h4>Select Archetype</h4>
               <SelectField
-                value={archetype}
+                value={simulateForm.watch("archetype")}
                 options={archetypeOptions}
                 onChange={(a) => {
                   try {
                     const attrsText = archetypeMap.get(a)?.attributes || "{}";
                     const attrs = JSON.parse(attrsText);
                     simulateForm.setValue("archetype", a);
+                    console.log("setting attributes to ", attrs);
                     simulateForm.setValue("attributes", attrs);
                   } catch (e) {
                     console.error(e);
@@ -89,6 +90,7 @@ const SimulateFeatureModal: FC<{
             <div className="col-12">
               <AttributeForm
                 initialValues={simulateForm.watch("attributes")}
+                archetypeId={simulateForm.watch("archetype")}
                 onChange={(attrs) => {
                   simulateForm.setValue("attributes", attrs);
                   simulateForm.setValue("archetype", "");

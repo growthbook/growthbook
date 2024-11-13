@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
 import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
@@ -14,6 +14,7 @@ import styles from "./AttributeForm.module.scss";
 export interface Props {
   onChange: (attributes: ArchetypeAttributeValues) => void;
   initialValues?: ArchetypeAttributeValues;
+  archetypeId?: string;
   jsonCTA?: string;
   useJSONButton?: boolean;
 }
@@ -21,6 +22,7 @@ export interface Props {
 export default function AttributeForm({
   onChange,
   initialValues = {},
+  archetypeId,
   jsonCTA = "Test Attributes",
   useJSONButton = true,
 }: Props) {
@@ -56,6 +58,14 @@ export default function AttributeForm({
   const attributeForm = useForm<any>({
     defaultValues: defaultValues,
   });
+  useEffect(() => {
+    // when the archetypeId changes, we want to clear any user added values and
+    // set to the values from the archetype
+    // reset the form to blank values
+    attributeForm.reset();
+    // then set the initial values
+    attributeForm.reset(initialValues);
+  }, [attributeForm, archetypeId, initialValues]);
 
   // filter out empty values (for strings, at least)
   const updateFormValues = (skipJsonUpdate = false) => {
