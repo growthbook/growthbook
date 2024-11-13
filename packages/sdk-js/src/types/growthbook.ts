@@ -189,15 +189,24 @@ export type RenderFunction = () => void;
 // Constructor Options
 export type Options = {
   enabled?: boolean;
+  attributes?: Attributes;
+  url?: string;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
+  forcedVariations?: Record<string, number>;
+  blockedChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
   jsInjectionNonce?: string;
   disableUrlRedirectExperiments?: boolean;
   disableCrossOriginUrlRedirectExperiments?: boolean;
   disableExperimentsOnLoad?: boolean;
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
   stickyBucketIdentifierAttributes?: string[];
+  stickyBucketService?: StickyBucketService;
   debug?: boolean;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
@@ -243,8 +252,7 @@ export type Options = {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
-  stickyBucketService?: StickyBucketService;
-} & Omit<UserContext, "saveStickyBucketAssignmentDoc">;
+};
 
 export type MultiUserOptions = {
   enabled?: boolean;
@@ -348,8 +356,7 @@ export type PrefetchOptions = Pick<
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
-  result: Result<any>,
-  user?: UserContext
+  result: Result<any>
 ) => void;
 
 export type VariationRange = [number, number];
