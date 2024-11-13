@@ -131,10 +131,11 @@ export default function RuleModal({
     defaultValues,
   });
 
+  const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
+    (scheduleRule) => scheduleRule.timestamp !== null
+  );
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
-    (defaultValues.scheduleRules || []).some(
-      (scheduleRule) => scheduleRule.timestamp !== null
-    )
+    defaultHasSchedule
   );
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -442,12 +443,17 @@ export default function RuleModal({
           );
         }
 
-        track("Create Experiment", {
-          source: "experiment-ref-new-rule-modal",
-          numTags: feature.tags?.length || 0,
-          numMetrics: 0,
-          numVariations: values.values.length || 0,
-        });
+        track(
+          values.experimentType === "multi-armed-bandit"
+            ? "Create Bandit"
+            : "Create Experiment",
+          {
+            source: "experiment-ref-new-rule-modal",
+            numTags: feature.tags?.length || 0,
+            numMetrics: 0,
+            numVariations: values.values.length || 0,
+          }
+        );
 
         // Experiment created, treat it as an experiment ref rule now
         values = {
@@ -771,7 +777,11 @@ export default function RuleModal({
             feature={feature}
             environment={environment}
             i={i}
+            defaultValues={defaultValues}
             changeRuleType={changeRuleType}
+            noSchedule={!defaultHasSchedule}
+            scheduleToggleEnabled={scheduleToggleEnabled}
+            setScheduleToggleEnabled={setScheduleToggleEnabled}
           />
         ) : null}
 

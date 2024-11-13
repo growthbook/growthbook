@@ -255,7 +255,7 @@ const MetricsList = (): React.ReactElement => {
     (m) => ({
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
-        : "Manual",
+        : "None",
       datasourceDescription: m.datasource
         ? getDatasourceById(m.datasource)?.description || undefined
         : undefined,
@@ -337,69 +337,10 @@ const MetricsList = (): React.ReactElement => {
     setModalData(null);
   };
 
-  if (!filteredMetrics.length) {
-    return (
-      <div className="container p-4">
-        {modalData ? (
-          <MetricModal {...modalData} close={closeModal} source="blank-state" />
-        ) : null}
-        {showAutoGenerateMetricsModal && (
-          <AutoGenerateMetricsModal
-            source="metrics-index-page"
-            setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-            mutate={mutateDefinitions}
-          />
-        )}
-        <div className="d-flex">
-          <h1>Metrics</h1>
-          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
-            View Documentation
-          </DocLink>
-        </div>
-        <p>
-          Metrics define success and failure for your business. Every business
-          is unique, but below are some common metrics to draw inspiration from:
-        </p>
-        <ul>
-          <li>
-            <strong>Advertising/SEO</strong> - page views per user, time on
-            site, bounce rate
-          </li>
-          <li>
-            <strong>E-Commerce</strong> - add to cart, start checkout, complete
-            checkout, revenue, refunds
-          </li>
-          <li>
-            <strong>Subscription</strong> - start trial, start subscription,
-            MRR, engagement, NPS, churn
-          </li>
-          <li>
-            <strong>Marketplace</strong> - seller signups, buyer signups,
-            transactions, revenue, engagement
-          </li>
-        </ul>
-        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
-          envAllowsCreatingMetrics() && (
-            <>
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-                size="md"
-              />
-              <Button onClick={() => setModalData({ mode: "new" })}>
-                Add your first Metric
-              </Button>
-            </>
-          )}
-      </div>
-    );
-  }
-
   const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
 
   return (
-    <div className="container-fluid pagecontents p-0 mt-4">
+    <div className="container-fluid pagecontents p-0">
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
@@ -412,16 +353,11 @@ const MetricsList = (): React.ReactElement => {
       )}
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto d-flex">
-          <h1>
-            Metrics{" "}
-            <Tooltip
-              className="small"
-              body="Metrics define success and failure for your business. Create metrics
-      here to use throughout the GrowthBook app."
-            />
-          </h1>
+          <div>
+            Define what constitutes success and failure for your business.
+          </div>
           <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
-            View Documentation
+            View Docs
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
@@ -439,7 +375,7 @@ const MetricsList = (): React.ReactElement => {
             </div>
           )}
       </div>
-      <div className="mt-3">
+      <div className="mt-4">
         <CustomMarkdown page={"metricList"} />
       </div>
       <div className="row mb-2 align-items-center">
@@ -629,7 +565,6 @@ const MetricsList = (): React.ReactElement => {
                   style={{ cursor: "initial" }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    e.preventDefault();
                   }}
                 >
                   <MoreMenu>

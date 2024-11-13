@@ -19,7 +19,7 @@ config.yml
 !.vscode/launch.json
 packages/stats/notebooks
 buildinfo/
-static/
+/static
 back-end-dist/
 *.tsbuildinfo
 

@@ -74,6 +74,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -345,7 +346,36 @@ export default function FeaturesOverview({
 
   return (
     <>
-      <div className="contents container-fluid pagecontents">
+      <div className="contents container-fluid pagecontents mt-2">
+        <h2 className="mb-3">Overview</h2>
+
+        <div className="box">
+          <div
+            className="mh-350px fade-mask-vertical-1rem px-4 py-3"
+            style={{ overflowY: "auto" }}
+          >
+            <MarkdownInlineEdit
+              value={feature.description || ""}
+              save={async (description) => {
+                await apiCall(`/feature/${feature.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    description,
+                  }),
+                });
+                track("Update Feature Description");
+                mutate();
+              }}
+              canCreate={canEdit}
+              canEdit={canEdit}
+              label="description"
+              header="Description"
+              headerClassName="h4"
+              containerClassName="mb-1"
+            />
+          </div>
+        </div>
+
         <div className="mt-3">
           <CustomMarkdown page={"feature"} variables={variables} />
         </div>

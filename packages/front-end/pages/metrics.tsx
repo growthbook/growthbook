@@ -1,31 +1,71 @@
 import React from "react";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
+import { isProjectListValidForProject } from "shared/util";
+import { Box, Tabs } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import LinkButton from "@/components/Radix/LinkButton";
+import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
+import Button from "@/components/Radix/Button";
 
 const MetricsPage = (): React.ReactElement => {
+  const { metrics, factMetrics, datasources, project } = useDefinitions();
+
+  const hasDatasource = datasources.some((d) =>
+    isProjectListValidForProject(d.projects, project)
+  );
+  const hasMetrics =
+    metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
+    factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
+
+  const [showNewModal, setShowNewModal] = React.useState(false);
+
   return (
-    <div className="container-fluid pagecontents">
-      <Tabs defaultTab="metrics" newStyle={true}>
-        <Tab anchor="metrics" id="metrics" display="Metrics" padding={false}>
-          <MetricsList />
-        </Tab>
-        <Tab
-          anchor="metricgroups"
-          id="metricgroups"
-          display={
-            <PremiumTooltip commercialFeature="metric-groups">
-              Metric Groups
-            </PremiumTooltip>
-          }
-          padding={false}
-          lazy
-        >
-          <MetricGroupsList />
-        </Tab>
-      </Tabs>
+    <div className="container pagecontents">
+      {showNewModal && (
+        <NewMetricModal
+          close={() => setShowNewModal(false)}
+          source={"metrics-empty-state"}
+        />
+      )}
+      <h1 className="mb-4">Metrics</h1>
+      {!hasMetrics ? (
+        <div className="appbox p-5 text-center">
+          <h2>Define What Success Looks Like</h2>
+          <p>
+            Metrics are defined with SQL on top of your data warehouse. Use them
+            as goals and guardrails in experiments to measure success.
+          </p>
+          <div className="mt-3">
+            {!hasDatasource ? (
+              <LinkButton href="/datasources">Connect Data Source</LinkButton>
+            ) : (
+              <Button onClick={() => setShowNewModal(true)}>Add Metric</Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <Tabs.Root defaultValue="metrics">
+          <Tabs.List>
+            <Tabs.Trigger value="metrics">Individual Metrics</Tabs.Trigger>
+            <Tabs.Trigger value="metricgroups">
+              <PremiumTooltip commercialFeature="metric-groups">
+                Metric Groups
+              </PremiumTooltip>
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Box pt="4">
+            <Tabs.Content value="metrics">
+              <MetricsList />
+            </Tabs.Content>
+
+            <Tabs.Content value="metricgroups">
+              <MetricGroupsList />
+            </Tabs.Content>
+          </Box>
+        </Tabs.Root>
+      )}
     </div>
   );
 };

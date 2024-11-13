@@ -126,11 +126,11 @@ const DocumentationSidebar = ({
           </li>
           <li className="mb-2">
             <a
-              href="https://docs.growthbook.io/app/fact-tables"
+              href="https://docs.growthbook.io/app/metrics"
               target="_blank"
               rel="noreferrer"
             >
-              Fact Tables
+              Metrics and Fact Tables
             </a>
           </li>
           <li className="mb-2">

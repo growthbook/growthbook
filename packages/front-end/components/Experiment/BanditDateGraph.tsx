@@ -15,7 +15,7 @@ import {
 } from "@visx/tooltip";
 import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ScaleLinear } from "d3-scale";
+import { ScaleLinear, ScaleTime } from "d3-scale";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
@@ -567,6 +567,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           round: true,
         });
 
+        const visibleTickIndexes = getVisibleTickIndexes(
+          allXTicks,
+          xScale,
+          width * 0.11
+        );
+
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
           // coordinates should be relative to the container in which Tooltip is rendered
           const containerX =
@@ -920,29 +926,14 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   stroke={"var(--text-color-table)"}
                   tickValues={allXTicks}
                   tickLabelProps={(value, i) => {
-                    const currentX = xScale(value);
-                    let hide = false;
-
-                    // Loop through previous ticks to see if any are too close
-                    for (let j = 0; j < i; j++) {
-                      const prevX = xScale(allXTicks[j]);
-                      if (Math.abs(currentX - prevX) < width * 0.06) {
-                        hide = true;
-                        break; // Stop checking if a close tick is found
-                      }
-                    }
-                    if (hide)
-                      return {
-                        display: "none",
-                      };
-
-                    return {
-                      fill: "var(--text-color-table)",
-                      fontSize: 11,
-                      textAnchor: "middle",
-                      dx: i < allXTicks.length - 1 ? 0 : -20,
-                      dy: 5,
-                    };
+                    return visibleTickIndexes.includes(i)
+                      ? {
+                          fill: "var(--text-color-table)",
+                          fontSize: 11,
+                          textAnchor: "middle",
+                          dy: 5,
+                        }
+                      : { display: "none" };
                   }}
                   tickFormat={(d) => {
                     return date(d as Date);
@@ -1004,3 +995,20 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   );
 };
 export default BanditDateGraph;
+
+export function getVisibleTickIndexes(
+  ticks: number[],
+  xScale: ScaleTime<number, number>,
+  minGap: number
+): number[] {
+  const visibleIndexes: number[] = [];
+  let lastXPosition = -Infinity;
+  ticks.forEach((tick, index) => {
+    const currentX = xScale(tick);
+    if (currentX - lastXPosition >= minGap) {
+      visibleIndexes.push(index);
+      lastXPosition = currentX;
+    }
+  });
+  return visibleIndexes;
+}

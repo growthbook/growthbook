@@ -1,4 +1,3 @@
-// radix dropdown wrapper
 import {
   DropdownMenu as RadixDropdownMenu,
   Button,
@@ -13,7 +12,7 @@ type DropdownProps = {
   children: AllowedChildren;
 } & MarginProps;
 
-export function Dropdown({ trigger, children, ...props }: DropdownProps) {
+export function DropdownMenu({ trigger, children, ...props }: DropdownProps) {
   let triggerComponent = (
     <RadixDropdownMenu.Trigger>{trigger}</RadixDropdownMenu.Trigger>
   );

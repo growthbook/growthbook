@@ -18,6 +18,7 @@ import {
   isFactMetric,
   isMetricJoinable,
 } from "shared/experiments";
+import { Link } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
@@ -320,16 +321,17 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto">
           {!(isBandit && experiment.status === "running") &&
           canEditAnalysisSettings ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setAnalysisModal(true);
-              }}
-            >
-              <span className="text-dark">Analysis Settings</span>
-              <GBEdit className="ml-2" />
-            </a>
+            <div className="cursor-pointer">
+              <Link
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAnalysisModal(true);
+                }}
+              >
+                <span className="text-dark">Analysis Settings</span>
+                <GBEdit className="ml-2" />
+              </Link>
+            </div>
           ) : (
             <span>Analysis Settings</span>
           )}

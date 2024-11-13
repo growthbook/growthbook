@@ -371,7 +371,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
 
     // TODO remove if data correlates
-    track(isBandit ? "CreateBandit" : "Create Experiment", {
+    track(isBandit ? "Create Bandit" : "Create Experiment", {
       source,
       numTags: data.tags?.length || 0,
       numMetrics:
@@ -857,7 +857,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
                   onChange={(v) => form.setValue("datasource", v)}
-                  initialOption="Manual"
+                  placeholder="Select..."
                   options={datasources.map((d) => {
                     const isDefaultDataSource =
                       d.id === settings.defaultDataSource;

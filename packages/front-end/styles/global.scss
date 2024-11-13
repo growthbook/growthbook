@@ -179,6 +179,12 @@ pre {
 .mh-50 {
   max-height: 50% !important;
 }
+.mh-250px {
+  max-height: 250px !important;
+}
+.mh-350px {
+  max-height: 350px !important;
+}
 
 // default bootstrap overrides:
 .btn:focus {
@@ -1930,6 +1936,15 @@ main.main.report {
     transparent 100%
   );
 }
+.fade-mask-vertical-1rem {
+  mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
 .w100-1rem {
   width: calc(100% - 2rem);
 }
@@ -3402,4 +3417,10 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
+}
+.text-color-high {
+  color: var(--text-color-high);
+}
+.text-color-mid {
+  color: var(--text-color-mid);
 }
