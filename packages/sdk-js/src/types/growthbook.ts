@@ -159,13 +159,23 @@ export type RealtimeUsageData = {
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
-  user?: UserContext;
+}
+
+export interface TrackingDataWithUser {
+  experiment: Experiment<any>;
+  result: Result<any>;
+  user: UserContext;
 }
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
+  result: Result<any>
+) => Promise<void> | void;
+
+export type TrackingCallbackWithUser = (
+  experiment: Experiment<any>,
   result: Result<any>,
-  user?: UserContext
+  user: UserContext
 ) => Promise<void> | void;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
@@ -200,11 +210,7 @@ export type Options = {
   /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
-  onFeatureUsage?: (
-    key: string,
-    result: FeatureResult<any>,
-    user?: UserContext
-  ) => void;
+  onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   /** @deprecated */
   realtimeKey?: string;
   /** @deprecated */
@@ -238,8 +244,29 @@ export type Options = {
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
   stickyBucketService?: StickyBucketService;
-  multiUser?: boolean;
 } & Omit<UserContext, "saveStickyBucketAssignmentDoc">;
+
+export type MultiUserOptions = {
+  enabled?: boolean;
+  stickyBucketIdentifierAttributes?: string[];
+  debug?: boolean;
+  log?: (msg: string, ctx: any) => void;
+  qaMode?: boolean;
+  disableCache?: boolean;
+  trackingCallback?: TrackingCallbackWithUser;
+  onFeatureUsage?: (
+    key: string,
+    result: FeatureResult<any>,
+    user: UserContext
+  ) => void;
+  apiHost?: string;
+  streamingHost?: string;
+  apiHostRequestHeaders?: Record<string, string>;
+  streamingHostRequestHeaders?: Record<string, string>;
+  clientKey?: string;
+  decryptionKey?: string;
+  savedGroups?: SavedGroupsValues;
+};
 
 // Contexts
 export type GlobalContext = {
@@ -247,11 +274,10 @@ export type GlobalContext = {
   features: FeatureDefinitions;
   experiments?: AutoExperiment[];
   enabled?: boolean;
-  url: string;
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
   stickyBucketIdentifierAttributes?: string[];
-  onExperimentEval: (
+  onExperimentEval?: (
     experiment: Experiment<any>,
     result: Result<any>,
     user: UserContext

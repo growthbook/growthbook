@@ -48,7 +48,6 @@ import {
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
 } from "./core";
-import { StickyBucketService } from "./sticky-bucket-service";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -67,8 +66,6 @@ export class GrowthBook<
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _options: Options;
-  private _globalCtx: GlobalContext;
-  private _userCtx: UserContext;
   private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
@@ -127,20 +124,11 @@ export class GrowthBook<
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !options.disableExperimentsOnLoad;
 
-    if (options.multiUser) {
-      if (
-        options.remoteEval ||
-        options.attributes ||
-        options.url ||
-        options.stickyBucketService ||
-        options.stickyBucketAssignmentDocs
-      ) {
-        throw new Error(
-          "multiUser mode cannot be used with remoteEval, attributes, url, stickyBucketService, or stickyBucketAssignmentDocs"
-        );
-      }
-      this._autoExperimentsAllowed = false;
-    }
+    this.log = this.log.bind(this);
+    this._track = this._track.bind(this);
+    this._trackFeatureUsage = this._trackFeatureUsage.bind(this);
+    this._fireSubscriptions = this._fireSubscriptions.bind(this);
+    this._recordChangedId = this._recordChangedId.bind(this);
 
     if (options.remoteEval) {
       if (options.decryptionKey) {
@@ -165,9 +153,6 @@ export class GrowthBook<
         throw new Error("cacheKeyAttributes are only used for remoteEval");
       }
     }
-
-    this._globalCtx = this._generateGlobalContext();
-    this._userCtx = this._generateUserContext();
 
     if (options.features) {
       this.ready = true;
@@ -220,7 +205,6 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
     this.ready = true;
-    this._refreshGlobalContext();
     this._render();
   }
 
@@ -253,7 +237,6 @@ export class GrowthBook<
     }
 
     this.ready = true;
-    this._refreshGlobalContext();
 
     if (options.streaming) {
       if (!this._options.clientKey) {
@@ -413,7 +396,6 @@ export class GrowthBook<
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this._options.features = features;
     this.ready = true;
-    this._refreshGlobalContext();
     this._render();
   }
 
@@ -437,7 +419,6 @@ export class GrowthBook<
   public setExperiments(experiments: AutoExperiment[]): void {
     this._options.experiments = experiments;
     this.ready = true;
-    this._refreshGlobalContext();
     this._updateAllAutoExperiments();
   }
 
@@ -507,10 +488,6 @@ export class GrowthBook<
   }
 
   public async setAttributes(attributes: Attributes) {
-    if (this._options.multiUser) {
-      throw new Error("Cannot set attributes directly in multiUser mode");
-    }
-
     this._options.attributes = attributes;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
@@ -519,7 +496,6 @@ export class GrowthBook<
       await this._refreshForRemoteEval();
       return;
     }
-    this._refreshUserContext();
     this._render();
     this._updateAllAutoExperiments();
   }
@@ -529,10 +505,6 @@ export class GrowthBook<
   }
 
   public async setAttributeOverrides(overrides: Attributes) {
-    if (this._options.multiUser) {
-      throw new Error("Cannot set attributes directly in multiUser mode");
-    }
-
     this._attributeOverrides = overrides;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
@@ -541,7 +513,6 @@ export class GrowthBook<
       await this._refreshForRemoteEval();
       return;
     }
-    this._refreshUserContext();
     this._render();
     this._updateAllAutoExperiments();
   }
@@ -552,7 +523,6 @@ export class GrowthBook<
       await this._refreshForRemoteEval();
       return;
     }
-    this._refreshUserContext();
     this._render();
     this._updateAllAutoExperiments();
   }
@@ -560,19 +530,13 @@ export class GrowthBook<
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
     this._forcedFeatureValues = map;
-    this._refreshUserContext();
     this._render();
   }
 
   public async setURL(url: string) {
-    if (this._options.multiUser) {
-      throw new Error("Cannot set URL directly in multiUser mode");
-    }
-
     if (url === this._options.url) return;
     this._options.url = url;
     this._redirectedUrl = "";
-    this._refreshUserContext();
     if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       this._updateAllAutoExperiments(true);
@@ -582,9 +546,6 @@ export class GrowthBook<
   }
 
   public getAttributes() {
-    if (this._options.multiUser) {
-      throw new Error("Cannot get attributes directly in multiUser mode");
-    }
     return { ...this._options.attributes, ...this._attributeOverrides };
   }
 
@@ -598,18 +559,10 @@ export class GrowthBook<
   }
 
   public getStickyBucketAssignmentDocs() {
-    if (this._options.multiUser) {
-      throw new Error(
-        "Cannot get sticky bucket docs directly in multiUser mode"
-      );
-    }
     return this._options.stickyBucketAssignmentDocs || {};
   }
 
   public getUrl() {
-    if (this._options.multiUser) {
-      throw new Error("Cannot get url directly in multiUser mode");
-    }
     return this._options.url || "";
   }
 
@@ -692,24 +645,13 @@ export class GrowthBook<
       this._refreshForRemoteEval();
       return;
     }
-    this._refreshGlobalContext();
     this._updateAllAutoExperiments();
     this._render();
   }
 
-  public run<T>(
-    experiment: Experiment<T>,
-    userContext?: UserContext
-  ): Result<T> {
-    if (this._options.multiUser && !userContext) {
-      throw new Error("userContext is required in multiUser mode");
-    }
-    const { result } = runExperiment(
-      experiment,
-      null,
-      this._getEvalContext(userContext)
-    );
-    this._fireSubscriptions(experiment, result, userContext || this._userCtx);
+  public run<T>(experiment: Experiment<T>): Result<T> {
+    const { result } = runExperiment(experiment, null, this._getEvalContext());
+    this._fireSubscriptions(experiment, result);
     return result;
   }
 
@@ -727,27 +669,21 @@ export class GrowthBook<
   }
 
   public triggerAutoExperiments() {
-    if (this._options.multiUser) {
-      throw new Error("Cannot use auto experiments in multiUser mode");
-    }
     this._autoExperimentsAllowed = true;
     this._updateAllAutoExperiments(true);
   }
 
-  private _getEvalContext(userContext?: UserContext): EvalContext {
+  private _getEvalContext(): EvalContext {
     return {
-      user: userContext || this._userCtx,
-      global: this._globalCtx,
+      user: this._getUserContext(),
+      global: this._getGlobalContext(),
       stack: {
         evaluatedFeatures: new Set(),
       },
     };
   }
 
-  private _refreshUserContext() {
-    this._userCtx = this._generateUserContext();
-  }
-  private _generateUserContext(): UserContext {
+  private _getUserContext(): UserContext {
     const stickyBucketService = this._options.stickyBucketService;
 
     return {
@@ -767,16 +703,11 @@ export class GrowthBook<
         : undefined,
     };
   }
-  private _refreshGlobalContext() {
-    this._globalCtx = this._generateGlobalContext();
-  }
-  private _generateGlobalContext(): GlobalContext {
-    // TODO: instead of re-generating each time, only update the context when needed
+  private _getGlobalContext(): GlobalContext {
     return {
-      url: this._getContextUrl(),
-      features: this.getFeatures(),
-      experiments: this.getExperiments(),
-      log: this.log.bind(this),
+      features: this._options.features || {},
+      experiments: this._options.experiments || [],
+      log: this.log,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
@@ -784,18 +715,10 @@ export class GrowthBook<
         .stickyBucketIdentifierAttributes,
       groups: this._options.groups,
       overrides: this._options.overrides,
-      onExperimentEval: (exp, res, user) => {
-        this._fireSubscriptions(exp, res, user);
-      },
-      onExperimentView: (experiment, result, user) => {
-        return this._track(experiment, result, user);
-      },
-      onFeatureUsage: (key, res, user) => {
-        this._trackFeatureUsage(key, res, user);
-      },
-      recordChangeId: (id) => {
-        this._completedChangeIds.add(id);
-      },
+      onExperimentEval: this._fireSubscriptions,
+      onExperimentView: this._track,
+      onFeatureUsage: this._trackFeatureUsage,
+      recordChangeId: this._recordChangedId,
     };
   }
 
@@ -835,7 +758,7 @@ export class GrowthBook<
         null,
         this._getEvalContext()
       ));
-      this._fireSubscriptions(experiment, result, this._userCtx);
+      this._fireSubscriptions(experiment, result);
     }
 
     // A hash to quickly tell if the assigned value changed
@@ -960,11 +883,7 @@ export class GrowthBook<
     }
   }
 
-  private _fireSubscriptions<T>(
-    experiment: Experiment<T>,
-    result: Result<T>,
-    user: UserContext
-  ) {
+  private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
     const key = experiment.key;
 
     // If assigned variation has changed, fire subscriptions
@@ -978,11 +897,7 @@ export class GrowthBook<
       this._assigned.set(key, { experiment, result });
       this._subscriptions.forEach((cb) => {
         try {
-          if (this._options.multiUser) {
-            cb(experiment, result, user);
-          } else {
-            cb(experiment, result);
-          }
+          cb(experiment, result);
         } catch (e) {
           console.error(e);
         }
@@ -990,11 +905,11 @@ export class GrowthBook<
     }
   }
 
-  private _trackFeatureUsage(
-    key: string,
-    res: FeatureResult,
-    user: UserContext
-  ): void {
+  private _recordChangedId(id: string) {
+    this._completedChangeIds.add(id);
+  }
+
+  private _trackFeatureUsage(key: string, res: FeatureResult): void {
     // Don't track feature usage that was forced via an override
     if (res.source === "override") return;
 
@@ -1006,11 +921,7 @@ export class GrowthBook<
     // Fire user-supplied callback
     if (this._options.onFeatureUsage) {
       try {
-        if (this._options.multiUser) {
-          this._options.onFeatureUsage(key, res, user);
-        } else {
-          this._options.onFeatureUsage(key, res);
-        }
+        this._options.onFeatureUsage(key, res);
       } catch (e) {
         // Ignore feature usage callback errors
       }
@@ -1050,26 +961,19 @@ export class GrowthBook<
     }
   }
 
-  public isOn<K extends string & keyof AppFeatures = string>(
-    key: K,
-    userContext?: UserContext
-  ): boolean {
-    return this.evalFeature(key, userContext).on;
+  public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
+    return this.evalFeature(key).on;
   }
 
-  public isOff<K extends string & keyof AppFeatures = string>(
-    key: K,
-    userContext?: UserContext
-  ): boolean {
-    return this.evalFeature(key, userContext).off;
+  public isOff<K extends string & keyof AppFeatures = string>(key: K): boolean {
+    return this.evalFeature(key).off;
   }
 
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
-  >(key: K, defaultValue: V, userContext?: UserContext): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key, userContext)
-      .value;
+  >(key: K, defaultValue: V): WidenPrimitives<V> {
+    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
@@ -1088,14 +992,8 @@ export class GrowthBook<
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
-  >(id: K, userContext?: UserContext): FeatureResult<V | null> {
-    if (this._options.multiUser && !userContext) {
-      throw new Error(
-        "Must include userContext when evaluating features in multiUser mode"
-      );
-    }
-
-    return _evalFeature(id, this._getEvalContext(userContext));
+  >(id: K): FeatureResult<V | null> {
+    return _evalFeature(id, this._getEvalContext());
   }
 
   log(msg: string, ctx: Record<string, unknown>) {
@@ -1126,9 +1024,7 @@ export class GrowthBook<
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });
       } else {
-        promises.push(
-          this._track(call.experiment, call.result, call.user as UserContext)
-        );
+        promises.push(this._track(call.experiment, call.result));
       }
     });
     this._deferredTrackingCalls.clear();
@@ -1152,17 +1048,13 @@ export class GrowthBook<
     );
   }
 
-  private async _track<T>(
-    experiment: Experiment<T>,
-    result: Result<T>,
-    user: UserContext
-  ) {
+  private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
     const k = this._getTrackKey(experiment, result);
 
     if (!this._options.trackingCallback) {
       // Add to deferred tracking if it hasn't already been added
       if (!this._deferredTrackingCalls.has(k)) {
-        this._deferredTrackingCalls.set(k, { experiment, result, user });
+        this._deferredTrackingCalls.set(k, { experiment, result });
       }
       return;
     }
@@ -1172,11 +1064,7 @@ export class GrowthBook<
     this._trackedExperiments.add(k);
 
     try {
-      if (this._options.multiUser) {
-        await this._options.trackingCallback(experiment, result, user);
-      } else {
-        await this._options.trackingCallback(experiment, result);
-      }
+      await this._options.trackingCallback(experiment, result);
     } catch (e) {
       console.error(e);
     }
@@ -1302,30 +1190,6 @@ export class GrowthBook<
       );
       this._options.stickyBucketAssignmentDocs = docs;
     }
-  }
-
-  public async applyStickyBuckets(
-    partialContext: Omit<
-      UserContext,
-      "stickyBucketService" | "stickyBucketAssignmentDocs"
-    >,
-    stickyBucketService: StickyBucketService
-  ): Promise<UserContext> {
-    const ctx = this._getEvalContext(partialContext);
-
-    const stickyBucketAssignmentDocs = await getAllStickyBucketAssignmentDocs(
-      ctx,
-      stickyBucketService
-    );
-
-    const userContext: UserContext = {
-      ...partialContext,
-      stickyBucketAssignmentDocs,
-      saveStickyBucketAssignmentDoc: (doc) =>
-        stickyBucketService.saveAssignments(doc),
-    };
-
-    return userContext;
   }
 }
 

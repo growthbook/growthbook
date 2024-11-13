@@ -107,11 +107,13 @@ setPolyfills({
 });
 ```
 
-There are 2 ways to use GrowthBook in a Node.js environment: instance-per-request or singleton.
+There are 2 ways to use GrowthBook in a Node.js environment depending on where you want to declare user attributes.
 
 ### Instance per Request
 
-In this mode, you create a separate GrowthBook instance for every incoming request. This is easiest if you use a middleware:
+In this mode, you create a separate GrowthBook instance for every incoming request that includes user-specific attributes. This has more overhead, but ensures you only need to define user attributes once instead of passing them throughout your app.
+
+This is easiest if you use a middleware:
 
 ```js
 // Example using Express
@@ -156,14 +158,13 @@ app.get("/", (req, res) => {
 
 ### Singleton
 
-In this mode, you create a singleton GrowthBook instance that is shared between all requests and you pass in user attributes when calling feature methods like `isOn`.
+In this mode, you create a singleton GrowthBookMultiUser instance that is shared between all requests and you pass in user attributes when calling feature methods like `isOn`.
 
 ```js
 // Create a multi-user GrowthBook instance without user-specific attributes
-const gb = new GrowthBook({
+const gb = new GrowthBookMultiUser({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  multiUser: true,
 });
 await gb.init();
 

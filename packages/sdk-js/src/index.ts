@@ -1,6 +1,9 @@
 export type {
   Options as Context,
   Options,
+  MultiUserOptions,
+  TrackingCallbackWithUser,
+  TrackingDataWithUser,
   UserContext,
   Attributes,
   Polyfills,
@@ -63,6 +66,8 @@ export {
 } from "./feature-repository";
 
 export { GrowthBook, prefetchPayload } from "./GrowthBook";
+
+export { GrowthBookMultiUser } from "./GrowthBookMultiUser";
 
 export {
   StickyBucketService,
