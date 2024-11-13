@@ -13,6 +13,7 @@ export const deleteEnvironment = createApiRequestHandler(
     const id = req.params.id;
     const org = req.context.org;
     const environments = org.settings?.environments || [];
+    const { removeAssociatedFeatureRules } = req.body;
 
     const environment = environments.find((env) => env.id === id);
     if (!environment) {
@@ -31,8 +32,10 @@ export const deleteEnvironment = createApiRequestHandler(
 
     await updateOrganization(org.id, updates);
 
-    // Asynchronously removes all feature rules that would be orphaned by deleting this environment
-    removeEnvironmentFromFeatureRules(req.context, id);
+    if (removeAssociatedFeatureRules) {
+      // Asynchronously removes all feature rules that would be orphaned by deleting this environment
+      removeEnvironmentFromFeatureRules(req.context, id);
+    }
 
     await req.audit({
       event: "environment.delete",
