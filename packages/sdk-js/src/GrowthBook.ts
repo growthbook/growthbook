@@ -1192,6 +1192,11 @@ export class GrowthBook<
   }
 
   public getMultiUserInstance(): GrowthBookMultiUser {
+    if (this._options.remoteEval) {
+      throw new Error(
+        "Cannot create multi-user instances with remoteEval enabled"
+      );
+    }
     this._globalCtx = this._generateGlobalContext();
     return new GrowthBookMultiUser(this._globalCtx);
   }
