@@ -102,6 +102,43 @@
     text-decoration: underline;
     text-decoration-color: var(--violet-9);
   }
+  .originalDate,
+  .originalDate2,
+  .activeDate,
+  .scheduleStartDate,
+  .scheduleEndDate {
+    &::before {
+      content: "";
+      position: absolute;
+      display: block;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    &.originalDate,
+    &.originalDate2 {
+      &::before {
+        border: 2px dashed var(--violet-a6) !important;
+      }
+    }
+    &.activeDate {
+      &::before {
+        background-color: var(--cyan-a3) !important;
+      }
+    }
+    &.scheduleStartDate {
+      &::before {
+        background-color: var(--green-a3) !important;
+      }
+    }
+    &.scheduleEndDate {
+      &::before {
+        background-color: var(--tomato-a3) !important;
+      }
+    }
+  }
+
   .rdp-button_previous,
   .rdp-button_next {
     width: 28px;

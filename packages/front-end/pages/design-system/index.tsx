@@ -187,7 +187,12 @@ export default function DesignSystemPage() {
       <div className="appbox p-3">
         <h3>Date Picker</h3>
         <Flex direction="column" gap="3">
-          <DatePicker date={date1} setDate={setDate1} precision="datetime" />
+          <DatePicker
+            date={date1}
+            setDate={setDate1}
+            precision="datetime"
+            disableBefore={new Date()}
+          />
           <hr />
 
           <DatePicker
@@ -196,6 +201,7 @@ export default function DesignSystemPage() {
             setDate={setDate1}
             setDate2={setDate2}
             precision="date"
+            disableBefore={new Date()}
           />
         </Flex>
       </div>

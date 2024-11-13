@@ -1,8 +1,8 @@
-import { DateRange, DayPicker } from "react-day-picker";
+import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { format } from "date-fns";
-import React from "react";
+import React, { useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
@@ -10,11 +10,24 @@ import styles from "./DatePicker.module.scss";
 
 type Props = {
   date: Date | undefined;
-  setDate: (date: Date | undefined) => void;
+  setDate: (d: Date | undefined) => void;
   date2?: Date | undefined;
-  setDate2?: (date: Date | undefined) => void;
+  setDate2?: (d: Date | undefined) => void;
   inputWidth?: number | string;
   precision?: "datetime" | "date";
+  disableBefore?: Date;
+  disableAfter?: Date;
+  activeDates?: Date[];
+  scheduleStartDate?: Date;
+  scheduleEndDate?: Date;
+};
+
+const modifiersClassNames = {
+  originalDate: "originalDate",
+  originalDate2: "originalDate2",
+  activeDates: "activeDate",
+  scheduleStartDate: "scheduleStartDate",
+  scheduleEndDate: "scheduleEndDate",
 };
 
 export default function DatePicker({
@@ -24,7 +37,40 @@ export default function DatePicker({
   setDate2,
   inputWidth = 200,
   precision = "datetime",
+  disableBefore,
+  disableAfter,
+  activeDates,
+  scheduleStartDate,
+  scheduleEndDate,
 }: Props) {
+  const [originalDate, setOriginalDate] = useState(date);
+  const [originalDate2, setOriginalDate2] = useState(date2);
+
+  const disabledMatchers: Matcher[] = [];
+  if (disableBefore) {
+    disabledMatchers.push({ before: disableBefore });
+  }
+  if (disableAfter) {
+    disabledMatchers.push({ after: disableAfter });
+  }
+
+  const markedDays: Record<string, Matcher | Matcher[] | undefined> = {};
+  if (originalDate) {
+    markedDays.originalDate = originalDate;
+  }
+  if (originalDate2) {
+    markedDays.originalDate2 = originalDate2;
+  }
+  if (activeDates?.length) {
+    markedDays.activeDates = activeDates;
+  }
+  if (scheduleStartDate) {
+    markedDays.scheduleStartDate = scheduleStartDate;
+  }
+  if (scheduleEndDate) {
+    markedDays.scheduleEndDate = scheduleEndDate;
+  }
+
   const isRange = !!setDate2;
 
   const handleDateSelect = (date: Date) => {
@@ -37,12 +83,19 @@ export default function DatePicker({
   };
 
   return (
-    <Popover.Root>
+    <Popover.Root
+      onOpenChange={(open) => {
+        if (!open) {
+          setOriginalDate(date);
+          setOriginalDate2(date2);
+        }
+      }}
+    >
       <Flex gap="1rem">
         <Popover.Trigger asChild>
           <div
-            className="form-control p-0 overflow-hidden"
-            style={{ width: inputWidth }}
+            className="form-control p-0"
+            style={{ width: inputWidth, overflow: "clip" }}
           >
             <Field
               style={{
@@ -55,7 +108,7 @@ export default function DatePicker({
               value={
                 date
                   ? format(
-                      date,
+                      getValidDate(date),
                       precision === "datetime"
                         ? "yyyy-MM-dd'T'HH:mm"
                         : "yyyy-MM-dd"
@@ -63,7 +116,7 @@ export default function DatePicker({
                   : ""
               }
               onChange={(e) => {
-                const d = getValidDate(e?.target?.value, date);
+                const d = getValidDate(e?.target?.value, getValidDate(date));
                 setDate(d);
               }}
             />
@@ -72,8 +125,8 @@ export default function DatePicker({
         {isRange && (
           <Popover.Trigger asChild>
             <div
-              className="form-control p-0 overflow-hidden"
-              style={{ width: inputWidth }}
+              className="form-control p-0"
+              style={{ width: inputWidth, overflow: "clip" }}
             >
               <Field
                 style={{
@@ -87,7 +140,7 @@ export default function DatePicker({
                 value={
                   date2
                     ? format(
-                        date2,
+                        getValidDate(date2),
                         precision === "datetime"
                           ? "yyyy-MM-dd'T'HH:mm"
                           : "yyyy-MM-dd"
@@ -95,7 +148,7 @@ export default function DatePicker({
                     : ""
                 }
                 onChange={(e) => {
-                  const d = getValidDate(e?.target?.value, date2);
+                  const d = getValidDate(e?.target?.value, getValidDate(date2));
                   setDate2?.(d);
                 }}
               />
@@ -114,12 +167,18 @@ export default function DatePicker({
               mode="range"
               selected={{ from: date, to: date2 }}
               onSelect={handleDateRangeSelect}
+              disabled={disabledMatchers}
+              modifiers={markedDays}
+              modifiersClassNames={modifiersClassNames}
             />
           ) : (
             <DayPicker
               mode="single"
               selected={date}
               onSelect={handleDateSelect}
+              disabled={disabledMatchers}
+              modifiers={markedDays}
+              modifiersClassNames={modifiersClassNames}
             />
           )}
           <Popover.Arrow className={styles.Arrow} />
