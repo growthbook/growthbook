@@ -77,7 +77,6 @@ const SimulateFeatureModal: FC<{
                     const attrsText = archetypeMap.get(a)?.attributes || "{}";
                     const attrs = JSON.parse(attrsText);
                     simulateForm.setValue("archetype", a);
-                    console.log("setting attributes to ", attrs);
                     simulateForm.setValue("attributes", attrs);
                   } catch (e) {
                     console.error(e);
