@@ -107,7 +107,11 @@ setPolyfills({
 });
 ```
 
-Create a separate GrowthBook instance for every incoming request. This is easiest if you use a middleware:
+There are 2 ways to use GrowthBook in a Node.js environment: instance-per-request or singleton.
+
+### Instance per Request
+
+In this mode, you create a separate GrowthBook instance for every incoming request. This is easiest if you use a middleware:
 
 ```js
 // Example using Express
@@ -120,6 +124,11 @@ app.use(function (req, res, next) {
     enableDevMode: false,
     // Important: make sure this is set to `false`, otherwise features may change in the middle of a request
     subscribeToChanges: false,
+    // Any user/request specific attributes you want to use for targeting
+    attributes: {
+      id: req.user.id,
+      url: req.url,
+    },
   });
 
   // Clean up at the end of the request
@@ -142,6 +151,34 @@ Then, you can access the GrowthBook instance from any route:
 app.get("/", (req, res) => {
   const gb = req.growthbook;
   // ...
+});
+```
+
+### Singleton
+
+In this mode, you create a singleton GrowthBook instance that is shared between all requests and you pass in user attributes when calling feature methods like `isOn`.
+
+```js
+// Create a multi-user GrowthBook instance without user-specific attributes
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  multiUser: true,
+});
+await gb.init();
+
+app.get("/hello", (req, res) => {
+  // User context to pass into feature methods
+  const userContext = {
+    attributes: {
+      id: req.user.id,
+      url: req.url,
+    },
+  };
+
+  const spanish = gb.isOn("spanish-greeting", userContext);
+
+  res.send(spanish ? "Hola Mundo" : "Hello World");
 });
 ```
 

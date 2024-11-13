@@ -28,6 +28,7 @@ import {
   isURLTargeted,
   toString,
 } from "./util";
+import { StickyBucketService } from "./sticky-bucket-service";
 
 export function evalFeature<V = unknown>(
   id: string,
@@ -138,7 +139,7 @@ export function evalFeature<V = unknown>(
             ctx,
             rule.seed || id,
             rule.hashAttribute,
-            ctx.user.stickyBucketService && !rule.disableStickyBucketing
+            ctx.user.stickyBucketAssignmentDocs && !rule.disableStickyBucketing
               ? rule.fallbackAttribute
               : undefined,
             rule.range,
@@ -163,7 +164,7 @@ export function evalFeature<V = unknown>(
         // If this was a remotely evaluated experiment, fire the tracking callbacks
         if (rule.tracks) {
           rule.tracks.forEach((t) => {
-            ctx.global.onExperimentView(t.experiment, t.result);
+            ctx.global.onExperimentView(t.experiment, t.result, ctx.user);
           });
         }
 
@@ -207,7 +208,7 @@ export function evalFeature<V = unknown>(
 
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
-      ctx.global.onExperimentEval(exp, result);
+      ctx.global.onExperimentEval(exp, result, ctx.user);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
           ctx,
@@ -334,7 +335,7 @@ export function runExperiment<T>(
   const { hashAttribute, hashValue } = getHashAttribute(
     ctx,
     experiment.hashAttribute,
-    ctx.user.stickyBucketService && !experiment.disableStickyBucketing
+    ctx.user.stickyBucketAssignmentDocs && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
       : undefined
   );
@@ -352,7 +353,10 @@ export function runExperiment<T>(
 
   let foundStickyBucket = false;
   let stickyBucketVersionIsBlocked = false;
-  if (ctx.user.stickyBucketService && !experiment.disableStickyBucketing) {
+  if (
+    ctx.user.stickyBucketAssignmentDocs &&
+    !experiment.disableStickyBucketing
+  ) {
     const { variation, versionIsBlocked } = getStickyBucketVariation({
       ctx,
       expKey: experiment.key,
@@ -574,7 +578,11 @@ export function runExperiment<T>(
   );
 
   // 13.5. Persist sticky bucket
-  if (ctx.user.stickyBucketService && !experiment.disableStickyBucketing) {
+  if (
+    ctx.user.stickyBucketAssignmentDocs &&
+    ctx.user.saveStickyBucketAssignmentDoc &&
+    !experiment.disableStickyBucketing
+  ) {
     const { changed, key: attrKey, doc } = generateStickyBucketAssignmentDoc(
       ctx,
       hashAttribute,
@@ -586,19 +594,23 @@ export function runExperiment<T>(
         )]: result.key,
       }
     );
-    if (changed) {
+    if (changed && ctx.user.saveStickyBucketAssignmentDoc) {
       // update local docs
       ctx.user.stickyBucketAssignmentDocs =
         ctx.user.stickyBucketAssignmentDocs || {};
       ctx.user.stickyBucketAssignmentDocs[attrKey] = doc;
       // save doc
-      ctx.user.stickyBucketService.saveAssignments(doc);
+      ctx.user.saveStickyBucketAssignmentDoc(doc);
     }
   }
 
   // 14. Fire the tracking callback
   // Store the promise in case we're awaiting it (ex: browser url redirects)
-  const trackingCall = ctx.global.onExperimentView(experiment, result);
+  const trackingCall = ctx.global.onExperimentView(
+    experiment,
+    result,
+    ctx.user
+  );
 
   // 14.1 Keep track of completed changeIds
   "changeId" in experiment &&
@@ -635,7 +647,7 @@ function getFeatureResult<T>(
   if (result) ret.experimentResult = result;
 
   // Track the usage of this feature in real-time
-  ctx.global.onFeatureUsage(key, ret);
+  ctx.global.onFeatureUsage(key, ret, ctx.user);
 
   return ret;
 }
@@ -708,7 +720,7 @@ export function getExperimentResult<T>(
   const { hashAttribute, hashValue } = getHashAttribute(
     ctx,
     experiment.hashAttribute,
-    ctx.user.stickyBucketService && !experiment.disableStickyBucketing
+    ctx.user.stickyBucketAssignmentDocs && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
       : undefined
   );
@@ -959,12 +971,11 @@ function deriveStickyBucketIdentifierAttributes(
 
 export async function getAllStickyBucketAssignmentDocs(
   ctx: EvalContext,
+  stickyBucketService: StickyBucketService,
   data?: FeatureApiResponse
 ) {
-  if (ctx.user.stickyBucketService) {
-    const attributes = getStickyBucketAttributes(ctx, data);
-    return ctx.user.stickyBucketService.getAllAssignments(attributes);
-  }
+  const attributes = getStickyBucketAttributes(ctx, data);
+  return stickyBucketService.getAllAssignments(attributes);
 }
 
 function getStickyBucketAttributes(

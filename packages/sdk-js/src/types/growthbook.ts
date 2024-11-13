@@ -159,11 +159,13 @@ export type RealtimeUsageData = {
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
+  user?: UserContext;
 }
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
+  user?: UserContext
 ) => Promise<void> | void;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
@@ -175,7 +177,7 @@ export type ApplyDomChangesCallback = (
 export type RenderFunction = () => void;
 
 // Constructor Options
-type GlobalConstructorOptions = {
+export type Options = {
   enabled?: boolean;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
@@ -198,7 +200,11 @@ type GlobalConstructorOptions = {
   /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
-  onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
+  onFeatureUsage?: (
+    key: string,
+    result: FeatureResult<any>,
+    user?: UserContext
+  ) => void;
   /** @deprecated */
   realtimeKey?: string;
   /** @deprecated */
@@ -231,8 +237,9 @@ type GlobalConstructorOptions = {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
-};
-export type Options = GlobalConstructorOptions & UserContext;
+  stickyBucketService?: StickyBucketService;
+  multiUser?: boolean;
+} & Omit<UserContext, "saveStickyBucketAssignmentDoc">;
 
 // Contexts
 export type GlobalContext = {
@@ -244,12 +251,21 @@ export type GlobalContext = {
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
   stickyBucketIdentifierAttributes?: string[];
-  onExperimentEval: (experiment: Experiment<any>, result: Result<any>) => void;
+  onExperimentEval: (
+    experiment: Experiment<any>,
+    result: Result<any>,
+    user: UserContext
+  ) => void;
   onExperimentView: (
     experiment: Experiment<any>,
-    result: Result<any>
+    result: Result<any>,
+    user: UserContext
   ) => Promise<void>;
-  onFeatureUsage: (key: string, result: FeatureResult<any>) => void;
+  onFeatureUsage: (
+    key: string,
+    result: FeatureResult<any>,
+    user: UserContext
+  ) => void;
   recordChangeId?: (changeId: string) => void;
 
   /** @deprecated */
@@ -269,11 +285,13 @@ export type UserContext = {
   attributes?: Attributes;
   url?: string;
   blockedChangeIds?: string[];
-  stickyBucketService?: StickyBucketService;
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
     StickyAssignmentsDocument
   >;
+  saveStickyBucketAssignmentDoc?: (
+    doc: StickyAssignmentsDocument
+  ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
 };
@@ -304,7 +322,8 @@ export type PrefetchOptions = Pick<
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
+  user?: UserContext
 ) => void;
 
 export type VariationRange = [number, number];
