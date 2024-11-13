@@ -47,6 +47,7 @@ import {
   evalFeature as _evalFeature,
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
+  decryptPayload,
 } from "./core";
 
 const isBrowser =
@@ -191,7 +192,7 @@ export class GrowthBook<
 
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
     this._payload = payload;
-    const data = await this.decryptPayload(payload);
+    const data = await decryptPayload(payload, this._options.decryptionKey);
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
@@ -434,57 +435,6 @@ export class GrowthBook<
       subtle
     );
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
-  }
-
-  public async decryptPayload(
-    data: FeatureApiResponse,
-    decryptionKey?: string,
-    subtle?: SubtleCrypto
-  ): Promise<FeatureApiResponse> {
-    data = { ...data };
-    if (data.encryptedFeatures) {
-      try {
-        data.features = JSON.parse(
-          await decrypt(
-            data.encryptedFeatures,
-            decryptionKey || this._options.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedFeatures;
-    }
-    if (data.encryptedExperiments) {
-      try {
-        data.experiments = JSON.parse(
-          await decrypt(
-            data.encryptedExperiments,
-            decryptionKey || this._options.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedExperiments;
-    }
-    if (data.encryptedSavedGroups) {
-      try {
-        data.savedGroups = JSON.parse(
-          await decrypt(
-            data.encryptedSavedGroups,
-            decryptionKey || this._options.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedSavedGroups;
-    }
-    return data;
   }
 
   public async setAttributes(attributes: Attributes) {

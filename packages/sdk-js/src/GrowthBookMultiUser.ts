@@ -19,7 +19,7 @@ import type {
   TrackingDataWithUser,
   TrackingCallbackWithUser,
 } from "./types/growthbook";
-import { decrypt, loadSDKVersion } from "./util";
+import { loadSDKVersion } from "./util";
 import {
   configureCache,
   refreshFeatures,
@@ -31,6 +31,7 @@ import {
   runExperiment,
   evalFeature as _evalFeature,
   getAllStickyBucketAssignmentDocs,
+  decryptPayload,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -74,7 +75,7 @@ export class GrowthBookMultiUser<
 
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
     this._payload = payload;
-    const data = await this.decryptPayload(payload);
+    const data = await decryptPayload(payload, this._options.decryptionKey);
     this._decryptedPayload = data;
     if (data.features) {
       this._features = data.features;
@@ -221,70 +222,24 @@ export class GrowthBookMultiUser<
     });
   }
 
-  public async decryptPayload(
-    data: FeatureApiResponse,
-    decryptionKey?: string,
-    subtle?: SubtleCrypto
-  ): Promise<FeatureApiResponse> {
-    data = { ...data };
-    if (data.encryptedFeatures) {
-      try {
-        data.features = JSON.parse(
-          await decrypt(
-            data.encryptedFeatures,
-            decryptionKey || this._options.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedFeatures;
-    }
-    if (data.encryptedExperiments) {
-      try {
-        data.experiments = JSON.parse(
-          await decrypt(
-            data.encryptedExperiments,
-            decryptionKey || this._options.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedExperiments;
-    }
-    if (data.encryptedSavedGroups) {
-      try {
-        data.savedGroups = JSON.parse(
-          await decrypt(
-            data.encryptedSavedGroups,
-            decryptionKey || this._options.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedSavedGroups;
-    }
-    return data;
-  }
-
   public getFeatures() {
     return this._features || {};
   }
 
   public destroy() {
+    unsubscribe(this);
+
     // Release references to save memory
     this._deferredTrackingCalls.clear();
     this._trackedExperiments.clear();
+    this._features = {};
+    this._experiments = [];
+    this._decryptedPayload = undefined;
     this._payload = undefined;
-    unsubscribe(this);
+    this._options = {};
   }
 
-  public run<T>(
+  public runInlineExperiment<T>(
     experiment: Experiment<T>,
     userContext: UserContext
   ): Result<T> {
