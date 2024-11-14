@@ -254,8 +254,8 @@ export const EventsPageContainer = () => {
             mb="2"
             onClick={() => {
               setEventType([]);
-              setFromDate(null);
-              setToDate(null);
+              setFromDate(undefined);
+              setToDate(undefined);
             }}
           >
             Clear filters
