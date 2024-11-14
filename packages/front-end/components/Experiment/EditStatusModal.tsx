@@ -3,7 +3,7 @@ import {
   ExperimentStatus,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { date } from "shared/dates";
+import {datetime} from "shared/dates";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
@@ -81,7 +81,7 @@ export default function EditStatusModal({
             label="Stop Time (UTC)"
             date={form.watch("dateEnded")}
             setDate={(v) => {
-              form.setValue("dateEnded", v ? date(v) : "");
+              form.setValue("dateEnded", v ? datetime(v) : "");
             }}
             scheduleStartDate={form.watch("dateStarted")}
           />

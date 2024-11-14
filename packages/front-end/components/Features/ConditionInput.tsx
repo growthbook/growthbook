@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
 import clsx from "clsx";
-import { date } from "shared/dates";
+import {datetime} from "shared/dates";
 import {
   condToJson,
   jsonToConds,
@@ -525,7 +525,7 @@ export default function ConditionInput(props: Props) {
                         <DatePicker
                           date={value}
                           setDate={(v) => {
-                            handleCondsChange(v ? date(v) : "", "value");
+                            handleCondsChange(v ? datetime(v) : "", "value");
                           }}
                           inputWidth={180}
                           containerClassName="col-sm-12 col-md mb-2"

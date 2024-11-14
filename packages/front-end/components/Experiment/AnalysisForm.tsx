@@ -10,7 +10,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
-import { date, getValidDate } from "shared/dates";
+import {datetime, getValidDate} from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   getAffectedEnvsForExperiment,
@@ -489,7 +489,7 @@ const AnalysisForm: FC<{
                 helpText="Only include users who entered the experiment on or after this date"
                 date={form.watch("dateStarted")}
                 setDate={(v) => {
-                  form.setValue("dateStarted", v ? date(v) : "");
+                  form.setValue("dateStarted", v ? datetime(v) : "");
                 }}
                 scheduleEndDate={form.watch("dateEnded")}
                 disableAfter={form.watch("dateEnded") || undefined}
@@ -502,7 +502,7 @@ const AnalysisForm: FC<{
                   helpText="Only include users who entered the experiment on or before this date"
                   date={form.watch("dateEnded")}
                   setDate={(v) => {
-                    form.setValue("dateEnded", v ? date(v) : "");
+                    form.setValue("dateEnded", v ? datetime(v) : "");
                   }}
                   scheduleStartDate={form.watch("dateStarted")}
                   disableBefore={form.watch("dateStarted") || undefined}

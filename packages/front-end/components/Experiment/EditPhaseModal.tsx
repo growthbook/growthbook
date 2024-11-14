@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
-import { date } from "shared/dates";
+import {date, datetime} from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -70,7 +70,7 @@ export default function EditPhaseModal({
         label="Start Time (UTC)"
         date={form.watch("dateStarted")}
         setDate={(v) => {
-          form.setValue("dateStarted", v ? date(v) : "");
+          form.setValue("dateStarted", v ? datetime(v) : "");
         }}
         scheduleEndDate={form.watch("dateEnded")}
         disableAfter={form.watch("dateEnded") || undefined}
@@ -81,7 +81,7 @@ export default function EditPhaseModal({
             label="End Time (UTC)"
             date={form.watch("dateEnded")}
             setDate={(v) => {
-              form.setValue("dateEnded", v ? date(v) : "");
+              form.setValue("dateEnded", v ? datetime(v) : "");
             }}
             scheduleStartDate={form.watch("dateStarted")}
             disableBefore={form.watch("dateStarted") || undefined}

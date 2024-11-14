@@ -11,7 +11,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { date, getValidDate } from "shared/dates";
+import {datetime, getValidDate} from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
 import { DifferenceType } from "back-end/types/stats";
@@ -316,7 +316,7 @@ export default function ConfigureReport({
             label="Start Date (UTC)"
             date={form.watch("startDate")}
             setDate={(v) => {
-              form.setValue("startDate", v ? date(v) : "");
+              form.setValue("startDate", v ? datetime(v) : "");
             }}
             scheduleEndDate={form.watch("endDate")}
             disableAfter={form.watch("endDate") || undefined}
@@ -327,7 +327,7 @@ export default function ConfigureReport({
             label="End Date (UTC)"
             date={form.watch("endDate")}
             setDate={(v) => {
-              form.setValue("endDate", v ? date(v) : "");
+              form.setValue("endDate", v ? datetime(v) : "");
             }}
             scheduleStartDate={form.watch("startDate")}
             disableBefore={form.watch("startDate") || undefined}

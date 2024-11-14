@@ -6,7 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { date } from "shared/dates";
+import {datetime} from "shared/dates";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -116,7 +116,7 @@ const StopExperimentForm: FC<{
               label="End Time (UTC)"
               date={form.watch("dateEnded")}
               setDate={(v) => {
-                form.setValue("dateEnded", v ? date(v) : "");
+                form.setValue("dateEnded", v ? datetime(v) : "");
               }}
             />
           )}

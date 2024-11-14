@@ -67,7 +67,7 @@
     border-radius: 8px;
 
     &::after {
-      transition: 200ms box-shadow;
+      transition: 150ms box-shadow;
       content: "";
       position: absolute;
       display: block;
@@ -143,7 +143,6 @@
     width: 28px;
     height: 28px;
     border-radius: 28px;
-    transition: 200ms background-color;
     &:hover {
       background-color: var(--violet-a4) !important;
     }

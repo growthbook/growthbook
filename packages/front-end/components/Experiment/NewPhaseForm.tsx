@@ -6,7 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights } from "shared/experiments";
-import { date } from "shared/dates";
+import { datetime} from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -129,7 +129,7 @@ const NewPhaseForm: FC<{
           label="Start Time (UTC)"
           date={form.watch("dateStarted")}
           setDate={(v) => {
-            form.setValue("dateStarted", v ? date(v) : "");
+            form.setValue("dateStarted", v ? datetime(v) : "");
           }}
         />
       )}

@@ -12,8 +12,9 @@ import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
 import SelectField from "@/components/Forms/SelectField";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
 import Button from "@/components/Radix/Button";
+import DatePicker from "@/components/DatePicker";
+import Link from "@/components/Radix/Link";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -83,7 +84,7 @@ export const EventsPage: FC<EventsPageProps> = ({
         </div>
       </div>
 
-      <div className="d-flex justify-content-between flex-row mt-2">
+      <div className="d-flex justify-content-between flex-row mt-2 align-items-end" style={{ gap: "1.5rem"}}>
         {filters}
       </div>
       {error && (
@@ -224,44 +225,38 @@ export const EventsPageContainer = () => {
         />
       </div>
       <div>
-        <Field
-          type="date"
+        <DatePicker
+          date={fromDate}
+          setDate={setFromDate}
+          scheduleEndDate={toDate}
           label="From"
-          className="text-muted"
-          labelClassName="mr-2 mb-0"
-          containerClassName="ml-2 d-flex align-items-center mb-0"
-          value={fromDate ? fromDate.toISOString().split("T")[0] : ""}
-          onChange={(d) => {
-            setFromDate(d.target.value ? new Date(d.target.value) : null);
-          }}
+          precision="date"
+          containerClassName=""
         />
       </div>
       <div>
-        <Field
-          type="date"
+        <DatePicker
+          date={toDate}
+          setDate={setToDate}
+          scheduleStartDate={fromDate}
           label="To"
-          className="text-muted"
-          labelClassName="mr-2 mb-0"
-          containerClassName="ml-2 d-flex align-items-center mb-0"
-          value={toDate ? toDate.toISOString().split("T")[0] : ""}
-          onChange={(d) => {
-            setToDate(d.target.value ? new Date(d.target.value) : null);
-          }}
+          precision="date"
+          containerClassName=""
         />
       </div>
       {hasFilters && (
         <div>
-          <button
-            className="btn btn-outline-info ml-2"
-            onClick={(e) => {
-              e.preventDefault();
+          <Link
+            color="red"
+            mb="2"
+            onClick={() => {
               setEventType([]);
               setFromDate(null);
               setToDate(null);
             }}
           >
-            Clear
-          </button>
+            Clear filters
+          </Link>
         </div>
       )}
       <div className="flex-grow-1"></div>
