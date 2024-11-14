@@ -83,7 +83,6 @@ export default function EditStatusModal({
             setDate={(v) => {
               form.setValue("dateEnded", v ? datetime(v) : "");
             }}
-            scheduleStartDate={form.watch("dateStarted")}
           />
         </>
       )}

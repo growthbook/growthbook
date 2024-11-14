@@ -174,8 +174,8 @@ export const EventsPageContainer = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(30);
   const [eventType, setEventType] = useState<NotificationEventName[]>([]);
-  const [fromDate, setFromDate] = useState<Date | null>(null);
-  const [toDate, setToDate] = useState<Date | null>(null);
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
   const [sort, setSort] = useState<{ field: string; dir: number }>({
     field: "dateCreated",
     dir: -1,
