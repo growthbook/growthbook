@@ -1,5 +1,11 @@
-import { Experiment, UserContext } from "../src";
+import {
+  Experiment,
+  FeatureRule,
+  LocalStorageStickyBucketService,
+  UserContext,
+} from "../src";
 import { GrowthBookMultiUser } from "../src/GrowthBookMultiUser";
+require("jest-localstorage-mock");
 
 describe("GrowthBookMultiUser", () => {
   it("Supports basic feature evaluation", async () => {
@@ -131,6 +137,95 @@ describe("GrowthBookMultiUser", () => {
 
     expect(track).toHaveBeenCalledWith("feature", res, user);
 
+    gb.destroy();
+  });
+
+  it("Supports sticky buckets", async () => {
+    const stickyBucketService = new LocalStorageStickyBucketService();
+
+    const exp: FeatureRule = {
+      variations: [false, true],
+      hashAttribute: "id",
+      hashVersion: 2,
+      weights: [0, 1],
+      meta: [{ key: "control" }, { key: "variation1" }],
+    };
+
+    const gb = new GrowthBookMultiUser();
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+            rules: [exp],
+          },
+        },
+      },
+    });
+
+    const user: UserContext = await gb.applyStickyBuckets(
+      {
+        attributes: {
+          id: "1",
+        },
+      },
+      stickyBucketService
+    );
+    // Starts out empty
+    expect(user.stickyBucketAssignmentDocs).toEqual({});
+
+    // After evaluating a feature, it gets saved back to the user context
+    gb.isOn("feature", user);
+
+    const newStickyBucketDocs = {
+      "id||1": {
+        assignments: {
+          feature__0: "variation1",
+        },
+        attributeName: "id",
+        attributeValue: "1",
+      },
+    };
+
+    expect(user.stickyBucketAssignmentDocs).toEqual(newStickyBucketDocs);
+
+    // New user contexts with the same id pick up the saved bucket
+    const user2: UserContext = await gb.applyStickyBuckets(
+      {
+        attributes: {
+          id: "1",
+        },
+      },
+      stickyBucketService
+    );
+    expect(user2.stickyBucketAssignmentDocs).toEqual(newStickyBucketDocs);
+
+    // New user contexts with different ids don't pick up the saved bucket
+    const user3: UserContext = await gb.applyStickyBuckets(
+      {
+        attributes: {
+          id: "2",
+        },
+      },
+      stickyBucketService
+    );
+    expect(user3.stickyBucketAssignmentDocs).toEqual({});
+
+    // If the experiment weights change, the sticky bucket continues to work
+    exp.weights = [1, 0];
+    await gb.setPayload({
+      features: {
+        feature: {
+          defaultValue: false,
+          rules: [exp],
+        },
+      },
+    });
+    expect(gb.isOn("feature", user)).toEqual(true);
+    expect(gb.isOn("feature", user2)).toEqual(true);
+    expect(gb.isOn("feature", user3)).toEqual(false);
+
+    localStorage.clear();
     gb.destroy();
   });
 });
