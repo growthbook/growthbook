@@ -661,8 +661,6 @@ export class GrowthBook<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
-      stickyBucketIdentifierAttributes: this._options
-        .stickyBucketIdentifierAttributes,
       groups: this._options.groups,
       overrides: this._options.overrides,
       onExperimentEval: this._fireSubscriptions,

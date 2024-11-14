@@ -205,7 +205,6 @@ export type Options = {
     StickyAttributeKey,
     StickyAssignmentsDocument
   >;
-  stickyBucketIdentifierAttributes?: string[];
   stickyBucketService?: StickyBucketService;
   debug?: boolean;
   log?: (msg: string, ctx: any) => void;
@@ -256,7 +255,6 @@ export type Options = {
 
 export type MultiUserOptions = {
   enabled?: boolean;
-  stickyBucketIdentifierAttributes?: string[];
   debug?: boolean;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
@@ -284,7 +282,6 @@ export type GlobalContext = {
   enabled?: boolean;
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
-  stickyBucketIdentifierAttributes?: string[];
   onExperimentEval?: (
     experiment: Experiment<any>,
     result: Result<any>,

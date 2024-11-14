@@ -985,9 +985,10 @@ function getStickyBucketAttributes(
   data?: FeatureApiResponse
 ): Record<string, string> {
   const attributes: Record<string, string> = {};
-  const stickyBucketIdentifierAttributes =
-    ctx.global.stickyBucketIdentifierAttributes ||
-    deriveStickyBucketIdentifierAttributes(ctx, data);
+  const stickyBucketIdentifierAttributes = deriveStickyBucketIdentifierAttributes(
+    ctx,
+    data
+  );
   stickyBucketIdentifierAttributes.forEach((attr) => {
     const { hashValue } = getHashAttribute(ctx, attr);
     attributes[attr] = toString(hashValue);

@@ -269,8 +269,6 @@ export class GrowthBookMultiUser<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
-      stickyBucketIdentifierAttributes: this._options
-        .stickyBucketIdentifierAttributes,
       onExperimentView: this._track,
       onFeatureUsage: this._trackFeatureUsage,
     };
