@@ -10,7 +10,8 @@
     "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
-    "test": "jest --forceExit --verbose --detectOpenHandles",
+    "test-jest": "jest --forceExit --verbose --detectOpenHandles",
+    "test": "vitest run",
     "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
   },
   "dependencies": {
@@ -64,6 +65,7 @@
     "react-beautiful-dnd": "^13.1.0",
     "react-collapsible": "^2.10.0",
     "react-colorful": "^5.3.0",
+    "react-day-picker": "^9.3.0",
     "react-diff-viewer": "^3.1.1",
     "react-dom": "^18.2.0",
     "react-dropzone": "^11.3.2",
@@ -107,7 +109,8 @@
     "identity-obj-proxy": "^3.0.0",
     "jest": "^27.1.1",
     "sass": "^1.55.0",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "vitest": "^2.1.5"
   },
   "optionalDependencies": {
     "@babel/core": "^7.19.6"
