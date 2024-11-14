@@ -2,7 +2,7 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import clsx from "clsx";
+import { Box, Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -13,7 +13,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -51,7 +50,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
     : features.some((f) => f.project !== demoProjectId);
 
   return (
-    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
+    <div className="container pagecontents p-4">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
@@ -122,10 +121,8 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                 >
                   Integrate the GrowthBook SDK into your app
                 </Link>
-                <p className="mt-2">
-                  Allow GrowthBook to communicate with your app.
-                </p>
-                <hr />
+                <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
+                <Separator size="4" my="4" />
               </div>
             </div>
 
@@ -174,9 +171,9 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                 >
                   Create a Test Feature Flag{project && " in this Project"}
                 </Link>
-                <p className="mt-2">
+                <Box mt="2">
                   Add your first feature flag to test your setup.
-                </p>
+                </Box>
               </div>
             </div>
           </div>
