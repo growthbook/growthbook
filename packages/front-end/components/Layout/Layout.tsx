@@ -30,148 +30,149 @@ import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 
+// 将侧边栏链接属性数组中的英文名称替换为中文
 const navlinks: SidebarLinkProps[] = [
   {
-    name: "Get Started",
+    name: "开始使用",
     href: "/getstarted",
     Icon: BsLightbulb,
     path: /^getstarted/,
     className: styles.first,
   },
   {
-    name: "Features",
+    name: "功能特性",
     href: "/features",
     Icon: BsFlag,
     path: /^features/,
   },
   {
-    name: "Experiments",
+    name: "A/B实验",
     href: "/experiments",
     path: /^experiment/,
     Icon: GBExperiment,
   },
+  // {
+  //   name: "多臂老虎机",
+  //   href: "/bandits",
+  //   Icon: GBBandit,
+  //   path: /^bandit/,
+  //   beta: true,
+  //   filter: ({ gb }) => !!gb?.isOn("bandits"),
+  // },
   {
-    name: "Bandits",
-    href: "/bandits",
-    Icon: GBBandit,
-    path: /^bandit/,
-    beta: true,
-    filter: ({ gb }) => !!gb?.isOn("bandits"),
-  },
-  {
-    name: "Metrics and Data",
+    name: "指标和数据",
     href: "/metrics",
     path: /^(metric|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
-        name: "Metrics",
+        name: "指标",
         href: "/metrics",
         path: /^(metric$|metrics|fact-metric|metric-group)/,
       },
       {
-        name: "Fact Tables",
+        name: "事实表",
         href: "/fact-tables",
         path: /^fact-tables/,
       },
       {
-        name: "Segments",
+        name: "数据段",
         href: "/segments",
         path: /^segment/,
       },
       {
-        name: "Dimensions",
+        name: "维度",
         href: "/dimensions",
         path: /^dimension/,
       },
       {
-        name: "Data Sources",
+        name: "数据源",
         href: "/datasources",
         path: /^datasources/,
       },
     ],
   },
   {
-    name: "Management",
+    name: "管理",
     href: "/dashboard",
     Icon: BsClipboardCheck,
     path: /^(dashboard|idea|presentation)/,
     autoClose: true,
     subLinks: [
       {
-        name: "Dashboard",
+        name: "仪表盘",
         href: "/dashboard",
         path: /^dashboard/,
       },
       {
-        name: "Ideas",
+        name: "想法",
         href: "/ideas",
         path: /^idea/,
       },
       {
-        name: "Presentations",
+        name: "展示",
         href: "/presentations",
         path: /^presentation/,
       },
     ],
   },
   {
-    name: "SDK Configuration",
+    name: "SDK配置",
     href: "/sdks",
     path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
       {
-        name: "SDK Connections",
+        name: "SDK连接",
         href: "/sdks",
         path: /^sdks/,
       },
       {
-        name: "Attributes",
+        name: "属性",
         href: "/attributes",
         path: /^attributes/,
       },
       {
-        name: "Namespaces",
+        name: "命名空间",
         href: "/namespaces",
         path: /^namespaces/,
       },
       {
-        name: "Environments",
+        name: "环境",
         href: "/environments",
         path: /^environments/,
       },
       {
-        name: "Saved Groups",
+        name: "已保存组",
         href: "/saved-groups",
         path: /^saved-groups/,
       },
     ],
   },
   {
-    name: "Settings",
+    name: "设置",
     href: "/settings",
     Icon: GBSettings,
     path: /^(settings|admin|projects|integrations)/,
     autoClose: true,
     subLinks: [
       {
-        name: "General",
+        name: "常规",
         href: "/settings",
         path: /^settings$/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageOrgSettings(),
       },
       {
-        name: "Members",
+        name: "成员",
         href: "/settings/team",
         path: /^settings\/team/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
       },
       {
-        name: "Tags",
+        name: "标签",
         href: "/settings/tags",
         path: /^settings\/tags/,
         filter: ({ permissionsUtils }) =>
@@ -179,14 +180,14 @@ const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteTag(),
       },
       {
-        name: "Projects",
+        name: "项目",
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageSomeProjects(),
       },
       {
-        name: "API Keys",
+        name: "API密钥",
         href: "/settings/keys",
         path: /^settings\/keys/,
         filter: ({ permissionsUtils }) =>
@@ -201,7 +202,7 @@ const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canViewEventWebhook(),
       },
       {
-        name: "Logs",
+        name: "日志",
         href: "/events",
         path: /^events/,
         filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),
@@ -214,16 +215,16 @@ const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageIntegrations() &&
           !!gb?.isOn("slack-integration"),
       },
+      // {
+      //   name: "GitHub",
+      //   href: "/integrations/github",
+      //   path: /^integrations\/github/,
+      //   filter: ({ permissionsUtils, gb }) =>
+      //     permissionsUtils.canManageIntegrations() &&
+      //     !!gb?.isOn("github-integration"),
+      // },
       {
-        name: "GitHub",
-        href: "/integrations/github",
-        path: /^integrations\/github/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("github-integration"),
-      },
-      {
-        name: "Import your data",
+        name: "导入您的数据",
         href: "/importing",
         path: /^importing/,
         filter: ({ permissionsUtils, gb }) =>
@@ -236,13 +237,13 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("import-from-x"),
       },
       {
-        name: "Billing",
+        name: "计费",
         href: "/settings/billing",
         path: /^settings\/billing/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
       },
       {
-        name: "Admin",
+        name: "管理员",
         href: "/admin",
         path: /^admin/,
         divider: true,
@@ -252,39 +253,41 @@ const navlinks: SidebarLinkProps[] = [
   },
 ];
 
+// 将面包屑链接数组中的英文名称替换为中文
 const breadcumbLinks = [
   ...navlinks,
   {
-    name: "Power Calculator",
+    name: "功效计算器",
     path: /^power-calculator/,
     subLinks: [] as SidebarLinkProps[],
   },
 ];
 
+// 将其他页面标题数组中的英文名称替换为中文
 const otherPageTitles = [
   {
     path: /^$/,
-    title: "Home",
+    title: "首页",
   },
   {
     path: /^activity/,
-    title: "Activity Feed",
+    title: "活动动态",
   },
   {
     path: /^integrations\/vercel/,
-    title: "Vercel Integration",
+    title: "Vercel集成",
   },
   {
     path: /^integrations\/vercel\/configure/,
-    title: "Vercel Integration Configuration",
+    title: "Vercel集成配置",
   },
   {
     path: /^getstarted/,
-    title: "Get Started",
+    title: "开始使用",
   },
   {
     path: /^dashboard/,
-    title: "Program Management",
+    title: "项目管理",
   },
 ];
 
@@ -318,11 +321,13 @@ const Layout = (): React.ReactElement => {
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const showUpgradeButton =
-    ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !hasPaymentMethod) ||
-    (["pro", "pro_sso"].includes(accountPlan || "") &&
-      license?.stripeSubscription?.status === "canceled");
+  // const showUpgradeButton =
+  //   ["oss", "starter"].includes(accountPlan || "") ||
+  //   (license?.isTrial &&!hasPaymentMethod) ||
+  //   (["pro", "pro_sso"].includes(accountPlan || "") &&
+  //     license?.stripeSubscription?.status === "canceled");
+  const showUpgradeButton = false;
+  const showViewDocsButton = false;
 
   // hacky:
   const router = useRouter();
@@ -362,15 +367,15 @@ const Layout = (): React.ReactElement => {
 
     // we could support saving this CSS in the settings so it can be customized
     customStyles = `
-      .sidebar { background-color: ${settings.primaryColor} !important; transition: none }
-      .sidebarlink { transition: none; } 
-      .sidebarlink:hover {
-        background-color: background-color: ${settings.secondaryColor} !important;
+     .sidebar { background-color: ${settings.primaryColor}!important; transition: none }
+     .sidebarlink { transition: none; }
+     .sidebarlink:hover {
+        background-color: background-color: ${settings.secondaryColor}!important;
       }
-      .sidebarlink a:hover, .sidebarlink.selected, .sublink.selected { background-color: ${settings.secondaryColor} !important; } 
-      .sublink {border-color: ${settings.secondaryColor} !important; }
-      .sublink:hover, .sublink:hover a { background-color: ${settings.secondaryColor} !important; }
-      .sidebarlink a, .sublink a {color: ${textColor}}
+     .sidebarlink a:hover,.sidebarlink.selected,.sublink.selected { background-color: ${settings.secondaryColor}!important; }
+     .sublink {border-color: ${settings.secondaryColor}!important; }
+     .sublink:hover,.sublink:hover a { background-color: ${settings.secondaryColor}!important; }
+     .sidebarlink a,.sublink a {color: ${textColor}}
       `;
   }
 
@@ -400,7 +405,7 @@ const Layout = (): React.ReactElement => {
                 href="/"
                 aria-current="page"
                 className="app-sidebar-logo active"
-                title="GrowthBook Home"
+                title="GrowthBook首页"
                 onClick={() => setOpen(false)}
               >
                 <div className={styles.sidebarlogo}>
@@ -454,11 +459,11 @@ const Layout = (): React.ReactElement => {
                     >
                       <path
                         fillRule="evenodd"
-                        d="M11.854 4.146a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708-.708l7-7a.5.5 0 0 1 .708 0z"
+                        d="M11.854 4.146a.5.5 0 0 1 0.708l-7 7a.5.5 0 0 1-.708-.708l7-7a.5.5 0 0 1.708 0z"
                       />
                       <path
                         fillRule="evenodd"
-                        d="M4.146 4.146a.5.5 0 0 0 0 .708l7 7a.5.5 0 0 0 .708-.708l-7-7a.5.5 0 0 0-.708 0z"
+                        d="M4.146 4.146a.5.5 0 0 0 0.708l7 7a.5.5 0 0 0.708-.708l-7-7a.5.5 0 0 0-.708 0z"
                       />
                     </svg>
                   </a>
@@ -479,18 +484,20 @@ const Layout = (): React.ReactElement => {
               onClick={() => setUpgradeModal(true)}
             >
               <>
-                Upgrade <GBPremiumBadge />
+                升级 <GBPremiumBadge />
               </>
             </button>
           )}
-          <a
+
+          {showViewDocsButton && (<a
             href={inferDocUrl()}
             className="btn btn-outline-light btn-block"
             target="_blank"
             rel="noreferrer"
           >
-            View Docs <FaArrowRight className="ml-2" />
-          </a>
+            查看文档 <FaArrowRight className="ml-2" />
+          </a>)}
+
         </div>
         {build.sha && (
           <div className="px-3 my-1 text-center">
