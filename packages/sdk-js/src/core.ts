@@ -140,7 +140,8 @@ export function evalFeature<V = unknown>(
             ctx,
             rule.seed || id,
             rule.hashAttribute,
-            ctx.user.stickyBucketAssignmentDocs && !rule.disableStickyBucketing
+            ctx.user.saveStickyBucketAssignmentDoc &&
+              !rule.disableStickyBucketing
               ? rule.fallbackAttribute
               : undefined,
             rule.range,
@@ -337,7 +338,7 @@ export function runExperiment<T>(
   const { hashAttribute, hashValue } = getHashAttribute(
     ctx,
     experiment.hashAttribute,
-    ctx.user.stickyBucketAssignmentDocs && !experiment.disableStickyBucketing
+    ctx.user.saveStickyBucketAssignmentDoc && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
       : undefined
   );
@@ -356,7 +357,7 @@ export function runExperiment<T>(
   let foundStickyBucket = false;
   let stickyBucketVersionIsBlocked = false;
   if (
-    ctx.user.stickyBucketAssignmentDocs &&
+    ctx.user.saveStickyBucketAssignmentDoc &&
     !experiment.disableStickyBucketing
   ) {
     const { variation, versionIsBlocked } = getStickyBucketVariation({
@@ -581,7 +582,6 @@ export function runExperiment<T>(
 
   // 13.5. Persist sticky bucket
   if (
-    ctx.user.stickyBucketAssignmentDocs &&
     ctx.user.saveStickyBucketAssignmentDoc &&
     !experiment.disableStickyBucketing
   ) {
@@ -596,7 +596,7 @@ export function runExperiment<T>(
         )]: result.key,
       }
     );
-    if (changed && ctx.user.saveStickyBucketAssignmentDoc) {
+    if (changed) {
       // update local docs
       ctx.user.stickyBucketAssignmentDocs =
         ctx.user.stickyBucketAssignmentDocs || {};
@@ -722,7 +722,7 @@ export function getExperimentResult<T>(
   const { hashAttribute, hashValue } = getHashAttribute(
     ctx,
     experiment.hashAttribute,
-    ctx.user.stickyBucketAssignmentDocs && !experiment.disableStickyBucketing
+    ctx.user.saveStickyBucketAssignmentDoc && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
       : undefined
   );
