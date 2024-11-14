@@ -200,8 +200,11 @@ export default function DesignSystemPage() {
             date2={date2}
             setDate={setDate1}
             setDate2={setDate2}
+            label={"Start"}
+            label2={"End"}
             precision="date"
             disableBefore={new Date()}
+            inputWidth={200}
           />
         </Flex>
       </div>

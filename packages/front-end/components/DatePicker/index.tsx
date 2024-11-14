@@ -108,10 +108,10 @@ export default function DatePicker({
           }
         }}
       >
-        <Flex gap="1rem">
-          <div style={{ width: inputWidth, minHeight: 38 }}>
-            {label ? <label>{label}</label> : null}
-            <Popover.Trigger asChild>
+        <Popover.Trigger asChild>
+          <Flex gap="1rem" display="inline-flex">
+            <div style={{ width: inputWidth, minHeight: 38 }}>
+              {label ? <label>{label}</label> : null}
               <div
                 className="form-control p-0"
                 style={{ width: inputWidth, minHeight: 38, overflow: "clip" }}
@@ -145,12 +145,10 @@ export default function DatePicker({
                   }}
                 />
               </div>
-            </Popover.Trigger>
-          </div>
-          {isRange && (
-            <div style={{ width: inputWidth, minHeight: 38 }}>
-              {label2 ? <label>{label2}</label> : null}
-              <Popover.Trigger asChild>
+            </div>
+            {isRange && (
+              <div style={{ width: inputWidth, minHeight: 38 }}>
+                {label2 ? <label>{label2}</label> : null}
                 <div
                   className="form-control p-0"
                   style={{ width: inputWidth, minHeight: 38, overflow: "clip" }}
@@ -184,10 +182,10 @@ export default function DatePicker({
                     }}
                   />
                 </div>
-              </Popover.Trigger>
-            </div>
-          )}
-        </Flex>
+              </div>
+            )}
+          </Flex>
+        </Popover.Trigger>
 
         <Popover.Portal>
           <Popover.Content
