@@ -3,26 +3,26 @@ import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import {
-  DEFAULT_STATS_ENGINE,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import {
-  getSnapshotAnalysis,
+  DRAFT_REVISION_STATUSES,
   generateVariationId,
-  isAnalysisAllowed,
   getMatchingRules,
+  getSnapshotAnalysis,
+  isAnalysisAllowed,
+  isDefined,
   MatchingRule,
   validateCondition,
-  isDefined,
-  DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -101,7 +101,7 @@ import {
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
+import { getQueryMap, QueryMap } from "../queryRunners/QueryRunner";
 import { FactTableMap, getFactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
@@ -109,14 +109,14 @@ import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel"
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
 import { ProjectInterface } from "../../types/project";
-import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { getMetricForSnapshot, getReportVariations } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
+  analyzeExperimentResults,
+  getMetricsAndQueryDataForStatsEngine,
+  getMetricSettingsForStatsEngine,
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-  analyzeExperimentResults,
-  getMetricSettingsForStatsEngine,
-  getMetricsAndQueryDataForStatsEngine,
   runSnapshotAnalyses,
   runSnapshotAnalysis,
   writeSnapshotAnalyses,
@@ -220,29 +220,16 @@ export async function refreshMetric(
   }
 }
 
-export function generateTrackingKey(name: string, n: number): string {
-  let key = ("-" + name)
-    .toLowerCase()
-    // Replace whitespace with hyphen
-    .replace(/\s+/g, "-")
-    // Get rid of all non alpha-numeric characters
-    .replace(/[^a-z0-9\-_]*/g, "")
-    // Remove stopwords
-    .replace(
-      /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
-      "-"
-    )
-    // Collapse duplicate hyphens
-    .replace(/-{2,}/g, "-")
-    // Remove leading and trailing hyphens
-    .replace(/(^-|-$)/g, "");
-
-  // Add number if this is not the first attempt
-  if (n > 1) {
-    key += "-" + n;
-  }
-
-  return key;
+export function generateTrackingKey(name: string, _: number): string {
+  return (
+    ("-" + name)
+      // Replace whitespace with hyphen
+      .replace(/\s+/g, "-")
+      // Collapse duplicate hyphens
+      .replace(/-{2,}/g, "-")
+      // Remove leading and trailing hyphens
+      .replace(/(^-|-$)/g, "")
+  );
 }
 
 export async function getManualSnapshotData(
