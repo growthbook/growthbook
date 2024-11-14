@@ -177,6 +177,15 @@ const ExperimentsPage = (): React.ReactElement => {
         if (item.variations.some((v) => !!v.screenshots?.length)) {
           has.push("screenshots");
         }
+        if (
+          item.status === "stopped" &&
+          !item.excludeFromPayload &&
+          (item.linkedFeatures?.length ||
+            item.hasURLRedirects ||
+            item.hasVisualChangesets)
+        ) {
+          has.push("rollout", "tempRollout");
+        }
         return has;
       },
       variations: (item) => item.variations.length,

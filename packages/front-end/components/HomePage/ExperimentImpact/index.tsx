@@ -3,7 +3,7 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { MdInfoOutline } from "react-icons/md";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getValidDate } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
@@ -14,12 +14,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
+import DatePicker from "@/components/DatePicker";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
@@ -457,11 +457,24 @@ export default function ExperimentImpact({
         <div className="col-auto">
           <label className="mb-1">Date Ended</label>
           <div className="d-flex align-items-start">
-            <Field type="date" {...form.register("startDate")} />
+            <DatePicker
+              date={form.watch("startDate")}
+              setDate={(v) => {
+                form.setValue("startDate", v ? datetime(v) : "");
+              }}
+              scheduleEndDate={form.watch("endDate")}
+              disableAfter={form.watch("endDate") || undefined}
+              precision="date"
+            />
             <div className="m-2">{" to "}</div>
-            <Field
-              type="date"
-              {...form.register("endDate")}
+            <DatePicker
+              date={form.watch("endDate")}
+              setDate={(v) => {
+                form.setValue("endDate", v ? datetime(v) : "");
+              }}
+              scheduleStartDate={form.watch("startDate")}
+              disableBefore={form.watch("startDate") || undefined}
+              precision="date"
               helpText={
                 form.getValues("endDate") !== "" ? (
                   <div style={{ marginRight: -10 }}>

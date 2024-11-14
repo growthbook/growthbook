@@ -28,11 +28,14 @@ import Link from "@/components/Radix/Link";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
 import Tabs from "@/components/Radix/Tabs";
+import DatePicker from "@/components/DatePicker";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
+  const [date1, setDate1] = useState<Date | undefined>();
+  const [date2, setDate2] = useState<Date | undefined>();
   const [radioSelected, setRadioSelected] = useState("k1");
   const [radioCardSelected, setRadioCardSelected] = useState("");
   const [radioCardColumns, setRadioCardColumns] = useState<
@@ -180,6 +183,31 @@ export default function DesignSystemPage() {
           >
             A disabled link
           </LinkButton>
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Date Picker</h3>
+        <Flex direction="column" gap="3">
+          <DatePicker
+            date={date1}
+            setDate={setDate1}
+            precision="datetime"
+            disableBefore={new Date()}
+          />
+          <hr />
+
+          <DatePicker
+            date={date1}
+            date2={date2}
+            setDate={setDate1}
+            setDate2={setDate2}
+            label={"Start"}
+            label2={"End"}
+            precision="date"
+            disableBefore={new Date()}
+            inputWidth={200}
+          />
         </Flex>
       </div>
 

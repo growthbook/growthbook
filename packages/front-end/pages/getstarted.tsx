@@ -14,6 +14,7 @@ import {
 import { IconType } from "react-icons";
 import clsx from "clsx";
 import { useRouter } from "next/router";
+import { Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
@@ -121,7 +122,7 @@ const GetStartedPage = (): React.ReactElement => {
   }, [clearStep]);
 
   return (
-    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
+    <div className="container pagecontents p-4">
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
@@ -322,7 +323,7 @@ const GetStartedPage = (): React.ReactElement => {
               </Link>
             </div>
 
-            <hr />
+            <Separator size="4" my="4" />
 
             <div className="mt-4 mb-4">
               <h6 className="text-muted mb-3">PRODUCT OVERVIEW</h6>
