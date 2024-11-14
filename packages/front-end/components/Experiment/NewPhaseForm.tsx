@@ -6,7 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights } from "shared/experiments";
-import { datetime} from "shared/dates";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";

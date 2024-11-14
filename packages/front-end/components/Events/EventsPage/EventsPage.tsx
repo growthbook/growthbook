@@ -84,7 +84,10 @@ export const EventsPage: FC<EventsPageProps> = ({
         </div>
       </div>
 
-      <div className="d-flex justify-content-between flex-row mt-2 align-items-end" style={{ gap: "1.5rem"}}>
+      <div
+        className="d-flex justify-content-between flex-row mt-2 align-items-end"
+        style={{ gap: "1.5rem" }}
+      >
         {filters}
       </div>
       {error && (

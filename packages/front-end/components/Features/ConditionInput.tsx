@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
 import clsx from "clsx";
-import {datetime} from "shared/dates";
+import { datetime } from "shared/dates";
 import {
   condToJson,
   jsonToConds,

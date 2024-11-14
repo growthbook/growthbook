@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
-import {date, datetime} from "shared/dates";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";

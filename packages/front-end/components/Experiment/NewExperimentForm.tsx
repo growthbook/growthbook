@@ -6,7 +6,7 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import {datetime, getValidDate} from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
@@ -535,7 +535,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     label="Start Time (UTC)"
                     date={form.watch("phases.0.dateStarted")}
                     setDate={(v) => {
-                      form.setValue("phases.0.dateStarted", v ? datetime(v) : "");
+                      form.setValue(
+                        "phases.0.dateStarted",
+                        v ? datetime(v) : ""
+                      );
                     }}
                     scheduleEndDate={form.watch("phases.0.dateEnded")}
                     disableAfter={form.watch("phases.0.dateEnded") || undefined}

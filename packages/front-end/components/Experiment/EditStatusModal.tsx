@@ -3,7 +3,7 @@ import {
   ExperimentStatus,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import {datetime} from "shared/dates";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
