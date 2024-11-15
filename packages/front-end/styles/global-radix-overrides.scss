@@ -59,26 +59,32 @@
   --rdp-day_button-height: 28px !important;
   --rdp-selected-border: 0px !important;
   --rdp-range_middle-background-color: var(--violet-a6) !important;
+  --rdp-outside-opacity: 0.5 !important;
   .rdp-day {
     padding: 0 !important;
-  }
-  .rdp-day_button {
-    position: relative;
-    border-radius: 8px;
-
-    &::after {
-      transition: 150ms box-shadow;
-      content: "";
-      position: absolute;
-      display: block;
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      pointer-events: none;
+    &.rdp-disabled {
+      background-color: var(--gray-a3);
+      color: var(--gray-9);
     }
-    &:hover {
+    .rdp-day_button {
+      position: relative;
+      border-radius: 8px;
+    }
+    &:not(.rdp-disabled) .rdp-day_button {
       &::after {
-        box-shadow: 0 0 0 2px inset var(--violet-a8) !important;
+        transition: 150ms box-shadow;
+        content: "";
+        position: absolute;
+        display: block;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        pointer-events: none;
+      }
+      &:hover {
+        &::after {
+          box-shadow: 0 0 0 2px inset var(--violet-a8) !important;
+        }
       }
     }
   }
@@ -150,6 +156,10 @@
   --rdp-nav-height: 2rem !important;
   .rdp-month_caption {
     font-size: medium;
+    font-weight: 500;
+  }
+  .rdp-month {
+    min-height: 234px;
   }
 }
 
