@@ -19,6 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 const SegmentPage: FC = () => {
+  // 从定义上下文获取相关数据，包括分段、是否准备好、根据数据源ID获取数据源等信息
   const {
     segments,
     ready,
@@ -64,19 +65,19 @@ const SegmentPage: FC = () => {
         const metricLinks: (ReactElement | string)[] = [];
         const ideaLinks: (ReactElement | string)[] = [];
         const expLinks: (ReactElement | string)[] = [];
-        let subtitleText = "This segment is not referenced anywhere else.";
+        let subtitleText = "此segment未在其他任何地方被引用。";
         if (res.total) {
-          subtitleText = "This segment is referenced in ";
+          subtitleText = "此segment在以下内容中被引用：";
           const refs: (ReactElement | string)[] = [];
           if (res.metrics && res.metrics.length) {
             refs.push(
               res.metrics.length === 1
-                ? "1 metric"
-                : res.metrics.length + " metrics"
+                ? "1个指标"
+                : res.metrics.length + "个指标"
             );
             res.metrics.forEach((m) => {
               metricLinks.push(
-                <Link href={`/metric/${m.id}`} className="">
+                <Link href={`/metrics/${m.id}`} className="">
                   {m.name}
                 </Link>
               );
@@ -84,7 +85,9 @@ const SegmentPage: FC = () => {
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1
+                ? "1个想法"
+                : res.ideas.length + "个想法"
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
@@ -93,14 +96,14 @@ const SegmentPage: FC = () => {
           if (res.experiments && res.experiments.length) {
             refs.push(
               res.experiments.length === 1
-                ? "1 experiment"
-                : res.experiments.length + " Experiments"
+                ? "1个实验"
+                : res.experiments.length + "个实验"
             );
             res.experiments.forEach((e) => {
               expLinks.push(<Link href={`/experiment/${e.id}`}>{e.name}</Link>);
             });
           }
-          subtitleText += refs.join(" and ");
+          subtitleText += refs.join("和");
 
           return (
             <div>
@@ -113,7 +116,7 @@ const SegmentPage: FC = () => {
                   >
                     {metricLinks.length > 0 && (
                       <div className="col-6 text-smaller text-left">
-                        Metrics:{" "}
+                        指标：{" "}
                         <ul className="mb-0 pl-3">
                           {metricLinks.map((l, i) => {
                             return (
@@ -127,7 +130,7 @@ const SegmentPage: FC = () => {
                     )}
                     {expLinks.length > 0 && (
                       <div className="col-6 text-smaller text-left">
-                        Experiments:{" "}
+                        实验：{" "}
                         <ul className="mb-0 pl-3">
                           {expLinks.map((l, i) => {
                             return (
@@ -141,7 +144,7 @@ const SegmentPage: FC = () => {
                     )}
                     {ideaLinks.length > 0 && (
                       <div className="col-6 text-smaller text-left">
-                        Ideas:{" "}
+                        想法：{" "}
                         <ul className="mb-0 pl-3">
                           {ideaLinks.map((l, i) => {
                             return (
@@ -155,11 +158,11 @@ const SegmentPage: FC = () => {
                     )}
                   </div>
                   <p className="mb-0">
-                    Deleting this segment will remove these references
+                    删除此segment将移除这些引用
                   </p>
                 </>
               )}
-              <p>This action cannot be undone.</p>
+              <p>此操作无法撤销。</p>
             </div>
           );
         }
@@ -167,7 +170,7 @@ const SegmentPage: FC = () => {
         console.error(e);
         return (
           <div className="alert alert-danger">
-            An error occurred getting the segment usage
+            获取segment使用情况时出错
           </div>
         );
       }
@@ -188,10 +191,7 @@ const SegmentPage: FC = () => {
           </div>
         </div>
         <div className="alert alert-info">
-          Segments are only available if you connect GrowthBook to a compatible
-          data source (Snowflake, Redshift, BigQuery, ClickHouse, Athena,
-          Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel). Support for
-          other data sources like Google Analytics is coming soon.
+          只有当您将GrowthBook连接到兼容的数据源（Snowflake、Redshift、BigQuery、ClickHouse、Athena、Postgres、MySQL、MS SQL、Presto、Databricks或Mixpanel）时，Segment才可用。对其他数据源（如Google Analytics）的支持即将推出。
         </div>
       </div>
     );
@@ -204,7 +204,7 @@ const SegmentPage: FC = () => {
       )}
       <div className="row mb-3">
         <div className="col-auto d-flex">
-          <h1>Segments</h1>
+          <h1>Segment</h1>
         </div>
         <div style={{ flex: 1 }}></div>
         {hasCreatePermission && canStoreSegmentsInMongo && (
@@ -214,36 +214,34 @@ const SegmentPage: FC = () => {
                 setSegmentForm({});
               }}
             >
-              Add Segment
+              添加Segment
             </Button>
           </div>
         )}
       </div>
       {segmentsError && (
         <div className="alert alert-danger">
-          There was an error loading the list of segments
+          加载Segment列表时出错
         </div>
       )}
       {segments.length > 0 && (
-        <div className="row mb-4">
-          <div className="col-12">
+        <div className="行 mb-4">
+          <div className="列-12">
             <p>
-              Segments define important groups of users - for example,
-              &quot;annual subscribers&quot; or &quot;left-handed people from
-              France.&quot;
+              Segment定义了重要的用户组 - 例如，“年度订阅者”或“来自法国的左撇子”。
             </p>
             <table
-              className={clsx("table appbox gbtable", {
-                "table-hover": !hasFileConfig(),
+              className={clsx("表 appbox gbtable", {
+                "表悬停": !hasFileConfig(),
               })}
             >
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Owner</th>
-                  <th className="d-none d-sm-table-cell">Data Source</th>
-                  <th className="d-none d-md-table-cell">Identifier Type</th>
-                  {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
+                  <th>名称</th>
+                  <th>所有者</th>
+                  <th className="d-none d-sm-table-cell">数据源</th>
+                  <th className="d-none d-md-table-cell">标识类型</th>
+                  {canStoreSegmentsInMongo ? <th>最后更新时间</th> : null}
                   <th></th>
                 </tr>
               </thead>
@@ -290,7 +288,7 @@ const SegmentPage: FC = () => {
                       <td>
                         <MoreMenu>
                           {permissionsUtil.canUpdateSegment() &&
-                          canStoreSegmentsInMongo ? (
+                            canStoreSegmentsInMongo ? (
                             <button
                               className="dropdown-item"
                               onClick={(e) => {
@@ -298,15 +296,15 @@ const SegmentPage: FC = () => {
                                 setSegmentForm(s);
                               }}
                             >
-                              <FaPencilAlt /> Edit
+                              <FaPencilAlt /> 编辑
                             </button>
                           ) : null}
                           {permissionsUtil.canDeleteSegment() &&
-                          canStoreSegmentsInMongo ? (
+                            canStoreSegmentsInMongo ? (
                             <DeleteButton
                               className="dropdown-item"
                               displayName={s.name}
-                              text="Delete"
+                              text="删除"
                               getConfirmationContent={getSegmentUsage(s)}
                               onClick={async () => {
                                 await apiCall<{
@@ -332,28 +330,21 @@ const SegmentPage: FC = () => {
       )}
       {segments.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
-          You don&apos;t have any segments defined yet.{" "}
-          {hasCreatePermission &&
-            "Click the button above to create your first one."}
+          您尚未定义任何分段。{" "}
+          {hasCreatePermission && "点击上方按钮创建您的第一个segment。"}
         </div>
       )}
       {segments.length === 0 && hasFileConfig() && storeSegmentsInMongo() && (
         <div className="alert alert-info">
-          You don&apos;t have any segments defined yet. You can add them to your{" "}
-          <code>config.yml</code> file and remove the{" "}
-          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable
-          {hasCreatePermission &&
-            " or click the button above to create your first one"}
-          . <DocLink docSection="config_yml">View Documentation</DocLink>
+          您尚未定义任何Segment。您可以将它们添加到您的 <code>config.yml</code> 文件中，并移除 <code>STORE_SEGMENTS_IN_MONGO</code> 环境变量
+          {hasCreatePermission && " 或者点击上方按钮创建您的第一个segment"}
+          。 <DocLink docSection="config_yml">查看文档</DocLink>
         </div>
       )}
       {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
         <div className="alert alert-info">
-          It looks like you have a <code>config.yml</code> file. Segments
-          defined there will show up on this page. If you would like to store
-          and access segments in MongoDB instead, please add the{" "}
-          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable.{" "}
-          <DocLink docSection="config_yml">View Documentation</DocLink>
+          看起来您有一个 <code>config.yml</code> 文件。在那里定义的Segment将显示在此页面上。如果您想改为在MongoDB中存储和访问分段，请添加 <code>STORE_SEGMENTS_IN_MONGO</code> 环境变量。{" "}
+          <DocLink docSection="config_yml">查看文档</DocLink>
         </div>
       )}
     </div>

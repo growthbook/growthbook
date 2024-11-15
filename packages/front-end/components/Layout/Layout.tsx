@@ -76,11 +76,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/fact-tables",
         path: /^fact-tables/,
       },
-      {
-        name: "数据段",
-        href: "/segments",
-        path: /^segment/,
-      },
+      // {
+      //   name: "Segments",
+      //   href: "/segments",
+      //   path: /^segment/,
+      // },
       {
         name: "维度",
         href: "/dimensions",
