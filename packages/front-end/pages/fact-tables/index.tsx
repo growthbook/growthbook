@@ -103,8 +103,8 @@ export default function FactTablesPage() {
 
   const filteredFactTables = project
     ? factTables.filter((t) =>
-        isProjectListValidForProject(t.projects, project)
-      )
+      isProjectListValidForProject(t.projects, project)
+    )
     : factTables;
 
   const hasArchivedFactTables = factTables.some((t) => t.archived);
@@ -157,27 +157,22 @@ export default function FactTablesPage() {
       {createFactOpen && (
         <FactTableModal close={() => setCreateFactOpen(false)} />
       )}
-      <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
+      <PageHead breadcrumb={[{ display: "事实表" }]} />
       <h1 className="mb-4">Fact Tables</h1>
 
       {!filteredFactTables.length ? (
         <div className="appbox p-5 text-center">
-          <h2>A SQL Foundation for your Metrics</h2>
+          <h2>指标的SQL基础</h2>
           <p>
-            With Fact Tables, you can better organize your metrics, cut down on
-            repetitive copy/pasting, and unlock massive{" "}
+            通过事实表，您可以更好地组织指标，减少重复的复制/粘贴操作，并解锁大量的{" "}
             <Tooltip
               body={
                 <div style={{ textAlign: "left" }}>
                   <p>
-                    <strong>Enterprise-Only</strong> GrowthBook calculates
-                    multiple metrics in a single database query when they share
-                    the same Fact Table.
+                    <strong>仅企业版</strong> GrowthBook在多个指标共享同一个事实表时，会在单个数据库查询中计算这些指标。
                   </p>
                   <p>
-                    For warehouses like BigQuery that charge based on data
-                    scanned, this can drastically reduce the costs, especially
-                    when an experiment has many metrics.
+                    对于像BigQuery这样按扫描数据收费的仓库，这可以大幅降低成本，特别是当一个实验有很多指标时。
                   </p>
                 </div>
               }
@@ -194,7 +189,7 @@ export default function FactTablesPage() {
           </p>
           <div className="mt-3">
             {!hasDatasource ? (
-              <LinkButton href="/datasources">Connect Data Source</LinkButton>
+              <LinkButton href="/datasources">连接数据源</LinkButton>
             ) : initialFactTableData && canCreate ? (
               <div>
                 <Button
@@ -212,7 +207,7 @@ export default function FactTablesPage() {
                     setAutoGenerateError(error);
                   }}
                 >
-                  Auto-Generate Fact Tables
+                  自动生成事实表
                 </Button>
 
                 <div className="mt-2">
@@ -221,7 +216,7 @@ export default function FactTablesPage() {
                     size="sm"
                     onClick={() => setCreateFactOpen(true)}
                   >
-                    Add Fact Table Manually
+                    手动添加事实表
                   </Button>
                 </div>
               </div>
@@ -229,9 +224,7 @@ export default function FactTablesPage() {
               <Tooltip
                 body={
                   !canCreate
-                    ? `You don't have permission to create fact tables ${
-                        project ? "in this project" : ""
-                      }`
+                    ? `您没有权限在${project ? "此项目中" : ""}创建事实表`
                     : ""
                 }
               >
@@ -242,7 +235,7 @@ export default function FactTablesPage() {
                   }}
                   disabled={!canCreate}
                 >
-                  Add Fact Table
+                  添加事实表
                 </Button>
               </Tooltip>
             )}
@@ -258,10 +251,10 @@ export default function FactTablesPage() {
 
           <Flex gap="9" justify={"center"} wrap="wrap">
             <Box>
-              <h3>Raw Event Stream Example</h3>
+              <h3>原始事件流示例</h3>
               <Flex gap="2">
                 <Flex direction="column" gap="1">
-                  <div>Fact Table</div>
+                  <div>事实表</div>
                   <Box className="border px-3 py-2 bg-white">
                     <InlineCode
                       language="sql"
@@ -273,13 +266,11 @@ export default function FactTablesPage() {
                   <FaArrowRight />
                 </Box>
                 <Flex direction="column" gap="1">
-                  <div>Metrics</div>
-                  <Box className="border p-2 bg-white">Mobile Sign Ups</Box>
-                  <Box className="border p-2 bg-white">Downloads per User</Box>
-                  <Box className="border p-2 bg-white">
-                    Form Completion Rate
-                  </Box>
-                  <Box className="border p-2 bg-white">Pages per Session</Box>
+                  <div>指标</div>
+                  <Box className="border p-2 bg-white">移动注册量</Box>
+                  <Box className="border p-2 bg-white">每位用户下载量</Box>
+                  <Box className="border p-2 bg-white">表单完成率</Box>
+                  <Box className="border p-2 bg-white">每次会话页面数</Box>
                 </Flex>
               </Flex>
             </Box>
@@ -287,10 +278,10 @@ export default function FactTablesPage() {
               <Separator orientation="vertical" size="4" />
             </Box>
             <Box>
-              <h3>Modeled Table Example</h3>
+              <h3>建模表示例</h3>
               <Flex gap="2">
                 <Flex direction="column" gap="1">
-                  <div>Fact Table</div>
+                  <div>事实表</div>
                   <Box className="border px-3 py-2 bg-white">
                     <InlineCode
                       language="sql"
@@ -302,13 +293,11 @@ export default function FactTablesPage() {
                   <FaArrowRight />
                 </Box>
                 <Flex direction="column" gap="1">
-                  <div>Metrics</div>
-                  <Box className="border p-2 bg-white">Conversion Rate</Box>
-                  <Box className="border p-2 bg-white">Revenue per User</Box>
-                  <Box className="border p-2 bg-white">Average Order Value</Box>
-                  <Box className="border p-2 bg-white">
-                    Orders with 5+ Items
-                  </Box>
+                  <div>指标</div>
+                  <Box className="border p-2 bg-white">转化率</Box>
+                  <Box className="border p-2 bg-white">每位用户收入</Box>
+                  <Box className="border p-2 bg-white">平均订单价值</Box>
+                  <Box className="border p-2 bg-white">含5件及以上商品的订单</Box>
                 </Flex>
               </Flex>
             </Box>
@@ -321,7 +310,7 @@ export default function FactTablesPage() {
               <>
                 <div className="col-lg-3 col-md-4 col-6">
                   <Field
-                    placeholder="Search..."
+                    placeholder="搜索..."
                     type="search"
                     {...searchInputProps}
                   />
@@ -334,11 +323,12 @@ export default function FactTablesPage() {
                       id="show-archived"
                       label="show archived"
                     />
-                    Show archived
+                    显示已存档
                   </div>
                 )}
                 <div className="col-auto">
-                  <TagsFilter filter={tagsFilter} items={items} />
+                  <TagsFilter filter={tagsFilter} items={items}
+                  />
                 </div>
                 <div className="ml-auto"></div>
               </>
@@ -362,16 +352,14 @@ export default function FactTablesPage() {
                     setAutoGenerateError(error);
                   }}
                 >
-                  Auto-generate Fact Tables
+                  自动生成事实表
                 </Button>
               )}
               {hasDatasource ? (
                 <Tooltip
                   body={
                     !canCreate
-                      ? `You don't have permission to create fact tables ${
-                          project ? "in this project" : ""
-                        }`
+                      ? `您没有权限在${project ? "此项目中" : ""}创建事实表`
                       : ""
                   }
                 >
@@ -382,7 +370,7 @@ export default function FactTablesPage() {
                     }}
                     disabled={!canCreate}
                   >
-                    Add Fact Table
+                    添加事实表
                   </Button>
                 </Tooltip>
               ) : null}
@@ -391,15 +379,15 @@ export default function FactTablesPage() {
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="datasourceName">Data Source</SortableTH>
-                <SortableTH field="tags">Tags</SortableTH>
-                <th>Projects</th>
-                <SortableTH field="userIdTypes">Identifier Types</SortableTH>
-                <SortableTH field="numMetrics">Metrics</SortableTH>
-                <SortableTH field="numFilters">Filters</SortableTH>
-                <SortableTH field="owner">Owner</SortableTH>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
+                <SortableTH field="name">名称</SortableTH>
+                <SortableTH field="datasourceName">数据源</SortableTH>
+                <SortableTH field="tags">标签</SortableTH>
+                <th>项目</th>
+                <SortableTH field="userIdTypes">标识类型</SortableTH>
+                <SortableTH field="numMetrics">指标</SortableTH>
+                <SortableTH field="numFilters">过滤器</SortableTH>
+                <SortableTH field="owner">所有者</SortableTH>
+                <SortableTH field="dateUpdated">最后更新时间</SortableTH>
               </tr>
             </thead>
             <tbody>
@@ -451,7 +439,7 @@ export default function FactTablesPage() {
               {!items.length && isFiltered && (
                 <tr>
                   <td colSpan={6} align={"center"}>
-                    No matching fact tables.{" "}
+                    没有匹配的事实表。
                     <a
                       href="#"
                       onClick={(e) => {
@@ -459,15 +447,16 @@ export default function FactTablesPage() {
                         clear();
                       }}
                     >
-                      Clear search field
+                      清除搜索字段
                     </a>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
-      )}
-    </div>
+        </div >
+      )
+      }
+    </div >
   );
 }
