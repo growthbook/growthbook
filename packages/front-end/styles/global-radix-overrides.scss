@@ -50,6 +50,109 @@
   }
 }
 
+// DatePicker (custom)
+.rdp-root {
+  --rdp-accent-color: var(--violet-9) !important;
+  --rdp-day-width: 28px !important;
+  --rdp-day-height: 28px !important;
+  --rdp-day_button-width: 28px !important;
+  --rdp-day_button-height: 28px !important;
+  --rdp-selected-border: 0px !important;
+  --rdp-range_middle-background-color: var(--violet-a6) !important;
+  .rdp-day {
+    padding: 0 !important;
+  }
+  .rdp-day_button {
+    position: relative;
+    border-radius: 8px;
+
+    &::after {
+      transition: 150ms box-shadow;
+      content: "";
+      position: absolute;
+      display: block;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    &:hover {
+      &::after {
+        box-shadow: 0 0 0 2px inset var(--violet-a8) !important;
+      }
+    }
+  }
+  .rdp-range_start .rdp-day_button {
+    border-radius: 8px 0 0 8px;
+  }
+  .rdp-range_end .rdp-day_button {
+    border-radius: 0 8px 8px 0;
+  }
+  .rdp-selected:not(.rdp-range_middle) {
+    .rdp-day_button {
+      box-shadow: 0 0 0 2px inset var(--violet-9) !important;
+    }
+  }
+  .rdp-selected {
+    font-weight: unset !important;
+    font-size: unset !important;
+  }
+  .rdp-today {
+    color: unset !important;
+    text-decoration: underline;
+    text-decoration-color: var(--violet-9);
+  }
+  .originalDate,
+  .originalDate2,
+  .activeDate,
+  .scheduleStartDate,
+  .scheduleEndDate {
+    &::before {
+      content: "";
+      position: absolute;
+      display: block;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+    }
+    &.originalDate,
+    &.originalDate2 {
+      &::before {
+        border: 2px dashed var(--violet-a6) !important;
+      }
+    }
+    &.activeDate {
+      &::before {
+        background-color: var(--cyan-a3) !important;
+      }
+    }
+    &.scheduleStartDate {
+      &::before {
+        background-color: var(--green-a3) !important;
+      }
+    }
+    &.scheduleEndDate {
+      &::before {
+        background-color: var(--tomato-a3) !important;
+      }
+    }
+  }
+
+  .rdp-button_previous,
+  .rdp-button_next {
+    width: 28px;
+    height: 28px;
+    border-radius: 28px;
+    &:hover {
+      background-color: var(--violet-a4) !important;
+    }
+  }
+  --rdp-nav-height: 2rem !important;
+  .rdp-month_caption {
+    font-size: medium;
+  }
+}
+
 // Radio
 .rt-RadioGroupItem {
   cursor: pointer;

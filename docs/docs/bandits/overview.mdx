@@ -90,3 +90,14 @@ In practice, GrowthBook ensures that each variation has at least 1% of traffic, 
 
 3. **How can I use power analysis for a Bandit?**<br />
    GrowthBook power results should be conservative for your Bandit. In many settings, Bandit power will be higher. However power in Bandits is much more complicated to estimate.
+
+4. **What happens to users in worse-performing variants?**<br />
+   As the experiment progresses, worse-performing variations will receive progressively less traffic. However, because of sticky bucketing, users will continue to see the same variation they were originally assigned to.
+
+5. **What’s the difference between multi-armed bandit and contextual bandit experiments?**<br />
+   GrowthBook uses multi-armed bandit experiments, which focus on optimizing traffic allocation among variations based purely on overall performance ([the Decision Metric](/bandits/config#3-selecting-a-decision-metric)). These experiments treat all users the same, without taking individual user characteristics into account.
+
+   In contrast, contextual bandits use user-specific attributes (like location, device type, or past behavior) to select variations, aiming to tailor the experience to each user. 
+
+   While multi-arm bandit experiments aim for a global "best" variation, contextual bandits work to find the best variation for each unique user context. If you'd like to see contextual bandits in GrowthBook, [please let us know](https://slack.growthbook.io/?ref=bandits-doc)!
+
