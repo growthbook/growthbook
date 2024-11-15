@@ -9,22 +9,19 @@ export default function NorthStarMetricSettings() {
         <div className="my-3 bg-white p-3 border">
           <div className="row">
             <div className="col-sm-3">
-              <h4>North Star Metrics</h4>
+              <h4>北极星指标</h4>
             </div>
             <div className="col-sm-9">
               <p>
-                North stars are metrics your team is focused on improving. These
-                metrics are shown on the home page with the experiments that
-                have the metric as a goal.
+                北极星指标是您的团队重点关注并致力于改进的指标。这些指标会和以该指标为目标的实验一起显示在主页上。
               </p>
-              <div className={"form-group"}>
+              <div className="form-group">
                 <div className="my-3">
                   <div className="form-group">
-                    <label>Metric(s)</label>
+                    <label>指标(多个)</label>
                     <MetricsSelector
                       selected={watch("northStar.metricIds")}
-                      onChange={(metricIds) =>
-                        setValue("northStar.metricIds", metricIds)
+                      onChange={(metricIds) => setValue("northStar.metricIds", metricIds)
                       }
                       includeFacts={true}
                       includeGroups={false}
@@ -32,7 +29,7 @@ export default function NorthStarMetricSettings() {
                     />
                   </div>
                   <Field
-                    label="Title"
+                    label="标题"
                     value={watch("northStar.title")}
                     onChange={(e) => {
                       setValue("northStar.title", e.target.value);
