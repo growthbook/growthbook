@@ -17,7 +17,7 @@ export default function OrganizationAndLicenseSettings({
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const permissions = usePermissions();
-  // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
+  // 此检查并非绝对必要，因为我们在访问设置页面时会检查权限，但为了保险起见这样做也不错
   const canEdit = permissions.check("organizationSettings");
   const { users } = useUser();
   const ownerEmailExists = !!Array.from(users).find(
@@ -34,15 +34,15 @@ export default function OrganizationAndLicenseSettings({
           mutate={refreshOrg}
         />
       )}
-      <div className=" bg-white p-3 border">
+      <div className="bg-white p-3 border">
         <div className="row mb-0">
           <div className="col-sm-3">
-            <h4>Organization</h4>
+            <h4>组织信息</h4>
           </div>
           <div className="col-sm-9">
             <div className="form-group row">
               <div className="col-sm-12">
-                <strong>Name: </strong> {org.name}{" "}
+                <strong>名称：</strong> {org.name}{" "}
                 {canEdit && (
                   <a
                     href="#"
@@ -59,21 +59,20 @@ export default function OrganizationAndLicenseSettings({
             </div>
             <div className="form-group row">
               <div
-                className={`col-sm-12 ${
-                  !ownerEmailExists ? "text-danger" : ""
-                }`}
+                className={`col-sm-12 ${!ownerEmailExists ? "text-danger" : ""
+                  }`}
                 title={
                   !ownerEmailExists
-                    ? "Owner email does not exist in the organization"
+                    ? "组织中不存在所有者的邮箱"
                     : ""
                 }
               >
-                <strong>Owner:</strong> {org.ownerEmail}{" "}
+                <strong>所有者：</strong> {org.ownerEmail}{" "}
                 {!ownerEmailExists && (
                   <span className="text-danger">
                     <FaTriangleExclamation
-                      className=" ml-1"
-                      title="Owner email does not exist in the organization"
+                      className="ml-1"
+                      title="组织中不存在所有者的邮箱"
                       style={{ marginTop: -3 }}
                     />
                   </span>
@@ -95,7 +94,7 @@ export default function OrganizationAndLicenseSettings({
             {!isCloud() && !isMultiOrg() && (
               <div className="form-group row">
                 <div className="col-sm-12">
-                  <strong>Organization Id:</strong> {org.id}
+                  <strong>组织ID：</strong> {org.id}
                 </div>
               </div>
             )}
