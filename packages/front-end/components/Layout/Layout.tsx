@@ -93,30 +93,30 @@ const navlinks: SidebarLinkProps[] = [
       },
     ],
   },
-  {
-    name: "管理",
-    href: "/dashboard",
-    Icon: BsClipboardCheck,
-    path: /^(dashboard|idea|presentation)/,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "仪表盘",
-        href: "/dashboard",
-        path: /^dashboard/,
-      },
-      {
-        name: "想法",
-        href: "/ideas",
-        path: /^idea/,
-      },
-      {
-        name: "展示",
-        href: "/presentations",
-        path: /^presentation/,
-      },
-    ],
-  },
+  // {
+  //   name: "管理",
+  //   href: "/dashboard",
+  //   Icon: BsClipboardCheck,
+  //   path: /^(dashboard|idea|presentation)/,
+  //   autoClose: true,
+  //   subLinks: [
+  //     {
+  //       name: "仪表盘",
+  //       href: "/dashboard",
+  //       path: /^dashboard/,
+  //     },
+  //     {
+  //       name: "想法",
+  //       href: "/ideas",
+  //       path: /^idea/,
+  //     },
+  //     {
+  //       name: "展示",
+  //       href: "/presentations",
+  //       path: /^presentation/,
+  //     },
+  //   ],
+  // },
   {
     name: "SDK配置",
     href: "/sdks",
