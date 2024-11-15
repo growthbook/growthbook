@@ -188,12 +188,14 @@ export function evalFeature<V = unknown>(
         if (rule.tracks) {
           rule.tracks.forEach((t) => {
             if (ctx.global.trackingCallback) {
-              ctx.global.trackingCallback(t.experiment, t.result, ctx.user);
+              Promise.resolve(
+                ctx.global.trackingCallback(t.experiment, t.result, ctx.user)
+              ).catch(() => {});
             }
             if (ctx.user.trackingCallback) {
-              ctx.user
-                .trackingCallback(t.experiment, t.result, ctx.user)
-                .catch(() => {});
+              Promise.resolve(
+                ctx.user.trackingCallback(t.experiment, t.result, ctx.user)
+              ).catch(() => {});
             }
           });
         }
@@ -640,7 +642,9 @@ export function runExperiment<T>(
   const trackingCalls = [];
   if (ctx.global.trackingCallback) {
     trackingCalls.push(
-      ctx.global.trackingCallback(experiment, result, ctx.user)
+      Promise.resolve(
+        ctx.global.trackingCallback(experiment, result, ctx.user)
+      ).catch(() => {})
     );
   }
   if (ctx.user.trackingCallback) {

@@ -292,11 +292,7 @@ export type GlobalContext = {
     result: Result<any>,
     user: UserContext
   ) => void;
-  trackingCallback?: (
-    experiment: Experiment<any>,
-    result: Result<any>,
-    user: UserContext
-  ) => Promise<void>;
+  trackingCallback?: TrackingCallbackWithUser;
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,

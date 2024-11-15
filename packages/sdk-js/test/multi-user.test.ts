@@ -74,44 +74,6 @@ describe("GrowthBookMultiUser", () => {
     gb.destroy();
   });
 
-  it("Defers tracking calls until a tracking callback is provided", async () => {
-    const track = jest.fn();
-    const gb = new GrowthBookMultiUser();
-
-    gb.initSync({ payload: {} });
-
-    const exp: Experiment<boolean> = {
-      key: "my-experiment",
-      variations: [false, true],
-      hashAttribute: "id",
-      hashVersion: 2,
-    };
-
-    const user: UserContext = {
-      attributes: {
-        id: "1",
-      },
-    };
-
-    const res = gb.runInlineExperiment(exp, user);
-
-    expect(track).not.toHaveBeenCalled();
-
-    expect(gb.getDeferredTrackingCalls()).toEqual([
-      { experiment: exp, result: res, user },
-    ]);
-
-    gb.setTrackingCallback(track);
-
-    expect(track).toHaveBeenCalledWith(exp, res, user);
-
-    await new Promise((r) => setTimeout(r, 50));
-
-    expect(gb.getDeferredTrackingCalls()).toEqual([]);
-
-    gb.destroy();
-  });
-
   it("Fires feature usage callback with user", async () => {
     const track = jest.fn();
     const gb = new GrowthBookMultiUser({

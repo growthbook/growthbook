@@ -16,7 +16,6 @@ import type {
   MultiUserOptions,
   FeatureDefinitions,
   AutoExperiment,
-  TrackingDataWithUser,
   TrackingCallbackWithUser,
   Attributes,
 } from "./types/growthbook";
@@ -48,8 +47,6 @@ export class GrowthBookMultiUser<
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _options: MultiUserOptions;
-  private _trackedExperiments: Set<string>;
-  private _deferredTrackingCalls: Map<string, TrackingDataWithUser>;
 
   private _features: FeatureDefinitions;
   private _experiments: AutoExperiment[];
@@ -62,15 +59,12 @@ export class GrowthBookMultiUser<
     // This saves ~80 bytes in the final output
     this.version = SDK_VERSION;
     this._options = options;
-    this._trackedExperiments = new Set();
     this.debug = !!options.debug;
     this.ready = false;
     this._features = {};
     this._experiments = [];
-    this._deferredTrackingCalls = new Map();
 
     this.log = this.log.bind(this);
-    this._track = this._track.bind(this);
   }
 
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
@@ -237,8 +231,6 @@ export class GrowthBookMultiUser<
     unsubscribe(this);
 
     // Release references to save memory
-    this._deferredTrackingCalls.clear();
-    this._trackedExperiments.clear();
     this._features = {};
     this._experiments = [];
     this._decryptedPayload = undefined;
@@ -288,7 +280,7 @@ export class GrowthBookMultiUser<
       savedGroups: this._options.savedGroups,
       forcedFeatureValues: this._options.forcedFeatureValues,
       forcedVariations: this._options.forcedVariations,
-      trackingCallback: this._track,
+      trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
     };
   }
@@ -329,76 +321,8 @@ export class GrowthBookMultiUser<
     else console.log(msg, ctx);
   }
 
-  public getDeferredTrackingCalls(): TrackingDataWithUser[] {
-    return Array.from(this._deferredTrackingCalls.values());
-  }
-
-  public setDeferredTrackingCalls(calls: TrackingDataWithUser[]) {
-    this._deferredTrackingCalls = new Map(
-      calls
-        .filter((c) => c && c.experiment && c.result)
-        .map((c) => {
-          return [this._getTrackKey(c.experiment, c.result), c];
-        })
-    );
-  }
-
-  public async fireDeferredTrackingCalls() {
-    if (!this._options.trackingCallback) return;
-
-    const promises: ReturnType<TrackingCallbackWithUser>[] = [];
-    this._deferredTrackingCalls.forEach((call: TrackingDataWithUser) => {
-      if (!call || !call.experiment || !call.result) {
-        console.error("Invalid deferred tracking call", { call: call });
-      } else {
-        promises.push(this._track(call.experiment, call.result, call.user));
-      }
-    });
-    this._deferredTrackingCalls.clear();
-    await Promise.all(promises);
-  }
-
   public setTrackingCallback(callback: TrackingCallbackWithUser) {
     this._options.trackingCallback = callback;
-    this.fireDeferredTrackingCalls();
-  }
-
-  private _getTrackKey(
-    experiment: Experiment<unknown>,
-    result: Result<unknown>
-  ) {
-    return (
-      result.hashAttribute +
-      result.hashValue +
-      experiment.key +
-      result.variationId
-    );
-  }
-
-  private async _track<T>(
-    experiment: Experiment<T>,
-    result: Result<T>,
-    user: UserContext
-  ) {
-    const k = this._getTrackKey(experiment, result);
-
-    if (!this._options.trackingCallback) {
-      // Add to deferred tracking if it hasn't already been added
-      if (!this._deferredTrackingCalls.has(k)) {
-        this._deferredTrackingCalls.set(k, { experiment, result, user });
-      }
-      return;
-    }
-
-    // Make sure a tracking callback is only fired once per unique experiment
-    if (this._trackedExperiments.has(k)) return;
-    this._trackedExperiments.add(k);
-
-    try {
-      await this._options.trackingCallback(experiment, result, user);
-    } catch (e) {
-      console.error(e);
-    }
   }
 
   public async applyStickyBuckets(
