@@ -26,6 +26,7 @@ import type {
   PrefetchOptions,
   GlobalContext,
   UserContext,
+  StickyAssignmentsDocument,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -85,7 +86,7 @@ export class GrowthBook<
     }
   >;
   // eslint-disable-next-line
-  private _forcedFeatureValues: Map<string, any>;
+  private _forcedFeatureValues: Map<string, any> | undefined;
   private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
     AutoExperiment,
@@ -94,6 +95,9 @@ export class GrowthBook<
   private _triggeredExpKeys: Set<string>;
   private _initialized: boolean;
   private _deferredTrackingCalls: Map<string, TrackingData>;
+  private _saveStickyBucketAssignmentDoc:
+    | undefined
+    | ((doc: StickyAssignmentsDocument) => Promise<unknown>);
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
@@ -116,7 +120,6 @@ export class GrowthBook<
     this._rtTimer = 0;
     this.ready = false;
     this._assigned = new Map();
-    this._forcedFeatureValues = new Map();
     this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
@@ -127,6 +130,7 @@ export class GrowthBook<
 
     this.log = this.log.bind(this);
     this._track = this._track.bind(this);
+    this._saveDeferredTrack = this._saveDeferredTrack.bind(this);
     this._trackFeatureUsage = this._trackFeatureUsage.bind(this);
     this._fireSubscriptions = this._fireSubscriptions.bind(this);
     this._recordChangedId = this._recordChangedId.bind(this);
@@ -153,6 +157,13 @@ export class GrowthBook<
       if (options.cacheKeyAttributes) {
         throw new Error("cacheKeyAttributes are only used for remoteEval");
       }
+    }
+
+    if (options.stickyBucketService) {
+      const s = options.stickyBucketService;
+      this._saveStickyBucketAssignmentDoc = (doc) => {
+        return s.saveAssignments(doc);
+      };
     }
 
     if (options.features) {
@@ -566,6 +577,7 @@ export class GrowthBook<
     this._trackedFeatures = {};
     this._rtQueue = [];
     this._payload = undefined;
+    this._saveStickyBucketAssignmentDoc = undefined;
 
     if (this._rtTimer) {
       clearTimeout(this._rtTimer);
@@ -634,8 +646,6 @@ export class GrowthBook<
   }
 
   private _getUserContext(): UserContext {
-    const stickyBucketService = this._options.stickyBucketService;
-
     return {
       attributes: this._options.user
         ? {
@@ -646,27 +656,32 @@ export class GrowthBook<
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
       url: this._getContextUrl(),
-      forcedVariations: this.getForcedVariations(),
-      forcedFeatureValues: this.getForcedFeatures(),
-      saveStickyBucketAssignmentDoc: stickyBucketService
-        ? (doc) => stickyBucketService.saveAssignments(doc)
+      forcedVariations: this._options.forcedVariations,
+      forcedFeatureValues: this._forcedFeatureValues,
+      saveStickyBucketAssignmentDoc: this._saveStickyBucketAssignmentDoc,
+      trackingCallback: this._options.trackingCallback
+        ? this._track
         : undefined,
+      onFeatureUsage:
+        this._options.onFeatureUsage || this._options.realtimeKey
+          ? this._trackFeatureUsage
+          : undefined,
     };
   }
   private _getGlobalContext(): GlobalContext {
     return {
-      features: this._options.features || {},
-      experiments: this._options.experiments || [],
+      features: this._options.features,
+      experiments: this._options.experiments,
       log: this.log,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
       groups: this._options.groups,
       overrides: this._options.overrides,
-      onExperimentEval: this._fireSubscriptions,
-      trackingCallback: this._track,
-      onFeatureUsage: this._trackFeatureUsage,
+      onExperimentEval:
+        this._subscriptions.size > 0 ? this._fireSubscriptions : undefined,
       recordChangeId: this._recordChangedId,
+      saveDeferredTrack: this._saveDeferredTrack,
     };
   }
 
@@ -993,16 +1008,17 @@ export class GrowthBook<
     );
   }
 
-  private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    const k = this._getTrackKey(experiment, result);
+  private _saveDeferredTrack(data: TrackingData) {
+    this._deferredTrackingCalls.set(
+      this._getTrackKey(data.experiment, data.result),
+      data
+    );
+  }
 
-    if (!this._options.trackingCallback) {
-      // Add to deferred tracking if it hasn't already been added
-      if (!this._deferredTrackingCalls.has(k)) {
-        this._deferredTrackingCalls.set(k, { experiment, result });
-      }
-      return;
-    }
+  private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
+    if (!this._options.trackingCallback) return;
+
+    const k = this._getTrackKey(experiment, result);
 
     // Make sure a tracking callback is only fired once per unique experiment
     if (this._trackedExperiments.has(k)) return;

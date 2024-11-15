@@ -178,6 +178,17 @@ export type TrackingCallbackWithUser = (
   user: UserContext
 ) => Promise<void> | void;
 
+export type FeatureUsageCallback = (
+  key: string,
+  result: FeatureResult<any>
+) => void;
+
+export type FeatureUsageCallbackWithUser = (
+  key: string,
+  result: FeatureResult<any>,
+  user: UserContext
+) => void;
+
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
@@ -280,24 +291,17 @@ export type MultiUserOptions = {
 // Contexts
 export type GlobalContext = {
   log: (msg: string, ctx: any) => void;
-  features: FeatureDefinitions;
+  features?: FeatureDefinitions;
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
-  onExperimentEval?: (
-    experiment: Experiment<any>,
-    result: Result<any>,
-    user: UserContext
-  ) => void;
   trackingCallback?: TrackingCallbackWithUser;
-  onFeatureUsage?: (
-    key: string,
-    result: FeatureResult<any>,
-    user: UserContext
-  ) => void;
+  onFeatureUsage?: FeatureUsageCallbackWithUser;
+  onExperimentEval?: (experiment: Experiment<any>, result: Result<any>) => void;
+  saveDeferredTrack?: (data: TrackingData) => void;
   recordChangeId?: (changeId: string) => void;
 
   /** @deprecated */
@@ -328,16 +332,8 @@ export type UserContext = {
   ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
-  trackingCallback?: (
-    experiment: Experiment<any>,
-    result: Result<any>,
-    user: UserContext
-  ) => Promise<void>;
-  onFeatureUsage?: (
-    key: string,
-    result: FeatureResult<any>,
-    user: UserContext
-  ) => void;
+  trackingCallback?: TrackingCallback;
+  onFeatureUsage?: FeatureUsageCallback;
 };
 
 export type StackContext = {

@@ -187,15 +187,24 @@ export function evalFeature<V = unknown>(
         // If this was a remotely evaluated experiment, fire the tracking callbacks
         if (rule.tracks) {
           rule.tracks.forEach((t) => {
+            let tracked = false;
             if (ctx.global.trackingCallback) {
+              tracked = true;
               Promise.resolve(
                 ctx.global.trackingCallback(t.experiment, t.result, ctx.user)
               ).catch(() => {});
             }
             if (ctx.user.trackingCallback) {
+              tracked = true;
               Promise.resolve(
-                ctx.user.trackingCallback(t.experiment, t.result, ctx.user)
+                ctx.user.trackingCallback(t.experiment, t.result)
               ).catch(() => {});
+            }
+            if (!tracked && ctx.global.saveDeferredTrack) {
+              ctx.global.saveDeferredTrack({
+                experiment: t.experiment,
+                result: t.result,
+              });
             }
           });
         }
@@ -240,8 +249,7 @@ export function evalFeature<V = unknown>(
 
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
-      ctx.global.onExperimentEval &&
-        ctx.global.onExperimentEval(exp, result, ctx.user);
+      ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
           ctx,
@@ -650,14 +658,21 @@ export function runExperiment<T>(
   if (ctx.user.trackingCallback) {
     trackingCalls.push(
       Promise.resolve(
-        ctx.user.trackingCallback(experiment, result, ctx.user)
+        ctx.user.trackingCallback(experiment, result)
       ).catch(() => {})
     );
   }
-  const trackingCall =
-    trackingCalls.length > 0
-      ? Promise.all(trackingCalls).then(() => {})
-      : Promise.resolve();
+  if (trackingCalls.length === 0 && ctx.global.saveDeferredTrack) {
+    ctx.global.saveDeferredTrack({
+      experiment,
+      result,
+    });
+  }
+  const trackingCall = !trackingCalls.length
+    ? undefined
+    : trackingCalls.length === 1
+    ? trackingCalls[0]
+    : Promise.all(trackingCalls).then(() => {});
 
   // 14.1 Keep track of completed changeIds
   "changeId" in experiment &&
@@ -704,7 +719,7 @@ function getFeatureResult<T>(
     }
     if (ctx.user.onFeatureUsage) {
       try {
-        ctx.user.onFeatureUsage(key, ret, ctx.user);
+        ctx.user.onFeatureUsage(key, ret);
       } catch (e) {
         // Ignore feature usage errors
       }
@@ -1006,7 +1021,8 @@ function deriveStickyBucketIdentifierAttributes(
   data?: FeatureApiResponse
 ) {
   const attributes = new Set<string>();
-  const features = data && data.features ? data.features : ctx.global.features;
+  const features =
+    data && data.features ? data.features : ctx.global.features || {};
   const experiments =
     data && data.experiments ? data.experiments : ctx.global.experiments || [];
   Object.keys(features).forEach((id) => {

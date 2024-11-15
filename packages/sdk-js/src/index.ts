@@ -4,6 +4,8 @@ export type {
   MultiUserOptions,
   TrackingCallbackWithUser,
   TrackingDataWithUser,
+  FeatureUsageCallback,
+  FeatureUsageCallbackWithUser,
   UserContext,
   Attributes,
   Polyfills,
