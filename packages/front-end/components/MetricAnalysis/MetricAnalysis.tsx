@@ -71,8 +71,6 @@ function MetricAnalysisOverview({
     options?: Intl.NumberFormatOptions
   ) => string;
 }) {
-
-  
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
 
@@ -92,8 +90,14 @@ function MetricAnalysisOverview({
   if (metricType === "ratio" && numeratorFormatter && denominatorFormatter) {
     numeratorText = "Numerator: ";
     denominatorText = "Denominator: ";
-    numeratorValue = numeratorFormatter(result.numerator ?? 0, formatterOptions);
-    denominatorValue = denominatorFormatter(result.denominator ?? 0, formatterOptions);
+    numeratorValue = numeratorFormatter(
+      result.numerator ?? 0,
+      formatterOptions
+    );
+    denominatorValue = denominatorFormatter(
+      result.denominator ?? 0,
+      formatterOptions
+    );
   }
 
   return (
@@ -121,7 +125,9 @@ function MetricAnalysisOverview({
             {"="}
           </div>
           <div className="col-auto">
-            <div style={{ fontSize: "2.5em" }}>{formatter(result.mean, formatterOptions)}</div>
+            <div style={{ fontSize: "2.5em" }}>
+              {formatter(result.mean, formatterOptions)}
+            </div>
             {metricType === "ratio" ? null : (
               <>
                 {metricType === "proportion" ? "of" : "per"}{" "}
