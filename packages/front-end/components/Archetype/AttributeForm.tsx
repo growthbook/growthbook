@@ -4,8 +4,7 @@ import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import TabButton from "@/components/Tabs/TabButton";
-import TabButtons from "@/components/Tabs/TabButtons";
+import Tabs, { TabConfig } from "@/components/Radix/Tabs";
 import SelectField from "@/components/Forms/SelectField";
 import Toggle from "@/components/Forms/Toggle";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -29,7 +28,7 @@ export default function AttributeForm({
     JSON.stringify(formValues)
   );
   const [jsonErrors, setJsonErrors] = useState<string | null>();
-  const [tab, setTab] = useState<"simple" | "adv">("simple");
+  const [activeTab, setActiveTab] = useState("simple");
 
   const attributeSchema = useAttributeSchema(true);
 
@@ -150,117 +149,116 @@ export default function AttributeForm({
     );
   };
 
-  return (
-    <>
-      <div>
-        <h4>Attributes</h4>
-        <TabButtons className="mb-0 pb-0">
-          <TabButton
-            active={tab === "simple"}
-            display={<>Form</>}
-            anchor="simple"
-            onClick={() => {
-              setTab("simple");
-              updateFormValues(true);
-            }}
-            newStyle={false}
-            activeClassName="active-tab"
-          />
-          <TabButton
-            active={tab === "adv"}
-            display={<>JSON</>}
-            anchor="adv"
-            onClick={() => {
-              setTab("adv");
-              try {
-                const parsed = JSON.parse(jsonAttributes);
-                setFormValues(parsed);
-                onChange(parsed);
-              } catch (e) {
-                setJsonErrors(e.message);
-              }
-            }}
-            newStyle={false}
-            activeClassName="active-tab"
-            last={false}
-          />
-        </TabButtons>
-
-        <div
-          className={`border border-secondary rounded ${styles.attributeBox} pb-2 bg-light`}
-        >
-          {tab === "simple" ? (
-            <div className=" form-group rounded">
-              <div
-                className={`${styles.attrHeader} d-flex flex-row align-items-center justify-content-between small border-bottom p-1 mb-2 sticky-top`}
-              >
-                <div className="col-6">
-                  <strong>Name</strong>
-                </div>
-                <div className="col-6">
-                  <strong>Value</strong>
-                </div>
-              </div>
-              {orderedAttributes.length ? (
-                orderedAttributes.map((attribute, i) =>
-                  attributeInput(attribute, i)
-                )
-              ) : (
-                <>No attributes defined yet</>
-              )}
+  // Define the tabs configuration
+  const tabs: TabConfig[] = [
+    {
+      slug: "simple",
+      label: "Form",
+      content: (
+        <div className=" form-group rounded">
+          <div
+            className={`${styles.attrHeader} d-flex flex-row align-items-center justify-content-between small border-bottom p-1 mb-2 sticky-top`}
+          >
+            <div className="col-6">
+              <strong>Name</strong>
             </div>
+            <div className="col-6">
+              <strong>Value</strong>
+            </div>
+          </div>
+          {orderedAttributes.length ? (
+            orderedAttributes.map((attribute, i) =>
+              attributeInput(attribute, i)
+            )
           ) : (
-            <div className="p-2">
-              <div className=" form-group rounded">
-                <Field
-                  label={`JSON Values`}
-                  value={jsonAttributes}
-                  onChange={(e) => {
-                    setJsonAttributes(e.target.value);
-                    setJsonErrors(null);
-                  }}
-                  onBlur={(e) => {
+            <>No attributes defined yet</>
+          )}
+        </div>
+      ),
+    },
+    {
+      slug: "adv",
+      label: "JSON",
+      content: (
+        <div className="p-2">
+          <div className=" form-group rounded">
+            <Field
+              label={`JSON Values`}
+              value={jsonAttributes}
+              onChange={(e) => {
+                setJsonAttributes(e.target.value);
+                setJsonErrors(null);
+              }}
+              onBlur={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value);
+                  setFormValues(parsed);
+                  onChange(parsed);
+                } catch (e) {
+                  setJsonErrors(e.message);
+                }
+              }}
+              textarea={true}
+              minRows={30}
+              containerClassName="mb-0"
+              helpText={`Enter user attributes in JSON format.`}
+            />
+            {jsonErrors && (
+              <div className="text-danger">
+                Error parsing JSON: {jsonErrors}
+              </div>
+            )}
+            {useJSONButton && (
+              <div className="text-right">
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  onClick={(e) => {
+                    e.preventDefault();
                     try {
-                      const parsed = JSON.parse(e.target.value);
+                      const parsed = JSON.parse(jsonAttributes);
                       setFormValues(parsed);
                       onChange(parsed);
                     } catch (e) {
                       setJsonErrors(e.message);
                     }
                   }}
-                  textarea={true}
-                  minRows={30}
-                  containerClassName="mb-0"
-                  helpText={`Enter user attributes in JSON format.`}
-                />
-                {jsonErrors && (
-                  <div className="text-danger">
-                    Error parsing JSON: {jsonErrors}
-                  </div>
-                )}
-                {useJSONButton && (
-                  <div className="text-right">
-                    <button
-                      type="submit"
-                      className="btn btn-primary"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        try {
-                          const parsed = JSON.parse(jsonAttributes);
-                          setFormValues(parsed);
-                          onChange(parsed);
-                        } catch (e) {
-                          setJsonErrors(e.message);
-                        }
-                      }}
-                    >
-                      {jsonCTA}
-                    </button>
-                  </div>
-                )}
+                >
+                  {jsonCTA}
+                </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <div>
+        <h4>Attributes</h4>
+        <div
+          className={`border border-secondary rounded ${styles.attributeBox} pb-2 bg-light`}
+        >
+          <Tabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={(newTab) => {
+              if (newTab === "adv") {
+                try {
+                  const parsed = JSON.parse(jsonAttributes);
+                  setFormValues(parsed);
+                  onChange(parsed);
+                } catch (e) {
+                  setJsonErrors(e.message);
+                }
+              } else {
+                updateFormValues(true);
+              }
+              setActiveTab(newTab);
+            }}
+          />
         </div>
       </div>
     </>
