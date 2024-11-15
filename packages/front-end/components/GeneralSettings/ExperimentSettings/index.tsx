@@ -37,27 +37,26 @@ export default function ExperimentSettings({
       : "";
   const srmWarningMsg =
     srmThreshold && srmThreshold > 0.01
-      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
+      ? "阈值高于0.01可能会导致误报增多，尤其是在您定期刷新结果的情况下。"
       : srmThreshold && srmThreshold < 0.001
-      ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
-      : "";
+        ? "阈值低于0.001可能会使得在流量不大的情况下难以检测到不平衡情况。"
+        : "";
 
   return (
     <>
       <div className="row">
         <div className="col-sm-3">
-          <h4>Experiment Settings</h4>
+          <h4>实验设置</h4>
         </div>
 
         <div className="col-sm-9">
           <div className="form-inline flex-column align-items-start mb-3">
             <Field
-              label="Minimum experiment length (in days) when importing past
-                  experiments"
+              label="导入过去实验时的最小实验时长（以天为单位）"
               type="number"
               className="ml-2"
               containerClassName="mb-3"
-              append="days"
+              append="天"
               step="1"
               min="0"
               max="31"
@@ -70,7 +69,7 @@ export default function ExperimentSettings({
             />
 
             <Field
-              label="Warn when this percent of experiment users are in multiple variations"
+              label="当此百分比的实验用户处于多个变体中时发出警告"
               type="number"
               step="1"
               min="0"
@@ -93,7 +92,7 @@ export default function ExperimentSettings({
               <SelectField
                 label={
                   <AttributionModelTooltip>
-                    Default Conversion Window Override <FaQuestionCircle />
+                    默认转化窗口覆盖 <FaQuestionCircle />
                   </AttributionModelTooltip>
                 }
                 className="ml-2"
@@ -103,11 +102,11 @@ export default function ExperimentSettings({
                 }}
                 options={[
                   {
-                    label: "Respect Conversion Windows",
+                    label: "遵循转化窗口",
                     value: "firstExposure",
                   },
                   {
-                    label: "Ignore Conversion Windows",
+                    label: "忽略转化窗口",
                     value: "experimentDuration",
                   },
                 ]}
@@ -116,21 +115,21 @@ export default function ExperimentSettings({
 
             <div className="mb-4 form-group flex-column align-items-start">
               <Field
-                label="Experiment Auto-Update Frequency"
+                label="实验自动更新频率"
                 className="ml-2"
                 containerClassName="mb-2 mr-2"
                 disabled={hasFileConfig()}
                 options={[
                   {
-                    display: "When results are X hours old",
+                    display: "当结果为X小时前",
                     value: "stale",
                   },
                   {
-                    display: "Cron Schedule",
+                    display: "定时任务计划",
                     value: "cron",
                   },
                   {
-                    display: "Never",
+                    display: "从不",
                     value: "never",
                   },
                 ]}
@@ -139,8 +138,8 @@ export default function ExperimentSettings({
               {form.watch("updateSchedule")?.type === "stale" && (
                 <div className="bg-light p-3 border">
                   <Field
-                    label="Refresh when"
-                    append="hours old"
+                    label="在结果为多少小时前刷新"
+                    append="小时前"
                     type="number"
                     step={1}
                     min={1}
@@ -154,7 +153,7 @@ export default function ExperimentSettings({
               {form.watch("updateSchedule")?.type === "cron" && (
                 <div className="bg-light p-3 border">
                   <Field
-                    label="Cron String"
+                    label="定时任务字符串"
                     className="ml-2"
                     disabled={hasFileConfig()}
                     {...form.register("updateSchedule.cron")}
@@ -181,20 +180,15 @@ export default function ExperimentSettings({
                   body={
                     <>
                       <p>
-                        If multiple metrics from the same Fact Table are added
-                        to an experiment, this will combine them into a single
-                        query, which is much faster and more efficient.
+                        如果将来自同一事实表的多个指标添加到一个实验中，这将把它们合并为一个查询，这样会更快且更高效。
                       </p>
                       <p>
-                        For data sources with usage-based billing like BigQuery
-                        or SnowFlake, this can result in substantial cost
-                        savings.
+                        对于像BigQuery或SnowFlake这样基于使用量计费的数据源，这可以节省大量成本。
                       </p>
                     </>
                   }
                 >
-                  Fact Table Query Optimization{" "}
-                  <MdInfoOutline className="text-info" />
+                  事实表查询优化{" "} <MdInfoOutline className="text-info" />
                 </PremiumTooltip>
               </label>
               <Toggle
@@ -216,9 +210,9 @@ export default function ExperimentSettings({
           <div className="d-flex form-group mb-3">
             <label className="mr-1" htmlFor="toggle-factTableQueryOptimization">
               <span className="badge badge-purple text-uppercase mr-2">
-                Alpha
+                测试版
               </span>
-              Enable Power Calculator
+              启用功效计算器
             </label>
             <Toggle
               id="toggle-powerCalculator"
@@ -231,11 +225,11 @@ export default function ExperimentSettings({
 
           <StickyBucketingSettings />
 
-          <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
+          <h4 className="mt-4 mb-2">实验健康设置</h4>
           <div className="appbox pt-2 px-3">
             <div className="form-group mb-2 mt-2 mr-2 form-inline">
               <label className="mr-1" htmlFor="toggle-runHealthTrafficQuery">
-                Run traffic query by default
+                默认运行流量查询
               </label>
               <Toggle
                 id="toggle-runHealthTrafficQuery"
@@ -248,7 +242,7 @@ export default function ExperimentSettings({
 
             <div className="mt-3 form-inline flex-column align-items-start">
               <Field
-                label="SRM p-value threshold"
+                label="SRM p值阈值"
                 type="number"
                 step="0.001"
                 style={{
@@ -265,7 +259,7 @@ export default function ExperimentSettings({
                 disabled={hasFileConfig()}
                 helpText={
                   <>
-                    <span className="ml-2">(0.001 is default)</span>
+                    <span className="ml-2">(0.001为默认值)</span>
                     <div
                       className="ml-2"
                       style={{
@@ -289,15 +283,14 @@ export default function ExperimentSettings({
           <div className="mb-3 form-group flex-column align-items-start">
             <PremiumTooltip
               commercialFeature="custom-launch-checklist"
-              premiumText="Custom pre-launch checklists are available to Enterprise customers"
+              premiumText="企业客户可使用自定义启动前检查清单"
             >
               <div className="d-inline-block h4 mt-4 mb-0">
-                Experiment Pre-Launch Checklist
+                实验启动前检查清单
               </div>
             </PremiumTooltip>
             <p className="pt-2">
-              Configure required steps that need to be completed before an
-              experiment can be launched.
+              配置在启动实验之前需要完成的必需步骤。
             </p>
             <Button
               disabled={!hasCommercialFeature("custom-launch-checklist")}
@@ -305,7 +298,7 @@ export default function ExperimentSettings({
                 setEditChecklistOpen(true);
               }}
             >
-              Edit Checklist
+              编辑检查清单
             </Button>
           </div>
         </div>
