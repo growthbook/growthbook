@@ -133,12 +133,17 @@ export function replaceSavedGroupsInCondition(
   return newString;
 }
 
-export function isRuleEnabled(rule: FeatureRule, date?: Date): boolean {
+export function isRuleEnabled(
+  rule: FeatureRule,
+  date?: Date | number
+): boolean {
   // Manually disabled
   if (!rule.enabled) return false;
 
   // Disabled because of an automatic schedule
-  if (!getCurrentEnabledState(rule.scheduleRules || [], date || new Date())) {
+  // when used in filter/some array loops, the second parameter will be the index, which is not a date.
+  const enabledDate = date instanceof Date ? date : new Date();
+  if (!getCurrentEnabledState(rule.scheduleRules || [], enabledDate)) {
     return false;
   }
 
@@ -170,7 +175,7 @@ export function getEnabledEnvironments(
         if (!ruleFilter) return true;
         const env = settings[e];
         if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some(isRuleEnabled);
+        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
