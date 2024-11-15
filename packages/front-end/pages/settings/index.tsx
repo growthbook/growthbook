@@ -221,13 +221,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
             // Transform these values from the UI format
             ...(existingMaxChange !== undefined
               ? {
-                  maxPercentageChange: existingMaxChange * 100,
-                }
+                maxPercentageChange: existingMaxChange * 100,
+              }
               : {}),
             ...(existingMinChange !== undefined
               ? {
-                  minPercentageChange: existingMinChange * 100,
-                }
+                minPercentageChange: existingMinChange * 100,
+              }
               : {}),
           };
         } else {
@@ -293,7 +293,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores."
+        "功能键示例只能包含字母、数字、连字符和下划线。"
       );
     }
 
@@ -304,7 +304,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         !transformedOrgSettings.featureRegexValidator
       ) {
         throw new Error(
-          "Feature key example must not be empty when a regex validator is defined."
+          "当定义了正则验证器时，功能键示例不能为空。"
         );
       }
 
@@ -315,7 +315,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         )
       ) {
         throw new Error(
-          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`
+          `功能键示例与正则验证器不匹配。'${transformedOrgSettings.featureRegexValidator}' 示例: '${transformedOrgSettings.featureKeyExample}'`
         );
       }
     }
@@ -335,7 +335,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <FormProvider {...form}>
       <div className="container-fluid pagecontents">
-        <h1>General Settings</h1>
+        <h1>常规设置</h1>
 
         <div className="mb-1">
           <OrganizationAndLicenseSettings
@@ -378,17 +378,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <div className="row">
               <div className="col-sm-3 h4">
                 <PremiumTooltip commercialFeature="custom-markdown">
-                  Custom Markdown
+                  自定义Markdown
                 </PremiumTooltip>
               </div>
               <div className="col-sm-9">
                 {hasCommercialFeature("custom-markdown") ? (
                   <Link href="/settings/custom-markdown">
-                    View Custom Markdown Settings
+                    查看自定义Markdown设置
                   </Link>
                 ) : (
                   <span className="text-muted">
-                    View Custom Markdown Settings
+                    查看自定义Markdown设置
                   </span>
                 )}
               </div>
