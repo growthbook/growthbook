@@ -14,13 +14,13 @@ export default function BayesianTab({
 }) {
   return (
     <>
-      <h4 className="mb-4 text-purple">Bayesian Settings</h4>
+      <h4 className="mb-4 text-purple">贝叶斯设置</h4>
 
       <div className="form-group mb-2 mr-2 form-inline">
         <Field
-          label="Chance to win threshold"
+          label="获胜概率阈值"
           type="number"
-          step="any"
+          step="任意"
           min="70"
           max="99"
           style={{
@@ -34,7 +34,7 @@ export default function BayesianTab({
           disabled={hasFileConfig()}
           helpText={
             <>
-              <span className="ml-2">(95% is default)</span>
+              <span className="ml-2">(默认值为95%)</span>
               <div
                 className="ml-2"
                 style={{

@@ -23,11 +23,11 @@ export default function FrequentistTab({
 
   return (
     <>
-      <h4 className="mb-4 text-purple">Frequentist Settings</h4>
+      <h4 className="mb-4 text-purple">频率学派设置</h4>
 
       <div className="form-group mb-2 mr-2 form-inline">
         <Field
-          label="P-value threshold"
+          label="P值阈值"
           type="number"
           step="0.001"
           max="0.5"
@@ -42,7 +42,7 @@ export default function FrequentistTab({
           disabled={hasFileConfig()}
           helpText={
             <>
-              <span className="ml-2">(0.05 is default)</span>
+              <span className="ml-2">(默认值为0.05)</span>
               <div
                 className="ml-2"
                 style={{
@@ -63,7 +63,7 @@ export default function FrequentistTab({
       </div>
       <div className="mb-3  form-inline flex-column align-items-start">
         <SelectField
-          label={"Multiple comparisons correction to use: "}
+          label="要使用的多重比较校正："
           className="ml-2"
           value={form.watch("pValueCorrection") ?? ""}
           onChange={(value) =>
@@ -72,15 +72,15 @@ export default function FrequentistTab({
           sort={false}
           options={[
             {
-              label: "None",
+              label: "无",
               value: "",
             },
             {
-              label: "Holm-Bonferroni (Control FWER)",
+              label: "霍尔姆 - 邦费罗尼（控制FWER）",
               value: "holm-bonferroni",
             },
             {
-              label: "Benjamini-Hochberg (Control FDR)",
+              label: "本雅明尼 - 霍赫贝格（控制FDR）",
               value: "benjamini-hochberg",
             },
           ]}
@@ -90,13 +90,13 @@ export default function FrequentistTab({
       <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
           <PremiumTooltip commercialFeature="sequential-testing">
-            <GBSequential /> Sequential Testing
+            <GBSequential /> 顺序检验
           </PremiumTooltip>
         </h5>
         <div className="form-group mb-0 mr-2">
           <div className="d-flex">
             <label className="mr-1" htmlFor="toggle-sequentialTestingEnabled">
-              Apply sequential testing by default
+              默认应用顺序检验
             </label>
             <Toggle
               id={"toggle-sequentialTestingEnabled"}
@@ -113,9 +113,7 @@ export default function FrequentistTab({
             form.watch("statsEngine") === "bayesian" && (
               <div className="d-flex">
                 <small className="mb-1 text-warning-orange">
-                  <FaExclamationTriangle /> Your organization uses Bayesian
-                  statistics by default and sequential testing is not
-                  implemented for the Bayesian engine.
+                  <FaExclamationTriangle /> 您的组织默认使用贝叶斯统计，且贝叶斯引擎未实现顺序检验。
                 </small>
               </div>
             )}
@@ -127,7 +125,7 @@ export default function FrequentistTab({
           }}
         >
           <Field
-            label="Tuning parameter"
+            label="调优参数"
             type="number"
             className={`ml-2`}
             containerClassName="mb-0"
@@ -138,7 +136,7 @@ export default function FrequentistTab({
             helpText={
               <>
                 <span className="ml-2">
-                  ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER} is default)
+                  （{DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}为默认值）
                 </span>
               </>
             }

@@ -46,7 +46,7 @@ export default function StatsEngineSettings() {
 
   const { hasCommercialFeature } = useUser();
 
-  // form loads values async, this updates the tab when it finally does
+  // 表单异步加载值，当值最终加载完成时更新选项卡
   useEffect(() => {
     setStatsEngineTab(statsEngine);
   }, [statsEngine]);
@@ -56,25 +56,25 @@ export default function StatsEngineSettings() {
       ? confidenceLevel < 70
         ? "#c73333"
         : confidenceLevel < 80
-        ? "#e27202"
-        : confidenceLevel < 90
-        ? "#B39F01"
-        : ""
+          ? "#e27202"
+          : confidenceLevel < 90
+            ? "#B39F01"
+            : ""
       : "";
 
   const warningMsg =
     typeof confidenceLevel !== "undefined"
       ? confidenceLevel === 70
-        ? "This is as low as it goes"
+        ? "这已经是最低值了"
         : confidenceLevel < 75
-        ? "Confidence thresholds this low are not recommended"
-        : confidenceLevel < 80
-        ? "Confidence thresholds this low are not recommended"
-        : confidenceLevel < 90
-        ? "Use caution with values below 90%"
-        : confidenceLevel >= 99
-        ? "Confidence levels 99% and higher can take lots of data to achieve"
-        : ""
+          ? "不建议使用这么低的置信阈值"
+          : confidenceLevel < 80
+            ? "不建议使用这么低的置信阈值"
+            : confidenceLevel < 90
+              ? "使用低于90%的值时要小心"
+              : confidenceLevel >= 99
+                ? "达到99%及更高的置信水平可能需要大量数据"
+                : ""
       : "";
 
   const pHighlightColor =
@@ -82,25 +82,25 @@ export default function StatsEngineSettings() {
       ? pValueThreshold > 0.3
         ? "#c73333"
         : pValueThreshold > 0.2
-        ? "#e27202"
-        : pValueThreshold > 0.1
-        ? "#B39F01"
-        : ""
+          ? "#e27202"
+          : pValueThreshold > 0.1
+            ? "#B39F01"
+            : ""
       : "";
 
   const pWarningMsg =
     typeof pValueThreshold !== "undefined"
       ? pValueThreshold === 0.5
-        ? "This is as high as it goes"
+        ? "这已经是最高值了"
         : pValueThreshold > 0.25
-        ? "P-value thresholds this high are not recommended"
-        : pValueThreshold > 0.2
-        ? "P-value thresholds this high are not recommended"
-        : pValueThreshold > 0.1
-        ? "Use caution with values above 0.1"
-        : pValueThreshold <= 0.01
-        ? "Threshold values of 0.01 and lower can take lots of data to achieve"
-        : ""
+          ? "不建议使用这么高的P值阈值"
+          : pValueThreshold > 0.2
+            ? "不建议使用这么高的P值阈值"
+            : pValueThreshold > 0.1
+              ? "使用高于0.1的值时要小心"
+              : pValueThreshold <= 0.01
+                ? "达到0.01及更低的阈值可能需要大量数据"
+                : ""
       : "";
 
   const regressionAdjustmentDaysHighlightColor =
@@ -113,18 +113,18 @@ export default function StatsEngineSettings() {
   const regressionAdjustmentDaysWarningMsg =
     typeof regressionAdjustmentDays !== "undefined"
       ? regressionAdjustmentDays > 28
-        ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+        ? "较长的回溯期有时可能有用，但也会降低查询性能，并且可能包含不太有用的数据"
         : regressionAdjustmentDays < 7
-        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-        : ""
+          ? "7天以下的回溯期往往无法捕获足够的指标数据来降低方差，并且可能受到每周季节性的影响"
+          : ""
       : "";
 
   return (
     <div className="mb-3 form-group flex-column align-items-start">
-      <h4>Stats Engine Settings</h4>
+      <h4>统计引擎设置</h4>
 
       <StatsEngineSelect
-        label="Default Statistics Engine"
+        label="默认统计引擎"
         allowUndefined={false}
         value={form.watch("statsEngine")}
         onChange={(value) => {
@@ -141,7 +141,7 @@ export default function StatsEngineSettings() {
         active={statsEngineTab}
         setActive={(v) => setStatsEngineTab(v || DEFAULT_STATS_ENGINE)}
       >
-        <Tab id="bayesian" display="Bayesian">
+        <Tab id="bayesian" display="贝叶斯">
           <BayesianTab
             {...{
               highlightColor,
@@ -150,7 +150,7 @@ export default function StatsEngineSettings() {
             }}
           />
         </Tab>
-        <Tab id="frequentist" display="Frequentist">
+        <Tab id="frequentist" display="频率学派">
           <FrequentistTab
             {...{
               pHighlightColor,
@@ -166,7 +166,7 @@ export default function StatsEngineSettings() {
       <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
           <PremiumTooltip commercialFeature="regression-adjustment">
-            <GBCuped /> Regression Adjustment (CUPED)
+            <GBCuped /> 回归调整（CUPED）
           </PremiumTooltip>
         </h5>
         <div className="form-group mb-0 mr-2">
@@ -175,7 +175,7 @@ export default function StatsEngineSettings() {
               className="mr-1"
               htmlFor="toggle-regressionAdjustmentEnabled"
             >
-              Apply regression adjustment by default
+              默认应用回归调整
             </label>
             <Toggle
               id={"toggle-regressionAdjustmentEnabled"}
@@ -184,8 +184,7 @@ export default function StatsEngineSettings() {
                 form.setValue("regressionAdjustmentEnabled", value);
               }}
               disabled={
-                !hasCommercialFeature("regression-adjustment") ||
-                hasFileConfig()
+                !hasCommercialFeature("regression-adjustment") || hasFileConfig()
               }
             />
           </div>
@@ -197,7 +196,7 @@ export default function StatsEngineSettings() {
           }}
         >
           <Field
-            label="Pre-exposure lookback period (days)"
+            label="曝光前回溯期（天）"
             type="number"
             style={{
               borderColor: regressionAdjustmentDaysHighlightColor,
@@ -207,7 +206,7 @@ export default function StatsEngineSettings() {
             }}
             className={`ml-2`}
             containerClassName="mb-0"
-            append="days"
+            append="天"
             min="0"
             max="100"
             disabled={
@@ -216,7 +215,7 @@ export default function StatsEngineSettings() {
             helpText={
               <>
                 <span className="ml-2">
-                  ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is default)
+                  （{DEFAULT_REGRESSION_ADJUSTMENT_DAYS}为默认值）
                 </span>
               </>
             }
