@@ -22,9 +22,7 @@ export default function FeaturesSettings() {
   const form = useFormContext();
   const { projects } = useDefinitions();
 
-  const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes"
-  );
+  const hasSecureAttributesFeature = hasCommercialFeature("hash-secure-attributes");
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
@@ -51,7 +49,7 @@ export default function FeaturesSettings() {
   return (
     <div className="row">
       <div className="col-sm-3">
-        <h4>Features Settings</h4>
+        <h4>功能设置</h4>
       </div>
       <div className="col-sm-9">
         <div className="form-inline">
@@ -62,34 +60,21 @@ export default function FeaturesSettings() {
                 body={
                   <>
                     <p>
-                      Feature targeting conditions referencing{" "}
-                      <code>secureString</code> attributes will be anonymized
-                      via SHA-256 hashing. When evaluating feature flags in a
-                      public or insecure environment (such as a browser),
-                      hashing provides an additional layer of security through
-                      obfuscation. This allows you to target users based on
-                      sensitive attributes.
+                      引用 <code>secureString</code> 属性的功能定向条件将通过SHA - 256哈希进行匿名化处理。在公共或不安全环境（如浏览器）中评估功能标记时，哈希通过混淆提供了额外的安全层。这使您能够基于敏感属性定位用户。
                     </p>
                     <p>
-                      You must enable this feature in your SDK Connection for it
-                      to take effect.
+                      您必须在SDK连接中启用此功能，它才能生效。
                     </p>
                     <p>
-                      You may add a cryptographic salt string (a random string
-                      of your choosing) to the hashing algorithm, which helps
-                      defend against hash lookup vulnerabilities.
+                      您可以向哈希算法添加一个加密盐字符串（您自行选择的随机字符串），这有助于防范哈希查找漏洞。
                     </p>
                     <p className="mb-0 text-warning-orange small">
-                      <FaExclamationCircle /> When using an insecure
-                      environment, do not rely exclusively on hashing as a means
-                      of securing highly sensitive data. Hashing is an
-                      obfuscation technique that makes it very difficult, but
-                      not impossible, to extract sensitive data.
+                      <FaExclamationCircle /> 在使用不安全环境时，不要仅仅依赖哈希作为保护高度敏感数据的手段。哈希是一种混淆技术，它使得提取敏感数据非常困难，但并非不可能。
                     </p>
                   </>
                 }
               >
-                Salt string for secure attributes <FaQuestionCircle />
+                安全属性的盐字符串 <FaQuestionCircle />
               </PremiumTooltip>
             }
             disabled={!hasSecureAttributesFeature}
@@ -101,7 +86,7 @@ export default function FeaturesSettings() {
         </div>
         <div>
           <label htmlFor="featureKeyExample">
-            Feature Key Example (Optional)
+            功能键示例（可选）
           </label>
           <Field
             id="featureKeyExample"
@@ -110,15 +95,13 @@ export default function FeaturesSettings() {
           />
           <p>
             <small className="text-muted mb-3">
-              When creating a new feature, this example will be shown. Only
-              letters, numbers, and the characters _, -, ., :, and | allowed. No
-              spaces.
+              创建新功能时，将显示此示例。只允许使用字母、数字以及字符 _、-、.、: 和 | 。不允许有空格。
             </small>
           </p>
         </div>
         <div>
           <label htmlFor="featureRegexValidator">
-            Feature Key Regex Validator (Optional)
+            功能键正则验证器（可选）
           </label>
           <Field
             id="featureRegexValidator"
@@ -127,15 +110,13 @@ export default function FeaturesSettings() {
           />
           <p>
             <small className="text-muted mb-3">
-              When using the create feature modal, it will validate the feature
-              key against this regex. This will not block API feature creation,
-              and is used to enforce naming conventions at some companies.
+              使用创建功能模态框时，它将根据此正则表达式验证功能键。这不会阻止通过API创建功能，并且在一些公司用于强制实施命名约定。
             </small>
           </p>
         </div>
         <div>
           <label className="mr-1" htmlFor="toggle-killswitchConfirmation">
-            Require confirmation when changing an environment kill switch
+            更改环境关闭开关时需要确认
           </label>
         </div>
         <div>
@@ -149,14 +130,14 @@ export default function FeaturesSettings() {
         </div>
         {hasRequireApprovals && (
           <>
-            <div className="d-inline-block h4 mt-5 mb-2">Approval Flow</div>
+            <div className="d-inline-block h4 mt-5 mb-2">审批流程</div>
             {form.watch("requireReviews")?.map?.((requireReviews, i) => (
               <div className="appbox py-2 px-3" key={`approval-flow-${i}`}>
                 <label
                   className="mr-1 mt-3 d-block"
                   htmlFor={`toggle-require-reviews-${i}`}
                 >
-                  Require approval to publish changes
+                  发布更改需要审批
                 </label>
                 <div>
                   <Toggle
@@ -174,7 +155,7 @@ export default function FeaturesSettings() {
                 {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
                   <div className="mt-3">
                     <label htmlFor={`projects-${i}`} className="h5">
-                      Projects
+                      项目
                     </label>
                     <MultiSelectField
                       id={`projects-${i}`}
@@ -188,10 +169,10 @@ export default function FeaturesSettings() {
                           label: e.name,
                         };
                       })}
-                      placeholder="All Projects"
+                      placeholder="所有项目"
                     />
                     <label htmlFor={`environments-${i}`} className="h5 mt-3">
-                      Environments
+                      环境
                     </label>
                     <MultiSelectField
                       id={`environments-${i}`}
@@ -210,13 +191,13 @@ export default function FeaturesSettings() {
                           label: e.id,
                         };
                       })}
-                      placeholder="All Environments"
+                      placeholder="所有环境"
                     />
                     <label
                       className="d-block mt-3 h5"
                       htmlFor={`toggle-reset-review-on-change-${i}`}
                     >
-                      Reset review on changes
+                      更改时重置审核
                     </label>
                     <Toggle
                       id={`toggle-reset-review-on-change-${i}`}
@@ -242,13 +223,12 @@ export default function FeaturesSettings() {
               className="d-inline-block h4 mt-4 mb-0"
               id="configure-code-refs"
             >
-              Configure Code References
+              配置代码引用
             </div>
           </PremiumTooltip>
           <div>
             <label className="mr-1" htmlFor="toggle-codeReferences">
-              Enable displaying code references for feature flags in the
-              GrowthBook UI
+              在GrowthBook用户界面中启用显示功能标记的代码引用
             </label>
           </div>
           <div className="my-2">
@@ -264,14 +244,13 @@ export default function FeaturesSettings() {
           {form.watch("codeReferencesEnabled") ? (
             <>
               <div className="my-4">
-                <h4>Code References Setup</h4>
+                <h4>代码引用设置</h4>
                 <div className="appbox my-4 p-3">
                   <div className="row">
                     <div className="col-sm-9">
-                      <strong>For GitHub Users</strong>
+                      <strong>对于GitHub用户</strong>
                       <p className="my-2">
-                        Use our all-in-one GitHub Action to integrate GrowthBook
-                        into your CI workflow.
+                        使用我们的一站式GitHub操作将GrowthBook集成到您的持续集成工作流程中。
                       </p>
                     </div>
                     <div className="col-sm-3 text-right">
@@ -280,7 +259,7 @@ export default function FeaturesSettings() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Setup
+                        设置
                       </a>
                     </div>
                   </div>
@@ -289,19 +268,16 @@ export default function FeaturesSettings() {
                 <div className="appbox my-4 p-3">
                   <div className="row">
                     <div className="col-sm-9">
-                      <strong>For Non-GitHub Users</strong>
+                      <strong>对于非GitHub用户</strong>
                       <p className="my-2">
-                        Use our CLI utility that takes in a list of feature keys
-                        and scans your codebase to provide a JSON output of code
-                        references, which you can supply to our code references{" "}
+                        使用我们的命令行工具，它接收功能键列表并扫描您的代码库，以提供代码引用的JSON输出，您可以将其提供给我们的代码引用{" "}
                         <a
                           href="https://docs.growthbook.io/api#tag/code-references"
                           target="_blank"
                           rel="noreferrer"
                         >
-                          REST API endpoint
-                        </a>
-                        .
+                          REST API端点
+                        </a>.
                       </p>
                     </div>
                     <div className="col-sm-3 text-right">
@@ -310,7 +286,7 @@ export default function FeaturesSettings() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        CLI Utility
+                        命令行工具
                       </a>{" "}
                       |{" "}
                       <a
@@ -318,7 +294,7 @@ export default function FeaturesSettings() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Docker Image
+                        Docker镜像
                       </a>
                     </div>
                   </div>
@@ -326,8 +302,7 @@ export default function FeaturesSettings() {
               </div>
               <div className="my-4">
                 <strong>
-                  Only show code refs from the following branches
-                  (comma-separated, optional):
+                  仅显示以下分支的代码引用（逗号分隔，可选）：
                 </strong>
                 <Field
                   className="my-2"
@@ -342,7 +317,7 @@ export default function FeaturesSettings() {
               </div>
 
               <div className="my-4">
-                <strong>Platform (to allow direct linking, optional):</strong>
+                <strong>平台（用于允许直接链接，可选）：</strong>
                 <div className="d-flex">
                   <SelectField
                     className="my-2"
