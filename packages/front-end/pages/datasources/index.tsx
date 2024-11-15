@@ -38,8 +38,8 @@ const DataSourcesPage: FC = () => {
 
   const filteredDatasources = (project
     ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
-      )
+      isProjectListValidForProject(ds.projects, project)
+    )
     : datasources
   ).filter((ds) => !ds.projects?.includes(demoProjectId || ""));
 
@@ -67,7 +67,7 @@ const DataSourcesPage: FC = () => {
         />
       )}
       <div className="d-flex align-items-center mb-3">
-        <h1>Data Sources</h1>
+        <h1>数据源</h1>
         <div className="ml-auto" />
         {!hasFileConfig() && !demoDataSourceExists && (
           <Button
@@ -76,7 +76,7 @@ const DataSourcesPage: FC = () => {
                 await apiCall("/demo-datasource-project", {
                   method: "POST",
                 });
-                track("Create Sample Project", {
+                track("创建示例项目", {
                   source: "sample-project-page",
                 });
                 if (demoProjectId) {
@@ -89,12 +89,12 @@ const DataSourcesPage: FC = () => {
             }}
             variant="soft"
           >
-            View Sample Data Source
+            查看示例数据源
           </Button>
         )}
         {demoDataSourceExists && demoProjectId && demoDataSourceId ? (
           <LinkButton href={`/datasources/${demoDataSourceId}`} variant="soft">
-            View Sample Data Source
+            查看示例数据源
           </LinkButton>
         ) : null}
         {!hasFileConfig() &&
@@ -103,13 +103,13 @@ const DataSourcesPage: FC = () => {
               disabled={currentProjectIsDemo}
               title={
                 currentProjectIsDemo
-                  ? "You cannot create a datasource under the demo project"
+                  ? "您无法在演示项目下创建数据源"
                   : ""
               }
               onClick={() => setNewModalData({})}
               ml="2"
             >
-              Add Data Source
+              添加数据源
             </Button>
           )}
       </div>
@@ -119,19 +119,18 @@ const DataSourcesPage: FC = () => {
         <div className="bg-white p-5 mb-3">
           <div className="text-center mt-3">
             <h2 className="h1 mb-2">
-              Automatically Fetch Experiment Results &amp; Metric Values
+              自动获取实验结果和指标值
             </h2>
             <p className="mb-4">
-              GrowthBook is Warehouse Native, which means we sit on top of your
-              existing data instead of storing our own copy.
+              GrowthBook是原生仓库型的，这意味着我们基于您现有的数据，而不是存储我们自己的数据副本。
               <br />
-              This approach is cheaper, more secure, and more flexible.
+              这种方式更经济、更安全、更灵活。
             </p>
           </div>
           <hr className="my-4" />
           <div className="mb-3 d-flex flex-column align-items-center justify-content-center w-100">
             <div className="mb-3">
-              <h3>Where do you store your analytics data? Pick One:</h3>
+              <h3>您将分析数据存储在哪里？请选择一项：</h3>
             </div>
 
             <DataSourceTypeSelector
@@ -147,7 +146,7 @@ const DataSourcesPage: FC = () => {
                   params: option.default,
                 } as Partial<DataSourceInterfaceWithParams>);
 
-                track("Data Source Type Selected", {
+                track("数据源类型已选择", {
                   type: value,
                   newDatasourceForm: true,
                 });
@@ -155,10 +154,9 @@ const DataSourcesPage: FC = () => {
             />
 
             <Callout status="info" mt="5">
-              Don&apos;t have a data warehouse yet? We recommend using BigQuery
-              with Google Analytics.{" "}
+              还没有数据仓库吗？我们推荐使用带有Google Analytics的Google BigQuery。{" "}
               <DocLink docSection="ga4BigQuery">
-                Learn more <FaExternalLinkAlt />
+                了解更多 <FaExternalLinkAlt />
               </DocLink>
             </Callout>
           </div>

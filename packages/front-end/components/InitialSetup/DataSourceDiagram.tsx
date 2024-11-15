@@ -7,21 +7,19 @@ export default function DataSourceDiagram({
 }) {
   return (
     <div className={className}>
-      <h3 className="mb-2">How A/B Test Analysis Works at GrowthBook</h3>
+      <h3 className="mb-2">GrowthBook中A/B测试分析的工作原理</h3>
       <ol>
         <li>
-          Track events from your app into your data warehouse, just like you
-          normally would
+          像往常一样将应用程序中的事件跟踪到数据仓库中。
         </li>
         <li>
-          Connect GrowthBook to your warehouse and define metrics using SQL
+          将GrowthBook连接到您的仓库，并使用SQL定义指标。
         </li>
         <li>
-          GrowthBook queries your warehouse and uses a stats engine to analyze
-          experiment results
+          GrowthBook会查询您的仓库，并使用统计引擎来分析实验结果。
         </li>
       </ol>
-      Example:
+      示例：
       <div className="d-flex align-items-center position-relative mt-3">
         <div
           className="appbox mb-0 p-3 d-flex flex-wrap justify-content-center"
@@ -34,14 +32,14 @@ export default function DataSourceDiagram({
           />
           <div className="col">
             <h5 className="mb-0">Google Analytics v4</h5>
-            <strong className="text-muted">Event Tracker</strong>
+            <strong className="text-muted">事件跟踪器</strong>
           </div>
         </div>
         <div className={styles.rightArrow}>
-          <span>Events</span>
+          <span>事件</span>
         </div>
         <div
-          className="appbox mb-0  p-3 d-flex flex-wrap justify-content-center"
+          className="appbox mb-0 p-3 d-flex flex-wrap justify-content-center"
           style={{ maxWidth: 325 }}
         >
           <img
@@ -51,11 +49,11 @@ export default function DataSourceDiagram({
           />
           <div className="col">
             <h5 className="mb-0">Big Query</h5>
-            <strong className="text-muted">Data Warehouse</strong>
+            <strong className="text-muted">数据仓库</strong>
           </div>
         </div>
         <div className={styles.leftArrow}>
-          <span>Metric SQL queries</span>
+          <span>指标SQL查询</span>
         </div>
         <div
           className="appbox mb-0 p-3 d-flex align-items-center flex-wrap justify-content-center"

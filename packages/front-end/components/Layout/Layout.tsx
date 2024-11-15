@@ -81,11 +81,11 @@ const navlinks: SidebarLinkProps[] = [
       //   href: "/segments",
       //   path: /^segment/,
       // },
-      {
-        name: "维度",
-        href: "/dimensions",
-        path: /^dimension/,
-      },
+      // {
+      //   name: "维度",
+      //   href: "/dimensions",
+      //   path: /^dimension/,
+      // },
       {
         name: "数据源",
         href: "/datasources",
