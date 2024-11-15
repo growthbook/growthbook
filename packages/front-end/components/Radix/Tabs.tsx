@@ -2,7 +2,7 @@ import { Tabs as RadixTabs } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import useURLHash from "@/hooks/useURLHash";
 
-type TabConfig = {
+export type TabConfig = {
   slug: string;
   label: ReactNode;
   content: ReactNode;
