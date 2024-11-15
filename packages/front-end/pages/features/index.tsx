@@ -133,7 +133,7 @@ export default function FeaturesPage() {
     [staleFeatures, getProjectById]
   );
 
-  // Searching
+  // 搜索相关
   const tagsFilter = useTagsFilter("features");
   const filterResults = useCallback(
     (items: typeof features) => {
@@ -154,7 +154,7 @@ export default function FeaturesPage() {
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
               <Field
-                placeholder="Search..."
+                placeholder="搜索..."
                 type="search"
                 {...searchInputProps}
               />
@@ -205,14 +205,14 @@ export default function FeaturesPage() {
                 </th>
                 <th>Rules</th>
                 <th>Version</th>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
+                <SortableTH field="dateUpdated">最后更新时间</SortableTH>
                 {showGraphs && (
                   <th>
                     Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                    <Tooltip body="客户端在过去30分钟内对功能的评估。蓝色表示功能处于“开启”状态，灰色表示处于“关闭”状态。" />
                   </th>
                 )}
-                <th>Stale</th>
+                <th>过期状态</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -223,7 +223,7 @@ export default function FeaturesPage() {
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
                 );
 
-                // When showing a summary of rules, prefer experiments to rollouts to force rules
+                // 当展示规则摘要时，优先展示实验规则，然后是推出规则，最后是强制规则
                 const orderedRules = [
                   ...rules.filter((r) => r.type === "experiment"),
                   ...rules.filter((r) => r.type === "rollout"),
@@ -273,7 +273,7 @@ export default function FeaturesPage() {
                           <Tooltip
                             body={
                               <>
-                                Project <code>{feature.project}</code> not found
+                                项目 <code>{feature.project}</code> 未找到
                               </>
                             }
                           >
@@ -345,7 +345,7 @@ export default function FeaturesPage() {
                     <td style={{ textAlign: "center" }}>
                       {version}
                       {feature?.hasDrafts ? (
-                        <Tooltip body="This feature has an active draft that has not been published yet">
+                        <Tooltip body="此功能有一个未发布的活动草稿。">
                           <FaTriangleExclamation
                             className="text-warning ml-1"
                             style={{ marginTop: -3 }}
@@ -382,9 +382,9 @@ export default function FeaturesPage() {
                     <td>
                       <MoreMenu>
                         {permissionsUtil.canCreateFeature(feature) &&
-                        permissionsUtil.canManageFeatureDrafts({
-                          project: feature.projectId,
-                        }) ? (
+                          permissionsUtil.canManageFeatureDrafts({
+                            project: feature.projectId,
+                          }) ? (
                           <button
                             className="dropdown-item"
                             onClick={() => {
@@ -402,7 +402,7 @@ export default function FeaturesPage() {
               })}
               {!items.length && (
                 <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                  <td colSpan={showGraphs ? 7 : 6}>没有匹配的功能</td>
                 </tr>
               )}
             </tbody>
@@ -424,45 +424,40 @@ export default function FeaturesPage() {
 
   const searchTermFilterExplainations = (
     <>
-      <p>This search field supports advanced syntax search, including:</p>
+      <p>此搜索字段支持高级语法搜索，包括：</p>
       <ul>
         <li>
-          <strong>key</strong>: The feature&apos;s key (name)
+          <strong>功能键</strong>：功能的键（名称）
         </li>
         <li>
-          <strong>owner</strong>: The creator of the feature (eg: owner:abby)
+          <strong>创建者</strong>：功能的创建者（例如：创建者:abby）
         </li>
         <li>
-          <strong>rules</strong>: Matches based on the number of rules (eg:
-          rules:&gt;2)
+          <strong>规则</strong>：根据规则数量进行匹配（例如：规则:&gt;2）
         </li>
         <li>
-          <strong>tag</strong>: Features tagged with this tag
+          <strong>标签</strong>：带有此标签的功能
         </li>
         <li>
-          <strong>project</strong>: The feature&apos;s project
+          <strong>项目</strong>：功能所属的项目
         </li>
         <li>
-          <strong>version</strong>: The feature&apos;s revision number
+          <strong>版本</strong>：功能的修订版本号
         </li>
         <li>
-          <strong>experiment</strong>: The feature is linked to the specified
-          experiment
+          <strong>实验</strong>：功能与指定的实验相关联
         </li>
         <li>
-          <strong>created</strong>:The feature&apos;s creation date, in UTC.
-          Date entered is parsed so supports most formats.
+          <strong>创建时间</strong>：功能的创建日期，采用UTC时间。输入的日期会进行解析，支持大多数格式。
         </li>
         <li>
-          <strong>on</strong>: Shows features that are on for a specific
-          environment (on:production)
+          <strong>开启</strong>：显示在特定环境中处于开启状态的功能（开启:生产环境）
         </li>
         <li>
-          <strong>off</strong>: Shows features that are off for a specific
-          environment (off:dev)
+          <strong>关闭</strong>：显示在特定环境中处于关闭状态的功能（关闭:开发环境）
         </li>
       </ul>
-      <p>Click to see all syntax fields supported in our docs.</p>
+      <p>点击查看我们文档中支持的所有语法字段。</p>
     </>
   );
 
@@ -472,13 +467,13 @@ export default function FeaturesPage() {
     searchFields: ["id^3", "description", "tags^2", "defaultValue"],
     filterResults,
     updateSearchQueryOnChange: true,
-    localStorageKey: "features",
+    localStorageKey: "功能列表",
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType];
         if (item.archived) is.push("archived");
         if (item.hasDrafts) is.push("draft");
-        if (item.stale) is.push("stale");
+        if (item.stale) is.push("过期");
         return is;
       },
       has: (item) => {
@@ -561,12 +556,12 @@ export default function FeaturesPage() {
   const end = start + NUM_PER_PAGE;
   const featureItems = items.slice(start, end);
 
-  // Reset to page 1 when a filter is applied
+  // 当应用筛选器时重置到第1页
   useEffect(() => {
     setCurrentPage(1);
   }, [items.length]);
 
-  // Reset featureToDuplicate when modal is closed
+  // 当模态框关闭时重置待复制特性
   useEffect(() => {
     if (modalOpen) return;
     setFeatureToDuplicate(null);
@@ -575,7 +570,7 @@ export default function FeaturesPage() {
   if (error) {
     return (
       <div className="alert alert-danger">
-        An error occurred: {error.message}
+        发生错误：{error.message}
       </div>
     );
   }
@@ -583,10 +578,10 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  // 如果选中“所有项目”且某个项目中有一些实验，则显示项目列
   const showProjectColumn = !project && features.some((f) => f.project);
 
-  // Ignore the demo datasource
+  // 忽略演示数据源
   const hasFeatures = features.length > 0;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
@@ -623,7 +618,7 @@ export default function FeaturesPage() {
       )}
       <div className="row mb-3">
         <div className="col">
-          <h1>Features</h1>
+          <h1>Feature</h1>
         </div>
         {features.length > 0 &&
           permissionsUtil.canViewFeatureModal(project) &&
@@ -637,15 +632,13 @@ export default function FeaturesPage() {
                   });
                 }}
               >
-                Add Feature
+                添加Feature
               </Button>
             </div>
           )}
       </div>
       <p>
-        Features enable you to change your app&apos;s behavior from within the
-        GrowthBook UI. For example, turn on/off a sales banner or change the
-        title of your pricing page.{" "}
+        Feature使您能够在GrowthBook UI内更改应用程序的行为。例如，打开/关闭销售横幅或更改定价页面的标题。
       </p>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />
@@ -656,17 +649,15 @@ export default function FeaturesPage() {
             className="appbox d-flex flex-column align-items-center"
             style={{ padding: "70px 305px 60px 305px" }}
           >
-            <h1>Change your App&apos;s Behavior</h1>
+            <h1>更改应用程序的行为</h1>
             <p style={{ fontSize: "17px" }}>
-              Use Feature Flags to change your app&apos;s behavior. For example,
-              turn a sales banner on or off, or enable a new feature for Beta
-              users only.
+              使用Feature标志来更改应用程序的行为。例如，打开或关闭销售横幅，或仅为测试版用户启用新Feature。
             </p>
             <div className="row">
               <Link href="/getstarted/feature-flag-guide">
                 {" "}
                 <button className="btn btn-outline-primary mr-2">
-                  Setup Instructions
+                  设置说明
                 </button>
               </Link>
 
@@ -685,7 +676,7 @@ export default function FeaturesPage() {
                     <span className="h4 pr-2 m-0 d-inline-block align-top">
                       <GBAddCircle />
                     </span>
-                    Add Feature
+                    添加Feature
                   </button>
                 )}
             </div>
@@ -693,7 +684,7 @@ export default function FeaturesPage() {
         </>
       ) : (
         <Tabs newStyle={true} defaultTab="all-features">
-          <Tab id="all-features" display="All Features" padding={false}>
+          <Tab id="all-features" display="所有Feature" padding={false}>
             {renderFeaturesTable()}
             <Callout status="info" mt="5" mb="3">
               Looking for <strong>Attributes</strong>,{" "}
@@ -702,7 +693,7 @@ export default function FeaturesPage() {
               <Link href="/sdks">SDK Configuration</Link> tab.
             </Callout>
           </Tab>
-          <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+          <Tab id="drafts" display="草稿" padding={false} lazy={true}>
             <FeaturesDraftTable features={features} />
           </Tab>
         </Tabs>

@@ -40,16 +40,16 @@ const navlinks: SidebarLinkProps[] = [
     className: styles.first,
   },
   {
-    name: "功能特性",
-    href: "/features",
-    Icon: BsFlag,
-    path: /^features/,
-  },
-  {
     name: "A/B实验",
     href: "/experiments",
     path: /^experiment/,
     Icon: GBExperiment,
+  },
+  {
+    name: "Feature",
+    href: "/features",
+    Icon: BsFlag,
+    path: /^features/,
   },
   // {
   //   name: "多臂老虎机",
