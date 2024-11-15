@@ -9,7 +9,7 @@ export default function MetricsSettings() {
   const metricAnalysisDays = form.watch("metricAnalysisDays");
   const metricAnalysisDaysWarningMsg =
     metricAnalysisDays && metricAnalysisDays > 365
-      ? "Using more historical data will slow down metric analysis queries"
+      ? "使用更多历史数据会减慢指标分析查询的速度"
       : "";
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -17,14 +17,14 @@ export default function MetricsSettings() {
   return (
     <div className="row">
       <div className="col-sm-3">
-        <h4>Metrics Settings</h4>
+        <h4>指标设置</h4>
       </div>
       <div className="col-sm-9">
         <div className="form-inline">
           <Field
-            label="Amount of historical data to use on metric analysis page"
+            label="在指标分析页面上使用的历史数据量"
             type="number"
-            append="days"
+            append="天"
             className="ml-2"
             containerClassName="mb-0"
             disabled={hasFileConfig()}
@@ -39,20 +39,18 @@ export default function MetricsSettings() {
           )}
         </div>
 
-        {/* region Metrics Behavior Defaults */}
+        {/* region 指标行为默认值 */}
         <>
-          <h5 className="mt-4">Metrics Behavior Defaults</h5>
+          <h5 className="mt-4">指标行为默认值</h5>
           <p>
-            These are the pre-configured default values that will be used when
-            configuring metrics. You can always change these values on a
-            per-metric basis.
+            这些是配置指标时将使用的预先配置的默认值。您始终可以根据每个指标的情况来更改这些值。
           </p>
 
-          {/* region Minimum Sample Size */}
+          {/* region 最小样本量 */}
           <div>
-            <div className="form-inline">
+            <div className="Minimum Sample Size">
               <Field
-                label="Minimum Sample Size"
+                label="最小样本量"
                 type="number"
                 min={0}
                 className="ml-2"
@@ -66,18 +64,17 @@ export default function MetricsSettings() {
             </div>
             <p>
               <small className="text-muted mb-3">
-                The total count required in an experiment variation before
-                showing results
+                在显示结果之前，实验变体中所需的总计数。
               </small>
             </p>
           </div>
-          {/* endregion Minimum Sample Size */}
+          {/* endregion 最小样本量 */}
 
-          {/* region Maximum Percentage Change */}
+          {/* region 最大百分比变化 */}
           <div>
             <div className="form-inline">
               <Field
-                label="Maximum Percentage Change"
+                label="最大百分比变化"
                 type="number"
                 min={0}
                 append="%"
@@ -92,18 +89,17 @@ export default function MetricsSettings() {
             </div>
             <p>
               <small className="text-muted mb-3">
-                An experiment that changes the metric by more than this percent
-                will be flagged as suspicious
+                如果一个实验使指标的变化超过此百分比，将被标记为可疑。
               </small>
             </p>
           </div>
-          {/* endregion Maximum Percentage Change */}
+          {/* endregion 最大百分比变化 */}
 
-          {/* region Minimum Percentage Change */}
+          {/* region 最小百分比变化 */}
           <div>
-            <div className="form-inline">
+            <div className="表单内联">
               <Field
-                label="Minimum Percentage Change"
+                label="最小百分比变化"
                 type="number"
                 min={0}
                 append="%"
@@ -117,24 +113,23 @@ export default function MetricsSettings() {
               />
             </div>
             <p>
-              <small className="text-muted mb-3">
-                An experiment that changes the metric by less than this percent
-                will be considered a draw
+              <small className="文本-灰色 mb-3">
+                如果一个实验使指标的变化小于此百分比，将被视为平局。
               </small>
             </p>
           </div>
-          {/* endregion Minimum Percentage Change */}
+          {/* endregion 最小百分比变化 */}
         </>
-        {/* endregion Metrics Behavior Defaults */}
+        {/* endregion 指标行为默认值 */}
         <>
           <SelectField
-            label="Display Currency"
+            label="显示货币"
             value={form.watch("displayCurrency") || "USD"}
             options={currencyOptions}
             onChange={(v: string) => form.setValue("displayCurrency", v)}
             required
-            placeholder="Select currency..."
-            helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
+            placeholder="选择货币..."
+            helpText="这应与存储在数据源中的内容匹配，并控制显示的货币符号。"
           />
         </>
       </div>
