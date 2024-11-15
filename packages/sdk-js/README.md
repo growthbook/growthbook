@@ -183,6 +183,42 @@ app.get("/hello", (req, res) => {
 });
 ```
 
+#### Tracking Experiment Views
+
+With the singleton approach, you can either define a `trackingCallback` on the global instance:
+
+```js
+const gb = new GrowthBookMultiUser({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Tracking callback gets the user context as the 3rd argument
+  trackingCallback: (experiment, result, user) => {
+    console.log("Experiment Viewed", user.attributes.id, {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+});
+```
+
+And/or define a `trackingCallback` within the user context:
+
+```js
+const userContext = {
+  attributes: {
+    id: req.user.id,
+  },
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", req.user.id, {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+};
+```
+
+Note: If tracking from within the user context, you are responsible for de-duping calls (e.g. if you check the same feature flag in 5 different places during a request). When tracking with a global callback, de-duping is handled internally.
+
 ## Loading Features
 
 In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.

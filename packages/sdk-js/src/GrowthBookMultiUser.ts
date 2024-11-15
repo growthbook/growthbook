@@ -288,7 +288,7 @@ export class GrowthBookMultiUser<
       savedGroups: this._options.savedGroups,
       forcedFeatureValues: this._options.forcedFeatureValues,
       forcedVariations: this._options.forcedVariations,
-      onExperimentView: this._track,
+      trackingCallback: this._track,
       onFeatureUsage: this._options.onFeatureUsage,
     };
   }

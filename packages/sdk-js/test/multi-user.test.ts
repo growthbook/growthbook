@@ -388,7 +388,7 @@ describe("GrowthBookMultiUser", () => {
       const gb = new GrowthBookMultiUser().initSync({ payload: {} });
       gb.runInlineExperiment(exp, {
         ...user,
-        onExperimentView: track,
+        trackingCallback: track,
       });
       expect(track).toHaveBeenCalled();
 
@@ -405,7 +405,7 @@ describe("GrowthBookMultiUser", () => {
       }).initSync({ payload: {} });
       gb3.runInlineExperiment(exp, {
         ...user,
-        onExperimentView: track4,
+        trackingCallback: track4,
       });
       expect(track3).toHaveBeenCalled();
       expect(track4).toHaveBeenCalled();

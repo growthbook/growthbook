@@ -292,7 +292,7 @@ export type GlobalContext = {
     result: Result<any>,
     user: UserContext
   ) => void;
-  onExperimentView?: (
+  trackingCallback?: (
     experiment: Experiment<any>,
     result: Result<any>,
     user: UserContext
@@ -332,7 +332,7 @@ export type UserContext = {
   ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
-  onExperimentView?: (
+  trackingCallback?: (
     experiment: Experiment<any>,
     result: Result<any>,
     user: UserContext

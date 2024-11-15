@@ -187,12 +187,12 @@ export function evalFeature<V = unknown>(
         // If this was a remotely evaluated experiment, fire the tracking callbacks
         if (rule.tracks) {
           rule.tracks.forEach((t) => {
-            if (ctx.global.onExperimentView) {
-              ctx.global.onExperimentView(t.experiment, t.result, ctx.user);
+            if (ctx.global.trackingCallback) {
+              ctx.global.trackingCallback(t.experiment, t.result, ctx.user);
             }
-            if (ctx.user.onExperimentView) {
+            if (ctx.user.trackingCallback) {
               ctx.user
-                .onExperimentView(t.experiment, t.result, ctx.user)
+                .trackingCallback(t.experiment, t.result, ctx.user)
                 .catch(() => {});
             }
           });
@@ -638,15 +638,15 @@ export function runExperiment<T>(
   // 14. Fire the tracking callback(s)
   // Store the promise in case we're awaiting it (ex: browser url redirects)
   const trackingCalls = [];
-  if (ctx.global.onExperimentView) {
+  if (ctx.global.trackingCallback) {
     trackingCalls.push(
-      ctx.global.onExperimentView(experiment, result, ctx.user)
+      ctx.global.trackingCallback(experiment, result, ctx.user)
     );
   }
-  if (ctx.user.onExperimentView) {
+  if (ctx.user.trackingCallback) {
     trackingCalls.push(
       Promise.resolve(
-        ctx.user.onExperimentView(experiment, result, ctx.user)
+        ctx.user.trackingCallback(experiment, result, ctx.user)
       ).catch(() => {})
     );
   }

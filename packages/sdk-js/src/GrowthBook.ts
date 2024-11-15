@@ -664,7 +664,7 @@ export class GrowthBook<
       groups: this._options.groups,
       overrides: this._options.overrides,
       onExperimentEval: this._fireSubscriptions,
-      onExperimentView: this._track,
+      trackingCallback: this._track,
       onFeatureUsage: this._trackFeatureUsage,
       recordChangeId: this._recordChangedId,
     };
