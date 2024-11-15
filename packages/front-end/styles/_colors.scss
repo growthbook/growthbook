@@ -74,4 +74,5 @@ $variant-5: #bd41d9;
 $variant-6: #57d9a3;
 $variant-7: #f87a7a;
 
-$radix-text-color-light: #1f2d5c;
+// colors for radix
+$radix-indigo-12: #1f2d5c; // since radix is imported we have to also decare it here
