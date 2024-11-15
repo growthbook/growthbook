@@ -31,6 +31,31 @@ import {
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
 
+function getForcedFeatureValues(ctx: EvalContext) {
+  // Merge user and global values
+  const ret: typeof ctx.global.forcedFeatureValues = new Map();
+  if (ctx.global.forcedFeatureValues) {
+    ctx.global.forcedFeatureValues.forEach((v, k) => ret.set(k, v));
+  }
+  if (ctx.user.forcedFeatureValues) {
+    ctx.user.forcedFeatureValues.forEach((v, k) => ret.set(k, v));
+  }
+  return ret;
+}
+
+function getForcedVariations(ctx: EvalContext) {
+  // Merge user and global values
+  if (ctx.global.forcedVariations && ctx.user.forcedVariations) {
+    return { ...ctx.global.forcedVariations, ...ctx.user.forcedVariations };
+  } else if (ctx.global.forcedVariations) {
+    return ctx.global.forcedVariations;
+  } else if (ctx.user.forcedVariations) {
+    return ctx.user.forcedVariations;
+  } else {
+    return {};
+  }
+}
+
 export function evalFeature<V = unknown>(
   id: string,
   ctx: EvalContext
@@ -50,18 +75,14 @@ export function evalFeature<V = unknown>(
   ctx.stack.id = id;
 
   // Global override
-  if (ctx.user.forcedFeatureValues && ctx.user.forcedFeatureValues.has(id)) {
+  const forcedValues = getForcedFeatureValues(ctx);
+  if (forcedValues.has(id)) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log("Global override", {
         id,
-        value: ctx.user.forcedFeatureValues.get(id),
+        value: forcedValues.get(id),
       });
-    return getFeatureResult(
-      ctx,
-      id,
-      ctx.user.forcedFeatureValues.get(id),
-      "override"
-    );
+    return getFeatureResult(ctx, id, forcedValues.get(id), "override");
   }
 
   // Unknown feature id
@@ -166,7 +187,14 @@ export function evalFeature<V = unknown>(
         // If this was a remotely evaluated experiment, fire the tracking callbacks
         if (rule.tracks) {
           rule.tracks.forEach((t) => {
-            ctx.global.onExperimentView(t.experiment, t.result, ctx.user);
+            if (ctx.global.onExperimentView) {
+              ctx.global.onExperimentView(t.experiment, t.result, ctx.user);
+            }
+            if (ctx.user.onExperimentView) {
+              ctx.user
+                .onExperimentView(t.experiment, t.result, ctx.user)
+                .catch(() => {});
+            }
           });
         }
 
@@ -262,7 +290,7 @@ export function runExperiment<T>(
   }
 
   // 2. If the context is disabled, return immediately
-  if (ctx.global.enabled === false) {
+  if (ctx.global.enabled === false || ctx.user.enabled === false) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log("Context disabled", { id: key });
     return {
@@ -311,8 +339,9 @@ export function runExperiment<T>(
   }
 
   // 4. If a variation is forced in the context, return the forced variation
-  if (ctx.user.forcedVariations && key in ctx.user.forcedVariations) {
-    const variation = ctx.user.forcedVariations[key];
+  const forcedVariations = getForcedVariations(ctx);
+  if (key in forcedVariations) {
+    const variation = forcedVariations[key];
     process.env.NODE_ENV !== "production" &&
       ctx.global.log("Force via dev tools", {
         id: key,
@@ -548,7 +577,7 @@ export function runExperiment<T>(
   }
 
   // 12. Exclude if in QA mode
-  if (ctx.global.qaMode) {
+  if (ctx.global.qaMode || ctx.user.qaMode) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log("Skip because QA mode", {
         id: key,
@@ -606,13 +635,25 @@ export function runExperiment<T>(
     }
   }
 
-  // 14. Fire the tracking callback
+  // 14. Fire the tracking callback(s)
   // Store the promise in case we're awaiting it (ex: browser url redirects)
-  const trackingCall = ctx.global.onExperimentView(
-    experiment,
-    result,
-    ctx.user
-  );
+  const trackingCalls = [];
+  if (ctx.global.onExperimentView) {
+    trackingCalls.push(
+      ctx.global.onExperimentView(experiment, result, ctx.user)
+    );
+  }
+  if (ctx.user.onExperimentView) {
+    trackingCalls.push(
+      Promise.resolve(
+        ctx.user.onExperimentView(experiment, result, ctx.user)
+      ).catch(() => {})
+    );
+  }
+  const trackingCall =
+    trackingCalls.length > 0
+      ? Promise.all(trackingCalls).then(() => {})
+      : Promise.resolve();
 
   // 14.1 Keep track of completed changeIds
   "changeId" in experiment &&
@@ -649,7 +690,22 @@ function getFeatureResult<T>(
   if (result) ret.experimentResult = result;
 
   // Track the usage of this feature in real-time
-  ctx.global.onFeatureUsage(key, ret, ctx.user);
+  if (source !== "override") {
+    if (ctx.global.onFeatureUsage) {
+      try {
+        ctx.global.onFeatureUsage(key, ret, ctx.user);
+      } catch (e) {
+        // Ignore feature usage errors
+      }
+    }
+    if (ctx.user.onFeatureUsage) {
+      try {
+        ctx.user.onFeatureUsage(key, ret, ctx.user);
+      } catch (e) {
+        // Ignore feature usage errors
+      }
+    }
+  }
 
   return ret;
 }

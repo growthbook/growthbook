@@ -256,6 +256,9 @@ export type Options = {
 export type MultiUserOptions = {
   enabled?: boolean;
   debug?: boolean;
+  globalAttributes?: Attributes;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
   disableCache?: boolean;
@@ -282,17 +285,19 @@ export type GlobalContext = {
   enabled?: boolean;
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
   onExperimentEval?: (
     experiment: Experiment<any>,
     result: Result<any>,
     user: UserContext
   ) => void;
-  onExperimentView: (
+  onExperimentView?: (
     experiment: Experiment<any>,
     result: Result<any>,
     user: UserContext
   ) => Promise<void>;
-  onFeatureUsage: (
+  onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
     user: UserContext
@@ -313,6 +318,8 @@ export type GlobalContext = {
 
 // Some global fields can be overridden by the user, others are always user-level
 export type UserContext = {
+  enabled?: boolean;
+  qaMode?: boolean;
   attributes?: Attributes;
   url?: string;
   blockedChangeIds?: string[];
@@ -325,6 +332,16 @@ export type UserContext = {
   ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
+  onExperimentView?: (
+    experiment: Experiment<any>,
+    result: Result<any>,
+    user: UserContext
+  ) => Promise<void>;
+  onFeatureUsage?: (
+    key: string,
+    result: FeatureResult<any>,
+    user: UserContext
+  ) => void;
 };
 
 export type StackContext = {

@@ -1,5 +1,6 @@
 import {
   Experiment,
+  FeatureApiResponse,
   FeatureRule,
   LocalStorageStickyBucketService,
   UserContext,
@@ -227,5 +228,292 @@ describe("GrowthBookMultiUser", () => {
 
     localStorage.clear();
     gb.destroy();
+  });
+
+  describe("Merges user and global context fields", () => {
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+      hashVersion: 2,
+      hashAttribute: "id",
+      weights: [1, 0],
+    };
+    const user: UserContext = {
+      attributes: {
+        id: "1",
+      },
+    };
+
+    it("Merges enabled flag", () => {
+      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
+      const gbDisabled = new GrowthBookMultiUser({
+        enabled: false,
+      }).initSync({ payload: {} });
+
+      expect(gb.runInlineExperiment(exp, user).inExperiment).toEqual(true);
+      expect(
+        gb.runInlineExperiment(exp, { ...user, enabled: false }).inExperiment
+      ).toEqual(false);
+      expect(gbDisabled.runInlineExperiment(exp, user).inExperiment).toEqual(
+        false
+      );
+      expect(
+        gbDisabled.runInlineExperiment(exp, { ...user, enabled: false })
+          .inExperiment
+      ).toEqual(false);
+
+      gb.destroy();
+      gbDisabled.destroy();
+    });
+
+    it("Merges qaMode flag", () => {
+      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
+      const gbQA = new GrowthBookMultiUser({
+        qaMode: true,
+      }).initSync({ payload: {} });
+
+      expect(gb.runInlineExperiment(exp, user).inExperiment).toEqual(true);
+      expect(
+        gb.runInlineExperiment(exp, { ...user, qaMode: true }).inExperiment
+      ).toEqual(false);
+      expect(gbQA.runInlineExperiment(exp, user).inExperiment).toEqual(false);
+      expect(
+        gbQA.runInlineExperiment(exp, { ...user, qaMode: true }).inExperiment
+      ).toEqual(false);
+
+      gb.destroy();
+      gbQA.destroy();
+    });
+
+    it("Merges forcedVariations", () => {
+      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
+      const gbForced = new GrowthBookMultiUser({
+        forcedVariations: { "my-experiment": 1 },
+      }).initSync({ payload: {} });
+
+      expect(
+        gb.runInlineExperiment(exp, {
+          ...user,
+          forcedVariations: { "my-other-experiment": 1 },
+        }).variationId
+      ).toEqual(0);
+      expect(
+        gb.runInlineExperiment(exp, {
+          ...user,
+          forcedVariations: { "my-experiment": 1 },
+        }).variationId
+      ).toEqual(1);
+      expect(
+        gbForced.runInlineExperiment(exp, {
+          ...user,
+          forcedVariations: { "my-other-experiment": 1 },
+        }).variationId
+      ).toEqual(1);
+      expect(
+        gbForced.runInlineExperiment(exp, {
+          ...user,
+          forcedVariations: { "my-experiment": 1 },
+        }).variationId
+      ).toEqual(1);
+      expect(
+        gbForced.runInlineExperiment(exp, {
+          ...user,
+          forcedVariations: { "my-experiment": 0 },
+        }).variationId
+      ).toEqual(0);
+
+      gb.destroy();
+      gbForced.destroy();
+    });
+
+    it("Merges forcedFeatureValues", () => {
+      const payload: FeatureApiResponse = {
+        features: {
+          feature: {
+            defaultValue: false,
+          },
+        },
+      };
+      const force = new Map([["feature", true]]);
+      const forceOff = new Map([["feature", false]]);
+      const otherForce = new Map([["other-feature", true]]);
+
+      const gb = new GrowthBookMultiUser().initSync({ payload });
+      const gbForced = new GrowthBookMultiUser({
+        forcedFeatureValues: force,
+      }).initSync({ payload });
+
+      expect(
+        gb.evalFeature("feature", {
+          ...user,
+          forcedFeatureValues: otherForce,
+        }).value
+      ).toEqual(false);
+      expect(
+        gb.evalFeature("feature", {
+          ...user,
+          forcedFeatureValues: force,
+        }).value
+      ).toEqual(true);
+      expect(
+        gbForced.evalFeature("feature", {
+          ...user,
+          forcedFeatureValues: otherForce,
+        }).value
+      ).toEqual(true);
+      expect(
+        gbForced.evalFeature("feature", {
+          ...user,
+          forcedFeatureValues: force,
+        }).value
+      ).toEqual(true);
+      expect(
+        gbForced.evalFeature("feature", {
+          ...user,
+          forcedFeatureValues: forceOff,
+        }).value
+      ).toEqual(false);
+
+      gb.destroy();
+      gbForced.destroy();
+    });
+
+    it("Merges trackingCallback", () => {
+      const track = jest.fn();
+      const track2 = jest.fn();
+      const track3 = jest.fn();
+      const track4 = jest.fn();
+
+      // Only user trackingCallback
+      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
+      gb.runInlineExperiment(exp, {
+        ...user,
+        onExperimentView: track,
+      });
+      expect(track).toHaveBeenCalled();
+
+      // Only global trackingCallback
+      const gb2 = new GrowthBookMultiUser({
+        trackingCallback: track2,
+      }).initSync({ payload: {} });
+      gb2.runInlineExperiment(exp, user);
+      expect(track2).toHaveBeenCalled();
+
+      // Both
+      const gb3 = new GrowthBookMultiUser({
+        trackingCallback: track3,
+      }).initSync({ payload: {} });
+      gb3.runInlineExperiment(exp, {
+        ...user,
+        onExperimentView: track4,
+      });
+      expect(track3).toHaveBeenCalled();
+      expect(track4).toHaveBeenCalled();
+
+      gb.destroy();
+      gb2.destroy();
+      gb3.destroy();
+    });
+
+    it("Merges onFeatureUsage", () => {
+      const track = jest.fn();
+      const track2 = jest.fn();
+      const track3 = jest.fn();
+      const track4 = jest.fn();
+
+      const payload: FeatureApiResponse = {
+        features: {
+          feature: {
+            defaultValue: false,
+          },
+        },
+      };
+
+      // Only user onFeatureUsage
+      const gb = new GrowthBookMultiUser().initSync({ payload });
+      gb.evalFeature("feature", {
+        ...user,
+        onFeatureUsage: track,
+      });
+      expect(track).toHaveBeenCalled();
+
+      // Only global onFeatureUsage
+      const gb2 = new GrowthBookMultiUser({
+        onFeatureUsage: track2,
+      }).initSync({ payload });
+      gb2.evalFeature("feature", user);
+      expect(track2).toHaveBeenCalled();
+
+      // Both
+      const gb3 = new GrowthBookMultiUser({
+        onFeatureUsage: track3,
+      }).initSync({ payload });
+      gb3.evalFeature("feature", {
+        ...user,
+        onFeatureUsage: track4,
+      });
+      expect(track3).toHaveBeenCalled();
+      expect(track4).toHaveBeenCalled();
+
+      gb.destroy();
+      gb2.destroy();
+      gb3.destroy();
+    });
+    it("Merges globalAttributes and attributes", () => {
+      const gb = new GrowthBookMultiUser().initSync({
+        payload: {
+          features: {
+            feature: {
+              defaultValue: false,
+              rules: [
+                {
+                  condition: { country: "US" },
+                  force: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      // User attributes only
+      expect(
+        gb.isOn("feature", {
+          attributes: {
+            country: "US",
+          },
+        })
+      ).toEqual(true);
+
+      // Global attributes only
+      gb.setGlobalAttributes({
+        country: "US",
+      });
+      expect(
+        gb.isOn("feature", {
+          attributes: {},
+        })
+      ).toEqual(true);
+
+      // Both
+      expect(
+        gb.isOn("feature", {
+          attributes: {
+            country: "US",
+          },
+        })
+      ).toEqual(true);
+
+      // User overrides global
+      expect(
+        gb.isOn("feature", {
+          attributes: {
+            country: "GB",
+          },
+        })
+      ).toEqual(false);
+
+      gb.destroy();
+    });
   });
 });

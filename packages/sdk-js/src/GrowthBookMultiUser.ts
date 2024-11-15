@@ -18,6 +18,7 @@ import type {
   AutoExperiment,
   TrackingDataWithUser,
   TrackingCallbackWithUser,
+  Attributes,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -70,7 +71,6 @@ export class GrowthBookMultiUser<
 
     this.log = this.log.bind(this);
     this._track = this._track.bind(this);
-    this._trackFeatureUsage = this._trackFeatureUsage.bind(this);
   }
 
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
@@ -226,6 +226,13 @@ export class GrowthBookMultiUser<
     return this._features || {};
   }
 
+  public getGlobalAttributes(): Attributes {
+    return this._options.globalAttributes || {};
+  }
+  public setGlobalAttributes(attributes: Attributes) {
+    this._options.globalAttributes = attributes;
+  }
+
   public destroy() {
     unsubscribe(this);
 
@@ -252,6 +259,16 @@ export class GrowthBookMultiUser<
   }
 
   private _getEvalContext(userContext: UserContext): EvalContext {
+    if (this._options.globalAttributes) {
+      userContext = {
+        ...userContext,
+        attributes: {
+          ...this._options.globalAttributes,
+          ...userContext.attributes,
+        },
+      };
+    }
+
     return {
       user: userContext,
       global: this._getGlobalContext(),
@@ -269,27 +286,11 @@ export class GrowthBookMultiUser<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
+      forcedFeatureValues: this._options.forcedFeatureValues,
+      forcedVariations: this._options.forcedVariations,
       onExperimentView: this._track,
-      onFeatureUsage: this._trackFeatureUsage,
+      onFeatureUsage: this._options.onFeatureUsage,
     };
-  }
-
-  private _trackFeatureUsage(
-    key: string,
-    res: FeatureResult,
-    user: UserContext
-  ): void {
-    // Don't track feature usage that was forced via an override
-    if (res.source === "override") return;
-
-    // Fire user-supplied callback
-    if (this._options.onFeatureUsage) {
-      try {
-        this._options.onFeatureUsage(key, res, user);
-      } catch (e) {
-        // Ignore feature usage callback errors
-      }
-    }
   }
 
   public isOn<K extends string & keyof AppFeatures = string>(

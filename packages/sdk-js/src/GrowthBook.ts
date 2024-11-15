@@ -858,9 +858,6 @@ export class GrowthBook<
   }
 
   private _trackFeatureUsage(key: string, res: FeatureResult): void {
-    // Don't track feature usage that was forced via an override
-    if (res.source === "override") return;
-
     // Only track a feature once, unless the assigned value changed
     const stringifiedValue = JSON.stringify(res.value);
     if (this._trackedFeatures[key] === stringifiedValue) return;
