@@ -38,6 +38,8 @@ const ShowLicenseInfo: FC<{
   const usesLicenseInfoOnModel =
     isCloud() && !showUpgradeButton && !organization?.licenseKey;
 
+  const shouldHideLicenseTab = true;
+
   return (
     <div>
       {upgradeModal && (
@@ -53,122 +55,123 @@ const ShowLicenseInfo: FC<{
           mutate={refreshOrganization}
         />
       )}
-      <div>
-        <div className="divider border-bottom mb-3 mt-3" />
-        <div className="row">
-          <div className="col-sm-3">
-            <h4>许可证</h4>
-          </div>
-          <div className="col-sm-9">
-            <div className="form-group row mb-2">
-              <div className="col-sm-12">
-                <strong>计划类型：</strong> {licensePlanText}{" "}
-              </div>
-              <AccountPlanNotices />
+      {!shouldHideLicenseTab && (
+        <div>
+          <div className="divider border-bottom mb-3 mt-3" />
+          <div className="row">
+            <div className="col-sm-3">
+              <h4>许可证</h4>
             </div>
-            {showUpgradeButton && (
-              <div className="form-group row mb-1">
+            <div className="col-sm-9">
+              <div className="form-group row mb-2">
                 <div className="col-sm-12">
-                  <button
-                    className="btn btn-premium font-weight-normal"
-                    onClick={() => setUpgradeModal(true)}
-                  >
-                    <>
-                      <GBPremiumBadge /> 升级
-                    </>
-                  </button>
+                  <strong>计划类型：</strong> {licensePlanText}{" "}
                 </div>
+                <AccountPlanNotices />
               </div>
-            )}
-            {permissionsUtil.canManageBilling() &&
-              !usesLicenseInfoOnModel && (
-                <div className="form-group row mt-3 mb-0">
-                  {showInput && (
-                    <div className="col-auto mr-3 nowrap">
-                      <div>
-                        <strong>许可证密钥：</strong>
-                      </div>
-                      <div
-                        className="d-inline-block mt-1 mb-2 nowrap text-center text-muted"
-                        style={{
-                          width: 105,
-                          borderBottom: "1px solid #cccccc",
-                          pointerEvents: "none",
-                          overflow: "hidden",
-                          verticalAlign: "top",
-                        }}
-                      >
-                        {license ? "***************" : "(无)"}
-                      </div>{" "}
-                      <a
-                        href="#"
-                        className="pl-1"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditLicenseOpen(true);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                    </div>
-                  )}
-                  {license &&
-                    license.plan && ( // 如果未填写Stripe专业版表单，许可证可能没有计划
+              {showUpgradeButton && (
+                <div className="form-group row mb-1">
+                  <div className="col-sm-12">
+                    <button
+                      className="btn btn-premium font-weight-normal"
+                      onClick={() => setUpgradeModal(true)}
+                    >
                       <>
-                        {["pro", "pro_sso"].includes(license.plan) &&
-                          license.stripeSubscription?.status && (
-                            <div className="col-sm-2">
-                              <div>状态：</div>
-                              <span
-                                className={`text-muted ${!["active", "trialing"].includes(
-                                  license.stripeSubscription?.status || ""
-                                )
-                                  ? "alert-danger"
-                                  : ""
-                                  }`}
-                              >
-                                {license.stripeSubscription?.status}
-                              </span>
-                            </div>
-                          )}
-                        <div className="col-sm-2">
-                          <div>颁发时间：</div>
-                          <span className="text-muted">
-                            {date(license.dateCreated)}
-                          </span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>到期时间：</div>
-                          <span className="text-muted">
-                            {date(license.dateExpires)}
-                          </span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>座位数：</div>
-                          <span className="text-muted">{license.seats}</span>
-                        </div>
+                        <GBPremiumBadge /> 升级
                       </>
-                    )}
-                  {license && (
-                    <>
-                      {license.id.startsWith("license") && (
-                        <div className="col-2">
-                          <RefreshLicenseButton />
-                        </div>
-                      )}
-
-                      {!license.id.startsWith("license") && (
-                        <div className="mt-3">
-                          <DownloadLicenseUsageButton />
-                        </div>
-                      )}
-                    </>
-                  )}
+                    </button>
+                  </div>
                 </div>
               )}
+              {permissionsUtil.canManageBilling() &&
+                !usesLicenseInfoOnModel && (
+                  <div className="form-group row mt-3 mb-0">
+                    {showInput && (
+                      <div className="col-auto mr-3 nowrap">
+                        <div>
+                          <strong>许可证密钥：</strong>
+                        </div>
+                        <div
+                          className="d-inline-block mt-1 mb-2 nowrap text-center text-muted"
+                          style={{
+                            width: 105,
+                            borderBottom: "1px solid #cccccc",
+                            pointerEvents: "none",
+                            overflow: "hidden",
+                            verticalAlign: "top",
+                          }}
+                        >
+                          {license ? "***************" : "(无)"}
+                        </div>{" "}
+                        <a
+                          href="#"
+                          className="pl-1"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEditLicenseOpen(true);
+                          }}
+                        >
+                          <FaPencilAlt />
+                        </a>
+                      </div>
+                    )}
+                    {license &&
+                      license.plan && ( // 如果未填写Stripe专业版表单，许可证可能没有计划
+                        <>
+                          {["pro", "pro_sso"].includes(license.plan) &&
+                            license.stripeSubscription?.status && (
+                              <div className="col-sm-2">
+                                <div>状态：</div>
+                                <span
+                                  className={`text-muted ${!["active", "trialing"].includes(
+                                    license.stripeSubscription?.status || ""
+                                  )
+                                    ? "alert-danger"
+                                    : ""
+                                    }`}
+                                >
+                                  {license.stripeSubscription?.status}
+                                </span>
+                              </div>
+                            )}
+                          <div className="col-sm-2">
+                            <div>颁发时间：</div>
+                            <span className="text-muted">
+                              {date(license.dateCreated)}
+                            </span>
+                          </div>
+                          <div className="col-sm-2">
+                            <div>到期时间：</div>
+                            <span className="text-muted">
+                              {date(license.dateExpires)}
+                            </span>
+                          </div>
+                          <div className="col-sm-2">
+                            <div>座位数：</div>
+                            <span className="text-muted">{license.seats}</span>
+                          </div>
+                        </>
+                      )}
+                    {license && (
+                      <>
+                        {license.id.startsWith("license") && (
+                          <div className="col-2">
+                            <RefreshLicenseButton />
+                          </div>
+                        )}
+
+                        {!license.id.startsWith("license") && (
+                          <div className="mt-3">
+                            <DownloadLicenseUsageButton />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+            </div>
           </div>
-        </div>
-      </div>
+        </div>)}
     </div>
   );
 };
