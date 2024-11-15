@@ -2,7 +2,7 @@ import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { format } from "date-fns";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useRef, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -62,6 +62,9 @@ export default function DatePicker({
   const [originalDate, setOriginalDate] = useState(date);
   const [originalDate2, setOriginalDate2] = useState(date2);
 
+  const [open, setOpen] = useState(false);
+  const fieldClickedTime = useRef(new Date());
+
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
     disabledMatchers.push({ before: getValidDate(disableBefore) });
@@ -101,8 +104,13 @@ export default function DatePicker({
   return (
     <div className={containerClassName}>
       <Popover.Root
-        onOpenChange={(open) => {
-          if (!open) {
+        open={open}
+        onOpenChange={(o) => {
+          if (o) {
+            setOpen(true);
+          }
+          if (!o && new Date() - fieldClickedTime.current > 10) {
+            setOpen(false);
             setOriginalDate(date);
             setOriginalDate2(date2);
           }
@@ -143,6 +151,9 @@ export default function DatePicker({
                     );
                     setDate(d);
                   }}
+                  onClick={() => {
+                    fieldClickedTime.current = new Date();
+                  }}
                 />
               </div>
             </div>
@@ -180,6 +191,9 @@ export default function DatePicker({
                       );
                       setDate2?.(d);
                     }}
+                    onClick={() => {
+                      fieldClickedTime.current = new Date();
+                    }}
                   />
                 </div>
               </div>
@@ -200,6 +214,12 @@ export default function DatePicker({
                 disabled={disabledMatchers}
                 modifiers={markedDays}
                 modifiersClassNames={modifiersClassNames}
+                defaultMonth={
+                  new Date(
+                    (date ?? new Date()).getUTCFullYear(),
+                    (date ?? new Date()).getUTCMonth()
+                  )
+                }
               />
             ) : (
               <DayPicker
@@ -209,6 +229,12 @@ export default function DatePicker({
                 disabled={disabledMatchers}
                 modifiers={markedDays}
                 modifiersClassNames={modifiersClassNames}
+                defaultMonth={
+                  new Date(
+                    (date ?? new Date()).getUTCFullYear(),
+                    (date ?? new Date()).getUTCMonth()
+                  )
+                }
               />
             )}
             <Popover.Arrow className={styles.Arrow} />
