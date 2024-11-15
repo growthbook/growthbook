@@ -59,8 +59,16 @@ export default function DatePicker({
     date2 = date2 ? getValidDate(date2) : undefined;
   }
 
+  // todo: update calendar's month when interacting with field and month changes
+
   const [originalDate, setOriginalDate] = useState(date);
   const [originalDate2, setOriginalDate2] = useState(date2);
+  const [calendarMonth, setCalendarMonth] = useState(
+    new Date(
+      (date ?? new Date()).getUTCFullYear(),
+      (date ?? new Date()).getUTCMonth()
+    )
+  );
 
   const [open, setOpen] = useState(false);
   const fieldClickedTime = useRef(new Date());
@@ -145,19 +153,14 @@ export default function DatePicker({
                       : ""
                   }
                   onChange={(e) => {
-                    const d = getValidDate(
-                      e?.target?.value,
-                      getValidDate(date)
-                    );
+                    let d = getValidDate(e?.target?.value, getValidDate(date));
                     if (disableBefore && d < getValidDate(disableBefore)) {
-                      setDate(getValidDate(disableBefore));
-                      return;
-                    }
-                    if (disableAfter && d > getValidDate(disableAfter)) {
-                      setDate(getValidDate(disableAfter));
-                      return;
+                      d = getValidDate(disableBefore);
+                    } else if (disableAfter && d > getValidDate(disableAfter)) {
+                      d = getValidDate(disableAfter);
                     }
                     setDate(d);
+                    setCalendarMonth(d);
                   }}
                   onClick={() => {
                     fieldClickedTime.current = new Date();
@@ -193,19 +196,20 @@ export default function DatePicker({
                         : ""
                     }
                     onChange={(e) => {
-                      const d = getValidDate(
+                      let d = getValidDate(
                         e?.target?.value,
                         getValidDate(date2)
                       );
                       if (disableBefore && d < getValidDate(disableBefore)) {
-                        setDate2?.(getValidDate(disableBefore));
-                        return;
-                      }
-                      if (disableAfter && d > getValidDate(disableAfter)) {
-                        setDate2?.(getValidDate(disableAfter));
-                        return;
+                        d = getValidDate(disableBefore);
+                      } else if (
+                        disableAfter &&
+                        d > getValidDate(disableAfter)
+                      ) {
+                        d = getValidDate(disableAfter);
                       }
                       setDate2?.(d);
+                      setCalendarMonth(d);
                     }}
                     onClick={() => {
                       fieldClickedTime.current = new Date();
@@ -230,12 +234,10 @@ export default function DatePicker({
                 disabled={disabledMatchers}
                 modifiers={markedDays}
                 modifiersClassNames={modifiersClassNames}
-                month={
-                  new Date(
-                    (date ?? new Date()).getUTCFullYear(),
-                    (date ?? new Date()).getUTCMonth()
-                  )
-                }
+                fixedWeeks
+                showOutsideDays
+                month={calendarMonth}
+                onMonthChange={(m) => setCalendarMonth(m)}
               />
             ) : (
               <DayPicker
@@ -245,12 +247,10 @@ export default function DatePicker({
                 disabled={disabledMatchers}
                 modifiers={markedDays}
                 modifiersClassNames={modifiersClassNames}
-                month={
-                  new Date(
-                    (date ?? new Date()).getUTCFullYear(),
-                    (date ?? new Date()).getUTCMonth()
-                  )
-                }
+                fixedWeeks
+                showOutsideDays
+                month={calendarMonth}
+                onMonthChange={(m) => setCalendarMonth(m)}
               />
             )}
             <Popover.Arrow className={styles.Arrow} />
