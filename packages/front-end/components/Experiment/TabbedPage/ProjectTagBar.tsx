@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Flex, Link, Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import { GBEdit } from "@/components/Icons";
@@ -10,6 +10,7 @@ import { useUser } from "@/services/UserContext";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
+import Link from "@/components/Radix/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -93,24 +94,22 @@ export default function ProjectTagBar({
         {RenderToolTipsAndValue()}
         {editProject && !projectId && (
           <Link
-            className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               editProject();
             }}
           >
-            <span className="cursor-pointer">+Add</span>
+            +Add
           </Link>
         )}
         {editProject && projectId && (
           <Link
-            className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               editProject();
             }}
           >
-            <GBEdit className="cursor-pointer" />
+            <GBEdit />
           </Link>
         )}
       </Flex>
@@ -133,24 +132,22 @@ export default function ProjectTagBar({
         )}
         {editTags && experiment.tags?.length === 0 && (
           <Link
-            className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               editTags();
             }}
           >
-            <span className="cursor-pointer">+Add</span>
+            +Add
           </Link>
         )}
         {editTags && experiment.tags?.length > 0 && (
           <Link
-            className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               editTags();
             }}
           >
-            <GBEdit className="cursor-pointer" />
+            <GBEdit />
           </Link>
         )}
       </Flex>

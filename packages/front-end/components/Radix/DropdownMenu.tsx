@@ -10,9 +10,15 @@ type AllowedChildren = string | React.ReactNode;
 type DropdownProps = {
   trigger: React.ReactNode;
   children: AllowedChildren;
+  variant?: RadixDropdownMenu.ContentProps["variant"];
 } & MarginProps;
 
-export function DropdownMenu({ trigger, children, ...props }: DropdownProps) {
+export function DropdownMenu({
+  trigger,
+  children,
+  variant = "soft",
+  ...props
+}: DropdownProps) {
   let triggerComponent = (
     <RadixDropdownMenu.Trigger>{trigger}</RadixDropdownMenu.Trigger>
   );
@@ -27,7 +33,7 @@ export function DropdownMenu({ trigger, children, ...props }: DropdownProps) {
   return (
     <RadixDropdownMenu.Root {...props}>
       {triggerComponent}
-      <RadixDropdownMenu.Content variant="soft">
+      <RadixDropdownMenu.Content variant={variant}>
         {children}
       </RadixDropdownMenu.Content>
     </RadixDropdownMenu.Root>
@@ -37,16 +43,20 @@ export function DropdownMenu({ trigger, children, ...props }: DropdownProps) {
 type DropdownContentProps = {
   children: AllowedChildren;
   trigger: AllowedChildren;
+  triggerClassName?: string;
 } & MarginProps;
 
 export function DropdownSubMenu({
   children,
   trigger,
+  triggerClassName,
   ...props
 }: DropdownContentProps) {
   return (
     <RadixDropdownMenu.Sub>
-      <RadixDropdownMenu.SubTrigger>{trigger}</RadixDropdownMenu.SubTrigger>
+      <RadixDropdownMenu.SubTrigger className={triggerClassName}>
+        {trigger}
+      </RadixDropdownMenu.SubTrigger>
       <RadixDropdownMenu.SubContent {...props}>
         {children}
       </RadixDropdownMenu.SubContent>
@@ -56,6 +66,7 @@ export function DropdownSubMenu({
 
 type DropdownItemProps = {
   children: AllowedChildren;
+  className?: string;
   disabled?: boolean;
   onClick?: () => void;
   color?: "red" | "default";
@@ -86,9 +97,9 @@ export function DropdownMenuItem({
   );
 }
 
-type DropdownMenuLabelProps = {
-  children: AllowedChildren;
-} & MarginProps;
+type DropdownMenuLabelProps = React.ComponentProps<
+  typeof RadixDropdownMenu.Label
+>;
 
 export function DropdownMenuLabel({
   children,
@@ -103,4 +114,13 @@ export function DropdownMenuLabel({
 
 export function DropdownMenuSeparator() {
   return <RadixDropdownMenu.Separator />;
+}
+
+export function DropdownMenuGroup({
+  children,
+  ...props
+}: React.ComponentProps<typeof RadixDropdownMenu.Group>): JSX.Element {
+  return (
+    <RadixDropdownMenu.Group {...props}>{children}</RadixDropdownMenu.Group>
+  );
 }
