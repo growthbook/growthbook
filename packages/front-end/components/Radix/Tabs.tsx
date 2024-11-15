@@ -55,7 +55,7 @@ export default function Tabs(
 
   return (
     <RadixTabs.Root {...radixProps}>
-      <RadixTabs.List wrap="wrap">
+      <RadixTabs.List>
         {tabs.map((tab) => (
           <RadixTabs.Trigger value={tab.slug} key={`${tab.slug}-trigger`}>
             {tab.label}

@@ -1076,13 +1076,12 @@ export default function FeaturesOverview({
                       label: (
                         <>
                           {e.id}
-                          {rules.length > 0 && (
-                            <Badge
-                              label={`${rules.length}`}
-                              ml="1"
-                              variant="solid"
-                            />
-                          )}
+                          <Badge
+                            label={`${rules.length}`}
+                            color={rules.length > 0 ? undefined : "gray"}
+                            ml="2"
+                            variant="soft"
+                          />
                         </>
                       ),
                       content: (

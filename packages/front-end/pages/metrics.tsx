@@ -1,6 +1,6 @@
 import React from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { Box, Tabs } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/components/Radix/LinkButton";
 import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/components/Radix/Button";
+import Tabs from "@/components/Radix/Tabs";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, datasources, project } = useDefinitions();
@@ -46,25 +47,33 @@ const MetricsPage = (): React.ReactElement => {
           </div>
         </div>
       ) : (
-        <Tabs.Root defaultValue="metrics">
-          <Tabs.List>
-            <Tabs.Trigger value="metrics">Individual Metrics</Tabs.Trigger>
-            <Tabs.Trigger value="metricgroups">
-              <PremiumTooltip commercialFeature="metric-groups">
-                Metric Groups
-              </PremiumTooltip>
-            </Tabs.Trigger>
-          </Tabs.List>
-          <Box pt="4">
-            <Tabs.Content value="metrics">
-              <MetricsList />
-            </Tabs.Content>
-
-            <Tabs.Content value="metricgroups">
-              <MetricGroupsList />
-            </Tabs.Content>
-          </Box>
-        </Tabs.Root>
+        <Tabs
+          defaultTabSlug="metrics"
+          tabs={[
+            {
+              slug: "metrics",
+              label: "Individual Metrics",
+              content: (
+                <Box mt="4">
+                  <MetricsList />
+                </Box>
+              ),
+            },
+            {
+              slug: "metricgroups",
+              label: (
+                <PremiumTooltip commercialFeature="metric-groups">
+                  Metric Groups
+                </PremiumTooltip>
+              ),
+              content: (
+                <Box mt="4">
+                  <MetricGroupsList />
+                </Box>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );

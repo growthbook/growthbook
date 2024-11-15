@@ -17,8 +17,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import Tabs from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
@@ -564,248 +563,263 @@ export default function ExperimentImpact({
           0 ? (
             <NoExperimentsForImpactBanner />
           ) : null}
-          <ControlledTabs
-            setActive={(s) => {
-              setImpactTab((s as ExperimentImpactTab) || "summary");
-            }}
-            active={impactTab}
-            showActiveCount={true}
-            newStyle={false}
-            buttonsClassName="px-3 py-2 h4"
-          >
-            <Tab
-              key={"summary"}
-              id={"summary"}
-              display={"Summary"}
-              padding={false}
-            >
-              <div className="px-3 pt-3">
-                <table className="table bg-white text-center w-auto mb-0">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 150 }} className="border-top-0" />
-                      <th style={{ width: 200 }} className="border-top-0">
-                        <div
-                          className="d-inline-block badge-success rounded-circle mr-1"
-                          style={{ width: 10, height: 10 }}
-                        />
-                        Won
-                      </th>
-                      <th style={{ width: 200 }} className="border-top-0">
-                        <div
-                          className="d-inline-block badge-danger rounded-circle mr-1"
-                          style={{ width: 10, height: 10 }}
-                        />
-                        Lost
-                      </th>
-                      <th style={{ width: 200 }} className="border-top-0">
-                        <div
-                          className="d-inline-block badge-secondary rounded-circle mr-1"
-                          style={{ width: 10, height: 10 }}
-                        />
-                        Other
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="text-left">Experiments</td>
-                      <td>{summaryObj.winners.experiments.length}</td>
-                      <td>{summaryObj.losers.experiments.length}</td>
-                      <td>{summaryObj.others.experiments.length}</td>
-                    </tr>
-                    <tr>
-                      <td className="font-weight-bold text-left">
-                        Scaled Impact
-                      </td>
-                      <td className="impact-results">
-                        <div className="won">
-                          <span style={{ fontSize: "1.2em" }}>
-                            {formatImpact(
-                              summaryObj.winners.totalAdjustedImpact * 365,
-                              formatter,
-                              formatterOptions
-                            )}{" "}
-                            {summaryObj.winners.totalAdjustedImpactVariance ? (
-                              <span className="plusminus ml-1">
-                                ±{" "}
-                                {formatter(
-                                  Math.sqrt(
-                                    summaryObj.winners
-                                      .totalAdjustedImpactVariance
-                                  ) *
-                                    1.96 *
-                                    365,
+          <Tabs
+            activeTab={impactTab}
+            onTabChange={(tab) => setImpactTab(tab as ExperimentImpactTab)}
+            tabs={[
+              {
+                slug: "summary",
+                label: "Summary",
+                content: (
+                  <div className="px-3 pt-3">
+                    <table className="table bg-white text-center w-auto mb-0">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 150 }} className="border-top-0" />
+                          <th style={{ width: 200 }} className="border-top-0">
+                            <div
+                              className="d-inline-block badge-success rounded-circle mr-1"
+                              style={{ width: 10, height: 10 }}
+                            />
+                            Won
+                          </th>
+                          <th style={{ width: 200 }} className="border-top-0">
+                            <div
+                              className="d-inline-block badge-danger rounded-circle mr-1"
+                              style={{ width: 10, height: 10 }}
+                            />
+                            Lost
+                          </th>
+                          <th style={{ width: 200 }} className="border-top-0">
+                            <div
+                              className="d-inline-block badge-secondary rounded-circle mr-1"
+                              style={{ width: 10, height: 10 }}
+                            />
+                            Other
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="text-left">Experiments</td>
+                          <td>{summaryObj.winners.experiments.length}</td>
+                          <td>{summaryObj.losers.experiments.length}</td>
+                          <td>{summaryObj.others.experiments.length}</td>
+                        </tr>
+                        <tr>
+                          <td className="font-weight-bold text-left">
+                            Scaled Impact
+                          </td>
+                          <td className="impact-results">
+                            <div className="won">
+                              <span style={{ fontSize: "1.2em" }}>
+                                {formatImpact(
+                                  summaryObj.winners.totalAdjustedImpact * 365,
+                                  formatter,
                                   formatterOptions
-                                )}
+                                )}{" "}
+                                {summaryObj.winners
+                                  .totalAdjustedImpactVariance ? (
+                                  <span className="plusminus ml-1">
+                                    ±{" "}
+                                    {formatter(
+                                      Math.sqrt(
+                                        summaryObj.winners
+                                          .totalAdjustedImpactVariance
+                                      ) *
+                                        1.96 *
+                                        365,
+                                      formatterOptions
+                                    )}
+                                  </span>
+                                ) : null}
                               </span>
-                            ) : null}
-                          </span>
-                          <div>
-                            <Tooltip
-                              popperClassName="text-left"
-                              body={
-                                <div>
-                                  <div className="mb-2">
-                                    This value is the sum of the adjusted scaled
-                                    impacts of the winning variations from
-                                    experiments marked as Won.
-                                  </div>
-                                  <div className="mb-2">
-                                    <ol>
-                                      <li>
-                                        We compute the Daily Scaled Impact for
-                                        all variations in all experiments that
-                                        match your filters.
-                                      </li>
-                                      <li>
-                                        If de-biasing is on, we use a
-                                        James-Stein adjustment to shrink
-                                        estimates towards zero to mitigate
-                                        selection bias.
-                                      </li>
-                                      <li>
-                                        We sum the Scaled Impact of the winning
-                                        variation of experiments marked as won
-                                        and multiply values by 365 to get an
-                                        annual value.
-                                      </li>
-                                    </ol>
-                                  </div>
-                                  <div>{`The plus-minus value represents a 95% confidence interval.`}</div>
-                                </div>
-                              }
-                            >
-                              <span className="small font-weight-bold">
-                                summed impact / year
-                              </span>{" "}
-                              <MdInfoOutline className="text-info" />
-                            </Tooltip>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="impact-results">
-                        <div>
-                          <span style={{ fontSize: "1.2em" }}>
-                            {formatImpact(
-                              summaryObj.losers.totalAdjustedImpact * 365,
-                              formatter,
-                              formatterOptions
-                            )}{" "}
-                            {summaryObj.losers.totalAdjustedImpactVariance ? (
-                              <span className="plusminus ml-1">
-                                ±{" "}
-                                {formatter(
-                                  Math.sqrt(
-                                    summaryObj.losers
-                                      .totalAdjustedImpactVariance
-                                  ) *
-                                    1.96 *
-                                    365,
+                              <div>
+                                <Tooltip
+                                  popperClassName="text-left"
+                                  body={
+                                    <div>
+                                      <div className="mb-2">
+                                        This value is the sum of the adjusted
+                                        scaled impacts of the winning variations
+                                        from experiments marked as Won.
+                                      </div>
+                                      <div className="mb-2">
+                                        <ol>
+                                          <li>
+                                            We compute the Daily Scaled Impact
+                                            for all variations in all
+                                            experiments that match your filters.
+                                          </li>
+                                          <li>
+                                            If de-biasing is on, we use a
+                                            James-Stein adjustment to shrink
+                                            estimates towards zero to mitigate
+                                            selection bias.
+                                          </li>
+                                          <li>
+                                            We sum the Scaled Impact of the
+                                            winning variation of experiments
+                                            marked as won and multiply values by
+                                            365 to get an annual value.
+                                          </li>
+                                        </ol>
+                                      </div>
+                                      <div>{`The plus-minus value represents a 95% confidence interval.`}</div>
+                                    </div>
+                                  }
+                                >
+                                  <span className="small font-weight-bold">
+                                    summed impact / year
+                                  </span>{" "}
+                                  <MdInfoOutline className="text-info" />
+                                </Tooltip>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="impact-results">
+                            <div>
+                              <span style={{ fontSize: "1.2em" }}>
+                                {formatImpact(
+                                  summaryObj.losers.totalAdjustedImpact * 365,
+                                  formatter,
                                   formatterOptions
-                                )}
+                                )}{" "}
+                                {summaryObj.losers
+                                  .totalAdjustedImpactVariance ? (
+                                  <span className="plusminus ml-1">
+                                    ±{" "}
+                                    {formatter(
+                                      Math.sqrt(
+                                        summaryObj.losers
+                                          .totalAdjustedImpactVariance
+                                      ) *
+                                        1.96 *
+                                        365,
+                                      formatterOptions
+                                    )}
+                                  </span>
+                                ) : null}
                               </span>
-                            ) : null}
-                          </span>
-                          <div>
-                            <Tooltip
-                              popperClassName="text-left"
-                              body={
-                                <div>
-                                  <div className="mb-2">
-                                    This value is the sum of the adjusted scaled
-                                    impacts of the worst variation from
-                                    experiments marked as Lost.
-                                  </div>
-                                  <div className="mb-2">
-                                    <ol>
-                                      <li>
-                                        We compute the Daily Scaled Impact for
-                                        all variations in all experiments that
-                                        match your filters.
-                                      </li>
-                                      <li>
-                                        If de-biasing is on, we use a
-                                        James-Stein adjustment to shrink
-                                        estimates towards zero to mitigate
-                                        selection bias.
-                                      </li>
-                                      <li>
-                                        We sum the Scaled Impact of the worst
-                                        variation of experiments marked as lost
-                                        and multiply values by 365 to get an
-                                        annual value.
-                                      </li>
-                                    </ol>
-                                  </div>
-                                  <div>{`The plus-minus value represents a 95% confidence interval.`}</div>
-                                </div>
-                              }
-                            >
-                              <span className="small text-muted font-weight-bold">
-                                avoided loss / year
-                              </span>{" "}
-                              <MdInfoOutline className="text-info" />
-                            </Tooltip>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="impact-results">
-                        <div>
-                          <span style={{ fontSize: "1.2em" }}>N/A</span>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </Tab>
-
-            <Tab
-              key={"winner"}
-              id={"winner"}
-              display={"Won"}
-              count={summaryObj.winners.experiments.length}
-              padding={false}
-            >
-              <ExperimentImpactTab
-                experimentImpactData={summaryObj.winners}
-                experimentImpactType={"winner"}
-                formatter={formatter}
-                formatterOptions={formatterOptions}
-              />
-            </Tab>
-
-            <Tab
-              key={"loser"}
-              id={"loser"}
-              display={"Lost"}
-              count={summaryObj.losers.experiments.length}
-              padding={false}
-            >
-              <ExperimentImpactTab
-                experimentImpactData={summaryObj.losers}
-                experimentImpactType={"loser"}
-                formatter={formatter}
-                formatterOptions={formatterOptions}
-              />
-            </Tab>
-
-            <Tab
-              key={"other"}
-              id={"other"}
-              display={"Other"}
-              count={summaryObj.others.experiments.length}
-              padding={false}
-            >
-              <ExperimentImpactTab
-                experimentImpactData={summaryObj.others}
-                experimentImpactType={"other"}
-                formatter={formatter}
-                formatterOptions={formatterOptions}
-              />
-            </Tab>
-          </ControlledTabs>
+                              <div>
+                                <Tooltip
+                                  popperClassName="text-left"
+                                  body={
+                                    <div>
+                                      <div className="mb-2">
+                                        This value is the sum of the adjusted
+                                        scaled impacts of the worst variation
+                                        from experiments marked as Lost.
+                                      </div>
+                                      <div className="mb-2">
+                                        <ol>
+                                          <li>
+                                            We compute the Daily Scaled Impact
+                                            for all variations in all
+                                            experiments that match your filters.
+                                          </li>
+                                          <li>
+                                            If de-biasing is on, we use a
+                                            James-Stein adjustment to shrink
+                                            estimates towards zero to mitigate
+                                            selection bias.
+                                          </li>
+                                          <li>
+                                            We sum the Scaled Impact of the
+                                            worst variation of experiments
+                                            marked as lost and multiply values
+                                            by 365 to get an annual value.
+                                          </li>
+                                        </ol>
+                                      </div>
+                                      <div>{`The plus-minus value represents a 95% confidence interval.`}</div>
+                                    </div>
+                                  }
+                                >
+                                  <span className="small text-muted font-weight-bold">
+                                    avoided loss / year
+                                  </span>{" "}
+                                  <MdInfoOutline className="text-info" />
+                                </Tooltip>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="impact-results">
+                            <div>
+                              <span style={{ fontSize: "1.2em" }}>N/A</span>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ),
+              },
+              {
+                slug: "winner",
+                label: (
+                  <>
+                    Won
+                    {summaryObj.winners.experiments.length > 0 && (
+                      <span className="ml-2 badge badge-secondary">
+                        {summaryObj.winners.experiments.length}
+                      </span>
+                    )}
+                  </>
+                ),
+                content: (
+                  <ExperimentImpactTab
+                    experimentImpactData={summaryObj.winners}
+                    experimentImpactType={"winner"}
+                    formatter={formatter}
+                    formatterOptions={formatterOptions}
+                  />
+                ),
+              },
+              {
+                slug: "loser",
+                label: (
+                  <>
+                    Lost
+                    {summaryObj.losers.experiments.length > 0 && (
+                      <span className="ml-2 badge badge-secondary">
+                        {summaryObj.losers.experiments.length}
+                      </span>
+                    )}
+                  </>
+                ),
+                content: (
+                  <ExperimentImpactTab
+                    experimentImpactData={summaryObj.losers}
+                    experimentImpactType={"loser"}
+                    formatter={formatter}
+                    formatterOptions={formatterOptions}
+                  />
+                ),
+              },
+              {
+                slug: "other",
+                label: (
+                  <>
+                    Other
+                    {summaryObj.others.experiments.length > 0 && (
+                      <span className="ml-2 badge badge-secondary">
+                        {summaryObj.others.experiments.length}
+                      </span>
+                    )}
+                  </>
+                ),
+                content: (
+                  <ExperimentImpactTab
+                    experimentImpactData={summaryObj.others}
+                    experimentImpactType={"other"}
+                    formatter={formatter}
+                    formatterOptions={formatterOptions}
+                  />
+                ),
+              },
+            ]}
+          />
         </>
       ) : null}
     </div>

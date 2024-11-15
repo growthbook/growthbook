@@ -35,8 +35,7 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-import Tab from "@/components/Tabs/Tab";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tabs from "@/components/Radix/Tabs";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
@@ -805,68 +804,56 @@ export default function FactMetricPage() {
         </div>
       </div>
       <div className="row align-items-center">
-        <ControlledTabs
-          orientation="horizontal"
-          className="col"
-          buttonsClassName="mb-0 d-flex align-items-center"
-          buttonsWrapperClassName="border-bottom-0 large shiftdown-1"
-          defaultTab="analysis"
-          newStyle={false}
-          showActiveCount={false}
-          active={tab}
-          setActive={setTab}
-        >
-          <Tab
-            display={
-              <>
-                <FaChartLine className="mr-1" size={16} />
-                Metric Analysis
-              </>
-            }
-            id="analysis"
-            anchor="analysis"
-            padding={false}
-            lazy={true}
-          >
-            {datasource ? (
-              <MetricAnalysis
-                factMetric={factMetric}
-                datasource={datasource}
-                className="tabbed-content"
-              />
-            ) : null}
-          </Tab>
-          <Tab
-            display={
-              <>
-                <GBExperiment className="mr-1" />
-                Experiments
-              </>
-            }
-            id="experiments"
-            anchor="experiments"
-            padding={false}
-            lazy={true}
-          >
-            <MetricExperiments metric={factMetric} />
-          </Tab>
-          {growthbook.isOn("bandits") ? (
-            <Tab
-              display={
-                <>
-                  <GBBandit className="mr-1" />
-                  Bandits
-                </>
-              }
-              id="bandits"
-              anchor="bandits"
-              padding={false}
-              lazy={true}
-            >
-              <MetricExperiments metric={factMetric} bandits={true} />
-            </Tab>
-          ) : null}
-        </ControlledTabs>
+        <div className="col">
+          <Tabs
+            activeTab={tab || "analysis"}
+            onTabChange={(newTab) => setTab(newTab)}
+            tabs={[
+              {
+                slug: "analysis",
+                label: (
+                  <>
+                    <FaChartLine className="mr-1" size={16} />
+                    Metric Analysis
+                  </>
+                ),
+                content: datasource ? (
+                  <MetricAnalysis
+                    factMetric={factMetric}
+                    datasource={datasource}
+                    className="tabbed-content"
+                  />
+                ) : null,
+              },
+              {
+                slug: "experiments",
+                label: (
+                  <>
+                    <GBExperiment className="mr-1" />
+                    Experiments
+                  </>
+                ),
+                content: <MetricExperiments metric={factMetric} />,
+              },
+              ...(growthbook.isOn("bandits")
+                ? [
+                    {
+                      slug: "bandits",
+                      label: (
+                        <>
+                          <GBBandit className="mr-1" />
+                          Bandits
+                        </>
+                      ),
+                      content: (
+                        <MetricExperiments metric={factMetric} bandits={true} />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </div>
       </div>
     </div>
   );

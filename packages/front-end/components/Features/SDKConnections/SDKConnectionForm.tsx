@@ -573,6 +573,8 @@ export default function SDKConnectionForm({
           <>
             <label>SDK Payload Security</label>
             <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
+              {/* Allow ControlledTabs to be used here as it's design does not match the new Tabs component */}
+              {/* eslint-disable-next-line react/forbid-elements */}
               <ControlledTabs
                 newStyle={true}
                 className="mb-3"

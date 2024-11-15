@@ -6,9 +6,9 @@ import {
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import { Box } from "@radix-ui/themes";
+import Tabs from "@/components/Radix/Tabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Tab from "@/components/Tabs/Tab";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
@@ -133,35 +133,46 @@ export default function StatsEngineSettings() {
         labelClassName="mr-2"
       />
 
-      <ControlledTabs
-        newStyle={true}
-        className="mt-3"
-        buttonsClassName="px-5"
-        tabContentsClassName="border"
-        active={statsEngineTab}
-        setActive={(v) => setStatsEngineTab(v || DEFAULT_STATS_ENGINE)}
-      >
-        <Tab id="bayesian" display="Bayesian">
-          <BayesianTab
-            {...{
-              highlightColor,
-              warningMsg,
-              form,
-            }}
-          />
-        </Tab>
-        <Tab id="frequentist" display="Frequentist">
-          <FrequentistTab
-            {...{
-              pHighlightColor,
-              pWarningMsg,
-              regressionAdjustmentDaysHighlightColor,
-              regressionAdjustmentDaysWarningMsg,
-              form,
-            }}
-          />
-        </Tab>
-      </ControlledTabs>
+      <div className="mt-3">
+        <Tabs
+          activeTab={statsEngineTab}
+          onTabChange={(v) => setStatsEngineTab(v)}
+          tabs={[
+            {
+              slug: "bayesian",
+              label: "Bayesian",
+              content: (
+                <Box mt="4">
+                  <BayesianTab
+                    {...{
+                      highlightColor,
+                      warningMsg,
+                      form,
+                    }}
+                  />
+                </Box>
+              ),
+            },
+            {
+              slug: "frequentist",
+              label: "Frequentist",
+              content: (
+                <Box mt="4">
+                  <FrequentistTab
+                    {...{
+                      pHighlightColor,
+                      pWarningMsg,
+                      regressionAdjustmentDaysHighlightColor,
+                      regressionAdjustmentDaysWarningMsg,
+                      form,
+                    }}
+                  />
+                </Box>
+              ),
+            },
+          ]}
+        />
+      </div>
 
       <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
