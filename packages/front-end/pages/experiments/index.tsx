@@ -155,15 +155,15 @@ const ExperimentsPage = (): React.ReactElement => {
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];
-        if (item.archived) is.push("已归档");
-        if (item.status === "草稿") is.push("草稿");
-        if (item.status === "运行中") is.push("运行中");
-        if (item.status === "已停止") is.push("已停止");
-        if (item.results === "获胜") is.push("获胜");
-        if (item.results === "失败") is.push("失败");
-        if (item.results === "无结论") is.push("无结论");
-        if (item.hasVisualChangesets) is.push("有视觉变更");
-        if (item.hasURLRedirects) is.push("有URL重定向");
+        if (item.archived) is.push("archived");
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "running") is.push("running");
+        if (item.status === "stopped") is.push("stopped");
+        if (item.results === "won") is.push("winner");
+        if (item.results === "lost") is.push("loser");
+        if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.hasVisualChangesets) is.push("visual");
+        if (item.hasURLRedirects) is.push("redirect");
         return is;
       },
       has: (item) => {
@@ -581,23 +581,23 @@ const ExperimentsPage = (): React.ReactElement => {
                           )}
                         </td>
                         <td className="nowrap" title={datetime(e.date)}>
-                          {e.tab === "运行中"
-                            ? "开始"
-                            : e.tab === "草稿"
-                              ? "创建"
-                              : e.tab === "已停止"
-                                ? "结束"
-                                : e.tab === "已归档"
-                                  ? "更新"
+                          {e.tab === "running"
+                            ? "started"
+                            : e.tab === "drafts"
+                              ? "created"
+                              : e.tab === "stopped"
+                                ? "ended"
+                                : e.tab === "archived"
+                                  ? "updated"
                                   : ""}{" "}
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="摘要：">
                           {e.archived ? (
                             ""
-                          ) : e.status === "运行中" && phase ? (
+                          ) : e.status === "running" && phase ? (
                             phaseSummary(phase, e.type === "multi-armed-bandit")
-                          ) : e.status === "已停止" && e.results ? (
+                          ) : e.status === "stopped" && e.results ? (
                             <ResultsIndicator results={e.results} />
                           ) : (
                             ""
