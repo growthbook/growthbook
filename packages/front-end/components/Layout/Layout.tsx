@@ -194,13 +194,13 @@ const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canCreateApiKey() ||
           permissionsUtils.canDeleteApiKey(),
       },
-      {
-        name: "Webhooks",
-        href: "/settings/webhooks",
-        path: /^settings\/webhooks/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewEventWebhook(),
-      },
+      // {
+      //   name: "Webhooks",
+      //   href: "/settings/webhooks",
+      //   path: /^settings\/webhooks/,
+      //   filter: ({ permissionsUtils }) =>
+      //     permissionsUtils.canViewEventWebhook(),
+      // },
       {
         name: "日志",
         href: "/events",

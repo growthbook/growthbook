@@ -52,7 +52,7 @@ export const EventsPage: FC<EventsPageProps> = ({
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
-          You do not have access to view this page.
+          您无权查看此页面。
         </div>
       </div>
     );
@@ -62,14 +62,15 @@ export const EventsPage: FC<EventsPageProps> = ({
     <div className="container py-4">
       <div className="row">
         <div className="col-6">
-          <h1>Events</h1>
+          <h1>事件</h1>
         </div>
 
-        <div className="col-6 text-right">
+        {/* 屏蔽导出按钮 */}
+        {/* <div className="col-6 text-right">
           <PremiumTooltip commercialFeature="audit-logging">
             {shouldShowExportButton
               ? ""
-              : "Exporting events is available to Enterprise customers"}
+              : "导出事件功能仅对企业客户可用"}
           </PremiumTooltip>
 
           <Button
@@ -78,9 +79,9 @@ export const EventsPage: FC<EventsPageProps> = ({
             ml="3"
             icon={<FaDownload />}
           >
-            Export All
+            导出全部
           </Button>
-        </div>
+        </div> */}
       </div>
 
       <div className="d-flex justify-content-between flex-row mt-2">
@@ -88,12 +89,12 @@ export const EventsPage: FC<EventsPageProps> = ({
       </div>
       {error && (
         <div className="alert alert-danger mt-2">
-          There was an error loading the events.
+          加载事件时出错。
         </div>
       )}
       {hasExportError && (
         <div className="alert alert-danger mt-2">
-          There was an error exporting the events.
+          导出事件时出错。
         </div>
       )}
 
@@ -111,7 +112,7 @@ export const EventsPage: FC<EventsPageProps> = ({
                   });
                 }}
               >
-                Date{" "}
+                日期{" "}
                 <a
                   href="#"
                   className={
@@ -130,25 +131,24 @@ export const EventsPage: FC<EventsPageProps> = ({
                 </a>
               </span>
             </th>
-            <th>Type</th>
-            <th>By</th>
-            <th>Data</th>
+            <th>类型</th>
+            <th>执行者</th>
+            <th>数据</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {events.length === 0 ? (
-            // Empty state
+            // 空状态
             <tr>
               <td colSpan={5}>
                 {hasFilters ? (
                   <div className="text-center">
-                    No events were found that match the filters.
+                    未找到符合筛选条件的事件。
                   </div>
                 ) : (
                   <div className="text-center">
-                    No events were found. Events are created when users interact
-                    with the system.
+                    未找到事件。事件在用户与系统交互时生成。
                   </div>
                 )}
               </td>
@@ -189,9 +189,9 @@ export const EventsPageContainer = () => {
     count: number;
   }>(
     "/events/count?type=" +
-      JSON.stringify(eventType) +
-      (fromDate ? "&from=" + fromDate?.toISOString() : "") +
-      (toDate ? "&to=" + toDate?.toISOString() : "")
+    JSON.stringify(eventType) +
+    (fromDate ? "&from=" + fromDate?.toISOString() : "") +
+    (toDate ? "&to=" + toDate?.toISOString() : "")
   );
   const {
     isDownloading,
@@ -215,7 +215,7 @@ export const EventsPageContainer = () => {
       <div>
         <MultiSelectField
           value={eventType}
-          placeholder="Filter event type"
+          placeholder="筛选事件类型"
           sort={false}
           options={eventTypeOptions}
           onChange={(value: string[]) => {
@@ -226,7 +226,7 @@ export const EventsPageContainer = () => {
       <div>
         <Field
           type="date"
-          label="From"
+          label="起始日期"
           className="text-muted"
           labelClassName="mr-2 mb-0"
           containerClassName="ml-2 d-flex align-items-center mb-0"
@@ -239,7 +239,7 @@ export const EventsPageContainer = () => {
       <div>
         <Field
           type="date"
-          label="To"
+          label="截止日期"
           className="text-muted"
           labelClassName="mr-2 mb-0"
           containerClassName="ml-2 d-flex align-items-center mb-0"
@@ -260,7 +260,7 @@ export const EventsPageContainer = () => {
               setToDate(null);
             }}
           >
-            Clear
+            清除
           </button>
         </div>
       )}
@@ -269,7 +269,7 @@ export const EventsPageContainer = () => {
         <SelectField
           containerClassName="ml-2 d-flex align-items-center mb-0"
           labelClassName="mr-2 mb-0"
-          label="Show"
+          label="显示数量"
           options={[
             {
               label: "10",
