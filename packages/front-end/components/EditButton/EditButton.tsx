@@ -20,31 +20,31 @@ const EditButton: FC<{
   style,
   outline = true,
   link = false,
-  text = "Edit",
+  text = "编辑",
   title = "",
   useIcon = true,
   disabled = false,
 }) => {
-  return (
-    <>
-      <a
-        className={clsx(
-          link ? "text" : ["btn", outline ? "btn-outline" : "btn-primary"],
-          className
-        )}
-        title={title}
-        href="#"
-        style={style}
-        onClick={(e) => {
-          e.preventDefault();
-          !disabled && onClick();
-        }}
-      >
-        {useIcon && <PiPencilSimpleFill className={iconClassName} />}
-        {text && ` ${text}`}
-      </a>
-    </>
-  );
-};
+    return (
+      <>
+        <a
+          className={clsx(
+            link ? "text" : ["btn", outline ? "btn-outline" : "btn-primary"],
+            className
+          )}
+          title={title}
+          href="#"
+          style={style}
+          onClick={(e) => {
+            e.preventDefault();
+            !disabled && onClick();
+          }}
+        >
+          {useIcon && <PiPencilSimpleFill className={iconClassName} />}
+          {text && ` ${text}`}
+        </a>
+      </>
+    );
+  };
 
 export default EditButton;

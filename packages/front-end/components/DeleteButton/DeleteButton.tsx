@@ -37,74 +37,74 @@ const DeleteButton: FC<{
   text = "",
   title = "",
   useIcon = true,
-  deleteMessage = "Are you sure? This action cannot be undone.",
+  deleteMessage = "你确定要删除吗？此操作无法撤销。",
   additionalMessage = "",
   getConfirmationContent,
   canDelete = true,
   disabled = false,
 }) => {
-  const [confirming, setConfirming] = useState(false);
-  const [dynamicContent, setDynamicContent] = useState<
-    string | ReactElement | null
-  >("");
+    const [confirming, setConfirming] = useState(false);
+    const [dynamicContent, setDynamicContent] = useState<
+      string | ReactElement | null
+    >("");
 
-  useEffect(() => {
-    if (!confirming || !getConfirmationContent) return;
-    getConfirmationContent()
-      .then((c) => setDynamicContent(c))
-      .catch((e) => console.error(e));
-  }, [confirming, getConfirmationContent]);
+    useEffect(() => {
+      if (!confirming || !getConfirmationContent) return;
+      getConfirmationContent()
+        .then((c) => setDynamicContent(c))
+        .catch((e) => console.error(e));
+    }, [confirming, getConfirmationContent]);
 
-  return (
-    <>
-      {confirming ? (
-        <Modal
-          trackingEventModalType=""
-          header={`Delete ${displayName}`}
-          close={() => setConfirming(false)}
-          open={true}
-          cta="Delete"
-          submitColor="danger"
-          submit={onClick}
-          ctaEnabled={canDelete}
-        >
-          {dynamicContent ? (
-            dynamicContent
-          ) : isValidElement(deleteMessage) ? (
-            deleteMessage
-          ) : (
-            <p>{deleteMessage}</p>
-          )}
-          {additionalMessage &&
-            (isValidElement(additionalMessage) ? (
-              additionalMessage
+    return (
+      <>
+        {confirming ? (
+          <Modal
+            trackingEventModalType=""
+            header={`删除 ${displayName}`}
+            close={() => setConfirming(false)}
+            open={true}
+            cta="删除"
+            submitColor="danger"
+            submit={onClick}
+            ctaEnabled={canDelete}
+          >
+            {dynamicContent ? (
+              dynamicContent
+            ) : isValidElement(deleteMessage) ? (
+              deleteMessage
             ) : (
-              <p>{additionalMessage}</p>
-            ))}
-        </Modal>
-      ) : (
-        ""
-      )}
-      <a
-        className={clsx(
-          link
-            ? "text-danger"
-            : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
-          className
+              <p>{deleteMessage}</p>
+            )}
+            {additionalMessage &&
+              (isValidElement(additionalMessage) ? (
+                additionalMessage
+              ) : (
+                <p>{additionalMessage}</p>
+              ))}
+          </Modal>
+        ) : (
+          ""
         )}
-        title={title}
-        href="#"
-        style={style}
-        onClick={(e) => {
-          e.preventDefault();
-          !disabled && setConfirming(true);
-        }}
-      >
-        {useIcon && <PiTrashFill className={iconClassName} />}
-        {text && ` ${text}`}
-      </a>
-    </>
-  );
-};
+        <a
+          className={clsx(
+            link
+              ? "text-danger"
+              : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
+            className
+          )}
+          title={title}
+          href="#"
+          style={style}
+          onClick={(e) => {
+            e.preventDefault();
+            !disabled && setConfirming(true);
+          }}
+        >
+          {useIcon && <PiTrashFill className={iconClassName} />}
+          {text && ` ${text}`}
+        </a>
+      </>
+    );
+  };
 
 export default DeleteButton;

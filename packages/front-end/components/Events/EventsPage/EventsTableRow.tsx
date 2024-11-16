@@ -60,13 +60,13 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
                   expandable={false}
                 />
               </div>
-              <Link href={`/events/${event.id}`}>Permalink to Event</Link>
+              <Link href={`/events/${event.id}`}>详细链接</Link>
             </div>
           )}
         </td>
         <td className="">
           <span className="tr-hover small py-1">
-            <Link href={`/events/${event.id}`}>Permalink</Link>
+            <Link href={`/events/${event.id}`}>详细链接</Link>
           </span>
         </td>
       </tr>

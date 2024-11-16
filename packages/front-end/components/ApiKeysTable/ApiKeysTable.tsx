@@ -23,9 +23,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     <table className="table mb-3 appbox gbtable">
       <thead>
         <tr>
-          <th style={{ width: 150 }}>Description</th>
-          <th>Key</th>
-          <th>Role</th>
+          <th style={{ width: 150 }}>描述</th>
+          <th>密钥</th>
+          <th>角色</th>
           {canDeleteKeys && <th style={{ width: 30 }}></th>}
         </tr>
       </thead>
@@ -36,11 +36,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             <td style={{ minWidth: 295 }}>
               {canCreateKeys ? (
                 <ClickToReveal
-                  valueWhenHidden="secret_abcdefghijklmnop123"
+                  valueWhenHidden="love and peace"
                   getValue={onReveal(key.id)}
                 />
               ) : (
-                <em>hidden</em>
+                <em>Hide</em>
               )}
             </td>
             <td>{key.role || "-"}</td>
@@ -50,8 +50,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   <DeleteButton
                     onClick={onDelete(key.id)}
                     className="dropdown-item"
-                    displayName="API Key"
-                    text="Delete key"
+                    displayName="API密钥"
+                    text="删除密钥"
                   />
                 </MoreMenu>
               </td>
