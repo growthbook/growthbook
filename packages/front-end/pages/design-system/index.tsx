@@ -192,6 +192,7 @@ export default function DesignSystemPage() {
             setDate={setDate1}
             precision="datetime"
             disableBefore={new Date()}
+            inputWidth={150}
           />
           <hr />
 
