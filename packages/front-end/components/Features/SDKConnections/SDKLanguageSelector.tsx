@@ -13,7 +13,7 @@ const tabs: Record<LanguageFilter, string> = {
   all: "全部",
   browser: "浏览器",
   server: "服务器",
-  mobile: "移动",
+  mobile: "移动端",
   edge: "边缘",
 };
 
@@ -83,12 +83,12 @@ export default function SDKLanguageSelector({
     setValue([...selected]);
   };
 
-  // If the selected language(s) are not in the "limitLanguages" list, add them
+  // 如果所选语言不在“limitLanguages”列表中，将其添加进去
   if (limitLanguages) {
     limitLanguages = Array.from(new Set([...limitLanguages, ...value]));
   }
 
-  // If "other" is the only one selected and the props say to hide "other", show it anyway
+  // 如果仅“其他”被选中且属性设置为隐藏“其他”，则无论如何都显示它
   if (
     limitLanguages &&
     limitLanguages.length === 1 &&
@@ -144,7 +144,7 @@ export default function SDKLanguageSelector({
         active={languageFilter}
         setActive={(v) => setLanguageFilter((v ?? "all") as LanguageFilter)}
       >
-        {Object.keys(tabs).map((tab) => (
+        {Object.keys(tabs).filter((tab) => tab !== "edge").map((tab) => (
           <Tab
             key={tab}
             id={tab}
@@ -161,14 +161,17 @@ export default function SDKLanguageSelector({
               className="d-flex flex-wrap pb-3"
               style={{ rowGap: "1em", columnGap: "0.6em" }}
             >
-              {languages.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
+              {languages.filter((l) => l !== "edge-cloudflare" &&
+                l !== "edge-fastly" &&
+                l !== "edge-lambda" &&
+                l !== "edge-other").map((l) => (
+                  <SDKLanguageOption
+                    key={l}
+                    language={l}
+                    onClick={() => handleLanguageOptionClick(l)}
+                    selected={selected.has(l)}
+                  />
+                ))}
             </div>
           </Tab>
         ))}
@@ -227,7 +230,7 @@ export default function SDKLanguageSelector({
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
-                <strong>移动</strong>
+                <strong>移动端</strong>
               </div>
             )}
             <div
@@ -245,7 +248,7 @@ export default function SDKLanguageSelector({
             </div>
           </div>
         )}
-        {edge.length > 0 && (
+        {/* {edge.length > 0 && (
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
@@ -266,7 +269,7 @@ export default function SDKLanguageSelector({
               ))}
             </div>
           </div>
-        )}
+        )} */}
         {nocode.length > 0 && (
           <div className="col-auto mb-1">
             {renderLabels && (
