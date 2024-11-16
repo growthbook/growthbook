@@ -125,7 +125,7 @@ export default function DatePicker({
         }}
       >
         <Popover.Trigger asChild>
-          <Flex gap="1rem" display="inline-flex">
+          <Flex gap="1rem" display="inline-flex" width={inputWidth}>
             <div style={{ width: inputWidth, minHeight: 38 }}>
               {label ? <label>{label}</label> : null}
               <div
@@ -139,6 +139,8 @@ export default function DatePicker({
                     width: "calc(100% + 30px)",
                     minHeight: 38,
                     cursor: "pointer",
+                    fontFamily: "var(--font-family-sans-serif)",
+                    textAlign: "left",
                   }}
                   className={clsx({ "text-muted": !date })}
                   type={precision === "datetime" ? "datetime-local" : "date"}
@@ -162,8 +164,10 @@ export default function DatePicker({
                     setDate(d);
                     setCalendarMonth(d);
                   }}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
                     fieldClickedTime.current = new Date();
+                    setOpen(true);
                   }}
                 />
               </div>
@@ -182,6 +186,8 @@ export default function DatePicker({
                       width: "calc(100% + 30px)",
                       minHeight: 38,
                       cursor: "pointer",
+                      fontFamily: "var(--font-family-sans-serif)",
+                      textAlign: "left",
                     }}
                     className={clsx({ "text-muted": !date2 })}
                     type={precision === "datetime" ? "datetime-local" : "date"}
@@ -211,8 +217,10 @@ export default function DatePicker({
                       setDate2?.(d);
                       setCalendarMonth(d);
                     }}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       fieldClickedTime.current = new Date();
+                      setOpen(true);
                     }}
                   />
                 </div>
