@@ -36,77 +36,77 @@ export default function Welcome({
   }, [pathname]);
 
   const welcomeMsg = [
-    <>Welcome to GrowthBook!</>,
-    <>Hello! Welcome to GrowthBook</>,
-    "Hello there, Welcome!",
-    "Hey there!",
+    <>欢迎来到GrowthBook！</>,
+    <>你好！欢迎来到GrowthBook</>,
+    "你好呀，欢迎！",
+    "嘿，在这儿呢！",
   ];
   const cta =
     state === "login"
-      ? "Log in"
+      ? "登录"
       : state === "register"
-      ? "Create Account"
-      : state === "forgot"
-      ? "Look up"
-      : state === "firsttime"
-      ? "Sign up"
-      : "Submit";
+        ? "创建账户"
+        : state === "forgot"
+          ? "找回密码"
+          : state === "firsttime"
+            ? "注册"
+            : "提交";
 
   const submit =
     state === "forgotSuccess"
       ? undefined
       : form.handleSubmit(async (data) => {
-          const res = await fetch(getApiHost() + "/auth/" + state, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify(data),
-          });
-          const json: {
-            status: number;
-            token: string;
-            message?: string;
-            projectId?: string;
-          } = await res.json();
-          if (json.status > 200) {
-            throw new Error(
-              json.message || "An error occurred. Please try again."
-            );
-          }
-
-          if (state === "register") {
-            track("Register");
-          }
-          if (state === "firsttime") {
-            track("Register-first");
-          }
-          if (state === "forgot") {
-            setState("forgotSuccess");
-          } else {
-            onSuccess(json.token, json.projectId);
-          }
+        const res = await fetch(getApiHost() + "/auth/" + state, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
         });
+        const json: {
+          status: number;
+          token: string;
+          message?: string;
+          projectId?: string;
+        } = await res.json();
+        if (json.status > 200) {
+          throw new Error(
+            json.message || "发生错误，请重试。"
+          );
+        }
+
+        if (state === "register") {
+          track("注册");
+        }
+        if (state === "firsttime") {
+          track("首次注册");
+        }
+        if (state === "forgot") {
+          setState("forgotSuccess");
+        } else {
+          onSuccess(json.token, json.projectId);
+        }
+      });
 
   const welcomeContent =
     state === "login" ? (
-      <p>Welcome back, lets get started with some experiments</p>
+      <p>欢迎回来，让我们开始一些实验吧</p>
     ) : state === "register" ? (
       <p>
-        Let&apos;s run some experiments! Enter your information to get started.
+        让我们来做些实验吧！输入您的信息以开始使用。
       </p>
     ) : state === "forgot" ? (
-      <p>Happens to the best of us</p>
+      <p>谁都有可能遇到这种情况呢</p>
     ) : state === "firsttime" ? (
       <>
         <p>
-          Getting started with GrowthBook only takes a few minutes. <br />
-          To start, we&apos;ll need a bit of information about you.
+          开始使用GrowthBook只需几分钟。<br />
+          首先，我们需要您的一些信息。
         </p>
       </>
     ) : (
-      <p>Let&apos;s get started with some experimentation</p>
+      <p>让我们开始一些实验吧</p>
     );
 
   const leftside = (
@@ -137,9 +137,9 @@ export default function Welcome({
         >
           {state === "register" && (
             <div>
-              <h3 className="h2">Register</h3>
+              <h3 className="h2">注册</h3>
               <p>
-                Already have an account?{" "}
+                已经有账户了？{" "}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -147,26 +147,26 @@ export default function Welcome({
                     setState("login");
                   }}
                 >
-                  Log In
+                  登录
                 </a>
               </p>
             </div>
           )}
           {state === "firsttime" && (
             <div>
-              <h3 className="h2">Set up your first account</h3>
+              <h3 className="h2">设置您的第一个账户</h3>
               <p>
-                This information stays on your servers and is never shared.{" "}
+                此信息保存在您的服务器上，绝不会共享。{" "}
                 <br />
-                You can invite the rest of your team later.
+                您可以稍后邀请团队其他成员。
               </p>
             </div>
           )}
           {state === "login" && (
             <div>
-              <h3 className="h2">Log In</h3>
+              <h3 className="h2">登录</h3>
               <p>
-                Don&apos;t have an account yet?{" "}
+                还没有账户？{" "}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -174,14 +174,14 @@ export default function Welcome({
                     setState("register");
                   }}
                 >
-                  Register
+                  注册
                 </a>
               </p>
             </div>
           )}
           {state === "forgot" && (
             <div>
-              <h3 className="h2">Forgot Password</h3>
+              <h3 className="h2">忘记密码</h3>
               <p>
                 <a
                   href="#"
@@ -190,20 +190,20 @@ export default function Welcome({
                     setState("login");
                   }}
                 >
-                  Go back to Log In
+                  返回登录
                 </a>
               </p>
             </div>
           )}
           {state === "forgotSuccess" && (
             <div>
-              <h3 className="h2">Forgot Password</h3>
+              <h3 className="h2">忘记密码</h3>
               <div className="alert alert-success">
-                Password reset link sent to <strong>{email}</strong>.
+                密码重置链接已发送至 <strong>{email}</strong>。
               </div>
-              <p>Click the link in the email to reset your password.</p>
+              <p>点击邮件中的链接重置密码。</p>
               <p>
-                Sent to the wrong email or need to resend?{" "}
+                发错邮箱了或者需要重新发送？{" "}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -211,14 +211,14 @@ export default function Welcome({
                     setState("forgot");
                   }}
                 >
-                  Go Back
+                  返回
                 </a>
               </p>
             </div>
           )}
           {state === "firsttime" && (
             <Field
-              label="Company name"
+              label="公司名称"
               required
               autoFocus
               minLength={2}
@@ -227,7 +227,7 @@ export default function Welcome({
           )}
           {(state === "register" || state === "firsttime") && (
             <Field
-              label="Name"
+              label="姓名"
               required
               {...form.register("name")}
               autoFocus={state === "register"}
@@ -239,42 +239,42 @@ export default function Welcome({
             state === "register" ||
             state === "forgot" ||
             state === "firsttime") && (
-            <Field
-              label="Email Address"
-              required
-              type="email"
-              {...form.register("email")}
-              autoFocus={state === "login" || state === "forgot"}
-              autoComplete="username"
-            />
-          )}
+              <Field
+                label="邮箱地址"
+                required
+                type="email"
+                {...form.register("email")}
+                autoFocus={state === "login" || state === "forgot"}
+                autoComplete="username"
+              />
+            )}
           {(state === "login" ||
             state === "register" ||
             state === "firsttime") && (
-            <Field
-              label="Password"
-              required
-              type="password"
-              {...form.register("password")}
-              autoComplete={
-                state === "login" ? "current-password" : "new-password"
-              }
-              minLength={8}
-              helpText={
-                state === "login" ? (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setState("forgot");
-                    }}
-                  >
-                    Forgot Password?
-                  </a>
-                ) : null
-              }
-            />
-          )}
+              <Field
+                label="密码"
+                required
+                type="password"
+                {...form.register("password")}
+                autoComplete={
+                  state === "login" ? "current-password" : "new-password"
+                }
+                minLength={8}
+                helpText={
+                  state === "login" ? (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setState("forgot");
+                      }}
+                    >
+                      忘记密码？
+                    </a>
+                  ) : null
+                }
+              />
+            )}
           {error && <div className="alert alert-danger mr-auto">{error}</div>}
           <button className={`btn btn-primary btn-block btn-lg`} type="submit">
             {cta}

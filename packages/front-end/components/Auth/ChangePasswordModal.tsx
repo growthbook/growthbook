@@ -18,12 +18,12 @@ const ChangePasswordModal: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      header="Change Password"
+      header="修改密码"
       open={true}
       autoCloseOnSubmit={false}
       close={close}
-      cta="Change Password"
-      successMessage="Password successfully changed"
+      cta="修改密码"
+      successMessage="密码修改成功"
       submit={form.handleSubmit(async (data) => {
         await apiCall("/auth/change-password", {
           method: "POST",
@@ -32,7 +32,7 @@ const ChangePasswordModal: FC<{
       })}
     >
       <Field
-        label="Current Password"
+        label="当前密码"
         type="password"
         required
         minLength={8}
@@ -40,13 +40,13 @@ const ChangePasswordModal: FC<{
         {...form.register("currentPassword")}
         helpText={
           <>
-            Can&apos;t remember your current password? Log out and click on{" "}
-            <strong>Forgot&nbsp;Password</strong> to reset it.
+            忘记当前密码了？请退出登录，然后点击{" "}
+            <strong>忘记密码</strong>来重置密码。
           </>
         }
       />
       <Field
-        label="New Password"
+        label="新密码"
         type="password"
         required
         minLength={8}

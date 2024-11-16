@@ -40,27 +40,30 @@ import useGlobalMenu from "@/services/useGlobalMenu";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
+// 顶部导航栏组件
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+  // 编辑用户信息弹窗是否打开的状态
   const [editUserOpen, setEditUserOpen] = useState(false);
+  // 修改密码弹窗是否打开的状态
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [
-    enableCelebrations,
-    setEnableCelebrations,
-  ] = useCelebrationLocalStorage();
+  // 是否启用庆祝效果及设置其状态的函数
+  const [enableCelebrations, setEnableCelebrations] = useCelebrationLocalStorage();
 
+  // 获取页面头部信息（如面包屑导航等）
   const { breadcrumb } = usePageHead();
 
+  // 获取用户相关信息（如更新用户信息的函数、用户名、邮箱、所属组织等）
   const { updateUser, name, email, organization } = useUser();
 
+  // 获取认证相关信息（如API调用函数、注销函数、所属组织列表、当前组织ID、设置组织ID的函数等）
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
-  // The current org might not be in the organizations list if the user is a superAdmin
-  // and selected the org from the /admin page. So we add it here.
+  // 如果用户是超级管理员且从/admin页面选择了组织，当前组织可能不在组织列表中，所以在这里添加它
   if (
     organizations &&
     organization.id &&
@@ -98,7 +101,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiMoon size="16" className="mr-1 " />
-            Theme
+            主题
           </div>
         );
 
@@ -106,7 +109,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiSunDim size="16" className="mr-1" />
-            Theme
+            主题
           </div>
         );
 
@@ -114,7 +117,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiCircleHalf size="16" className="mr-1" />
-            Theme
+            主题
           </div>
         );
     }
@@ -136,7 +139,7 @@ const TopNav: FC<{
           logout();
         }}
       >
-        Sign Out
+        退出登录
       </DropdownMenu.Item>
     );
   };
@@ -148,7 +151,7 @@ const TopNav: FC<{
           setEditUserOpen(true);
         }}
       >
-        Edit Profile
+        编辑个人资料
       </DropdownMenu.Item>
     );
   };
@@ -180,7 +183,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiKey size="16" className="mr-1" />
-          Personal Access Tokens
+          个人令牌（Token）
         </div>
       </DropdownMenu.Item>
     );
@@ -195,7 +198,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiFiles size="16" className="mr-1" />
-          My Reports
+          我的报告
         </div>
       </DropdownMenu.Item>
     );
@@ -210,7 +213,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
-          Activity Feed
+          活动动态
         </div>
       </DropdownMenu.Item>
     );
@@ -232,7 +235,7 @@ const TopNav: FC<{
           >
             <span>
               <PiCircleHalf size="16" className="mr-1" />
-              System Default
+              系统默认
             </span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
@@ -244,7 +247,7 @@ const TopNav: FC<{
           >
             <span>
               <PiSunDim size="16" className="mr-1" />
-              Light
+              浅色
             </span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
@@ -256,7 +259,7 @@ const TopNav: FC<{
           >
             <span>
               <PiMoon size="16" className="mr-1" />
-              Dark
+              深色
             </span>
           </DropdownMenu.Item>
         </DropdownMenu.SubContent>
@@ -294,7 +297,7 @@ const TopNav: FC<{
               show: orgDropdownOpen,
             })}
           >
-            <div className="dropdown-header">Organization</div>
+            <div className="dropdown-header">组织</div>
             {organizations.map((o) => (
               <a
                 className={clsx("dropdown-item", {
@@ -335,7 +338,7 @@ const TopNav: FC<{
                       }}
                     >
                       <PiPlusBold />
-                      Add Organization
+                      添加组织
                     </Link>
                   </div>
                 </div>
@@ -375,7 +378,7 @@ const TopNav: FC<{
     if (!usingSSO()) {
       return (
         <DropdownMenu.Item onSelect={() => setChangePasswordOpen(true)}>
-          Change Password
+          修改密码
         </DropdownMenu.Item>
       );
     }
@@ -391,21 +394,21 @@ const TopNav: FC<{
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
-          header="Edit Profile"
+          header="编辑个人资料"
           open={true}
         >
-          <Field label="Name" {...form.register("name")} />
+          <Field label="用户名" {...form.register("name")} />
           <label className="mr-3">
-            Allow Celebrations{" "}
+            允许庆祝效果{" "}
             <Tooltip
               body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
+                "当你完成某些操作（如启动一个实验）时，GrowthBook会随机在屏幕上添加五彩纸屑庆祝效果。如果你觉得它会分散注意力，可以禁用它。"
               }
             />
           </label>
           <Toggle
             id="allowCelebration"
-            label="Allow celebration"
+            label="允许庆祝"
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -426,13 +429,13 @@ const TopNav: FC<{
               href="#main-menu"
               id="main-menu-toggle"
               className={styles.mobilemenu}
-              aria-label="Open main menu"
+              aria-label="打开主菜单"
               onClick={(e) => {
                 e.preventDefault();
                 toggleLeftMenu();
               }}
             >
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">打开主菜单</span>
               <FaBars />
             </a>
           ) : showLogo ? (
