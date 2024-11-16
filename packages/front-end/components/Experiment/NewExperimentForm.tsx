@@ -452,7 +452,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               minLength={2}
               {...nameFieldHandlers}
               onChange={async (e) => {
-                // Ensure the name field is updated and then sync with trackingKey if possible
+                // 确保名称字段已更新，然后尽可能与跟踪键同步
                 nameFieldHandlers.onChange(e);
 
                 if (!isNewExperiment) return;
@@ -474,7 +474,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             />
 
             <Field
-              label="追踪key"
+              label="追踪KEY"
               helpText={`此${isBandit ? "多臂老虎机" : "实验"}的唯一标识符，用于追踪展示次数和分析结果`}
               {...trackingKeyFieldHandlers}
               onChange={(e) => {
@@ -544,8 +544,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
 
         {!isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting"].map((p, i) => {
-            // skip, custom overview page above
+          ? ["概览", "流量", "目标定位"].map((p, i) => {
+            // 跳过，上面有自定义概览页面
             if (i === 0) return null;
             return (
               <Page display={p} key={i}>
@@ -598,7 +598,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       "variations",
                       v.map((data, i) => {
                         return {
-                          // default values
+                          // 默认值
                           name: "",
                           screenshots: [],
                           ...data,
@@ -620,16 +620,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {isBandit && (isNewExperiment || duplicate)
           ? [
-            "Overview",
-            "Traffic",
-            "Targeting",
+            "概览",
+            "流量",
+            "目标定位",
             <>
-              Analysis
+              分析
               <br />
-              Settings
+              设置
             </>,
           ].map((p, i) => {
-            // skip, custom overview page above
+            // 跳过，上面有自定义概览页面
             if (i === 0) return null;
             return (
               <Page display={p} key={i}>
@@ -681,7 +681,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       "variations",
                       v.map((data, i) => {
                         return {
-                          // default values
+                          // 默认值
                           name: "",
                           screenshots: [],
                           ...data,
@@ -699,7 +699,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             );
           })
           : null}
-
         {!(isNewExperiment || duplicate) ? (
           <Page display="目标定位">
             <div className="px-2">
