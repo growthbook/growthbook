@@ -7,13 +7,14 @@ import SDKLanguageLogo, {
   LanguageFilter,
 } from "./SDKLanguageLogo";
 
+// 将各语言分类对应的标签修改为中文
 const tabs: Record<LanguageFilter, string> = {
-  popular: "Popular",
-  all: "All",
-  browser: "Browser",
-  server: "Server",
-  mobile: "Mobile",
-  edge: "Edge",
+  popular: "热门",
+  all: "全部",
+  browser: "浏览器",
+  server: "服务器",
+  mobile: "移动",
+  edge: "边缘",
 };
 
 export function SDKLanguageOption({
@@ -27,9 +28,8 @@ export function SDKLanguageOption({
 }) {
   return (
     <div
-      className={`hover-highlight cursor-pointer border rounded ${
-        selected ? "bg-light" : ""
-      }`}
+      className={`hover-highlight cursor-pointer border rounded ${selected ? "bg-light" : ""
+        }`}
       style={{
         height: 50,
         padding: 10,
@@ -183,7 +183,7 @@ export default function SDKLanguageSelector({
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
-                <strong>Back-end</strong>
+                <strong>后端</strong>
               </div>
             )}
             <div
@@ -205,7 +205,7 @@ export default function SDKLanguageSelector({
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
-                <strong>Front-end</strong>
+                <strong>前端</strong>
               </div>
             )}
             <div
@@ -227,7 +227,7 @@ export default function SDKLanguageSelector({
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
-                <strong>Mobile</strong>
+                <strong>移动</strong>
               </div>
             )}
             <div
@@ -249,7 +249,7 @@ export default function SDKLanguageSelector({
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
-                <strong>Edge</strong>
+                <strong>边缘</strong>
               </div>
             )}
             <div
@@ -271,7 +271,7 @@ export default function SDKLanguageSelector({
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
-                <strong>No/Low Code Platform</strong>
+                <strong>无/低代码平台</strong>
               </div>
             )}
             <div
@@ -293,7 +293,7 @@ export default function SDKLanguageSelector({
           <div className="col-auto mb-1">
             {renderLabels && (
               <div className="small mb-2">
-                <strong>Other</strong>
+                <strong>其他</strong>
               </div>
             )}
             <SDKLanguageOption
@@ -312,7 +312,7 @@ export default function SDKLanguageSelector({
                 setIncludeAll(true);
               }}
             >
-              Show All Languages
+              显示所有语言
             </a>
           </div>
         )}

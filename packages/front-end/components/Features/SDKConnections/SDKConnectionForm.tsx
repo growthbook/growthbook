@@ -69,7 +69,7 @@ export default function SDKConnectionForm({
   close,
   mutate,
   autoCloseOnSubmit = true,
-  cta = "Save",
+  cta = "保存",
 }: {
   initialValue?: Partial<SDKConnectionInterface>;
   edit: boolean;
@@ -99,7 +99,7 @@ export default function SDKConnectionForm({
 
   useEffect(() => {
     if (edit) return;
-    track("View SDK Connection Form");
+    track("查看SDK连接表单");
   }, [edit]);
 
   const [selectedSecurityTab, setSelectedSecurityTab] = useState<string | null>(
@@ -124,8 +124,8 @@ export default function SDKConnectionForm({
         "projects" in initialValue
           ? initialValue.projects
           : project
-          ? [project]
-          : [],
+            ? [project]
+            : [],
       encryptPayload: initialValue.encryptPayload ?? false,
       hashSecureAttributes:
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
@@ -165,18 +165,18 @@ export default function SDKConnectionForm({
     languageTypes.size === 0
       ? "backend" // show the least amount of configuration options if nothing is set
       : languageTypes.size === 1
-      ? [...languageTypes][0]
-      : languageTypes.has("frontend")
-      ? "frontend"
-      : languageTypes.has("backend")
-      ? "backend"
-      : languageTypes.has("mobile")
-      ? "mobile"
-      : languageTypes.has("nocode")
-      ? "mobile"
-      : languageTypes.has("edge")
-      ? "edge"
-      : "other";
+        ? [...languageTypes][0]
+        : languageTypes.has("frontend")
+          ? "frontend"
+          : languageTypes.has("backend")
+            ? "backend"
+            : languageTypes.has("mobile")
+              ? "mobile"
+              : languageTypes.has("nocode")
+                ? "mobile"
+                : languageTypes.has("edge")
+                  ? "edge"
+                  : "other";
 
   const latestSdkCapabilities = getConnectionSDKCapabilities(
     form.getValues(),
@@ -227,13 +227,13 @@ export default function SDKConnectionForm({
   const permissionRequired = (project: string) => {
     return edit
       ? permissionsUtil.canUpdateSDKConnection(
-          { projects: [project], environment: form.watch("environment") },
-          {}
-        )
+        { projects: [project], environment: form.watch("environment") },
+        {}
+      )
       : permissionsUtil.canCreateSDKConnection({
-          projects: [project],
-          environment: form.watch("environment"),
-        });
+        projects: [project],
+        environment: form.watch("environment"),
+      });
   };
 
   const projectsOptions = useProjectOptions(
@@ -250,7 +250,7 @@ export default function SDKConnectionForm({
       const name = getProjectById(p);
       if (!name) {
         projectsOptions.push({
-          label: "Invalid project",
+          label: "无效项目",
           value: p,
         });
       }
@@ -324,7 +324,7 @@ export default function SDKConnectionForm({
   return (
     <Modal
       trackingEventModalType=""
-      header={edit ? "Edit SDK Connection" : "New SDK Connection"}
+      header={edit ? "编辑SDK连接" : "新建SDK连接"}
       size={"lg"}
       autoCloseOnSubmit={autoCloseOnSubmit}
       error={form.formState.errors.languages?.message}
@@ -367,7 +367,7 @@ export default function SDKConnectionForm({
               body: JSON.stringify(body),
             }
           );
-          track("Create SDK Connection", {
+          track("创建SDK连接", {
             source: "SDKConnectionForm",
             languages: value.languages,
             encryptPayload: value.encryptPayload,
@@ -382,9 +382,9 @@ export default function SDKConnectionForm({
         }
       })}
       customValidation={() => {
-        // manual validation for languages
+        // 对语言的手动验证
         if (languages.length === 0) {
-          setLanguageError("Please select an SDK language");
+          setLanguageError("请选择一种SDK语言");
           return false;
         } else {
           setLanguageError(null);
@@ -396,11 +396,11 @@ export default function SDKConnectionForm({
       cta={cta}
     >
       <div className="px-2 pb-2">
-        <Field label="Name" {...form.register("name")} required />
+        <Field label="名称" {...form.register("name")} required />
 
         <div className="mb-4">
           <div className="form-group">
-            <label>SDK Language</label>
+            <label>SDK语言</label>
             {languageError ? (
               <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
                 {languageError}
@@ -459,7 +459,7 @@ export default function SDKConnectionForm({
                               className="text-muted uppercase-title float-right position-relative"
                               style={{ top: 3 }}
                             >
-                              latest
+                              最新版
                             </span>
                           )}
                         </span>
@@ -472,7 +472,7 @@ export default function SDKConnectionForm({
                       className="small"
                       onClick={useLatestSdkVersion}
                     >
-                      Use latest
+                      使用最新版
                     </a>
                   )}
                 </div>
@@ -482,9 +482,9 @@ export default function SDKConnectionForm({
 
         <div className="mb-4">
           <SelectField
-            label="Environment"
+            label="环境"
             required
-            placeholder="Choose one..."
+            placeholder="请选择一个..."
             value={form.watch("environment")}
             onChange={(env) => {
               form.setValue("environment", env);
@@ -503,12 +503,12 @@ export default function SDKConnectionForm({
                   <div className="flex-1" />
                   {numProjects > 0 ? (
                     <div className="text-muted small">
-                      Includes {numProjects} project
+                      包含 {numProjects} 个项目
                       {numProjects === 1 ? "" : "s"}
                     </div>
                   ) : (
                     <div className="text-muted small font-italic">
-                      Includes all projects
+                      包含所有项目
                     </div>
                   )}
                 </div>
@@ -519,11 +519,9 @@ export default function SDKConnectionForm({
 
         <div className="mb-4">
           <label>
-            Filter by Projects{" "}
+            按项目过滤{" "}
             <Tooltip
-              body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                edit ? "update" : "create"
-              } SDK Connections.`}
+              body={`下面的下拉菜单已进行过滤，仅包含您有权限进行${edit ? "更新" : "创建"} SDK连接的项目。`}
             />
             {!!selectedProjects?.length && (
               <> ({selectedValidProjects?.length ?? 0})</>
@@ -532,8 +530,8 @@ export default function SDKConnectionForm({
           <MultiSelectField
             placeholder={
               environmentHasProjects
-                ? "All Environment Projects"
-                : "All Projects"
+                ? "所有环境项目"
+                : "所有项目"
             }
             containerClassName="w-100"
             value={form.watch("projects") || []}
@@ -546,7 +544,7 @@ export default function SDKConnectionForm({
                 (p) => p.id === value
               );
               return disallowed ? (
-                <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+                <Tooltip body="此项目在所选环境中不被允许，将不会包含在SDK负载中。">
                   <del className="text-danger">
                     <FaExclamationTriangle className="mr-1" />
                     {label}
@@ -560,18 +558,15 @@ export default function SDKConnectionForm({
           {disallowedProjects.length > 0 && (
             <div className="text-danger mt-2 small px-1">
               <FaExclamationTriangle className="mr-1" />
-              This SDK Connection references {disallowedProjects.length} project
-              {disallowedProjects.length !== 1 && "s"} that{" "}
-              {disallowedProjects.length === 1 ? "is" : "are"} not allowed in
-              the selected environment. This may have occurred as a result of a
-              project being removed from the selected environment.
+              此SDK连接引用了 {disallowedProjects.length} 个项目
+              {disallowedProjects.length !== 1 && "s"}，这些项目在所选环境中不被允许。这可能是由于某个项目从所选环境中移除所导致的。
             </div>
           )}
         </div>
 
         {languageType !== "backend" && (
           <>
-            <label>SDK Payload Security</label>
+            <label>SDK负载安全</label>
             <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
               <ControlledTabs
                 newStyle={true}
@@ -599,19 +594,17 @@ export default function SDKConnectionForm({
                           <FaCheck className="check text-success" />{" "}
                         </>
                       )}
-                      Plain Text
+                      纯文本
                       <Tooltip
                         popperClassName="text-left"
                         body={
                           <p className="mb-0">
-                            Full feature definitions, including targeting
-                            conditions and experiment variations, are viewable
-                            by anyone with the Client Key.
+                            完整的功能定义，包括定位条件和实验变体，任何拥有客户端密钥的人都可查看。
                           </p>
                         }
                       >
                         <div className="subtitle">
-                          Highly cacheable, but may leak sensitive info to users
+                          高度可缓存，但可能会向用户泄露敏感信息
                           <FaInfoCircle className="ml-1" />
                         </div>
                       </Tooltip>
@@ -624,199 +617,167 @@ export default function SDKConnectionForm({
                 {["frontend", "mobile", "nocode", "edge", "other"].includes(
                   languageType
                 ) && (
-                  <Tab
-                    id="ciphered"
-                    padding={false}
-                    className="pt-1 pb-2"
-                    display={
-                      <>
-                        {getSecurityTabState(form.getValues()) ===
-                          "ciphered" && (
-                          <>
-                            <FaCheck className="check text-success" />{" "}
-                          </>
-                        )}
-                        Ciphered
-                        <Tooltip
-                          popperClassName="text-left"
-                          body={
-                            <p className="mb-0">
-                              Full feature definitions are encrypted and
-                              sensitive targeting conditions are hashed to help
-                              avoid leaking business logic to client-side apps.
-                              Not 100% secure, but will stop most prying eyes.
-                            </p>
-                          }
-                        >
-                          <div className="subtitle">
-                            Adds obfuscation while remaining cacheable
-                            <FaInfoCircle className="ml-1" />
+                    <Tab
+                      id="ciphered"
+                      padding={false}
+                      className="pt-1 pb-2"
+                      display={
+                        <>
+                          {getSecurityTabState(form.getValues()) ===
+                            "ciphered" && (
+                              <>
+                                <FaCheck className="check text-success" />{" "}
+                              </>
+                            )}
+                          Ciphered
+                          <Tooltip
+                            popperClassName="text-left"
+                            body={
+                              <p className="mb-0">
+                                完整的功能定义将被加密，敏感的定位条件将被哈希处理，以帮助避免将业务逻辑泄露给客户端应用程序。并非100%安全，但能阻止大多数窥探。
+                              </p>
+                            }
+                          >
+                            <div className="subtitle">
+                              在保持可缓存的同时增加混淆
+                              <FaInfoCircle className="ml-1" />
+                            </div>
+                          </Tooltip>
+                        </>
+                      }
+                    >
+                      <div>
+                        <label className="mb-3">Cipher Options</label>
+                        {showEncryption && (
+                          <div className="mb-4 d-flex align-items-center">
+                            <Toggle
+                              id="encryptSDK"
+                              value={form.watch("encryptPayload")}
+                              setValue={(val) =>
+                                form.setValue("encryptPayload", val)
+                              }
+                              disabled={!hasEncryptionFeature}
+                            />
+                            <label className="ml-2 mb-0" htmlFor="encryptSDK">
+                              <PremiumTooltip
+                                commercialFeature="encrypt-features-endpoint"
+                                body={
+                                  <>
+                                    <p>
+                                      SDK负载将通过AES加密算法进行加密。在公共或不安全的环境（如浏览器）中评估功能标志时，加密通过混淆提供了额外的安全层。这使您能够基于敏感属性定位用户。
+                                    </p>
+                                    <p className="mb-0 text-warning-orange small">
+                                      <FaExclamationCircle /> 在使用不安全环境时，不要仅依赖负载加密作为保护高度敏感数据的手段。因为客户端执行解密操作，所以通过足够的努力可能会提取出未加密的负载。
+                                    </p>
+                                  </>
+                                }
+                              >
+                                加密SDK负载 <FaInfoCircle />
+                              </PremiumTooltip>
+                            </label>
                           </div>
-                        </Tooltip>
-                      </>
-                    }
-                  >
-                    <div>
-                      <label className="mb-3">Cipher Options</label>
-                      {showEncryption && (
+                        )}
+
                         <div className="mb-4 d-flex align-items-center">
                           <Toggle
-                            id="encryptSDK"
-                            value={form.watch("encryptPayload")}
+                            id="hash-secure-attributes"
+                            value={form.watch("hashSecureAttributes")}
                             setValue={(val) =>
-                              form.setValue("encryptPayload", val)
+                              form.setValue("hashSecureAttributes", val)
                             }
-                            disabled={!hasEncryptionFeature}
+                            disabled={!hasSecureAttributesFeature}
                           />
-                          <label className="ml-2 mb-0" htmlFor="encryptSDK">
+                          <label
+                            className="ml-2 mb-0"
+                            htmlFor="hash-secure-attributes"
+                          >
                             <PremiumTooltip
-                              commercialFeature="encrypt-features-endpoint"
+                              commercialFeature="hash-secure-attributes"
                               body={
                                 <>
                                   <p>
-                                    SDK payloads will be encrypted via the AES
-                                    encryption algorithm. When evaluating
-                                    feature flags in a public or insecure
-                                    environment (such as a browser), encryption
-                                    provides an additional layer of security
-                                    through obfuscation. This allows you to
-                                    target users based on sensitive attributes.
+                                    引用 <code>secureString</code> 属性的功能定位条件将通过SHA-256哈希进行匿名化。在公共或不安全的环境（如浏览器）中评估功能标志时，哈希通过混淆提供了额外的安全层。这使您能够基于敏感属性定位用户。
                                   </p>
                                   <p className="mb-0 text-warning-orange small">
-                                    <FaExclamationCircle /> When using an
-                                    insecure environment, do not rely
-                                    exclusively on payload encryption as a means
-                                    of securing highly sensitive data. Because
-                                    the client performs the decryption, the
-                                    unencrypted payload may be extracted with
-                                    sufficient effort.
+                                    <FaExclamationCircle /> 在使用不安全环境时，不要仅依赖哈希作为保护高度敏感数据的手段。哈希是一种混淆技术，它使提取敏感数据变得非常困难，但并非不可能。
                                   </p>
                                 </>
                               }
                             >
-                              Encrypt SDK payload <FaInfoCircle />
+                              哈希安全属性 <FaInfoCircle />
                             </PremiumTooltip>
                           </label>
                         </div>
-                      )}
 
-                      <div className="mb-4 d-flex align-items-center">
-                        <Toggle
-                          id="hash-secure-attributes"
-                          value={form.watch("hashSecureAttributes")}
-                          setValue={(val) =>
-                            form.setValue("hashSecureAttributes", val)
-                          }
-                          disabled={!hasSecureAttributesFeature}
-                        />
-                        <label
-                          className="ml-2 mb-0"
-                          htmlFor="hash-secure-attributes"
-                        >
-                          <PremiumTooltip
-                            commercialFeature="hash-secure-attributes"
-                            body={
-                              <>
-                                <p>
-                                  Feature targeting conditions referencing{" "}
-                                  <code>secureString</code> attributes will be
-                                  anonymized via SHA-256 hashing. When
-                                  evaluating feature flags in a public or
-                                  insecure environment (such as a browser),
-                                  hashing provides an additional layer of
-                                  security through obfuscation. This allows you
-                                  to target users based on sensitive attributes.
-                                </p>
-                                <p className="mb-0 text-warning-orange small">
-                                  <FaExclamationCircle /> When using an insecure
-                                  environment, do not rely exclusively on
-                                  hashing as a means of securing highly
-                                  sensitive data. Hashing is an obfuscation
-                                  technique that makes it very difficult, but
-                                  not impossible, to extract sensitive data.
-                                </p>
-                              </>
+                        <div className="d-flex align-items-center">
+                          <Toggle
+                            id="sdk-connection-include-experiment-meta"
+                            value={!form.watch("includeExperimentNames")}
+                            setValue={(val) =>
+                              form.setValue("includeExperimentNames", !val)
                             }
+                          />
+                          <label
+                            className="ml-2 mb-0"
+                            htmlFor="sdk-connection-include-experiment-meta"
                           >
-                            Hash secure attributes <FaInfoCircle />
-                          </PremiumTooltip>
-                        </label>
-                      </div>
-
-                      <div className="d-flex align-items-center">
-                        <Toggle
-                          id="sdk-connection-include-experiment-meta"
-                          value={!form.watch("includeExperimentNames")}
-                          setValue={(val) =>
-                            form.setValue("includeExperimentNames", !val)
-                          }
-                        />
-                        <label
-                          className="ml-2 mb-0"
-                          htmlFor="sdk-connection-include-experiment-meta"
-                        >
-                          <Tooltip
-                            body={
-                              <>
-                                <p>
-                                  Experiment and variation names can help add
-                                  context when debugging or tracking events.
-                                </p>
-                                <p>
-                                  However, this could expose potentially
-                                  sensitive information to your users if enabled
-                                  for a client-side or mobile application.
-                                </p>
-                                <p className="mb-0">
-                                  For maximum privacy and security, we recommend
-                                  hiding these fields.
-                                </p>
-                              </>
-                            }
-                          >
-                            Hide experiment and variation names <FaInfoCircle />
-                          </Tooltip>
-                        </label>
-                      </div>
-                    </div>
-
-                    {form.watch("encryptPayload") &&
-                      !currentSdkCapabilities.includes("encryption") && (
-                        <div
-                          className="ml-2 mt-3 text-warning-orange"
-                          style={{ marginBottom: -5 }}
-                        >
-                          <FaExclamationCircle /> Payload decryption may not be
-                          available in your current SDK.
-                          {languages.length === 1 && (
-                            <div className="mt-1 text-gray">
-                              {getSDKCapabilityVersion(
-                                languages[0],
-                                "encryption"
-                              ) ? (
+                            <Tooltip
+                              body={
                                 <>
-                                  It was introduced in SDK version{" "}
-                                  <code>
-                                    {getSDKCapabilityVersion(
-                                      languages[0],
-                                      "encryption"
-                                    )}
-                                  </code>
-                                  . The SDK version specified in this connection
-                                  is{" "}
-                                  <code>
-                                    {form.watch("sdkVersion") ||
-                                      getDefaultSDKVersion(languages[0])}
-                                  </code>
-                                  .
+                                  <p>
+                                    实验和变体名称在调试或跟踪事件时有助于添加上下文。
+                                  </p>
+                                  <p>
+                                    然而，如果在客户端或移动应用程序中启用此功能，可能会向用户暴露潜在的敏感信息。
+                                  </p>
+                                  <p className="mb-0">
+                                    为了实现最大程度的隐私和安全，我们建议隐藏这些字段。
+                                  </p>
                                 </>
-                              ) : null}
-                            </div>
-                          )}
+                              }
+                            >
+                              隐藏实验和变体名称 <FaInfoCircle />
+                            </Tooltip>
+                          </label>
                         </div>
-                      )}
-                  </Tab>
-                )}
+                      </div>
+
+                      {form.watch("encryptPayload") &&
+                        !currentSdkCapabilities.includes("encryption") && (
+                          <div
+                            className="ml-2 mt-3 text-warning-orange"
+                            style={{ marginBottom: -5 }}
+                          >
+                            <FaExclamationCircle /> 在您当前的SDK中可能无法进行负载解密。
+                            {languages.length === 1 && (
+                              <div className="mt-1 text-gray">
+                                {getSDKCapabilityVersion(
+                                  languages[0],
+                                  "encryption"
+                                ) ? (
+                                  <>
+                                    在SDK版本{" "}
+                                    <code>
+                                      {getSDKCapabilityVersion(
+                                        languages[0],
+                                        "encryption"
+                                      )}
+                                    </code>
+                                    中引入。此连接中指定的SDK版本是
+                                    is{" "}
+                                    <code>
+                                      {form.watch("sdkVersion") ||
+                                        getDefaultSDKVersion(languages[0])}
+                                    </code>
+                                    .
+                                  </>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                    </Tab>
+                  )}
 
                 {showRemoteEval && (
                   <Tab
@@ -830,28 +791,24 @@ export default function SDKConnectionForm({
                             <FaCheck className="check text-success" />{" "}
                           </>
                         )}
-                        Remote Evaluated
+                        远程评估
                         <Tooltip
                           popperClassName="text-left"
                           body={
                             <>
                               <p className="mb-0">
-                                Features and experiments are evaluated on a
-                                private server and only the final assigned
-                                values are exposed to users.
+                                功能和实验在私有服务器上进行评估，只有最终分配的值会暴露给用户。
                               </p>
                               {isCloud() && (
                                 <div className="mt-2 text-warning-orange">
-                                  <FaExclamationCircle /> Requires a remote
-                                  evaluation service such as GrowthBook Proxy or
-                                  a CDN edge worker.
+                                  <FaExclamationCircle /> 需要诸如GrowthBook代理或CDN边缘工作者之类的远程评估服务。
                                 </div>
                               )}
                             </>
                           }
                         >
                           <div className="subtitle">
-                            Completely hides business logic from users
+                            完全向用户隐藏业务逻辑
                             <FaInfoCircle className="ml-1" />
                           </div>
                         </Tooltip>
@@ -859,7 +816,7 @@ export default function SDKConnectionForm({
                     }
                   >
                     <div>
-                      <label className="mb-3">Remote Evaluation Options</label>
+                      <label className="mb-3">远程评估选项</label>
                       <div className="d-flex align-items-center">
                         <Toggle
                           id="remote-evaluation"
@@ -882,42 +839,26 @@ export default function SDKConnectionForm({
                             body={
                               <>
                                 <div className="mb-2">
-                                  <strong>Remote Evaluation</strong> fully
-                                  secures your SDK by evaluating feature flags
-                                  exclusively on a private server instead of
-                                  within a front-end environment. This ensures
-                                  that any sensitive information within
-                                  targeting rules or unused feature variations
-                                  are never seen by the client.
+                                  <strong>远程评估</strong> 通过仅在私有服务器而非前端环境中评估功能标志，全面保障您的SDK安全。这确保了定位规则内的任何敏感信息或未使用的功能变体都不会被客户端看到。
                                 </div>
                                 <div className="mb-2">
-                                  Remote evaluation provides the same security
-                                  benefits as a includeExperimentNames SDK.
-                                  However, remote evaluation is neither needed
-                                  nor supported for backend SDKs.
+                                  远程评估提供与包含实验名称的SDK相同的安全优势。然而，后端SDK既不需要也不支持远程评估。
                                 </div>
                                 <div className="mb-2">
-                                  Remote evaluation does come with a few cost
-                                  considerations:
+                                  远程评估确实涉及一些成本考量：
                                   <ol className="pl-3 mt-2">
                                     <li className="mb-2">
-                                      It will increase network traffic.
-                                      Evaluated payloads cannot be shared across
-                                      different users; therefore CDN cache
-                                      misses will increase.
+                                      它会增加网络流量。评估后的负载无法在不同用户间共享；因此CDN缓存未命中的情况会增加。
                                     </li>
                                     <li>
-                                      Any connections using Streaming Updates
-                                      will incur a slight delay. An additional
-                                      network hop is required to retrieve the
-                                      evaluated payload from the server.
+                                      任何使用流更新的连接都会产生轻微延迟。需要额外的网络跳转从服务器获取评估后的负载。
                                     </li>
                                   </ol>
                                 </div>
                               </>
                             }
                           >
-                            Use remote evaluation <FaInfoCircle />
+                            使用远程评估 <FaInfoCircle />
                           </PremiumTooltip>
                         </label>
                       </div>
@@ -927,16 +868,15 @@ export default function SDKConnectionForm({
                             <FaExclamationCircle className="mr-1" />
                           </div>
                           <div>
-                            Cloud customers must self-host a remote evaluation
-                            service such as{" "}
+                            云客户必须自行托管诸如{" "}
                             <a
                               target="_blank"
                               href="https://github.com/growthbook/growthbook-proxy"
                               rel="noreferrer"
                             >
-                              GrowthBook Proxy
+                              GrowthBook代理
                             </a>{" "}
-                            or a CDN edge worker.
+                            或CDN边缘工作者之类的远程评估服务。
                           </div>
                         </div>
                       ) : null}
@@ -946,8 +886,7 @@ export default function SDKConnectionForm({
                         className="ml-2 mt-3 text-warning-orange"
                         style={{ marginBottom: -5 }}
                       >
-                        <FaExclamationCircle /> Remote evaluation may not be
-                        available in your current SDK.
+                        <FaExclamationCircle /> 在您当前的SDK中可能无法进行远程评估。
                         {languages.length === 1 && (
                           <div className="mt-1 text-gray">
                             {getSDKCapabilityVersion(
@@ -955,15 +894,14 @@ export default function SDKConnectionForm({
                               "remoteEval"
                             ) ? (
                               <>
-                                It was introduced in SDK version{" "}
+                                在SDK版本{" "}
                                 <code>
                                   {getSDKCapabilityVersion(
                                     languages[0],
                                     "remoteEval"
                                   )}
                                 </code>
-                                . The SDK version specified in this connection
-                                is{" "}
+                                中引入。此连接中指定的SDK版本是{" "}
                                 <code>
                                   {form.watch("sdkVersion") ||
                                     getDefaultSDKVersion(languages[0])}
@@ -999,7 +937,7 @@ export default function SDKConnectionForm({
                     className="ml-2 mb-0 cursor-pointer"
                     htmlFor="sdk-connection-visual-experiments-toggle"
                   >
-                    Enable <strong>Visual Editor experiments</strong> (
+                    启用 <strong>可视化编辑器实验</strong>（
                     <DocLink docSection="visual_editor">docs</DocLink>)
                   </label>
                 </div>
@@ -1018,7 +956,7 @@ export default function SDKConnectionForm({
                     className="ml-2 mb-0 cursor-pointer"
                     htmlFor="sdk-connection-redirects-toggle"
                   >
-                    Enable <strong>URL Redirect experiments</strong> (
+                    启用 <strong>URL重定向实验</strong>（
                     <DocLink docSection="url_redirects">docs</DocLink>)
                   </label>
                 </div>
@@ -1026,48 +964,46 @@ export default function SDKConnectionForm({
 
               {(form.watch("includeVisualExperiments") ||
                 form.watch("includeRedirectExperiments")) && (
-                <>
-                  <div className="mb-4 d-flex align-items-center">
-                    <Toggle
-                      id="sdk-connection-include-draft-experiments-toggle"
-                      value={form.watch("includeDraftExperiments")}
-                      setValue={(val) =>
-                        form.setValue("includeDraftExperiments", val)
-                      }
-                    />
-                    <Tooltip
-                      body={
-                        <>
-                          <p>
-                            In-development auto experiments will be sent to the
-                            SDK. We recommend only enabling this for
-                            non-production environments.
-                          </p>
-                          <p className="mb-0">
-                            To force into a variation, use a URL query string
-                            such as{" "}
-                            <code className="d-block">?my-experiment-id=2</code>
-                          </p>
-                        </>
-                      }
-                    >
-                      <label
-                        className="ml-2 mb-0 cursor-pointer"
-                        htmlFor="sdk-connection-include-draft-experiments-toggle"
+                  <>
+                    <div className="mb-4 d-flex align-items-center">
+                      <Toggle
+                        id="sdk-connection-include-draft-experiments-toggle"
+                        value={form.watch("includeDraftExperiments")}
+                        setValue={(val) =>
+                          form.setValue("includeDraftExperiments", val)
+                        }
+                      />
+                      <Tooltip
+                        body={
+                          <>
+                            <p>
+                              开发中的自动实验将发送到SDK。我们建议仅在非生产环境中启用此功能。
+                            </p>
+                            <p className="mb-0">
+                              要强制进入某个变体，可使用诸如{" "}
+                              <code className="d-block">?my-experiment-id=2</code>
+                              这样的URL查询字符串。
+                            </p>
+                          </>
+                        }
                       >
-                        Include draft experiments <FaInfoCircle />
-                      </label>
-                    </Tooltip>
-                  </div>
-                </>
-              )}
+                        <label
+                          className="ml-2 mb-0 cursor-pointer"
+                          htmlFor="sdk-connection-include-draft-experiments-toggle"
+                        >
+                          包含草稿实验 <FaInfoCircle />
+                        </label>
+                      </Tooltip>
+                    </div>
+                  </>
+                )}
             </div>
           </div>
         )}
 
         {isCloud() && (
           <div className="mt-5">
-            <label className="mb-1">GrowthBook Proxy</label>
+            <label className="mb-1">GrowthBook代理</label>
             <div className="mt-2">
               <div className="d-flex align-items-center">
                 <Toggle
@@ -1079,7 +1015,7 @@ export default function SDKConnectionForm({
                   className="ml-2 mb-0"
                   htmlFor="sdk-connection-proxy-toggle"
                 >
-                  Use GrowthBook Proxy
+                  使用GrowthBook代理
                 </label>
               </div>
               {form.watch("proxyEnabled") && (
@@ -1088,21 +1024,16 @@ export default function SDKConnectionForm({
                   containerClassName="mt-3"
                   label={
                     <>
-                      Proxy Host URL <small>(optional)</small>
+                      代理主机URL <small>(可选)</small>
                       <Tooltip
                         className="ml-1"
                         body={
                           <>
                             <p>
-                              Optionally add your proxy&apos;s public URL to
-                              enable faster rollouts. Providing your proxy host
-                              will allow GrowthBook to push updates to your
-                              proxy whenever feature definitions change.
+                              可选地添加您的代理的公共URL以实现更快的部署。提供代理主机将允许GrowthBook在功能定义发生变化时向您的代理推送更新。
                             </p>
                             <p className="mb-0">
-                              Without GrowthBook&apos;s push updates, the proxy
-                              will fall back to a stale-while-revalidate caching
-                              strategy.
+                              如果没有GrowthBook的推送更新，代理将回退到过时验证缓存策略。
                             </p>
                           </>
                         }
@@ -1121,7 +1052,7 @@ export default function SDKConnectionForm({
         )}
         {showSavedGroupSettings && (
           <div className="mt-1">
-            <label>Saved Groups</label>
+            <label>保存的组</label>
             <div className="mt-2">
               <div className="mb-4 d-flex align-items-center">
                 <Toggle
@@ -1141,27 +1072,20 @@ export default function SDKConnectionForm({
                     body={
                       <>
                         <p>
-                          Reduce the size of your payload by moving ID List
-                          Saved Groups from inline evaluation to a separate key
-                          in the payload json. Re-using an ID List in multiple
-                          features or experiments will no longer meaningfully
-                          increase the size of your payload.
+                          通过将ID列表保存组从内联评估移到负载JSON中的单独键，来减小负载大小。在多个功能或实验中重复使用ID列表将不再显著增加负载大小。
                         </p>
                         <p>
-                          This feature is not supported by old SDK versions.
-                          Ensure that your SDK implementation is up to date
-                          before enabling this feature.
+                          旧版本的SDK不支持此功能。在启用此功能之前，请确保您的SDK实现是最新的。
                         </p>
                         {form.watch("remoteEvalEnabled") && (
                           <p>
-                            You will also need to update your proxy server for
-                            remote evaluation to continue working correctly.
+                            您还需要更新远程评估的代理服务器，以使其继续正常工作。
                           </p>
                         )}
                       </>
                     }
                   >
-                    Pass Saved Groups by reference <FaInfoCircle />
+                    通过引用传递保存组 <FaInfoCircle />
                   </PremiumTooltip>
                 </label>
               </div>
