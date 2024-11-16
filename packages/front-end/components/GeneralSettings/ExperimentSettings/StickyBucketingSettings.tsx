@@ -18,87 +18,88 @@ export default function StickyBucketingSettings() {
     connections: sdkConnectionsData?.connections ?? [],
   }).includes("stickyBucketing");
 
+  // 定义一个变量来控制是否显示粘性分桶设置区域，这里设置为false表示不显示
+  const shouldShowStickyBucketingSettings = false;
+
   return (
     <ConnectSettingsForm>
       {({ watch, setValue }) => (
         <>
-          <h4 className="mt-4 mb-2">Sticky Bucketing Settings</h4>
-          <div className="appbox py-2 px-3">
-            <div className="w-100 mt-2">
-              <div className="d-flex">
-                <label className="mr-2" htmlFor="toggle-useStickyBucketing">
-                  <PremiumTooltip
-                    commercialFeature={"sticky-bucketing"}
-                    body={<StickyBucketingTooltip />}
-                  >
-                    Enable Sticky Bucketing <FaQuestionCircle />
-                  </PremiumTooltip>
-                </label>
-                <Toggle
-                  id={"toggle-useStickyBucketing"}
-                  value={!!watch("useStickyBucketing")}
-                  setValue={(value) => {
-                    setValue(
-                      "useStickyBucketing",
-                      hasCommercialFeature("sticky-bucketing") ? value : false
-                    );
-                  }}
-                  disabled={
-                    !watch("useStickyBucketing") &&
-                    (!hasCommercialFeature("sticky-bucketing") ||
-                      !hasSDKWithStickyBucketing)
-                  }
-                />
-              </div>
-              {!watch("useStickyBucketing") && (
-                <div className="small">
-                  <StickyBucketingToggleWarning
-                    hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-                  />
-                </div>
-              )}
-            </div>
-
-            {watch("useStickyBucketing") && (
-              <div className="w-100 mt-4">
-                <div className="d-flex">
-                  <label
-                    className="mr-2"
-                    htmlFor="toggle-useFallbackAttributes"
-                  >
-                    <Tooltip
-                      body={
-                        <>
-                          <div className="mb-2">
-                            If the user&apos;s assignment attribute is not
-                            available a fallback attribute may be used instead.
-                            Toggle this to allow selection of a fallback
-                            attribute when creating experiments.
-                          </div>
-                          <div>
-                            While using a fallback attribute can improve the
-                            consistency of the user experience, it can also lead
-                            to statistical biases if not implemented carefully.
-                            See the Sticky Bucketing docs for more information.
-                          </div>
-                        </>
+          {shouldShowStickyBucketingSettings && (
+            <div>
+              <h4 className="mt-4 mb-2">粘性分桶设置</h4>
+              <div className="appbox py-2 px-3">
+                <div className="w-100 mt-2">
+                  <div className="d-flex">
+                    <label className="mr-2" htmlFor="toggle-useStickyBucketing">
+                      <PremiumTooltip
+                        commercialFeature={"sticky-bucketing"}
+                        body={<StickyBucketingTooltip />}
+                      >
+                        启用粘性分桶 <FaQuestionCircle />
+                      </PremiumTooltip>
+                    </label>
+                    <Toggle
+                      id={"toggle-useStickyBucketing"}
+                      value={!!watch("useStickyBucketing")}
+                      setValue={(value) => {
+                        setValue(
+                          "useStickyBucketing",
+                          hasCommercialFeature("sticky-bucketing") ? value : false
+                        );
+                      }}
+                      disabled={
+                        !watch("useStickyBucketing") &&
+                        (!hasCommercialFeature("sticky-bucketing") ||
+                          !hasSDKWithStickyBucketing)
                       }
-                    >
-                      Enable fallback attributes in experiments{" "}
-                      <FaQuestionCircle />
-                    </Tooltip>
-                  </label>
-                  <Toggle
-                    id="toggle-useFallbackAttributes"
-                    value={!!watch("useFallbackAttributes")}
-                    setValue={(value) =>
-                      setValue("useFallbackAttributes", value)
-                    }
-                  />
+                    />
+                  </div>
+                  {!watch("useStickyBucketing") && (
+                    <div className="small">
+                      <StickyBucketingToggleWarning
+                        hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
+                      />
+                    </div>
+                  )}
                 </div>
+
+                {watch("useStickyBucketing") && (
+                  <div className="w-100 mt-4">
+                    <div className="d-flex">
+                      <label
+                        className="mr-2"
+                        htmlFor="toggle-useFallbackAttributes"
+                      >
+                        <Tooltip
+                          body={
+                            <>
+                              <div className="mb-2">
+                                如果用户的分配属性不可用，则可以使用回退属性来替代。切换此选项可在创建实验时允许选择回退属性。
+                              </div>
+                              <div>
+                                虽然使用回退属性可以提高用户体验的一致性，但如果实施不当，也可能导致统计偏差。如需更多信息，请参阅粘性分桶文档。
+                              </div>
+                            </>
+                          }
+                        >
+                          启用实验中的回退属性{" "}
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      </label>
+                      <Toggle
+                        id="toggle-useFallbackAttributes"
+                        value={!!watch("useFallbackAttributes")}
+                        setValue={(value) =>
+                          setValue("useFallbackAttributes", value)
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
     </ConnectSettingsForm>

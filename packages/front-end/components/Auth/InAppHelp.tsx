@@ -32,7 +32,7 @@ export default function InAppHelp() {
     }
   }, [config, commercialFeatures]);
 
-  // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
+  // 如果窗口上存在Pylon键，说明正在显示Pylon小部件，此时不应显示免费帮助模态框
   if (window["pylon"]) return null;
 
   return (
@@ -40,7 +40,7 @@ export default function InAppHelp() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="To get access to live chat support,"
+          reason="为了获得实时聊天支持的访问权限，"
           source="in-app-help"
         />
       )}
@@ -62,7 +62,7 @@ export default function InAppHelp() {
               className="mb-1 pr-1"
               style={{ height: 30 }}
             />
-            <h2 className="text-white m-0">How can we help?</h2>
+            <h2 className="text-white m-0">我们能提供什么帮助？</h2>
           </div>
           <div
             style={{
@@ -73,43 +73,42 @@ export default function InAppHelp() {
           >
             <div className="bg-white border rounded p-3 m-3 shadow">
               <p className="mb-2">
-                <strong>Have a question?</strong>
+                <strong>有问题吗？</strong>
               </p>
               <a
                 href="https://slack.growthbook.io/?ref=app-top-nav"
                 target="blank"
                 className="btn btn-primary font-weight-normal my-2 w-100"
               >
-                Join The Slack Community <FaArrowRight className="ml-2" />
+                加入Slack社区 <FaArrowRight className="ml-2" />
               </a>
               <a
                 href="https://docs.growthbook.io/"
                 target="blank"
                 className="btn btn-outline-primary font-weight-normal my-2 w-100"
               >
-                View Docs <FaArrowRight className="ml-2" />
+                查看文档 <FaArrowRight className="ml-2" />
               </a>
             </div>
             {showUpgradeModal && (
               <div className="bg-white border rounded p-3 m-3 shadow">
                 <p className="mb-2">
                   <strong>
-                    Upgrade your account to unlock live chat support and access
-                    to premium features.
+                    升级您的账户以解锁实时聊天支持并访问高级功能。
                   </strong>
                 </p>
                 <button
                   className="btn btn-premium font-weight-normal my-2 w-100"
                   onClick={() => setUpgradeModal(true)}
                 >
-                  Start Free Trial <GBPremiumBadge />
+                  开始免费试用 <GBPremiumBadge />
                 </button>
               </div>
             )}
           </div>
         </div>
       )}
-      <button
+      {/* <button
         className="btn btn-primary d-flex align-items-center justify-content-center position-fixed rounded-circle"
         onClick={() => {
           setShowFreeHelpWidget(!showFreeHelpWidget);
@@ -124,7 +123,7 @@ export default function InAppHelp() {
         }}
       >
         {showFreeHelpWidget ? <BsXLg /> : <BsQuestionLg />}
-      </button>
+      </button> */}
     </>
   );
 }
