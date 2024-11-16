@@ -37,7 +37,6 @@ import Dropdown from "@/components/Dropdown/Dropdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
 const NUM_PER_PAGE = 20;
-
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
     (exp.archived
@@ -215,45 +214,40 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const searchTermFilterExplainations = (
     <>
-      <p>This search field supports advanced syntax search, including:</p>
+      <p>此搜索字段支持高级语法搜索，包括：</p>
       <ul>
         <li>
-          <strong>name</strong>: The experiment name (eg: name:~homepage)
+          <strong>名称</strong>：实验名称（例如：名称:~主页）
         </li>
         <li>
-          <strong>id</strong>: The experiment id (eg: name:^exp)
+          <strong>id</strong>：实验id（例如：名称:^实验）
         </li>
         <li>
-          <strong>status</strong>: Experiment status, can be one of
-          &apos;stopped&apos;, &apos;running&apos;, &apos;draft&apos;,
-          &apos;archived&apos;
+          <strong>状态</strong>：实验状态，可以是“已停止”、“运行中”、“草稿”、“已归档”之一
         </li>
         <li>
-          <strong>datasource</strong>: Experiment datasource
+          <strong>数据源</strong>：实验数据源
         </li>
         <li>
-          <strong>metric</strong>: Experiment uses the specified metric (eg:
-          metric:~revenue)
+          <strong>指标</strong>：实验使用指定的指标（例如：指标:~收入）
         </li>
         <li>
-          <strong>owner</strong>: The creator of the experiment (eg: owner:abby)
+          <strong>所有者</strong>：实验的创建者（例如：所有者:abby）
         </li>
         <li>
-          <strong>tag</strong>: Experiments tagged with this tag
+          <strong>标签</strong>：带有此标签的实验
         </li>
         <li>
-          <strong>project</strong>: The experiment&apos;s project
+          <strong>项目</strong>：实验的项目
         </li>
         <li>
-          <strong>feature</strong>: The experiment is linked to the specified
-          feature
+          <strong>特性</strong>：实验与指定特性相关联
         </li>
         <li>
-          <strong>created</strong>:The experiment&apos;s creation date, in UTC.
-          Date entered is parsed so supports most formats.
+          <strong>创建时间</strong>：实验的创建日期，采用UTC时间。输入的日期会进行解析，因此支持大多数格式。
         </li>
       </ul>
-      <p>Click to see all syntax fields supported in our docs.</p>
+      <p>点击查看我们文档中支持的所有语法字段。</p>
     </>
   );
 
@@ -272,10 +266,10 @@ const ExperimentsPage = (): React.ReactElement => {
       : items;
   }, [tabs, items]);
 
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  // 如果选择了“所有项目”且某些实验属于某个项目，则显示项目列
   const showProjectColumn = !project && items.some((e) => e.project);
 
-  // Reset to page 1 when a filter is applied or tabs change
+  // 当应用筛选器或切换选项卡时，重置到第1页
   useEffect(() => {
     setCurrentPage(1);
   }, [filtered.length]);
@@ -283,7 +277,7 @@ const ExperimentsPage = (): React.ReactElement => {
   if (error) {
     return (
       <div className="alert alert-danger">
-        An error occurred: {error.message}
+        发生错误：{error.message}
       </div>
     );
   }
@@ -314,7 +308,7 @@ const ExperimentsPage = (): React.ReactElement => {
       caret={false}
       toggle={
         <Button icon={<PiCaretDown />} iconPosition="right">
-          Add Experiment
+          添加实验
         </Button>
       }
     >
@@ -323,31 +317,30 @@ const ExperimentsPage = (): React.ReactElement => {
           className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
           onClick={() => setOpenNewExperimentModal(true)}
         >
-          Create New Experiment
+          创建新实验
         </div>
         <div
           className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
           onClick={() => setOpenImportExperimentModal(true)}
         >
-          Import Existing Experiment
+          导入现有实验
         </div>
       </div>
     </Dropdown>
   );
-
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
         <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">
-              <h1>Experiments</h1>
+              <h1>实验</h1>
             </div>
             <div style={{ flex: 1 }} />
             {settings.powerCalculatorEnabled && (
               <div className="col-auto">
                 <LinkButton variant="outline" href="/power-calculator">
-                  Power Calculator
+                  功效计算器
                 </LinkButton>
               </div>
             )}
@@ -359,11 +352,9 @@ const ExperimentsPage = (): React.ReactElement => {
           {!hasExperiments ? (
             <div className="box py-4 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Test Variations with Targeted Users</h1>
+                <h1>针对目标用户测试变体</h1>
                 <p style={{ fontSize: "17px" }}>
-                  Run unlimited tests with linked feature flags, URL redirects
-                  or the Visual Editor. You can also easily import existing
-                  experiments from other platforms.
+                  通过关联特性开关、URL重定向或可视化编辑器进行无限制的测试。您还可以轻松地从其他平台导入现有实验。
                 </p>
               </div>
               <div
@@ -374,7 +365,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   href="/getstarted/experiment-guide"
                   variant="outline"
                 >
-                  Setup Instructions
+                  设置说明
                 </LinkButton>
                 {canAdd && addExperimentDropdownButton}
               </div>
@@ -411,12 +402,12 @@ const ExperimentsPage = (): React.ReactElement => {
                           }}
                           title={
                             active && tabs.length > 1
-                              ? `Hide ${tab} experiments`
+                              ? `隐藏${tab}实验`
                               : active
-                                ? `Remove filter`
+                                ? `移除筛选`
                                 : tabs.length === 0
-                                  ? `View only ${tab} experiments`
-                                  : `Include ${tab} experiments`
+                                  ? `仅查看${tab}实验`
+                                  : `包含${tab}实验`
                           }
                         >
                           <span className="mr-1 ml-2">
@@ -435,7 +426,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
                 <div className="col-auto">
                   <Field
-                    placeholder="Search..."
+                    placeholder="搜索..."
                     type="search"
                     {...searchInputProps}
                   />
@@ -460,7 +451,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       setShowMineOnly(value);
                     }}
                   />{" "}
-                  My Experiments Only
+                  仅我的实验
                 </div>
               </div>
 
@@ -469,16 +460,16 @@ const ExperimentsPage = (): React.ReactElement => {
                   <tr>
                     <th></th>
                     <SortableTH field="name" className="w-100">
-                      Experiment
+                      实验
                     </SortableTH>
                     {showProjectColumn && (
-                      <SortableTH field="projectName">Project</SortableTH>
+                      <SortableTH field="projectName">项目</SortableTH>
                     )}
-                    <SortableTH field="tags">Tags</SortableTH>
-                    <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="status">Status</SortableTH>
-                    <SortableTH field="date">Date</SortableTH>
-                    <th>Summary</th>
+                    <SortableTH field="tags">标签</SortableTH>
+                    <SortableTH field="ownerName">所有者</SortableTH>
+                    <SortableTH field="status">状态</SortableTH>
+                    <SortableTH field="date">日期</SortableTH>
+                    <th>摘要</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -486,14 +477,14 @@ const ExperimentsPage = (): React.ReactElement => {
                     const phase = e.phases?.[e.phases.length - 1];
                     return (
                       <tr key={e.id} className="hover-highlight">
-                        <td data-title="Watching status:" className="watching">
+                        <td data-title="关注状态：" className="watching">
                           <WatchButton
                             item={e.id}
                             itemType="experiment"
                             type="icon"
                           />
                         </td>
-                        <td data-title="Experiment name:" className="p-0">
+                        <td data-title="实验名称：" className="p-0">
                           <Link
                             href={`/experiment/${e.id}`}
                             className="d-block p-2"
@@ -504,7 +495,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 {e.hasVisualChangesets ? (
                                   <Tooltip
                                     className="d-flex align-items-center ml-2"
-                                    body="Visual experiment"
+                                    body="可视化实验"
                                   >
                                     <RxDesktop className="text-blue" />
                                   </Tooltip>
@@ -512,7 +503,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 {(e.linkedFeatures || []).length > 0 ? (
                                   <Tooltip
                                     className="d-flex align-items-center ml-2"
-                                    body="Linked Feature Flag"
+                                    body="关联特性开关"
                                   >
                                     <BsFlag className="text-blue" />
                                   </Tooltip>
@@ -520,7 +511,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 {e.hasURLRedirects ? (
                                   <Tooltip
                                     className="d-flex align-items-center ml-2"
-                                    body="URL Redirect experiment"
+                                    body="URL重定向实验"
                                   >
                                     <PiShuffle className="text-blue" />
                                   </Tooltip>
@@ -529,7 +520,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               {isFiltered && e.trackingKey && (
                                 <span
                                   className="testid text-muted small"
-                                  title="Experiment Id"
+                                  title="实验ID"
                                 >
                                   {e.trackingKey}
                                 </span>
@@ -538,38 +529,38 @@ const ExperimentsPage = (): React.ReactElement => {
                           </Link>
                         </td>
                         {showProjectColumn && (
-                          <td className="nowrap" data-title="Project:">
+                          <td className="nowrap" data-title="项目：">
                             {e.projectIsDeReferenced ? (
                               <Tooltip
                                 body={
                                   <>
-                                    Project <code>{e.project}</code> not found
+                                    项目 <code>{e.project}</code> 未找到
                                   </>
                                 }
                               >
                                 <span className="text-danger">
-                                  Invalid project
+                                  无效项目
                                 </span>
                               </Tooltip>
                             ) : (
-                              e.projectName ?? <em>None</em>
+                              e.projectName ?? <em>无</em>
                             )}
                           </td>
                         )}
 
-                        <td data-title="Tags:" className="table-tags">
+                        <td data-title="标签：" className="table-tags">
                           <SortedTags
                             tags={Object.values(e.tags)}
                             useFlex={true}
                           />
                         </td>
-                        <td className="nowrap" data-title="Owner:">
+                        <td className="nowrap" data-title="所有者：">
                           {e.ownerName}
                         </td>
-                        <td className="nowrap" data-title="Status:">
+                        <td className="nowrap" data-title="状态：">
                           {e.archived ? (
                             <span className="badge badge-secondary">
-                              archived
+                              已归档
                             </span>
                           ) : (
                             <ExperimentStatusIndicator status={e.status} />
@@ -587,7 +578,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                   : ""}{" "}
                           {date(e.date)}
                         </td>
-                        <td className="nowrap" data-title="Summary:">
+                        <td className="nowrap" data-title="摘要：">
                           {e.archived ? (
                             ""
                           ) : e.status === "running" && phase ? (
@@ -618,14 +609,14 @@ const ExperimentsPage = (): React.ReactElement => {
       {openNewExperimentModal && (
         <NewExperimentForm
           onClose={() => setOpenNewExperimentModal(false)}
-          source="bandits-list"
+          source="多臂老虎机列表"
           isNewExperiment={true}
         />
       )}
       {openImportExperimentModal && (
         <ImportExperimentModal
           onClose={() => setOpenImportExperimentModal(false)}
-          source="experiment-list"
+          source="实验列表"
         />
       )}
     </>
