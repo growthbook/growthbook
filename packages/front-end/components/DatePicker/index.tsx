@@ -125,7 +125,7 @@ export default function DatePicker({
         }}
       >
         <Popover.Trigger asChild>
-          <Flex gap="1rem" display="inline-flex" width={inputWidth}>
+          <Flex gap="1rem">
             <div style={{ width: inputWidth, minHeight: 38 }}>
               {label ? <label>{label}</label> : null}
               <div
