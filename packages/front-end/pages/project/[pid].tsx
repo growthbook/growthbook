@@ -80,7 +80,7 @@ const ProjectPage: FC = () => {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
-          You do not have access to view this page.
+          您无权查看此页面。
         </div>
       </div>
     );
@@ -99,7 +99,7 @@ const ProjectPage: FC = () => {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
-          Project <code>{pid}</code> does not exist.
+          项目 <code>{pid}</code> 不存在。
         </div>
       </div>
     );
@@ -119,7 +119,7 @@ const ProjectPage: FC = () => {
         <div className="mb-2">
           <Link href="/projects">
             <GBCircleArrowLeft className="mr-1" />
-            Back to all projects
+            返回所有项目
           </Link>
         </div>
         <div className="d-flex align-items-center mb-2">
@@ -139,7 +139,7 @@ const ProjectPage: FC = () => {
 
         <div className="d-flex align-items-center mb-2">
           <div className="text-gray">
-            {p.description || <em>add description</em>}
+            {p.description || <em>添加描述</em>}
           </div>
           <div className="ml-1">
             <a
@@ -154,7 +154,7 @@ const ProjectPage: FC = () => {
           </div>
         </div>
 
-        <h2 className="mt-4 mb-0">Project Team Members</h2>
+        <h2 className="mt-4 mb-0">项目成员</h2>
         <div className="mb-4">
           <MemberList
             mutate={refreshOrganization}
@@ -165,7 +165,7 @@ const ProjectPage: FC = () => {
           />
         </div>
 
-        <h2 className="mt-4 mb-4">Project Settings</h2>
+        <h2 className="mt-4 mb-4">项目设置</h2>
         {/*<div className="text-muted mb-4">*/}
         {/*  Override organization-wide settings for this project. Leave fields*/}
         {/*  blank to use the organization default.*/}
@@ -173,7 +173,7 @@ const ProjectPage: FC = () => {
         <div className="bg-white p-3 border">
           <div className="row">
             <div className="col-sm-3">
-              <h4>Experiment Settings</h4>
+              <h4>实验设置</h4>
             </div>
             <div className="col-sm-9">
               <StatsEngineSelect
@@ -181,7 +181,7 @@ const ProjectPage: FC = () => {
                 onChange={(v) => {
                   form.setValue("statsEngine", v);
                 }}
-                label="Default Statistics Engine"
+                label="默认统计引擎"
                 parentSettings={parentSettings}
               />
             </div>
@@ -202,7 +202,7 @@ const ProjectPage: FC = () => {
                   setSaveMsg(false);
                 }}
               >
-                Settings saved
+                设置已保存
               </TempMessage>
             )}
           </div>
@@ -216,7 +216,7 @@ const ProjectPage: FC = () => {
                 await saveSettings();
               }}
             >
-              Save
+              保存
             </Button>
           </div>
         </div>

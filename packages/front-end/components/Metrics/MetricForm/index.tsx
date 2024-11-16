@@ -1404,7 +1404,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           helpText={
                             <>
                               <span className="ml-2">
-                                (organization default:{" "}
+                                (organization def111111ault:{" "}
                                 {settings.regressionAdjustmentDays ??
                                   DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
                                 )

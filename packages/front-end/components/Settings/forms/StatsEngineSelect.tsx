@@ -8,7 +8,7 @@ export default function StatsEngineSelect({
   parentSettings,
   showDefault = true,
   allowUndefined = true,
-  label = "Statistics Engine",
+  label = "统计引擎",
   className = "w-200px",
   value,
   onChange,
@@ -28,19 +28,19 @@ export default function StatsEngineSelect({
   const parentScopeId = parentSettings?.statsEngine?.meta?.scopeApplied;
   const options = [
     {
-      label: "Bayesian",
+      label: "贝叶斯",
       value: "bayesian",
     },
     {
-      label: "Frequentist",
+      label: "频率学派",
       value: "frequentist",
     },
   ];
   if (allowUndefined) {
     options.unshift({
       label: parentScopeId
-        ? capitalizeFirstLetter(parentScopeId) + " default"
-        : "Default",
+        ? capitalizeFirstLetter(parentScopeId) + " 默认值"
+        : "默认值",
       value: "",
     });
   }
@@ -61,7 +61,7 @@ export default function StatsEngineSelect({
         showDefault &&
         parentSettings?.statsEngine?.value && (
           <span className="ml-1">
-            ({parentScopeId && parentScopeId + " "}default:{" "}
+            ({parentScopeId && parentScopeId + " "}默认值:{" "}
             {capitalizeFirstLetter(parentSettings?.statsEngine?.value)})
           </span>
         )
