@@ -140,6 +140,7 @@ export default function DatePicker({
                     minHeight: 38,
                     cursor: "pointer",
                     fontFamily: "var(--font-family-sans-serif)",
+                    textAlign: "left",
                   }}
                   className={clsx({ "text-muted": !date })}
                   type={precision === "datetime" ? "datetime-local" : "date"}
@@ -186,6 +187,7 @@ export default function DatePicker({
                       minHeight: 38,
                       cursor: "pointer",
                       fontFamily: "var(--font-family-sans-serif)",
+                      textAlign: "left",
                     }}
                     className={clsx({ "text-muted": !date2 })}
                     type={precision === "datetime" ? "datetime-local" : "date"}
