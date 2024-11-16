@@ -43,10 +43,10 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
     (exp.archived
       ? exp.dateUpdated
       : exp.status === "running"
-      ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-      : exp.status === "stopped"
-      ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-      : exp.dateCreated) ?? ""
+        ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+        : exp.status === "stopped"
+          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+          : exp.dateCreated) ?? ""
   );
 }
 
@@ -105,8 +105,8 @@ const ExperimentsPage = (): React.ReactElement => {
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
-          ? "drafts"
-          : exp.status,
+            ? "drafts"
+            : exp.status,
         date: experimentDate(exp),
       };
     },
@@ -413,10 +413,10 @@ const ExperimentsPage = (): React.ReactElement => {
                             active && tabs.length > 1
                               ? `Hide ${tab} experiments`
                               : active
-                              ? `Remove filter`
-                              : tabs.length === 0
-                              ? `View only ${tab} experiments`
-                              : `Include ${tab} experiments`
+                                ? `Remove filter`
+                                : tabs.length === 0
+                                  ? `View only ${tab} experiments`
+                                  : `Include ${tab} experiments`
                           }
                         >
                           <span className="mr-1 ml-2">
@@ -579,12 +579,12 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.tab === "running"
                             ? "started"
                             : e.tab === "drafts"
-                            ? "created"
-                            : e.tab === "stopped"
-                            ? "ended"
-                            : e.tab === "archived"
-                            ? "updated"
-                            : ""}{" "}
+                              ? "created"
+                              : e.tab === "stopped"
+                                ? "ended"
+                                : e.tab === "archived"
+                                  ? "updated"
+                                  : ""}{" "}
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Summary:">
