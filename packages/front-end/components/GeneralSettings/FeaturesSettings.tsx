@@ -52,7 +52,7 @@ export default function FeaturesSettings() {
         <h4>功能设置</h4>
       </div>
       <div className="col-sm-9">
-        <div className="form-inline">
+        {/* <div className="form-inline">
           <Field
             label={
               <PremiumTooltip
@@ -83,7 +83,7 @@ export default function FeaturesSettings() {
             type="string"
             {...form.register("secureAttributeSalt")}
           />
-        </div>
+        </div> */}
         <div>
           <label htmlFor="featureKeyExample">
             功能键示例（可选）
@@ -217,7 +217,7 @@ export default function FeaturesSettings() {
             ))}
           </>
         )}
-        <div className="my-3">
+        {/* <div className="my-3">
           <PremiumTooltip commercialFeature="code-references">
             <div
               className="d-inline-block h4 mt-4 mb-0"
@@ -342,7 +342,7 @@ export default function FeaturesSettings() {
               </div>
             </>
           ) : null}
-        </div>
+        </div> */}
       </div>
     </div>
   );

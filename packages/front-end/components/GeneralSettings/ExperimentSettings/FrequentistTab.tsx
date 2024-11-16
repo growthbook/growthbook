@@ -87,7 +87,7 @@ export default function FrequentistTab({
         />
       </div>
 
-      <div className="p-3 my-3 border rounded">
+      {/* <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
           <PremiumTooltip commercialFeature="sequential-testing">
             <GBSequential /> 顺序检验
@@ -148,7 +148,7 @@ export default function FrequentistTab({
             })}
           />
         </div>
-      </div>
+      </div> */}
     </>
   );
 }

@@ -374,7 +374,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <div className="divider border-bottom mb-3 mt-3" />
             <DatasourceSettings />
           </div>
-          <div className="my-3 bg-white p-3 border">
+          {/* <div className="my-3 bg-white p-3 border">
             <div className="row">
               <div className="col-sm-3 h4">
                 <PremiumTooltip commercialFeature="custom-markdown">
@@ -393,7 +393,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 )}
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
 

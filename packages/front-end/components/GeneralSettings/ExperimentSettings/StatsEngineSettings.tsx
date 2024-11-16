@@ -163,7 +163,7 @@ export default function StatsEngineSettings() {
         </Tab>
       </ControlledTabs>
 
-      <div className="p-3 my-3 border rounded">
+      {/* <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
           <PremiumTooltip commercialFeature="regression-adjustment">
             <GBCuped /> 回归调整（CUPED）
@@ -236,7 +236,7 @@ export default function StatsEngineSettings() {
             </small>
           )}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

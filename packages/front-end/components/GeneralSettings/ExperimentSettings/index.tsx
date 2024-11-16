@@ -170,7 +170,7 @@ export default function ExperimentSettings({
               )}
             </div>
 
-            <div className="d-flex form-group mb-3">
+            {/* <div className="d-flex form-group mb-3">
               <label
                 className="mr-1"
                 htmlFor="toggle-factTableQueryOptimization"
@@ -202,12 +202,12 @@ export default function ExperimentSettings({
                 }}
                 disabled={!hasCommercialFeature("multi-metric-queries")}
               />
-            </div>
+            </div> */}
           </div>
 
           <StatsEngineSettings />
 
-          <div className="d-flex form-group mb-3">
+          {/* <div className="d-flex form-group mb-3">
             <label className="mr-1" htmlFor="toggle-factTableQueryOptimization">
               <span className="badge badge-purple text-uppercase mr-2">
                 测试版
@@ -221,7 +221,7 @@ export default function ExperimentSettings({
                 form.setValue("powerCalculatorEnabled", !!value);
               }}
             />
-          </div>
+          </div> */}
 
           <StickyBucketingSettings />
 
@@ -280,7 +280,7 @@ export default function ExperimentSettings({
             </div>
           </div>
 
-          <div className="mb-3 form-group flex-column align-items-start">
+          {/* <div className="mb-3 form-group flex-column align-items-start">
             <PremiumTooltip
               commercialFeature="custom-launch-checklist"
               premiumText="企业客户可使用自定义启动前检查清单"
@@ -300,7 +300,7 @@ export default function ExperimentSettings({
             >
               编辑检查清单
             </Button>
-          </div>
+          </div> */}
         </div>
       </div>
       {editChecklistOpen ? (
