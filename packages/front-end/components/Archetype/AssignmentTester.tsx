@@ -16,7 +16,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
-import Field from "@/components/Forms/Field";
+import DatePicker from "@/components/DatePicker";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -59,6 +59,19 @@ export default function AssignmentTester({ feature, version, project }: Props) {
     return false;
   }, [feature]);
 
+  const hasScheduled = useMemo(() => {
+    if (
+      Object.values(feature?.environmentSettings ?? {}).some((env) =>
+        env?.rules?.some(
+          (rule) =>
+            !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length
+        )
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }, [feature]);
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
 
@@ -259,10 +272,13 @@ export default function AssignmentTester({ feature, version, project }: Props) {
     <>
       <div className="d-flex flex-row align-items-center justify-content-between">
         <h3 className="mb-0">Test Feature Rules</h3>
-        <div className="d-flex justify-content-end position-relative mb-2">
-          <div>
+        <div className="d-flex justify-content-end position-relative mb-1">
+          <div className="">
             {hasPrerequisites && (
-              <div className="text-gray">
+              <div
+                className="text-gray d-flex justify-content-end"
+                style={{ gap: "5px" }}
+              >
                 <span className="font-weight-bold">Prereq evaluation:</span>{" "}
                 <span>
                   Top-level: <span className="text-success">pass</span>.
@@ -295,18 +311,26 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                   />
                 </>
               )}
-              <div className="ml-2">
-                <Field
-                  id="evalDate"
-                  type="date"
-                  label="Evaluation Date"
-                  className="text-muted"
-                  containerClassName="d-flex align-items-center mb-1"
-                  labelClassName="mr-2 mb-0 small text-muted text-ellipsis"
-                  value={evalDate.toISOString().split("T")[0]}
-                  onChange={(e) => setEvalDate(new Date(e.target.value))}
-                />
-              </div>
+              {hasScheduled && (
+                <div className="ml-2">
+                  <div className="d-flex align-items-center mb-0">
+                    <label
+                      className="small text-muted mr-2 mb-0 small text-muted text-ellipsis"
+                      htmlFor="evalDate"
+                      title="When there are scheduled rules, this date select lets your see what values the user will get."
+                    >
+                      Evaluation Date
+                    </label>
+                    <DatePicker
+                      id="evalDate"
+                      date={evalDate}
+                      setDate={setEvalDate}
+                      precision="date"
+                      containerClassName="d-flex align-items-end mb-1"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
