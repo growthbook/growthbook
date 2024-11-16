@@ -82,8 +82,7 @@ export default function SDKConnectionsList() {
   const emptyStateContentControl = (
     <div className="appbox p-5 text-center">
       <p>
-        <strong>SDK Connections</strong> make it easy to integrate GrowthBook
-        into your front-end, back-end, or mobile application.
+        <strong>SDK连接</strong> 可轻松将GrowthBook集成到您的前端、后端或移动应用程序中。
       </p>
       <button
         className="btn btn-primary"
@@ -92,7 +91,7 @@ export default function SDKConnectionsList() {
           setModalOpen(true);
         }}
       >
-        <GBAddCircle /> Create New SDK Connection
+        <GBAddCircle /> 创建新的SDK连接
       </button>
     </div>
   );
@@ -107,11 +106,10 @@ export default function SDKConnectionsList() {
     >
       <Flex direction="column" align="center">
         <Heading as="h2" size="6" align="center">
-          Easily integrate GrowthBook into your app or website
+          轻松将GrowthBook集成到您的应用程序或网站中
         </Heading>
         <Text size="3" align="center">
-          Select one of our SDKs to connect your front-end, back-end or mobile
-          app.
+          选择我们的一个SDK来连接您的前端、后端或移动应用。
         </Text>
       </Flex>
 
@@ -147,7 +145,7 @@ export default function SDKConnectionsList() {
           onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
           size="sm"
         >
-          {showAllSdkLanguages ? "Show less" : "Show all"}
+          {showAllSdkLanguages ? "显示较少" : "显示全部"}
         </Button>
       </Flex>
     </Box>
@@ -173,10 +171,10 @@ export default function SDKConnectionsList() {
           <h1 className="mb-0">SDK Connections</h1>
         </div>
         {canCreateSDKConnections &&
-        (useNewEmptyStateLayout || connections.length > 0) ? (
+          (useNewEmptyStateLayout || connections.length > 0) ? (
           <div className="col-auto ml-auto">
             <Button onClick={() => setModalOpen(true)}>
-              Add SDK Connection
+              添加SDK连接
             </Button>
           </div>
         ) : null}
@@ -187,8 +185,7 @@ export default function SDKConnectionsList() {
           {!canCreateSDKConnections ? (
             <div className="appbox p-5 text-center">
               <p>
-                You do not have permission to create SDK connections. Please
-                contact your account administrator
+                您无权创建SDK连接。请联系您的账户管理员
               </p>
             </div>
           ) : useNewEmptyStateLayout ? (
@@ -256,8 +253,8 @@ export default function SDKConnectionsList() {
                     <Tooltip
                       body={
                         connected
-                          ? "Connected successfully"
-                          : "Could not verify the connection"
+                          ? "连接成功"
+                          : "无法验证连接"
                       }
                     >
                       {connected ? (
@@ -279,7 +276,7 @@ export default function SDKConnectionsList() {
                           key="All env projects"
                           color="teal"
                           variant="solid"
-                          label={`All env projects (${envProjects.length})`}
+                          label={`所有环境项目 (${envProjects.length})`}
                         />
                       )}
                       <div
@@ -295,7 +292,7 @@ export default function SDKConnectionsList() {
                               : undefined
                           }
                           invalidProjectIds={disallowedProjectIds}
-                          invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                          invalidProjectMessage="此项目在所选环境中不被允许，将不会包含在SDK负载中。"
                           resourceType="sdk connection"
                           skipMargin={true}
                         />
@@ -308,7 +305,7 @@ export default function SDKConnectionsList() {
                       <Tooltip
                         body={
                           <>
-                            <strong>Remote Evaluation</strong> is enabled
+                            <strong>远程评估</strong> 已启用
                           </>
                         }
                       >
@@ -319,8 +316,7 @@ export default function SDKConnectionsList() {
                       <Tooltip
                         body={
                           <>
-                            <strong>Secure Attribute Hashing</strong> is enabled
-                            for this connection&apos;s SDK payload
+                            <strong>安全属性哈希</strong> 已启用，用于此连接的SDK负载
                           </>
                         }
                       >
@@ -331,8 +327,7 @@ export default function SDKConnectionsList() {
                       <Tooltip
                         body={
                           <>
-                            <strong>Encryption</strong> is enabled for this
-                            connection&apos;s SDK payload
+                            <strong>加密</strong> 已启用，用于此连接的SDK负载
                           </>
                         }
                       >
@@ -344,7 +339,7 @@ export default function SDKConnectionsList() {
                         body={
                           <>
                             <BsLightningFill className="text-warning" />
-                            <strong>GB Proxy</strong> is enabled
+                            <strong>GB代理</strong> 已启用
                           </>
                         }
                       >
@@ -355,7 +350,7 @@ export default function SDKConnectionsList() {
                       <Tooltip
                         body={
                           <>
-                            <strong>Visual Experiments</strong> are supported
+                            支持<strong>视觉实验</strong>
                           </>
                         }
                       >
@@ -366,7 +361,7 @@ export default function SDKConnectionsList() {
                       <Tooltip
                         body={
                           <>
-                            <strong>URL Redirects</strong> are supported
+                            支持<strong>URL重定向</strong>
                           </>
                         }
                       >

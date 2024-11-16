@@ -44,7 +44,7 @@ const MetricsPage = (): React.ReactElement => {
           </p>
           <div className="mt-3">
             {!hasDatasource ? (
-              <LinkButton href="/数据源">连接数据源</LinkButton>
+              <LinkButton href="/datasources">连接数据源</LinkButton>
             ) : (
               <Button onClick={() => setShowNewModal(true)}>添加指标</Button>
             )}

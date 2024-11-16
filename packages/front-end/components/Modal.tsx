@@ -72,9 +72,9 @@ const Modal: FC<ModalProps> = ({
   fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
-  cta = "Submit",
+  cta = "提交",
   ctaEnabled = true,
-  closeCta = "Cancel",
+  closeCta = "取消",
   onClickCloseCta,
   closeCtaClassName = "btn btn-link",
   includeCloseCta = true,
@@ -207,10 +207,10 @@ const Modal: FC<ModalProps> = ({
         style={
           overflowAuto
             ? {
-                overflowY: "auto",
-                scrollBehavior: "smooth",
-                marginBottom: stickyFooter ? "100px" : undefined,
-              }
+              overflowY: "auto",
+              scrollBehavior: "smooth",
+              marginBottom: stickyFooter ? "100px" : undefined,
+            }
             : {}
         }
       >
@@ -221,10 +221,10 @@ const Modal: FC<ModalProps> = ({
         )}
       </div>
       {submit ||
-      secondaryCTA ||
-      tertiaryCTA ||
-      backCTA ||
-      (close && includeCloseCta) ? (
+        secondaryCTA ||
+        tertiaryCTA ||
+        backCTA ||
+        (close && includeCloseCta) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >
@@ -275,9 +275,8 @@ const Modal: FC<ModalProps> = ({
                 className={fullWidthSubmit ? "w-100" : ""}
               >
                 <button
-                  className={`btn btn-${submitColor} ${
-                    fullWidthSubmit ? "w-100" : ""
-                  } ${stickyFooter ? "ml-auto mr-5" : ""}`}
+                  className={`btn btn-${submitColor} ${fullWidthSubmit ? "w-100" : ""
+                    } ${stickyFooter ? "ml-auto mr-5" : ""}`}
                   type="submit"
                   disabled={!ctaEnabled}
                 >
@@ -294,8 +293,8 @@ const Modal: FC<ModalProps> = ({
 
   const overlayStyle: CSSProperties = solidOverlay
     ? {
-        opacity: 1,
-      }
+      opacity: 1,
+    }
     : {};
 
   if (increasedElevation) {
@@ -345,8 +344,8 @@ const Modal: FC<ModalProps> = ({
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
             : size === "fill"
-            ? { width: "100%", maxWidth: "100%" }
-            : {}
+              ? { width: "100%", maxWidth: "100%" }
+              : {}
         }
       >
         {submit && !isSuccess ? (

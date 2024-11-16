@@ -43,7 +43,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
           }
         }}
       >
-        {loading ? <LoadingSpinner /> : !value ? "Reveal" : "Hide"}
+        {loading ? <LoadingSpinner /> : !value ? "显示" : "隐藏"}
       </button>
       {error && (
         <Tooltip body={error}>
