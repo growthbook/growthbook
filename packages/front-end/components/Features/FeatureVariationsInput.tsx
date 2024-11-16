@@ -24,6 +24,7 @@ import {
 } from "./SortableFeatureVariationRow";
 import SortableVariationsList from "./SortableVariationsList";
 
+// 定义属性接口
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
@@ -55,8 +56,8 @@ export default function FeatureVariationsInput({
   setCoverage,
   valueType,
   defaultValue = "",
-  coverageLabel = "Traffic included in this Experiment",
-  coverageTooltip = "Users not included in the Experiment will skip this rule",
+  coverageLabel = "此实验包含的流量",
+  coverageTooltip = "未包含在实验中的用户将跳过此规则",
   valueAsId = false,
   showPreview = true,
   hideCoverage = false,
@@ -87,12 +88,12 @@ export default function FeatureVariationsInput({
   const label = _label
     ? _label
     : simple
-    ? "Traffic Percentage & Variations"
-    : setVariations
-    ? "Traffic Percentage, Variations, and Weights"
-    : hideCoverage || hideVariations
-    ? "Traffic Percentage"
-    : "Traffic Percentage & Variation Weights";
+      ? "流量百分比与变体"
+      : setVariations
+        ? "流量百分比、变体及权重"
+        : hideCoverage || hideVariations
+          ? "流量百分比"
+          : "流量百分比与变体权重";
 
   return (
     <div className="form-group">
@@ -146,7 +147,7 @@ export default function FeatureVariationsInput({
             </div>
           )}
           <Field
-            label="Number of Variations"
+            label="变体数量"
             type="number"
             value={numberOfVariations}
             onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
@@ -157,7 +158,7 @@ export default function FeatureVariationsInput({
               for (let i = 0; i < n; i++) {
                 newValues.push({
                   value: getDefaultVariationValue(defaultValue),
-                  name: i === 0 ? "Control" : `Variation ${i}`,
+                  name: i === 0 ? "对照" : `变体 ${i}`,
                   weight: 1 / n,
                   id: generateVariationId(),
                 });
@@ -220,17 +221,17 @@ export default function FeatureVariationsInput({
               <thead className={`${styles.variationSplitHeader}`}>
                 <tr>
                   <th className="pl-3">Id</th>
-                  {!valueAsId && <th>Variation</th>}
+                  {!valueAsId && <th>变体</th>}
                   <th>
                     <Tooltip
-                      body="Optional way to identify the variations within GrowthBook."
+                      body="在GrowthBook内识别变体的可选方式。"
                       tipPosition="top"
                     >
-                      Name <FaInfoCircle />
+                      名称 <FaInfoCircle />
                     </Tooltip>
                   </th>
                   <th>
-                    Split
+                    比例
                     {!disableVariations && !disableCustomSplit && (
                       <div className="d-inline-block float-right form-check form-check-inline">
                         <label className="mb-0 cursor-pointer">
@@ -248,7 +249,7 @@ export default function FeatureVariationsInput({
                             id="checkbox-customsplits"
                             style={{ top: "2px" }}
                           />{" "}
-                          Customize split
+                          自定义比例
                         </label>
                       </div>
                     )}
@@ -292,7 +293,7 @@ export default function FeatureVariationsInput({
                                   customSplit
                                 );
 
-                                // Add a new value and update weights
+                                // 添加一个新值并更新权重
                                 const newValues = [
                                   ...variations,
                                   {
@@ -311,18 +312,18 @@ export default function FeatureVariationsInput({
                               }}
                             >
                               <GBAddCircle className="mr-2" />
-                              Add variation
+                              添加变体
                             </a>
                           )}
                           {valueType === "boolean" && (
                             <>
-                              <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                              <Tooltip body="布尔类型的特性只能有两个变体。使用不同的特性类型来添加多个变体。">
                                 <a
                                   role="button"
                                   className="btn btn-link p-0 disabled"
                                 >
                                   <GBAddCircle className="mr-2" />
-                                  Add variation
+                                  添加变体
                                 </a>
                               </Tooltip>
                             </>
@@ -338,7 +339,7 @@ export default function FeatureVariationsInput({
                                 setEqualWeights();
                               }}
                             >
-                              set equal weights
+                              设置相等的权重
                             </a>
                           </div>
                         )}

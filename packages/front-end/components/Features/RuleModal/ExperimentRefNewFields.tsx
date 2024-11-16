@@ -113,31 +113,31 @@ export default function ExperimentRefNewFields({
           <Field
             required={true}
             minLength={2}
-            label="Experiment Name"
+            label="实验名称"
             {...form.register("name")}
           />
 
           <Field
-            label="Tracking Key"
+            label="追踪key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
-            helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
+            helpText="此实验的唯一标识符，用于追踪展示次数并分析结果"
           />
 
           <Field
-            label="Hypothesis"
+            label="假设"
             textarea
             minRows={1}
             {...form.register("hypothesis")}
-            placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+            placeholder="例如：将注册按钮变大将增加点击次数并最终提高收益"
           />
 
           <Field
-            label="Description"
+            label="描述"
             textarea
             minRows={1}
             {...form.register("description")}
-            placeholder="Short human-readable description of the Experiment"
+            placeholder="实验的简短人类可读描述"
           />
         </>
       ) : null}
@@ -146,7 +146,7 @@ export default function ExperimentRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
-              label="Assign value based on attribute"
+              label="基于属性分配值"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -156,7 +156,7 @@ export default function ExperimentRefNewFields({
                 form.setValue("hashAttribute", v);
               }}
               helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
+                "将与跟踪键一起哈希运算，以确定要分配的变体"
               }
             />
             <FallbackAttributeSelector
@@ -176,8 +176,8 @@ export default function ExperimentRefNewFields({
               <Checkbox
                 mt="4"
                 size="lg"
-                label="Disable Sticky Bucketing"
-                description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+                label="禁用粘性分桶"
+                description="不要为此实验保留变体分配（覆盖您的组织设置）"
                 value={!!form.watch("disableStickyBucketing")}
                 setValue={(v) => {
                   form.setValue("disableStickyBucketing", v);
@@ -187,11 +187,11 @@ export default function ExperimentRefNewFields({
           </div>
 
           <FeatureVariationsInput
-            label="Traffic Percent & Variations"
+            label="流量百分比与变体"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
-            coverageLabel="Traffic included in this Experiment"
-            coverageTooltip={`Users not included in the Experiment will skip this ${source}`}
+            coverageLabel="此实验包含的流量"
+            coverageTooltip={`未包含在实验中的用户将跳过此${source}`}
             coverage={coverage}
             setCoverage={setCoverage}
             setWeight={setWeight}
@@ -239,9 +239,9 @@ export default function ExperimentRefNewFields({
           />
           {isCyclic && (
             <div className="alert alert-danger">
-              <FaExclamationTriangle /> A prerequisite (
-              <code>{cyclicFeatureId}</code>) creates a circular dependency.
-              Remove this prerequisite to continue.
+              <FaExclamationTriangle /> 一个先决条件（
+              <code>{cyclicFeatureId}</code>）创建了一个循环依赖。
+              请删除此先决条件以继续。
             </div>
           )}
 
@@ -253,18 +253,17 @@ export default function ExperimentRefNewFields({
               id="auto-start-new-experiment"
             />{" "}
             <label htmlFor="auto-start-new-experiment" className="text-dark">
-              Start Experiment Immediately
+              立即启动实验
             </label>
             <div>
               <small className="form-text text-muted">
-                If On, the Experiment will start serving traffic as soon as the
-                feature is published. Leave Off if you want to make additional
-                changes before starting.
+                如果开启，一旦功能发布，实验将立即开始提供流量。
+                如果您想在启动前进行其他更改，请保持关闭。
               </small>
             </div>
             {!noSchedule &&
-            !form.watch("autoStart") &&
-            setScheduleToggleEnabled ? (
+              !form.watch("autoStart") &&
+              setScheduleToggleEnabled ? (
               <div>
                 <hr />
                 <ScheduleInputs
