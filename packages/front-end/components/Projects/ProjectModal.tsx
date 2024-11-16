@@ -26,7 +26,7 @@ export default function ProjectModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      header={existing.id ? "Edit Project" : "Create Project"}
+      header={existing.id ? "编辑项目" : "创建项目"}
       submit={form.handleSubmit(async (value) => {
         await apiCall(existing.id ? `/projects/${existing.id}` : `/projects`, {
           method: existing.id ? "PUT" : "POST",
@@ -35,9 +35,9 @@ export default function ProjectModal({
         await onSuccess();
       })}
     >
-      <Field label="Name" maxLength={30} required {...form.register("name")} />
+      <Field label="名称" maxLength={30} required {...form.register("name")} />
       <Field
-        label="Description"
+        label="描述"
         maxLength={100}
         minRows={3}
         maxRows={8}

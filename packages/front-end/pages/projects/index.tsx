@@ -41,37 +41,36 @@ const ProjectsPage: FC = () => {
 
       <div className="filters md-form row mb-1 align-items-center">
         <div className="col-auto d-flex">
-          <h1 className="mb-0">Projects</h1>
+          <h1 className="mb-0">项目</h1>
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <Tooltip
-            body="You don't have permission to create projects"
+            body="您没有创建项目的权限"
             shouldDisplay={!canCreateProjects}
           >
             <Button
               disabled={!canCreateProjects}
               onClick={() => setModalOpen({})}
             >
-              Create Project
+              创建项目
             </Button>
           </Tooltip>
         </div>
       </div>
 
       <p className="text-gray mb-3">
-        Group your ideas and experiments into <strong>Projects</strong> to keep
-        things organized and easy to manage.
+        将您的想法和实验分组到 <strong>项目</strong> 中，以便保持条理清晰且易于管理。
       </p>
       {projects.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th className="col-3">Project Name</th>
-              <th className="col-3">Description</th>
-              <th className="col-2">Id</th>
-              <th className="col-2">Date Created</th>
-              <th className="col-2">Date Updated</th>
+              <th className="col-3">项目名称</th>
+              <th className="col-3">描述</th>
+              <th className="col-2">编号</th>
+              <th className="col-2">创建日期</th>
+              <th className="col-2">更新日期</th>
               <th className="w-50"></th>
             </tr>
           </thead>
@@ -85,8 +84,8 @@ const ProjectsPage: FC = () => {
                   onClick={
                     canEdit
                       ? () => {
-                          router.push(`/project/${p.id}`);
-                        }
+                        router.push(`/project/${p.id}`);
+                      }
                       : undefined
                   }
                   style={canEdit ? { cursor: "pointer" } : {}}
@@ -123,18 +122,18 @@ const ProjectsPage: FC = () => {
                             setModalOpen(p);
                           }}
                         >
-                          Edit
+                          编辑
                         </button>
                       ) : null}
                       {canDelete ? (
                         <DeleteButton
                           className="dropdown-item text-danger"
-                          displayName="project"
-                          text="Delete"
+                          displayName="项目"
+                          text="删除"
                           useIcon={false}
                           onClick={async () => {
-                            await apiCall(`/projects/${p.id}`, {
-                              method: "DELETE",
+                            await apiCall(`/project/${p.id}`, {
+                              method: "DELETE"
                             });
                             mutateDefinitions();
                           }}
@@ -143,9 +142,7 @@ const ProjectsPage: FC = () => {
                               c.projects.includes(p.id)
                             ) ? (
                               <div className="alert alert-danger px-2 py-1">
-                                <FaExclamationTriangle /> This project is in use
-                                by one or more SDK Connections. Deleting it will
-                                cause those connections to stop working.
+                                <FaExclamationTriangle /> 此项目正在被一个或多个SDK连接使用。删除它将导致这些连接停止工作。
                               </div>
                             ) : null
                           }
@@ -159,7 +156,7 @@ const ProjectsPage: FC = () => {
           </tbody>
         </table>
       ) : (
-        <p>Click the button in the top right to create your first project!</p>
+        <p>点击右上角的按钮来创建您的第一个项目！</p>
       )}
     </div>
   );

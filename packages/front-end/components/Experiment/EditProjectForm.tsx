@@ -43,7 +43,7 @@ const EditProjectForm: FC<{
     <Modal
       trackingEventModalType="edit-project-form"
       trackingEventModalSource={source}
-      header={"Edit Project"}
+      header={"Edit Projec"}
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
