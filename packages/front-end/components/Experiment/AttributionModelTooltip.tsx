@@ -7,18 +7,13 @@ export function AttributionModelTooltip({ children }: { children: ReactNode }) {
       body={
         <div>
           <div className="mb-2">
-            Determines whether we respect conversion windows (lookback windows
-            cannot be overriden this way).
+            用于确定我们是否遵循转化窗口（通过这种方式无法覆盖回溯窗口）。
           </div>
           <div className="mb-2">
-            <strong>Respect Conversion Windows</strong> - Builds a single
-            conversion window off of each user{"'"}s first exposure for metrics
-            with conversion windows.
+            <strong>遵循转化窗口</strong> - 针对具有转化窗口的指标，根据每个用户的首次曝光构建单个转化窗口。
           </div>
           <div>
-            <strong>Ignore Conversion Windows</strong> - Override all metric
-            conversion windows and count all metric values from user{"'"}s first
-            exposure to the end of the experiment.
+            <strong>忽略转化窗口</strong> - 覆盖所有指标的转化窗口，并统计从用户首次曝光到实验结束的所有指标值。
           </div>
         </div>
       }
