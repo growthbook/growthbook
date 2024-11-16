@@ -162,6 +162,21 @@
     min-height: 234px;
   }
 }
+// Safari web
+@supports (font: -apple-system-body) and (-webkit-appearance: none) {
+  .date-picker-field {
+    padding-left: 8px;
+    font-family: "Arial", sans-serif;
+  }
+}
+// Mobile-like devices
+@media screen and (hover: none) and (pointer: coarse) {
+  .date-picker-field {
+    width: 100% !important;
+    margin-right: 0 !important;
+    pointer-events: none;
+  }
+}
 
 // Radio
 .rt-RadioGroupItem {
