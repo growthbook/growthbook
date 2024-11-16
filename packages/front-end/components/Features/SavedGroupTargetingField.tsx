@@ -8,6 +8,7 @@ import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 
+// 定义属性接口
 export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
@@ -30,9 +31,9 @@ export default function SavedGroupTargetingField({
   if (!savedGroups.length)
     return (
       <div>
-        <label>Target by Saved Groups</label>
+        <label>按已保存的分组进行目标定位</label>
         <div className="font-italic text-muted mr-3">
-          You do not have any saved groups.
+          您没有任何已保存的分组。
         </div>
       </div>
     );
@@ -53,9 +54,9 @@ export default function SavedGroupTargetingField({
   if (value.length === 0) {
     return (
       <div>
-        <label>Target by Saved Groups</label>
+        <label>按已保存的分组进行目标定位</label>
         <div className="font-italic text-muted mr-3">
-          No saved group targeting applied.
+          未应用任何已保存分组的目标定位。
         </div>
         <div
           className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
@@ -71,7 +72,7 @@ export default function SavedGroupTargetingField({
           }}
         >
           <FaPlusCircle className="mr-1" />
-          Add group targeting
+          添加分组目标定位
         </div>
       </div>
     );
@@ -79,7 +80,7 @@ export default function SavedGroupTargetingField({
 
   return (
     <div className="form-group my-4">
-      <label>Target by Saved Groups</label>
+      <label>按已保存的分组进行目标定位</label>
       <div className="mb-1">
         <LargeSavedGroupPerformanceWarning
           style="text"
@@ -92,8 +93,7 @@ export default function SavedGroupTargetingField({
         <div className="appbox bg-light px-3 py-3">
           {conflicts.length > 0 && (
             <div className="alert alert-danger">
-              <strong>Error:</strong> You have a conflict in your rules with the
-              following groups:{" "}
+              <strong>错误：</strong>您的规则与以下分组存在冲突：{" "}
               {conflicts.map((c) => (
                 <span key={c} className="badge badge-danger mr-1">
                   {getSavedGroupById(c)?.groupName || c}
@@ -105,7 +105,7 @@ export default function SavedGroupTargetingField({
             return (
               <div className="row align-items-center mb-3" key={i}>
                 <div className="col-auto" style={{ width: 70 }}>
-                  {i === 0 ? "In" : "AND"}
+                  {i === 0 ? "且" : "并且"}
                 </div>
                 <div className="col-auto">
                   <SelectField
@@ -120,15 +120,15 @@ export default function SavedGroupTargetingField({
                     options={[
                       {
                         value: "any",
-                        label: "Any of",
+                        label: "任意的",
                       },
                       {
                         value: "all",
-                        label: "All of",
+                        label: "全部的",
                       },
                       {
                         value: "none",
-                        label: "None of",
+                        label: "无",
                       },
                     ]}
                   />
@@ -144,7 +144,7 @@ export default function SavedGroupTargetingField({
                     }}
                     options={options}
                     required
-                    placeholder="Select groups..."
+                    placeholder="选择分组..."
                     closeMenuOnSelect={true}
                   />
                 </div>
@@ -160,7 +160,7 @@ export default function SavedGroupTargetingField({
                     }}
                   >
                     <FaMinusCircle className="mr-1" />
-                    remove
+                    删除
                   </button>
                 </div>
               </div>
@@ -180,7 +180,7 @@ export default function SavedGroupTargetingField({
             }}
           >
             <FaPlusCircle className="mr-1" />
-            Add another condition
+            添加另一个条件
           </span>
         </div>
       </div>
@@ -201,7 +201,7 @@ export function getSavedGroupTargetingConflicts(
     }
   });
 
-  // If there's an overlap between required and excluded groups, there's a conflict
+  // 如果所需分组和排除分组之间存在重叠，就存在冲突
   return Array.from(required).filter((id) => excluded.has(id));
 }
 
@@ -211,12 +211,12 @@ export function validateSavedGroupTargeting(
   if (!savedGroups) return;
 
   if (savedGroups.some((g) => g.ids.length === 0)) {
-    throw new Error("Cannot have empty Saved Group targeting rules.");
+    throw new Error("不能有空的已保存分组目标定位规则。");
   }
 
   if (getSavedGroupTargetingConflicts(savedGroups).length > 0) {
     throw new Error(
-      "Please fix conflicts in your Saved Group rules before saving"
+      "请在保存之前解决已保存分组规则中的冲突"
     );
   }
 }
