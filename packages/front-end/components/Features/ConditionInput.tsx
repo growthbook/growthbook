@@ -36,14 +36,13 @@ interface Props {
   title?: string;
   require?: boolean;
 }
-
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
 
-  const title = props.title || "Target by Attributes";
-  const emptyText = props.emptyText || "Applied to everyone by default.";
+  const title = props.title || "按属性进行目标定位";
+  const emptyText = props.emptyText || "默认应用于所有人。";
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, attributes) === null
@@ -69,11 +68,11 @@ export default function ConditionInput(props: Props) {
 
   const savedGroupOperators = [
     {
-      label: "is in the saved group",
+      label: "在已保存的分组中",
       value: "$inGroup",
     },
     {
-      label: "is not in the saved group",
+      label: "不在已保存的分组中",
       value: "$notInGroup",
     },
   ];
@@ -98,7 +97,7 @@ export default function ConditionInput(props: Props) {
             helpText={
               <>
                 <div className="d-flex">
-                  <div>JSON format using MongoDB query syntax.</div>
+                  <div>使用MongoDB查询语法的JSON格式。</div>
                   {simpleAllowed && attributes.size && (
                     <div className="ml-auto">
                       <span
@@ -106,21 +105,20 @@ export default function ConditionInput(props: Props) {
                         onClick={(e) => {
                           e.preventDefault();
                           const newConds = jsonToConds(value, attributes);
-                          // TODO: show error
+                          // TODO: 显示错误
                           if (newConds === null) return;
                           setConds(newConds);
                           setAdvanced(false);
                         }}
                       >
-                        <RxLoop /> Simple mode
+                        <RxLoop /> 简单模式
                       </span>
                     </div>
                   )}
                 </div>
                 {hasSecureAttributes && (
                   <div className="mt-1 text-warning-orange">
-                    <FaExclamationCircle /> Secure attribute hashing not
-                    guaranteed to work for complicated rules
+                    <FaExclamationCircle /> 复杂规则下安全属性哈希不一定能保证有效
                   </div>
                 )}
               </>
@@ -152,7 +150,7 @@ export default function ConditionInput(props: Props) {
             }}
           >
             <FaPlusCircle className="mr-1" />
-            Add attribute targeting
+            添加属性目标定位
           </div>
         </div>
       </div>
@@ -168,14 +166,14 @@ export default function ConditionInput(props: Props) {
             const attribute = attributes.get(field);
 
             if (!attribute) {
-              console.error("Attribute not found in attribute Map.");
+              console.error("属性在属性映射中未找到。");
               return;
             }
 
             const savedGroupOptions = savedGroups
-              // First, limit to groups with the correct attribute
+              // 首先，限制为具有正确属性的分组
               .filter((g) => g.type === "list" && g.attributeKey === field)
-              // Filter by project
+              // 按项目过滤
               .filter((group) => {
                 return (
                   !props.project ||
@@ -183,7 +181,7 @@ export default function ConditionInput(props: Props) {
                   group.projects.includes(props.project)
                 );
               })
-              // Then, transform into the select option format
+              // 然后，转换为选择选项格式
               .map((g) => ({ label: g.groupName, value: g.id }));
 
             const handleCondsChange = (value: string, name: string) => {
@@ -211,106 +209,219 @@ export default function ConditionInput(props: Props) {
             const operatorOptions =
               attribute.datatype === "boolean"
                 ? [
-                    { label: "is true", value: "$true" },
-                    { label: "is false", value: "$false" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.array
-                ? [
-                    { label: "includes", value: "$includes" },
-                    { label: "does not include", value: "$notIncludes" },
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.enum?.length || 0 > 0
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.datatype === "string"
-                ? [
+                  {
+                    label: "为真",
+                    value: "$true"
+                  },
+                  {
+                    label: "为假",
+                    value: "$false"
+                  },
+                  {
+                    label: "不为空",
+                    value: "$exists"
+                  },
+                  {
+                    label: "为空",
+                    value: "$notExists"
+                  },
+                ] : attribute.array
+                  ? [
                     {
-                      label: "is equal to",
-                      value: attribute.format === "version" ? "$veq" : "$eq",
+                      label: "包含",
+                      value: "$includes"
                     },
                     {
-                      label: "is not equal to",
-                      value: attribute.format === "version" ? "$vne" : "$ne",
-                    },
-                    { label: "matches regex", value: "$regex" },
-                    { label: "does not match regex", value: "$notRegex" },
-                    {
-                      label:
-                        attribute.format === "date"
-                          ? "is after"
-                          : "is greater than",
-                      value: attribute.format === "version" ? "$vgt" : "$gt",
+                      label: "不包含",
+                      value: "$notIncludes"
                     },
                     {
-                      label:
-                        attribute.format === "date"
-                          ? "is after or on"
-                          : "is greater than or equal to",
-                      value: attribute.format === "version" ? "$vgte" : "$gte",
+                      label: "为空",
+                      value: "$empty"
                     },
                     {
-                      label:
-                        attribute.format === "date"
-                          ? "is before"
-                          : "is less than",
-                      value: attribute.format === "version" ? "$vlt" : "$lt",
+                      label: "不为空",
+                      value: "$notEmpty"
                     },
                     {
-                      label:
-                        attribute.format === "date"
-                          ? "is before or on"
-                          : "is less than or equal to",
-                      value: attribute.format === "version" ? "$vlte" : "$lte",
+                      label: "不为空",
+                      value: "$exists"
                     },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
+                    {
+                      label: "为空",
+                      value: "$notExists"
+                    },
                   ]
-                : attribute.datatype === "secureString"
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
-                  ]
-                : attribute.datatype === "number"
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is greater than", value: "$gt" },
-                    { label: "is greater than or equal to", value: "$gte" },
-                    { label: "is less than", value: "$lt" },
-                    { label: "is less than or equal to", value: "$lte" },
-                    { label: "is in the list", value: "$in" },
-                    { label: "is not in the list", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                    ...(savedGroupOptions.length > 0
-                      ? savedGroupOperators
-                      : []),
-                  ]
-                : [];
+                  : attribute.enum?.length || 0 > 0
+                    ? [
+                      {
+                        label: "等于",
+                        value: "$eq"
+                      },
+                      {
+                        label: "不等于",
+                        value: "$ne"
+                      },
+                      {
+                        label: "在列表中",
+                        value: "$in"
+                      },
+                      {
+                        label: "不在列表中",
+                        value: "$nin"
+                      },
+                      {
+                        label: "不为空",
+                        value: "$exists"
+                      },
+                      {
+                        label: "为空",
+                        value: "$notExists"
+                      },
+                    ]
+                    : attribute.datatype === "string"
+                      ? [
+                        {
+                          label: "等于",
+                          value: attribute.format === "version" ? "$veq" : "$eq",
+                        },
+                        {
+                          label: "不等于",
+                          value: attribute.format === "version" ? "$vne" : "$ne",
+                        },
+                        {
+                          label: "匹配正则表达式",
+                          value: "$regex"
+                        },
+                        {
+                          label: "不匹配正则表达式",
+                          value: "$notRegex"
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "在之后"
+                              : "大于",
+                          value: attribute.format === "version" ? "$vgt" : "$gt",
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "在之后或等于"
+                              : "大于或等于",
+                          value: attribute.format === "version" ? "$vgte" : "$gte",
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "在之前"
+                              : "小于",
+                          value: attribute.format === "version" ? "$vlt" : "$lt",
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "在之前或等于"
+                              : "小于或等于",
+                          value: attribute.format === "version" ? "$vlte" : "$lte",
+                        },
+                        {
+                          label: "在列表中",
+                          value: "$in"
+                        },
+                        {
+                          label: "不在列表中",
+                          value: "$nin"
+                        },
+                        {
+                          label: "不为空",
+                          value: "$exists"
+                        },
+                        {
+                          label: "为空",
+                          value: "$notExists"
+                        },
+                        ...(savedGroupOptions.length > 0
+                          ? savedGroupOperators
+                          : []),
+                      ]
+                      : attribute.datatype === "secureString"
+                        ? [
+                          {
+                            label: "等于",
+                            value: "$eq"
+                          },
+                          {
+                            label: "不等于",
+                            value: "$ne"
+                          },
+                          {
+                            label: "在列表中",
+                            value: "$in"
+                          },
+                          {
+                            label: "不在列表中",
+                            value: "$nin"
+                          },
+                          {
+                            label: "不为空",
+                            value: "$exists"
+                          },
+                          {
+                            label: "为空",
+                            value: "$notExists"
+                          },
+                          ...(savedGroupOptions.length > 0
+                            ? savedGroupOperators
+                            : []),
+                        ]
+                        : attribute.datatype === "number"
+                          ? [
+                            {
+                              label: "等于",
+                              value: "$eq"
+                            },
+                            {
+                              label: "不等于",
+                              value: "$ne"
+                            },
+                            {
+                              label: "大于",
+                              value: "$gt"
+                            },
+                            {
+                              label: "大于或等于",
+                              value: "$gte"
+                            },
+                            {
+                              label: "小于",
+                              value: "$lt"
+                            },
+                            {
+                              label: "小于或等于",
+                              value: "$lte"
+                            },
+                            {
+                              label: "在列表中",
+                              value: "$in"
+                            },
+                            {
+                              label: "不在列表中",
+                              value: "$nin"
+                            },
+                            {
+                              label: "不为空",
+                              value: "$exists"
+                            },
+                            {
+                              label: "为空",
+                              value: "$notExists"
+                            },
+                            ...(savedGroupOptions.length > 0
+                              ? savedGroupOperators
+                              : []),
+                          ]
+                          : [];
 
             let displayType:
               | "select-only"
@@ -346,14 +457,13 @@ export default function ConditionInput(props: Props) {
             }
             const hasExtraWhitespace =
               displayType === "string" && value !== value.trim();
-
             return (
               <li key={i} className={styles.listitem}>
                 <div className={`row ${styles.listrow}`}>
                   {i > 0 ? (
-                    <span className={`${styles.and} mr-2`}>AND</span>
+                    <span className={`${styles.and} mr-2`}>并且</span>
                   ) : (
-                    <span className={`${styles.and} mr-2`}>IF</span>
+                    <span className={`${styles.and} mr-2`}>如果</span>
                   )}
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
@@ -409,7 +519,7 @@ export default function ConditionInput(props: Props) {
                         handleCondsChange(v, "value");
                       }}
                       name="value"
-                      initialOption="Choose group..."
+                      initialOption="选择分组..."
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
@@ -428,7 +538,7 @@ export default function ConditionInput(props: Props) {
                               className="position-relative"
                               style={{ top: -5 }}
                             >
-                              separate values by comma
+                              用逗号分隔值
                             </span>
                           }
                           required
@@ -438,8 +548,8 @@ export default function ConditionInput(props: Props) {
                           containerClassName="w-100"
                           value={value ? value.trim().split(",") : []}
                           onChange={handleListChange}
-                          placeholder="Enter some values..."
-                          delimiters={["Enter", "Tab"]}
+                          placeholder="输入一些值..."
+                          delimiters={["回车", "制表符"]}
                           required
                         />
                       )}
@@ -451,13 +561,13 @@ export default function ConditionInput(props: Props) {
                           setRawTextMode((prev) => !prev);
                         }}
                       >
-                        Switch to {rawTextMode ? "token" : "raw text"} mode
+                        切换到{rawTextMode ? "标记" : "纯文本"}模式
                       </span>
                     </div>
                   ) : displayType === "isoCountryCode" ? (
                     listOperators.includes(operator) ? (
                       <CountrySelector
-                        selectAmount="multi"
+                        selectAmount="多选"
                         displayFlags={true}
                         value={
                           value ? value.split(",").map((val) => val.trim()) : []
@@ -466,7 +576,7 @@ export default function ConditionInput(props: Props) {
                       />
                     ) : (
                       <CountrySelector
-                        selectAmount="single"
+                        selectAmount="单选"
                         displayFlags={true}
                         value={value}
                         onChange={(v) => {
@@ -500,7 +610,7 @@ export default function ConditionInput(props: Props) {
                           handleCondsChange(v, "value");
                         }}
                         name="value"
-                        initialOption="Choose One..."
+                        initialOption="选择一个..."
                         containerClassName="col-sm-12 col-md mb-2"
                         required
                       />
@@ -508,7 +618,7 @@ export default function ConditionInput(props: Props) {
                   ) : displayType === "number" ? (
                     <Field
                       type="number"
-                      step="any"
+                      step="任意"
                       value={value}
                       onChange={handleFieldChange}
                       name="value"
@@ -520,7 +630,7 @@ export default function ConditionInput(props: Props) {
                     <Field
                       type={
                         attribute.format === "date" &&
-                        !["$regex", "$notRegex"].includes(operator)
+                          !["$regex", "$notRegex"].includes(operator)
                           ? "datetime-local"
                           : undefined
                       }
@@ -534,7 +644,7 @@ export default function ConditionInput(props: Props) {
                       helpText={
                         hasExtraWhitespace ? (
                           <small className="text-danger">
-                            Extra whitespace detected
+                            检测到多余空格
                           </small>
                         ) : undefined
                       }
@@ -556,7 +666,7 @@ export default function ConditionInput(props: Props) {
                         }}
                       >
                         <FaMinusCircle className="mr-1" />
-                        remove
+                        删除
                       </button>
                     </div>
                   )}
@@ -583,7 +693,7 @@ export default function ConditionInput(props: Props) {
               }}
             >
               <FaPlusCircle className="mr-1" />
-              Add another condition
+              添加另一个条件
             </span>
           )}
           <span
@@ -593,7 +703,7 @@ export default function ConditionInput(props: Props) {
               setAdvanced(true);
             }}
           >
-            <RxLoop /> Advanced mode
+            <RxLoop /> 高级模式
           </span>
         </div>
       </div>
