@@ -223,25 +223,25 @@ const navlinks: SidebarLinkProps[] = [
       //     permissionsUtils.canManageIntegrations() &&
       //     !!gb?.isOn("github-integration"),
       // },
-      {
-        name: "导入您的数据",
-        href: "/importing",
-        path: /^importing/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canViewFeatureModal() &&
-          permissionsUtils.canCreateEnvironment({
-            projects: [],
-            id: "",
-          }) &&
-          permissionsUtils.canCreateProjects() &&
-          !!gb?.isOn("import-from-x"),
-      },
-      {
-        name: "计费",
-        href: "/settings/billing",
-        path: /^settings\/billing/,
-        filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
-      },
+      // {
+      //   name: "导入您的数据",
+      //   href: "/importing",
+      //   path: /^importing/,
+      //   filter: ({ permissionsUtils, gb }) =>
+      //     permissionsUtils.canViewFeatureModal() &&
+      //     permissionsUtils.canCreateEnvironment({
+      //       projects: [],
+      //       id: "",
+      //     }) &&
+      //     permissionsUtils.canCreateProjects() &&
+      //     !!gb?.isOn("import-from-x"),
+      // },
+      // {
+      //   name: "计费",
+      //   href: "/settings/billing",
+      //   path: /^settings\/billing/,
+      //   filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
+      // },
       {
         name: "管理员",
         href: "/admin",

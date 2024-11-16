@@ -9,14 +9,14 @@ const supportedServices = [
     icon: "launchdarkly",
     path: "launchdarkly",
     accentColor: "#000",
-    text: "Import your projects, features and environments from LaunchDarkly.",
+    text: "从LaunchDarkly导入您的项目、Feature和环境。",
   },
 ];
 
 export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
   return (
     <div>
-      <h1>Import your data</h1>
+      <h1>导入您的数据</h1>
 
       {supportedServices.map(({ service, icon, path, accentColor, text }) => (
         <div key={`ImportFromServiceCard-${service}`} className="my-3">
