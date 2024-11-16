@@ -45,6 +45,10 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.wrap-code,
+.wrap-code code {
+  white-space: pre-wrap !important;
+}
 
 #block-menu-container {
   z-index: 990;
