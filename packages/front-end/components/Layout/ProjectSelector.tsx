@@ -156,7 +156,7 @@ export default function ProjectSelector() {
           <ProjectName
             caret
             avatarName={current?.name || ""}
-            display={current?.name || "All Projects"}
+            display={current?.name || "全部项目"}
             badge={currentProjectIsDemoProject ? demoBadge : null}
           />
         }
@@ -174,7 +174,7 @@ export default function ProjectSelector() {
             badge={null}
             className="text-dark"
             avatarName={""}
-            display={"All Projects"}
+            display={"全部项目"}
             bold={!project}
           />
         </DropdownLink>

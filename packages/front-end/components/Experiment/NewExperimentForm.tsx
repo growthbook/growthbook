@@ -55,6 +55,7 @@ import Callout from "@/components/Radix/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
+// 获取一周前的日期
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
@@ -82,7 +83,7 @@ function getDefaultVariations(num: number) {
   const variations: Variation[] = [];
   for (let i = 0; i < num; i++) {
     variations.push({
-      name: i ? `Variation ${i}` : "Control",
+      name: i ? `变体 ${i}` : "对照组",
       description: "",
       key: i + "",
       screenshots: [],
@@ -230,43 +231,43 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       phases: [
         ...(initialValue?.phases?.[lastPhase]
           ? [
-              {
-                ...initialValue.phases[lastPhase],
-                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
-                dateStarted: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateStarted ?? ""
-                )
-                  .toISOString()
-                  .substr(0, 16),
-                dateEnded: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateEnded ?? ""
-                )
-                  .toISOString()
-                  .substr(0, 16),
-                name: initialValue.phases?.[lastPhase]?.name || "Main",
-                reason: "",
-                variationWeights:
-                  initialValue.phases?.[lastPhase]?.variationWeights ||
-                  getEqualWeights(
-                    initialValue.variations ? initialValue.variations.length : 2
-                  ),
-              },
-            ]
-          : [
-              {
-                coverage: 1,
-                dateStarted: new Date().toISOString().substr(0, 16),
-                dateEnded: new Date().toISOString().substr(0, 16),
-                name: "Main",
-                reason: "",
-                variationWeights: getEqualWeights(
-                  (initialValue?.variations
-                    ? initialValue.variations
-                    : getDefaultVariations(initialNumVariations)
-                  )?.length || 2
+            {
+              ...initialValue.phases[lastPhase],
+              coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+              dateStarted: getValidDate(
+                initialValue.phases?.[lastPhase]?.dateStarted ?? ""
+              )
+                .toISOString()
+                .substr(0, 16),
+              dateEnded: getValidDate(
+                initialValue.phases?.[lastPhase]?.dateEnded ?? ""
+              )
+                .toISOString()
+                .substr(0, 16),
+              name: initialValue.phases?.[lastPhase]?.name || "主要",
+              reason: "",
+              variationWeights:
+                initialValue.phases?.[lastPhase]?.variationWeights ||
+                getEqualWeights(
+                  initialValue.variations ? initialValue.variations.length : 2
                 ),
-              },
-            ]),
+            },
+          ]
+          : [
+            {
+              coverage: 1,
+              dateStarted: new Date().toISOString().substr(0, 16),
+              dateEnded: new Date().toISOString().substr(0, 16),
+              name: "主要",
+              reason: "",
+              variationWeights: getEqualWeights(
+                (initialValue?.variations
+                  ? initialValue.variations
+                  : getDefaultVariations(initialNumVariations)
+                )?.length || 2
+              ),
+            },
+          ]),
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
@@ -291,7 +292,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
-      throw new Error("Name must not be empty");
+      throw new Error("名称不能为空");
     }
 
     const data = { ...value };
@@ -319,7 +320,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       });
 
       if (prerequisiteTargetingSdkIssues) {
-        throw new Error("Prerequisite targeting issues must be resolved");
+        throw new Error("前提条件目标定位问题必须解决");
       }
 
       // bandits
@@ -327,15 +328,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         data.type === "multi-armed-bandit" &&
         !hasCommercialFeature("multi-armed-bandits")
       ) {
-        throw new Error("Bandits are a premium feature");
+        throw new Error("多臂老虎机暂不支持，敬请期待");
       }
       if (data.type === "multi-armed-bandit") {
         data.statsEngine = "bayesian";
         if (!data.datasource) {
-          throw new Error("You must select a datasource");
+          throw new Error("必须选择一个数据源");
         }
         if ((data.goalMetrics?.length ?? 0) !== 1) {
-          throw new Error("You must select 1 decision metric");
+          throw new Error("必须选择一个决策指标");
         }
       }
     }
@@ -366,12 +367,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
+        "警告：已存在使用该追踪key的实验。若仍要继续，请再次点击“保存”。"
       );
     }
 
     // TODO remove if data correlates
-    track(isBandit ? "Create Bandit" : "Create Experiment", {
+    track(isBandit ? "创建多臂老虎机" : "创建实验", {
       source,
       numTags: data.tags?.length || 0,
       numMetrics:
@@ -405,10 +406,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 
   let header = isNewExperiment
-    ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
-    : "Add new Experiment Analysis";
+    ? `添加新的${isBandit ? "多臂老虎机" : "实验"}`
+    : "添加新的实验分析";
   if (duplicate) {
-    header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
+    header = `复制${isBandit ? "多臂老虎机" : "实验"}`;
   }
   const trackingEventModalType = kebabCase(header);
 
@@ -426,29 +427,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         close={onClose}
         docSection="experimentConfiguration"
         submit={onSubmit}
-        cta={"Save"}
+        cta={"保存"}
         ctaEnabled={canSubmit}
-        closeCta="Cancel"
+        closeCta="取消"
         size="lg"
         step={step}
         setStep={setStep}
         inline={inline}
         backButton={true}
       >
-        <Page display="Overview">
+        <Page display="概览">
           <div className="px-2">
             {msg && <div className="alert alert-info">{msg}</div>}
 
             {currentProjectIsDemo && (
               <div className="alert alert-warning">
-                You are creating an experiment under the demo datasource
-                project. This experiment will be deleted when the demo
-                datasource project is deleted.
+                您正在演示数据源项目下创建实验。当演示数据源项目被删除时，该实验也将被删除。
               </div>
             )}
 
             <Field
-              label={isBandit ? "Bandit Name" : "Experiment Name"}
+              label={isBandit ? "多臂老虎机名称" : "实验名称"}
               required
               minLength={2}
               {...nameFieldHandlers}
@@ -475,10 +474,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             />
 
             <Field
-              label="Tracking Key"
-              helpText={`Unique identifier for this ${
-                isBandit ? "Bandit" : "Experiment"
-              }, used to track impressions and analyze results`}
+              label="追踪key"
+              helpText={`此${isBandit ? "多臂老虎机" : "实验"}的唯一标识符，用于追踪展示次数和分析结果`}
               {...trackingKeyFieldHandlers}
               onChange={(e) => {
                 trackingKeyFieldHandlers.onChange(e);
@@ -488,26 +485,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             {!isBandit && (
               <Field
-                label="Hypothesis"
+                label="假设"
                 textarea
                 minRows={1}
-                placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+                placeholder="例如：将注册按钮变大将会增加点击量并最终提高收入"
                 {...form.register("hypothesis")}
               />
             )}
             {includeDescription && (
               <Field
-                label="Description"
+                label="描述"
                 textarea
                 minRows={1}
                 {...form.register("description")}
-                placeholder={`Short human-readable description of the ${
-                  isBandit ? "Bandit" : "Experiment"
-                }`}
+                placeholder={`此${isBandit ? "多臂老虎机" : "实验"}的简短描述`}
               />
             )}
             <div className="form-group">
-              <label>Tags</label>
+              <label>标签</label>
               <TagsInput
                 value={form.watch("tags") ?? []}
                 onChange={(tags) => form.setValue("tags", tags)}
@@ -516,11 +511,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {!isNewExperiment && (
               <>
                 <SelectField
-                  label="Status"
+                  label="状态"
                   options={[
-                    { label: "draft", value: "draft" },
-                    { label: "running", value: "running" },
-                    { label: "stopped", value: "stopped" },
+                    { label: "草稿", value: "draft" },
+                    { label: "运行中", value: "running" },
+                    { label: "已停止", value: "stopped" },
                   ]}
                   onChange={(v) => {
                     const status = v as ExperimentStatus;
@@ -531,14 +526,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
                 {status !== "draft" && (
                   <Field
-                    label="Start Date (UTC)"
+                    label="开始日期（UTC）"
                     type="datetime-local"
                     {...form.register("phases.0.dateStarted")}
                   />
                 )}
                 {status === "stopped" && (
                   <Field
-                    label="End Date (UTC)"
+                    label="结束日期（UTC）"
                     type="datetime-local"
                     {...form.register("phases.0.dateEnded")}
                   />
@@ -550,170 +545,170 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {!isBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting"].map((p, i) => {
-              // skip, custom overview page above
-              if (i === 0) return null;
-              return (
-                <Page display={p} key={i}>
-                  <ExperimentRefNewFields
-                    step={i}
-                    source="experiment"
-                    project={project}
-                    environments={envs}
-                    noSchedule={true}
-                    prerequisiteValue={
-                      form.watch("phases.0.prerequisites") || []
-                    }
-                    setPrerequisiteValue={(prerequisites) =>
-                      form.setValue("phases.0.prerequisites", prerequisites)
-                    }
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
-                    setSavedGroupValue={(savedGroups) =>
-                      form.setValue("phases.0.savedGroups", savedGroups)
-                    }
-                    defaultConditionValue={
-                      form.watch("phases.0.condition") || ""
-                    }
-                    setConditionValue={(value) =>
-                      form.setValue("phases.0.condition", value)
-                    }
-                    conditionKey={conditionKey}
-                    namespaceFormPrefix={"phases.0."}
-                    coverage={form.watch("phases.0.coverage")}
-                    setCoverage={(coverage) =>
-                      form.setValue("phases.0.coverage", coverage)
-                    }
-                    setWeight={(i, weight) =>
-                      form.setValue(`phases.0.variationWeights.${i}`, weight)
-                    }
-                    variations={
-                      form.watch("variations")?.map((v, i) => {
+            // skip, custom overview page above
+            if (i === 0) return null;
+            return (
+              <Page display={p} key={i}>
+                <ExperimentRefNewFields
+                  step={i}
+                  source="experiment"
+                  project={project}
+                  environments={envs}
+                  noSchedule={true}
+                  prerequisiteValue={
+                    form.watch("phases.0.prerequisites") || []
+                  }
+                  setPrerequisiteValue={(prerequisites) =>
+                    form.setValue("phases.0.prerequisites", prerequisites)
+                  }
+                  setPrerequisiteTargetingSdkIssues={
+                    setPrerequisiteTargetingSdkIssues
+                  }
+                  savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                  setSavedGroupValue={(savedGroups) =>
+                    form.setValue("phases.0.savedGroups", savedGroups)
+                  }
+                  defaultConditionValue={
+                    form.watch("phases.0.condition") || ""
+                  }
+                  setConditionValue={(value) =>
+                    form.setValue("phases.0.condition", value)
+                  }
+                  conditionKey={conditionKey}
+                  namespaceFormPrefix={"phases.0."}
+                  coverage={form.watch("phases.0.coverage")}
+                  setCoverage={(coverage) =>
+                    form.setValue("phases.0.coverage", coverage)
+                  }
+                  setWeight={(i, weight) =>
+                    form.setValue(`phases.0.variationWeights.${i}`, weight)
+                  }
+                  variations={
+                    form.watch("variations")?.map((v, i) => {
+                      return {
+                        value: v.key || "",
+                        name: v.name,
+                        weight: form.watch(`phases.0.variationWeights.${i}`),
+                        id: v.id,
+                      };
+                    }) ?? []
+                  }
+                  setVariations={(v) => {
+                    form.setValue(
+                      "variations",
+                      v.map((data, i) => {
                         return {
-                          value: v.key || "",
-                          name: v.name,
-                          weight: form.watch(`phases.0.variationWeights.${i}`),
-                          id: v.id,
+                          // default values
+                          name: "",
+                          screenshots: [],
+                          ...data,
+                          key: data.value || `${i}` || "",
                         };
-                      }) ?? []
-                    }
-                    setVariations={(v) => {
-                      form.setValue(
-                        "variations",
-                        v.map((data, i) => {
-                          return {
-                            // default values
-                            name: "",
-                            screenshots: [],
-                            ...data,
-                            key: data.value || `${i}` || "",
-                          };
-                        })
-                      );
-                      form.setValue(
-                        "phases.0.variationWeights",
-                        v.map((v) => v.weight)
-                      );
-                    }}
-                    orgStickyBucketing={orgStickyBucketing}
-                  />
-                </Page>
-              );
-            })
+                      })
+                    );
+                    form.setValue(
+                      "phases.0.variationWeights",
+                      v.map((v) => v.weight)
+                    );
+                  }}
+                  orgStickyBucketing={orgStickyBucketing}
+                />
+              </Page>
+            );
+          })
           : null}
 
         {isBandit && (isNewExperiment || duplicate)
           ? [
-              "Overview",
-              "Traffic",
-              "Targeting",
-              <>
-                Analysis
-                <br />
-                Settings
-              </>,
-            ].map((p, i) => {
-              // skip, custom overview page above
-              if (i === 0) return null;
-              return (
-                <Page display={p} key={i}>
-                  <BanditRefNewFields
-                    step={i}
-                    source="experiment"
-                    project={project}
-                    environments={envs}
-                    prerequisiteValue={
-                      form.watch("phases.0.prerequisites") || []
-                    }
-                    setPrerequisiteValue={(prerequisites) =>
-                      form.setValue("phases.0.prerequisites", prerequisites)
-                    }
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
-                    setSavedGroupValue={(savedGroups) =>
-                      form.setValue("phases.0.savedGroups", savedGroups)
-                    }
-                    defaultConditionValue={
-                      form.watch("phases.0.condition") || ""
-                    }
-                    setConditionValue={(value) =>
-                      form.setValue("phases.0.condition", value)
-                    }
-                    conditionKey={conditionKey}
-                    namespaceFormPrefix={"phases.0."}
-                    coverage={form.watch("phases.0.coverage")}
-                    setCoverage={(coverage) =>
-                      form.setValue("phases.0.coverage", coverage)
-                    }
-                    setWeight={(i, weight) =>
-                      form.setValue(`phases.0.variationWeights.${i}`, weight)
-                    }
-                    variations={
-                      form.watch("variations")?.map((v, i) => {
+            "Overview",
+            "Traffic",
+            "Targeting",
+            <>
+              Analysis
+              <br />
+              Settings
+            </>,
+          ].map((p, i) => {
+            // skip, custom overview page above
+            if (i === 0) return null;
+            return (
+              <Page display={p} key={i}>
+                <BanditRefNewFields
+                  step={i}
+                  source="experiment"
+                  project={project}
+                  environments={envs}
+                  prerequisiteValue={
+                    form.watch("phases.0.prerequisites") || []
+                  }
+                  setPrerequisiteValue={(prerequisites) =>
+                    form.setValue("phases.0.prerequisites", prerequisites)
+                  }
+                  setPrerequisiteTargetingSdkIssues={
+                    setPrerequisiteTargetingSdkIssues
+                  }
+                  savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                  setSavedGroupValue={(savedGroups) =>
+                    form.setValue("phases.0.savedGroups", savedGroups)
+                  }
+                  defaultConditionValue={
+                    form.watch("phases.0.condition") || ""
+                  }
+                  setConditionValue={(value) =>
+                    form.setValue("phases.0.condition", value)
+                  }
+                  conditionKey={conditionKey}
+                  namespaceFormPrefix={"phases.0."}
+                  coverage={form.watch("phases.0.coverage")}
+                  setCoverage={(coverage) =>
+                    form.setValue("phases.0.coverage", coverage)
+                  }
+                  setWeight={(i, weight) =>
+                    form.setValue(`phases.0.variationWeights.${i}`, weight)
+                  }
+                  variations={
+                    form.watch("variations")?.map((v, i) => {
+                      return {
+                        value: v.key || "",
+                        name: v.name,
+                        weight: form.watch(`phases.0.variationWeights.${i}`),
+                        id: v.id,
+                      };
+                    }) ?? []
+                  }
+                  setVariations={(v) => {
+                    form.setValue(
+                      "variations",
+                      v.map((data, i) => {
                         return {
-                          value: v.key || "",
-                          name: v.name,
-                          weight: form.watch(`phases.0.variationWeights.${i}`),
-                          id: v.id,
+                          // default values
+                          name: "",
+                          screenshots: [],
+                          ...data,
+                          key: data.value || `${i}` || "",
                         };
-                      }) ?? []
-                    }
-                    setVariations={(v) => {
-                      form.setValue(
-                        "variations",
-                        v.map((data, i) => {
-                          return {
-                            // default values
-                            name: "",
-                            screenshots: [],
-                            ...data,
-                            key: data.value || `${i}` || "",
-                          };
-                        })
-                      );
-                      form.setValue(
-                        "phases.0.variationWeights",
-                        v.map((v) => v.weight)
-                      );
-                    }}
-                  />
-                </Page>
-              );
-            })
+                      })
+                    );
+                    form.setValue(
+                      "phases.0.variationWeights",
+                      v.map((v) => v.weight)
+                    );
+                  }}
+                />
+              </Page>
+            );
+          })
           : null}
 
         {!(isNewExperiment || duplicate) ? (
-          <Page display="Targeting">
+          <Page display="目标定位">
             <div className="px-2">
               {isNewExperiment && (
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
                     <SelectField
                       containerClassName="flex-1"
-                      label="Assign variation based on attribute"
+                      label="基于属性分配变体"
                       labelClassName="font-weight-bold"
                       options={attributeSchema
                         .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -727,7 +722,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         form.setValue("hashAttribute", v);
                       }}
                       helpText={
-                        "Will be hashed together with the seed (UUID) to determine which variation to assign"
+                        "将与种子（UUID）一起哈希运算，以确定要分配的变体"
                       }
                     />
                     <FallbackAttributeSelector
@@ -786,8 +781,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <hr />
               {isImport && (
                 <Callout status="info" mb="3">
-                  We&apos;ve guessed the variation weights below based on the
-                  data we&apos;ve seen. They may need to be adjusted.
+                  我们已根据所看到的数据预测出以下变体权重。可能需要进行调整。
                 </Callout>
               )}
               <FeatureVariationsInput
@@ -798,8 +792,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }
                 coverageTooltip={
                   isNewExperiment
-                    ? "This can be changed later"
-                    : "This is just for documentation purposes and has no effect on the analysis."
+                    ? "这之后可以更改"
+                    : "这仅用于记录目的，对分析没有影响。"
                 }
                 setWeight={(i, weight) =>
                   form.setValue(`phases.0.variationWeights.${i}`, weight)
@@ -844,28 +838,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <Page
             display={
               <>
-                Analysis
+                分析
                 <br />
-                Settings
+                设置
               </>
             }
           >
             <div className="px-2" style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
-                  label="Data Source"
+                  label="数据源"
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
                   onChange={(v) => form.setValue("datasource", v)}
-                  placeholder="Select..."
+                  placeholder="选择..."
                   options={datasources.map((d) => {
                     const isDefaultDataSource =
                       d.id === settings.defaultDataSource;
                     return {
                       value: d.id,
-                      label: `${d.name}${
-                        d.description ? ` — ${d.description}` : ""
-                      }${isDefaultDataSource ? " (default)" : ""}`,
+                      label: `${d.name}${d.description ? ` — ${d.description}` : ""
+                        }${isDefaultDataSource ? " (default)" : ""}`,
                     };
                   })}
                   className="portal-overflow-ellipsis"
@@ -875,14 +868,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <SelectField
                   label={
                     <>
-                      Experiment Assignment Table{" "}
-                      <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                      实验分配表{" "}
+                      <Tooltip body="应与用于为此实验随机化单元的标识符类型相对应" />
                     </>
                   }
                   labelClassName="font-weight-bold"
                   value={form.watch("exposureQueryId") ?? ""}
                   onChange={(v) => form.setValue("exposureQueryId", v)}
-                  initialOption="Choose..."
+                  initialOption="选择..."
                   required
                   options={exposureQueries?.map((q) => {
                     return {
@@ -902,7 +895,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                             className="text-muted small float-right position-relative"
                             style={{ top: 3 }}
                           >
-                            Identifier Type: <code>{userIdType}</code>
+                            标识符类型: <code>{userIdType}</code>
                           </span>
                         ) : null}
                       </>
@@ -934,11 +927,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <div className="form-group">
                 <Toggle
                   id="auto_refresh_results"
-                  label="Auto Refresh Results"
+                  label="自动刷新结果"
                   value={autoRefreshResults}
                   setValue={setAutoRefreshResults}
                 />
-                <label>Populate Results on Save</label>
+                <label>保存时填充结果</label>
               </div>
             )}
           </Page>

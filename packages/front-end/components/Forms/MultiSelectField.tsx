@@ -184,7 +184,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                               fontSize: "85%",
                             }}
                           >
-                            <strong>Select an option or create one</strong>
+                            <strong>根据可选项选择或新建一个</strong>
                           </div>
                           <components.MenuList {...props} />
                         </>

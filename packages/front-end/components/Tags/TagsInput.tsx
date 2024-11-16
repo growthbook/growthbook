@@ -32,7 +32,7 @@ const TagsInput: FC<{
   autoFocus = true,
   closeMenuOnSelect = false,
   tagOptions,
-  prompt = "Tags...",
+  prompt = "标签...",
   creatable = true,
 }) => {
   const { tags, getTagById } = useDefinitions();

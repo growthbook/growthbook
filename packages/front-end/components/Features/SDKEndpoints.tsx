@@ -85,7 +85,7 @@ const SDKEndpoints: FC<{
                   {projects.length > 0 && (
                     <td>
                       {getProjectById(key.project || "")?.name || (
-                        <em>All Projects</em>
+                        <em>1</em>
                       )}
                     </td>
                   )}
