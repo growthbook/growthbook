@@ -36,7 +36,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         }),
       });
       if (!res.key.key) {
-        throw new Error("Could not load the secret key");
+        throw new Error("无法加载密钥");
       }
       return res.key.key;
     },
@@ -69,10 +69,9 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       )}
 
       <div>
-        <h1>Secret API Keys</h1>
+        <h1>API密钥</h1>
         <p className="text-gray">
-          Secret keys have access to your organization. They{" "}
-          <strong>must not be exposed to users</strong>.
+          密钥可访问您的组织信息。{" "} <strong>绝不能暴露给用户</strong>。
         </p>
         {organizationSecretKeys.length > 0 && (
           <ApiKeysTable
@@ -90,7 +89,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
               setOpen(true);
             }}
           >
-            New Secret Key
+            创建新的密钥
           </Button>
         )}
       </div>

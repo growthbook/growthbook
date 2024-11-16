@@ -20,11 +20,10 @@ const ApiKeys: FC = () => {
       <SecretApiKeys keys={data.keys} mutate={mutate} />
 
       <div className="alert alert-info mb-4">
-        You can also create{" "}
+        你可以为你的个人账号创建{" "}
         <Link href="/account/personal-access-tokens">
-          Personal Access Tokens
+          Token
         </Link>{" "}
-        for your user account
       </div>
     </>
   );
