@@ -4,20 +4,24 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "./TagsInput";
 
+// 定义带有标签的项目接口
 interface ItemWithTags {
   tags?: string[];
 }
 
+// 定义标签筛选器接口
 interface TagsFilter {
   tags: string[];
   setTags: (tags: string[]) => void;
 }
 
+// 定义组件属性接口
 export interface Props {
   filter: TagsFilter;
   items: ItemWithTags[];
 }
 
+// 根据标签筛选项目的函数
 export function filterByTags<T extends ItemWithTags>(
   items: T[],
   tags: string[]
@@ -33,6 +37,7 @@ export function filterByTags<T extends ItemWithTags>(
   });
 }
 
+// 使用本地存储获取标签筛选器的函数
 export function useTagsFilter(page: string): TagsFilter {
   const [tags, setTags] = useLocalStorage<string[]>(page + ":tags-filter", []);
   return {
@@ -41,6 +46,7 @@ export function useTagsFilter(page: string): TagsFilter {
   };
 }
 
+// 标签筛选组件默认导出函数
 export default function TagsFilter({
   filter: { tags, setTags },
   items,
@@ -62,7 +68,7 @@ export default function TagsFilter({
     }
   });
 
-  // Only turn `autofocus` on briefly after clicking "fitler by tags"
+  // 仅在点击“按标签筛选”后短暂开启自动聚焦
   useEffect(() => {
     if (!autofocus) return;
     const timer = setTimeout(() => {
@@ -87,7 +93,7 @@ export default function TagsFilter({
           setAutofocus(true);
         }}
       >
-        Filter by tags...
+        按标签筛选...
       </a>
     );
   }
@@ -99,7 +105,7 @@ export default function TagsFilter({
         onChange={(value) => {
           setTags(value);
         }}
-        prompt={"Filter by tags..."}
+        prompt="按标签筛选..."
         autoFocus={open && autofocus}
         closeMenuOnSelect={true}
         tagOptions={availableTags.map((t) => getTagById(t)).filter(isDefined)}

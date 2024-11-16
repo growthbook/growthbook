@@ -180,7 +180,7 @@ const ExperimentsPage = (): React.ReactElement => {
           has.push("有截图");
         }
         if (
-          item.status === "已停止" &&
+          item.status === "stopped" &&
           !item.excludeFromPayload &&
           (item.linkedFeatures?.length ||
             item.hasURLRedirects ||
