@@ -33,7 +33,7 @@ const TagsPage: FC = () => {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
-          You do not have access to view this page.
+          您无权查看此页面。
         </div>
       </div>
     );
@@ -48,14 +48,14 @@ const TagsPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
-      <h1>Tags</h1>
-      <p>Organize features, experiments, metrics, and more with tags.</p>
+      <h1>标签</h1>
+      <p>使用标签对特性、实验、指标等进行分类管理。</p>
       {tags?.length > 0 ? (
         <>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
               <Field
-                placeholder="Search..."
+                placeholder="搜索..."
                 type="search"
                 {...searchInputProps}
               />
@@ -64,9 +64,9 @@ const TagsPage: FC = () => {
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
-                <SortableTH field="id">Tag name</SortableTH>
-                <SortableTH field="description">Description</SortableTH>
-                <th>Preview</th>
+                <SortableTH field="id">标签名称</SortableTH>
+                <SortableTH field="description">描述</SortableTH>
+                <th>预览</th>
                 <th style={{ width: 140 }}></th>
               </tr>
             </thead>
@@ -101,9 +101,9 @@ const TagsPage: FC = () => {
                       ) : null}
                       {permissionsUtil.canDeleteTag() ? (
                         <DeleteButton
-                          deleteMessage="Are you sure? Deleting a tag will remove it from all features, metrics, and experiments."
+                          deleteMessage="您确定吗？删除标签将使其从所有特性、指标和实验中移除。"
                           className="tr-hover"
-                          displayName="Tag"
+                          displayName="标签"
                           onClick={async () => {
                             await apiCall(`/tag/`, {
                               method: "DELETE",
@@ -120,7 +120,7 @@ const TagsPage: FC = () => {
               {!items.length && isFiltered && (
                 <tr>
                   <td colSpan={4} align={"center"}>
-                    No matching tags found.
+                    未找到匹配的标签。
                   </td>
                 </tr>
               )}
@@ -131,7 +131,7 @@ const TagsPage: FC = () => {
         <></>
       )}
       {permissionsUtil.canCreateAndUpdateTag() ? (
-        <Button onClick={() => setModalOpen({})}>Add Tag</Button>
+        <Button onClick={() => setModalOpen({})}>添加标签</Button>
       ) : null}
     </div>
   );
