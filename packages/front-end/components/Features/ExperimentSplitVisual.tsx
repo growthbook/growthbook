@@ -9,6 +9,7 @@ import {
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./ExperimentSplitVisual.module.scss";
 
+// 定义属性接口
 export interface Props {
   label?: string;
   unallocated?: string;
@@ -19,9 +20,10 @@ export interface Props {
   stackLeft?: boolean;
   showPercentages?: boolean;
 }
+
 export default function ExperimentSplitVisual({
-  label = "Traffic Split Preview",
-  unallocated = "Not included",
+  label = "流量划分预览",
+  unallocated = "未包含",
   coverage,
   values,
   showValues = false,
@@ -44,7 +46,7 @@ export default function ExperimentSplitVisual({
           {totalWeights !== 1 && (
             <span className="ml-2 text-danger">
               <FaExclamationTriangle className="text-danger mr-2" />
-              <span className="">Please adjust weights to sum to 100%.</span>
+              <span className="">请调整权重使其总和为100%。</span>
             </span>
           )}
         </div>
@@ -135,9 +137,9 @@ export default function ExperimentSplitVisual({
                 }}
               >
                 <Tooltip
-                  body={`Not included: ${parseFloat(
+                  body={`未包含：${parseFloat(
                     ((1 - coverageVal) * 100).toPrecision(5)
-                  )}% - users will skip this rule`}
+                  )}% - 用户将跳过此规则`}
                   style={{ width: "100%", height: "100%" }}
                 >
                   <></>
@@ -150,7 +152,7 @@ export default function ExperimentSplitVisual({
                       {showValues && (
                         <>
                           {" "}
-                          - <strong>unallocated</strong>
+                          - <strong>未分配</strong>
                         </>
                       )}
                     </span>

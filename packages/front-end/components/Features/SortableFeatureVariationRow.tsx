@@ -24,10 +24,12 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
+// 定义可排序变体类型
 export type SortableVariation = ExperimentValue & {
   id: string;
 };
 
+// 定义可排序属性接口
 interface SortableProps {
   i: number;
   variation: SortableVariation;
@@ -40,11 +42,13 @@ interface SortableProps {
   feature?: FeatureInterface;
 }
 
+// 定义变体属性类型，包含可排序属性及HTML表格行元素的属性等
 type VariationProps = SortableProps &
   React.HTMLAttributes<HTMLTableRowElement> & {
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
+// 创建并导出可排序的变体行组件，使用forwardRef以便在父组件中获取子组件实例
 export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
   (
     {
@@ -80,7 +84,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
-        // The weight needs updating
+        // 权重需要更新
         if (w !== weights[j]) {
           setWeight(j, w);
         }
@@ -178,7 +182,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               </div>
             )}
             {variations.length > 1 && setVariations && (
-              <div {...handle} title="Drag and drop to re-order rules">
+              <div {...handle} title="拖拽以重新排序规则">
                 <FaArrowsAlt />
               </div>
             )}
@@ -186,7 +190,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               <div className="col-auto">
                 <MoreMenu zIndex={1000000}>
                   <Tooltip
-                    body="Experiments must have at least two variations"
+                    body="实验必须至少有两个变体"
                     shouldDisplay={variations.length <= 2}
                   >
                     <button
@@ -213,7 +217,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       }}
                       type="button"
                     >
-                      remove
+                      删除
                     </button>
                   </Tooltip>
                 </MoreMenu>
@@ -221,13 +225,15 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             )}
           </div>
         </td>
-      </tr>
+      </tr >
     );
   }
 );
 
+// 设置组件显示名称
 VariationRow.displayName = "VariationRow";
 
+// 导出可排序的特征变体行组件
 export function SortableFeatureVariationRow(props: SortableProps) {
   const {
     attributes,
