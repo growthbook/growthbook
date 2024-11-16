@@ -629,7 +629,7 @@ export default function SDKConnectionForm({
                                 <FaCheck className="check text-success" />{" "}
                               </>
                             )}
-                          Ciphered
+                          加密
                           <Tooltip
                             popperClassName="text-left"
                             body={
@@ -647,8 +647,8 @@ export default function SDKConnectionForm({
                       }
                     >
                       <div>
-                        <label className="mb-3">Cipher Options</label>
-                        {showEncryption && (
+                        <label className="mb-3">加密选项</label>
+                        {/* {showEncryption && (
                           <div className="mb-4 d-flex align-items-center">
                             <Toggle
                               id="encryptSDK"
@@ -676,9 +676,9 @@ export default function SDKConnectionForm({
                               </PremiumTooltip>
                             </label>
                           </div>
-                        )}
+                        )} */}
 
-                        <div className="mb-4 d-flex align-items-center">
+                        {/* <div className="mb-4 d-flex align-items-center">
                           <Toggle
                             id="hash-secure-attributes"
                             value={form.watch("hashSecureAttributes")}
@@ -707,7 +707,7 @@ export default function SDKConnectionForm({
                               哈希安全属性 <FaInfoCircle />
                             </PremiumTooltip>
                           </label>
-                        </div>
+                        </div> */}
 
                         <div className="d-flex align-items-center">
                           <Toggle
@@ -922,7 +922,7 @@ export default function SDKConnectionForm({
 
         {(showVisualEditorSettings || showRedirectSettings) && (
           <div className="mt-5">
-            <label>Auto Experiments</label>
+            <label>全自动实验</label>
             <div className="mt-2">
               {showVisualEditorSettings && (
                 <div className="mb-4 d-flex align-items-center">
@@ -937,8 +937,8 @@ export default function SDKConnectionForm({
                     className="ml-2 mb-0 cursor-pointer"
                     htmlFor="sdk-connection-visual-experiments-toggle"
                   >
-                    启用 <strong>可视化编辑器实验</strong>（
-                    <DocLink docSection="visual_editor">docs</DocLink>)
+                    启用 <strong>可视化编辑器实验</strong>
+                    {/* （<DocLink docSection="visual_editor">docs</DocLink>) */}
                   </label>
                 </div>
               )}
@@ -956,8 +956,8 @@ export default function SDKConnectionForm({
                     className="ml-2 mb-0 cursor-pointer"
                     htmlFor="sdk-connection-redirects-toggle"
                   >
-                    启用 <strong>URL重定向实验</strong>（
-                    <DocLink docSection="url_redirects">docs</DocLink>)
+                    启用 <strong>URL重定向实验</strong>
+                    {/* （<DocLink docSection="url_redirects">docs</DocLink>) */}
                   </label>
                 </div>
               )}
@@ -1050,7 +1050,7 @@ export default function SDKConnectionForm({
             </div>
           </div>
         )}
-        {showSavedGroupSettings && (
+        {/* {showSavedGroupSettings && (
           <div className="mt-1">
             <label>保存的组</label>
             <div className="mt-2">
@@ -1091,7 +1091,7 @@ export default function SDKConnectionForm({
               </div>
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </Modal>
   );

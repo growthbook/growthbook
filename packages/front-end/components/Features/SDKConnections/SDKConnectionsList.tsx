@@ -168,7 +168,7 @@ export default function SDKConnectionsList() {
 
       <div className="row align-items-center mb-4">
         <div className="col-auto">
-          <h1 className="mb-0">SDK Connections</h1>
+          <h1 className="mb-0">SDK连接</h1>
         </div>
         {canCreateSDKConnections &&
           (useNewEmptyStateLayout || connections.length > 0) ? (
