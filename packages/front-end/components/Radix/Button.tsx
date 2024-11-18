@@ -1,5 +1,5 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { ReactNode, useState } from "react";
+import { ForwardedRef, forwardRef, ReactNode, useState } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 
@@ -34,52 +34,60 @@ export function getRadixSize(size: Size): Responsive<"1" | "2" | "3" | "4"> {
   }
 }
 
-export default function Button({
-  onClick,
-  color = "violet",
-  variant = "solid",
-  size = "md",
-  disabled,
-  loading: _externalLoading,
-  setError,
-  icon,
-  iconPosition = "left",
-  type = "button",
-  children,
-  ...otherProps
-}: Props) {
-  const [_internalLoading, setLoading] = useState(false);
-  const loading = _externalLoading || _internalLoading;
+const Button = forwardRef<HTMLButtonElement, Props>(
+  (
+    {
+      onClick,
+      color = "violet",
+      variant = "solid",
+      size = "md",
+      disabled,
+      loading: _externalLoading,
+      setError,
+      icon,
+      iconPosition = "left",
+      type = "button",
+      children,
+      ...otherProps
+    },
+    ref: ForwardedRef<HTMLButtonElement>
+  ) => {
+    const [_internalLoading, setLoading] = useState(false);
+    const loading = _externalLoading || _internalLoading;
 
-  return (
-    <RadixButton
-      {...otherProps}
-      onClick={
-        onClick
-          ? async (e) => {
-              e.preventDefault();
-              if (loading) return;
-              setLoading(true);
-              setError?.(null);
-              try {
-                await onClick();
-              } catch (error) {
-                setError?.(error.message);
+    return (
+      <RadixButton
+        ref={ref}
+        {...otherProps}
+        onClick={
+          onClick
+            ? async (e) => {
+                e.preventDefault();
+                if (loading) return;
+                setLoading(true);
+                setError?.(null);
+                try {
+                  await onClick();
+                } catch (error) {
+                  setError?.(error.message);
+                }
+                setLoading(false);
               }
-              setLoading(false);
-            }
-          : undefined
-      }
-      color={color}
-      variant={variant}
-      size={getRadixSize(size)}
-      disabled={disabled}
-      loading={loading}
-      type={type}
-    >
-      {icon && iconPosition === "left" ? icon : null}
-      <Text weight="medium">{children}</Text>
-      {icon && iconPosition === "right" ? icon : null}
-    </RadixButton>
-  );
-}
+            : undefined
+        }
+        color={color}
+        variant={variant}
+        size={getRadixSize(size)}
+        disabled={disabled}
+        loading={loading}
+        type={type}
+      >
+        {icon && iconPosition === "left" ? icon : null}
+        <Text weight="medium">{children}</Text>
+        {icon && iconPosition === "right" ? icon : null}
+      </RadixButton>
+    );
+  }
+);
+Button.displayName = "Button";
+export default Button;

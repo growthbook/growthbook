@@ -41,9 +41,9 @@
       color: var(--gray-11);
     }
     .rt-BaseCheckboxRoot {
-      &:not([data-state="checked"]) {
+      &:not([data-state="checked"]):not([data-state="indeterminate"]) {
         &::before {
-          background: var(--violet-a3);
+          background: var(--violet-a2);
         }
       }
     }
@@ -178,6 +178,18 @@
   }
 }
 
+// Dropdown
+.dropdown-content-width-full {
+  width: var(--radix-dropdown-menu-trigger-width);
+  max-height: var(--radix-dropdown-menu-content-available-height);
+}
+.rt-BaseMenuItem {
+  cursor: pointer !important;
+  &[data-disabled] {
+    cursor: not-allowed !important;
+  }
+}
+
 // Radio
 .rt-RadioGroupItem {
   cursor: pointer;
@@ -191,7 +203,7 @@
     .rt-BaseRadioRoot {
       &:not([data-state="checked"]) {
         &::before {
-          background: var(--violet-a2);
+          background: var(--violet-a1);
         }
       }
     }
