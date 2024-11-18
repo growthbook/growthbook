@@ -1,5 +1,5 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { ReactNode, useState } from "react";
+import {ForwardedRef, forwardRef, ReactNode, useState} from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 
@@ -34,25 +34,30 @@ export function getRadixSize(size: Size): Responsive<"1" | "2" | "3" | "4"> {
   }
 }
 
-export default function Button({
-  onClick,
-  color = "violet",
-  variant = "solid",
-  size = "md",
-  disabled,
-  loading: _externalLoading,
-  setError,
-  icon,
-  iconPosition = "left",
-  type = "button",
-  children,
-  ...otherProps
-}: Props) {
+const Button = forwardRef<HTMLButtonElement, Props>(
+  (
+    {
+      onClick,
+      color = "violet",
+      variant = "solid",
+      size = "md",
+      disabled,
+      loading: _externalLoading,
+      setError,
+      icon,
+      iconPosition = "left",
+      type = "button",
+      children,
+      ...otherProps
+    },
+    ref: ForwardedRef<HTMLButtonElement>
+  ) => {
   const [_internalLoading, setLoading] = useState(false);
   const loading = _externalLoading || _internalLoading;
 
   return (
     <RadixButton
+      ref={ref}
       {...otherProps}
       onClick={
         onClick
@@ -82,4 +87,6 @@ export default function Button({
       {icon && iconPosition === "right" ? icon : null}
     </RadixButton>
   );
-}
+});
+Button.displayName = "Button";
+export default Button;
