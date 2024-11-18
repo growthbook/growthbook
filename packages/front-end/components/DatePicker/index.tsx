@@ -10,6 +10,7 @@ import Field from "@/components/Forms/Field";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
+  id?: string | undefined;
   date: Date | string | undefined;
   setDate: (d: Date | undefined) => void;
   date2?: Date | string | undefined;
@@ -36,6 +37,7 @@ const modifiersClassNames = {
 };
 
 export default function DatePicker({
+  id,
   date,
   setDate,
   date2,
@@ -133,6 +135,7 @@ export default function DatePicker({
                 style={{ width: inputWidth, minHeight: 38, overflow: "clip" }}
               >
                 <Field
+                  id={id ?? ""}
                   style={{
                     border: 0,
                     marginRight: -20,
