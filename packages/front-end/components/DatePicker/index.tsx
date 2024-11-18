@@ -119,8 +119,8 @@ export default function DatePicker({
           }
           if (!o && +new Date() - +fieldClickedTime.current > 10) {
             setOpen(false);
-            setOriginalDate(date);
-            setOriginalDate2(date2);
+            setOriginalDate(getValidDate(date));
+            setOriginalDate2(getValidDate(date2));
           }
         }}
       >
