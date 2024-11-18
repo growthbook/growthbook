@@ -138,7 +138,7 @@ const SelectField: FC<SelectFieldProps> = ({
   options,
   onChange,
   initialOption,
-  placeholder = "Select...",
+  placeholder = "选择...",
   sort = true,
   disabled,
   autoFocus,

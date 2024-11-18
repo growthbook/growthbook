@@ -89,7 +89,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
 
       <div className="box p-4 my-4">
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-          <h4 className="m-0">Analysis Settings</h4>
+          <h4 className="m-0">分析设置</h4>
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
             <button
@@ -98,25 +98,25 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
                 setAnalysisModal(true);
               }}
             >
-              <span className="text-purple">Edit</span>
+              <span className="text-purple">编辑</span>
             </button>
           ) : null}
         </div>
 
         <div className="row">
           <div className="col-4">
-            <div className="h5">Data Source</div>
-            <div>{datasource ? datasource.name : <em>none</em>}</div>
+            <div className="h5">数据源</div>
+            <div>{datasource ? datasource.name : <em>无</em>}</div>
           </div>
 
           <div className="col-4">
-            <div className="h5">Experiment Assignment Table</div>
-            <div>{assignmentQuery ? assignmentQuery.name : <em>none</em>}</div>
+            <div className="h5">实验分配表</div>
+            <div>{assignmentQuery ? assignmentQuery.name : <em>无</em>}</div>
           </div>
 
           {!isBandit && (
             <div className="col-4">
-              <div className="h5">Stats Engine</div>
+              <div className="h5">统计引擎</div>
               <div>{upperFirst(statsEngine)}</div>
             </div>
           )}
@@ -125,8 +125,8 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
               <div className="h5">CUPED</div>
               <div>
                 {experiment.regressionAdjustmentEnabled
-                  ? "Enabled"
-                  : "Disabled"}
+                  ? "已启用"
+                  : "已禁用"}
               </div>
             </div>
           )}
@@ -135,7 +135,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
         <div className="row mt-4">
           <div className="col-4">
             <div className="h5">
-              {!isBandit ? "Goal Metrics" : "Decision Metric"}
+              {!isBandit ? "目标指标" : "决策指标"}
             </div>
             <div>
               {goals.length ? (
@@ -146,13 +146,13 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
                   })}
                 </ul>
               ) : (
-                <em>none</em>
+                <em>无</em>
               )}
             </div>
           </div>
 
           <div className="col-4">
-            <div className="h5">Secondary Metrics</div>
+            <div className="h5">次要指标</div>
             <div>
               {secondary.length ? (
                 <ul className="list-unstyled mb-0">
@@ -161,13 +161,13 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
                   ))}
                 </ul>
               ) : (
-                <em>none</em>
+                <em>无</em>
               )}
             </div>
           </div>
 
           <div className="col-4">
-            <div className="h5">Guardrail Metrics</div>
+            <div className="h5">护栏指标</div>
             <div>
               {guardrails.length ? (
                 <ul className="list-unstyled mb-0">
@@ -176,7 +176,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
                   ))}
                 </ul>
               ) : (
-                <em>none</em>
+                <em>无</em>
               )}
             </div>
           </div>
@@ -185,7 +185,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
         {isBandit && (
           <div className="row mt-4">
             <div className="col-4">
-              <div className="h5">Exploratory Stage</div>
+              <div className="h5">探索阶段</div>
               <div>
                 {experiment.banditBurnInValue ?? 1}{" "}
                 {(experiment.banditBurnInUnit ?? "days") === "days"
@@ -196,7 +196,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
             </div>
 
             <div className="col-4">
-              <div className="h5">Update Cadence</div>
+              <div className="h5">更新频率</div>
               <div>
                 Every {experiment.banditScheduleValue ?? 1}{" "}
                 {(experiment.banditScheduleUnit ?? "days") === "days"

@@ -107,7 +107,7 @@ export default function AttributeForm({
                   attributeForm.setValue(attribute.property, v);
                   updateFormValues();
                 }}
-                placeholder="Select..."
+                placeholder="选择..."
                 options={
                   attribute?.enum?.split(",").map((d) => ({
                     value: d.trim(),

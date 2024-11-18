@@ -12,11 +12,9 @@ export function HashVersionTooltip({ children }: { children: ReactNode }) {
     <Tooltip
       body={
         <>
-          V2 fixes potential bias issues when using similarly named tracking
-          keys, but is only supported in the following SDKs and versions:
+          V2版本修复了在使用类似命名的跟踪键时可能出现的偏差问题，但仅在以下软件开发工具包（SDK）及版本中受支持：
           <MinSDKVersionsList capability="bucketingV2" />
-          Unsupported SDKs will fall back to using the V1 algorithm
-          automatically.
+          不支持的SDK将自动回退到使用V1算法。
         </>
       }
     >
@@ -42,26 +40,24 @@ export default function HashVersionSelector({
 
   return (
     <>
-      <label>Hashing Algorithm</label>
+      <label>哈希算法</label>
       <RadioGroup
         options={[
           {
-            label: "V2 (Preferred)",
+            label: "V2（首选）",
             value: "2",
-            description:
-              "Fixes potential bias issues when using similarly named tracking keys",
+            description: "修复了在使用类似命名的追踪KEY时可能出现的偏差问题",
             renderOnSelect: hasSDKWithNoBucketingV2 ? (
               <Callout status="warning" size="sm">
-                Some of your SDK Connections may not support V2 hashing. Make
-                sure you are only using it with{" "}
+                您的一些SDK连接可能不支持V2哈希。请确保仅在与
                 <HashVersionTooltip>
-                  <span className="underline">compatible SDKs</span>
+                  <span className="underline">兼容的SDK</span>
                 </HashVersionTooltip>
-                .
+                一起使用它。
               </Callout>
             ) : undefined,
           },
-          { label: "V1 (Legacy)", value: "1" },
+          { label: "V1（旧版）", value: "1" },
         ]}
         value={value + ""}
         setValue={(v) => {

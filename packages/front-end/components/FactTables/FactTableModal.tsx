@@ -186,7 +186,7 @@ export default function FactTableModal({ existing, close }: Props) {
             })}
             className="portal-overflow-ellipsis"
             name="datasource"
-            placeholder="Select..."
+            placeholder="选择..."
           />
         )}
 

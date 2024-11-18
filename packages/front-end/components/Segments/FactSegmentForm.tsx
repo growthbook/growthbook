@@ -149,7 +149,7 @@ export default function FactSegmentForm({
                   }
                   return label;
                 }}
-                placeholder="Select..."
+                placeholder="选择..."
                 required
               />
             </div>

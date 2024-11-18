@@ -109,7 +109,7 @@ const MetricSelector: FC<
 
   return (
     <SelectField
-      placeholder={placeholder ?? "Select metric..."}
+      placeholder={placeholder ?? "选择指标..."}
       {...selectProps}
       options={filteredOptions.map((m) => {
         return {

@@ -163,12 +163,12 @@ export default function EditTargetingModal({
 
     if (value.prerequisites) {
       if (value.prerequisites.some((p) => !p.id)) {
-        throw new Error("Cannot have empty prerequisites");
+        throw new Error("不能有空的先决条件");
       }
     }
 
     if (prerequisiteTargetingSdkIssues) {
-      throw new Error("Prerequisite targeting issues must be resolved");
+      throw new Error("先决条件目标定位问题必须解决");
     }
 
     await apiCall(`/experiment/${experiment.id}/targeting`, {
@@ -185,7 +185,7 @@ export default function EditTargetingModal({
         trackingEventModalType=""
         open={true}
         close={close}
-        header={`Edit Targeting`}
+        header={`编辑目标定位`}
         ctaEnabled={canSubmit}
         submit={onSubmit}
         cta="保存"
@@ -202,23 +202,23 @@ export default function EditTargetingModal({
     );
   }
 
-  let cta = "Publish changes";
+  let cta = "发布变更";
   let ctaEnabled = true;
   let blockSteps: number[] = [];
   if (!changeType) {
-    cta = "Select a change type";
+    cta = "选择变更类型";
     ctaEnabled = false;
     blockSteps = [1, 2];
   } else {
     if (changeType !== "phase" && !hasChanges) {
       if (step === 1) {
-        cta = "No changes";
+        cta = "无变更";
         ctaEnabled = false;
       }
       blockSteps = [lastStepNumber];
     }
     if (!releasePlan && step === lastStepNumber) {
-      cta = "Select a release plan";
+      cta = "选择发布计划";
       ctaEnabled = false;
     }
     if (step == lastStepNumber && !changesConfirmed) {
@@ -230,7 +230,7 @@ export default function EditTargetingModal({
     <PagedModal
       trackingEventModalType="make-changes"
       close={close}
-      header={`Make ${isBandit ? "Bandit" : "Experiment"} Changes`}
+      header={`Make ${isBandit ? "多臂老虎机" : "实验"}变更`}
       submit={onSubmit}
       cta={cta}
       ctaEnabled={ctaEnabled && canSubmit}
@@ -247,9 +247,7 @@ export default function EditTargetingModal({
           <div className="col ml-1 pl-0" style={{ minWidth: 520 }}>
             <div className="d-flex m-0 px-2 py-1 alert alert-warning align-items-center">
               <div>
-                <strong>Warning:</strong> Changes made will apply to linked
-                Feature Flags, Visual Changes, and URL Redirects immediately
-                upon publishing
+                <strong>警告：</strong> 发布后，所做变更将立即应用于关联的特性标记、可视化变更和URL重定向。
               </div>
               <label
                 htmlFor="confirm-changes"
@@ -257,7 +255,7 @@ export default function EditTargetingModal({
                 style={{ height: 35 }}
               >
                 <strong className="mr-2 user-select-none text-dark">
-                  Confirm
+                  确认
                 </strong>
                 <input
                   id="confirm-changes"
@@ -271,7 +269,7 @@ export default function EditTargetingModal({
         ) : undefined
       }
     >
-      <Page display="Type of Changes">
+      <Page display="变更类型">
         <div className="px-3 py-2">
           <ChangeTypeSelector
             experiment={experiment}
@@ -280,7 +278,7 @@ export default function EditTargetingModal({
           />
 
           <div className="mt-4">
-            <label>Current targeting and traffic (for reference)</label>
+            <label>当前目标定位和流量（仅供参考）</label>
             <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
               <TargetingInfo
                 experiment={experiment}
@@ -296,7 +294,7 @@ export default function EditTargetingModal({
       </Page>
 
       {changeType !== "phase" && (
-        <Page display="Make Changes">
+        <Page display="进行变更">
           <div className="px-2">
             <TargetingForm
               experiment={experiment}
@@ -312,7 +310,7 @@ export default function EditTargetingModal({
         </Page>
       )}
 
-      <Page display="Review & Deploy">
+      <Page display="审核与部署">
         <div className="px-3 mt-2">
           <ReleaseChangesForm
             experiment={experiment}
@@ -339,36 +337,36 @@ function ChangeTypeSelector({
   const { namespaces } = useOrgSettings();
 
   const options: RadioOptions = [
-    { label: "Start a New Phase", value: "phase" },
+    { label: "开始新阶段", value: "phase" },
     {
-      label: "Saved Group, Attribute, and Prerequisite Targeting",
+      label: "保存组、属性和先决条件目标定位",
       value: "targeting",
     },
     {
-      label: "Namespace Targeting",
+      label: "命名空间目标定位",
       value: "namespace",
       disabled: !namespaces?.length,
     },
-    { label: "Traffic Percent", value: "traffic" },
+    { label: "流量百分比", value: "traffic" },
     ...(experiment.type !== "multi-armed-bandit"
-      ? [{ label: "Variation Weights", value: "weights" }]
+      ? [{ label: "变体权重", value: "weights" }]
       : []),
     {
-      label: "Advanced: multiple changes at once",
+      label: "高级：一次进行多项变更",
       value: "advanced",
       ...(experiment.type !== "multi-armed-bandit"
         ? {
-            error: `When making multiple changes at the same time, it can be difficult to control for the impact of each change. 
-              The risk of introducing experimental bias increases. Proceed with caution.`,
-            errorLevel: "warning",
-          }
+          error: `同时进行多项变更时，可能难以控制每项变更的影响。
+          引入实验偏差的风险会增加。请谨慎操作。`,
+          errorLevel: "warning",
+        }
         : {}),
     },
   ];
 
   return (
     <div>
-      <h5>What do you want to change?</h5>
+      <h5>您想进行什么变更？</h5>
       <div className="mt-3">
         <RadioGroup
           value={changeType || ""}
@@ -439,28 +437,25 @@ function TargetingForm({
       {safeToEdit && (
         <>
           <Field
-            label="Tracking Key"
+            label="追踪Key"
             labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
             helpText={
               supportsSQL ? (
                 <>
-                  Unique identifier for this experiment, used to track
-                  impressions and analyze results. Will match against the{" "}
-                  <code>experiment_id</code> column in your data source.
+                  该实验的唯一标识符，用于跟踪展示次数和分析结果。将与数据源中的
+                  <code>experiment_id</code>列匹配。
                 </>
               ) : (
                 <>
-                  Unique identifier for this experiment, used to track
-                  impressions and analyze results. Must match the experiment id
-                  in your tracking callback.
+                  该实验的唯一标识符，用于跟踪展示次数和分析结果。必须与跟踪回调中的实验ID匹配。
                 </>
               )
             }
           />
           <SelectField
             containerClassName="flex-1"
-            label="Assign variation based on attribute"
+            label="基于属性分配变体"
             labelClassName="font-weight-bold"
             options={hashAttributeOptions}
             sort={false}
@@ -468,7 +463,7 @@ function TargetingForm({
             onChange={(v) => {
               form.setValue("hashAttribute", v);
             }}
-            helpText={"The globally unique tracking key for the experiment"}
+            helpText={"该实验的全局唯一追踪KEY"}
           />
           <FallbackAttributeSelector
             form={form}
@@ -484,8 +479,8 @@ function TargetingForm({
             <Checkbox
               mt="4"
               size="lg"
-              label="Disable Sticky Bucketing"
-              description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+              label="禁用粘性分桶"
+              description="不为该实验持久化变体分配（覆盖组织设置）"
               value={!!form.watch("disableStickyBucketing")}
               setValue={(v) => {
                 form.setValue("disableStickyBucketing", v === true);
@@ -499,9 +494,7 @@ function TargetingForm({
       {!hasLinkedChanges && (
         <>
           <div className="alert alert-info">
-            Changes made below are only metadata changes and will have no impact
-            on actual experiment delivery unless you link a GrowthBook-managed
-            Linked Feature or Visual Change to this experiment.
+            下方所做的更改仅为元数据更改，除非将由GrowthBook管理的关联特性或可视化变更链接到本实验，否则不会对实际的实验交付产生影响。
           </div>
         </>
       )}
@@ -572,10 +565,10 @@ function TargetingForm({
           hideVariations={type === "multi-armed-bandit"}
           label={
             changeType === "traffic" || type === "multi-armed-bandit"
-              ? "Traffic Percentage"
+              ? "流量百分比"
               : changeType === "weights"
-              ? "Variation Weights"
-              : "Traffic Percentage & Variation Weights"
+                ? "变体权重"
+                : "流量百分比与变体权重"
           }
           customSplitOn={true}
         />

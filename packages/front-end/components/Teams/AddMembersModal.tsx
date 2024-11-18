@@ -55,7 +55,7 @@ export const AddMembersModal = ({
     >
       <MultiSelectField
         label="Members to add"
-        placeholder="Select members"
+        placeholder="选择指标..."
         value={form.watch("members")}
         options={addableMembers.map((m) => ({
           value: m.id,

@@ -317,7 +317,7 @@ function ColumnRefSelector({
               }
               return label;
             }}
-            placeholder="Select..."
+            placeholder="选择..."
             required
           />
         </div>
@@ -1080,7 +1080,7 @@ export default function FactMetricModal({
               })}
               className="portal-overflow-ellipsis"
               name="datasource"
-              placeholder="Select..."
+              placeholder="选择..."
             />
           )}
           {selectedDataSource && (

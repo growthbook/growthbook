@@ -53,7 +53,7 @@ const EditDataSourceForm: FC<{
         value={form.watch("datasource")}
         onChange={(v) => form.setValue("datasource", v)}
         disabled={experiment.status !== "draft"}
-        placeholder="Select..."
+        placeholder="选择..."
         name="datasource"
         autoFocus={true}
         options={datasources.map((d) => ({ value: d.id, label: d.name }))}

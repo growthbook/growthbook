@@ -103,7 +103,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   options,
   onChange,
   initialOption,
-  placeholder = "Select...",
+  placeholder = "选择...",
   sort = true,
   disabled,
   autoFocus,

@@ -34,7 +34,7 @@ export default function TrafficAndTargeting({
     : 1;
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace.name)?.label ||
-      phase.namespace.name
+    phase.namespace.name
     : "";
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -45,34 +45,34 @@ export default function TrafficAndTargeting({
         <>
           <div className="box p-4 my-4">
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Traffic Allocation</h4>
+              <h4 className="m-0">流量分配</h4>
               <div className="flex-1" />
               {editTargeting &&
-              !(isBandit && experiment.status === "running") ? (
+                !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  <span className="text-purple">Edit</span>
+                  <span className="text-purple">编辑</span>
                 </button>
               ) : null}
             </div>
 
             <div className="row">
               <div className="col-4">
-                <div className="h5">Traffic</div>
+                <div className="h5">流量</div>
                 <div>
-                  {Math.floor(phase.coverage * 100)}% included
+                  包含{Math.floor(phase.coverage * 100)}%
                   {experiment.type !== "multi-armed-bandit" && (
-                    <>, {formatTrafficSplit(phase.variationWeights, 2)} split</>
+                    <>, 按照{formatTrafficSplit(phase.variationWeights, 2)} 的比例划分</>
                   )}
                 </div>
               </div>
 
               <div className="col-4">
                 <div className="h5">
-                  Assignment Attribute
+                  分配属性
                   {experiment.fallbackAttribute ? "s" : ""}{" "}
                   <Tooltip
                     popperStyle={{ lineHeight: 1.5 }}
-                    body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
+                    body="该用户属性将用于分配变体。通常这要么是已登录用户的ID，要么是存储在长期存在的Cookie中的匿名ID。"
                   >
                     <MdInfoOutline className="text-info" />
                   </Tooltip>
@@ -87,24 +87,24 @@ export default function TrafficAndTargeting({
                   {
                     <HashVersionTooltip>
                       <small className="text-muted ml-1">
-                        (V{experiment.hashVersion || 2} hashing)
+                        (V{experiment.hashVersion || 2} 哈希)
                       </small>
                     </HashVersionTooltip>
                   }
                 </div>
                 {experiment.disableStickyBucketing ? (
                   <div className="mt-1">
-                    Sticky bucketing: <em>disabled</em>
+                    粘性分桶：<em>已禁用</em>
                   </div>
                 ) : null}
               </div>
 
               <div className="col-4">
                 <div className="h5">
-                  Namespace{" "}
+                  命名空间{" "}
                   <Tooltip
                     popperStyle={{ lineHeight: 1.5 }}
-                    body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
+                    body="使用命名空间来运行相互排斥的实验。在SDK配置→命名空间下管理命名空间。"
                   >
                     <MdInfoOutline className="text-info" />
                   </Tooltip>
@@ -118,7 +118,7 @@ export default function TrafficAndTargeting({
                       </span>
                     </>
                   ) : (
-                    <em>Global (all users)</em>
+                    <em>全局（所有用户）</em>
                   )}
                 </div>
               </div>
@@ -127,48 +127,48 @@ export default function TrafficAndTargeting({
 
           <div className="box p-4 my-4">
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Targeting</h4>
+              <h4 className="m-0">目标定位</h4>
               <div className="flex-1" />
               {editTargeting &&
-              !(isBandit && experiment.status === "running") ? (
+                !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  <span className="text-purple">Edit</span>
+                  <span className="text-purple">编辑</span>
                 </button>
               ) : null}
             </div>
 
             <div className="row">
               <div className="col-4">
-                <div className="h5">Attribute Targeting</div>
+                <div className="h5">属性目标定位</div>
                 <div>
                   {phase.condition && phase.condition !== "{}" ? (
                     <ConditionDisplay condition={phase.condition} />
                   ) : (
-                    <em>None</em>
+                    <em>无</em>
                   )}
                 </div>
               </div>
 
               <div className="col-4">
-                <div className="h5">Saved Group Targeting</div>
+                <div className="h5">保存组目标定位</div>
                 <div>
                   {phase.savedGroups?.length ? (
                     <SavedGroupTargetingDisplay
                       savedGroups={phase.savedGroups}
                     />
                   ) : (
-                    <em>None</em>
+                    <em>无</em>
                   )}
                 </div>
               </div>
 
               <div className="col-4">
-                <div className="h5">Prerequisite Targeting</div>
+                <div className="h5">先决条件目标定位</div>
                 <div>
                   {phase.prerequisites?.length ? (
                     <ConditionDisplay prerequisites={phase.prerequisites} />
                   ) : (
-                    <em>None</em>
+                    <em>无</em>
                   )}
                 </div>
               </div>
@@ -178,8 +178,7 @@ export default function TrafficAndTargeting({
       ) : (
         <div className="alert alert-warning my-4">
           <FaExclamationTriangle className="mr-1" />
-          No traffic allocation or targeting configured yet. Add a phase to this
-          experiment.
+          尚未配置流量分配或目标定位。请为此实验添加一个阶段。
         </div>
       )}
     </>

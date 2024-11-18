@@ -50,13 +50,13 @@ export default function ExperimentMetricsSelector({
       {setGoalMetrics !== undefined && (
         <div className="form-group">
           <label className="font-weight-bold mb-1">
-            {!forceSingleGoalMetric ? "Goal Metrics" : "Decision Metric"}
+            {!forceSingleGoalMetric ? "目标指标" : "决策指标"}
           </label>
           <div className="mb-1">
             <span className="font-italic">
               {!forceSingleGoalMetric
-                ? "The primary metrics you are trying to improve with this experiment. "
-                : "Choose the goal metric that will be used to update variation weights. "}
+                ? "本次实验中您试图去提升的主要指标。"
+                : "选择将用于更新变体权重的目标指标。"}
             </span>
             <MetricsSelectorTooltip
               isSingular={true}
@@ -88,16 +88,16 @@ export default function ExperimentMetricsSelector({
               onClick={() => setSecondaryCollapsed(false)}
             >
               <FaPlusCircle className="mr-1" />
-              Add Secondary Metrics
+              添加次要指标
             </a>
           ) : (
             <>
-              <label className="font-weight-bold mb-1">Secondary Metrics</label>
+              <label className="font-weight-bold mb-1">次要指标</label>
               <div className="mb-1">
                 <span className="font-italic">
                   {!forceSingleGoalMetric
-                    ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
-                    : "Additional metrics to learn about experiment impacts. "}
+                    ? "用于了解实验影响的其他指标，但并非主要目标。"
+                    : "用于了解实验影响的其他指标。"}
                 </span>
                 <MetricsSelectorTooltip />
               </div>
@@ -124,15 +124,14 @@ export default function ExperimentMetricsSelector({
               onClick={() => setGuardrailCollapsed(false)}
             >
               <FaPlusCircle className="mr-1" />
-              Add Guardrail Metrics
+              添加护栏指标
             </a>
           ) : (
             <>
-              <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+              <label className="font-weight-bold mb-1">护栏指标</label>
               <div className="mb-1">
                 <span className="font-italic">
-                  Metrics you want to monitor, but are NOT specifically trying
-                  to improve.{" "}
+                  您想要监控的指标，但并非专门要去提升的指标。
                 </span>
                 <MetricsSelectorTooltip />
               </div>

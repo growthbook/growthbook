@@ -31,128 +31,127 @@ const DiscussionThread: FC<{
   title = "添加评论",
   projects,
 }) => {
-  const { apiCall } = useAuth();
-  const { userId, users } = useUser();
-  const [edit, setEdit] = useState<number | null>(null);
+    const { apiCall } = useAuth();
+    const { userId, users } = useUser();
+    const [edit, setEdit] = useState<number | null>(null);
 
-  const permissions = usePermissionsUtil();
+    const permissions = usePermissionsUtil();
 
-  if (!permissions.canAddComment(projects)) {
-    allowNewComments = false;
-  }
+    if (!permissions.canAddComment(projects)) {
+      allowNewComments = false;
+    }
 
-  const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
-    `/discussion/${type}/${id}`
-  );
+    const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
+      `/discussion/${type}/${id}`
+    );
 
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
-  }
-  if (!data) {
-    return <LoadingSpinner />;
-  }
+    if (error) {
+      return <div className="alert alert-danger">{error.message}</div>;
+    }
+    if (!data) {
+      return <LoadingSpinner />;
+    }
 
-  const comments: Comment[] = data.discussion ? data.discussion.comments : [];
+    const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
-  return (
-    <div className="pagecontents">
-      {comments.length > 0 ? (
-        <ul className="list-unstyled">
-          {comments.map((comment, i) => {
-            const user = users.get(comment.userId);
-            const email = user ? user.email : comment.userEmail;
-            const name = user ? user.name : comment.userName;
+    return (
+      <div className="pagecontents">
+        {comments.length > 0 ? (
+          <ul className="list-unstyled">
+            {comments.map((comment, i) => {
+              const user = users.get(comment.userId);
+              const email = user ? user.email : comment.userEmail;
+              const name = user ? user.name : comment.userName;
 
-            return (
-              <li className="media mb-3" key={i}>
-                <Avatar email={email} className="mr-2" name={name} />
-                <div className="media-body">
-                  {edit === i ? (
-                    <CommentForm
-                      cta="保存"
-                      onSave={() => {
-                        mutate();
-                        setEdit(null);
-                      }}
-                      index={i}
-                      id={id}
-                      type={type}
-                      initialValue={comment.content}
-                      autofocus={true}
-                      onCancel={() => setEdit(null)}
-                    />
-                  ) : (
-                    <div className="card">
-                      <div className="card-header">
-                        <strong>{name || email}</strong> commented on{" "}
-                        {date(comment.date)}
-                        {comment.edited && (
-                          <em className="ml-3 text-muted">&bull; edited</em>
-                        )}
-                        {comment.userId === userId && (
-                          <div className="float-right ml-4 card-hover">
-                            <a
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEdit(i);
-                              }}
-                            >
-                              <FaPencilAlt />
-                            </a>
-                            <DeleteButton
-                              displayName="Comment"
-                              className="ml-4"
-                              link={true}
-                              onClick={async () => {
-                                await apiCall(
-                                  `/discussion/${type}/${id}/${i}`,
-                                  {
-                                    method: "DELETE",
-                                  }
-                                );
-                                mutate();
-                              }}
-                            />
-                          </div>
-                        )}
+              return (
+                <li className="media mb-3" key={i}>
+                  <Avatar email={email} className="mr-2" name={name} />
+                  <div className="media-body">
+                    {edit === i ? (
+                      <CommentForm
+                        cta="保存"
+                        onSave={() => {
+                          mutate();
+                          setEdit(null);
+                        }}
+                        index={i}
+                        id={id}
+                        type={type}
+                        initialValue={comment.content}
+                        autofocus={true}
+                        onCancel={() => setEdit(null)}
+                      />
+                    ) : (
+                      <div className="card">
+                        <div className="card-header">
+                          <strong>{name || email}</strong> 在 {date(comment.date)} 发表了评论
+                          {comment.edited && (
+                            <em className="ml-3 text-muted">&bull; 已编辑</em>
+                          )}
+                          {comment.userId === userId && (
+                            <div className="float-right ml-4 card-hover">
+                              <a
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEdit(i);
+                                }}
+                              >
+                                <FaPencilAlt />
+                              </a>
+                              <DeleteButton
+                                displayName="Comment"
+                                className="ml-4"
+                                link={true}
+                                onClick={async () => {
+                                  await apiCall(
+                                    `/discussion/${type}/${id}/${i}`,
+                                    {
+                                      method: "DELETE",
+                                    }
+                                  );
+                                  mutate();
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <div className="card-body">
+                          <Markdown className="card-text">
+                            {comment.content || ""}
+                          </Markdown>
+                        </div>
                       </div>
-                      <div className="card-body">
-                        <Markdown className="card-text">
-                          {comment.content || ""}
-                        </Markdown>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p>
-          <em>
-            {allowNewComments
-              ? "No comments yet. Add the first one!"
-              : "No comments."}
-          </em>
-        </p>
-      )}
-      {allowNewComments && (
-        <div className="d-print-none">
-          {!showTitle && <hr />}
-          {showTitle && <h4 className="add-comment-title">{title}</h4>}
-          <CommentForm
-            cta="评论"
-            onSave={mutate}
-            index={-1}
-            id={id}
-            type={type}
-          />
-        </div>
-      )}
-    </div>
-  );
-};
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p>
+            <em>
+              {allowNewComments
+                ? "还没有评论。快来发表第一条评论吧！"
+                : "暂无评论。"}
+            </em>
+          </p>
+        )}
+        {allowNewComments && (
+          <div className="d-print-none">
+            {!showTitle && <hr />}
+            {showTitle && <h4 className="add-comment-title">{title}</h4>}
+            <CommentForm
+              cta="评论"
+              onSave={mutate}
+              index={-1}
+              id={id}
+              type={type}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
 
 export default DiscussionThread;
