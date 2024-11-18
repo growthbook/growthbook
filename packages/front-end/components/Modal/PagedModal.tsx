@@ -200,6 +200,7 @@ const PagedModal: FC<Props> = (props) => {
       backCTA={
         backButton && (step >= 1 || onBackFirstStep) ? (
           <button
+            type="button"
             className={`btn btn-link mr-3`}
             onClick={(e) => {
               e.preventDefault();
@@ -220,6 +221,7 @@ const PagedModal: FC<Props> = (props) => {
           secondaryCTA
         ) : onSkip ? (
           <button
+            type="button"
             className={`btn btn-link mr-3`}
             onClick={(e) => {
               e.preventDefault();

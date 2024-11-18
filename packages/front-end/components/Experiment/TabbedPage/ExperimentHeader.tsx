@@ -41,8 +41,10 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
 import { AppFeatures } from "@/types/app-features";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
+import ProjectTagBar from "./ProjectTagBar";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -62,6 +64,8 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
+  editProject?: (() => void) | null;
+  editTags?: (() => void) | null;
   healthNotificationCount: number;
   verifiedConnections: SDKConnectionInterface[];
   linkedFeatures: LinkedFeatureInfo[];
@@ -106,6 +110,8 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
+  editProject,
+  editTags,
   healthNotificationCount,
   verifiedConnections,
   linkedFeatures,
@@ -121,6 +127,7 @@ export default function ExperimentHeader({
   const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
+  const { phase } = useSnapshot();
   const connections = sdkConnections?.connections || [];
   const [showSdkForm, setShowSdkForm] = useState(false);
 
@@ -138,6 +145,7 @@ export default function ExperimentHeader({
         ? date(lastPhase.dateEnded ?? "")
         : "now"
       : new Date();
+  const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
 
@@ -525,6 +533,11 @@ export default function ExperimentHeader({
               </MoreMenu>
             </div>
           </div>
+          <ProjectTagBar
+            experiment={experiment}
+            editProject={!viewingOldPhase ? editProject : undefined}
+            editTags={!viewingOldPhase ? editTags : undefined}
+          />
         </div>
       </div>
 

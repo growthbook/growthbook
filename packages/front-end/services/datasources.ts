@@ -6,21 +6,7 @@ import {
   SchemaFormat,
   SchemaInterface,
 } from "back-end/types/datasource";
-import {
-  ColumnInterface,
-  CreateColumnProps,
-  CreateFactFilterProps,
-  CreateFactMetricProps,
-  CreateFactTableProps,
-  FactTableInterface,
-} from "back-end/types/fact-table";
 import { MetricType } from "back-end/types/metric";
-import {
-  MetricDefaults,
-  OrganizationSettings,
-} from "back-end/types/organization";
-import { getDefaultFactMetricProps } from "@/services/metrics";
-import { ApiCallType } from "@/services/auth";
 
 function camelToUnderscore(orig: string) {
   return orig
@@ -61,7 +47,7 @@ FROM
 WHERE
   ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
    (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-  AND event_name = 'experiment_viewed'  
+  AND event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userCol} is not null
@@ -255,10 +241,10 @@ const SegmentSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -308,10 +294,10 @@ const RudderstackSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -348,20 +334,20 @@ const MatomoSchema: SchemaInterface = {
       userId === "user_id"
         ? `visit.user_id`
         : `conv(hex(events.idvisitor), 16, 16)`;
-    return `SELECT 
+    return `SELECT
   ${userStr} as ${userId},
-  events.server_time as timestamp, 
-  experiment.name as experiment_id, 
+  events.server_time as timestamp,
+  experiment.name as experiment_id,
   SUBSTRING(variation.name, ${variationPrefixLength + 1}) as variation_id,
   visit.config_device_model as device,
   visit.config_os as OS,
   visit.location_country as country
-FROM ${tPrefix}_log_link_visit_action events 
-INNER JOIN ${tPrefix}_log_action experiment 
-  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11) 
-INNER JOIN ${tPrefix}_log_action variation 
-  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12) 
-INNER JOIN ${tPrefix}_log_visit visit 
+FROM ${tPrefix}_log_link_visit_action events
+INNER JOIN ${tPrefix}_log_action experiment
+  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11)
+INNER JOIN ${tPrefix}_log_action variation
+  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12)
+INNER JOIN ${tPrefix}_log_visit visit
   ON (events.idvisit = visit.idvisit)
 WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "${categoryName}" AND mla1.type = 10)
    AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
@@ -506,7 +492,7 @@ FROM
 WHERE
   _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
   AND event_type = 'custom'
-  AND exp_event_properties.event_name = 'experiment_viewed'  
+  AND exp_event_properties.event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userId} is not null
@@ -559,7 +545,7 @@ function getSchemaObject(type?: SchemaFormat) {
   return CustomSchema;
 }
 
-function getTablePrefix(params: DataSourceParams) {
+export function getTablePrefix(params: DataSourceParams) {
   // Postgres / Redshift
   if ("defaultSchema" in params && params.defaultSchema) {
     return params.defaultSchema + ".";
@@ -682,444 +668,4 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
         .join(", ")}`
     );
   }
-}
-
-function generateColumns(
-  cols: Record<string, Partial<ColumnInterface>>
-): CreateColumnProps[] {
-  return Object.entries(cols).map(([name, data]) => ({
-    column: name,
-    datatype: "string",
-    description: "",
-    numberFormat: "",
-    alwaysInlineFilter: false,
-    name: name,
-    ...data,
-  }));
-}
-
-interface InitialDatasourceResources {
-  factTables: {
-    factTable: Omit<
-      CreateFactTableProps,
-      "organization" | "datasource" | "tags" | "projects" | "owner"
-    >;
-    filters: CreateFactFilterProps[];
-    metrics: Partial<
-      Pick<
-        CreateFactMetricProps,
-        | "name"
-        | "description"
-        | "numerator"
-        | "denominator"
-        | "metricType"
-        | "quantileSettings"
-        | "windowSettings"
-      >
-    >[];
-  }[];
-}
-
-export function getInitialDatasourceResources({
-  datasource,
-}: {
-  datasource: DataSourceInterfaceWithParams;
-}): InitialDatasourceResources {
-  if (
-    datasource.type === "bigquery" &&
-    datasource.settings?.schemaFormat === "ga4"
-  ) {
-    const params = datasource.params;
-
-    // Sanity check
-    if (!params.defaultDataset?.startsWith("analytics_")) {
-      return { factTables: [] };
-    }
-
-    const userIdTypes: string[] = [];
-    if (
-      datasource.settings?.userIdTypes?.some((t) => t.userIdType === "user_id")
-    ) {
-      userIdTypes.push("user_id");
-    }
-    if (
-      datasource.settings?.userIdTypes?.some(
-        (t) => t.userIdType === "anonymous_id"
-      )
-    ) {
-      userIdTypes.push("anonymous_id");
-    }
-
-    return {
-      factTables: [
-        {
-          factTable: {
-            name: "GA4 Events",
-            description: "",
-            sql: `
-SELECT
-  TIMESTAMP_MICROS(event_timestamp) as timestamp,
-  user_id,
-  user_pseudo_id as anonymous_id,
-  event_name,
-  geo.country,
-  device.category as device_category,
-  traffic_source.source,
-  traffic_source.medium,
-  traffic_source.name as campaign,
-  REGEXP_EXTRACT((SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location'), r'http[s]?:\\/\\/?[^\\/\\s]+\\/([^?]*)') as page_path,
-  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'session_engaged') as session_engaged,
-  event_value_in_usd,
-  CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id,
-  (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'engagement_time_msec')/1000 as engagement_time
-FROM
-  \`${params.defaultProject || "my_project"}\`.\`${
-              params.defaultDataset || "my_dataset"
-            }\`.\`events_*\`
-WHERE
-  ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
-  (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-            `.trim(),
-            eventName: "",
-            userIdTypes,
-            columns: generateColumns({
-              timestamp: { datatype: "date" },
-              user_id: { datatype: "string" },
-              anonymous_id: { datatype: "string" },
-              event_name: { datatype: "string", alwaysInlineFilter: true },
-              country: { datatype: "string" },
-              device_category: { datatype: "string" },
-              source: { datatype: "string" },
-              medium: { datatype: "string" },
-              campaign: { datatype: "string" },
-              page_path: { datatype: "string" },
-              session_engaged: { datatype: "string" },
-              event_value_in_usd: {
-                datatype: "number",
-                numberFormat: "currency",
-              },
-              session_id: { datatype: "string" },
-              engagement_time: {
-                datatype: "number",
-                numberFormat: "time:seconds",
-              },
-            }),
-          },
-          filters: [
-            {
-              name: "Engaged Session",
-              description:
-                "Events fired once a session is considered 'engaged'",
-              value: `session_engaged = '1'`,
-            },
-            {
-              name: "Desktop",
-              description: "Events fired on desktop devices",
-              value: `device_category = 'desktop'`,
-            },
-            {
-              name: "Mobile / Tablet",
-              description: "Events fired on mobile or tablet devices",
-              value: `device_category IN ('mobile', 'tablet')`,
-            },
-          ],
-          metrics: [
-            {
-              name: "Page Views per User",
-              metricType: "mean",
-              numerator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["page_view"],
-                },
-              },
-            },
-            {
-              name: "Sessions per User",
-              metricType: "mean",
-              numerator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["session_start"],
-                },
-              },
-            },
-            {
-              name: "Pages per Session",
-              metricType: "ratio",
-              numerator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["page_view"],
-                },
-              },
-              denominator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["session_start"],
-                },
-              },
-            },
-            {
-              name: "Engaged Users",
-              metricType: "proportion",
-              description:
-                "The percent of users who have at least 1 engaged session",
-              numerator: {
-                factTableId: "",
-                column: "$$distinctUsers",
-                filters: ["Engaged Session"],
-              },
-            },
-            {
-              name: "Total Time on Site",
-              description: "Total time spent on site per user",
-              metricType: "mean",
-              numerator: {
-                factTableId: "",
-                column: "engagement_time",
-                filters: [],
-              },
-            },
-            {
-              name: "Session Duration",
-              description: "Total time spent per session",
-              metricType: "ratio",
-              numerator: {
-                factTableId: "",
-                column: "engagement_time",
-                filters: [],
-              },
-              denominator: {
-                factTableId: "",
-                column: "$$count",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["session_start"],
-                },
-              },
-            },
-            {
-              name: "Submitted Form",
-              metricType: "proportion",
-              numerator: {
-                factTableId: "",
-                column: "$$distinctUsers",
-                filters: [],
-                inlineFilters: {
-                  event_name: ["form_submit"],
-                },
-              },
-            },
-          ],
-        },
-        {
-          factTable: {
-            name: "GA4 Page Views",
-            description: "",
-            sql: `
-SELECT
-  TIMESTAMP_MICROS(event_timestamp) as timestamp,
-  user_id,
-  user_pseudo_id as anonymous_id,
-  geo.country,
-  device.category as device_category,
-  traffic_source.source,
-  traffic_source.medium,
-  traffic_source.name as campaign,
-  REGEXP_EXTRACT((SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location'), r'http[s]?:\\/\\/?[^\\/\\s]+\\/([^?]*)') as page_path,
-  CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id
-FROM
-  \`${params.defaultProject || "my_project"}\`.\`${
-              params.defaultDataset || "my_dataset"
-            }\`.\`events_*\`
-WHERE
-  ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
-  (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-            `.trim(),
-            eventName: "",
-            userIdTypes,
-            columns: generateColumns({
-              timestamp: { datatype: "date" },
-              user_id: { datatype: "string" },
-              anonymous_id: { datatype: "string" },
-              country: { datatype: "string" },
-              device_category: { datatype: "string" },
-              source: { datatype: "string" },
-              medium: { datatype: "string" },
-              campaign: { datatype: "string" },
-              page_path: { datatype: "string", alwaysInlineFilter: true },
-              session_id: { datatype: "string" },
-            }),
-          },
-          filters: [
-            {
-              name: "Desktop",
-              description: "Events fired on desktop devices",
-              value: `device_category = 'desktop'`,
-            },
-            {
-              name: "Mobile / Tablet",
-              description: "Events fired on mobile or tablet devices",
-              value: `device_category IN ('mobile', 'tablet')`,
-            },
-          ],
-          metrics: [],
-        },
-      ],
-    };
-  }
-
-  return {
-    factTables: [],
-  };
-}
-
-export async function createInitialResources({
-  onProgress,
-  apiCall,
-  datasource,
-  metricDefaults,
-  settings,
-  resources,
-}: {
-  onProgress?: (progress: number) => void;
-  // eslint-disable-next-line
-  apiCall: ApiCallType<any>;
-  metricDefaults: MetricDefaults;
-  settings: OrganizationSettings;
-  datasource: DataSourceInterfaceWithParams;
-  resources: InitialDatasourceResources;
-}) {
-  // Count total resources that need to be created
-  let totalResources = 0;
-  totalResources += resources.factTables.length;
-  resources.factTables.forEach((factTable) => {
-    totalResources += factTable.filters.length;
-    totalResources += factTable.metrics.length;
-  });
-
-  let success = 0;
-  let errors = 0;
-
-  const updateProgress = () => {
-    if (onProgress && totalResources > 0) {
-      onProgress((success + errors) / totalResources);
-    }
-  };
-  const delay = () => new Promise((resolve) => setTimeout(resolve, 350));
-
-  for (const { factTable, filters, metrics } of resources.factTables) {
-    try {
-      const factTableBody: CreateFactTableProps = {
-        ...factTable,
-        owner: "",
-        datasource: datasource.id,
-        projects: datasource.projects || [],
-        tags: [],
-      };
-
-      const res: { factTable: FactTableInterface } = await apiCall(
-        "/fact-tables",
-        {
-          method: "POST",
-          body: JSON.stringify(factTableBody),
-        }
-      );
-      const factTableId = res.factTable.id;
-      success++;
-      updateProgress();
-      await delay();
-
-      // Create filters
-      const filterMap: Record<string, string> = {};
-      for (const filter of filters) {
-        try {
-          const filterBody: CreateFactFilterProps = filter;
-          const res: { filterId: string } = await apiCall(
-            `/fact-tables/${factTableId}/filter`,
-            {
-              method: "POST",
-              body: JSON.stringify(filterBody),
-            }
-          );
-          filterMap[filter.name] = res.filterId;
-          success++;
-        } catch (e) {
-          console.error("Failed creating filter", filter.name, e);
-          errors++;
-        }
-        updateProgress();
-        await delay();
-      }
-
-      // Create metrics
-      for (const metric of metrics) {
-        try {
-          // Replace filter names with filter ids
-          if (metric.numerator?.filters?.length) {
-            metric.numerator.filters = metric.numerator.filters.map(
-              (name) => filterMap[name]
-            );
-            // If some filters are missing, skip this metric
-            if (metric.numerator.filters.some((f) => !f)) {
-              throw new Error("Required filters not created");
-            }
-          }
-          if (metric.denominator?.filters?.length) {
-            metric.denominator.filters = metric.denominator.filters.map(
-              (name) => filterMap[name]
-            );
-            // If some filters are missing, skip this metric
-            if (metric.denominator.filters.some((f) => !f)) {
-              throw new Error("Required filters not created");
-            }
-          }
-
-          // Inject factTableId into numerator and denominator
-          if (metric.numerator) {
-            metric.numerator.factTableId = factTableId;
-          }
-          if (metric.denominator) {
-            metric.denominator.factTableId = factTableId;
-          }
-
-          const metricBody: CreateFactMetricProps = getDefaultFactMetricProps({
-            metricDefaults,
-            settings,
-            datasources: [datasource],
-            existing: metric,
-          });
-          await apiCall(`/fact-metrics`, {
-            method: "POST",
-            body: JSON.stringify(metricBody),
-          });
-          success++;
-        } catch (e) {
-          console.error("Failed creating metric", metric.name, e);
-          errors++;
-        }
-        updateProgress();
-        await delay();
-      }
-    } catch (e) {
-      console.error("Failed creating factTable", factTable.name, e);
-      errors += 1 + filters.length + metrics.length;
-      updateProgress();
-      await delay();
-    }
-  }
-
-  return {
-    success,
-    errors,
-  };
 }

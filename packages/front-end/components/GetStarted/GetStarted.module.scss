@@ -10,12 +10,6 @@
   inherits: false;
 }
 
-.getStartedPage {
-  hr {
-    border-color: var(--border-color-100);
-  }
-}
-
 .animatedCard {
   --myColor1: var(--get-started-background-inactive);
   --myColor2: var(--get-started-background-inactive);

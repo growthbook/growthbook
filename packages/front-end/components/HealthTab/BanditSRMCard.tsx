@@ -24,7 +24,7 @@ export const srmHealthCheck = ({
   srmThreshold: number;
   totalUsers: number;
 }): HealthStatus => {
-  if (totalUsers && totalUsers < 8 * numVariations) {
+  if (totalUsers && totalUsers < 5 * numVariations) {
     return "Not enough traffic";
   } else if (srm >= srmThreshold) {
     return "healthy";
@@ -117,10 +117,11 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
               overallHealth === "Issues detected") && (
               <>
                 <div className="text-muted mx-3 mb-2">
-                  p-value: {srm ? pValueFormatter(srm, 4) : <em>n/a</em>}
+                  p-value:{" "}
+                  {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
                 </div>
                 <SRMWarning
-                  srm={srm ?? Infinity}
+                  srm={srm !== undefined ? srm : Infinity}
                   users={users}
                   showWhenHealthy
                   isBandit={true}

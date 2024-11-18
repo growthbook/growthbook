@@ -131,10 +131,11 @@ export default function RuleModal({
     defaultValues,
   });
 
+  const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
+    (scheduleRule) => scheduleRule.timestamp !== null
+  );
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
-    (defaultValues.scheduleRules || []).some(
-      (scheduleRule) => scheduleRule.timestamp !== null
-    )
+    defaultHasSchedule
   );
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -349,6 +350,7 @@ export default function RuleModal({
           ),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
+          disableStickyBucketing: values.disableStickyBucketing ?? false,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
           goalMetrics: values.goalMetrics || [],
@@ -356,7 +358,8 @@ export default function RuleModal({
           guardrailMetrics: values.guardrailMetrics || [],
           activationMetric: "",
           name: values.name,
-          hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
+          hashVersion: (values.hashVersion ||
+            (hasSDKWithNoBucketingV2 ? 1 : 2)) as 1 | 2,
           owner: "",
           status:
             values.experimentType === "multi-armed-bandit"
@@ -440,12 +443,17 @@ export default function RuleModal({
           );
         }
 
-        track("Create Experiment", {
-          source: "experiment-ref-new-rule-modal",
-          numTags: feature.tags?.length || 0,
-          numMetrics: 0,
-          numVariations: values.values.length || 0,
-        });
+        track(
+          values.experimentType === "multi-armed-bandit"
+            ? "Create Bandit"
+            : "Create Experiment",
+          {
+            source: "experiment-ref-new-rule-modal",
+            numTags: feature.tags?.length || 0,
+            numMetrics: 0,
+            numVariations: values.values.length || 0,
+          }
+        );
 
         // Experiment created, treat it as an experiment ref rule now
         values = {
@@ -603,6 +611,9 @@ export default function RuleModal({
                           usePortal={true}
                         >
                           Bandit
+                          <span className="mr-auto badge badge-purple text-uppercase ml-2">
+                            Beta
+                          </span>
                         </PremiumTooltip>
                       ),
                       description: (
@@ -766,7 +777,11 @@ export default function RuleModal({
             feature={feature}
             environment={environment}
             i={i}
+            defaultValues={defaultValues}
             changeRuleType={changeRuleType}
+            noSchedule={!defaultHasSchedule}
+            scheduleToggleEnabled={scheduleToggleEnabled}
+            setScheduleToggleEnabled={setScheduleToggleEnabled}
           />
         ) : null}
 
@@ -834,6 +849,7 @@ export default function RuleModal({
                   setVariations={(variations) =>
                     form.setValue("values", variations)
                   }
+                  orgStickyBucketing={orgStickyBucketing}
                 />
               </Page>
             ))

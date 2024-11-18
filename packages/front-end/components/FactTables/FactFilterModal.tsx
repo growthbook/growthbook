@@ -116,7 +116,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
       secondaryCTA={
         <Checkbox
           value={testBeforeSave}
-          setValue={(v) => setTestBeforeSave(v)}
+          setValue={(v) => setTestBeforeSave(v === true)}
           label="Test before saving"
           mr="5"
         />

@@ -37,6 +37,7 @@ const banditResultObject = {
   updateMessage: String,
   error: String,
   reweight: Boolean,
+  weightsWereUpdated: Boolean,
 };
 
 const experimentSnapshotSchema = new mongoose.Schema({

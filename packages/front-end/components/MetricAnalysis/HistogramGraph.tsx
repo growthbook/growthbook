@@ -11,6 +11,7 @@ import {
 } from "@visx/tooltip";
 import { ScaleLinear } from "d3-scale";
 import styles from "@/components/Metrics/DateGraph.module.scss";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface Datapoint {
   start: number;
@@ -44,7 +45,8 @@ function getTooltipDataFromDatapoint(
 
 function getTooltipContents(
   d: TooltipData,
-  formatter: (value: number, options?: Intl.NumberFormatOptions) => string
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
+  formatterOptions?: Intl.NumberFormatOptions
 ) {
   return (
     <>
@@ -53,13 +55,13 @@ function getTooltipContents(
         <span className="d-inline-block" style={{ width: 40 }}>
           start:
         </span>{" "}
-        {formatter(d.d.start)}
+        {formatter(d.d.start, formatterOptions)}
       </div>
       <div className="small">
         <span className="d-inline-block" style={{ width: 40 }}>
           end:
         </span>{" "}
-        {formatter(d.d.end)}
+        {formatter(d.d.end, formatterOptions)}
       </div>
     </>
   );
@@ -75,6 +77,9 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
     scroll: true,
     detectBounds: true,
   });
+
+  const displayCurrency = useCurrency();
+  const formatterOptions = { currency: displayCurrency };
 
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
 
@@ -210,7 +215,12 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     className={styles.tooltip}
                     unstyled={true}
                   >
-                    {tooltipData && getTooltipContents(tooltipData, formatter)}
+                    {tooltipData &&
+                      getTooltipContents(
+                        tooltipData,
+                        formatter,
+                        formatterOptions
+                      )}
                   </TooltipWithBounds>
                 </>
               )}
@@ -245,8 +255,8 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                   tickFormat={(v) => {
                     const i = v as number;
                     return i < data.length
-                      ? `${formatter(data[i]?.start)}`
-                      : `${formatter(data[i - 1]?.end)}`;
+                      ? `${formatter(data[i]?.start, formatterOptions)}`
+                      : `${formatter(data[i - 1]?.end, formatterOptions)}`;
                   }}
                 />
                 <AxisLeft

@@ -1023,7 +1023,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -1105,7 +1108,10 @@ export interface components {
       queryFilter: string;
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
-      /** @enum {unknown} */
+      /**
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @enum {unknown}
+       */
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
@@ -1174,7 +1180,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -3629,7 +3638,10 @@ export interface operations {
                   queryFilter: string;
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
-                  /** @enum {unknown} */
+                  /**
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @enum {unknown}
+                   */
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
@@ -3738,7 +3750,10 @@ export interface operations {
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -3850,7 +3865,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -3984,7 +4002,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4089,7 +4110,10 @@ export interface operations {
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -4201,7 +4225,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4322,7 +4349,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4616,7 +4646,7 @@ export interface operations {
           /** @description Description of the metric */
           description?: string;
           /**
-           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @description Type of metric. See [Metrics documentation](/app/metrics/legacy) 
            * @enum {string}
            */
           type: "binomial" | "count" | "duration" | "revenue";
@@ -4665,12 +4695,12 @@ export interface operations {
             };
             /**
              * @deprecated 
-             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowStart?: number;
             /**
              * @deprecated 
-             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
             /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
@@ -4700,7 +4730,7 @@ export interface operations {
             conversionSQL: string;
             /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
             userAggregationSQL?: string;
-            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
           };
           /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
@@ -4983,7 +5013,7 @@ export interface operations {
           /** @description Description of the metric */
           description?: string;
           /**
-           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @description Type of metric. See [Metrics documentation](/app/metrics/legacy) 
            * @enum {string}
            */
           type?: "binomial" | "count" | "duration" | "revenue";
@@ -5032,12 +5062,12 @@ export interface operations {
             };
             /**
              * @deprecated 
-             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowStart?: number;
             /**
              * @deprecated 
-             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
             /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
@@ -5067,7 +5097,7 @@ export interface operations {
             conversionSQL?: string;
             /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
             userAggregationSQL?: string;
-            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
           };
           /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed */
@@ -5228,7 +5258,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";

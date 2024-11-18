@@ -29,6 +29,7 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import Toggle from "@/components/Forms/Toggle";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export default function ExperimentRefNewFields({
   step,
@@ -38,7 +39,6 @@ export default function ExperimentRefNewFields({
   environment,
   environments,
   defaultValues,
-  noSchedule,
   revisions,
   version,
   prerequisiteValue,
@@ -52,14 +52,15 @@ export default function ExperimentRefNewFields({
   setConditionValue,
   conditionKey,
   namespaceFormPrefix = "",
+  noSchedule,
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
-  // variation input fields
   coverage,
   setCoverage,
   setWeight,
   variations,
   setVariations,
+  orgStickyBucketing,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -68,7 +69,6 @@ export default function ExperimentRefNewFields({
   environment?: string;
   environments?: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
-  noSchedule?: boolean;
   revisions?: FeatureRevisionInterface[];
   version?: number;
   prerequisiteValue: FeaturePrerequisite[];
@@ -82,6 +82,7 @@ export default function ExperimentRefNewFields({
   setConditionValue: (s: string) => void;
   conditionKey: number;
   namespaceFormPrefix?: string;
+  noSchedule?: boolean;
   scheduleToggleEnabled?: boolean;
   setScheduleToggleEnabled?: (b: boolean) => void;
   coverage: number;
@@ -89,6 +90,7 @@ export default function ExperimentRefNewFields({
   setWeight: (i: number, w: number) => void;
   variations: SortableVariation[];
   setVariations: (v: SortableVariation[]) => void;
+  orgStickyBucketing?: boolean;
 }) {
   const form = useFormContext();
 
@@ -169,6 +171,19 @@ export default function ExperimentRefNewFields({
                 project={project}
               />
             )}
+
+            {orgStickyBucketing ? (
+              <Checkbox
+                mt="4"
+                size="lg"
+                label="Disable Sticky Bucketing"
+                description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+                value={!!form.watch("disableStickyBucketing")}
+                setValue={(v) => {
+                  form.setValue("disableStickyBucketing", v);
+                }}
+              />
+            ) : null}
           </div>
 
           <FeatureVariationsInput
@@ -230,44 +245,37 @@ export default function ExperimentRefNewFields({
             </div>
           )}
 
-          {!noSchedule && form.watch("type") === "experiment-ref-new" ? (
-            <>
-              <hr />
-              <div className="mt-4 mb-3">
-                <Toggle
-                  value={form.watch("autoStart")}
-                  setValue={(v) => form.setValue("autoStart", v)}
-                  id="auto-start-new-experiment"
-                />{" "}
-                <label
-                  htmlFor="auto-start-new-experiment"
-                  className="text-dark"
-                >
-                  Start Experiment Immediately
-                </label>
-                <div>
-                  <small className="form-text text-muted">
-                    If On, the Experiment will start serving traffic as soon as
-                    the feature is published. Leave Off if you want to make
-                    additional changes before starting.
-                  </small>
-                </div>
-                {!form.watch("autoStart") && setScheduleToggleEnabled ? (
-                  <div>
-                    <hr />
-                    <ScheduleInputs
-                      defaultValue={defaultValues?.scheduleRules || []}
-                      onChange={(value) =>
-                        form.setValue("scheduleRules", value)
-                      }
-                      scheduleToggleEnabled={!!scheduleToggleEnabled}
-                      setScheduleToggleEnabled={setScheduleToggleEnabled}
-                    />
-                  </div>
-                ) : null}
+          <hr />
+          <div className="mt-4 mb-3">
+            <Toggle
+              value={form.watch("autoStart")}
+              setValue={(v) => form.setValue("autoStart", v)}
+              id="auto-start-new-experiment"
+            />{" "}
+            <label htmlFor="auto-start-new-experiment" className="text-dark">
+              Start Experiment Immediately
+            </label>
+            <div>
+              <small className="form-text text-muted">
+                If On, the Experiment will start serving traffic as soon as the
+                feature is published. Leave Off if you want to make additional
+                changes before starting.
+              </small>
+            </div>
+            {!noSchedule &&
+            !form.watch("autoStart") &&
+            setScheduleToggleEnabled ? (
+              <div>
+                <hr />
+                <ScheduleInputs
+                  defaultValue={defaultValues?.scheduleRules || []}
+                  onChange={(value) => form.setValue("scheduleRules", value)}
+                  scheduleToggleEnabled={!!scheduleToggleEnabled}
+                  setScheduleToggleEnabled={setScheduleToggleEnabled}
+                />
               </div>
-            </>
-          ) : null}
+            ) : null}
+          </div>
         </>
       ) : null}
     </>

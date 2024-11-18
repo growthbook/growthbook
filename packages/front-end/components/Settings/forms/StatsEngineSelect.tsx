@@ -12,7 +12,7 @@ export default function StatsEngineSelect({
   className = "w-200px",
   value,
   onChange,
-  labelClassName = "font-weight-bold text-muted mr-2",
+  labelClassName = "mr-2",
   disabled,
 }: {
   value?: StatsEngine;

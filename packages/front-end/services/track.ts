@@ -80,10 +80,10 @@ const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
-const dataWareHouseTrack = (event: DataWarehouseTrackedEvent) => {
+const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
   if (!dataWarehouseUrl) return;
   try {
-    fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
+    await fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
       method: "POST",
       body: JSON.stringify(event),
       headers: {
@@ -111,10 +111,11 @@ function getOrGenerateDeviceId() {
 function getOrGeneratePageId() {
   // On initial load if the router hasn't initialized a state change yet then history.state will be null.
   // Since this only happens on one pageload, using a hardcoded default key should still work as its own key
-  if (!((window.history.state?.key || "") in pageIds)) {
-    pageIds[window.history.state.key] = uuidv4();
+  const pageIdKey = window.history.state?.key || "";
+  if (!(pageIdKey in pageIds)) {
+    pageIds[pageIdKey] = uuidv4();
   }
-  return pageIds[window.history.state.key];
+  return pageIds[pageIdKey];
 }
 
 function getOrGenerateSessionId() {
@@ -196,7 +197,7 @@ export default function track(
     org: isCloud() ? org : "",
   };
 
-  dataWareHouseTrack({
+  void dataWareHouseTrack({
     event_name: event,
     properties_json: JSON.stringify(trackProps),
     device_id: getOrGenerateDeviceId(),

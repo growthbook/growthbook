@@ -1357,6 +1357,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -1604,6 +1605,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -1946,7 +1948,7 @@ paths:
                   description: Description of the metric
                 type:
                   type: string
-                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics/legacy)'
                   enum:
                     - binomial
                     - count
@@ -2036,11 +2038,11 @@ paths:
                     conversionWindowStart:
                       type: number
                       deprecated: true
-                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
                       deprecated: true
-                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     priorSettings:
                       type: object
                       description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
@@ -2101,7 +2103,7 @@ paths:
                       description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
                     denominatorMetricId:
                       type: string
-                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics)'
                 sqlBuilder:
                   type: object
                   description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
@@ -2243,7 +2245,7 @@ paths:
                   description: Description of the metric
                 type:
                   type: string
-                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics/legacy)'
                   enum:
                     - binomial
                     - count
@@ -2333,11 +2335,11 @@ paths:
                     conversionWindowStart:
                       type: number
                       deprecated: true
-                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
                       deprecated: true
-                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     priorSettings:
                       type: object
                       description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
@@ -2395,7 +2397,7 @@ paths:
                       description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
                     denominatorMetricId:
                       type: string
-                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics)'
                 sqlBuilder:
                   type: object
                   description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed'
@@ -3819,7 +3821,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
-              -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
+              -d '{"name":"Purchased", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -5650,6 +5652,7 @@ components:
           enum:
             - firstExposure
             - experimentDuration
+          description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
         statsEngine:
           enum:
             - bayesian

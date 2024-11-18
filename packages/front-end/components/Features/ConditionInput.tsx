@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
 import clsx from "clsx";
+import { datetime } from "shared/dates";
 import {
   condToJson,
   jsonToConds,
@@ -24,6 +25,8 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import CountrySelector, {
   ALL_COUNTRY_CODES,
 } from "@/components/Forms/CountrySelector";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import DatePicker from "@/components/DatePicker";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -332,10 +335,10 @@ export default function ConditionInput(props: Props) {
               displayType = "select-only";
             } else if (attribute.enum === ALL_COUNTRY_CODES) {
               displayType = "isoCountryCode";
-            } else if (listOperators.includes(operator)) {
-              displayType = "array-field";
             } else if (attribute.enum.length) {
               displayType = "enum";
+            } else if (listOperators.includes(operator)) {
+              displayType = "array-field";
             } else if (attribute.datatype === "number") {
               displayType = "number";
             } else if (
@@ -474,20 +477,36 @@ export default function ConditionInput(props: Props) {
                       />
                     )
                   ) : displayType === "enum" ? (
-                    <SelectField
-                      options={attribute.enum.map((v) => ({
-                        label: v,
-                        value: v,
-                      }))}
-                      value={value}
-                      onChange={(v) => {
-                        handleCondsChange(v, "value");
-                      }}
-                      name="value"
-                      initialOption="Choose One..."
-                      containerClassName="col-sm-12 col-md mb-2"
-                      required
-                    />
+                    listOperators.includes(operator) ? (
+                      <MultiSelectField
+                        options={attribute.enum.map((v) => ({
+                          label: v,
+                          value: v,
+                        }))}
+                        value={
+                          value ? value.split(",").map((val) => val.trim()) : []
+                        }
+                        onChange={handleListChange}
+                        name="value"
+                        containerClassName="col-sm-12 col-md mb-2"
+                        required
+                      />
+                    ) : (
+                      <SelectField
+                        options={attribute.enum.map((v) => ({
+                          label: v,
+                          value: v,
+                        }))}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                        name="value"
+                        initialOption="Choose One..."
+                        containerClassName="col-sm-12 col-md mb-2"
+                        required
+                      />
+                    )
                   ) : displayType === "number" ? (
                     <Field
                       type="number"
@@ -500,29 +519,37 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : displayType === "string" ? (
-                    <Field
-                      type={
-                        attribute.format === "date" &&
-                        !["$regex", "$notRegex"].includes(operator)
-                          ? "datetime-local"
-                          : undefined
-                      }
-                      value={value}
-                      onChange={handleFieldChange}
-                      name="value"
-                      className={styles.matchingInput}
-                      containerClassName={clsx("col-sm-12 col-md mb-2", {
-                        error: hasExtraWhitespace,
-                      })}
-                      helpText={
-                        hasExtraWhitespace ? (
-                          <small className="text-danger">
-                            Extra whitespace detected
-                          </small>
-                        ) : undefined
-                      }
-                      required
-                    />
+                    <>
+                      {attribute.format === "date" &&
+                      !["$regex", "$notRegex"].includes(operator) ? (
+                        <DatePicker
+                          date={value}
+                          setDate={(v) => {
+                            handleCondsChange(v ? datetime(v) : "", "value");
+                          }}
+                          inputWidth={180}
+                          containerClassName="col-sm-12 col-md mb-2"
+                        />
+                      ) : (
+                        <Field
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          className={styles.matchingInput}
+                          containerClassName={clsx("col-sm-12 col-md mb-2", {
+                            error: hasExtraWhitespace,
+                          })}
+                          helpText={
+                            hasExtraWhitespace ? (
+                              <small className="text-danger">
+                                Extra whitespace detected
+                              </small>
+                            ) : undefined
+                          }
+                          required
+                        />
+                      )}
+                    </>
                   ) : (
                     ""
                   )}

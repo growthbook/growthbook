@@ -7,7 +7,7 @@ import random
 from pydantic.dataclasses import dataclass
 from scipy.stats import chi2  # type: ignore
 
-from gbstats.models.results import BanditResult
+from gbstats.models.results import BanditResult, SingleVariationResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -43,18 +43,24 @@ class BanditResponse:
 
 
 def get_error_bandit_result(
-    update_message: str, error: str, reweight: bool, current_weights: List[float]
+    single_variation_results: Optional[List[SingleVariationResult]],
+    update_message: str,
+    srm: float,
+    error: str,
+    reweight: bool,
+    current_weights: List[float],
 ) -> BanditResult:
     return BanditResult(
-        singleVariationResults=None,
+        singleVariationResults=single_variation_results,
         currentWeights=current_weights,
         updatedWeights=current_weights,
-        srm=1,
+        srm=srm,
         bestArmProbabilities=None,
         seed=0,
         updateMessage=update_message,
         error=error,
         reweight=reweight,
+        weightsWereUpdated=False,
     )
 
 
@@ -131,15 +137,28 @@ class Bandits(ABC):
             )
         return np.sum(counts_expected_by_period, axis=0)
 
-    def compute_srm(self) -> float:
-        resid = self.variation_counts - self.counts_expected
-        resid_squared = resid**2
-        positive_expected = self.counts_expected > 0
-        test_stat = np.sum(
-            resid_squared[positive_expected] / self.counts_expected[positive_expected]
+    @property
+    def enough_samples_for_srm(self):
+        expected_count = (
+            self.current_sample_size / self.num_variations
+            if self.num_variations > 0
+            else 0
         )
-        df = self.num_variations - 1
-        return float(1 - chi2.cdf(test_stat, df=df))
+        return expected_count >= 5
+
+    def compute_srm(self) -> float:
+        if self.enough_samples_for_srm:
+            resid = self.variation_counts - self.counts_expected
+            resid_squared = resid**2
+            positive_expected = self.counts_expected > 0
+            test_stat = np.sum(
+                resid_squared[positive_expected]
+                / self.counts_expected[positive_expected]
+            )
+            df = self.num_variations - 1
+            return float(1 - chi2.cdf(test_stat, df=df))
+        else:
+            return 1
 
     # sample sizes by variation
     @property
@@ -229,9 +248,7 @@ class Bandits(ABC):
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
-        min_n = 100 * self.num_variations
-        enough_units = self.current_sample_size >= min_n
-
+        enough_units = all(self.variation_counts >= 100)
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
@@ -241,10 +258,7 @@ class Bandits(ABC):
             seed=seed,
             bandit_update_message=update_message
             if enough_units
-            else "total sample size is only "
-            + str(self.current_sample_size)
-            + " and it needs to be at least 100 * "
-            + str(self.num_variations),
+            else "total sample size must be at least 100 per variation",
             enough_units=enough_units,
         )
 

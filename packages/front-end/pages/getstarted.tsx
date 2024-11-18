@@ -14,6 +14,7 @@ import {
 import { IconType } from "react-icons";
 import clsx from "clsx";
 import { useRouter } from "next/router";
+import { Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
@@ -121,7 +122,7 @@ const GetStartedPage = (): React.ReactElement => {
   }, [clearStep]);
 
   return (
-    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
+    <div className="container pagecontents p-4">
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
@@ -322,7 +323,7 @@ const GetStartedPage = (): React.ReactElement => {
               </Link>
             </div>
 
-            <hr />
+            <Separator size="4" my="4" />
 
             <div className="mt-4 mb-4">
               <h6 className="text-muted mb-3">PRODUCT OVERVIEW</h6>
@@ -347,13 +348,13 @@ const GetStartedPage = (): React.ReactElement => {
                     />
                   </a>
                   <a
-                    href="https://blog.growthbook.io/growthbook-version-3-2/"
+                    href="https://blog.growthbook.io/growthbook-version-3-3/"
                     target="_blank"
                     rel="noreferrer"
-                    key="3-2-release"
+                    key="3-3-release"
                   >
                     <FeaturedCard
-                      imgUrl={"/images/get-started/thumbnails/3.2-release.svg"}
+                      imgUrl={"/images/get-started/thumbnails/3.3-release.svg"}
                       lastCard
                     />
                   </a>

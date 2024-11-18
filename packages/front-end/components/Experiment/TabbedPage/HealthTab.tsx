@@ -257,7 +257,11 @@ export default function HealthTab({
   return (
     <div className="mt-4">
       <IssueTags issues={healthIssues} />
-      <TrafficCard traffic={traffic} variations={variations} />
+      <TrafficCard
+        traffic={traffic}
+        variations={variations}
+        isBandit={isBandit}
+      />
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <SRMCard

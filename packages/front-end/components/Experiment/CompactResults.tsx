@@ -18,7 +18,11 @@ import {
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+  getMetricLink,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -109,7 +113,7 @@ const CompactResults: FC<{
   noTooltip,
   experimentType,
 }) => {
-  const { getExperimentMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
   const [totalUsers, variationUsers] = useMemo(() => {
@@ -123,9 +127,27 @@ const CompactResults: FC<{
     return [totalUsers, variationUsers];
   }, [results]);
 
+  const {
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+  } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedSecondaries = expandMetricGroups(
+      secondaryMetrics,
+      metricGroups
+    );
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      metricGroups
+    );
+
+    return { expandedGoals, expandedSecondaries, expandedGuardrails };
+  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
-    [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
+    [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
       (metricId) => {
         const metric = getExperimentMetricById(metricId);
         metric?.tags?.forEach((tag) => {
@@ -135,9 +157,9 @@ const CompactResults: FC<{
     );
     return [...allMetricTagsSet];
   }, [
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
     getExperimentMetricById,
   ]);
 
@@ -148,7 +170,9 @@ const CompactResults: FC<{
     ) {
       const metric = getExperimentMetricById(metricId);
 
-      if (!metric) return null;
+      if (!metric) {
+        return null;
+      }
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
         metricOverrides
@@ -182,11 +206,11 @@ const CompactResults: FC<{
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
-      setAdjustedPValuesOnResults([results], goalMetrics, pValueCorrection);
+      setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
       setAdjustedCIs([results], pValueThreshold);
     }
 
-    const metricDefs = goalMetrics
+    const metricDefs = expandedGoals
       .map((metricId) => getExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
@@ -194,7 +218,7 @@ const CompactResults: FC<{
       metricFilter
     );
 
-    const secondaryDefs = secondaryMetrics
+    const secondaryDefs = expandedSecondaries
       .map((metricId) => getExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredSecondary = sortAndFilterMetricsByTags(
@@ -202,7 +226,7 @@ const CompactResults: FC<{
       metricFilter
     );
 
-    const guardrailDefs = guardrailMetrics
+    const guardrailDefs = expandedGuardrails
       .map((metricId) => getExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
@@ -222,9 +246,9 @@ const CompactResults: FC<{
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
     metricOverrides,
     settingsForSnapshotMetrics,
     pValueCorrection,
@@ -287,7 +311,7 @@ const CompactResults: FC<{
         </>
       )}
 
-      {goalMetrics.length ? (
+      {expandedGoals.length ? (
         <ResultsTable
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
@@ -334,7 +358,7 @@ const CompactResults: FC<{
         />
       ) : null}
 
-      {!mainTableOnly && secondaryMetrics.length ? (
+      {!mainTableOnly && expandedSecondaries.length ? (
         <div className="mt-4">
           <ResultsTable
             dateCreated={reportDate}
@@ -370,7 +394,7 @@ const CompactResults: FC<{
         </div>
       ) : null}
 
-      {!mainTableOnly && guardrailMetrics.length ? (
+      {!mainTableOnly && expandedGuardrails.length ? (
         <div className="mt-4">
           <ResultsTable
             dateCreated={reportDate}

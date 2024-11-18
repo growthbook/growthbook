@@ -1,15 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function BanditUpdateStatus({
   experiment,
@@ -51,9 +51,14 @@ export default function BanditUpdateStatus({
         1000
   );
 
-  const error = !lastEvent?.banditResult
+  const _error = !lastEvent?.banditResult
     ? "Bandit update failed"
     : lastEvent?.banditResult?.error;
+
+  const [error, setError] = useState<string | undefined>(_error);
+  const [generatedSnapshot, setGeneratedSnapshot] = useState<
+    ExperimentSnapshotInterface | undefined
+  >(undefined);
 
   return (
     <div className="hover-highlight rounded">
@@ -192,24 +197,26 @@ export default function BanditUpdateStatus({
           </div>
 
           {error ? (
-            <div className="alert alert-danger mx-2 px-1 py-1 row align-items-start">
+            <div className="alert small alert-danger mx-2 px-1 pt-2 pb-1 row align-items-start">
               <div className="col">
                 <FaExclamationTriangle className="mr-1" />
                 {error}
               </div>
-              {latest ? (
+              {generatedSnapshot || latest ? (
                 <div className="col-auto">
-                  <Tooltip body="View Queries" popperClassName="text-center">
-                    <ViewAsyncQueriesButton
-                      queries={latest.queries?.map((q) => q.query) ?? []}
-                      error={latest.error}
-                      status={status}
-                      display={null}
-                      color="link link-purple p-0 pt-1"
-                      condensed={true}
-                      hideQueryCount={true}
-                    />
-                  </Tooltip>
+                  <ViewAsyncQueriesButton
+                    queries={
+                      (generatedSnapshot || latest)?.queries?.map(
+                        (q) => q.query
+                      ) ?? []
+                    }
+                    error={(generatedSnapshot || latest)?.error}
+                    status={status}
+                    display={null}
+                    color="link link-purple p-0 pb-1"
+                    condensed={true}
+                    hideQueryCount={true}
+                  />
                 </div>
               ) : null}
             </div>
@@ -218,7 +225,12 @@ export default function BanditUpdateStatus({
           {experiment.status === "running" && (
             <>
               <hr className="mx-2" />
-              <RefreshBanditButton mutate={mutate} experiment={experiment} />
+              <RefreshBanditButton
+                mutate={mutate}
+                experiment={experiment}
+                setError={setError}
+                setGeneratedSnapshot={setGeneratedSnapshot}
+              />
             </>
           )}
         </div>

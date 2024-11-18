@@ -764,7 +764,7 @@ const MetricForm: FC<MetricFormProps> = ({
             })}
             className="portal-overflow-ellipsis"
             name="datasource"
-            initialOption="Manual"
+            required={!edit}
             disabled={
               isExclusivelyForDemoDatasourceProject ||
               edit ||

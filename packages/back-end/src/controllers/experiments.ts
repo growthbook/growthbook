@@ -555,12 +555,29 @@ export async function postExperiments(
           return;
         }
       } else {
-        // new metric that's not recognized...
-        res.status(403).json({
-          status: 403,
-          message: "Unknown metric: " + metricIds[i],
-        });
-        return;
+        // check to see if this metric is actually a metric group
+        const metricGroup = await context.models.metricGroups.getById(
+          metricIds[i]
+        );
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (data.datasource && metricGroup.datasource !== data.datasource) {
+            res.status(400).json({
+              status: 400,
+              message:
+                "Metric group must be tied to the same datasource as the experiment: " +
+                metricIds[i],
+            });
+            return;
+          }
+        } else {
+          // new metric that's not recognized...
+          res.status(403).json({
+            status: 403,
+            message: "Unknown metric: " + metricIds[i],
+          });
+          return;
+        }
       }
     }
   }
@@ -572,6 +589,7 @@ export async function postExperiments(
     archived: false,
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
+    disableStickyBucketing: data.disableStickyBucketing ?? false,
     hashVersion: data.hashVersion || 2,
     autoSnapshots: true,
     dateCreated: new Date(),
@@ -818,6 +836,7 @@ export async function postExperiment(
   const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
     (m) => !oldMetricIds.includes(m)
   );
+
   const metricMap = await getMetricMap(context);
 
   if (newMetricIds.length) {
@@ -835,12 +854,29 @@ export async function postExperiment(
           return;
         }
       } else {
-        // new metric that's not recognized...
-        res.status(403).json({
-          status: 403,
-          message: "Unknown metric: " + newMetricIds[i],
-        });
-        return;
+        // check to see if this metric is actually a metric group
+        const metricGroup = await context.models.metricGroups.getById(
+          newMetricIds[i]
+        );
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (metricGroup.datasource !== datasourceId) {
+            res.status(400).json({
+              status: 400,
+              message:
+                "Metric group must be tied to the same datasource as the experiment: " +
+                newMetricIds[i],
+            });
+            return;
+          }
+        } else {
+          // new metric that's not recognized...
+          res.status(403).json({
+            status: 403,
+            message: "Unknown metric: " + newMetricIds[i],
+          });
+          return;
+        }
       }
     }
   }
@@ -857,6 +893,7 @@ export async function postExperiment(
     "userIdType",
     "hashAttribute",
     "fallbackAttribute",
+    "disableStickyBucketing",
     "hashVersion",
     "name",
     "tags",
