@@ -28,7 +28,7 @@ const DiscussionThread: FC<{
   id,
   allowNewComments = true,
   showTitle = false,
-  title = "Add comment",
+  title = "添加评论",
   projects,
 }) => {
   const { apiCall } = useAuth();
@@ -69,7 +69,7 @@ const DiscussionThread: FC<{
                 <div className="media-body">
                   {edit === i ? (
                     <CommentForm
-                      cta="Save"
+                      cta="保存"
                       onSave={() => {
                         mutate();
                         setEdit(null);
@@ -143,7 +143,7 @@ const DiscussionThread: FC<{
           {!showTitle && <hr />}
           {showTitle && <h4 className="add-comment-title">{title}</h4>}
           <CommentForm
-            cta="Comment"
+            cta="评论"
             onSave={mutate}
             index={-1}
             id={id}

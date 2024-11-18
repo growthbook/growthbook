@@ -175,7 +175,7 @@ const EditMetricsForm: FC<{
       trackingEventModalType="edit-metrics-form"
       trackingEventModalSource={source}
       autoFocusSelector=""
-      header="Edit Metrics"
+      header="编辑指标"
       size="lg"
       open={true}
       close={cancel}
@@ -189,7 +189,7 @@ const EditMetricsForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      cta="保存"
     >
       <ExperimentMetricsSelector
         datasource={experiment.datasource}

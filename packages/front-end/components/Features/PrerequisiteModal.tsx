@@ -185,7 +185,7 @@ export default function PrerequisiteModal({
       open={true}
       close={close}
       size="lg"
-      cta="Save"
+      cta="保存"
       ctaEnabled={canSubmit}
       bodyClassName="mx-2"
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}

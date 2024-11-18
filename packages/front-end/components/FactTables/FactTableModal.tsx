@@ -111,7 +111,7 @@ export default function FactTableModal({ existing, close }: Props) {
         trackingEventModalType=""
         open={true}
         close={close}
-        cta={"Save"}
+        cta={"保存"}
         header={existing ? "Edit Fact Table" : "Create Fact Table"}
         submit={form.handleSubmit(async (value) => {
           if (!value.userIdTypes.length) {

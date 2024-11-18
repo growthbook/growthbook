@@ -75,7 +75,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
       trackingEventModalType=""
       open={true}
       close={close}
-      cta={"Save"}
+      cta={"保存"}
       size="lg"
       header={existing ? "Edit Filter" : "Add Filter"}
       submit={form.handleSubmit(async (value) => {

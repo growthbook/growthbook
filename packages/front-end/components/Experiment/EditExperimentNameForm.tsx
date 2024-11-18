@@ -20,7 +20,7 @@ const EditExperimentNameForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      header={"Edit Name"}
+      header={"编辑名称"}
       open={true}
       close={cancel}
       size="lg"
@@ -31,10 +31,10 @@ const EditExperimentNameForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      cta="保存"
     >
       <Field
-        label="Name"
+        label="名称"
         {...form.register("name", { setValueAs: (s) => s?.trim() })}
       />
     </Modal>

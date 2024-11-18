@@ -61,7 +61,7 @@ const EditVariationsForm: FC<{
         mutate();
         track("edited-variations");
       })}
-      cta="Save"
+      cta="保存"
     >
       <ExperimentVariationsInput
         variations={form.watch("variations")}

@@ -46,7 +46,7 @@ const EditDataSourceForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      cta="保存"
     >
       <SelectField
         label="Data Source"

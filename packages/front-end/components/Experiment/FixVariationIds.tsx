@@ -37,7 +37,7 @@ export default function FixVariationIds({
 
         await setVariationIds(ids);
       })}
-      cta="Save"
+      cta="保存"
       close={close}
       header="Fix Variation Ids"
     >

@@ -188,7 +188,7 @@ export default function EditTargetingModal({
         header={`Edit Targeting`}
         ctaEnabled={canSubmit}
         submit={onSubmit}
-        cta="Save"
+        cta="保存"
         size="lg"
       >
         <TargetingForm

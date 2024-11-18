@@ -85,7 +85,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       open={true}
       close={close}
       header={title}
-      cta="Save"
+      cta="保存"
       submit={form.handleSubmit(async (value) => {
         if (value.datatype !== "string") {
           value.format = "";

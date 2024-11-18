@@ -405,7 +405,7 @@ function SimpleSchemaEditor({
             submit={async () => {
               setValue(tempValue);
             }}
-            cta="Save"
+            cta="保存"
             // Render with a higher z-index so it sits on top of other open modals
             increasedElevation={true}
           >

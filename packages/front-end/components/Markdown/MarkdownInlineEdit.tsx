@@ -58,7 +58,7 @@ export default function MarkdownInlineEdit({
         <MarkdownInput
           value={val}
           setValue={setVal}
-          cta={"Save"}
+          cta={"保存"}
           error={error ?? undefined}
           autofocus={true}
           onCancel={() => setEdit(false)}
@@ -74,9 +74,9 @@ export default function MarkdownInlineEdit({
           edit={
             value && canEdit
               ? () => {
-                  setVal(value || "");
-                  setEdit(true);
-                }
+                setVal(value || "");
+                setEdit(true);
+              }
               : undefined
           }
           className={headerClassName}
@@ -101,10 +101,10 @@ export default function MarkdownInlineEdit({
                     setEdit(true);
                   }}
                 >
-                  <em>Add {label}</em>
+                  <em>添加描述</em>
                 </a>
               ) : (
-                <em>No {label}</em>
+                <em>无描述</em>
               )}
             </div>
           )}

@@ -104,7 +104,7 @@ const ImpactModal: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      cta="保存"
       close={close}
     >
       <SelectField

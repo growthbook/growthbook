@@ -306,7 +306,7 @@ const AnalysisForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      cta="保存"
     >
       <div className="mx-2">
         {isBandit && (

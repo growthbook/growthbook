@@ -89,7 +89,7 @@ const MetricGroupModal: FC<{
 
         await mutate();
       })}
-      cta="Save"
+      cta="保存"
       close={close}
     >
       <Field label="Name" {...form.register("name")} required={true} />

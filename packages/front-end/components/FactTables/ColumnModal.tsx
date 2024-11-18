@@ -48,7 +48,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       trackingEventModalType=""
       open={true}
       close={close}
-      cta={"Save"}
+      cta={"保存"}
       header={existing ? "Edit Column" : "Add Column"}
       submit={form.handleSubmit(async (value) => {
         if (!value.name) value.name = value.column;

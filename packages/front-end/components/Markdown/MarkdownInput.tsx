@@ -17,7 +17,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
-const Loading = () => <div>Loading</div>;
+const Loading = () => <div>加载中</div>;
 
 const MarkdownInput: FC<{
   value: string;
@@ -38,182 +38,182 @@ const MarkdownInput: FC<{
   onCancel,
   placeholder,
 }) => {
-  const [preview, setPreview] = useState(false);
-  const { apiCall } = useAuth();
-  const textareaRef = useRef<null | HTMLTextAreaElement>(null);
-  const [uploading, setUploading] = useState(false);
-  useEffect(() => {
-    if (autofocus && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [autofocus, textareaRef.current]);
+    const [preview, setPreview] = useState(false);
+    const { apiCall } = useAuth();
+    const textareaRef = useRef<null | HTMLTextAreaElement>(null);
+    const [uploading, setUploading] = useState(false);
+    useEffect(() => {
+      if (autofocus && textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, [autofocus, textareaRef.current]);
 
-  const onDrop = (files: File[]) => {
-    setUploading(true);
-    const toAdd: string[] = [];
-    const promises = Promise.all(
-      files.map(async (file, i) => {
-        const name = file.name.replace(/[^a-zA-Z0-9_\-.\s]*/g, "");
+    const onDrop = (files: File[]) => {
+      setUploading(true);
+      const toAdd: string[] = [];
+      const promises = Promise.all(
+        files.map(async (file, i) => {
+          const name = file.name.replace(/[^a-zA-Z0-9_\-.\s]*/g, "");
 
-        const { fileURL } = await uploadFile(apiCall, file);
+          const { fileURL } = await uploadFile(apiCall, file);
 
-        toAdd[i] = `![${name}](${fileURL})`;
-      })
-    );
+          toAdd[i] = `![${name}](${fileURL})`;
+        })
+      );
 
-    promises
-      .then(() => {
-        setValue(value + toAdd.join("\n") + "\n");
-        setUploading(false);
-      })
-      .catch((e) => {
-        alert("Failed to upload image: " + e);
-        setUploading(false);
-      });
-  };
-  const { getRootProps, getInputProps, open } = useDropzone({
-    onDrop,
-    noClick: true,
-    noKeyboard: true,
-    accept: "image/png, image/jpeg, image/gif",
-  });
+      promises
+        .then(() => {
+          setValue(value + toAdd.join("\n") + "\n");
+          setUploading(false);
+        })
+        .catch((e) => {
+          alert("上传图片失败：" + e);
+          setUploading(false);
+        });
+    };
+    const { getRootProps, getInputProps, open } = useDropzone({
+      onDrop,
+      noClick: true,
+      noKeyboard: true,
+      accept: "image/png, image/jpeg, image/gif",
+    });
 
-  // getRootProps assumes generic HTMLElement, but we're using HTMLDivElement
-  const rootProps: unknown = getRootProps();
-  const typedRootProps = rootProps as DetailedHTMLProps<
-    HTMLAttributes<HTMLDivElement>,
-    HTMLDivElement
-  >;
+    // getRootProps assumes generic HTMLElement, but we're using HTMLDivElement
+    const rootProps: unknown = getRootProps();
+    const typedRootProps = rootProps as DetailedHTMLProps<
+      HTMLAttributes<HTMLDivElement>,
+      HTMLDivElement
+    >;
 
-  return (
-    <div className="card">
-      <div className="card-header">
-        <ul className="nav nav-tabs card-header-tabs">
-          <li className="nav-item">
-            <a
-              className={clsx("nav-link", { active: !preview })}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setPreview(false);
-              }}
-            >
-              Write
-            </a>
-          </li>
-          <li className="nav-item">
-            <a
-              className={clsx("nav-link", {
-                active: preview,
-                disabled: value?.length < 1,
-              })}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setPreview(true);
-              }}
-            >
-              Preview
-            </a>
-          </li>
-        </ul>
-      </div>
-      <div className="card-body pb-2">
-        {preview && <Markdown className="card-text">{value}</Markdown>}
-
-        <div
-          className={clsx({
-            "d-none": preview,
-          })}
-        >
-          <div className="position-relative" {...typedRootProps}>
-            <ReactTextareaAutocomplete
-              className="form-control border-bottom-0"
-              rows={6}
-              loadingComponent={Loading}
-              minChar={0}
-              dropdownStyle={{
-                position: "absolute",
-                maxHeight: 100,
-                overflowY: "auto",
-              }}
-              id={id}
-              innerRef={(textarea) => {
-                textareaRef.current = textarea;
-              }}
-              style={{
-                borderBottomLeftRadius: 0,
-                borderBottomRightRadius: 0,
-              }}
-              value={value}
-              onChange={(e) => {
-                setValue(e.target.value);
-              }}
-              placeholder={placeholder}
-              trigger={{
-                ":": {
-                  dataProvider: (token) => {
-                    return emoji(token)
-                      .slice(0, 10)
-                      .map(({ name, char }) => ({ name, char }));
-                  },
-                  component: Item,
-                  output: (item) => item.char,
-                },
-              }}
-            />
-            {uploading && <LoadingOverlay />}
-            <input {...getInputProps()} />
-            <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
+    return (
+      <div className="card">
+        <div className="card-header">
+          <ul className="nav nav-tabs card-header-tabs">
+            <li className="nav-item">
               <a
-                href="https://guides.github.com/features/mastering-markdown/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-dark float-right"
-                style={{
-                  fontSize: "1.2em",
-                  lineHeight: "1em",
+                className={clsx("nav-link", { active: !preview })}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPreview(false);
                 }}
-                title="Github-flavored Markdown is supported"
               >
-                <FaMarkdown />
+                撰写
               </a>
-              <div className="small text-muted" onClick={open}>
-                Upload images by dragging &amp; dropping or clicking here{" "}
+            </li>
+            <li className="nav-item">
+              <a
+                className={clsx("nav-link", {
+                  active: preview,
+                  disabled: value?.length < 1,
+                })}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPreview(true);
+                }}
+              >
+                预览
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div className="card-body pb-2">
+          {preview && <Markdown className="card-text">{value}</Markdown>}
+
+          <div
+            className={clsx({
+              "d-none": preview,
+            })}
+          >
+            <div className="position-relative" {...typedRootProps}>
+              <ReactTextareaAutocomplete
+                className="form-control border-bottom-0"
+                rows={6}
+                loadingComponent={Loading}
+                minChar={0}
+                dropdownStyle={{
+                  position: "absolute",
+                  maxHeight: 100,
+                  overflowY: "auto",
+                }}
+                id={id}
+                innerRef={(textarea) => {
+                  textareaRef.current = textarea;
+                }}
+                style={{
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                }}
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                }}
+                placeholder={placeholder}
+                trigger={{
+                  ":": {
+                    dataProvider: (token) => {
+                      return emoji(token)
+                        .slice(0, 10)
+                        .map(({ name, char }) => ({ name, char }));
+                    },
+                    component: Item,
+                    output: (item) => item.char,
+                  },
+                }}
+              />
+              {uploading && <LoadingOverlay />}
+              <input {...getInputProps()} />
+              <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
+                <a
+                  href="https://guides.github.com/features/mastering-markdown/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-dark float-right"
+                  style={{
+                    fontSize: "1.2em",
+                    lineHeight: "1em",
+                  }}
+                  title="支持Github风格的Markdown"
+                >
+                  <FaMarkdown />
+                </a>
+                <div className="small text-muted" onClick={open}>
+                  通过拖拽或点击此处上传图片
+                </div>
               </div>
             </div>
-          </div>
-          <div className="row">
-            {error ? (
+            <div className="row">
+              {error ? (
+                <div className="col-auto">
+                  <span className="text-danger">{error}</span>
+                </div>
+              ) : (
+                ""
+              )}
+              <div style={{ flex: 1 }} />
               <div className="col-auto">
-                <span className="text-danger">{error}</span>
+                {onCancel && (
+                  <button
+                    className="btn btn-link mr-2 ml-3"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onCancel();
+                    }}
+                  >
+                    取消
+                  </button>
+                )}
+                {cta && (
+                  <button type="submit" className="btn btn-primary">
+                    {cta}
+                  </button>
+                )}
               </div>
-            ) : (
-              ""
-            )}
-            <div style={{ flex: 1 }} />
-            <div className="col-auto">
-              {onCancel && (
-                <button
-                  className="btn btn-link mr-2 ml-3"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onCancel();
-                  }}
-                >
-                  cancel
-                </button>
-              )}
-              {cta && (
-                <button type="submit" className="btn btn-primary">
-                  {cta}
-                </button>
-              )}
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 export default MarkdownInput;

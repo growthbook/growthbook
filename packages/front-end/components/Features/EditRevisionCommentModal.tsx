@@ -27,7 +27,7 @@ export default function EditRevisionCommentModal({
       open={true}
       close={close}
       header="Edit Revision Comment"
-      cta={"Save"}
+      cta={"保存"}
       submit={async () => {
         await apiCall(`/feature/${feature.id}/${revision.version}/comment`, {
           method: "PUT",

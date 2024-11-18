@@ -45,7 +45,7 @@ export default function SetupTabOverview({
 
   return (
     <div>
-      <h2>Overview</h2>
+      <h2>预览</h2>
       {experiment.status === "draft" ? (
         <PreLaunchChecklist
           experiment={experiment}
@@ -75,8 +75,8 @@ export default function SetupTabOverview({
             }}
             canCreate={canEditExperiment}
             canEdit={canEditExperiment}
-            label="description"
-            header="Description"
+            label="描述"
+            header="描述"
             headerClassName="h4"
             containerClassName="mb-1"
           />
@@ -96,8 +96,8 @@ export default function SetupTabOverview({
             }}
             canCreate={canEditExperiment}
             canEdit={canEditExperiment}
-            label="hypothesis"
-            header="Hypothesis"
+            label="假设"
+            header="假设"
             headerClassName="h4"
             containerClassName="mb-1"
           />

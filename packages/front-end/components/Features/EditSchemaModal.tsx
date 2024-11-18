@@ -446,7 +446,7 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
     <Modal
       trackingEventModalType=""
       header="Edit Feature Validation"
-      cta="Save"
+      cta="保存"
       size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {

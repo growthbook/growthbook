@@ -717,7 +717,7 @@ export default function RuleModal({
         trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
-        cta="Save"
+        cta="保存"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         bodyClassName="px-4"
         header={headerText}

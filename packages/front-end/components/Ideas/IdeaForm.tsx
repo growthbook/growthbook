@@ -48,8 +48,8 @@ const IdeaForm: FC<{
       close={close}
       open={true}
       submit={submit}
-      cta={edit ? "Save" : "Create"}
-      closeCta="Cancel"
+      cta={edit ? "保存" : "创建"}
+      closeCta="取消"
     >
       <Field
         required
@@ -58,7 +58,7 @@ const IdeaForm: FC<{
       />
       {edit && (
         <Field
-          label="Project"
+          label="项目"
           {...form.register("project")}
           options={projects.map((p) => ({ display: p.name, value: p.id }))}
           initialOption="None"

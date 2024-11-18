@@ -123,15 +123,15 @@ export function PreLaunchChecklist({
     items.push({
       display: (
         <>
-          Add at least one{isBandit && " live"}{" "}
+          添加至少一个{isBandit && " live"}{" "}
           {openSetupTab &&
-          ((isBandit && !hasLiveLinkedChanges) ||
-            (!isBandit && hasLinkedChanges)) ? (
+            ((isBandit && !hasLiveLinkedChanges) ||
+              (!isBandit && hasLinkedChanges)) ? (
             <a className="a" role="button" onClick={openSetupTab}>
-              Linked Feature or Visual Editor change
+              关联特性或可视化编辑器变更
             </a>
           ) : (
-            "Linked Feature, Visual Editor change, or URL Redirect"
+            "关联特性、可视化编辑器变更或URL重定向"
           )}
           .
         </>
@@ -153,12 +153,12 @@ export function PreLaunchChecklist({
                 role="button"
                 onClick={() => setAnalysisModal(true)}
               >
-                Choose
+                选择
               </a>
             ) : (
-              "Choose"
+              "选择"
             )}{" "}
-            a Decision Metric and update cadence.
+            一个决策指标并更新节奏。
           </>
         ),
         status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
@@ -181,15 +181,14 @@ export function PreLaunchChecklist({
         type: "auto",
         display: (
           <>
-            Publish and enable all{" "}
-            {openSetupTab ? (
+            发布并启用所有{openSetupTab ? (
               <a className="a" role="button" onClick={openSetupTab}>
-                Linked Feature
+                关联特性
               </a>
             ) : (
-              "Linked Feature"
-            )}{" "}
-            rules.
+              "关联特性"
+            )}
+            规则。
           </>
         ),
       });
@@ -203,15 +202,14 @@ export function PreLaunchChecklist({
       items.push({
         display: (
           <>
-            Add changes in the{" "}
-            {openSetupTab ? (
+            在{openSetupTab ? (
               <a className="a" role="button" onClick={openSetupTab}>
-                Visual Editor
+                可视化编辑器
               </a>
             ) : (
-              "Visual Editor"
+              "可视化编辑器"
             )}
-            .
+            中添加变更。
           </>
         ),
         status: hasSomeVisualChanges ? "complete" : "incomplete",
@@ -230,15 +228,15 @@ export function PreLaunchChecklist({
               role="button"
               onClick={() => {
                 editTargeting();
-                track("Edit targeting", { source: "experiment-start-banner" });
+                track("编辑目标定位", { source: "experiment-start-banner" });
               }}
             >
-              Configure
+              配置
             </a>
           ) : (
-            "Configure"
-          )}{" "}
-          variation assignment and targeting behavior.
+            "配置"
+          )}
+          变体分配和目标定位行为。
         </>
       ),
       status: hasPhases ? "complete" : "incomplete",
@@ -251,8 +249,7 @@ export function PreLaunchChecklist({
         status: usingStickyBucketing ? "complete" : "incomplete",
         display: (
           <>
-            <Link href="/settings">Enable Sticky Bucketing</Link> for your
-            organization and verify it is implemented properly in your codebase.
+            <Link href="/settings">启用粘性分桶</Link> 以用于您的组织，并验证其在您的代码库中是否正确实现。
           </>
         ),
       });
@@ -266,9 +263,9 @@ export function PreLaunchChecklist({
         : "incomplete",
       display: (
         <>
-          Verify your app is passing both
-          <strong> attributes </strong>
-          and a <strong> trackingCallback </strong>into the GrowthBook SDK.
+          验证您的应用是否正在向GrowthBook SDK传递
+          <strong> 属性 </strong>
+          和一个 <strong> 跟踪回调 </strong>。
         </>
       ),
     });
@@ -280,8 +277,7 @@ export function PreLaunchChecklist({
         : "incomplete",
       display: (
         <>
-          Verify your app is tracking events for all of the metrics that you
-          plan to include in the analysis.
+          验证您的应用是否正在为您计划在分析中包含的所有指标跟踪事件。
         </>
       ),
     });
@@ -383,7 +379,7 @@ export function PreLaunchChecklist({
         <InitialSDKConnectionForm
           close={() => setShowSdkForm(false)}
           includeCheck={true}
-          cta="Continue"
+          cta="继续"
           goToNextStep={() => {
             setShowSdkForm(false);
           }}
@@ -410,14 +406,13 @@ export function PreLaunchChecklist({
           trigger={
             <div className="d-flex flex-row align-items-center justify-content-between text-dark px-4">
               <h4 className="m-0 py-3">
-                Pre-Launch Checklist{" "}
+                预发布检查清单{" "}
                 {data && checklistItemsRemaining !== null ? (
                   <span
-                    className={`badge rounded-circle p-1 ${
-                      checklistItemsRemaining === 0
-                        ? "badge-success"
-                        : "badge-warning"
-                    } mx-2 my-0`}
+                    className={`badge rounded-circle p-1 ${checklistItemsRemaining === 0
+                      ? "badge-success"
+                      : "badge-warning"
+                      } mx-2 my-0`}
                     style={{ minWidth: 22 }}
                   >
                     {checklistItemsRemaining === 0 ? (
@@ -435,7 +430,7 @@ export function PreLaunchChecklist({
                   href={"/settings?editCheckListModal=true"}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <span className="text-purple">Edit</span>
+                  <span className="text-purple">编辑</span>
                 </Link>
               ) : null}
               <FaAngleRight className="chevron" />
@@ -458,7 +453,7 @@ export function PreLaunchChecklist({
                   >
                     <div className="d-flex align-items-center">
                       <Tooltip
-                        body="GrowthBook calculates the completion of this task automatically."
+                        body="GrowthBook会自动计算此任务的完成情况。"
                         shouldDisplay={item.type === "auto"}
                       >
                         <input
@@ -496,18 +491,17 @@ export function PreLaunchChecklist({
         {data && !verifiedConnections.length ? (
           <div className="alert alert-danger mx-3">
             <strong>
-              Before you can run an experiment, you need to integrate GrowthBook
-              into your app.{" "}
+              在您可以运行实验之前，您需要将GrowthBook集成到您的应用中。{" "}
             </strong>
             {connections.length > 0 ? (
-              <Link href="/sdks">Manage SDK Connections</Link>
+              <Link href="/sdks">管理SDK连接</Link>
             ) : (
               <a
                 className="a"
                 role="button"
                 onClick={() => setShowSdkForm(true)}
               >
-                Add SDK Connection
+                添加SDK连接
               </a>
             )}
           </div>
