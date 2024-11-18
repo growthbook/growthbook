@@ -66,14 +66,16 @@ export default function PremiumTooltip({
       trackingEventTooltipSource={commercialFeature}
       {...otherProps}
     >
-      {!hasFeature && (
-        <GBPremiumBadge
-          className="text-premium"
-          shouldDisplay={!hasFeature}
-          prependsText={true}
-        />
-      )}
-      {children}
+      <div className="d-flex align-items-center">
+        {!hasFeature && (
+          <GBPremiumBadge
+            className="text-premium"
+            shouldDisplay={!hasFeature}
+            prependsText={true}
+          />
+        )}
+        {children}
+      </div>
     </Tooltip>
   );
 }
