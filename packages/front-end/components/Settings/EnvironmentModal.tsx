@@ -69,15 +69,15 @@ export default function EnvironmentModal({
       close={close}
       header={
         existing.id
-          ? `Edit ${existing.id} Environment`
-          : "Create New Environment"
+          ? `编辑${existing.id}环境`
+          : "创建新环境"
       }
       submit={form.handleSubmit(async (value) => {
         const newEnvs = [...environments];
 
         if (existing.id) {
           const env = newEnvs.filter((e) => e.id === existing.id)[0];
-          if (!env) throw new Error("Could not edit environment");
+          if (!env) throw new Error("无法编辑环境");
           await apiCall(`/environment/${existing.id}`, {
             method: "PUT",
             body: JSON.stringify({
@@ -92,11 +92,11 @@ export default function EnvironmentModal({
         } else {
           if (!value.id?.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
-              "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
+              "环境ID无效。必须以字母开头，且只能包含字母、数字、连字符和下划线。"
             );
           }
           if (newEnvs.find((e) => e.id === value.id)) {
-            throw new Error("Environment id is already in use");
+            throw new Error("环境ID已被使用");
           }
           const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",
@@ -124,33 +124,31 @@ export default function EnvironmentModal({
           maxLength={30}
           required
           pattern="^[A-Za-z][A-Za-z0-9_-]*$"
-          title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
+          title="必须以字母开头。只能包含字母、数字、连字符和下划线。不能有空格或特殊字符。"
           {...form.register("id")}
           label="Id"
           helpText={
             <>
               <div>
-                Only letters, numbers, hyphens, and underscores allowed. No
-                spaces.
+                只允许字母、数字、连字符和下划线。不能有空格。
               </div>
               <div>
-                Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
-                <code>john_dev</code>
+                有效示例：<code>prod</code>，<code>qa-1</code>，<code>john_dev</code>
               </div>
             </>
           }
         />
       )}
       <Field
-        label="Description"
+        label="描述"
         {...form.register("description")}
         placeholder=""
         textarea
       />
       <div className="mb-4">
         <MultiSelectField
-          label="Projects"
-          placeholder="All Projects"
+          label="项目"
+          placeholder="所有项目"
           value={form.watch("projects") || []}
           onChange={(projects) => form.setValue("projects", projects)}
           options={projectsOptions}
@@ -159,10 +157,7 @@ export default function EnvironmentModal({
         />
         {hasMoreSpecificProjectFilter && sdkConnections.length > 0 && (
           <div className="alert alert-warning">
-            <FaExclamationTriangle /> You have made the projects filter more
-            restrictive than before. {sdkConnections.length} SDK Connection
-            {sdkConnections.length === 1 ? "" : "s"} using this environment may
-            be impacted.
+            <FaExclamationTriangle /> 您已使项目过滤器比之前更具限制性。使用此环境的{sdkConnections.length}个SDK连接可能会受到影响。
           </div>
         )}
       </div>
@@ -175,17 +170,17 @@ export default function EnvironmentModal({
             form.setValue("defaultState", value);
           }}
         />{" "}
-        <label htmlFor="defaultToggle">Default state for new features</label>
+        <label htmlFor="defaultToggle">新特性的默认状态</label>
       </div>
       <Toggle
         id={"toggle"}
-        label="Identifier"
+        label="标识符"
         value={!!form.watch("toggleOnList")}
         setValue={(value) => {
           form.setValue("toggleOnList", value);
         }}
       />{" "}
-      <label htmlFor="toggle">Show toggle on feature list </label>
+      <label htmlFor="toggle">在特性列表中显示切换按钮</label>
     </Modal>
   );
 }

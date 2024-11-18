@@ -461,13 +461,13 @@ const SetParamsStep = ({
       trackingEventModalType=""
       open
       size="lg"
-      header="New Calculation"
+      header="新的计算"
       close={close}
       includeCloseCta={false}
       cta="Submit"
       secondaryCTA={
         <button className="btn btn-link" onClick={onBack}>
-          &lt; Back
+          &lt; 后退
         </button>
       }
       tertiaryCTA={
@@ -485,7 +485,7 @@ const SetParamsStep = ({
             )
           }
         >
-          Submit
+          提交
         </button>
       }
     >

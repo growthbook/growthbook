@@ -27,14 +27,14 @@ export interface Props {
 }
 
 const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
-  boolean: "true or false",
-  number: "Floats or integers",
-  string: "Freeform text",
-  enum: "For a small list of pre-defined values",
-  secureString: "Freeform text; values hashed before passing to the SDK",
-  "number[]": "Useful for multiple numeric values",
-  "string[]": 'Useful for things like "tags"',
-  "secureString[]": "Useful for passing multiple values securely",
+  boolean: "true或false",
+  number: "浮点数或整数",
+  string: "自由格式文本",
+  enum: "用于一小列预定义的值",
+  secureString: "自由格式文本；在传递给SDK之前对值进行哈希处理",
+  "number[]": "用于多个数值",
+  "string[]": "用于类似‘标签’之类的事物",
+  "secureString[]": "用于安全地传递多个值",
 };
 export default function AttributeModal({ close, attribute }: Props) {
   const { projects, project } = useDefinitions();
@@ -58,7 +58,7 @@ export default function AttributeModal({ close, attribute }: Props) {
     },
   });
 
-  const title = attribute ? `Edit Attribute: ${attribute}` : `Create Attribute`;
+  const title = attribute ? `编辑属性：${attribute}` : `创建属性`;
 
   const datatype = form.watch("datatype");
 
@@ -102,7 +102,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           schema.some((s) => s.property === value.property)
         ) {
           throw new Error(
-            "That attribute name is already being used. Please choose another one."
+            "该属性名称已被使用，请选择另一个。"
           );
         }
 
@@ -134,8 +134,8 @@ export default function AttributeModal({ close, attribute }: Props) {
       <Field
         label={
           <>
-            Attribute{" "}
-            <Tooltip body={"This is the attribute name used in the SDK"} />
+            属性{" "}
+            <Tooltip body={"这是在SDK中使用的属性名称"} />
           </>
         }
         required={true}
@@ -143,9 +143,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       />
       {attribute && form.watch("property") !== attribute ? (
         <div className="alert alert-warning">
-          Be careful changing the attribute name. Any existing targeting
-          conditions that use this attribute will NOT be updated automatically
-          and will still reference the old attribute name.
+          更改属性名称时请小心。任何使用该属性的现有定向条件不会自动更新，仍将引用旧的属性名称。
         </div>
       ) : null}
       <div className="form-group">
@@ -153,7 +151,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           className="form-control"
           label={
             <>
-              Description <small className="text-muted">(optional)</small>
+              描述 <small className="text-muted">(可选)</small>
             </>
           }
           {...form.register("description")}
@@ -165,41 +163,39 @@ export default function AttributeModal({ close, attribute }: Props) {
           <MultiSelectField
             label={
               <>
-                Projects{" "}
+                项目{" "}
                 <Tooltip
-                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                    attribute ? "update" : "create"
-                  } Attributes.`}
+                  body={`下面的下拉菜单已过滤，仅显示您有权限${attribute ? "更新" : "创建"}属性的项目。`}
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder="所有项目"
             value={form.watch("projects") || []}
             options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
             customClassName="label-overflow-ellipsis"
-            helpText="Assign this attribute to specific projects"
+            helpText="将此属性分配给特定项目"
           />
         </div>
       )}
       <SelectField
-        label="Data Type"
+        label="数据类型"
         value={datatype}
         onChange={(datatype: SDKAttributeType) =>
           form.setValue("datatype", datatype)
         }
         sort={false}
         options={[
-          { value: "boolean", label: "Boolean" },
-          { value: "number", label: "Number" },
-          { value: "string", label: "String" },
-          { value: "enum", label: "Enum" },
-          { value: "secureString", label: "Secure String" },
-          { value: "number[]", label: "Array of Numbers" },
-          { value: "string[]", label: "Array of Strings" },
+          { value: "boolean", label: "布尔型" },
+          { value: "number", label: "数字型" },
+          { value: "string", label: "字符串型" },
+          { value: "enum", label: "枚举型" },
+          { value: "secureString", label: "安全字符串型" },
+          { value: "number[]", label: "数字数组型" },
+          { value: "string[]", label: "字符串数组型" },
           {
             value: "secureString[]",
-            label: "Array of Secure Strings",
+            label: "安全字符串数组型",
           },
         ]}
         formatOptionLabel={(value) => {
@@ -222,29 +218,18 @@ export default function AttributeModal({ close, attribute }: Props) {
                   body={
                     <>
                       <p>
-                        Feature targeting conditions referencing{" "}
-                        <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating feature flags in a
-                        public or insecure environment (such as a browser),
-                        hashing provides an additional layer of security through
-                        obfuscation. This allows you to target users based on
-                        sensitive attributes.
+                        引用<code>secureString</code>属性的特性定向条件将通过SHA-256哈希进行匿名化。在公共或不安全环境（如浏览器）中评估特性标志时，哈希通过混淆提供了额外的安全层。这使您能够基于敏感属性定位用户。
                       </p>
                       <p>
-                        You must enable this feature in your SDK Connection for
-                        it to take effect.
+                        您必须在SDK连接中启用此功能才能生效。
                       </p>
                       <p className="mb-0 text-warning-orange small">
-                        <FaExclamationCircle /> When using an insecure
-                        environment, do not rely exclusively on hashing as a
-                        means of securing highly sensitive data. Hashing is an
-                        obfuscation technique that makes it very difficult, but
-                        not impossible, to extract sensitive data.
+                        <FaExclamationCircle /> 在使用不安全环境时，不要仅仅依靠哈希作为保护高度敏感数据的手段。哈希是一种混淆技术，虽然很难但并非不可能提取敏感数据。
                       </p>
                     </>
                   }
                 >
-                  How do secure attributes work? <FaInfoCircle />
+                  安全属性如何工作？<FaInfoCircle />
                 </PremiumTooltip>
               </div>
             )}
@@ -254,36 +239,34 @@ export default function AttributeModal({ close, attribute }: Props) {
       {datatype === "string" && (
         <>
           <SelectField
-            label="String Format"
+            label="字符串格式"
             value={form.watch(`format`) || "none"}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
             initialOption="None"
             options={[
-              { value: "version", label: "Version string" },
-              { value: "date", label: "Date string" },
-              { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
+              { value: "version", label: "版本字符串" },
+              { value: "date", label: "日期字符串" },
+              { value: "isoCountryCode", label: "ISO国家代码（2位）" },
             ]}
             sort={false}
-            helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
+            helpText="影响定向属性的用户界面和字符串比较逻辑。更多格式即将推出。"
           />
           {form.watch("format") === "version" && (
             <div className="alert alert-warning">
-              <strong>Warning:</strong> Version string attributes are only
-              supported in{" "}
+              <strong>警告：</strong> 版本字符串属性仅在{" "}
               <Tooltip
                 body={<MinSDKVersionsList capability="semverTargeting" />}
               >
-                <span className="text-primary">some SDK versions</span>
+                <span className="text-primary">部分SDK版本</span>
               </Tooltip>
-              . Do not use this format if you are using an incompatible SDK as
-              it will break any filtering based on the attribute.
+              中受支持。如果您使用的是不兼容的SDK，请不要使用此格式，因为它会破坏基于该属性的任何过滤。
             </div>
           )}
         </>
       )}
       {datatype === "enum" && (
         <Field
-          label="Enum Options"
+          label="枚举选项"
           textarea
           minRows={1}
           required
@@ -293,7 +276,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       )}
       {hashAttributeDataTypes.includes(datatype) && (
         <div className="form-group">
-          <label>Unique Identifier</label>
+          <label>唯一标识符</label>
           <div className="row align-items-center">
             <div className="col-auto">
               <Toggle
@@ -305,9 +288,9 @@ export default function AttributeModal({ close, attribute }: Props) {
               />
             </div>
             <div className="col px-0 text-muted" style={{ lineHeight: "1rem" }}>
-              <div>Attribute can be used for user assignment</div>
+              <div>属性可用于用户分配</div>
               <small>
-                For example, <code>email</code> or <code>id</code>
+                例如，<code>email</code>或<code>id</code>
               </small>
             </div>
           </div>

@@ -24,8 +24,8 @@ const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
   const filteredEnvironments = project
     ? environments.filter((env) =>
-        isProjectListValidForProject(env.projects, project)
-      )
+      isProjectListValidForProject(env.projects, project)
+    )
     : environments;
 
   const { data: sdkConnectionData } = useSDKConnections();
@@ -66,29 +66,29 @@ const EnvironmentsPage: FC = () => {
       )}
       <div className="row align-items-center mb-1">
         <div className="col-auto">
-          <h1 className="mb-0">Environments</h1>
+          <h1 className="mb-0">环境</h1>
         </div>
         {canCreate && (
           <div className="col-auto ml-auto">
-            <Button onClick={() => setModalOpen({})}>Add Environment</Button>
+            <Button onClick={() => setModalOpen({})}>添加环境</Button>
           </div>
         )}
       </div>
 
       <p className="text-gray mb-3">
-        Manage which environments are available for your feature flags.
+        管理哪些环境可用于您的特性标志。
       </p>
 
       {filteredEnvironments.length > 0 ? (
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>
             <tr>
-              <th>Environment</th>
-              <th>Description</th>
-              <th className="col-2">Projects</th>
-              <th>SDK Connections</th>
-              <th>Default state</th>
-              <th>Show toggle on feature list</th>
+              <th>环境</th>
+              <th>描述</th>
+              <th className="col-2">项目</th>
+              <th>SDK连接</th>
+              <th>默认状态</th>
+              <th>在特性列表中显示切换按钮</th>
               <th style={{ width: 30 }}></th>
             </tr>
           </thead>
@@ -141,7 +141,7 @@ const EnvironmentsPage: FC = () => {
                             <BsXCircle size={16} />
                           </a>
                           <div className="mt-1 text-muted font-weight-bold">
-                            SDK Connections using this environment
+                            使用此环境的SDK连接
                           </div>
                           <div
                             className="mt-2"
@@ -223,7 +223,7 @@ const EnvironmentsPage: FC = () => {
                                 refreshOrganization();
                               }}
                             >
-                              Move up
+                              上移
                             </OldButton>
                           )}
                           {i < environments.length - 1 && (
@@ -243,7 +243,7 @@ const EnvironmentsPage: FC = () => {
                                 refreshOrganization();
                               }}
                             >
-                              Move down
+                              下移
                             </OldButton>
                           )}
                         </>
@@ -254,24 +254,21 @@ const EnvironmentsPage: FC = () => {
                           usePortal={true}
                           body={
                             <>
-                              <ImBlocked className="text-danger" /> This
-                              environment has{" "}
+                              <ImBlocked className="text-danger" /> 此环境有{" "}
                               <strong>
-                                {numConnections} SDK Connection
-                                {numConnections !== 1 && "s"}
+                                {numConnections} 个SDK连接
                               </strong>{" "}
-                              associated. This environment cannot be deleted
-                              until{" "}
-                              {numConnections === 1 ? "it has" : "they have"}{" "}
-                              been removed.
+                              相关联。在{" "}
+                              {numConnections === 1 ? "它被移除" : "它们被移除"}
+                              之前，此环境无法被删除。
                             </>
                           }
                         >
                           <DeleteButton
-                            deleteMessage="Are you you want to delete this environment?"
+                            deleteMessage="您确定要删除此环境吗？"
                             displayName={e.id}
                             className="dropdown-item text-danger"
-                            text="Delete"
+                            text="删除"
                             useIcon={false}
                             onClick={async () => {
                               await apiCall(`/environment/${e.id}`, {
@@ -298,9 +295,9 @@ const EnvironmentsPage: FC = () => {
           </tbody>
         </table>
       ) : canCreate ? (
-        <p>Click the button below to add your first environment</p>
+        <p>点击下面的按钮添加您的第一个环境</p>
       ) : (
-        <p>You don&apos;t have any environments defined yet.</p>
+        <p>您尚未定义任何环境。</p>
       )}
     </div>
   );

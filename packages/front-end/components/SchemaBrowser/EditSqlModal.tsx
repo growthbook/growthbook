@@ -183,8 +183,8 @@ export default function EditSqlModal({
       size="max"
       overflowAuto={false}
       bodyClassName="p-0"
-      cta="Confirm Changes"
-      closeCta="Back"
+      cta="确认修改"
+      closeCta="后退"
       secondaryCTA={
         <Tooltip
           body="You do not have permission to run test queries"

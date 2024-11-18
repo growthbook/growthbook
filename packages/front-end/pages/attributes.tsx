@@ -213,7 +213,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   {experiments.length > 0 && (
                     <>
                       <div className="mt-1 text-muted font-weight-bold">
-                        Experiments:
+                        实验：
                       </div>
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
@@ -243,7 +243,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   {groups.length > 0 && (
                     <>
                       <div className="mt-1 text-muted font-weight-bold">
-                        Condition Groups:
+                        条件组：
                       </div>
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
@@ -334,18 +334,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   refreshOrganization();
                 }}
               >
-                {v.archived ? "Unarchive" : "Archive"}
+                {v.archived ? "取消归档" : "归档"}
               </button>
               <DeleteButton
-                displayName="Attribute"
+                displayName="属性"
                 deleteMessage={
                   <>
-                    Are you sure you want to delete the{" "}
+                    你确定要删除{" "}
                     {v.hashAttribute ? "identifier " : ""}
                     {v.datatype} attribute:{" "}
                     <code className="font-weight-bold">{v.property}</code>?
                     <br />
-                    This action cannot be undone.
+                    此操作无法撤销。
                   </>
                 }
                 className="dropdown-item text-danger"
@@ -358,7 +358,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   });
                   refreshOrganization();
                 }}
-                text="Delete"
+                text="删除"
                 useIcon={false}
               />
             </MoreMenu>
@@ -375,33 +375,31 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <div className="row mb-3 align-items-center">
             <div className="col">
               <div className="d-flex mb-1">
-                <h1>Targeting Attributes</h1>
+                <h1>定向属性</h1>
                 {canCreateAttributes && (
                   <div className="ml-auto">
                     <Button onClick={() => setModalData("")}>
-                      Add Attribute
+                      添加属性
                     </Button>
                   </div>
                 )}
               </div>
               <p className="text-gray">
-                These attributes can be used when targeting feature flags and
-                experiments. Attributes set here must also be passed in through
-                the SDK.
+                这些属性可在定向特性标志和实验时使用。在此处设置的属性也必须通过SDK传入。
               </p>
             </div>
           </div>
           <table className="table gbtable appbox table-hover">
             <thead>
               <tr>
-                <th>Attribute</th>
-                <th>Description</th>
-                <th>Data Type</th>
-                <th>Projects</th>
-                <th>References</th>
+                <th>属性</th>
+                <th>描述</th>
+                <th>数据类型</th>
+                <th>项目</th>
+                <th>引用</th>
                 <th>
-                  Identifier{" "}
-                  <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
+                  标识符{" "}
+                  <Tooltip body="任何能唯一标识用户、账户、设备或类似事物的属性。">
                     <FaQuestionCircle
                       style={{ position: "relative", top: "-1px" }}
                     />
@@ -417,7 +415,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <>
                   <tr>
                     <td colSpan={3} className="text-center text-gray">
-                      <em>No attributes defined.</em>
+                      <em>未定义任何属性。</em>
                     </td>
                   </tr>
                 </>
