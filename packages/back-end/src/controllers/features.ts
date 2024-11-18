@@ -1845,6 +1845,7 @@ export async function postFeatureEvaluate(
       attributes: Record<string, boolean | string | number | object>;
       scrubPrerequisites?: boolean;
       skipRulesWithPrerequisites?: boolean;
+      evalDate?: string;
     },
     { id: string; version: string }
   >,
@@ -1860,6 +1861,7 @@ export async function postFeatureEvaluate(
     attributes,
     scrubPrerequisites,
     skipRulesWithPrerequisites,
+    evalDate,
   } = req.body;
 
   const feature = await getFeature(context, id);
@@ -1871,6 +1873,7 @@ export async function postFeatureEvaluate(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
+  const date = evalDate ? new Date(evalDate) : new Date();
 
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(context);
@@ -1885,6 +1888,7 @@ export async function postFeatureEvaluate(
     environments,
     scrubPrerequisites,
     skipRulesWithPrerequisites,
+    date,
   });
 
   res.status(200).json({
