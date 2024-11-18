@@ -78,6 +78,7 @@ import {
   ExperimentPipelineFactMetricsParams,
   ExperimentPipelineTrimMetricsParams,
   EmptyQueryResponse,
+  FactTableData,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -5253,38 +5254,49 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
   getPipelineFactMetricsAggregationCTEs({
     baseTable,
-    factTable,
+    joinSelectClause,
+    previousTableMetricCols,
+    factTableData,
     index,
     baseIdType,
-    joinSelectClause
+    idJoinMap,
+    factTableMap,
+    experimentId,
+    endDate,
   }: {
     baseTable: string,
-    factTable: string,
+    joinSelectClause: string,
+    previousTableMetricCols: string[],
+    factTableData: FactTableData,
     index: number,
     baseIdType: string,
-    joinSelectClause: string
+    idJoinMap: Record<string, string>,
+    factTableMap: FactTableMap,
+    experimentId: string,
+    endDate: Date,
   }): string {
     return `
+    __factTable_${index} as (${this.getFactMetricCTE({
+        baseIdType,
+        idJoinMap,
+        metrics: factTableData.metrics,
+        endDate: factTableData.metricEnd,
+        startDate: factTableData.metricStart,
+        factTableMap,
+        experimentId,
+      })})
     , __userMetricJoin_${index} as (
         SELECT
-          d.variation AS variation
-          ${params.dimensions
-            .map((d) => `, d.dim_exp_${d} AS dim_exp_${d}`)
-            .join("\n")}
-          ${banditDates?.length ? `, d.bandit_period AS bandit_period,` : ""}
-          , d.${baseIdType} AS ${baseIdType}
-          , d.first_exposure_timestamp AS first_exposure_timestamp
-          , d.first_activation_timestamp AS first_activation_timestamp
-          , m.timestamp AS metric_timestamp
-          // SELECT OLD METRIC VALUES
-          ${metricData
+          ${joinSelectClause},
+          ${previousTableMetricCols.join(",\n")}
+          ${factTableData.metricData
             .map(
               (data) =>
                 `, ${this.addCaseWhenTimeFilter({
                   col: `m.${data.alias}_value`,
                   metric: data.metric,
                   overrideConversionWindows: data.overrideConversionWindows,
-                  endDate: settings.endDate,
+                  endDate: endDate,
                   metricQuantileSettings: data.quantileMetric
                     ? data.metricQuantileSettings
                     : undefined,
@@ -5296,7 +5308,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                         metric: data.metric,
                         overrideConversionWindows:
                           data.overrideConversionWindows,
-                        endDate: settings.endDate,
+                        endDate: endDate,
                       })} AS group_${index}_${data.alias}_denominator`
                     : ""
                 }
@@ -5305,28 +5317,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .join("\n")}
           
         FROM
-          __distinctUsers d
-        LEFT JOIN __factTable m ON (
+          ${baseTable} d
+        LEFT JOIN __factTable_${index} m ON (
           m.${baseIdType} = d.${baseIdType}
         )
       )
       , __userMetricAgg_${index} AS (
         -- Get daily aggregate values
         SELECT
-          umj.${baseIdType} AS ${baseIdType}
-          -- take minimum of these fields, but they should be 1:1 with id type
-          -- min is just simpler (and fails more safely) than a big group by
-          , MIN(umj.variation) AS variation
-            ${params.dimensions
-              .map((d) => `, MIN(umj.dim_exp_${d}) AS dim_exp_${d}`)
-              .join("\n")}
-          , MIN(umj.first_exposure_timestamp) AS first_exposure_timestamp
-          , MIN(umj.first_activation_timestamp) AS first_activation_timestamp
-          , ${
-            banditDates?.length ? `MIN(umj.bandit_period) AS bandit_period` : ""
-          }
-          // JUST MAX OLD METRIC VALUES
-          ${metricData
+          umj.${baseIdType} AS ${baseIdType},
+          -- take max of these fields, but they should be 1:1 with id type
+          -- max is just simpler (and fails more safely) than a big group by
+          ${previousTableMetricCols.map((m) => `MAX(${m}) AS ${m}`).join(",\n")}
+          ${factTableData.metricData
             .map(
               (data) =>
                 `, ${this.getAggregateMetricColumn(
@@ -5334,7 +5337,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   false,
                   `umj.${index}_${data.alias}_value`,
                   `qm.${index}_${data.alias}_quantile`
-                )} AS ${data.alias}_value
+                )} AS group_${index}_${data.alias}_value
                 ${
                   data.ratioMetric
                     ? `, ${this.getAggregateMetricColumn(
@@ -5342,7 +5345,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                         true,
                         `umj.${index}_${data.alias}_denominator`,
                         `qm.${index}_${data.alias}_quantile`
-                      )} AS ${data.alias}_denominator`
+                      )} AS group_${index}_${data.alias}_denominator`
                     : ""
                 }`
             )
@@ -5358,6 +5361,98 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             "COALESCE(umj.metric_timestamp, umj.first_exposure_timestamp"
           )}
         )`
+  }
+
+  getPipelineFactTableData({
+    group,
+    settings,
+    factTableMap,
+    lookbackDate,
+    activationMetric,
+  }: {
+    group: FactMetricInterface[],
+    settings: ExperimentSnapshotSettings,
+    factTableMap: FactTableMap,
+    lookbackDate: Date,
+    activationMetric: ExperimentMetricInterface | null,
+  }): FactTableData {
+    const metrics = cloneDeep(group);
+    metrics.forEach((m) => {
+      applyMetricOverrides(m, settings);
+    });
+
+    // Replace any placeholders in the user defined dimension SQL
+    const factTable = factTableMap.get(metrics[0].numerator?.factTableId);
+    if (!factTable) {
+      throw new Error("Could not find fact table");
+    }
+    const metricData = metrics.map((metric, i) =>
+      this.getMetricData(
+        metric,
+        {
+          attributionModel: settings.attributionModel,
+          regressionAdjustmentEnabled: false,
+          startDate: lookbackDate,
+        },
+        activationMetric,
+        `m${i}`
+      )
+    );
+    const metricStart = metricData.reduce(
+      (min, d) => (d.metricStart < min ? d.metricStart : min),
+      settings.startDate
+    );
+    const metricEnd = metricData.reduce(
+      (max, d) => (d.metricEnd && d.metricEnd > max ? d.metricEnd : max),
+      settings.endDate
+    );
+
+    const percentileData: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+      ignoreZeros: boolean;
+    }[] = [];
+    metricData
+      .filter((m) => m.isPercentileCapped)
+      .forEach((m) => {
+        percentileData.push({
+          valueCol: `${m.alias}_value`,
+          outputCol: `${m.alias}_value_cap`,
+          percentile: m.metric.cappingSettings.value ?? 1,
+          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+        });
+        if (m.ratioMetric) {
+          percentileData.push({
+            valueCol: `${m.alias}_denominator`,
+            outputCol: `${m.alias}_denominator_cap`,
+            percentile: m.metric.cappingSettings.value ?? 1,
+            ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+          });
+        }
+      });
+
+    const eventQuantileData = this.getFactMetricQuantileData(
+      metricData,
+      "event"
+    );
+    // TODO: get max lookback window among regression adjusted metrics
+
+    // fact table start date is lookback minus negative delay
+    // CUPED means we always get the first few days of metric data
+
+    // TODO event quantiles seems hard! Could stuff it in an array?
+    if (eventQuantileData.length) {
+      throw new Error("Event quantiles not supported.");
+    }
+    return {
+      metricData: metricData,
+      idTypes: factTable.userIdTypes,
+      metrics: metrics,
+      metricEnd,
+      metricStart,
+      percentileData,
+    }
   }
 
   getExperimentPipelineFactMetricsQuery(
@@ -5376,87 +5471,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
     const factTableMap = params.factTableMap;
 
-    const factTableData = params.metricGroups.map((group) => {
-      const metrics = cloneDeep(group);
-      metrics.forEach((m) => {
-        applyMetricOverrides(m, settings);
-      });
-  
-      // Replace any placeholders in the user defined dimension SQL
-      const factTable = factTableMap.get(metrics[0].numerator?.factTableId);
-      if (!factTable) {
-        throw new Error("Could not find fact table");
-      }
-      const metricData = metrics.map((metric, i) =>
-        this.getMetricData(
-          metric,
-          {
-            attributionModel: settings.attributionModel,
-            regressionAdjustmentEnabled: false,
-            startDate: params.lookbackDate,
-          },
-          activationMetric,
-          `m${i}`
-        )
-      );
-      const metricStart = metricData.reduce(
-        (min, d) => (d.metricStart < min ? d.metricStart : min),
-        settings.startDate
-      );
-      const metricEnd = metricData.reduce(
-        (max, d) => (d.metricEnd && d.metricEnd > max ? d.metricEnd : max),
-        settings.endDate
-      );
-
-      const percentileData: {
-        valueCol: string;
-        outputCol: string;
-        percentile: number;
-        ignoreZeros: boolean;
-      }[] = [];
-      metricData
-        .filter((m) => m.isPercentileCapped)
-        .forEach((m) => {
-          percentileData.push({
-            valueCol: `${m.alias}_value`,
-            outputCol: `${m.alias}_value_cap`,
-            percentile: m.metric.cappingSettings.value ?? 1,
-            ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-          });
-          if (m.ratioMetric) {
-            percentileData.push({
-              valueCol: `${m.alias}_denominator`,
-              outputCol: `${m.alias}_denominator_cap`,
-              percentile: m.metric.cappingSettings.value ?? 1,
-              ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-            });
-          }
-        });
-  
-      const eventQuantileData = this.getFactMetricQuantileData(
-        metricData,
-        "event"
-      );
-      // TODO: get max lookback window among regression adjusted metrics
-  
-      // fact table start date is lookback minus negative delay
-      // CUPED means we always get the first few days of metric data
-  
-      // TODO event quantiles seems hard! Could stuff it in an array?
-      if (eventQuantileData.length) {
-        throw new Error("Event quantiles not supported.");
-      }
-      return {
-        metricData: metricData,
-        idTypes: factTable.userIdTypes,
-        metrics: metrics,
-        metricEnd,
-        metricStart,
-        percentileData,
-      }
-    });
-
-
+    const factTableData = params.metricGroups.map((group) => this.getPipelineFactTableData({
+      group,
+      settings,
+      factTableMap,
+      lookbackDate: params.lookbackDate,
+      activationMetric,
+    }));
 
 
     // Get any required identity join queries
@@ -5484,6 +5505,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       (w) => w.date
     );
 
+
+    const joinSelectClause = `
+      d.variation AS variation
+      ${params.dimensions
+        .map((d) => `, d.dim_exp_${d} AS dim_exp_${d}`)
+        .join("\n")}
+      ${banditDates?.length ? `, d.bandit_period AS bandit_period,` : ""}
+      , d.${baseIdType} AS ${baseIdType}
+      , d.first_exposure_timestamp AS first_exposure_timestamp
+      , d.first_activation_timestamp AS first_activation_timestamp
+      , m.timestamp AS metric_timestamp
+    `;
     
     // TODO CUPED is always pre-experiment period, not pre-exposure
     // CUPED standalone pipeline...
@@ -5522,16 +5555,6 @@ ${factTableData.map((d) => d.metricData
           , first_activation_timestamp
         FROM ${params.unitsTableFullName}
       )
-      ${factTableData.map((d, i) => 
-      `__factTable_${i} as (${this.getFactMetricCTE({
-        baseIdType,
-        idJoinMap,
-        metrics: d.metrics,
-        endDate: d.metricEnd,
-        startDate: d.metricStart,
-        factTableMap,
-        experimentId: settings.experimentId,
-      })})`).join("\n")}
       
     `,
       this.getFormatDialect()
@@ -5686,6 +5709,8 @@ ${factTableData.map((d) => d.metricData
     const regressionAdjustedMetrics = metricData.filter(
       (m) => m.regressionAdjusted
     );
+
+    // percentile data happens at the very end
 
     // TODO pick the dimension
     // TEST dimensionCol

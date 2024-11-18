@@ -67,6 +67,20 @@ export type FactMetricData = {
   maxHoursToConvert: number;
 };
 
+export type FactTableData = {
+  metricData: FactMetricData[];
+  idTypes: string[];
+  metrics: FactMetricInterface[];
+  metricEnd: Date | null;
+  metricStart: Date;
+  percentileData: {
+    valueCol: string;
+    outputCol: string;
+    percentile: number;
+    ignoreZeros: boolean;
+  }[];
+}
+
 export type BanditMetricData = Pick<
   FactMetricData,
   | "alias"
