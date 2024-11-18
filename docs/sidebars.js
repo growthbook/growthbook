@@ -597,6 +597,7 @@ const sidebars = {
           type: "doc",
           id: "guide/contentful",
           label: "Contentful CMS",
+          className: "pill-new",
         },
         {
           type: "doc",
