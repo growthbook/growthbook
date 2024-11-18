@@ -84,8 +84,8 @@ const DisabledHealthTabTooltip = ({
     <Tooltip
       body={
         reason === "UNSUPPORTED_DATASOURCE"
-          ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
-          : "Set the Dimension to None to see Experiment Health"
+          ? "对于Mixpanel或（旧版）Google Analytics数据源，无法使用实验健康状况功能"
+          : "将维度设置为无，以查看实验健康状况"
       }
     >
       {children}
@@ -249,7 +249,7 @@ export default function ExperimentHeader({
                       color: "var(--text-color-primary)",
                     }}
                   >
-                    无论如何启动
+                    强制启动
                   </span>
                 </button>
               ) : (
@@ -276,7 +276,7 @@ export default function ExperimentHeader({
                   您还有{" "}
                   <strong>
                     {checklistItemsRemaining} 项任务
-                    {checklistItemsRemaining > 1 ? "s " : " "}
+                    {/* {checklistItemsRemaining > 1 ? "s " : " "} */}
                   </strong>
                   未完成。在启动此实验之前，请查看启动前清单。
                 </div>
