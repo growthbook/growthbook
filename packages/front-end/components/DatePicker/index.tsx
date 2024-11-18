@@ -10,6 +10,7 @@ import Field from "@/components/Forms/Field";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
+  id?: string | undefined;
   date: Date | string | undefined;
   setDate: (d: Date | undefined) => void;
   date2?: Date | string | undefined;
@@ -17,7 +18,7 @@ type Props = {
   label?: ReactNode;
   label2?: ReactNode;
   helpText?: ReactNode;
-  inputWidth?: number | string;
+  inputWidth?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
   disableAfter?: Date | string;
@@ -36,6 +37,7 @@ const modifiersClassNames = {
 };
 
 export default function DatePicker({
+  id,
   date,
   setDate,
   date2,
@@ -43,7 +45,7 @@ export default function DatePicker({
   label,
   label2,
   helpText,
-  inputWidth = "100%",
+  inputWidth,
   precision = "datetime",
   disableBefore,
   disableAfter,
@@ -119,20 +121,25 @@ export default function DatePicker({
           }
           if (!o && +new Date() - +fieldClickedTime.current > 10) {
             setOpen(false);
-            setOriginalDate(date);
-            setOriginalDate2(date2);
+            setOriginalDate(getValidDate(date));
+            setOriginalDate2(getValidDate(date2));
           }
         }}
       >
         <Popover.Trigger asChild>
-          <Flex gap="1rem" display="inline-flex">
-            <div style={{ width: inputWidth, minHeight: 38 }}>
+          <Flex gap="1rem" display={inputWidth ? "inline-flex" : "flex"}>
+            <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
               {label ? <label>{label}</label> : null}
               <div
                 className="form-control p-0"
-                style={{ width: inputWidth, minHeight: 38, overflow: "clip" }}
+                style={{
+                  width: inputWidth || "100%",
+                  minHeight: 38,
+                  overflow: "clip",
+                }}
               >
                 <Field
+                  id={id ?? ""}
                   style={{
                     border: 0,
                     marginRight: -20,
@@ -140,7 +147,7 @@ export default function DatePicker({
                     minHeight: 38,
                     cursor: "pointer",
                   }}
-                  className={clsx({ "text-muted": !date })}
+                  className={clsx("date-picker-field", { "text-muted": !date })}
                   type={precision === "datetime" ? "datetime-local" : "date"}
                   value={
                     date
@@ -162,14 +169,16 @@ export default function DatePicker({
                     setDate(d);
                     setCalendarMonth(d);
                   }}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
                     fieldClickedTime.current = new Date();
+                    setOpen(true);
                   }}
                 />
               </div>
             </div>
             {isRange && (
-              <div style={{ width: inputWidth, minHeight: 38 }}>
+              <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
                 {label2 ? <label>{label2}</label> : null}
                 <div
                   className="form-control p-0"
@@ -183,7 +192,9 @@ export default function DatePicker({
                       minHeight: 38,
                       cursor: "pointer",
                     }}
-                    className={clsx({ "text-muted": !date2 })}
+                    className={clsx("date-picker-field", {
+                      "text-muted": !date2,
+                    })}
                     type={precision === "datetime" ? "datetime-local" : "date"}
                     value={
                       date2
@@ -211,8 +222,10 @@ export default function DatePicker({
                       setDate2?.(d);
                       setCalendarMonth(d);
                     }}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       fieldClickedTime.current = new Date();
+                      setOpen(true);
                     }}
                   />
                 </div>

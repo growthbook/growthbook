@@ -41,9 +41,9 @@
       color: var(--gray-11);
     }
     .rt-BaseCheckboxRoot {
-      &:not([data-state="checked"]) {
+      &:not([data-state="checked"]):not([data-state="indeterminate"]) {
         &::before {
-          background: var(--violet-a3);
+          background: var(--violet-a2);
         }
       }
     }
@@ -162,6 +162,33 @@
     min-height: 234px;
   }
 }
+// Safari web
+@supports (font: -apple-system-body) and (-webkit-appearance: none) {
+  .date-picker-field {
+    padding-left: 8px;
+    font-family: "Arial", sans-serif;
+  }
+}
+// Mobile-like devices
+@media screen and (hover: none) and (pointer: coarse) {
+  .date-picker-field {
+    width: 100% !important;
+    margin-right: 0 !important;
+    pointer-events: none;
+  }
+}
+
+// Dropdown
+.dropdown-content-width-full {
+  width: var(--radix-dropdown-menu-trigger-width);
+  max-height: var(--radix-dropdown-menu-content-available-height);
+}
+.rt-BaseMenuItem {
+  cursor: pointer !important;
+  &[data-disabled] {
+    cursor: not-allowed !important;
+  }
+}
 
 // Radio
 .rt-RadioGroupItem {
@@ -176,7 +203,7 @@
     .rt-BaseRadioRoot {
       &:not([data-state="checked"]) {
         &::before {
-          background: var(--violet-a2);
+          background: var(--violet-a1);
         }
       }
     }
