@@ -35,7 +35,7 @@ export default function UpgradeLabel({
       <label className="col-auto" htmlFor="schedule-feature-flag">
         {showUpgradeCTA ? (
           <Tooltip
-            body={`This is a premium feature. ${headerMessage}`}
+            body={`这是高级功能。 ${headerMessage}`}
             tipPosition="top"
           >
             {labelText}

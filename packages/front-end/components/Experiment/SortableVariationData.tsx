@@ -31,13 +31,13 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
         <div className="graybox">
           <div
             {...handle}
-            title="Drag and drop to re-order rules"
+            title="拖拽以重新排序规则"
             className="d-flex justify-content-end"
           >
             <FaArrowsAlt />
           </div>
           <Field
-            label={i === 0 ? "Control Name" : `Variation ${i} Name`}
+            label={i === 0 ? "控制名称" : `变体 ${i} 名称`}
             value={variation.name}
             onChange={(e) => {
               const newVariations = [...variations];
@@ -49,7 +49,7 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
             }}
           />
           <Field
-            label="Id"
+            label="ID"
             value={variation.key}
             placeholder={i + ""}
             onChange={(e) => {
@@ -62,7 +62,7 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
             }}
           />
           <Field
-            label="Description"
+            label="描述"
             value={variation.description}
             textarea
             onChange={(e) => {
@@ -86,7 +86,7 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
                   setVariations(newValues);
                 }}
               >
-                <MdDeleteForever /> Delete
+                <MdDeleteForever /> 删除
               </a>
             ) : (
               ""

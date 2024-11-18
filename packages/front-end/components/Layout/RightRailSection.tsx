@@ -17,7 +17,7 @@ const RightRailSection: FC<{
             open();
           }}
         >
-          Edit
+          编辑
         </a>
       )}
       <h4>{title}</h4>

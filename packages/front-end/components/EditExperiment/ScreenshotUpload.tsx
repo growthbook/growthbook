@@ -77,10 +77,10 @@ const ScreenshotUpload = ({
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
-        <div className={styles.message}>Drop Image Here...</div>
+        <div className={styles.message}>在此处放置图片...</div>
         <span className={styles.textlink}>
           <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
-          Add Screenshot
+          添加截图
         </span>
       </div>
     </>

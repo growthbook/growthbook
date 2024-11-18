@@ -13,26 +13,23 @@ import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 const LINKED_CHANGES = {
   "feature-flag": {
-    header: "Feature Flag",
-    cta: "Link Feature Flag",
-    description:
-      "Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.",
+    header: "特性标记",
+    cta: "关联特性标记",
+    description: "使用特性标记和软件开发工具包（SDK）在前端、后端或移动应用代码中进行变更。",
     commercialFeature: false,
     sdkCapabilityKey: "",
   },
   "visual-editor": {
-    header: "Visual Editor",
-    cta: "Launch Visual Editor",
-    description:
-      "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
+    header: "可视化编辑器",
+    cta: "启动可视化编辑器",
+    description: "使用我们的无代码浏览器扩展来进行A/B测试小的变更，比如标题或按钮文本。",
     commercialFeature: true,
     sdkCapabilityKey: "visualEditor",
   },
   redirects: {
-    header: "URL Redirects",
-    cta: "Add URL Redirects",
-    description:
-      "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
+    header: "URL重定向",
+    cta: "添加URL重定向",
+    description: "使用我们的无代码工具对整个页面的URL进行A/B测试，或者测试URL的部分内容。",
     commercialFeature: true,
     sdkCapabilityKey: "redirects",
   },
@@ -118,7 +115,7 @@ const AddLinkedChangeRow = ({
             </PremiumTooltip>
           ) : (
             <Tooltip
-              body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+              body={`该项目中的SDK不支持${header}。请升级您的SDK或添加一个支持的SDK。`}
               tipPosition="top"
             >
               <div className="btn btn-link disabled p-0">{cta}</div>
@@ -179,11 +176,11 @@ export default function AddLinkedChanges({
     <div className="appbox px-4 py-3 my-4">
       {sectionsToRender.length < possibleSections.length ? (
         <>
-          <h4>Add Implementation</h4>
+          <h4>添加实现</h4>
         </>
       ) : (
         <>
-          <h4>Select an Implementation</h4>
+          <h4>选择一种实现</h4>
         </>
       )}
       <hr />
@@ -198,8 +195,8 @@ export default function AddLinkedChanges({
                   s === "visual-editor"
                     ? hasVisualEditorFeature
                     : s === "redirects"
-                    ? hasURLRedirectsFeature
-                    : true
+                      ? hasURLRedirectsFeature
+                      : true
                 }
                 experiment={experiment}
               />

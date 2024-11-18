@@ -452,7 +452,7 @@ const MetricsList = (): React.ReactElement => {
                     metric.onEdit?.();
                   }}
                 >
-                  Edit
+                  编辑
                 </button>
               );
             }

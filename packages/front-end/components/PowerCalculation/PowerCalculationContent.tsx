@@ -100,7 +100,7 @@ const AnalysisSettings = ({
                 href="#"
                 onClick={() => setShowStatsEngineSettingsModal(true)}
               >
-                Edit
+                编辑
               </Link>
             </p>
             {results.type === "error" ? (
@@ -608,7 +608,7 @@ export default function PowerCalculationContent({
             onClick={edit}
             type="button"
           >
-            Edit
+            编辑
           </button>
         </div>
         <div className="col-auto pl-1">

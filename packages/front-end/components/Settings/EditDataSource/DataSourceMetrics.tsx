@@ -232,7 +232,7 @@ export default function DataSourceMetrics({
                                 metric.onEdit?.();
                               }}
                             >
-                              Edit
+                              编辑
                             </button>
                           ) : null}
                           {!metric.managedBy && metric.onArchive ? (

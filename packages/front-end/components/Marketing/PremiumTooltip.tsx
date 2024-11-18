@@ -22,7 +22,7 @@ export default function PremiumTooltip({
   commercialFeature,
   children,
   body = null,
-  premiumText = "This is a premium feature",
+  premiumText = "这是高级功能",
   tipMinWidth,
   tipPosition = "top",
   className = "",

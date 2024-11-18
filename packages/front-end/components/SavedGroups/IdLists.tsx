@@ -234,7 +234,7 @@ export default function IdLists({ groups, mutate }: Props) {
                                     setSavedGroupForm(s);
                                   }}
                                 >
-                                  Edit
+                                  编辑
                                 </a>
                               ) : null}
                               {canDelete(s) ? (

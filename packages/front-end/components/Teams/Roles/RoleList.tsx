@@ -82,7 +82,7 @@ export default function RoleList() {
                               );
                             }}
                           >
-                            Edit
+                            编辑
                           </Button>
                           <div className="border-top mt-1 pt-1">
                             <DeleteButton

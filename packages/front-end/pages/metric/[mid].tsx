@@ -544,7 +544,7 @@ const MetricPage: FC = () => {
                                   setEditing(true);
                                 }}
                               >
-                                Edit
+                                编辑
                               </button>
                             </div>
                           )}

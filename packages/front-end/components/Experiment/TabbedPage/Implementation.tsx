@@ -66,23 +66,23 @@ export default function Implementation({
 
   return (
     <div className="my-4">
-      <h2>Implementation</h2>
+      <h2>实现</h2>
 
       <div className="box my-3 mb-4 px-2 py-3">
         <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-2">
-          <h4 className="m-0">Variations</h4>
+          <h4 className="m-0">变体</h4>
           <div className="flex-1" />
           {showEditVariations ? (
             <Tooltip
               shouldDisplay={!safeToEdit}
-              body="Cannot edit variations while the experiment is running."
+              body="实验运行时无法编辑变体。"
             >
               <button
                 className="btn p-0 link-purple"
                 disabled={!safeToEdit}
                 onClick={editVariations}
               >
-                <span className="text-purple">Edit</span>
+                <span className="text-purple">编辑</span>
               </button>
             </Tooltip>
           ) : null}
@@ -132,11 +132,10 @@ export default function Implementation({
 
       {experiment.status !== "draft" && !hasLinkedChanges ? (
         <Callout status="info" mb="4">
-          This experiment has no linked GrowthBook implementation (linked
-          feature flag, visual editor changes, or URL redirect).{" "}
+          该实验没有关联的GrowthBook实现（关联特性标记、可视化编辑器变更或URL重定向）。{" "}
           {experiment.status === "stopped"
-            ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
-            : "The implementation, traffic, and targeting may be managed by an external system."}
+            ? "要么是实现已被删除，要么是实现、流量和目标定位由外部系统管理。"
+            : "实现、流量和目标定位可能由外部系统管理。"}
         </Callout>
       ) : null}
 

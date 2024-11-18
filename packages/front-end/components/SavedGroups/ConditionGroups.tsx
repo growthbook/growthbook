@@ -188,7 +188,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                                   setSavedGroupForm(s);
                                 }}
                               >
-                                Edit
+                                编辑
                               </a>
                             ) : null}
                             {canDelete(s) ? (

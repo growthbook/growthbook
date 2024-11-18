@@ -292,7 +292,7 @@ const IdeaPage = (): ReactElement => {
                             setEdit(true);
                           }}
                         >
-                          Edit
+                          编辑
                         </button>
                       </div>
                     )}

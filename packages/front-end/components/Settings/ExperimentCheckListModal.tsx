@@ -70,7 +70,7 @@ export default function ExperimentCheckListModal({
       close={close}
       size="max"
       header={`${
-        checklist?.id ? "Edit" : "Add"
+        checklist?.id ? "编辑" : "添加"
       } Experiment Pre-Launch Checklist`}
       cta="Save"
       submit={() => handleSubmit()}

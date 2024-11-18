@@ -26,14 +26,14 @@ const ScreenshotCarousel: FC<{
   mutate,
   maxChildHeight,
 }) => {
-  const { apiCall } = useAuth();
+    const { apiCall } = useAuth();
 
-  return (
-    <Carousel
-      deleteImage={
-        !canEditExperiment
-          ? undefined
-          : async (j) => {
+    return (
+      <Carousel
+        deleteImage={
+          !canEditExperiment
+            ? undefined
+            : async (j) => {
               const { status, message } = await apiCall<{
                 status: number;
                 message?: string;
@@ -46,31 +46,31 @@ const ScreenshotCarousel: FC<{
 
               if (status >= 400) {
                 throw new Error(
-                  message || "There was an error deleting the image"
+                  message || "删除图片时出现错误"
                 );
               }
 
               mutate();
             }
-      }
-      maxChildHeight={maxChildHeight}
-    >
-      {variation.screenshots.map((s) => (
-        <AuthorizedImage
-          imageCache={imageCache}
-          className="experiment-image"
-          src={s.path}
-          key={s.path}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-          }}
-        />
-      ))}
-    </Carousel>
-  );
-};
+        }
+        maxChildHeight={maxChildHeight}
+      >
+        {variation.screenshots.map((s) => (
+          <AuthorizedImage
+            imageCache={imageCache}
+            className="experiment-image"
+            src={s.path}
+            key={s.path}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
+          />
+        ))}
+      </Carousel>
+    );
+  };
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -132,9 +132,9 @@ const VariationsTable: FC<Props> = ({
                     <code className="small">ID: {v.key}</code>
                   ) : null}
                   {experiment.type !== "multi-armed-bandit" &&
-                  percentages?.[i] !== undefined ? (
+                    percentages?.[i] !== undefined ? (
                     <div className="text-right text-muted">
-                      Split: {percentages[i].toFixed(0)}%
+                      分配比例: {percentages[i].toFixed(0)}%
                     </div>
                   ) : null}
                 </th>

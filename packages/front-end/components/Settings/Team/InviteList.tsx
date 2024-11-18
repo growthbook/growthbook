@@ -224,7 +224,7 @@ const InviteList: FC<{
                           });
                         }}
                       >
-                        Edit Role
+                        编辑角色
                       </button>
                       <button
                         className="dropdown-item"

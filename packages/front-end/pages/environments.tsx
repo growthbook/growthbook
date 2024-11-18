@@ -201,7 +201,7 @@ const EnvironmentsPage: FC = () => {
                             setModalOpen(e);
                           }}
                         >
-                          Edit
+                          编辑
                         </button>
                       )}
                       {canEdit ? (

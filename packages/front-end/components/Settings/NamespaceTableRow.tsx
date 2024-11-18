@@ -86,7 +86,7 @@ export default function NamespaceTableRow({
                     onEdit();
                   }}
                 >
-                  Edit
+                  编辑
                 </a>
                 <a
                   href="#"

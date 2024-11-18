@@ -46,7 +46,7 @@ const EditVariationsForm: FC<{
     <Modal
       trackingEventModalType="edit-variations-form"
       trackingEventModalSource={source}
-      header={"Edit Variations"}
+      header={"编辑变体"}
       open={true}
       close={cancel}
       size="lg"

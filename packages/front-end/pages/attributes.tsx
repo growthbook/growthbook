@@ -309,7 +309,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     setModalData(v.property);
                   }}
                 >
-                  Edit
+                  编辑
                 </button>
               )}
               <button

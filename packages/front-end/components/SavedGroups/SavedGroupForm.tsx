@@ -87,7 +87,7 @@ const SavedGroupForm: FC<{
       close={close}
       open={true}
       size="lg"
-      header={`${current.id ? "Edit" : "Add"} ${
+      header={`${current.id ? "编辑" : "添加"} ${
         type === "condition" ? "Condition Group" : "ID List"
       }`}
       cta={current.id ? "Save" : "Submit"}

@@ -146,7 +146,7 @@ export default function SdkWebhooks({
                     setEditWebhookData(webhook);
                   }}
                 >
-                  Edit
+                  编辑
                 </button>
               ) : null}
               {canDeleteWebhook ? (

@@ -200,7 +200,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                           onClick={handleActionClicked(idx, "edit")}
                           style={{ marginLeft: "1rem" }}
                         >
-                          Edit it now.
+                          立即编辑。
                         </Button>
                       )}
                     </div>

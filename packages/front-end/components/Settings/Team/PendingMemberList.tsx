@@ -138,7 +138,7 @@ const PendingMemberList: FC<{
                         setRoleModalUser(member);
                       }}
                     >
-                      Edit Role
+                      编辑角色
                     </button>
                     <DeleteButton
                       link={true}

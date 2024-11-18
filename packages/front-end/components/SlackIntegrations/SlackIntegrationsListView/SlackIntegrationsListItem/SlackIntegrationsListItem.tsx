@@ -37,7 +37,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
               className="btn btn-sm btn-outline-primary mr-1"
             >
               <FaPencilAlt className="mr-1" />
-              Edit
+              编辑
             </button>
 
             <DeleteButton

@@ -904,7 +904,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           setSqlOpen(true);
                         }}
                       >
-                        {value.sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                        {value.sql ? "编辑" : "添加"} SQL <FaExternalLinkAlt />
                       </button>
                       {value.sql != defaultSqlTemplate && (
                         <button
