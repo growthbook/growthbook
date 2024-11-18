@@ -37,7 +37,7 @@ const EditProjectsForm: FC<{
         await save(data.projects);
         mutate();
       })}
-      cta="Save"
+      cta="保存"
     >
       <MultiSelectField
         label={label}

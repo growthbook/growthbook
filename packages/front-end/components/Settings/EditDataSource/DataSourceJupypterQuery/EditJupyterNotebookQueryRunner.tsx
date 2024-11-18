@@ -38,7 +38,7 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
       close={onCancel}
       size="max"
       header="Edit Jupyter Notebook Query Runner"
-      cta="Save"
+      cta="保存"
     >
       <h4>Jupyter Notebook Query Runner (optional)</h4>
       <div className="bg-light border my-2 p-3 ml-3">

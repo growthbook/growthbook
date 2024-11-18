@@ -43,7 +43,7 @@ const DataSourceForm: FC<{
   existing,
   importSampleData,
   inline,
-  cta = "Save",
+  cta = "保存",
   secondaryCTA,
 }) => {
   const { projects } = useDefinitions();

@@ -90,7 +90,7 @@ const SavedGroupForm: FC<{
       header={`${current.id ? "编辑" : "添加"} ${
         type === "condition" ? "Condition Group" : "ID List"
       }`}
-      cta={current.id ? "Save" : "Submit"}
+      cta={current.id ? "保存" : "提交"}
       ctaEnabled={isValid}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {

@@ -40,7 +40,7 @@ const EditLicenseModal: FC<{
         setEditField(false);
         setSuccessMessage("License key accepted. Thank you!");
       })}
-      cta="Save"
+      cta="保存"
       ctaEnabled={editField && form.watch("licenseKey").length > 0}
       closeCta={closeCta}
       autoCloseOnSubmit={false}

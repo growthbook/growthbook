@@ -159,7 +159,7 @@ export default function EditSavedGroupPage() {
           open={addItems}
           size="lg"
           header="Add Items to List"
-          cta="Save"
+          cta="保存"
           ctaEnabled={itemsToAdd.length > 0}
           submit={async () => {
             let newValues: Set<string>;

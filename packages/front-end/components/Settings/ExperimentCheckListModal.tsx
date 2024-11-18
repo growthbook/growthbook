@@ -72,7 +72,7 @@ export default function ExperimentCheckListModal({
       header={`${
         checklist?.id ? "编辑" : "添加"
       } Experiment Pre-Launch Checklist`}
-      cta="Save"
+      cta="保存"
       submit={() => handleSubmit()}
     >
       {loading ? (

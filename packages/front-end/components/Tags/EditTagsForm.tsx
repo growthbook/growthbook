@@ -35,7 +35,7 @@ const EditTagsForm: FC<{
           numTags: data.tags.length,
         });
       })}
-      cta="Save"
+      cta="保存"
     >
       <label>Tags</label>
       <TagsInput

@@ -181,8 +181,7 @@ export default function ResultsTab({
     <div className="mt-3">
       {isBandit && hasResults ? (
         <Callout status="info" mb="5">
-          Bandits are better than experiments at directing traffic to the best
-          variation but they can produce biased results.
+          多臂老虎机在将流量引导至最佳变体方面比普通实验更具优势，但它们可能会产生有偏差的结果。
           {/*todo: docs*/}
         </Callout>
       ) : null}
@@ -213,23 +212,21 @@ export default function ResultsTab({
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
-              Your experiment is still in a <strong>draft</strong> state. You
-              must start the experiment first before seeing results.
+              您的实验仍处于< strong>草稿</strong>状态。您必须先启动实验，然后才能查看结果。
             </Callout>
           ) : (
             <>
               {experiment.status === "running" &&
-              !experiment.datasource &&
-              !allowManualDatasource &&
-              !snapshot &&
-              !experiment.id.match(/^exp_sample/) ? (
+                !experiment.datasource &&
+                !allowManualDatasource &&
+                !snapshot &&
+                !experiment.id.match(/^exp_sample/) ? (
                 <div className="alert-cool-1 text-center m-4 px-3 py-4">
-                  <p className="h4">Use GrowthBook for Analysis</p>
+                  <p className="h4">使用GrowthBook进行分析</p>
                   {datasources.length > 0 ? (
                     <>
                       <p>
-                        Select a Data Source and metrics so GrowthBook can
-                        analyze the experiment results.
+                        选择一个数据源和指标，以便GrowthBook能够分析实验结果。
                       </p>
                       <button
                         className="btn btn-primary"
@@ -239,18 +236,16 @@ export default function ResultsTab({
                           setAnalysisSettingsOpen(true);
                         }}
                       >
-                        Select Data Source
+                        选择数据源
                       </button>
                     </>
                   ) : (
                     <>
                       <p>
-                        Connect GrowthBook to your data and use our powerful
-                        metrics and stats engine to automatically analyze your
-                        experiment results.
+                        将GrowthBook连接到您的数据，并使用我们强大的指标和统计引擎自动分析您的实验结果。
                       </p>
                       <Link href="/datasources" className="btn btn-primary">
-                        Connect to your Data
+                        连接到您的数据
                       </Link>
                     </>
                   )}
@@ -263,7 +258,7 @@ export default function ResultsTab({
                           setAllowManualDatasource(true);
                         }}
                       >
-                        continue with manually entered data
+                        继续使用手动输入的数据
                       </a>
                     </div>
                   )}
@@ -303,7 +298,7 @@ export default function ResultsTab({
       {snapshot && !isBandit && (
         <div className="bg-white border mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
-            <div className="col h3 ml-2 mb-0">Custom Reports</div>
+            <div className="col h3 ml-2 mb-0">自定义报告</div>
             <div className="col-auto mr-2">
               {permissionsUtil.canCreateReport(experiment) ? (
                 <Button
@@ -324,14 +319,14 @@ export default function ResultsTab({
                       "create",
                       "ResultsTab",
                       getDatasourceById(res.report.args.datasource)?.type ||
-                        null,
+                      null,
                       res.report
                     );
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >
                   <GBAddCircle className="pr-1" />
-                  Custom Report
+                  自定义报告
                 </Button>
               ) : null}
             </div>

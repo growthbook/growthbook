@@ -69,7 +69,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       close={onCancel}
       size="lg"
       header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
-      cta="Save"
+      cta="保存"
       ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identifier-type"
     >

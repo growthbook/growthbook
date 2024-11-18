@@ -75,17 +75,17 @@ export function getDefaultMetricOverridesFormValue(
       );
       const defaultValues = metricDefinition?.priorSettings?.override
         ? {
-            proper: metricDefinition.priorSettings.proper,
-            mean: metricDefinition.priorSettings.mean,
-            stddev: metricDefinition.priorSettings.stddev,
-          }
+          proper: metricDefinition.priorSettings.proper,
+          mean: metricDefinition.priorSettings.mean,
+          stddev: metricDefinition.priorSettings.stddev,
+        }
         : {
-            proper: settings.metricDefaults?.priorSettings?.proper ?? false,
-            mean: settings.metricDefaults?.priorSettings?.mean ?? 0,
-            stddev:
-              settings.metricDefaults?.priorSettings?.stddev ??
-              DEFAULT_PROPER_PRIOR_STDDEV,
-          };
+          proper: settings.metricDefaults?.priorSettings?.proper ?? false,
+          mean: settings.metricDefaults?.priorSettings?.mean ?? 0,
+          stddev:
+            settings.metricDefaults?.priorSettings?.stddev ??
+            DEFAULT_PROPER_PRIOR_STDDEV,
+        };
 
       defaultMetricOverrides[i].properPriorEnabled =
         defaultMetricOverrides[i].properPriorEnabled ?? defaultValues.proper;
@@ -214,10 +214,10 @@ const EditMetricsForm: FC<{
       {!(isBandit && experiment.status === "running") && (
         <>
           <div className="form-group">
-            <label className="font-weight-bold mb-1">Activation Metric</label>
+            <label className="font-weight-bold mb-1">激活指标</label>
             <div className="mb-1">
               <span className="font-italic">
-                Users must convert on this metric before being included.{" "}
+                用户必须在此指标上完成转化才能被纳入统计。{" "}
               </span>
               <MetricsSelectorTooltip onlyBinomial={true} />
             </div>
@@ -235,14 +235,14 @@ const EditMetricsForm: FC<{
 
           <div className="form-group mb-2">
             <PremiumTooltip commercialFeature="override-metrics">
-              Metric Overrides (optional)
+              指标覆盖（可选）
             </PremiumTooltip>
             <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
               <p className="mb-0">
-                Override metric behaviors within this experiment.
+                在此实验中覆盖指标的行为。
               </p>
               <p className="mb-0">
-                Leave any fields empty that you do not want to override.
+                不想覆盖的字段可留空。
               </p>
             </div>
             <MetricsOverridesSelector

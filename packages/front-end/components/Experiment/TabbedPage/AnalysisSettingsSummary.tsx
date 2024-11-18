@@ -140,7 +140,7 @@ export default function AnalysisSettingsSummary({
       if (!metric) return;
       const userIdTypes = isFactMetric(metric)
         ? factTables.find((f) => f.id === metric.numerator.factTableId)
-            ?.userIdTypes || []
+          ?.userIdTypes || []
         : metric.userIdTypes || [];
       const isJoinable =
         userIdType && datasourceSettings
@@ -213,49 +213,50 @@ export default function AnalysisSettingsSummary({
   }[] = [];
 
   items.push({
-    value: ds ? ds.name : <em>no data source</em>,
+    value: ds ? ds.name : <em>无数据源</em>,
     icon: <FaDatabase className="mr-1" />,
-    tooltip: ds ? "Data Source" : "",
+    tooltip: ds ? "数据源" : "",
   });
 
   if (assignmentQuery) {
     items.push({
       value: assignmentQuery.name,
       icon: <FaTable className="mr-1" />,
-      tooltip: "Experiment Assignment Query",
+      tooltip: "实验分配查询",
     });
   }
   if (ds) {
     items.push({
       value: experiment.trackingKey,
       icon: <FaFlask className="mr-1" />,
-      tooltip: "Tracking Key",
+      tooltip: "追踪Key",
     });
   }
   if (segment) {
     items.push({
       value: segment.name,
       icon: <GiPieChart className="mr-1" />,
-      tooltip: "Segment",
+      tooltip: "细分",
     });
   }
   if (activationMetric) {
     items.push({
       value: <MetricName id={activationMetric.id} />,
       icon: <HiCursorClick className="mr-1" />,
-      tooltip: "Activation Metric",
+      tooltip: "激活指标",
     });
   }
 
   items.push({
-    value: numMetrics + (numMetrics === 1 ? " metric" : " metrics"),
+    // value: numMetrics + (numMetrics === 1 ? " metric" : " metrics"),
+    value: numMetrics + " 个指标",
     icon: <FaChartBar className="mr-1" />,
     noTransform: true,
     tooltip:
       numMetrics > 0 ? (
         <>
           <div className="mb-2 text-left">
-            <strong>Goals:</strong>
+            <strong>目标：</strong>
             {goals.length > 0 ? (
               <ul className=" ml-0 pl-3 mb-0">
                 {goals.map((m, i) => (
@@ -265,12 +266,12 @@ export default function AnalysisSettingsSummary({
             ) : (
               <>
                 {" "}
-                <em>none</em>
+                <em>无</em>
               </>
             )}
           </div>
           <div className="mb-2 text-left">
-            <strong>Secondary Metrics:</strong>
+            <strong>次要指标：</strong>
             {secondary.length > 0 ? (
               <ul className=" ml-0 pl-3 mb-0">
                 {secondary.map((m, i) => (
@@ -280,12 +281,12 @@ export default function AnalysisSettingsSummary({
             ) : (
               <>
                 {" "}
-                <em>none</em>
+                <em>无</em>
               </>
             )}
           </div>
           <div className="text-left">
-            <strong>Guardrails:</strong>
+            <strong>护栏：</strong>
             {guardrails.length > 0 ? (
               <ul className="ml-0 pl-3 mb-0">
                 {guardrails.map((m, i) => (
@@ -295,7 +296,7 @@ export default function AnalysisSettingsSummary({
             ) : (
               <>
                 {" "}
-                <em>none</em>
+                <em>无</em>
               </>
             )}
           </div>
@@ -320,7 +321,7 @@ export default function AnalysisSettingsSummary({
       <div className="row align-items-center text-muted">
         <div className="col-auto">
           {!(isBandit && experiment.status === "running") &&
-          canEditAnalysisSettings ? (
+            canEditAnalysisSettings ? (
             <div className="cursor-pointer">
               <Link
                 onClick={(e) => {
@@ -328,12 +329,12 @@ export default function AnalysisSettingsSummary({
                   setAnalysisModal(true);
                 }}
               >
-                <span className="text-dark">Analysis Settings</span>
+                <span className="text-dark">分析设置</span>
                 <GBEdit className="ml-2" />
               </Link>
             </div>
           ) : (
-            <span>Analysis Settings</span>
+            <span>分析设置</span>
           )}
         </div>
         {items.map((item, i) => (
@@ -386,7 +387,7 @@ export default function AnalysisSettingsSummary({
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
                 <RunQueriesButton
-                  cta="Update"
+                  cta="更新"
                   cancelEndpoint={`/snapshot/${latest.id}/cancel`}
                   mutate={mutateSnapshot}
                   model={latest}
@@ -501,35 +502,35 @@ export default function AnalysisSettingsSummary({
             forceRefresh={
               numMetrics > 0
                 ? async () => {
-                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                      `/experiment/${experiment.id}/snapshot?force=true`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
+                  await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                    `/experiment/${experiment.id}/snapshot?force=true`,
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        phase,
+                        dimension,
+                      }),
+                    }
+                  )
+                    .then((res) => {
+                      setAnalysisSettings(null);
+                      if (baselineRow !== 0) {
+                        setBaselineRow?.(0);
+                        setVariationFilter?.([]);
                       }
-                    )
-                      .then((res) => {
-                        setAnalysisSettings(null);
-                        if (baselineRow !== 0) {
-                          setBaselineRow?.(0);
-                          setVariationFilter?.([]);
-                        }
-                        setDifferenceType("relative");
-                        trackSnapshot(
-                          "create",
-                          "ForceRerunQueriesButton",
-                          datasource?.type || null,
-                          res.snapshot
-                        );
-                        mutateSnapshot();
-                      })
-                      .catch((e) => {
-                        console.error(e);
-                      });
-                  }
+                      setDifferenceType("relative");
+                      trackSnapshot(
+                        "create",
+                        "ForceRerunQueriesButton",
+                        datasource?.type || null,
+                        res.snapshot
+                      );
+                      mutateSnapshot();
+                    })
+                    .catch((e) => {
+                      console.error(e);
+                    });
+                }
                 : undefined
             }
             editMetrics={editMetrics}
@@ -555,7 +556,7 @@ export default function AnalysisSettingsSummary({
       </div>
       {refreshError && (
         <div className="alert alert-danger mt-2">
-          <strong>Error updating data: </strong> {refreshError}
+          <strong>更新数据出错：</strong> {refreshError}
         </div>
       )}
     </div>

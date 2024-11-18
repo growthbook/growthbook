@@ -121,7 +121,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
         close={onCancel}
         size="max"
         header={modalTitle}
-        cta="Save"
+        cta="保存"
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | ""' is not assignable to type 'boo... Remove this comment to see the full error message
         ctaEnabled={saveEnabled}
         autoFocusSelector="#id-modal-identify-joins-heading"

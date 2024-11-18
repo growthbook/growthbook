@@ -27,7 +27,7 @@ const EditOwnerModal: FC<{
         await save(data.owner);
         mutate();
       })}
-      cta="Save"
+      cta="保存"
     >
       <Field
         label="Owner"

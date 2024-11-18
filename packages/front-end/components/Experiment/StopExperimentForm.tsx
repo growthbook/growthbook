@@ -97,7 +97,7 @@ const StopExperimentForm: FC<{
       close={close}
       open={true}
       submit={submit}
-      cta={isStopped ? "Save" : "Stop"}
+      cta={isStopped ? "保存" : "停止"}
       submitColor={isStopped ? "primary" : "danger"}
       closeCta="Cancel"
     >

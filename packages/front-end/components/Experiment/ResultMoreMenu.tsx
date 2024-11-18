@@ -90,7 +90,7 @@ export default function ResultMoreMenu({
               forceRefresh();
             }}
           >
-            <BsArrowRepeat className="mr-2" /> Re-run All Queries
+            <BsArrowRepeat className="mr-2" /> 重新运行所有查询
           </button>
         )}
       {hasData && queries && generateReport && canEdit && (
@@ -118,13 +118,13 @@ export default function ResultMoreMenu({
             await router.push(`/report/${res.report.id}`);
           }}
         >
-          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
+          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> 临时报告
           Report
         </Button>
       )}
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
-        body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
+        body="要将结果下载为Jupyter笔记本，您必须设置一个Jupyter Notebook查询运行器。查看我们的文档以获取更多信息。"
       >
         <Button
           color="outline-info"
@@ -155,7 +155,7 @@ export default function ResultMoreMenu({
           }}
         >
           <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
-          Download Notebook
+          下载Notebook
         </Button>
       </Tooltip>
       {canEdit && editMetrics && !isBandit && (
@@ -166,7 +166,7 @@ export default function ResultMoreMenu({
             editMetrics();
           }}
         >
-          <FaPencilAlt className="mr-2" /> Add/Remove Metrics
+          <FaPencilAlt className="mr-2" /> 添加/删除指标
         </button>
       )}
       {results && (

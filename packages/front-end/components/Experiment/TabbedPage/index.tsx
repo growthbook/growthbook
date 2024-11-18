@@ -380,7 +380,7 @@ export default function TabbedPage({
                 size="lg"
                 icon={<FaChartBar />}
               >
-                View Results
+                查看结果
               </Button>
             </div>
           )}
@@ -453,7 +453,7 @@ export default function TabbedPage({
         style={{ marginLeft: -8, marginRight: -8 }}
       >
         <div className="pt-2 pt-4 pb-5 container pagecontents">
-          <div className="h3 mb-4">Comments</div>
+          <div className="h3 mb-4">评论</div>
           <DiscussionThread
             type="experiment"
             id={experiment.id}

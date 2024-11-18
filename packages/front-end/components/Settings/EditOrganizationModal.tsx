@@ -65,7 +65,7 @@ const EditOrganizationModal: FC<{
         // Update org name on settings page
         await mutate();
       })}
-      cta="Save"
+      cta="保存"
     >
       <Field
         label="Organization Name"

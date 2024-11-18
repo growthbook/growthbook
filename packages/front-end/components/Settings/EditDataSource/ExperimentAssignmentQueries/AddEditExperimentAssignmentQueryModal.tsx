@@ -235,7 +235,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         close={onCancel}
         size="lg"
         header={modalTitle}
-        cta="Save"
+        cta="保存"
         ctaEnabled={saveEnabled}
         autoFocusSelector="#id-modal-identify-joins-heading"
       >

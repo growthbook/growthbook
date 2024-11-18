@@ -203,7 +203,7 @@ const MetricForm: FC<MetricFormProps> = ({
   initialStep = 0,
   advanced = false,
   inline,
-  cta = "Save",
+  cta = "保存",
   onSuccess,
   secondaryCTA,
   switchToFact,

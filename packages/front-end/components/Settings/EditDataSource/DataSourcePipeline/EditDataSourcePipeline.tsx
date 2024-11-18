@@ -50,7 +50,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       submit={handleSubmit}
       close={onCancel}
       header="Edit Data Source Pipeline Settings"
-      cta="Save"
+      cta="保存"
     >
       <div>
         <label className="mr-2">

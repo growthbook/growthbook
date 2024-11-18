@@ -55,7 +55,7 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
       close={onCancel}
       size="md"
       header="Edit Query Settings"
-      cta="Save"
+      cta="保存"
       ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identify-joins-heading"
     >
