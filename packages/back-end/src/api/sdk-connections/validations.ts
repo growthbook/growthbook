@@ -96,7 +96,7 @@ function validateLanguage(reqLanguage: string): SDKLanguage {
 function validateSdkCapabilities(
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
   language: SDKLanguage,
-  sdkVersion: string,
+  sdkVersion: string | undefined,
   latestSdkVersion: string
 ) {
   const latestCapabilities = getSDKCapabilities(language, latestSdkVersion);
@@ -192,15 +192,15 @@ export async function validatePutPayload(
     environment,
     sdkVersion: reqSdkVersion,
     language: reqLanguage,
-    projects = [],
-    encryptPayload = false,
-    includeVisualExperiments = false,
-    includeDraftExperiments = false,
-    includeExperimentNames = false,
-    includeRedirectExperiments = false,
+    projects,
+    encryptPayload,
+    includeVisualExperiments,
+    includeDraftExperiments,
+    includeExperimentNames,
+    includeRedirectExperiments,
     proxyEnabled,
     proxyHost,
-    hashSecureAttributes = false,
+    hashSecureAttributes,
     ...otherParams
   }: Partial<CreateSdkConnectionRequestBody>,
   sdkConnection: SDKConnectionInterface
@@ -218,12 +218,11 @@ export async function validatePutPayload(
     : sdkConnection.languages[0];
 
   const latestSdkVersion = getLatestSDKVersion(language);
-  const sdkVersion = reqSdkVersion || latestSdkVersion;
+  const sdkVersion = reqSdkVersion || sdkConnection.sdkVersion;
 
   const payload: UpdateSdkConnectionPayload = {
     name,
     environment,
-    sdkVersion,
     projects,
     encryptPayload,
     includeVisualExperiments,
@@ -235,9 +234,12 @@ export async function validatePutPayload(
     hashSecureAttributes,
     ...otherParams,
   };
-  // Only update languages if it's being changed
+  // Only apply these updates if they're being changed
   if (reqLanguage) {
     payload.languages = [language];
+  }
+  if (reqSdkVersion) {
+    payload.sdkVersion = reqSdkVersion;
   }
 
   validateSdkCapabilities(payload, language, sdkVersion, latestSdkVersion);
