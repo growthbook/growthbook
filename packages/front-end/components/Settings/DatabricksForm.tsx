@@ -33,7 +33,7 @@ const DatabricksForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Port</label>
+        <label>端口（Port）</label>
         <input
           type="number"
           className="form-control"
@@ -44,7 +44,7 @@ const DatabricksForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>HTTP Path</label>
+        <label>HTTP路径</label>
         <input
           type="text"
           className="form-control"

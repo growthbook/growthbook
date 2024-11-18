@@ -32,7 +32,7 @@ const MysqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Port</label>
+          <label>端口（Port）</label>
           <input
             type="number"
             className="form-control"
@@ -43,7 +43,7 @@ const MysqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Database</label>
+          <label>数据库</label>
           <input
             type="text"
             className="form-control"
@@ -54,7 +54,7 @@ const MysqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>User</label>
+          <label>用户</label>
           <input
             type="text"
             className="form-control"
@@ -65,7 +65,7 @@ const MysqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Password</label>
+          <label>密码</label>
           <input
             type="text"
             className="form-control password-presentation"

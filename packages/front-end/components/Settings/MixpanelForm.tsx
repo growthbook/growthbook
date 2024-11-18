@@ -23,7 +23,7 @@ const MixpanelForm: FC<{
       </div>
       <div className="row">
         <div className="form-group col-md-12">
-          <label>Username</label>
+          <label>用户名</label>
           <input
             type="text"
             className="form-control"
@@ -47,7 +47,7 @@ const MixpanelForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Project Id</label>
+          <label>项目ID</label>
           <input
             type="text"
             className="form-control"
@@ -58,7 +58,7 @@ const MixpanelForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>API Server</label>
+          <label>API服务</label>
           <SelectField
             name="server"
             // todo: better inference

@@ -76,7 +76,7 @@ const PrestoForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Port</label>
+        <label>端口（Port）</label>
         <input
           type="number"
           className="form-control"
@@ -89,7 +89,7 @@ const PrestoForm: FC<{
       {params.authType === "basicAuth" && (
         <>
           <div className="form-group col-md-12">
-            <label>Username</label>
+            <label>用户名</label>
             <input
               type="text"
               className="form-control"
@@ -101,7 +101,7 @@ const PrestoForm: FC<{
           </div>
 
           <div className="form-group col-md-12">
-            <label>Password</label>
+            <label>密码</label>
             <input
               type="text"
               className="form-control"
@@ -151,7 +151,7 @@ const PrestoForm: FC<{
         </div>
       </div>
       <div className="form-group col-md-12">
-        <label>Default Schema</label>
+        <label>默认Schema</label>
         <input
           type="text"
           className="form-control"

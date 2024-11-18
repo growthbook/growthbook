@@ -24,7 +24,7 @@ const MssqlForm: FC<{
       />
       <div className="row">
         <div className="form-group col-md-12">
-          <label>Server</label>
+          <label>服务器</label>
           <input
             type="text"
             className="form-control"
@@ -35,7 +35,7 @@ const MssqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Port</label>
+          <label>端口（Port）</label>
           <input
             type="number"
             className="form-control"
@@ -46,7 +46,7 @@ const MssqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Database</label>
+          <label>数据库</label>
           <input
             type="text"
             className="form-control"
@@ -57,7 +57,7 @@ const MssqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>User</label>
+          <label>用户</label>
           <input
             type="text"
             className="form-control"
@@ -68,7 +68,7 @@ const MssqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Password</label>
+          <label>密码</label>
           <input
             type="text"
             className="form-control password-presentation"
@@ -80,29 +80,28 @@ const MssqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Request Timeout</label>
+          <label>请求超时时间</label>
           <input
             type="number"
             className="form-control"
             name="requestTimeout"
             value={params.requestTimeout || ""}
             onChange={onParamChange}
-            placeholder="(optional - in seconds. If empty, it will be disabled)"
+            placeholder="(可选 - 以秒为单位。如果为空，将禁用此功能)"
           />
           <div className="form-text text-muted small">
-            The number of seconds before a request is considered failed. The
-            connection default is 15 seconds. Set to 0 to disable timeout.
+            请求被视为失败之前的秒数。连接默认超时时间为15秒。设置为0可禁用超时。
           </div>
         </div>
         <div className="form-group col-md-12">
-          <label>Default Schema</label>
+          <label>默认Schema</label>
           <input
             type="text"
             className="form-control"
             name="defaultSchema"
             value={params.defaultSchema || ""}
             onChange={onParamChange}
-            placeholder="(optional)"
+            placeholder="(可选)"
           />
         </div>
       </div>
@@ -110,12 +109,12 @@ const MssqlForm: FC<{
         <div className="col-md-12">
           <div className="form-group">
             <label htmlFor="trust-server-cert" className="mr-2">
-              Trust server certificate{" "}
-              <Tooltip body="Allows for self-signed certificates"></Tooltip>
+              信任服务器证书{" "}
+              <Tooltip body="允许使用自签名证书"></Tooltip>
             </label>
             <Toggle
               id="trust-server-cert"
-              label="Trust server certificate"
+              label="信任服务器证书"
               value={params.options?.trustServerCertificate === true}
               setValue={(value) => {
                 const opt = {
@@ -130,11 +129,11 @@ const MssqlForm: FC<{
           </div>
           <div className="form-group">
             <label htmlFor="encryption" className="mr-2">
-              Enable encryption
+              启用加密
             </label>
             <Toggle
               id="encryption"
-              label="Enable encryption"
+              label="启用加密"
               value={params.options?.encrypt === true}
               setValue={(value) => {
                 const opt = { ...params.options, encrypt: value };

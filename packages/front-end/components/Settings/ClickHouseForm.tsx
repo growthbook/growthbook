@@ -31,7 +31,7 @@ const ClickHouseForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Port</label>
+          <label>端口（Port）</label>
           <input
             type="number"
             className="form-control"
@@ -42,7 +42,7 @@ const ClickHouseForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Database</label>
+          <label>数据库</label>
           <input
             type="text"
             className="form-control"
@@ -52,7 +52,7 @@ const ClickHouseForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Username</label>
+          <label>用户名</label>
           <input
             type="text"
             className="form-control"
@@ -62,7 +62,7 @@ const ClickHouseForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Password</label>
+          <label>密码</label>
           <input
             type="text"
             className="form-control password-presentation"
@@ -74,7 +74,7 @@ const ClickHouseForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
-          <label>Max Query Execution Time (seconds)</label>
+          <label>最大查询执行时间（秒）</label>
           <input
             type="number"
             className="form-control"
@@ -83,7 +83,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
             min={0}
             max={3600}
-            placeholder={"Default: 1800"}
+            placeholder={"默认值：1800"}
           />
         </div>
       </div>

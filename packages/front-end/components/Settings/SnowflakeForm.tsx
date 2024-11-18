@@ -13,7 +13,7 @@ const SnowflakeForm: FC<{
   return (
     <div className="row">
       <div className="form-group col-md-12">
-        <label>Account</label>
+        <label>账号</label>
         <input
           type="text"
           className="form-control"
@@ -25,7 +25,7 @@ const SnowflakeForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Username</label>
+        <label>用户名</label>
         <input
           type="text"
           className="form-control"
@@ -36,7 +36,7 @@ const SnowflakeForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Password</label>
+        <label>密码</label>
         <input
           type="text"
           className="form-control password-presentation"
@@ -45,11 +45,11 @@ const SnowflakeForm: FC<{
           required={!existing}
           value={params.password || ""}
           onChange={onParamChange}
-          placeholder={existing ? "(Keep existing)" : ""}
+          placeholder={existing ? "(保持现有)" : ""}
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Database</label>
+        <label>数据库</label>
         <input
           type="text"
           className="form-control"
@@ -71,7 +71,7 @@ const SnowflakeForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Role</label>
+        <label>角色</label>
         <input
           type="text"
           className="form-control"
@@ -82,8 +82,8 @@ const SnowflakeForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <label>
-          Warehouse (Optional){" "}
-          <Tooltip body="If no Warehouse is specified, queries will be executed in the default Warehouse for your User, set in Snowflake." />
+          仓库（可选）{" "}
+          <Tooltip body="如果未指定仓库，查询将在Snowflake中为您的用户设置的默认仓库中执行。" />
         </label>
         <input
           type="text"
@@ -97,11 +97,11 @@ const SnowflakeForm: FC<{
       <div className="col-md-12">
         <div className="form-group">
           <label htmlFor="access-url" className="mr-2">
-            Use Access URL (Optional)
+            使用访问URL（可选）
           </label>
           <Toggle
             id="access-url"
-            label="Use Access URL (Optional)"
+            label="使用访问URL（可选）"
             value={useAccessUrl}
             setValue={(v) => {
               setUseAccessUrl(v);
@@ -116,7 +116,7 @@ const SnowflakeForm: FC<{
         <div className="form-group col-md-12">
           <label>
             Access URL{" "}
-            <Tooltip body="Overrides Account to point GrowthBook at a specific URL" />
+            <Tooltip body="覆盖账号，使GrowthBook指向特定URL" />
           </label>
           <input
             type="text"

@@ -26,11 +26,11 @@ export default function SSLConnectionFields({
       <div className="col-md-12">
         <div className="form-group">
           <label htmlFor="require-ssl" className="mr-2">
-            Require SSL
+            要求使用SSL
           </label>
           <Toggle
             id="require-ssl"
-            label="Require SSL"
+            label="要求使用SSL"
             value={value.ssl}
             setValue={(ssl) => {
               setSSL(ssl);
@@ -44,7 +44,7 @@ export default function SSLConnectionFields({
                 setCerts(!certs);
               }}
             >
-              Advanced SSL Settings {certs ? <FaCaretDown /> : <FaCaretRight />}
+              高级SSL设置 {certs ? <FaCaretDown /> : <FaCaretRight />}
             </a>
           )}
         </div>
@@ -53,7 +53,7 @@ export default function SSLConnectionFields({
         <div className="col-md-12 mb-3">
           <div className="p-2 bg-light border">
             <Field
-              label="CA Cert (optional)"
+              label="CA证书（可选）"
               textarea
               placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
               minRows={2}
@@ -62,7 +62,7 @@ export default function SSLConnectionFields({
               onChange={onParamChange}
             />
             <Field
-              label="Client Cert"
+              label="客户端证书"
               textarea
               placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
               minRows={2}
@@ -71,7 +71,7 @@ export default function SSLConnectionFields({
               onChange={onParamChange}
             />
             <Field
-              label="Client Key"
+              label="客户端密钥"
               textarea
               placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
               minRows={2}

@@ -21,18 +21,16 @@ export default function SharedConnectionSettings({
             type="number"
             label={
               <>
-                Maximum Concurrent Queries (Optional){" "}
+                最大并发查询数（可选）{" "}
                 <Tooltip
                   body={
-                    "When executing queries against this datasource, if this many queries are already" +
-                    " running then new connections will wait for existing connections to finish. This" +
-                    " limit is not exact, e.g. if set to 100 it still might allow slightly over 100" +
-                    " queries to run simultaneously if many are initiated by a single experiment update"
+                    "当针对此数据源执行查询时，如果已经有这么多查询正在运行，那么新的连接将会等待现有连接完成。此限制并非精确的，" +
+                    "例如，如果设置为 100，在许多查询是由单个实验更新发起的情况下，它仍可能允许略超过 100 个查询同时运行。"
                   }
                 />
               </>
             }
-            helpText="A value of 0 or an empty field will result in no limit on the number of queries"
+            helpText="0 或空字段表示对查询数量没有限制"
             value={settings.maxConcurrentQueries || ""}
             onChange={onSettingChange}
             min={0}
