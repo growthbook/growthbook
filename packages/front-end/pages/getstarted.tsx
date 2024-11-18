@@ -50,7 +50,7 @@ function WorkspaceLink({
         }}
       />{" "}
       {disabled ? (
-        <Tooltip body="You do not have permission to complete this action">
+        <Tooltip body="您没有执行此操作的权限">
           <span
             className={clsx(
               styles.workspaceSetupLink,
@@ -144,7 +144,7 @@ const GetStartedPage = (): React.ReactElement => {
               maxWidth: 862,
             }}
           >
-            <h1 className="mb-3">Get Started</h1>
+            <h1 className="mb-3">开始使用</h1>
             <div className="d-flex flex-wrap">
               <Link
                 href={"/getstarted/feature-flag-guide"}
@@ -155,7 +155,7 @@ const GetStartedPage = (): React.ReactElement => {
                 >
                   <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                     <div className="d-flex text-left align-middle">
-                      <h2>Create Feature Flags from Scratch</h2>
+                      <h2>从头开始创建Feature标志</h2>
                       <img
                         className={clsx(styles.imgInactive, "ml-auto")}
                         width="30px"
@@ -170,7 +170,7 @@ const GetStartedPage = (): React.ReactElement => {
                       />
                     </div>
 
-                    <p>Explore a guided setup & sample feature flag</p>
+                    <p>探索引导式设置和示例Feature标志</p>
                   </div>
                   <img
                     className={clsx(styles.imgActive, "float-right")}
@@ -196,7 +196,7 @@ const GetStartedPage = (): React.ReactElement => {
                 >
                   <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                     <div className="d-flex text-left align-middle">
-                      <h2>Run an Experiment</h2>
+                      <h2>运行一个实验</h2>
                       <img
                         className={clsx(styles.imgInactive, "ml-auto")}
                         width="30px"
@@ -210,7 +210,7 @@ const GetStartedPage = (): React.ReactElement => {
                         src="/images/get-started/icons/active-card-arrow.svg"
                       />
                     </div>
-                    <p>Explore a guided setup & sample results</p>
+                    <p>探索引导式设置和示例结果</p>
                   </div>
 
                   <img
@@ -234,7 +234,7 @@ const GetStartedPage = (): React.ReactElement => {
                 body={
                   canImportLaunchDarkly
                     ? ""
-                    : "You do not have permission to complete this action"
+                    : "您没有执行此操作的权限"
                 }
               >
                 <button
@@ -266,7 +266,7 @@ const GetStartedPage = (): React.ReactElement => {
                     className="align-middle"
                     style={{ fontSize: "17px", fontWeight: 600 }}
                   >
-                    Migrate from LaunchDarkly
+                    从LaunchDarkly迁移
                   </span>
 
                   <img
@@ -302,7 +302,7 @@ const GetStartedPage = (): React.ReactElement => {
                     className="align-middle"
                     style={{ fontSize: "17px", fontWeight: 600 }}
                   >
-                    Analyze Imported Experiments
+                    分析导入的实验
                   </span>
                   <img
                     className={clsx(
@@ -326,7 +326,7 @@ const GetStartedPage = (): React.ReactElement => {
             <Separator size="4" my="4" />
 
             <div className="mt-4 mb-4">
-              <h6 className="text-muted mb-3">PRODUCT OVERVIEW</h6>
+              <h6 className="text-muted mb-3">产品概述</h6>
               <div className="container-fluid">
                 <div className="row">
                   <FeaturedCard
@@ -362,7 +362,7 @@ const GetStartedPage = (): React.ReactElement => {
               </div>
             </div>
             <div className="mb-2">
-              <h6 className="text-muted mb-3">SET UP YOUR WORKSPACE</h6>
+              <h6 className="text-muted mb-3">设置您的工作区</h6>
               <div
                 className="appbox d-flex px-4 pt-4 pb-3 mr-6 w-100"
                 style={{
@@ -373,31 +373,31 @@ const GetStartedPage = (): React.ReactElement => {
                   <WorkspaceLink
                     Icon={PiUsersThree}
                     url="/settings/team"
-                    text="Teams & Permissions"
+                    text="团队与权限"
                     disabled={!permissionsUtils.canManageTeam()}
                   />
                   <WorkspaceLink
                     Icon={PiGoogleChromeLogo}
                     url="https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
-                    text="Install Chrome DevTools Extension"
+                    text="安装Chrome开发者工具扩展"
                     external
                   />
                   <WorkspaceLink
                     Icon={PiFolders}
                     url="/projects"
-                    text="Create Projects"
+                    text="创建项目"
                     disabled={!permissionsUtils.canCreateProjects()}
                   />
                   <WorkspaceLink
                     Icon={PiWebhooksLogo}
                     url="/settings/webhooks"
-                    text="Integrate Slack or Discord"
+                    text="集成Slack或Discord"
                     disabled={!permissionsUtils.canCreateEventWebhook()}
                   />
                   <WorkspaceLink
                     Icon={PiTable}
                     url="/fact-tables"
-                    text="Configure Metric Library"
+                    text="配置指标库"
                     disabled={
                       !permissionsUtils.canViewCreateFactTableModal(project) &&
                       !permissionsUtils.canCreateFactMetric({
@@ -408,7 +408,7 @@ const GetStartedPage = (): React.ReactElement => {
                   <WorkspaceLink
                     Icon={PiKey}
                     url="/settings/keys"
-                    text="Create API Token"
+                    text="创建API Token"
                     disabled={!permissionsUtils.canCreateApiKey()}
                   />
                 </div>
@@ -418,7 +418,7 @@ const GetStartedPage = (): React.ReactElement => {
           <div className="col-auto pl-0">
             {canUseSetupFlow && (
               <LinkButton href="/setup" mt="2" mb="4">
-                Launch Setup Flow
+                启动设置流程
               </LinkButton>
             )}
             <DocumentationSidebar
