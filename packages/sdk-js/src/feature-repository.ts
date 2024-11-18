@@ -7,8 +7,12 @@ import {
   Polyfills,
 } from "./types/growthbook";
 import { getPolyfills, promiseTimeout } from "./util";
-import { GrowthBookMultiUser } from "./GrowthBookMultiUser";
-import type { GrowthBook } from ".";
+import type {
+  GrowthBook,
+  InitOptions,
+  InitSyncOptions,
+  GrowthBookMultiUser,
+} from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -158,7 +162,7 @@ export async function refreshFeatures({
 }
 
 // Subscribe a GrowthBook instance to feature changes
-export function subscribe(instance: GrowthBook | GrowthBookMultiUser): void {
+function subscribe(instance: GrowthBook | GrowthBookMultiUser): void {
   const key = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
@@ -258,8 +262,7 @@ function getKey(instance: GrowthBook | GrowthBookMultiUser): string {
 
 function getCacheKey(instance: GrowthBook | GrowthBookMultiUser): string {
   const baseKey = getKey(instance);
-  if (instance instanceof GrowthBookMultiUser || !instance.isRemoteEval())
-    return baseKey;
+  if (!("isRemoteEval" in instance) || !instance.isRemoteEval()) return baseKey;
 
   const attributes = instance.getAttributes();
   const cacheKeyAttributes =
@@ -380,8 +383,7 @@ async function fetchFeatures(
 ): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
-  const remoteEval =
-    !(instance instanceof GrowthBookMultiUser) && instance.isRemoteEval();
+  const remoteEval = "isRemoteEval" in instance && instance.isRemoteEval();
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
@@ -444,7 +446,7 @@ async function fetchFeatures(
 }
 
 // Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
-export function startAutoRefresh(
+function startAutoRefresh(
   instance: GrowthBook | GrowthBookMultiUser,
   forceSSE: boolean = false
 ): void {
@@ -558,4 +560,19 @@ function clearAutoRefresh() {
 
   // Run the idle stream cleanup function
   helpers.stopIdleListener();
+}
+
+export function startStreaming(
+  instance: GrowthBook | GrowthBookMultiUser,
+  options: InitOptions | InitSyncOptions
+) {
+  if (options.streaming) {
+    if (!instance.getClientKey()) {
+      throw new Error("Must specify clientKey to enable streaming");
+    }
+    if (options.payload) {
+      startAutoRefresh(instance, true);
+    }
+    subscribe(instance);
+  }
 }

@@ -13,6 +13,8 @@ import {
   StickyAttributeKey,
   StickyAssignmentsDocument,
   FeatureApiResponse,
+  Options,
+  MultiUserOptions,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -1109,4 +1111,21 @@ export async function decryptPayload(
     delete data.encryptedSavedGroups;
   }
   return data;
+}
+
+export function getApiHosts(
+  options: Options | MultiUserOptions
+): {
+  apiHost: string;
+  streamingHost: string;
+  apiRequestHeaders?: Record<string, string>;
+  streamingHostRequestHeaders?: Record<string, string>;
+} {
+  const defaultHost = options.apiHost || "https://cdn.growthbook.io";
+  return {
+    apiHost: defaultHost.replace(/\/*$/, ""),
+    streamingHost: (options.streamingHost || defaultHost).replace(/\/*$/, ""),
+    apiRequestHeaders: options.apiHostRequestHeaders,
+    streamingHostRequestHeaders: options.streamingHostRequestHeaders,
+  };
 }

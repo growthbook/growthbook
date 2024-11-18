@@ -23,8 +23,7 @@ import { loadSDKVersion } from "./util";
 import {
   configureCache,
   refreshFeatures,
-  startAutoRefresh,
-  subscribe,
+  startStreaming,
   unsubscribe,
 } from "./feature-repository";
 import {
@@ -32,6 +31,7 @@ import {
   evalFeature as _evalFeature,
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
+  getApiHosts,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -101,13 +101,7 @@ export class GrowthBookMultiUser<
 
     this.ready = true;
 
-    if (options.streaming) {
-      if (!this._options.clientKey) {
-        throw new Error("Must specify clientKey to enable streaming");
-      }
-      startAutoRefresh(this, true);
-      subscribe(this);
-    }
+    startStreaming(this, options);
 
     return this;
   }
@@ -121,14 +115,7 @@ export class GrowthBookMultiUser<
 
     if (options.payload) {
       await this.setPayload(options.payload);
-      if (options.streaming) {
-        if (!this._options.clientKey) {
-          throw new Error("Must specify clientKey to enable streaming");
-        }
-        startAutoRefresh(this, true);
-        subscribe(this);
-      }
-
+      startStreaming(this, options);
       return {
         success: true,
         source: "init",
@@ -138,10 +125,7 @@ export class GrowthBookMultiUser<
         ...options,
         allowStale: true,
       });
-      if (options.streaming) {
-        subscribe(this);
-      }
-
+      startStreaming(this, options);
       await this.setPayload(data || {});
       return res;
     }
@@ -162,22 +146,8 @@ export class GrowthBookMultiUser<
   public getApiInfo(): [ApiHost, ClientKey] {
     return [this.getApiHosts().apiHost, this.getClientKey()];
   }
-  public getApiHosts(): {
-    apiHost: string;
-    streamingHost: string;
-    apiRequestHeaders?: Record<string, string>;
-    streamingHostRequestHeaders?: Record<string, string>;
-  } {
-    const defaultHost = this._options.apiHost || "https://cdn.growthbook.io";
-    return {
-      apiHost: defaultHost.replace(/\/*$/, ""),
-      streamingHost: (this._options.streamingHost || defaultHost).replace(
-        /\/*$/,
-        ""
-      ),
-      apiRequestHeaders: this._options.apiHostRequestHeaders,
-      streamingHostRequestHeaders: this._options.streamingHostRequestHeaders,
-    };
+  public getApiHosts() {
+    return getApiHosts(this._options);
   }
   public getClientKey(): string {
     return this._options.clientKey || "";

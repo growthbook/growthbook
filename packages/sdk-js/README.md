@@ -160,6 +160,8 @@ app.get("/", (req, res) => {
 
 In this mode, you create a singleton GrowthBookMultiUser instance that is shared between all requests and you pass in user attributes when calling feature methods like `isOn`.
 
+This method is more efficient, but does require you to pass around a `userContext` throughout your code.
+
 ```js
 // Create a multi-user GrowthBook instance without user-specific attributes
 const gb = new GrowthBookMultiUser({
@@ -217,7 +219,7 @@ const userContext = {
 };
 ```
 
-Note: If tracking from within the user context, you are responsible for de-duping calls (e.g. if you check the same feature flag in 5 different places during a request). When tracking with a global callback, de-duping is handled internally.
+Note: No de-duping is performed. If you evaluate the same feature 5 times in your code, the `trackingCallback` will be called 5 times.
 
 ## Loading Features
 

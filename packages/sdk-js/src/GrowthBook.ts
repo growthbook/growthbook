@@ -11,7 +11,6 @@ import type {
   FeatureDefinition,
   FeatureResult,
   LoadFeaturesOptions,
-  RealtimeUsageData,
   RefreshFeaturesOptions,
   RenderFunction,
   Result,
@@ -39,8 +38,7 @@ import {
 import {
   configureCache,
   refreshFeatures,
-  startAutoRefresh,
-  subscribe,
+  startStreaming,
   unsubscribe,
 } from "./feature-repository";
 import {
@@ -49,6 +47,7 @@ import {
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
+  getApiHosts,
 } from "./core";
 
 const isBrowser =
@@ -74,8 +73,6 @@ export class GrowthBook<
   private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
-  private _rtQueue: RealtimeUsageData[];
-  private _rtTimer: number;
   private _assigned: Map<
     string,
     {
@@ -116,8 +113,6 @@ export class GrowthBook<
     this._trackedFeatures = {};
     this.debug = !!options.debug;
     this._subscriptions = new Set();
-    this._rtQueue = [];
-    this._rtTimer = 0;
     this.ready = false;
     this._assigned = new Map();
     this._attributeOverrides = {};
@@ -250,13 +245,7 @@ export class GrowthBook<
 
     this.ready = true;
 
-    if (options.streaming) {
-      if (!this._options.clientKey) {
-        throw new Error("Must specify clientKey to enable streaming");
-      }
-      startAutoRefresh(this, true);
-      subscribe(this);
-    }
+    startStreaming(this, options);
 
     return this;
   }
@@ -271,14 +260,7 @@ export class GrowthBook<
 
     if (options.payload) {
       await this.setPayload(options.payload);
-      if (options.streaming) {
-        if (!this._options.clientKey) {
-          throw new Error("Must specify clientKey to enable streaming");
-        }
-        startAutoRefresh(this, true);
-        subscribe(this);
-      }
-
+      startStreaming(this, options);
       return {
         success: true,
         source: "init",
@@ -288,10 +270,7 @@ export class GrowthBook<
         ...options,
         allowStale: true,
       });
-      if (options.streaming) {
-        subscribe(this);
-      }
-
+      startStreaming(this, options);
       await this.setPayload(data || {});
       return res;
     }
@@ -299,22 +278,14 @@ export class GrowthBook<
 
   /** @deprecated Use {@link init} */
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
-    this._initialized = true;
-
     options = options || {};
-    if (options.autoRefresh) {
-      // interpret deprecated autoRefresh option as subscribeToChanges
-      this._options.subscribeToChanges = true;
-    }
-    const { data } = await this._refresh({
-      ...options,
-      allowStale: true,
+    await this.init({
+      skipCache: options.skipCache,
+      timeout: options.timeout,
+      streaming:
+        (this._options.backgroundSync ?? true) &&
+        (options.autoRefresh || this._options.subscribeToChanges),
     });
-    await this.setPayload(data || {});
-
-    if (this._canSubscribe()) {
-      subscribe(this);
-    }
   }
 
   public async refreshFeatures(
@@ -332,22 +303,8 @@ export class GrowthBook<
   public getApiInfo(): [ApiHost, ClientKey] {
     return [this.getApiHosts().apiHost, this.getClientKey()];
   }
-  public getApiHosts(): {
-    apiHost: string;
-    streamingHost: string;
-    apiRequestHeaders?: Record<string, string>;
-    streamingHostRequestHeaders?: Record<string, string>;
-  } {
-    const defaultHost = this._options.apiHost || "https://cdn.growthbook.io";
-    return {
-      apiHost: defaultHost.replace(/\/*$/, ""),
-      streamingHost: (this._options.streamingHost || defaultHost).replace(
-        /\/*$/,
-        ""
-      ),
-      apiRequestHeaders: this._options.apiHostRequestHeaders,
-      streamingHostRequestHeaders: this._options.streamingHostRequestHeaders,
-    };
+  public getApiHosts() {
+    return getApiHosts(this._options);
   }
   public getClientKey(): string {
     return this._options.clientKey || "";
@@ -546,12 +503,6 @@ export class GrowthBook<
     };
   }
 
-  private _canSubscribe() {
-    return (
-      (this._options.backgroundSync ?? true) && this._options.subscribeToChanges
-    );
-  }
-
   private async _refreshForRemoteEval() {
     if (!this._options.remoteEval) return;
     if (!this._initialized) return;
@@ -575,13 +526,8 @@ export class GrowthBook<
     this._completedChangeIds.clear();
     this._deferredTrackingCalls.clear();
     this._trackedFeatures = {};
-    this._rtQueue = [];
     this._payload = undefined;
     this._saveStickyBucketAssignmentDoc = undefined;
-
-    if (this._rtTimer) {
-      clearTimeout(this._rtTimer);
-    }
     unsubscribe(this);
 
     if (isBrowser && window._growthbook === this) {
@@ -662,10 +608,9 @@ export class GrowthBook<
       trackingCallback: this._options.trackingCallback
         ? this._track
         : undefined,
-      onFeatureUsage:
-        this._options.onFeatureUsage || this._options.realtimeKey
-          ? this._trackFeatureUsage
-          : undefined,
+      onFeatureUsage: this._options.onFeatureUsage
+        ? this._trackFeatureUsage
+        : undefined,
     };
   }
   private _getGlobalContext(): GlobalContext {
@@ -885,39 +830,6 @@ export class GrowthBook<
       } catch (e) {
         // Ignore feature usage callback errors
       }
-    }
-
-    // In browser environments, queue up feature usage to be tracked in batches
-    if (!isBrowser || !window.fetch) return;
-    this._rtQueue.push({
-      key,
-      on: res.on,
-    });
-    if (!this._rtTimer) {
-      this._rtTimer = window.setTimeout(() => {
-        // Reset the queue
-        this._rtTimer = 0;
-        const q = [...this._rtQueue];
-        this._rtQueue = [];
-
-        // Skip logging if a real-time usage key is not configured
-        if (!this._options.realtimeKey) return;
-
-        window
-          .fetch(
-            `https://rt.growthbook.io/?key=${
-              this._options.realtimeKey
-            }&events=${encodeURIComponent(JSON.stringify(q))}`,
-
-            {
-              cache: "no-cache",
-              mode: "no-cors",
-            }
-          )
-          .catch(() => {
-            // TODO: retry in case of network errors?
-          });
-      }, this._options.realtimeInterval || 2000);
     }
   }
 

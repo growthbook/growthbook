@@ -151,11 +151,6 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
-export type RealtimeUsageData = {
-  key: string;
-  on: boolean;
-};
-
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
@@ -230,10 +225,6 @@ export type Options = {
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
-  /** @deprecated */
-  realtimeKey?: string;
-  /** @deprecated */
-  realtimeInterval?: number;
   cacheKeyAttributes?: (keyof Attributes)[];
   /** @deprecated */
   user?: {
