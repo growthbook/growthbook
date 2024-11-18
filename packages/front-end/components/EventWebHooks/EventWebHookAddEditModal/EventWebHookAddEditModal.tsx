@@ -454,7 +454,7 @@ const buttonText = ({
 
     default:
       invalidStep = step;
-      throw new Error(`Invalid step: ${invalidStep}`);
+      throw new Error(`无效的步骤: ${invalidStep}`);
   }
 };
 
@@ -516,7 +516,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   }, [step, onSubmit, form, filteredValues]);
 
   const modalTitle =
-    mode.mode === "edit" ? "Edit Webhook" : "Create New Webhook";
+    mode.mode === "edit" ? "编辑Webhook" : "创建新的Webhook";
 
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
@@ -559,11 +559,11 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       secondaryCTA={
         step === "confirm" ? (
           <button className="btn btn-link" onClick={() => setStep("create")}>
-            {"< Back"}
+            {"< 后退"}
           </button>
         ) : (
           <button className="btn btn-link" onClick={onClose}>
-            Close
+            关闭
           </button>
         )
       }

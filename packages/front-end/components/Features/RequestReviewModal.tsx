@@ -370,7 +370,7 @@ export default function RequestReviewModal({
             color="outline"
             onClick={async () => setShowSumbmitReview(false)}
           >
-            Back
+            后退
           </Button>
         }
       >

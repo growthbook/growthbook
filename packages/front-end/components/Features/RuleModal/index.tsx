@@ -562,7 +562,7 @@ export default function RuleModal({
         size="lg"
         cta={
           <>
-            Next{" "}
+            下一步{" "}
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         }

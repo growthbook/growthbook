@@ -167,7 +167,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         trackingEventModalType=""
         open={open}
         submit={close}
-        cta={"Confirm"}
+        cta={"确认"}
         includeCloseCta={false}
         size={"md"}
         header={`Exit without ${
@@ -181,7 +181,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
               className={`btn btn-link`}
               onClick={() => setStep(lastStep)}
             >
-              {"Back"}
+              {"后退"}
             </button>
           </>
         }
@@ -228,7 +228,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           type="submit"
           onClick={() => setStep(showDimensionsPage ? 1 : 2)}
         >
-          {"Next >"}
+          {"下一步 >"}
         </button>
       ),
     },
@@ -267,7 +267,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
                 setStep(2);
               }}
             >
-              {"Skip"}
+              {"跳过"}
             </button>
           ) : null}
           <button
@@ -276,7 +276,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             disabled={!saveDimensionsEnabled}
             onClick={() => setStep(2)}
           >
-            {"Next >"}
+            {"下一步 >"}
           </button>
         </>
       ),
@@ -315,7 +315,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             className={`btn btn-link`}
             onClick={() => setStep(showDimensionsPage ? 1 : 0)}
           >
-            {"< Back"}
+            {"< 后退"}
           </button>
           <div className="flex-1" />
           <button
@@ -323,7 +323,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             type="submit"
             onClick={setUpHealthTab}
           >
-            {"Complete Setup"}
+            {"完成安装"}
           </button>
         </>
       ),

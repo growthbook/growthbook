@@ -212,7 +212,7 @@ const PagedModal: FC<Props> = (props) => {
             }}
           >
             <PiArrowLeft className="mr-1" />
-            Back
+            后退
           </button>
         ) : null
       }
@@ -228,7 +228,7 @@ const PagedModal: FC<Props> = (props) => {
               onSkip();
             }}
           >
-            Skip
+            跳过
           </button>
         ) : null
       }
@@ -239,7 +239,7 @@ const PagedModal: FC<Props> = (props) => {
           cta
         ) : (
           <>
-            Next{" "}
+            下一步{" "}
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         )
@@ -252,9 +252,8 @@ const PagedModal: FC<Props> = (props) => {
     >
       {!hideNav ? (
         <nav
-          className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
-            style === "default" && "paged-modal-default"
-          }`}
+          className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${style === "default" && "paged-modal-default"
+            }`}
         >
           {steps.map(({ display, enabled }, i) => {
             if (navStyleClass === "nav-default") {

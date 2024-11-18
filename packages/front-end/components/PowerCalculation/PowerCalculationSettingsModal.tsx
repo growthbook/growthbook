@@ -122,7 +122,7 @@ const SelectStep = ({
       header="New Calculation"
       close={close}
       includeCloseCta={false}
-      cta="Next >"
+      cta="下一步 >"
       secondaryCTA={
         <button
           disabled={isNextDisabled}
