@@ -178,7 +178,7 @@ export default function ExperimentHeader({
         newPhase();
         return;
       } else {
-        throw new Error("You do not have permission to start this experiment");
+        throw new Error("您没有权限启动此实验");
       }
     }
 
@@ -211,7 +211,7 @@ export default function ExperimentHeader({
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
             includeCheck={true}
-            cta="Continue"
+            cta="继续"
             goToNextStep={() => {
               setShowSdkForm(false);
             }}
@@ -222,15 +222,15 @@ export default function ExperimentHeader({
             trackingEventModalType="start-experiment"
             trackingEventModalSource={
               checklistIncomplete || !verifiedConnections.length
-                ? "incomplete-checklist"
-                : "complete-checklist"
+                ? "未完成清单"
+                : "已完成清单"
             }
             open={true}
             size="md"
             closeCta={
               checklistIncomplete || !verifiedConnections.length
-                ? "Close"
-                : "Start Immediately"
+                ? "关闭"
+                : "立即启动"
             }
             closeCtaClassName="btn btn-primary"
             onClickCloseCta={
@@ -249,7 +249,7 @@ export default function ExperimentHeader({
                       color: "var(--text-color-primary)",
                     }}
                   >
-                    Start Anyway
+                    无论如何启动
                   </span>
                 </button>
               ) : (
@@ -262,7 +262,7 @@ export default function ExperimentHeader({
                       color: "var(--text-color-primary)",
                     }}
                   >
-                    Cancel
+                    取消
                   </span>
                 </button>
               )
@@ -273,20 +273,19 @@ export default function ExperimentHeader({
             <div className="p-2">
               {checklistIncomplete ? (
                 <div className="alert alert-warning">
-                  You have{" "}
+                  您还有{" "}
                   <strong>
-                    {checklistItemsRemaining} task
+                    {checklistItemsRemaining} 项任务
                     {checklistItemsRemaining > 1 ? "s " : " "}
                   </strong>
-                  left to complete. Review the Pre-Launch Checklist before
-                  starting this experiment.
+                  未完成。在启动此实验之前，请查看启动前清单。
                 </div>
               ) : null}
               {!verifiedConnections.length ? (
                 <div className="alert alert-warning">
-                  You haven&apos;t integrated GrowthBook into your app.{" "}
+                  您尚未将GrowthBook集成到您的应用程序中。{" "}
                   {connections.length > 0 ? (
-                    <Link href="/sdks">Manage SDK Connections</Link>
+                    <Link href="/sdks">管理SDK连接</Link>
                   ) : (
                     <a
                       href="#"
@@ -296,15 +295,14 @@ export default function ExperimentHeader({
                         setShowSdkForm(true);
                       }}
                     >
-                      Add SDK Connection
+                      添加SDK连接
                     </a>
                   )}
                 </div>
               ) : null}
               <div>
-                Once started, linked changes will be activated and users will
-                begin to see your experiment variations{" "}
-                <strong>immediately</strong>.
+                一旦启动，关联的更改将被激活，用户将{" "}
+                <strong>立即</strong> 看到您的实验变体。
               </div>
             </div>
           </Modal>
@@ -328,14 +326,14 @@ export default function ExperimentHeader({
 
             <div className="ml-3 d-md-block d-none">
               {experiment.archived ? (
-                <div className="badge badge-secondary">archived</div>
+                <div className="badge badge-secondary">已归档</div>
               ) : (
                 <ExperimentStatusIndicator
                   status={experiment.status}
                   subStatus={
                     experiment.type === "multi-armed-bandit" &&
-                    experiment.status === "running" &&
-                    experiment.banditStage === "explore"
+                      experiment.status === "running" &&
+                      experiment.banditStage === "explore"
                       ? "exploratory"
                       : undefined
                   }
@@ -369,7 +367,7 @@ export default function ExperimentHeader({
                         linkedFeatures
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    body="在启动之前，请添加至少一个实时关联功能、可视化编辑器更改或URL重定向。"
                   >
                     <button
                       className="btn btn-teal"
@@ -385,7 +383,7 @@ export default function ExperimentHeader({
                         )
                       }
                     >
-                      Start Experiment <MdRocketLaunch />
+                      启动实验 <MdRocketLaunch />
                     </button>
                   </Tooltip>
                 ) : null}
@@ -401,7 +399,7 @@ export default function ExperimentHeader({
                       editTargeting();
                     }}
                   >
-                    Edit targeting & traffic
+                    编辑目标定位与流量
                   </button>
                 )}
                 {canRunExperiment &&
@@ -410,7 +408,7 @@ export default function ExperimentHeader({
                       className="dropdown-item"
                       onClick={() => setStatusModal(true)}
                     >
-                      Edit status
+                      编辑状态
                     </button>
                   )}
                 {editPhases && !isBandit && (
@@ -418,7 +416,7 @@ export default function ExperimentHeader({
                     className="dropdown-item"
                     onClick={() => editPhases()}
                   >
-                    Edit phases
+                    编辑阶段
                   </button>
                 )}
                 {canRunExperiment && growthbook.isOn("bandits") && (
@@ -436,7 +434,7 @@ export default function ExperimentHeader({
                   className="dropdown-item"
                   onClick={() => setWatchersModal(true)}
                 >
-                  View watchers{" "}
+                  查看关注者{" "}
                   <span className="badge badge-pill badge-info">
                     {usersWatching.length}
                   </span>
@@ -445,23 +443,22 @@ export default function ExperimentHeader({
                   className="dropdown-item"
                   onClick={() => setAuditModal(true)}
                 >
-                  Audit log
+                  审计日志
                 </button>
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>
-                    Duplicate
+                    复制
                   </button>
                 )}
                 {canRunExperiment && (
                   <ConfirmButton
-                    modalHeader="Archive Experiment"
+                    modalHeader="归档实验"
                     confirmationText={
                       <div>
-                        <p>Are you sure you want to archive this experiment?</p>
+                        <p>您确定要归档此实验吗？</p>
                         {!safeToEdit ? (
                           <div className="alert alert-danger">
-                            This will immediately stop all linked Feature Flags
-                            and Visual Changes from running
+                            这将立即停止所有关联的特性标志和可视化更改的运行。
                           </div>
                         ) : null}
                       </div>
@@ -476,10 +473,10 @@ export default function ExperimentHeader({
                         console.error(e);
                       }
                     }}
-                    cta="Archive"
+                    cta="归档"
                   >
                     <button className="dropdown-item" type="button">
-                      Archive
+                      归档
                     </button>
                   </ConfirmButton>
                 )}
@@ -501,20 +498,19 @@ export default function ExperimentHeader({
                       }
                     }}
                   >
-                    Unarchive
+                    取消归档
                   </button>
                 )}
                 {canDeleteExperiment && (
                   <DeleteButton
                     className="dropdown-item text-danger"
                     useIcon={false}
-                    text="Delete"
-                    displayName="Experiment"
+                    text="删除"
+                    displayName="实验"
                     additionalMessage={
                       !safeToEdit ? (
                         <div className="alert alert-danger">
-                          Deleting this experiment will also affect all linked
-                          Feature Flags and Visual Changes
+                          删除此实验也会影响所有关联的特性标志和可视化更改。
                         </div>
                       ) : null
                     }
@@ -560,7 +556,7 @@ export default function ExperimentHeader({
                   active={tab === "overview"}
                   display={
                     <>
-                      <FaHome /> Overview
+                      <FaHome /> 概览
                     </>
                   }
                   anchor="overview"
@@ -572,7 +568,7 @@ export default function ExperimentHeader({
                   active={tab === "results"}
                   display={
                     <>
-                      <PiChartBarHorizontalFill /> Results
+                      <PiChartBarHorizontalFill /> 结果
                     </>
                   }
                   anchor="results"
@@ -586,7 +582,7 @@ export default function ExperimentHeader({
                     active={tab === "explore"}
                     display={
                       <>
-                        <FaMagnifyingGlassChart /> Explore
+                        <FaMagnifyingGlassChart /> 探索
                       </>
                     }
                     anchor="explore"
@@ -599,7 +595,7 @@ export default function ExperimentHeader({
                 {disableHealthTab ? (
                   <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
                     <span className="nav-item nav-link text-muted">
-                      <FaHeartPulse /> Health
+                      <FaHeartPulse /> 健康状况
                     </span>
                   </DisabledHealthTabTooltip>
                 ) : (
@@ -607,12 +603,12 @@ export default function ExperimentHeader({
                     active={tab === "health"}
                     display={
                       <>
-                        <FaHeartPulse /> Health
+                        <FaHeartPulse /> 健康状况
                       </>
                     }
                     anchor="health"
                     onClick={() => {
-                      track("Open health tab", { source: "tab-click" });
+                      track("打开健康状况标签", { source: "tab-click" });
                       setTab("health");
                     }}
                     newStyle={false}
@@ -630,7 +626,7 @@ export default function ExperimentHeader({
                 <>
                   {startDate} — {endDate}{" "}
                   <span className="text-muted">
-                    ({daysBetween(startDate, endDate || new Date())} days)
+                    ({daysBetween(startDate, endDate || new Date())} 天)
                   </span>
                 </>
               )}
@@ -658,21 +654,20 @@ export function ConvertBanditExperiment({
 
   return (
     <Tooltip
-      body="Can be converted only while in draft mode"
+      body="仅在草稿模式下可转换"
       shouldDisplay={experiment.status !== "draft"}
       usePortal={true}
       tipPosition="left"
     >
       <ConfirmButton
-        modalHeader={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
+        modalHeader={`转换为${isBandit ? "实验" : "多臂老虎机"}`}
         disabled={experiment.status !== "draft"}
         size="lg"
         confirmationText={
           <div>
             <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+              您确定要将此{!isBandit ? "实验" : "多臂老虎机"}转换为{" "}
+              <strong>{isBandit ? "实验" : "多臂老虎机"}</strong>吗？
             </p>
             {!isBandit && experiment.goalMetrics.length > 0 && (
               <div className="alert alert-warning">
@@ -680,7 +675,7 @@ export function ConvertBanditExperiment({
                   trigger={
                     <div>
                       <FaExclamationTriangle className="mr-2" />
-                      Some of your experiment settings may be altered. More info{" "}
+                      您的一些实验设置可能会被更改。更多信息{" "}
                       <FaAngleRight className="chevron" />
                     </div>
                   }
@@ -688,37 +683,29 @@ export function ConvertBanditExperiment({
                 >
                   <ul className="ml-0 pl-3 mt-3">
                     <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
+                      一个< strong>单一决策指标</strong>将被自动分配。您可以在运行实验之前更改它。
                     </li>
                     <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
+                      实验变体将以< strong>相等权重</strong>开始 (
                       {experiment.variations
                         .map((_, i) =>
                           i < 3
                             ? formatPercent(
-                                1 / (experiment.variations.length ?? 2)
-                              )
+                              1 / (experiment.variations.length ?? 2)
+                            )
                             : i === 3
-                            ? "..."
-                            : null
+                              ? "..."
+                              : null
                         )
                         .filter(Boolean)
                         .join(", ")}
                       ).
                     </li>
                     <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
+                      统计引擎将被锁定为<strong>贝叶斯</strong>。
                     </li>
                     <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
+                      任何< strong>激活指标</strong>、< strong>细分</strong>、< strong>转化窗口覆盖</strong>、< strong>自定义SQL过滤器</strong>或< strong>指标覆盖</strong>都将被删除。
                     </li>
                   </ul>
                 </Collapsible>
@@ -749,7 +736,7 @@ export function ConvertBanditExperiment({
               commercialFeature="multi-armed-bandits"
               usePortal={true}
             >
-              Convert
+              转换
             </PremiumTooltip>
           )
         }
@@ -760,7 +747,7 @@ export function ConvertBanditExperiment({
           type="button"
           disabled={experiment.status !== "draft"}
         >
-          Convert to {isBandit ? "Experiment" : "Bandit"}
+          转换为{isBandit ? "实验" : "多臂老虎机"}
         </button>
       </ConfirmButton>
     </Tooltip>
