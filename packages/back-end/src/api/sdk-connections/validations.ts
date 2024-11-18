@@ -17,8 +17,8 @@ const capabilityParams = [
   ["redirects", "includeRedirectExperiments"],
 ] as const;
 
-type CababilitiesParamKey = typeof capabilityParams[number][1];
-type CababilitiesParams = { [k in CababilitiesParamKey]?: boolean };
+type CapabilitiesParamKey = typeof capabilityParams[number][1];
+type CapabilitiesParams = { [k in CapabilitiesParamKey]?: boolean };
 
 const premiumFeatures = [
   ["encrypt-features-endpoint", "encryptPayload"],
@@ -37,6 +37,23 @@ type CreateSdkConnectionPayload = Omit<
   "organization"
 >;
 type UpdateSdkConnectionPayload = Partial<CreateSdkConnectionPayload>;
+
+interface CreateSdkConnectionRequestBody
+  extends CapabilitiesParams,
+    PremiumFeatures {
+  name: string;
+  environment: string;
+  sdkVersion?: string;
+  language?: string;
+  projects?: string[];
+  encryptPayload?: boolean;
+  includeVisualExperiments?: boolean;
+  includeDraftExperiments?: boolean;
+  includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
+  proxyHost?: string;
+  hashSecureAttributes?: boolean;
+}
 
 const premiumOverrides: {
   [k in PremiumFeatureName]?: boolean;
@@ -129,21 +146,7 @@ export async function validatePostPayload(
     proxyHost,
     hashSecureAttributes = false,
     ...otherParams
-  }: {
-    name: string;
-    environment: string;
-    sdkVersion?: string;
-    language?: string;
-    projects?: string[];
-    encryptPayload?: boolean;
-    includeVisualExperiments?: boolean;
-    includeDraftExperiments?: boolean;
-    includeExperimentNames?: boolean;
-    includeRedirectExperiments?: boolean;
-    proxyHost?: string;
-    hashSecureAttributes?: boolean;
-  } & CababilitiesParams &
-    PremiumFeatures
+  }: CreateSdkConnectionRequestBody
 ) {
   validateName(name);
 
@@ -199,21 +202,7 @@ export async function validatePutPayload(
     proxyHost,
     hashSecureAttributes = false,
     ...otherParams
-  }: {
-    name?: string;
-    environment?: string;
-    sdkVersion?: string;
-    language?: string;
-    projects?: string[];
-    encryptPayload?: boolean;
-    includeVisualExperiments?: boolean;
-    includeDraftExperiments?: boolean;
-    includeExperimentNames?: boolean;
-    includeRedirectExperiments?: boolean;
-    proxyHost?: string;
-    hashSecureAttributes?: boolean;
-  } & CababilitiesParams &
-    PremiumFeatures,
+  }: Partial<CreateSdkConnectionRequestBody>,
   sdkConnection: SDKConnectionInterface
 ) {
   if (name) validateName(name);
