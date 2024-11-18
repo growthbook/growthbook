@@ -18,14 +18,14 @@ export default function ExperimentActionButtons({
         disabled={!editTargeting}
         onClick={() => editTargeting?.()}
       >
-        Make Changes
+        变更
       </Button>
       <Button
         variant="outline"
         onClick={() => editResult?.()}
         disabled={!editResult}
       >
-        Stop {isBandit ? "Bandit" : "Experiment"}
+        停止{isBandit ? "Bandit" : "Experiment"}
       </Button>
     </div>
   );

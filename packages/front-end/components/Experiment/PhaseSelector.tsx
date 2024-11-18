@@ -87,22 +87,22 @@ export default function PhaseSelector({
   const selectOptions =
     editPhases && mutateExperiment
       ? [
-          {
-            label: "Phases",
-            value: "",
-            options: phaseOptions,
-          },
-          {
-            label: "",
-            value: "",
-            options: [
-              {
-                label: "Edit Phases",
-                value: "edit",
-              },
-            ],
-          },
-        ]
+        {
+          label: "阶段",
+          value: "",
+          options: phaseOptions,
+        },
+        {
+          label: "",
+          value: "",
+          options: [
+            {
+              label: "编辑阶段",
+              value: "edit",
+            },
+          ],
+        },
+      ]
       : phaseOptions;
 
   return (
@@ -133,7 +133,7 @@ export default function PhaseSelector({
             </div>
           ) : (
             <div className="gb-select__single-value" style={{ height: 24 }}>
-              <em>No phases</em>
+              <em>无阶段</em>
             </div>
           )}
         </div>

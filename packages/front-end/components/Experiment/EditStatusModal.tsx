@@ -37,7 +37,7 @@ export default function EditStatusModal({
     <Modal
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
-      header={"Change Experiment Status"}
+      header={"更改实验状态"}
       close={close}
       open={true}
       submit={form.handleSubmit(async (value) => {
@@ -50,16 +50,15 @@ export default function EditStatusModal({
     >
       {hasLinkedChanges && (
         <div className="alert alert-danger">
-          <strong>Warning:</strong> Changes you make here will immediately
-          affect any linked Feature Flags or Visual Changes.
+          <strong>警告：</strong> 在此处所做的更改将立即影响任何关联的特性标志或可视化变更集。
         </div>
       )}
       <SelectField
-        label="Status"
+        label="状态"
         options={[
-          { label: "draft", value: "draft" },
-          { label: "running", value: "running" },
-          { label: "stopped", value: "stopped" },
+          { label: "草稿", value: "draft" },
+          { label: "运行中", value: "running" },
+          { label: "已停止", value: "stopped" },
         ]}
         onChange={(v) => {
           const status = v as ExperimentStatus;
@@ -70,13 +69,13 @@ export default function EditStatusModal({
       {form.watch("status") === "stopped" && experiment.status === "running" && (
         <>
           <Field
-            label="Reason for stopping the test"
+            label="停止测试的原因"
             textarea
             {...form.register("reason")}
-            placeholder="(optional)"
+            placeholder="(可选)"
           />
           <Field
-            label="Stop Time (UTC)"
+            label="停止时间（UTC）"
             type="datetime-local"
             {...form.register("dateEnded")}
           />

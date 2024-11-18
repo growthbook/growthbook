@@ -79,19 +79,19 @@ export default function EditPhasesModal({
       trackingEventModalType="edit-phases-modal"
       trackingEventModalSource={source}
       open={true}
-      header="Edit Phases"
+      header="编辑阶段"
       close={close}
       size="lg"
-      closeCta="Close"
+      closeCta="关闭"
     >
       <table className="table gbtable mb-2">
         <thead>
           <tr>
             <th></th>
-            <th>Name</th>
-            <th>Dates</th>
-            <th>Traffic</th>
-            {hasStoppedPhases ? <th>Reason for Stopping</th> : null}
+            <th>名称</th>
+            <th>日期</th>
+            <th>流量</th>
+            {hasStoppedPhases ? <th>停止原因</th> : null}
             <th></th>
           </tr>
         </thead>
@@ -129,7 +129,7 @@ export default function EditPhasesModal({
                     setEditPhase(i);
                   }}
                 >
-                  Edit
+                  编辑
                 </button>
                 {(experiment.status !== "running" || !hasLinkedChanges) && (
                   <DeleteButton
@@ -137,7 +137,7 @@ export default function EditPhasesModal({
                     displayName="phase"
                     additionalMessage={
                       experiment.phases.length === 1
-                        ? "This is the only phase. Deleting this will revert the experiment to a draft."
+                        ? "这是唯一的阶段。删除此阶段将使实验恢复为草稿状态。"
                         : ""
                     }
                     onClick={async () => {
@@ -161,7 +161,7 @@ export default function EditPhasesModal({
             setEditPhase(-1);
           }}
         >
-          <GBAddCircle /> New Phase
+          <GBAddCircle /> 新建阶段
         </button>
       )}
     </Modal>

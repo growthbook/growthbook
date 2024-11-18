@@ -50,7 +50,7 @@ export default function EditPhaseModal({
       trackingEventModalSource={source}
       open={true}
       close={close}
-      header={`Edit Analysis Phase #${i + 1}`}
+      header={`编辑分析阶段 #${i + 1}`}
       submit={form.handleSubmit(async (value) => {
         validateSavedGroupTargeting(value.savedGroups);
 
@@ -63,21 +63,21 @@ export default function EditPhaseModal({
       size="lg"
       bodyClassName="px-4 pt-4"
     >
-      <Field label="Phase Name" {...form.register("name")} required />
+      <Field label="阶段名称" {...form.register("name")} required />
       <Field
-        label="Start Time (UTC)"
+        label="开始时间（UTC）"
         type="datetime-local"
         {...form.register("dateStarted")}
       />
       {!(isDraft && !isMultiPhase) ? (
         <>
           <Field
-            label="End Time (UTC)"
+            label="结束时间（UTC）"
             type="datetime-local"
             {...form.register("dateEnded")}
             helpText={
               <>
-                Leave blank if still running.{" "}
+                如果仍在运行则留空。{" "}
                 <a
                   role="button"
                   className="a"
@@ -86,17 +86,17 @@ export default function EditPhaseModal({
                     form.setValue("dateEnded", "");
                   }}
                 >
-                  Clear Input
+                  清除输入
                 </a>
               </>
             }
           />
           {form.watch("dateEnded") && (
             <Field
-              label="Reason for Stopping"
+              label="停止原因"
               textarea
               {...form.register("reason")}
-              placeholder="(optional)"
+              placeholder="(可选)"
             />
           )}
         </>
@@ -104,8 +104,7 @@ export default function EditPhaseModal({
 
       {!isDraft && (
         <div className="alert alert-info mt-4">
-          Trying to change targeting rules, traffic allocation, or start a new
-          phase? Use the{" "}
+          想要更改定向规则、流量分配或开启新阶段？请改用{" "}
           <a
             role="button"
             className="a"
@@ -114,22 +113,21 @@ export default function EditPhaseModal({
               close();
             }}
           >
-            Make Changes
+            变更
           </a>{" "}
-          button instead.
+          按钮。
         </div>
       )}
 
       {advancedOptionsOpen && (
         //edit seed
         <Field
-          label="Seed"
+          label="种子（Seed）"
           type="input"
           {...form.register("seed")}
           helpText={
             <>
-              <strong className="text-danger">Warning:</strong> Changing this
-              will re-randomize experiment traffic.
+              <strong className="text-danger">警告：</strong>更改此项将重新随机分配实验流量。
             </>
           }
         />
@@ -141,7 +139,7 @@ export default function EditPhaseModal({
           setAdvancedOptionsOpen(!advancedOptionsOpen);
         }}
       >
-        Advanced Options{" "}
+        高级选项{" "}
         {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
       </span>
     </Modal>

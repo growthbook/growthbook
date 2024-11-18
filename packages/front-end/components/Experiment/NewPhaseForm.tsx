@@ -65,7 +65,7 @@ const NewPhaseForm: FC<{
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const submit = form.handleSubmit(async (value) => {
-    if (!isValid) throw new Error("Variation weights must sum to 1");
+    if (!isValid) throw new Error("变体权重总和必须为1");
 
     validateSavedGroupTargeting(value.savedGroups);
 
@@ -92,23 +92,22 @@ const NewPhaseForm: FC<{
     <Modal
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
-      header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
+      header={firstPhase ? "开始实验" : "新建实验阶段"}
       close={close}
       open={true}
       submit={submit}
-      cta={"Start"}
-      closeCta="Cancel"
+      cta={"开始"}
+      closeCta="取消"
       size="lg"
     >
       {hasLinkedChanges && experiment.status !== "stopped" && (
         <div className="alert alert-warning">
-          <strong>Warning:</strong> Starting a new phase will immediately affect
-          all linked Feature Flags and Visual Changes.
+          <strong>警告：</strong> 开启新阶段将立即影响所有关联的特性标志和可视化变更。
         </div>
       )}
       <div className="row">
         <Field
-          label="Name"
+          label="名称"
           containerClassName="col-lg"
           required
           {...form.register("name")}
@@ -116,15 +115,15 @@ const NewPhaseForm: FC<{
       </div>
       {!firstPhase && (
         <Field
-          label="Reason for Starting New Phase"
+          label="开启新阶段的原因"
           textarea
           {...form.register("reason")}
-          placeholder="(optional)"
+          placeholder="(可选)"
         />
       )}
       {!hasLinkedChanges && (
         <Field
-          label="Start Time (UTC)"
+          label="开始时间（UTC）"
           type="datetime-local"
           {...form.register("dateStarted")}
         />

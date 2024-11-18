@@ -77,7 +77,7 @@ const StopExperimentForm: FC<{
     );
 
     if (!isStopped) {
-      track("Stop Experiment", {
+      track("停止实验", {
         result: value.results,
       });
     }
@@ -99,19 +99,19 @@ const StopExperimentForm: FC<{
       submit={submit}
       cta={isStopped ? "保存" : "停止"}
       submitColor={isStopped ? "primary" : "danger"}
-      closeCta="Cancel"
+      closeCta="取消"
     >
       {!isStopped && (
         <>
           <Field
-            label="Reason for stopping"
+            label="停止原因"
             textarea
             {...form.register("reason")}
-            placeholder="(optional)"
+            placeholder="(可选)"
           />
           {!hasLinkedChanges && (
             <Field
-              label="Stop Time (UTC)"
+              label="停止时间（UTC）"
               type="datetime-local"
               {...form.register("dateEnded")}
             />
@@ -120,7 +120,7 @@ const StopExperimentForm: FC<{
       )}
       <div className="row">
         <SelectField
-          label="Conclusion"
+          label="结论"
           containerClassName="col-lg"
           value={form.watch("results")}
           onChange={(v) => {
@@ -147,18 +147,18 @@ const StopExperimentForm: FC<{
               );
             }
           }}
-          placeholder="Pick one..."
+          placeholder="请选择一个..."
           required
           options={[
-            { label: "Did Not Finish", value: "dnf" },
-            { label: "Won", value: "won" },
-            { label: "Lost", value: "lost" },
-            { label: "Inconclusive", value: "inconclusive" },
+            { label: "未完成", value: "dnf" },
+            { label: "获胜", value: "won" },
+            { label: "失败", value: "lost" },
+            { label: "不确定", value: "inconclusive" },
           ]}
         />
         {form.watch("results") === "won" && experiment.variations.length > 2 && (
           <SelectField
-            label="Winner"
+            label="获胜者"
             containerClassName="col-lg"
             value={form.watch("winner") + ""}
             onChange={(v) => {
@@ -167,7 +167,7 @@ const StopExperimentForm: FC<{
               form.setValue(
                 "releasedVariationId",
                 experiment.variations[parseInt(v)]?.id ||
-                  form.watch("releasedVariationId")
+                form.watch("releasedVariationId")
               );
             }}
             options={experiment.variations.slice(1).map((v, i) => {
@@ -180,7 +180,7 @@ const StopExperimentForm: FC<{
         <>
           <div className="row">
             <div className="form-group col">
-              <label>Enable Temporary Rollout</label>
+              <label>启用临时推出</label>
 
               <div>
                 <Toggle
@@ -193,36 +193,31 @@ const StopExperimentForm: FC<{
               </div>
 
               <small className="form-text text-muted">
-                Keep the {isBandit ? "Bandit" : "Experiment"} running until you
-                can implement the changes in code.{" "}
-                <DocLink docSection="temporaryRollout">Learn more</DocLink>
+                保持{isBandit ? "老虎机" : "实验"}运行，直到您可以在代码中实现这些变更。{" "}
+                <DocLink docSection="temporaryRollout">了解更多</DocLink>
               </small>
             </div>
           </div>
 
           {!form.watch("excludeFromPayload") &&
-          (lastPhase?.coverage ?? 1) < 1 ? (
+            (lastPhase?.coverage ?? 1) < 1 ? (
             <div className="alert alert-warning">
               <FaExclamationTriangle className="mr-1" />
-              Currently only{" "}
-              <strong>{percentFormatter.format(lastPhase.coverage)}</strong> of
-              traffic is directed at this experiment. Upon rollout,{" "}
-              <strong>100%</strong> of traffic will be directed towards the
-              released variation.
+              当前只有< strong>{percentFormatter.format(lastPhase.coverage)}</strong>的流量指向此实验。推出时，< strong>100%</strong>的流量将指向已发布的变体。
             </div>
           ) : null}
 
           {!form.watch("excludeFromPayload") ? (
             <div className="row">
               <SelectField
-                label="Variation to Release"
+                label="要发布的变体"
                 containerClassName="col"
                 value={form.watch("releasedVariationId")}
                 onChange={(v) => {
                   form.setValue("releasedVariationId", v);
                 }}
-                helpText="Send 100% of experiment traffic to this variation"
-                placeholder="Pick one..."
+                helpText="将100%的实验流量发送到此变体"
+                placeholder="请选择一个..."
                 required
                 options={experiment.variations.map((v) => {
                   return { value: v.id, label: v.name };
@@ -231,9 +226,7 @@ const StopExperimentForm: FC<{
             </div>
           ) : form.watch("results") === "won" ? (
             <div className="alert alert-info">
-              If you don&apos;t enable a Temporary Rollout, all experiment
-              traffic will immediately revert to the default control experience
-              when you submit this form.
+              如果您不启用临时推出，在提交此表单时，所有实验流量将立即恢复到默认的控制体验。
             </div>
           ) : null}
         </>
@@ -241,7 +234,7 @@ const StopExperimentForm: FC<{
 
       <div className="row">
         <div className="form-group col-lg">
-          <label>Additional Analysis or Details</label>{" "}
+          <label>额外分析或详细信息</label>{" "}
           <MarkdownInput
             value={form.watch("analysis")}
             setValue={(val) => form.setValue("analysis", val)}
