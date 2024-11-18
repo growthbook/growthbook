@@ -37,7 +37,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
   const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
     false
   );
-  const [evalDate, setEvalDate] = useState(new Date());
+  const [evalDate, setEvalDate] = useState<Date | undefined>(new Date());
 
   const { data, mutate: mutateData } = useArchetype({
     feature,
@@ -83,7 +83,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
       body: JSON.stringify({
         attributes: formValues,
         skipRulesWithPrerequisites,
-        evalDate: evalDate.toISOString(),
+        evalDate: evalDate?.toISOString() ?? new Date().toISOString(),
       }),
     })
       .then((data) => {
@@ -99,7 +99,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
     evalDate,
   ]);
 
-  const evalDateStr = evalDate.toISOString().split("T")[0];
+  const evalDateStr = evalDate?.toISOString().split("T")[0] ?? "";
   const isNow = evalDateStr === new Date().toISOString().split("T")[0];
 
   const showResults = () => {
