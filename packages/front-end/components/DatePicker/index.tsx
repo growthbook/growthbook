@@ -18,7 +18,7 @@ type Props = {
   label?: ReactNode;
   label2?: ReactNode;
   helpText?: ReactNode;
-  inputWidth?: number | string;
+  inputWidth?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
   disableAfter?: Date | string;
@@ -45,7 +45,7 @@ export default function DatePicker({
   label,
   label2,
   helpText,
-  inputWidth = "100%",
+  inputWidth,
   precision = "datetime",
   disableBefore,
   disableAfter,
@@ -121,18 +121,22 @@ export default function DatePicker({
           }
           if (!o && +new Date() - +fieldClickedTime.current > 10) {
             setOpen(false);
-            setOriginalDate(date);
-            setOriginalDate2(date2);
+            setOriginalDate(getValidDate(date));
+            setOriginalDate2(getValidDate(date2));
           }
         }}
       >
         <Popover.Trigger asChild>
-          <Flex gap="1rem">
-            <div style={{ width: inputWidth, minHeight: 38 }}>
+          <Flex gap="1rem" display={inputWidth ? "inline-flex" : "flex"}>
+            <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
               {label ? <label>{label}</label> : null}
               <div
                 className="form-control p-0"
-                style={{ width: inputWidth, minHeight: 38, overflow: "clip" }}
+                style={{
+                  width: inputWidth || "100%",
+                  minHeight: 38,
+                  overflow: "clip",
+                }}
               >
                 <Field
                   id={id ?? ""}
@@ -142,10 +146,8 @@ export default function DatePicker({
                     width: "calc(100% + 30px)",
                     minHeight: 38,
                     cursor: "pointer",
-                    fontFamily: "var(--font-family-sans-serif)",
-                    textAlign: "left",
                   }}
-                  className={clsx({ "text-muted": !date })}
+                  className={clsx("date-picker-field", { "text-muted": !date })}
                   type={precision === "datetime" ? "datetime-local" : "date"}
                   value={
                     date
@@ -176,7 +178,7 @@ export default function DatePicker({
               </div>
             </div>
             {isRange && (
-              <div style={{ width: inputWidth, minHeight: 38 }}>
+              <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
                 {label2 ? <label>{label2}</label> : null}
                 <div
                   className="form-control p-0"
@@ -189,10 +191,10 @@ export default function DatePicker({
                       width: "calc(100% + 30px)",
                       minHeight: 38,
                       cursor: "pointer",
-                      fontFamily: "var(--font-family-sans-serif)",
-                      textAlign: "left",
                     }}
-                    className={clsx({ "text-muted": !date2 })}
+                    className={clsx("date-picker-field", {
+                      "text-muted": !date2,
+                    })}
                     type={precision === "datetime" ? "datetime-local" : "date"}
                     value={
                       date2

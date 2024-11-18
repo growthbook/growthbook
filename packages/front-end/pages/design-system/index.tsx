@@ -188,13 +188,22 @@ export default function DesignSystemPage() {
         <h3>Date Picker</h3>
         <Flex direction="column" gap="3">
           <DatePicker
+            label="Choose Date"
+            helpText="width: 170"
             date={date1}
             setDate={setDate1}
             precision="datetime"
             disableBefore={new Date()}
-            inputWidth={150}
+            inputWidth={170}
           />
-          <hr />
+
+          <DatePicker
+            helpText="width: default (100%)"
+            date={date1}
+            setDate={setDate1}
+            precision="datetime"
+            disableBefore={new Date()}
+          />
 
           <DatePicker
             date={date1}
