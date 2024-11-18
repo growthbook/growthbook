@@ -69,7 +69,7 @@ const ExperimentPage = (): ReactElement => {
   }, [data, router]);
 
   if (error) {
-    return <div>There was a problem loading the experiment</div>;
+    return <div>加载实验时出现问题</div>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -153,7 +153,7 @@ const ExperimentPage = (): ReactElement => {
           onClose={() => setDuplicateModalOpen(false)}
           initialValue={{
             ...experiment,
-            name: experiment.name + " (Copy)",
+            name: experiment.name + " (复制)",
             trackingKey: "",
           }}
           source="duplicate-eid"
@@ -181,7 +181,7 @@ const ExperimentPage = (): ReactElement => {
               Projects{" "}
               <Tooltip
                 body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
+                  "下面的下拉菜单已进行筛选，仅包含您有权更新实验的项目"
                 }
               />
             </>
@@ -195,12 +195,11 @@ const ExperimentPage = (): ReactElement => {
           apiEndpoint={`/experiment/${experiment.id}`}
           additionalMessage={
             experiment.status !== "draft" &&
-            (experiment.linkedFeatures?.length ||
-              experiment.hasVisualChangesets ||
-              experiment.hasURLRedirects) ? (
+              (experiment.linkedFeatures?.length ||
+                experiment.hasVisualChangesets ||
+                experiment.hasURLRedirects) ? (
               <div className="alert alert-danger">
-                Changing the project may prevent your linked Feature Flags,
-                Visual Changes, and URL Redirects from being sent to users.
+                更改项目可能会导致您关联的特性开关、可视化变更和URL重定向无法发送给用户。
               </div>
             ) : null
           }
@@ -240,14 +239,14 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
-          // source="eid"
+        // source="eid"
         />
       )}
 
       <PageHead
         breadcrumb={[
           {
-            display: "Experiments",
+            display: "实验",
             href: `/experiments`,
           },
           { display: experiment.name },

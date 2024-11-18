@@ -43,7 +43,7 @@ const EditProjectForm: FC<{
     <Modal
       trackingEventModalType="edit-project-form"
       trackingEventModalSource={source}
-      header={"Edit Projec"}
+      header={"编辑项目"}
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
@@ -53,7 +53,7 @@ const EditProjectForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
+      cta="保存"
       ctaEnabled={ctaEnabled}
     >
       {additionalMessage}

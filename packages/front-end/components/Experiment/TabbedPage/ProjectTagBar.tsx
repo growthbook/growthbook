@@ -61,18 +61,18 @@ export default function ProjectTagBar({
         <Tooltip
           body={
             <>
-              Project <code>{projectId}</code> not found
+              未找到项目 <code>{projectId}</code>
             </>
           }
         >
           <span className="text-danger">
-            <PiWarning /> Invalid project
+            <PiWarning /> 无效项目
           </span>
         </Tooltip>
       );
     } else if (currentProject && currentProject !== experiment.project) {
       return (
-        <Tooltip body={<>This experiment is not in your current project.</>}>
+        <Tooltip body={<>此实验不在当前项目中。</>}>
           {projectId && <strong>{projectName}</strong>}{" "}
           <PiWarning className="text-warning" />
         </Tooltip>
@@ -99,7 +99,7 @@ export default function ProjectTagBar({
               editProject();
             }}
           >
-            <span className="cursor-pointer">+Add</span>
+            <span className="cursor-pointer">+添加</span>
           </Link>
         )}
         {editProject && projectId && (
@@ -118,7 +118,7 @@ export default function ProjectTagBar({
   };
   const renderProject = () => {
     return projects.length > 0 || projectIsDeReferenced ? (
-      <Metadata label="Project" value={renderProjectMetaDataValue()} />
+      <Metadata label="项目" value={renderProjectMetaDataValue()} />
     ) : null;
   };
   const renderTagsValue = () => {
@@ -139,7 +139,7 @@ export default function ProjectTagBar({
               editTags();
             }}
           >
-            <span className="cursor-pointer">+Add</span>
+            <span className="cursor-pointer">+添加</span>
           </Link>
         )}
         {editTags && experiment.tags?.length > 0 && (
@@ -160,13 +160,13 @@ export default function ProjectTagBar({
     <div className="pb-3">
       <Flex gap="3" mt="2" mb="1">
         {renderProject()}
-        <Metadata label="Experiment Key" value={trackingKey || "None"} />
-        <Metadata label="Created" value={createdDate} />
-        <Metadata label="Owner" value={renderOwner()} />
+        <Metadata label="实验Key" value={trackingKey || "None"} />
+        <Metadata label="创建时间" value={createdDate} />
+        <Metadata label="所有者" value={renderOwner()} />
       </Flex>
       <div className="row">
         <div className="col-auto">
-          <Metadata label="Tags" value={renderTagsValue()} />
+          <Metadata label="标签" value={renderTagsValue()} />
         </div>
       </div>
     </div>
