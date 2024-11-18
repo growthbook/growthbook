@@ -1,4 +1,8 @@
-import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getLatestSDKVersion,
+  getSDKCapabilities,
+  getSDKVersions,
+} from "shared/sdk-versioning";
 import { ApiReqContext } from "back-end/types/api";
 import { sdkLanguages } from "back-end/src/util/constants";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -129,6 +133,12 @@ function validatePremiumFeatures(
   });
 }
 
+function validateSdkVersion(sdkVersion: string, language: SDKLanguage) {
+  if (!getSDKVersions(language).includes(sdkVersion)) {
+    throw Error(`SDK version ${sdkVersion} does not exist for ${language}`);
+  }
+}
+
 export async function validatePostPayload(
   context: ApiReqContext,
   {
@@ -161,6 +171,7 @@ export async function validatePostPayload(
   const language = validateLanguage(reqLanguage);
   const latestSdkVersion = getLatestSDKVersion(language);
   const sdkVersion = reqSdkVersion || latestSdkVersion;
+  validateSdkVersion(sdkVersion, language);
 
   const payload: CreateSdkConnectionPayload = {
     name,
@@ -218,12 +229,14 @@ export async function validatePutPayload(
     : sdkConnection.languages[0];
 
   const latestSdkVersion = getLatestSDKVersion(language);
-  const sdkVersion = reqSdkVersion || sdkConnection.sdkVersion;
+  const sdkVersion =
+    reqSdkVersion || sdkConnection.sdkVersion || latestSdkVersion;
+  validateSdkVersion(sdkVersion, language);
 
   const payload: UpdateSdkConnectionPayload = {
     name,
     environment,
-    projects,
+    sdkVersion,
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
@@ -238,8 +251,8 @@ export async function validatePutPayload(
   if (reqLanguage) {
     payload.languages = [language];
   }
-  if (reqSdkVersion) {
-    payload.sdkVersion = reqSdkVersion;
+  if (projects) {
+    payload.projects = projects;
   }
 
   validateSdkCapabilities(payload, language, sdkVersion, latestSdkVersion);
