@@ -1,5 +1,5 @@
 import { Box, Flex, Slider } from "@radix-ui/themes";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { PiInfoFill } from "react-icons/pi";
@@ -27,6 +27,7 @@ import Stepper from "@/components/Stepper/Stepper";
 import Link from "@/components/Radix/Link";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
+import Tabs from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
 
 export default function DesignSystemPage() {
@@ -43,6 +44,7 @@ export default function DesignSystemPage() {
   const [sliderVal, setSliderVal] = useState(10);
   const [stepperStep, setStepperStep] = useState(0);
   const [selectValue, setSelectValue] = useState("carrot");
+  const [activeTab, setActiveTab] = useState("tab1");
 
   return (
     <div className="pagecontents container-fluid">
@@ -652,8 +654,68 @@ export default function DesignSystemPage() {
           <Metadata label="Title1" value="Data1" />
         </Flex>
       </div>
+
+      <div className="appbox p-3">
+        <h3>Tabs</h3>
+        <Flex direction="column" gap="3">
+          <Box>
+            Uncontrolled tabs with persistance in the URL
+            <Tabs
+              defaultTabSlug="tab1"
+              persistHash
+              tabs={[
+                {
+                  slug: "tab1",
+                  label: "Tab 1",
+                  content: <Box p="4">Tab 1 content</Box>,
+                },
+                {
+                  slug: "tab2",
+                  label: "Tab 2",
+                  content: <Box p="4">Tab 2 content</Box>,
+                },
+              ]}
+            />
+          </Box>
+
+          <Box>
+            Tabs are lazy loaded by default, but you can use forceMount to
+            disable this behavior (see console for output).
+            <Tabs
+              activeTab={activeTab}
+              onTabChange={(slug) => setActiveTab(slug)}
+              tabs={[
+                {
+                  slug: "tab1",
+                  label: "Tab 1",
+                  content: <TabContentExample number={1} />,
+                },
+                {
+                  slug: "tab2",
+                  label: "Tab 2",
+                  content: <TabContentExample number={2} />,
+                },
+                {
+                  slug: "tab3",
+                  label: "Tab 3 (forcibly mounted)",
+                  content: <TabContentExample number={3} />,
+                  forceMount: true,
+                },
+              ]}
+            />
+          </Box>
+        </Flex>
+      </div>
     </div>
   );
 }
 DesignSystemPage.preAuth = true;
 DesignSystemPage.preAuthTopNav = true;
+
+function TabContentExample({ number }: { number: number }) {
+  useEffect(() => console.log(`Tab number ${number} content mounted`), [
+    number,
+  ]);
+
+  return <Box p="4">Tab number {number} content</Box>;
+}
