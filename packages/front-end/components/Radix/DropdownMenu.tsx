@@ -1,8 +1,8 @@
 import { DropdownMenu as RadixDropdownMenu, Text } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import Button from "@/components/Radix/Button";
-import {PiCaretDown} from "react-icons/pi";
+import { PiCaretDown } from "react-icons/pi";
 import React from "react";
+import Button from "@/components/Radix/Button";
 
 type AllowedChildren = string | React.ReactNode;
 
@@ -20,25 +20,25 @@ export function DropdownMenu({
   children,
   ...props
 }: DropdownProps) {
-  const triggerComponent = typeof trigger === "string" ? (
-    <Button
-      icon={<PiCaretDown />}
-      iconPosition="right"
-    >
-      {trigger}
-    </Button>
-  ) : trigger;
+  const triggerComponent =
+    typeof trigger === "string" ? (
+      <Button icon={<PiCaretDown />} iconPosition="right">
+        {trigger}
+      </Button>
+    ) : (
+      trigger
+    );
 
   return (
     <RadixDropdownMenu.Root {...props}>
-      <RadixDropdownMenu.Trigger>
-        {triggerComponent}
-      </RadixDropdownMenu.Trigger>
+      <RadixDropdownMenu.Trigger>{triggerComponent}</RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content
         align={menuPlacement}
         variant="soft"
         side="bottom"
-        className={menuWidth === "full" ? "dropdown-content-width-full" : undefined}
+        className={
+          menuWidth === "full" ? "dropdown-content-width-full" : undefined
+        }
         style={{ width: typeof menuWidth === "number" ? menuWidth : undefined }}
       >
         {children}
