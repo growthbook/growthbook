@@ -83,8 +83,7 @@ export default function TargetingAttributeCodeSnippet({
 }) {
   const introText = (
     <span>
-      Replace the placeholders with your real targeting attribute values. This
-      enables you to target feature flags based on user attributes.
+      用真实的定向属性值替换占位符。这使您能够根据用户属性来定向特性标志。
     </span>
   );
 
@@ -118,9 +117,7 @@ export default function TargetingAttributeCodeSnippet({
       return (
         <>
           <p>
-            Some attributes are set automatically, but you will need to manually
-            set the following ones. This must be added BEFORE the GrowthBook
-            snippet.
+            部分属性会自动设置，但您需要手动设置以下属性。这必须在GrowthBook代码片段之前添加。
           </p>
           {introText}
           <Code
@@ -141,8 +138,7 @@ window.growthbook_config.attributes = ${stringify(
     return (
       <>
         <div>
-          All of your attributes are set automatically, no configuration
-          required.
+          您的所有属性都已自动设置，无需配置。
         </div>
       </>
     );
@@ -194,10 +190,10 @@ app.use(function(req, res, next) {
           code={`
 val attrs = HashMap<String, Any>()
 ${Object.keys(exampleAttributes)
-  .map((k) => {
-    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
-  })
-  .join("\n")}
+              .map((k) => {
+                return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
+              })
+              .join("\n")}
 
 gb.setAttributes(attrs)
 `.trim()}
@@ -231,8 +227,8 @@ gb.WithAttributes(growthbook.Attributes${JSON.stringify(
             null,
             "\t"
           )
-            .replace(/null/g, "nil")
-            .replace(/\n(\t+)\}/, ",\n$1}")})
+              .replace(/null/g, "nil")
+              .replace(/\n(\t+)\}/, ",\n$1}")})
         `.trim()}
         />
       </>
@@ -288,12 +284,12 @@ gb.WithAttributes(growthbook.Attributes${JSON.stringify(
           code={`
 JSONObject userAttributesObj = new JSONObject();
 ${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
-      value
-    )});`;
-  })
-  .join("\n")}
+              .map(([key, value]) => {
+                return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
+                  value
+                )});`;
+              })
+              .join("\n")}
 String userAttributesJson = userAttributesObj.toString();
 growthBook.setAttributes(userAttributesJson);
             `.trim()}
@@ -310,10 +306,10 @@ growthBook.setAttributes(userAttributesJson);
           code={`
 val attrs = HashMap<String, Any>()
 ${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `attrs.put(${JSON.stringify(key)}, ${JSON.stringify(value)})`;
-  })
-  .join("\n")}
+              .map(([key, value]) => {
+                return `attrs.put(${JSON.stringify(key)}, ${JSON.stringify(value)})`;
+              })
+              .join("\n")}
 gb.setAttributes(attrs);
 `.trim()}
         />
@@ -329,10 +325,10 @@ gb.setAttributes(attrs);
           code={`
 var attrs = new JObject();
 ${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `attrs.Add(${JSON.stringify(key)}, ${JSON.stringify(value)});`;
-  })
-  .join("\n")}
+              .map(([key, value]) => {
+                return `attrs.Add(${JSON.stringify(key)}, ${JSON.stringify(value)});`;
+              })
+              .join("\n")}
 gb.SetAttributes(attrs);
     `.trim()}
         />
@@ -348,10 +344,10 @@ gb.SetAttributes(attrs);
           code={`
 attrs = %{
 ${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `  ${JSON.stringify(key)} => ${JSON.stringify(value)}`;
-  })
-  .join(",\n")}
+              .map(([key, value]) => {
+                return `  ${JSON.stringify(key)} => ${JSON.stringify(value)}`;
+              })
+              .join(",\n")}
 }
 
 context = %GrowthBook.Context{

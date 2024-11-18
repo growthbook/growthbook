@@ -38,8 +38,8 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   if (connection && connection.proxy.enabled) {
     return trimTrailingSlash(
       connection.proxy.hostExternal ||
-        connection.proxy.host ||
-        "https://proxy.yoursite.io"
+      connection.proxy.host ||
+      "https://proxy.yoursite.io"
     );
   }
 
@@ -50,7 +50,7 @@ export default function CodeSnippetModal({
   close,
   feature,
   inline,
-  cta = "Finish",
+  cta = "结束",
   submit,
   secondaryCTA,
   sdkConnection,
@@ -105,7 +105,7 @@ export default function CodeSnippetModal({
     const language = currentConnection.languages[0] ?? "javascript";
     const version =
       (currentConnection?.languages?.length === 1 &&
-      currentConnection?.languages?.[0] === language
+        currentConnection?.languages?.[0] === language
         ? currentConnection?.sdkVersion
         : undefined) ?? getLatestSDKVersion(language);
     setLanguage(language);
@@ -142,7 +142,7 @@ export default function CodeSnippetModal({
         connection={currentConnection}
         mutate={mutateConnections}
         goToNextStep={submit}
-        cta={"Finish"}
+        cta={"结束"}
         showModalClose={false}
       />
     );
@@ -171,19 +171,19 @@ export default function CodeSnippetModal({
         open={true}
         inline={inline}
         size={"max"}
-        header="Implementation Instructions"
+        header="实现说明"
         autoCloseOnSubmit={false}
         submit={
           includeCheck
             ? async () => {
-                setShowTestModal(true);
-              }
+              setShowTestModal(true);
+            }
             : submit
-            ? async () => {
+              ? async () => {
                 submit();
                 close && close();
               }
-            : undefined
+              : undefined
         }
         cta={cta}
       >
@@ -195,7 +195,7 @@ export default function CodeSnippetModal({
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
                 <SelectField
-                  label="SDK Connection"
+                  label="SDK连接"
                   labelClassName="font-weight-bold small text-dark"
                   options={connections.map((connection) => ({
                     value: connection.id,
@@ -214,7 +214,7 @@ export default function CodeSnippetModal({
                 setValue={([language]) => {
                   const version =
                     (currentConnection?.languages?.length === 1 &&
-                    currentConnection?.languages?.[0] === language
+                      currentConnection?.languages?.[0] === language
                       ? currentConnection?.sdkVersion
                       : undefined) ?? getLatestSDKVersion(language);
                   setLanguage(language);
@@ -231,23 +231,18 @@ export default function CodeSnippetModal({
           {language === "other" ? (
             <div className="mb-4">
               <p>
-                We don&apos;t have an SDK for your language yet, but we do have
-                extensive documentation if you want to build your own and
-                contribute it back to the community!{" "}
+                我们目前还没有针对您所用语言的SDK，但如果您想自行构建并回馈给社区，我们有详尽的文档！
               </p>
               <DocLink
                 docSection="buildYourOwn"
                 className="btn btn-outline-primary"
               >
-                View Documentation
+                查看文档
               </DocLink>
             </div>
           ) : (
             <p>
-              Below is some starter code to integrate GrowthBook into your app.
-              Read the{" "}
-              <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
-              more details.
+              以下是一些将GrowthBook集成到您应用中的入门代码。阅读 <DocLink docSection={docs}>{docLabel || label} 文档</DocLink> 以获取更多详细信息。
             </p>
           )}
           {!language.match(/^nocode/) && (
@@ -259,7 +254,7 @@ export default function CodeSnippetModal({
                   setConfigOpen(!configOpen);
                 }}
               >
-                {docLabel || label} Config Settings{" "}
+                {docLabel || label} 配置设置{" "}
                 {configOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {configOpen && (
@@ -271,11 +266,11 @@ export default function CodeSnippetModal({
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Full API Endpoint
+                          完整API端点
                           {hasProxy ? (
                             <>
                               {" "}
-                              <small>(proxied)</small>
+                              <small>(代理的)</small>
                             </>
                           ) : null}
                         </th>
@@ -288,11 +283,11 @@ export default function CodeSnippetModal({
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          API Host
+                          API主机
                           {hasProxy ? (
                             <>
                               {" "}
-                              <small>(proxied)</small>
+                              <small>(代理的)</small>
                             </>
                           ) : null}
                         </th>
@@ -305,7 +300,7 @@ export default function CodeSnippetModal({
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Client Key
+                          客户端密钥
                         </th>
                         <td>
                           <ClickToCopy>{clientKey}</ClickToCopy>
@@ -317,7 +312,7 @@ export default function CodeSnippetModal({
                             className="pl-3"
                             style={{ verticalAlign: "middle" }}
                           >
-                            Decryption Key
+                            解密密钥
                           </th>
                           <td>
                             <ClickToCopy>{encryptionKey}</ClickToCopy>
@@ -340,7 +335,7 @@ export default function CodeSnippetModal({
                   setInstallationOpen(!installationOpen);
                 }}
               >
-                Installation{" "}
+                安装{" "}
                 {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {installationOpen && (
@@ -365,7 +360,7 @@ export default function CodeSnippetModal({
                   setSetupOpen(!setupOpen);
                 }}
               >
-                Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+                设置 {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {setupOpen && (
                 <div className="appbox bg-light p-3">
@@ -391,7 +386,7 @@ export default function CodeSnippetModal({
                   setAttributesOpen(!attributesOpen);
                 }}
               >
-                Targeting Attributes{" "}
+                定向属性{" "}
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (
@@ -408,22 +403,15 @@ export default function CodeSnippetModal({
                       style={{ background: "rgb(209 236 241 / 25%)" }}
                     >
                       <div className="alert alert-info mb-0">
-                        <GBHashLock className="text-blue" /> This connection has{" "}
-                        <strong>secure attribute hashing</strong> enabled. You
-                        must manually hash all attributes with datatype{" "}
-                        <code>secureString</code> or <code>secureString[]</code>{" "}
-                        in your SDK implementation code.
+                        <GBHashLock className="text-blue" /> 此连接已启用 <strong>安全属性哈希</strong>。您必须在SDK实现代码中手动对数据类型为 <code>secureString</code> 或 <code>secureString[]</code> 的所有属性进行哈希处理。
                       </div>
                       <div className="px-3 pb-3">
                         <div className="mt-3">
-                          Your organization currently has{" "}
-                          {secureAttributes.length} secure attribute
-                          {secureAttributes.length === 1 ? "" : "s"}
+                          您的组织目前有 {secureAttributes.length} 个安全属性
                           {secureAttributes.length > 0 && (
                             <>
                               {" "}
-                              which need to be hashed before using them in the
-                              SDK:
+                              在SDK中使用它们之前需要进行哈希处理：
                               <table className="table table-borderless w-auto mt-1 ml-2">
                                 <tbody>
                                   {secureAttributes.map((a, i) => (
@@ -446,23 +434,13 @@ export default function CodeSnippetModal({
                           )}
                         </div>
                         <div className="mt-3">
-                          To hash an attribute, use a cryptographic library with{" "}
-                          <strong>SHA-256</strong> support, and compute the
-                          SHA-256 hashed value of your attribute <em>plus</em>{" "}
-                          your organization&apos;s secure attribute salt.
+                          要对属性进行哈希处理，请使用支持 <strong>SHA-256</strong> 的加密库，并计算您的属性加上您组织的安全属性盐的SHA-256哈希值。
                         </div>
                         <div className="mt-2">
-                          Example, using your organization&apos;s secure
-                          attribute salt:
+                          例如，使用您组织的安全属性盐：
                           {secureAttributeSalt === "" && (
-                            <div className="alert alert-warning mt-2 px-2 py-1">
-                              <FaExclamationTriangle /> Your organization has an
-                              empty salt string. Add a salt string in your{" "}
-                              <Link href="/settings">
-                                organization settings
-                              </Link>{" "}
-                              to improve the security of hashed targeting
-                              conditions.
+                            <div className="提示信息 警告类型 顶部外边距_2px 左右内边距_2px 上下内边距_1px">
+                              <FaExclamationTriangle /> 您的组织有一个空的盐字符串。在您的 <Link href="/settings">组织设置</Link> 中添加一个盐字符串，以提高哈希定向条件的安全性。
                             </div>
                           )}
                           <Code
@@ -478,12 +456,7 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>
                         <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
-                          <FaExclamationCircle /> When using an insecure
-                          environment (such as a browser), do not rely
-                          exclusively on hashing as a means of securing highly
-                          sensitive data. Hashing is an obfuscation technique
-                          that makes it very difficult, but not impossible, to
-                          extract sensitive data.
+                          <FaExclamationCircle /> 在使用不安全的环境（如浏览器）时，不要仅仅依靠哈希作为保护高度敏感数据的唯一手段。哈希是一种混淆技术，它使得提取敏感数据变得非常困难，但并非不可能。
                         </div>
                       </div>
                     </div>
@@ -502,13 +475,13 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                   setUsageOpen(!usageOpen);
                 }}
               >
-                Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
+                使用情况 {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {usageOpen && (
                 <div className="appbox bg-light p-3">
                   {(!feature || feature?.valueType === "boolean") && (
                     <>
-                      On/Off feature:
+                      开关特性：
                       <BooleanFeatureCodeSnippet
                         language={language}
                         featureId={feature?.id || "my-feature"}
@@ -517,7 +490,7 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                   )}
                   {(!feature || feature?.valueType !== "boolean") && (
                     <>
-                      {feature?.valueType || "String"} feature:
+                      {feature?.valueType || "String"}特性：
                       <MultivariateFeatureCodeSnippet
                         valueType={feature?.valueType || "string"}
                         language={language}

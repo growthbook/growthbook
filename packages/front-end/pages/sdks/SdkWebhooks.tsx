@@ -27,14 +27,14 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
   "standard-no-payload": (
     <>
-      Standard
+      标准
       <br />
-      (no SDK Payload)
+      (无SDK负载)
     </>
   ),
-  sdkPayload: "SDK Payload only",
-  edgeConfig: "Vercel Edge Config",
-  none: "none",
+  sdkPayload: "仅SDK负载",
+  edgeConfig: "Vercel边缘配置",
+  none: "无",
 };
 
 export default function SdkWebhooks({
@@ -88,14 +88,14 @@ export default function SdkWebhooks({
               getValue={async () => webhook.signingKey}
             />
           ) : (
-            <em className="text-muted">hidden</em>
+            <em className="text-muted">隐藏</em>
           )}
         </td>
         <td>
           {webhook.error ? (
             <>
               <span className="text-danger">
-                <FaExclamationTriangle /> error
+                <FaExclamationTriangle /> 错误
               </span>
               <Tooltip
                 className="ml-1"
@@ -115,7 +115,7 @@ export default function SdkWebhooks({
               <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
-            <em>never fired</em>
+            <em>从未触发</em>
           )}
         </td>
         <td>
@@ -132,7 +132,7 @@ export default function SdkWebhooks({
             }}
           >
             <FaPaperPlane className="mr-1" />
-            Test
+            测试
           </OldButton>
         </td>
         <td className="px-0">
@@ -152,8 +152,8 @@ export default function SdkWebhooks({
               {canDeleteWebhook ? (
                 <DeleteButton
                   className="dropdown-item"
-                  displayName="SDK Connection"
-                  text="Delete"
+                  displayName="SDK连接"
+                  text="删除"
                   useIcon={false}
                   onClick={async () => {
                     await apiCall(`/sdk-webhooks/${webhook.id}`, {
@@ -172,15 +172,14 @@ export default function SdkWebhooks({
   const renderAddWebhookButton = () => (
     <>
       <div className="text-muted mb-3">
-        Refer to the <DocLink docSection="sdkWebhooks">documentation</DocLink>{" "}
-        for setup instructions
+        参考 <DocLink docSection="sdkWebhooks">文档</DocLink> 获取设置说明
       </div>
       {canCreateWebhooks ? (
         <div className="d-flex align-items-center">
           <Tooltip
             body={
               disableWebhookCreate
-                ? "You can only have one webhook per SDK Connection in the free plan"
+                ? "在免费计划中，每个SDK连接只能有一个网络钩子"
                 : ""
             }
           >
@@ -188,22 +187,20 @@ export default function SdkWebhooks({
               disabled={disableWebhookCreate}
               onClick={() => setCreateWebhookModalOpen(true)}
             >
-              Add Webhook
+              添加网络钩子
             </Button>
           </Tooltip>
           <Tooltip
             body={
               <div style={{ lineHeight: 1.5 }}>
                 <p className="mb-0">
-                  <strong>SDK Webhooks</strong> will automatically notify any
-                  changes affecting this SDK. For instance, modifying a feature
-                  or AB test will prompt the webhook to fire.
+                  <strong>SDK网络钩子</strong> 会自动通知任何影响此SDK的更改。例如，修改特性或A/B测试将促使网络钩子触发。
                 </p>
               </div>
             }
           >
             <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
-              What is this? <FaInfoCircle />
+              这是什么？ <FaInfoCircle />
             </span>
           </Tooltip>
         </div>
@@ -217,13 +214,13 @@ export default function SdkWebhooks({
         <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
-              <th>Webhook</th>
-              <th>Endpoint</th>
-              <th>Method</th>
-              <th style={{ width: 130 }}>Format</th>
-              <th>Shared Secret</th>
-              <th style={{ width: 125 }}>Last Success</th>
-              <th />
+              <th>网络钩子</th>
+              <th>端点</th>
+              <th>方法</th>
+              <th style={{ width: 130 }}>格式</th>
+              <th>共享密钥</th>
+              <th style={{ width: 125 }}>上次成功</th>
+              <th></th>
               <th className="px-0" style={{ width: 35 }} />
             </tr>
           </thead>
@@ -235,7 +232,7 @@ export default function SdkWebhooks({
   const isEmpty = data?.webhooks?.length === 0;
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
-      <h2 className="mb-2">SDK Webhooks</h2>
+      <h2 className="mb-2">SDK网络钩子</h2>
       {editWebhookData && (
         <EditSDKWebhooksModal
           close={() => setEditWebhookData(null)}
