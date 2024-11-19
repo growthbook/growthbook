@@ -29,11 +29,8 @@ import {
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
-  ExperimentFactMetricsQueryParams,
-  ExperimentMetricQueryParams,
   ExperimentPipelineFactMetricsParams,
-  ExperimentPipelineReplaceUnitsTableParams,
-  ExperimentUnitsQueryParams,
+  ExperimentPipelineUnitsParams,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -242,8 +239,7 @@ export const startExperimentResultQueries = async (
   todayMinusLookback.setHours(todayMinusLookback.getHours() - 2);
   const lookbackDate = todayMinusLookback;
 
-  // 1. Create or replace units table
-  const unitQueryParams: ExperimentPipelineReplaceUnitsTableParams = {
+  const unitQueryParams: ExperimentPipelineUnitsParams = {
     activationMetric: activationMetric,
     dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
     segment: segmentObj,
@@ -252,16 +248,30 @@ export const startExperimentResultQueries = async (
     factTableMap: params.factTableMap,
     lookbackDate,
   };
-  const unitQuery = await startQuery({
+
+  // 1. Create or replace units table
+  const createUnitQuery = await startQuery({
+    name: queryParentId,
+    query: integration.getExperimentPipelineCreateUnitsQuery(unitQueryParams),
+    dependencies: [],
+    run: (query, setExternalId) =>
+      integration.runExperimentPipelineCreateUnitsQuery(query, setExternalId),
+    process: (rows) => rows,
+    queryType: "experimentPipelineUnits",
+  });
+  queries.push(createUnitQuery);
+
+  // 2. Replace units table
+  const updateUnitQuery = await startQuery({
     name: queryParentId,
     query: integration.getExperimentPipelineUnitsQuery(unitQueryParams),
-    dependencies: [],
+    dependencies: [createUnitQuery.query],
     run: (query, setExternalId) =>
       integration.runExperimentPipelineUnitsQuery(query, setExternalId),
     process: (rows) => rows,
     queryType: "experimentPipelineUnits",
   });
-  queries.push(unitQuery);
+  queries.push(updateUnitQuery);
 
   const { groups, singles } = getFactMetricGroups(
     selectedMetrics,
@@ -316,66 +326,65 @@ export const startExperimentResultQueries = async (
   // depends on ability to add new columns
   // alter logic needs to be added
 
+  // 2. Create temp table for new metrics
 
-  // 2. Update final metric Tables
-  const groupMetricQueries = [];
-  for (const [i, m] of groups.entries()) {
-    const metricTableFullName = integration.generateTablePath(
-      `${UNITS_TABLE_PREFIX}_factgroup_${i}_${queryParentId}`,
-      settings.pipelineSettings?.writeDataset,
-      settings.pipelineSettings?.writeDatabase,
-      true
-    );
 
-    const queryParams: ExperimentPipelineFactMetricsParams = {
-      activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : [],
-      metrics: m,
-      segment: segmentObj,
-      settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
-      unitsTableFullName: unitsTableFullName,
-      factTableMap: params.factTableMap,
-      tableName: metricTableFullName,
-      lookbackDate,
-    };
+  // 2. Update final metric Tables, left joining on new metrics
+  const metricTableFullName = integration.generateTablePath(
+    `${UNITS_TABLE_PREFIX}_${queryParentId}`,
+    settings.pipelineSettings?.writeDataset,
+    settings.pipelineSettings?.writeDatabase,
+    true
+  );
 
-    if (
-      !integration.runExperimentFactMetricsQuery ||
-      !integration.runExperimentFactMetricsQuery
-    ) {
-      throw new Error("Integration does not support multi-metric queries");
-    }
+  // NEW METRICS RUN SEPARATELY AND LEFT JOIN ON?
+  const queryParams: ExperimentPipelineFactMetricsParams = {
+    activationMetric,
+    dimensions: dimensionObj ? [dimensionObj] : [],
+    metricGroups: groups,
+    segment: segmentObj,
+    settings: snapshotSettings,
+    unitsTableFullName: unitsTableFullName,
+    factTableMap: params.factTableMap,
+    tableName: metricTableFullName,
+    lookbackDate,
+  };
 
-    const groupTrimMetricQuery = await startQuery({
-      name: `delete_group_${i}`,
-      query: integration.getExperimentPipelineTrimMetricsQuery(queryParams),
-      // don't run unless metrics query succeeds
-      dependencies: [unitQuery.query],
-      run: (query, setExternalId) =>
-        integration.runExperimentFactMetricsQuery(
-          query,
-          setExternalId
-        ),
-      process: (rows) => rows,
-      queryType: "experimentPipelineTrimMetric",
-    })
-    queries.push(groupTrimMetricQuery);
-      
-    const groupComputeMetricQuery = await startQuery({
-      name: `run_group_${i}`,
-      query: integration.getExperimentPipelineFactMetricsQuery(queryParams),
-      dependencies: [groupTrimMetricQuery.query],
-      run: (query, setExternalId) =>
-        integration.runExperimentPipelineFactMetricsQuery(
-          query,
-          setExternalId
-        ),
-      process: (rows) => rows,
-      queryType: "experimentPipelineMultiMetric",
-    });
-    queries.push(groupComputeMetricQuery);
+  if (
+    !integration.runExperimentFactMetricsQuery ||
+    !integration.runExperimentFactMetricsQuery
+  ) {
+    throw new Error("Integration does not support multi-metric queries");
   }
+
+  const groupTrimMetricQuery = await startQuery({
+    name: `trim_metric_table`,
+    query: "SELECT 1", //integration.getExperimentPipelineTrimMetricsQuery(queryParams),
+    // don't run unless metrics query succeeds
+    dependencies: [updateUnitQuery.query],
+    run: (query, setExternalId) =>
+      integration.runExperimentPipelineTrimMetricsQuery(
+        query,
+        setExternalId
+      ),
+    process: (rows) => rows,
+    queryType: "experimentPipelineTrimMetric",
+  });
+  queries.push(groupTrimMetricQuery);
+    
+  const groupComputeMetricQuery = await startQuery({
+    name: `compute_metric_update`,
+    query: integration.getExperimentPipelineFactMetricsQuery(queryParams),
+    dependencies: [groupTrimMetricQuery.query],
+    run: (query, setExternalId) =>
+      integration.runExperimentPipelineFactMetricsQuery(
+        query,
+        setExternalId
+      ),
+    process: (rows) => rows,
+    queryType: "experimentPipelineMultiMetric",
+  });
+  queries.push(groupComputeMetricQuery);
 
   // TODO, join results into one query really wide?
   const trafficQuery = await startQuery({
@@ -383,9 +392,9 @@ export const startExperimentResultQueries = async (
     query: integration.getExperimentAggregateUnitsQuery({
       ...unitQueryParams,
       dimensions: dimensionsForTraffic,
-      useUnitsTable: !!unitQuery,
+      useUnitsTable: !!updateUnitQuery,
     }),
-    dependencies: unitQuery ? [unitQuery.query] : [],
+    dependencies: updateUnitQuery ? [updateUnitQuery.query] : [],
     run: (query, setExternalId) =>
       integration.runExperimentAggregateUnitsQuery(query, setExternalId),
     process: (rows) => rows,

@@ -5059,12 +5059,43 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       `
     DELETE 
     FROM ${params.tableName}
-    WHERE dt >= ${this.dateTrunc(datetime(params.lookbackDate))}
-      `,
+    WHERE dt >= ${this.toTimestamp(params.lookbackDate)}
+    `,
       this.getFormatDialect()
     );
   }
   async runExperimentPipelineTrimMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<EmptyQueryResponse> {
+    return await this.runQuery(query, setExternalId);
+  }
+
+  getExperimentPipelineCreateUnitsQuery(
+    params: ExperimentPipelineUnitsParams
+  ): string {
+    const { settings,  } = params;
+    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+
+    const { experimentDimensions, unitDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      null
+    );
+
+    // time type by integration
+    return `
+    CREATE TABLE IF NOT EXISTS ${params.unitsTableFullName} (
+      ${exposureQuery.id} STRING
+      , variation STRING
+      , first_exposure_timestamp DATETIME
+      ${experimentDimensions
+        .map((d) => `, dim_exp_${d.id} STRING`)
+        .join("\n")}
+      , first_activation_timestamp DATETIME
+    )`;
+  }
+  async runExperimentPipelineCreateUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<EmptyQueryResponse> {
@@ -5199,49 +5230,48 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         `
         : ""
     }
-    , __experimentUnits AS (
-      -- One row per user
-      SELECT
-        e.${baseIdType} AS ${baseIdType}
-        , ${this.ifElse(
-          "COUNT(DISTINCT e.variation) > 1",
-          "'__multiple__'",
-          "MAX(e.variation)"
-        )} AS variation
-        , MIN(${timestampColumn}) AS first_exposure_timestamp
-        ${experimentDimensions
-          .map(
-            (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
-          )
-          .join("\n")}
-        ${
-          activationMetric
-            ? `, MIN(${this.ifElse(
-                this.getConversionWindowClause({
-                  baseCol: "e.timestamp",
-                  metricCol:
-                    "COALESCE(e.first_activation_timestamp, a.timestamp)",
-                  metric: activationMetric,
-                  endDate: settings.endDate,
-                  overrideConversionWindows,
-                }),
-                "a.timestamp",
-                "NULL"
-              )}) AS first_activation_timestamp
-            `
-            : ""
-        }
-      FROM
-        __experimentExposures e
-        ${
-          activationMetric
-            ? `LEFT JOIN __activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
-            : ""
-        }
-      ${segment ? `WHERE s.date <= e.timestamp` : ""}
-      GROUP BY
-        e.${baseIdType}`,
+    -- One row per user
+    SELECT
+      e.${baseIdType} AS ${baseIdType}
+      , ${this.ifElse(
+        "COUNT(DISTINCT e.variation) > 1",
+        "'__multiple__'",
+        "MAX(e.variation)"
+      )} AS variation
+      , MIN(${timestampColumn}) AS first_exposure_timestamp
+      ${experimentDimensions
+        .map(
+          (d) => `
+        , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+        )
+        .join("\n")}
+      ${
+        activationMetric
+          ? `, MIN(${this.ifElse(
+              this.getConversionWindowClause({
+                baseCol: "e.timestamp",
+                metricCol:
+                  "COALESCE(e.first_activation_timestamp, a.timestamp)",
+                metric: activationMetric,
+                endDate: settings.endDate,
+                overrideConversionWindows,
+              }),
+              "a.timestamp",
+              "NULL"
+            )}) AS first_activation_timestamp
+          `
+          : ", NULL AS first_activation_timestamp"
+      }
+    FROM
+      __experimentExposures e
+      ${
+        activationMetric
+          ? `LEFT JOIN __activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
+          : ""
+      }
+    ${segment ? `WHERE s.date <= e.timestamp` : ""}
+    GROUP BY
+      e.${baseIdType}`,
       this.getFormatDialect()
     );
   }
@@ -5274,9 +5304,17 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap: FactTableMap,
     experimentId: string,
     endDate: Date,
-  }): string {
-    return `
-    __factTable_${index} as (${this.getFactMetricCTE({
+  }): {sql: string, metricCols: string[]} {
+
+    const metricCols: string[] = [];
+    factTableData.metricData.forEach((data) => {
+      metricCols.push(`group_${index}_${data.alias}_value`);
+      if (data.ratioMetric) {
+        metricCols.push(`group_${index}_${data.alias}_denominator`);
+      }
+    });
+    return {metricCols, sql: `
+    , __factTable_${index} as (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
         metrics: factTableData.metrics,
@@ -5287,8 +5325,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       })})
     , __userMetricJoin_${index} as (
         SELECT
-          ${joinSelectClause},
-          ${previousTableMetricCols.join(",\n")}
+          ${joinSelectClause}
+          ${previousTableMetricCols.map((c) => `, ${c}`).join("\n")}
           ${factTableData.metricData
             .map(
               (data) =>
@@ -5320,15 +5358,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           ${baseTable} d
         LEFT JOIN __factTable_${index} m ON (
           m.${baseIdType} = d.${baseIdType}
+          --- OR consider aggregating and then joining, requires two joins tho...
+          ${index > 0 ? `
+          AND COALSECE(d.dt, ${this.dateTrunc("m.timestamp")}) = ${this.dateTrunc("m.timestamp")}
+          ` : ""}
         )
       )
       , __userMetricAgg_${index} AS (
         -- Get daily aggregate values
         SELECT
-          umj.${baseIdType} AS ${baseIdType},
+          umj.${baseIdType} AS ${baseIdType}
           -- take max of these fields, but they should be 1:1 with id type
           -- max is just simpler (and fails more safely) than a big group by
-          ${previousTableMetricCols.map((m) => `MAX(${m}) AS ${m}`).join(",\n")}
+          ${previousTableMetricCols.map((m) => `, MAX(${m}) AS ${m}`).join("\n")}
           ${factTableData.metricData
             .map(
               (data) =>
@@ -5350,17 +5392,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 }`
             )
             .join("\n")}
-          , ${this.dateTrunc(
-            "COALESCE(umj.metric_timestamp, umj.first_exposure_timestamp"
-          )} AS dt
+          , ${this.dateTrunc("umj.metric_timestamp")} AS dt
         FROM
           __userMetricJoin_${index} umj
         GROUP BY
           umj.${baseIdType}
-          , ${this.dateTrunc(
-            "COALESCE(umj.metric_timestamp, umj.first_exposure_timestamp"
-          )}
-        )`
+          , ${this.dateTrunc("umj.metric_timestamp")}
+        )`}
   }
 
   getPipelineFactTableData({
@@ -5452,6 +5490,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       metricEnd,
       metricStart,
       percentileData,
+      
     }
   }
 
@@ -5517,6 +5556,25 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , d.first_activation_timestamp AS first_activation_timestamp
       , m.timestamp AS metric_timestamp
     `;
+
+    const factTableCTEs: string[] = [];
+    const metricCols: string[] = [];
+    factTableData.forEach((d, i) => {
+      const { sql, metricCols: newMetricCols } = this.getPipelineFactMetricsAggregationCTEs({
+        baseTable: i === 0 ? `__distinctUsers` : `__userMetricAgg_${i - 1}`,
+        joinSelectClause,
+        previousTableMetricCols: metricCols,
+        factTableData: d,
+        index: i,
+        baseIdType,
+        idJoinMap,
+        factTableMap,
+        experimentId: settings.experimentId,
+        endDate: settings.endDate,
+      });
+      factTableCTEs.push(sql);
+      metricCols.push(...newMetricCols);
+    });
     
     // TODO CUPED is always pre-experiment period, not pre-exposure
     // CUPED standalone pipeline...
@@ -5555,7 +5613,8 @@ ${factTableData.map((d) => d.metricData
           , first_activation_timestamp
         FROM ${params.unitsTableFullName}
       )
-      
+      ${factTableCTEs.join("\n")}
+      SELECT * FROM __userMetricAgg_${factTableData.length - 1}
     `,
       this.getFormatDialect()
     );

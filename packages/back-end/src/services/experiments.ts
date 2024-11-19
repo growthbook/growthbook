@@ -141,6 +141,7 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
+import { ExperimentPipelineQueryRunner } from "back-end/src/queryRunners/ExperimentPipelineQueryRunner";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -963,7 +964,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-}): Promise<ExperimentResultsQueryRunner> {
+}): Promise<ExperimentResultsQueryRunner | ExperimentPipelineQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
@@ -1050,12 +1051,19 @@ export async function createSnapshot({
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
-  const queryRunner = new ExperimentResultsQueryRunner(
-    context,
-    snapshot,
-    integration,
-    useCache
-  );
+  // pipeline mode
+  const queryRunner = true ? new ExperimentPipelineQueryRunner(
+      context,
+      snapshot,
+      integration,
+      useCache
+    ) : new ExperimentResultsQueryRunner(
+      context,
+      snapshot,
+      integration,
+      useCache
+    );
+
   await queryRunner.startAnalysis({
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),

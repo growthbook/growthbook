@@ -657,6 +657,13 @@ export interface SourceIntegrationInterface {
   ): string;
   cancelQuery?(externalId: string): Promise<void>;
   // Pipeline Incremental Refresh queries
+  getExperimentPipelineCreateUnitsQuery(
+    params: ExperimentPipelineUnitsParams
+  ): string;
+  runExperimentPipelineCreateUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<EmptyQueryResponse>;
   getExperimentPipelineUnitsQuery(
     params: ExperimentPipelineUnitsParams
   ): string;
