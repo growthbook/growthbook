@@ -207,35 +207,37 @@ function OrganizationRow({
             <FaPencilAlt />
           </a>
         </td>
-        <td className="p-0 text-center">
-          <Tooltip
-            body={
-              hasGrowthbookClickhouse
-                ? "Already has an Inbuilt Growthbook Datasource"
-                : "Create Inbuilt Growthbook Clickhouse DataSource"
-            }
-          >
-            <a
-              href="#"
-              className={clsx("d-block w-100 h-100", {
-                "text-muted": hasGrowthbookClickhouse,
-              })}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!hasGrowthbookClickhouse) {
-                  setClickhouseModalOpen(true);
-                }
-              }}
-              style={{
-                lineHeight: "40px",
-                pointerEvents: hasGrowthbookClickhouse ? "none" : "auto",
-              }}
-              title={"Create Clickhouse Data Source"}
+        {isCloud() && (
+          <td className="p-0 text-center">
+            <Tooltip
+              body={
+                hasGrowthbookClickhouse
+                  ? "Already has an Inbuilt Growthbook Datasource"
+                  : "Create Inbuilt Growthbook Clickhouse DataSource"
+              }
             >
-              <FaDatabase />
-            </a>
-          </Tooltip>
-        </td>
+              <a
+                href="#"
+                className={clsx("d-block w-100 h-100", {
+                  "text-muted": hasGrowthbookClickhouse,
+                })}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!hasGrowthbookClickhouse) {
+                    setClickhouseModalOpen(true);
+                  }
+                }}
+                style={{
+                  lineHeight: "40px",
+                  pointerEvents: hasGrowthbookClickhouse ? "none" : "auto",
+                }}
+                title={"Create Clickhouse Data Source"}
+              >
+                <FaDatabase />
+              </a>
+            </Tooltip>
+          </td>
+        )}
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
             href="#"
@@ -252,7 +254,7 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} className="bg-light">
+          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
             <h3>Summary</h3>
             <div
               className="mb-3 bg-white border p-3"
@@ -503,7 +505,7 @@ function MemberRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} className="bg-light">
+          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
             <div className="mb-3">
               <h4>Organization Info</h4>
               <div className="row">
@@ -733,7 +735,7 @@ const Admin: FC = () => {
                   {!isCloud() && <th>External Id</th>}
                   <th style={{ width: "120px" }}>Members</th>
                   <th style={{ width: "14px" }}></th>
-                  <th style={{ width: "14px" }}></th>
+                  {isCloud() && <th style={{ width: "14px" }}></th>}
                   <th style={{ width: "40px" }}></th>
                 </tr>
               </thead>
