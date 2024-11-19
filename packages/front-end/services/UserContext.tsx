@@ -326,10 +326,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook?.setAttributes({
       anonymous_id,
       id: data?.userId || "",
-      name: data?.userName || "",
       role: user?.role || "",
       superAdmin: data?.superAdmin || false,
-      company: currentOrg?.organization?.name || "",
       organizationId: hashedOrganizationId,
       orgDateCreated: currentOrg?.organization?.dateCreated
         ? getValidDate(currentOrg.organization.dateCreated).toISOString()

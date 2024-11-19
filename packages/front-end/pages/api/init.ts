@@ -9,7 +9,6 @@ export interface EnvironmentInitValue {
   isMultiOrg?: boolean;
   allowSelfOrgCreation: boolean;
   showMultiOrgSelfSelector: boolean;
-  dataWarehouseUrl?: string;
   appOrigin: string;
   apiHost: string;
   s3domain: string;
@@ -28,6 +27,7 @@ export interface EnvironmentInitValue {
   allowCreateMetrics: boolean;
   usingFileProxy: boolean;
   superadminDefaultRole: string;
+  ingestorOverride: string;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -42,7 +42,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
-    DATAWAREHOUSE_URL,
+    INGESTOR_HOST,
     ALLOW_SELF_ORG_CREATION,
     SHOW_MULTI_ORG_SELF_SELECTOR,
     DISABLE_TELEMETRY,
@@ -101,7 +101,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
-    ...(DATAWAREHOUSE_URL ? { dataWarehouseUrl: DATAWAREHOUSE_URL } : {}),
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION),
     showMultiOrgSelfSelector: stringToBoolean(
       SHOW_MULTI_ORG_SELF_SELECTOR,
@@ -124,6 +123,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
     usingFileProxy: stringToBoolean(USING_FILE_PROXY),
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
+    ingestorOverride: INGESTOR_HOST || "",
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);

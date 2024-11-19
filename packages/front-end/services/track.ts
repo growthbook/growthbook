@@ -23,11 +23,11 @@ import { growthbook, GB_SDK_ID } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
+  getIngestorHost,
   hasFileConfig,
   inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
-  dataWarehouseUrl,
 } from "./env";
 
 export type TrackEventProps = Record<string, unknown>;
@@ -81,16 +81,21 @@ const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
 const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
+  if (inTelemetryDebugMode()) {
+    console.log("Telemetry Event - ", event);
+  }
   if (!isTelemetryEnabled()) return;
-  if (!dataWarehouseUrl) return;
+
   try {
-    await fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
+    await fetch(`${getIngestorHost()}/track?client_key=${GB_SDK_ID}`, {
       method: "POST",
       body: JSON.stringify(event),
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
+      credentials: "omit",
+      mode: "no-cors",
     });
   } catch (e) {
     if (inTelemetryDebugMode()) {
@@ -213,10 +218,6 @@ export default function track(
       cloudOrgId: isCloud() ? org : "",
     }),
   });
-
-  if (inTelemetryDebugMode()) {
-    console.log("Telemetry Event - ", event, trackProps);
-  }
 
   const jitsu = getJitsuClient();
   if (jitsu) {
