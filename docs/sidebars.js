@@ -645,10 +645,7 @@ const sidebars = {
           label: "Contentful CMS",
           className: "pill-new",
         },
-          type: "doc",  
-          id: "guide/deno-hono",
-          label: "Deno + Hono",
-        },
+        { type: "doc", id: "guide/deno-hono", label: "Deno + Hono" },
         {
           type: "doc",
           id: "guide/nextjs-and-vercel-feature-flags",
