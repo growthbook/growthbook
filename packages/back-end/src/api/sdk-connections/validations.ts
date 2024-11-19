@@ -65,13 +65,16 @@ const premiumOverrides: {
   "cloud-proxy": !IS_CLOUD,
 } as const;
 
-function validateName(name: string) {
+export function validateName(name: string) {
   if (name.length < 3) {
     throw Error("Name length must be at least 3 characters");
   }
 }
 
-function validateEnvironment(org: OrganizationInterface, environment: string) {
+export function validateEnvironment(
+  org: OrganizationInterface,
+  environment: string
+) {
   if (
     !getEnvironments(org)
       .map(({ id }) => id)
@@ -80,7 +83,10 @@ function validateEnvironment(org: OrganizationInterface, environment: string) {
     throw new Error(`Environment ${environment} does not exist!`);
 }
 
-async function validateProjects(context: ApiReqContext, projects: string[]) {
+export async function validateProjects(
+  context: ApiReqContext,
+  projects: string[]
+) {
   const allProjects = await context.models.projects.getAll();
   const nonexistentProjects = projects.filter(
     (p) => !allProjects.some(({ id }) => p === id)
@@ -91,13 +97,13 @@ async function validateProjects(context: ApiReqContext, projects: string[]) {
     );
 }
 
-function validateLanguage(reqLanguage: string): SDKLanguage {
+export function validateLanguage(reqLanguage: string): SDKLanguage {
   const language = sdkLanguages.find((l) => l === reqLanguage);
   if (!language) throw new Error(`Language ${reqLanguage} is not supported!`);
   return language;
 }
 
-function validateSdkCapabilities(
+export function validateSdkCapabilities(
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
   language: SDKLanguage,
   sdkVersion: string | undefined,
@@ -119,7 +125,7 @@ function validateSdkCapabilities(
   });
 }
 
-function validatePremiumFeatures(
+export function validatePremiumFeatures(
   context: ApiReqContext,
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload
 ) {
@@ -133,7 +139,7 @@ function validatePremiumFeatures(
   });
 }
 
-function validateSdkVersion(sdkVersion: string, language: SDKLanguage) {
+export function validateSdkVersion(sdkVersion: string, language: SDKLanguage) {
   if (!getSDKVersions(language).includes(sdkVersion)) {
     throw Error(`SDK version ${sdkVersion} does not exist for ${language}`);
   }
