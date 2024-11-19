@@ -1,4 +1,3 @@
-import Cookies from "js-cookie";
 import { AppProps } from "next/app";
 import "@/styles/global.scss";
 import "@/styles/global-radix-overrides.scss";
@@ -6,12 +5,7 @@ import "@radix-ui/themes/styles.css";
 import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import {
-  Context,
-  GrowthBook,
-  GrowthBookProvider,
-  BrowserCookieStickyBucketService,
-} from "@growthbook/growthbook-react";
+import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -30,11 +24,10 @@ import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";
-import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
-import { GB_SDK_ID } from "@/services/utils";
+import { growthbook, gbContext } from "@/services/utils";
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
@@ -47,22 +40,6 @@ type ModAppProps = AppProps & {
     preAuthTopNav?: boolean;
   };
 };
-
-const gbContext: Context = {
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: GB_SDK_ID,
-  enableDevMode: true,
-  trackingCallback: (experiment, result) => {
-    track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.variationId,
-    });
-  },
-  stickyBucketService: new BrowserCookieStickyBucketService({
-    jsCookie: Cookies,
-  }),
-};
-export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
 function App({
   Component,

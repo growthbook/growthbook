@@ -2,11 +2,35 @@ import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React, { ReactNode } from "react";
 import qs from "query-string";
 import { getEqualWeights } from "shared/experiments";
+import {
+  BrowserCookieStickyBucketService,
+  Context,
+  GrowthBook,
+} from "@growthbook/growthbook-react";
+import Cookies from "js-cookie";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 
 export const GB_SDK_ID =
   process.env.NODE_ENV === "production"
     ? "sdk-ueFMOgZ2daLa0M"
     : "sdk-UmQ03OkUDAu7Aox";
+
+export const gbContext: Context = {
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: GB_SDK_ID,
+  enableDevMode: true,
+  trackingCallback: (experiment, result) => {
+    track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+  stickyBucketService: new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  }),
+};
+export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
 export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);

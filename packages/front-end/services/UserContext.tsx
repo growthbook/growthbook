@@ -34,10 +34,13 @@ import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import {
+  getGrowthBookBuild,
   getSuperadminDefaultRole,
+  hasFileConfig,
   isCloud,
   isMultiOrg,
   isSentryEnabled,
+  usingSSO,
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -318,26 +321,40 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const build = getGrowthBookBuild();
+
     growthbook?.setAttributes({
       anonymous_id,
       id: data?.userId || "",
       name: data?.userName || "",
+      role: user?.role || "",
       superAdmin: data?.superAdmin || false,
       company: currentOrg?.organization?.name || "",
       organizationId: hashedOrganizationId,
       orgDateCreated: currentOrg?.organization?.dateCreated
         ? getValidDate(currentOrg.organization.dateCreated).toISOString()
         : "",
-      userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
-      accountPlan: currentOrg?.accountPlan || "unknown",
+      accountPlan: currentOrg?.effectiveAccountPlan || "unknown",
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
+      configFile: hasFileConfig(),
+      usingSSO: usingSSO(),
+      buildSHA: build.sha,
+      buildDate: build.date,
+      buildVersion: build.lastVersion,
     });
-  }, [data, currentOrg, hashedOrganizationId, router?.pathname, growthbook]);
+  }, [
+    data,
+    currentOrg,
+    hashedOrganizationId,
+    router?.pathname,
+    growthbook,
+    user?.role,
+  ]);
 
   useEffect(() => {
     if (!data?.email) return;
