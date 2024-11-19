@@ -95,10 +95,6 @@ export async function getDataSourcesByOrganization(
 export async function _dangerourslyGetAllDatasourcesByOrganizations(
   organizations: string[]
 ): Promise<DataSourceInterface[]> {
-  if (usingFileConfig()) {
-    return getConfigDatasources(organizations[0]);
-  }
-
   const docs: DataSourceDocument[] = await DataSourceModel.find({
     organization: { $in: organizations },
   });
