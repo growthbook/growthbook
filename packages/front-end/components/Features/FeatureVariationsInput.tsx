@@ -30,8 +30,8 @@ export interface Props {
   variations: SortableVariation[];
   setWeight: (i: number, weight: number) => void;
   setVariations?: (variations: SortableVariation[]) => void;
-  coverage: number;
-  setCoverage: (coverage: number) => void;
+  coverage?: number;
+  setCoverage?: (coverage: number) => void;
   coverageLabel?: string;
   coverageTooltip?: string;
   valueAsId?: boolean;
@@ -99,7 +99,7 @@ export default function FeatureVariationsInput({
       <label>{label}</label>
       {simple ? (
         <>
-          {!hideCoverage && (
+          {!hideCoverage && coverage !== undefined ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel} <Tooltip body={coverageTooltip} />
@@ -116,7 +116,7 @@ export default function FeatureVariationsInput({
                       let decimal = percentToDecimalForNumber(e[0]);
                       if (decimal > 1) decimal = 1;
                       if (decimal < 0) decimal = 0;
-                      setCoverage(decimal);
+                      setCoverage?.(decimal);
                     }}
                   />
                 </div>
@@ -131,7 +131,7 @@ export default function FeatureVariationsInput({
                         let decimal = percentToDecimal(e.target.value);
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
-                        setCoverage(decimal);
+                        setCoverage?.(decimal);
                       }}
                       type="number"
                       min={0}
@@ -144,7 +144,7 @@ export default function FeatureVariationsInput({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
           <Field
             label="Number of Variations"
             type="number"
@@ -169,7 +169,7 @@ export default function FeatureVariationsInput({
         </>
       ) : (
         <div className="gbtable">
-          {!hideCoverage && (
+          {!hideCoverage && coverage !== undefined ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel} <Tooltip body={coverageTooltip} />
@@ -186,7 +186,7 @@ export default function FeatureVariationsInput({
                       let decimal = percentToDecimalForNumber(e[0]);
                       if (decimal > 1) decimal = 1;
                       if (decimal < 0) decimal = 0;
-                      setCoverage(decimal);
+                      setCoverage?.(decimal);
                     }}
                   />
                 </div>
@@ -201,7 +201,7 @@ export default function FeatureVariationsInput({
                         let decimal = percentToDecimal(e.target.value);
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
-                        setCoverage(decimal);
+                        setCoverage?.(decimal);
                       }}
                       type="number"
                       min={0}
@@ -214,7 +214,7 @@ export default function FeatureVariationsInput({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
           {!hideVariations && (
             <table className="table mb-0">
               <thead className={`${styles.variationSplitHeader}`}>
@@ -347,7 +347,7 @@ export default function FeatureVariationsInput({
                   </tr>
                 )}
 
-                {showPreview && (
+                {showPreview && coverage !== undefined ? (
                   <tr>
                     <td colSpan={4} className="px-0 border-0">
                       <div className="box pt-3 px-3">
@@ -359,7 +359,7 @@ export default function FeatureVariationsInput({
                       </div>
                     </td>
                   </tr>
-                )}
+                ) : null}
               </tbody>
             </table>
           )}
