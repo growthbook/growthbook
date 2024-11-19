@@ -452,7 +452,7 @@ const AnalysisForm: FC<{
           )}
           {editVariationIds && (
             <div className="form-group">
-              <label className="font-weight-bold">变体ID</label>
+              <label className="font-weight-bold">版本ID</label>
               <div className="row align-items-top">
                 {variations.fields.map((v, i) => (
                   <div
@@ -473,7 +473,7 @@ const AnalysisForm: FC<{
                 ))}
               </div>
               <small className="form-text text-muted">
-                将与您的数据源中的变体_id列匹配。
+                将与您的数据源中的版本_id列匹配。
               </small>
             </div>
           )}

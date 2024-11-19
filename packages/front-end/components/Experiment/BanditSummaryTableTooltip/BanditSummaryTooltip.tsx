@@ -100,9 +100,9 @@ export default function BanditSummaryTooltip({
 
   const meanText = data.metric
     ? getExperimentMetricFormatter(data.metric, getFactTableById)(
-        data.stats.cr ?? 0,
-        metricFormatterOptions
-      )
+      data.stats.cr ?? 0,
+      metricFormatterOptions
+    )
     : (data.stats.cr ?? 0) + "";
 
   const ciRangeText = (
@@ -110,16 +110,16 @@ export default function BanditSummaryTooltip({
       [
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
-            data.stats.ci?.[0] ?? 0,
-            metricFormatterOptions
-          )
+          data.stats.ci?.[0] ?? 0,
+          metricFormatterOptions
+        )
         : data.stats.ci?.[0] ?? 0}
       ,{" "}
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
-            data.stats.ci?.[1] ?? 0,
-            metricFormatterOptions
-          )
+          data.stats.ci?.[1] ?? 0,
+          metricFormatterOptions
+        )
         : data.stats.ci?.[1] ?? 0}
       ]
     </>
@@ -128,10 +128,10 @@ export default function BanditSummaryTooltip({
     data.layoutX === "element-right"
       ? "3%"
       : data.layoutX === "element-left"
-      ? "97%"
-      : data.layoutX === "element-center"
-      ? "50%"
-      : "50%";
+        ? "97%"
+        : data.layoutX === "element-center"
+          ? "50%"
+          : "50%";
 
   return (
     <div
@@ -154,9 +154,8 @@ export default function BanditSummaryTooltip({
           width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
           top: data.yAlign === "top" ? 0 : "auto",
           bottom: data.yAlign === "bottom" ? 0 : "auto",
-          transformOrigin: `${arrowLeft} ${
-            data.yAlign === "top" ? "0%" : "100%"
-          }`,
+          transformOrigin: `${arrowLeft} ${data.yAlign === "top" ? "0%" : "100%"
+            }`,
         }}
         {...otherProps}
       >
@@ -276,7 +275,7 @@ export default function BanditSummaryTooltip({
 
             <div className={clsx("results-chance d-flex mt-1", data.status)}>
               <div className="label mr-2" style={{ width: 140 }}>
-                Variation Mean:
+                计划均值：
               </div>
               <div
                 className={clsx("value", {

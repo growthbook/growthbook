@@ -402,8 +402,7 @@ export default function ResultsTable({
                         innerClassName={"text-left"}
                         body={
                           <div style={{ lineHeight: 1.5 }}>
-                            The baseline that all variations are compared
-                            against.
+                            所有计划对比的基线
                             <div
                               className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
                               style={{ marginBottom: 2 }}
@@ -421,7 +420,7 @@ export default function ResultsTable({
                           </div>
                         }
                       >
-                        Baseline <RxInfoCircled />
+                        基线 <RxInfoCircled />
                       </Tooltip>
                     </th>
                     <th
@@ -436,7 +435,7 @@ export default function ResultsTable({
                             ""
                           ) : (
                             <div style={{ lineHeight: 1.5 }}>
-                              The variation being compared to the baseline.
+                              与基线进行比较的计划。
                               <div
                                 className={`variation variation${filteredVariations[1]?.index} with-variation-label d-flex mt-1 align-items-top`}
                                 style={{ marginBottom: 2 }}
@@ -459,7 +458,7 @@ export default function ResultsTable({
                           )
                         }
                       >
-                        Variation {compactResults ? <RxInfoCircled /> : null}
+                        计划 {compactResults ? <RxInfoCircled /> : null}
                       </Tooltip>
                     </th>
                     <th
@@ -487,7 +486,7 @@ export default function ResultsTable({
                                 !!sequentialTestingEnabled,
                                 appliedPValueCorrection,
                                 orgSettings.pValueThreshold ??
-                                  DEFAULT_P_VALUE_THRESHOLD,
+                                DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
                               )}
                             </div>
@@ -785,9 +784,8 @@ export default function ResultsTable({
                               domain={domain}
                               metric={row.metric}
                               stats={stats}
-                              id={`${id}_violin_row${i}_var${j}_${
-                                row.resultGroup
-                              }_${encodeURIComponent(dimension ?? "d-none")}`}
+                              id={`${id}_violin_row${i}_var${j}_${row.resultGroup
+                                }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
                               height={
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
@@ -936,7 +934,7 @@ function getChangeTooltip(
   if (hasRisk && statsEngine === "bayesian") {
     intervalText = (
       <>
-        The interval is a 95% credible interval. The true value is more likely
+        The interval is a 95% 可信区间. The true value is more likely
         to be in the thicker parts of the graph.
       </>
     );

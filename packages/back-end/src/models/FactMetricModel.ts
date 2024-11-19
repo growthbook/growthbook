@@ -141,7 +141,7 @@ export class FactMetricModel extends BaseClass {
         }
         if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
           throw new Error(
-            "Numerator and denominator must be in the same datasource"
+            "分子和分母必须在同一个数据源中"
           );
         }
 
@@ -215,13 +215,13 @@ export class FactMetricModel extends BaseClass {
         override: regressionAdjustmentOverride || false,
         ...(regressionAdjustmentOverride
           ? {
-              enabled: regressionAdjustmentEnabled || false,
-            }
+            enabled: regressionAdjustmentEnabled || false,
+          }
           : null),
         ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
           ? {
-              days: regressionAdjustmentDays || 0,
-            }
+            days: regressionAdjustmentDays || 0,
+          }
           : null),
       },
       dateCreated: dateCreated?.toISOString() || "",

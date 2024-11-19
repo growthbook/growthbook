@@ -143,7 +143,7 @@ export default function SDKConnectionPage() {
                       });
                     }}
                   >
-                    Duplicate
+                    复制
                   </button>
                 ) : null}
                 {canDelete ? (

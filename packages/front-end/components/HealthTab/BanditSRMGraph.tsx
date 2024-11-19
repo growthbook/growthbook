@@ -237,39 +237,39 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
     () =>
       mode === "users"
         ? scaleLinear<number>({
-            domain: [
-              Math.min(
-                ...data.map((d) =>
-                  Math.min(
-                    ...variationNames
-                      .map((_, i) => d?.users?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i]),
-                    ...variationNames
-                      .map((_, i) => d?.expectedUsers?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i])
-                  )
+          domain: [
+            Math.min(
+              ...data.map((d) =>
+                Math.min(
+                  ...variationNames
+                    .map((_, i) => d?.users?.[i] ?? 0)
+                    .filter((_, i) => showVariations[i]),
+                  ...variationNames
+                    .map((_, i) => d?.expectedUsers?.[i] ?? 0)
+                    .filter((_, i) => showVariations[i])
                 )
-              ) * 1.03,
-              Math.max(
-                ...data.map((d) =>
-                  Math.max(
-                    ...variationNames
-                      .map((_, i) => d?.users?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i]),
-                    ...variationNames
-                      .map((_, i) => d?.expectedUsers?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i])
-                  )
+              )
+            ) * 1.03,
+            Math.max(
+              ...data.map((d) =>
+                Math.max(
+                  ...variationNames
+                    .map((_, i) => d?.users?.[i] ?? 0)
+                    .filter((_, i) => showVariations[i]),
+                  ...variationNames
+                    .map((_, i) => d?.expectedUsers?.[i] ?? 0)
+                    .filter((_, i) => showVariations[i])
                 )
-              ) * 1.03,
-            ],
-            range: [yMax, 0],
-            round: true,
-          })
+              )
+            ) * 1.03,
+          ],
+          range: [yMax, 0],
+          round: true,
+        })
         : scaleLinear<number>({
-            domain: [0, 1],
-            range: [yMax, 0],
-          }),
+          domain: [0, 1],
+          range: [yMax, 0],
+        }),
     [variationNames, mode, data, yMax, showVariations]
   );
 
@@ -353,7 +353,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   ) : (
                     <BiRadioCircle size={24} />
                   )}
-                  Show all
+                  全选
                 </div>
                 {variationNames.map((v, i) => {
                   return (
@@ -371,7 +371,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                       }}
                     >
                       {showVariations[i] &&
-                      !showVariations.every((sv) => sv) ? (
+                        !showVariations.every((sv) => sv) ? (
                         <BiRadioCircleMarked size={24} />
                       ) : (
                         <BiRadioCircle size={24} />
@@ -467,84 +467,84 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                 <Group clipPath="url(#bandit-srm-graph-clip)">
                   {mode === "users"
                     ? variationNames.map((_, i) => {
-                        if (!showVariations[i]) return null;
-                        return (
-                          <Fragment key={`users-group-${i}`}>
-                            <LinePath
-                              key={`linepath-expectedUsers-${i}`}
-                              data={data}
-                              x={(d) => xScale(d.date)}
-                              y={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
-                              strokeWidth={2}
-                              strokeDasharray={"2,5"}
-                              curve={curveMonotoneX}
-                            />
-                            <LinePath
-                              key={`linepath-users-${i}`}
-                              data={data}
-                              x={(d) => xScale(d.date)}
-                              y={(d) => yScale(d.users?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
-                              strokeWidth={2}
-                              curve={curveMonotoneX}
-                            />
-                            <AreaClosed
-                              key={`users-delta-${i}`}
-                              yScale={yScale}
-                              data={data}
-                              x={(d) => xScale(d.date)}
-                              y0={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
-                              y1={(d) => yScale(d.users?.[i] ?? 0)}
-                              fill={getVariationColor(i, true)}
-                              opacity={0.12}
-                              curve={curveMonotoneX}
-                            />
-                          </Fragment>
-                        );
-                      })
+                      if (!showVariations[i]) return null;
+                      return (
+                        <Fragment key={`users-group-${i}`}>
+                          <LinePath
+                            key={`linepath-expectedUsers-${i}`}
+                            data={data}
+                            x={(d) => xScale(d.date)}
+                            y={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
+                            stroke={getVariationColor(i, true)}
+                            strokeWidth={2}
+                            strokeDasharray={"2,5"}
+                            curve={curveMonotoneX}
+                          />
+                          <LinePath
+                            key={`linepath-users-${i}`}
+                            data={data}
+                            x={(d) => xScale(d.date)}
+                            y={(d) => yScale(d.users?.[i] ?? 0)}
+                            stroke={getVariationColor(i, true)}
+                            strokeWidth={2}
+                            curve={curveMonotoneX}
+                          />
+                          <AreaClosed
+                            key={`users-delta-${i}`}
+                            yScale={yScale}
+                            data={data}
+                            x={(d) => xScale(d.date)}
+                            y0={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
+                            y1={(d) => yScale(d.users?.[i] ?? 0)}
+                            fill={getVariationColor(i, true)}
+                            opacity={0.12}
+                            curve={curveMonotoneX}
+                          />
+                        </Fragment>
+                      );
+                    })
                     : null}
 
                   {mode === "weights"
                     ? variationNames.map((_, i) => {
-                        if (!showVariations[i]) return null;
-                        return (
-                          <Fragment key={`weights-group-${i}`}>
-                            <LinePath
-                              key={`linepath-weights-${i}`}
-                              data={data}
-                              x={(d) => xScale(d.date)}
-                              y={(d) => yScale(d.weights?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
-                              strokeWidth={2}
-                              curve={curveStepAfter}
-                            />
-                            <LinePath
-                              key={`linepath-userRatios-${i}`}
-                              data={data}
-                              x={(d) => xScale(d.date)}
-                              y={(d) => yScale(d.userRatios?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
-                              strokeWidth={2}
-                              strokeDasharray={"2,5"}
-                              curve={curveStepAfter}
-                              defined={(d) => d.userRatios?.[i] !== undefined}
-                            />
-                            <AreaClosed
-                              key={`weights-delta-${i}`}
-                              yScale={yScale}
-                              data={data}
-                              x={(d) => xScale(d.date)}
-                              y0={(d) => yScale(d.weights?.[i] ?? 0)}
-                              y1={(d) => yScale(d.userRatios?.[i] ?? 0)}
-                              fill={getVariationColor(i, true)}
-                              opacity={0.12}
-                              curve={curveStepAfter}
-                              defined={(d) => d.userRatios?.[i] !== undefined}
-                            />
-                          </Fragment>
-                        );
-                      })
+                      if (!showVariations[i]) return null;
+                      return (
+                        <Fragment key={`weights-group-${i}`}>
+                          <LinePath
+                            key={`linepath-weights-${i}`}
+                            data={data}
+                            x={(d) => xScale(d.date)}
+                            y={(d) => yScale(d.weights?.[i] ?? 0)}
+                            stroke={getVariationColor(i, true)}
+                            strokeWidth={2}
+                            curve={curveStepAfter}
+                          />
+                          <LinePath
+                            key={`linepath-userRatios-${i}`}
+                            data={data}
+                            x={(d) => xScale(d.date)}
+                            y={(d) => yScale(d.userRatios?.[i] ?? 0)}
+                            stroke={getVariationColor(i, true)}
+                            strokeWidth={2}
+                            strokeDasharray={"2,5"}
+                            curve={curveStepAfter}
+                            defined={(d) => d.userRatios?.[i] !== undefined}
+                          />
+                          <AreaClosed
+                            key={`weights-delta-${i}`}
+                            yScale={yScale}
+                            data={data}
+                            x={(d) => xScale(d.date)}
+                            y0={(d) => yScale(d.weights?.[i] ?? 0)}
+                            y1={(d) => yScale(d.userRatios?.[i] ?? 0)}
+                            fill={getVariationColor(i, true)}
+                            opacity={0.12}
+                            curve={curveStepAfter}
+                            defined={(d) => d.userRatios?.[i] !== undefined}
+                          />
+                        </Fragment>
+                      );
+                    })
                     : null}
                 </Group>
 
@@ -556,11 +556,11 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   tickLabelProps={(value, i) => {
                     return visibleTickIndexes.includes(i)
                       ? {
-                          fill: "var(--text-color-table)",
-                          fontSize: 11,
-                          textAnchor: "middle",
-                          dy: 5,
-                        }
+                        fill: "var(--text-color-table)",
+                        fontSize: 11,
+                        textAnchor: "middle",
+                        dy: 5,
+                      }
                       : { display: "none" };
                   }}
                   tickFormat={(d) => {

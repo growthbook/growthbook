@@ -56,7 +56,7 @@ export default function ExperimentMetricsSelector({
             <span className="font-italic">
               {!forceSingleGoalMetric
                 ? "本次实验中您试图去提升的主要指标。"
-                : "选择将用于更新变体权重的目标指标。"}
+                : "选择将用于更新版本权重的目标指标。"}
             </span>
             <MetricsSelectorTooltip
               isSingular={true}

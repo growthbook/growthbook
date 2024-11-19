@@ -65,7 +65,7 @@ const NewPhaseForm: FC<{
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const submit = form.handleSubmit(async (value) => {
-    if (!isValid) throw new Error("变体权重总和必须为1");
+    if (!isValid) throw new Error("版本权重总和必须为1");
 
     validateSavedGroupTargeting(value.savedGroups);
 

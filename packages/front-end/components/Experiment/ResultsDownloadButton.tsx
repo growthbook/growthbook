@@ -148,7 +148,7 @@ export default function ResultsDownloadButton({
           : "results.csv"
       }
     >
-      <FaFileExport className="mr-2" /> Export CSV
+      <FaFileExport className="mr-2" /> 导出CSV
     </a>
   );
 }

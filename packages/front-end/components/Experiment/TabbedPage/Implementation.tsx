@@ -70,12 +70,12 @@ export default function Implementation({
 
       <div className="box my-3 mb-4 px-2 py-3">
         <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-2">
-          <h4 className="m-0">变体</h4>
+          <h4 className="m-0">版本</h4>
           <div className="flex-1" />
           {showEditVariations ? (
             <Tooltip
               shouldDisplay={!safeToEdit}
-              body="实验运行时无法编辑变体。"
+              body="实验运行时无法编辑版本。"
             >
               <button
                 className="btn p-0 link-purple"

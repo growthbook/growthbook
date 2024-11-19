@@ -93,11 +93,11 @@ function validateMetricSQL(
   if (type !== "binomial") {
     requiredCols.push("value");
     if (usesValueColumn(sql) && !templateVariables?.valueColumn) {
-      throw new Error("Value column is required");
+      throw new Error("需要值列");
     }
   }
   if (usesEventName(sql) && !templateVariables?.eventName) {
-    throw new Error("Event name is required");
+    throw new Error("需要事件名");
   }
 
   validateSQL(sql, requiredCols);
@@ -105,7 +105,7 @@ function validateMetricSQL(
 
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
-    throw new Error("Metric name cannot be empty");
+    throw new Error("指标名称不能为空");
   }
 }
 
@@ -135,7 +135,7 @@ function validateQuerySettings(
     );
   } else {
     if (value.table.length < 1) {
-      throw new Error("Table name cannot be empty");
+      throw new Error("表名不能为空");
     }
   }
 }
@@ -268,7 +268,7 @@ const MetricForm: FC<MetricFormProps> = ({
   );
 
   useEffect(() => {
-    track("View Metric Form", {
+    track("查看指标表单", {
       source,
     });
   }, [source]);
@@ -276,24 +276,23 @@ const MetricForm: FC<MetricFormProps> = ({
   const metricTypeOptions = [
     {
       value: "binomial",
-      label: "Binomial",
-      description: "Percent of users who do something (click, view, etc.)",
+      label: "二项式",
+      description: "执行某项操作（点击、查看等）的用户百分比",
     },
     {
       value: "count",
-      label: "Count",
-      description: "Number of actions per user (clicks, views, etc.)",
+      label: "计数",
+      description: "每个用户的操作次数（点击、查看等）",
     },
     {
       value: "duration",
-      label: "Duration",
-      description:
-        "How long something takes (time on site, loading speed, etc.)",
+      label: "时长",
+      description: "某事花费的时间（在网站上的时间、加载速度等）",
     },
     {
       value: "revenue",
-      label: "Revenue",
-      description: `How much money a user pays in ${displayCurrency} (revenue per visitor, average order value, etc.)`,
+      label: "收入",
+      description: `用户以${displayCurrency}支付的金额（每位访客的收入、平均订单价值等）`,
     },
   ];
 
@@ -331,8 +330,8 @@ const MetricForm: FC<MetricFormProps> = ({
         source === "datasource-detail" || edit || duplicate
           ? current.projects || []
           : project
-          ? [project]
-          : [],
+            ? [project]
+            : [],
       winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
       loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
@@ -463,17 +462,17 @@ const MetricForm: FC<MetricFormProps> = ({
       regressionAdjustmentAvailableForMetric = false;
       regressionAdjustmentAvailableForMetricReason = (
         <>
-          Not available for ratio metrics with <em>count</em> denominators.
+          对于分母为<em>计数</em>的比率指标，不可进行回归调整。
         </>
       );
     }
   }
 
-  let table = "Table";
-  let column = "Column";
+  let table = "表";
+  let column = "列";
   if (selectedDataSource?.properties?.events) {
-    table = "Event";
-    column = "Property";
+    table = "事件";
+    column = "属性";
   }
 
   const conditions = useFieldArray({
@@ -542,7 +541,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
     mutateDefinitions();
 
-    track("Submit Metric Form", {
+    track("提交指标表单", {
       type: value.type,
       source,
       userIdType: value.userIdTypes.join(", "),
@@ -553,7 +552,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const riskError =
     value.loseRisk < value.winRisk
-      ? "The acceptable risk percentage cannot be higher than the too risky percentage"
+      ? "可接受的风险百分比不能高于风险过高的百分比"
       : "";
 
   const regressionAdjustmentDaysHighlightColor =
@@ -563,13 +562,13 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const regressionAdjustmentDaysWarningMsg =
     value.regressionAdjustmentDays > 28
-      ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+      ? "较长的回溯期有时可能有用，但也会降低查询性能，并且可能包含不太有用的数据"
       : value.regressionAdjustmentDays < 7
-      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-      : "";
+        ? "7天以下的回溯期往往无法捕获足够的指标数据以降低方差，并且可能受到每周季节性的影响"
+        : "";
 
   const customAggregationWarningMsg = value.aggregation
-    ? "When using a custom aggregation, it is safest to COALESCE values in your SQL so that the `value` column has no NULL values."
+    ? "当使用自定义聚合时，在SQL中使用COALESCE函数处理值以确保`value`列没有NULL值是最安全的做法。"
     : "";
 
   const requiredColumns = useMemo(() => {
@@ -599,7 +598,7 @@ const MetricForm: FC<MetricFormProps> = ({
     disabledMessage = riskError;
   } else if (!permissionsUtil.canCreateMetric({ projects: value.projects })) {
     ctaEnabled = false;
-    disabledMessage = "You don't have permission to create metrics.";
+    disabledMessage = "您没有创建指标的权限。";
   }
 
   const projectOptions = useProjectOptions(
@@ -637,7 +636,7 @@ const MetricForm: FC<MetricFormProps> = ({
       <PagedModal
         trackingEventModalType={trackingEventModalType}
         inline={inline}
-        header={edit ? "Edit Metric" : "New Metric"}
+        header={edit ? "编辑指标" : "新建指标"}
         close={onClose}
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
         disabledMessage={disabledMessage}
@@ -653,7 +652,7 @@ const MetricForm: FC<MetricFormProps> = ({
         secondaryCTA={secondaryCTA}
       >
         <Page
-          display="Basic Info"
+          display="基本信息"
           validate={async () => {
             validateBasicInfo(form.getValues());
             if (allowAutomaticSqlReset) {
@@ -663,11 +662,11 @@ const MetricForm: FC<MetricFormProps> = ({
         >
           {isExclusivelyForDemoDatasourceProject ? (
             <Callout status="warning">
-              You are creating a metric under the demo datasource project.
+              您正在演示数据源项目下创建指标。
             </Callout>
           ) : switchToFact && factTables.length > 0 ? (
             <Callout status="info" mb="3">
-              You are creating a legacy SQL metric.{" "}
+              您正在创建一个旧版SQL指标。{" "}
               <a
                 href="#"
                 onClick={(e) => {
@@ -675,19 +674,19 @@ const MetricForm: FC<MetricFormProps> = ({
                   switchToFact();
                 }}
               >
-                Switch to use Fact Tables <FaArrowRight />
+                切换到使用事实表<FaArrowRight />
               </a>
             </Callout>
           ) : switchToFact && hasSQLDataSources ? (
             <Callout status="info" mb="3">
-              Use Fact Tables for an easier and faster way to create metrics.{" "}
+              使用事实表可以更轻松、更快速地创建指标。{" "}
               <Link href="/fact-tables">
-                Learn More <FaArrowRight />
+                了解更多 <FaArrowRight />
               </Link>
             </Callout>
           ) : null}
           <div className="form-group">
-            <label>Metric Name</label>
+            <label>指标名称</label>
             <input
               type="text"
               required
@@ -705,11 +704,11 @@ const MetricForm: FC<MetricFormProps> = ({
                   setHideTags(false);
                 }}
               >
-                Add tags{" "}
+                添加标签{" "}
               </a>
             ) : (
               <>
-                <label>Tags</label>
+                <label>标签</label>
                 <TagsInput
                   value={value.tags}
                   onChange={(tags) => form.setValue("tags", tags)}
@@ -722,26 +721,24 @@ const MetricForm: FC<MetricFormProps> = ({
               <MultiSelectField
                 label={
                   <>
-                    Projects{" "}
+                    项目{" "}
                     <Tooltip
-                      body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                        edit ? "update" : "create"
-                      } Metrics.`}
+                      body={`下拉列表已过滤，仅包含您有权限${edit ? "更新" : "创建"}指标的项目。`}
                     />
                   </>
                 }
-                placeholder="All projects"
+                placeholder="所有项目"
                 value={value.projects || []}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
-                helpText="Assign this metric to specific projects"
+                helpText="将此指标分配给特定项目"
                 disabled={isExclusivelyForDemoDatasourceProject}
               />
             </div>
           )}
           <SelectField
-            label="Data Source"
+            label="数据源"
             value={
               isExclusivelyForDemoDatasourceProject && demoDataSourceId
                 ? demoDataSourceId
@@ -757,9 +754,8 @@ const MetricForm: FC<MetricFormProps> = ({
               const defaultDatasource = d.id === settings.defaultDataSource;
               return {
                 value: d.id,
-                label: `${d.name}${
-                  d.description ? ` — ${d.description}` : ""
-                } ${defaultDatasource ? " (default)" : ""}`,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""
+                  } ${defaultDatasource ? " (default)" : ""}`,
               };
             })}
             className="portal-overflow-ellipsis"
@@ -772,7 +768,7 @@ const MetricForm: FC<MetricFormProps> = ({
             }
           />
           <div>
-            <label>Metric Type</label>
+            <label>指标类型</label>
             <RadioGroup
               value={value.type}
               setValue={(val: MetricType) => {
@@ -794,7 +790,7 @@ const MetricForm: FC<MetricFormProps> = ({
           </div>
         </Page>
         <Page
-          display="Query Settings"
+          display="查询设置"
           validate={async () => {
             validateQuerySettings(
               datasourceSettingsSupport,
@@ -843,7 +839,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   className="form-check-label"
                   htmlFor="query-builder-input-mode"
                 >
-                  Query Builder
+                  查询构建器
                 </label>
               </div>
             </div>
@@ -863,14 +859,14 @@ const MetricForm: FC<MetricFormProps> = ({
                       value: userIdType,
                       label: userIdType,
                     }))}
-                    label="Identifier Types Supported"
+                    label="支持的标识符类型"
                   />
                   {value.sql && usesEventName(value.sql) && (
                     <div className="form-group">
                       <Field
-                        label="Event Name"
+                        label="事件名称"
                         placeholder={value.name}
-                        helpText="The event name associated with this metric.  This can then be referenced in your sql template as {{eventName}}."
+                        helpText="与该指标相关联的事件名称。之后可在您的SQL模板中以{{eventName}}的形式引用。"
                         {...form.register("eventName")}
                       />
                     </div>
@@ -880,18 +876,18 @@ const MetricForm: FC<MetricFormProps> = ({
                     value.type != "binomial" && (
                       <div className="form-group">
                         <Field
-                          label="Value Column"
+                          label="值列"
                           helpText={
                             value.type === "count"
-                              ? "Use 1 to count the number of rows (most common). This can then be referenced in your sql template as {{valueColumn}}."
-                              : "The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                              ? "使用1来统计行数（最常见情况）。之后可在您的SQL模板中以{{valueColumn}}的形式引用。"
+                              : "数据仓库表中包含指标数据的列。之后可在您的SQL模板中以{{valueColumn}}的形式引用。"
                           }
                           {...form.register("valueColumn")}
                         ></Field>
                       </div>
                     )}
                   <div className="form-group">
-                    <label>Query</label>
+                    <label>查询语句</label>
                     {value.sql && (
                       <Code language="sql" code={value.sql} expandable={true} />
                     )}
@@ -904,7 +900,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           setSqlOpen(true);
                         }}
                       >
-                        {value.sql ? "编辑" : "添加"} SQL <FaExternalLinkAlt />
+                        {value.sql ? "编辑" : "添加"} SQL<FaExternalLinkAlt />
                       </button>
                       {value.sql != defaultSqlTemplate && (
                         <button
@@ -915,14 +911,14 @@ const MetricForm: FC<MetricFormProps> = ({
                             setShowSqlResetConfirmationModal(true);
                           }}
                         >
-                          Reset to default SQL
+                          重置为默认SQL
                         </button>
                       )}
                       {showSqlResetConfirmationModal && (
                         <ConfirmModal
-                          title={"Reset to default SQL"}
-                          subtitle="This will reset both your SQL and identifier types to the default template for your datasource and type."
-                          yesText="Reset"
+                          title={"重置为默认SQL"}
+                          subtitle="这将把您的SQL（和标识符类型都重置为您的数据源和类型的默认模板。"
+                          yesText="重置"
                           noText="取消"
                           modalState={showSqlResetConfirmationModal}
                           setModalState={(state) =>
@@ -939,13 +935,13 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type !== "binomial" && (
                     <div className="mb-2">
                       <Field
-                        label="User Value Aggregation"
+                        label="用户值聚合"
                         placeholder="SUM(value)"
                         textarea
                         minRows={1}
                         containerClassName="mb-0"
                         {...form.register("aggregation")}
-                        helpText="When there are multiple metric rows for a user"
+                        helpText="当一个用户存在多条指标记录时"
                       />
                       {customAggregationWarningMsg && (
                         <small>{customAggregationWarningMsg}</small>
@@ -953,14 +949,14 @@ const MetricForm: FC<MetricFormProps> = ({
                     </div>
                   )}
                   <SelectField
-                    label="Denominator"
+                    label="分母"
                     options={denominatorOptions}
-                    initialOption="All Experiment Users"
+                    initialOption="所有实验用户"
                     value={value.denominator}
                     onChange={(denominator) => {
                       form.setValue("denominator", denominator);
                     }}
-                    helpText="Use this to define ratio or funnel metrics"
+                    helpText="用于定义比率或漏斗指标"
                   />
                 </div>
               ) : datasourceType === "google_analytics" ? (
@@ -971,9 +967,9 @@ const MetricForm: FC<MetricFormProps> = ({
               ) : (
                 <>
                   <SelectField
-                    label={`${table} Name`}
+                    label={`${table} 名称`}
                     createable
-                    placeholder={`${table} name...`}
+                    placeholder={`${table} 名称...`}
                     value={form.watch("table")}
                     onChange={(value) => {
                       form.setValue("table", value);
@@ -985,7 +981,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type !== "binomial" && (
                     <SelectField
                       placeholder={column}
-                      label={supportsSQL ? "Column" : "Event Value"}
+                      label={supportsSQL ? "列" : "事件值"}
                       options={columnOptions}
                       createable
                       value={form.watch("column")}
@@ -993,23 +989,23 @@ const MetricForm: FC<MetricFormProps> = ({
                       required={value.type !== "count"}
                       helpText={
                         !supportsSQL &&
-                        "Javascript expression to extract a value from each event."
+                        "用于从每个事件中提取值的Javascript表达式。"
                       }
                     />
                   )}
                   {value.type !== "binomial" && !supportsSQL && (
                     <Field
-                      label="User Value Aggregation"
+                      label="用户值聚合"
                       placeholder="sum(values)"
                       textarea
                       minRows={1}
                       {...form.register("aggregation")}
-                      helpText="Javascript expression to aggregate multiple event values for a user."
+                      helpText="用于聚合一个用户的多个事件值的Javascript表达式。"
                     />
                   )}
                   {conditionsSupported && (
                     <div className="mb-3">
-                      {conditions.fields.length > 0 && <h6>Conditions</h6>}
+                      {conditions.fields.length > 0 && <h6>条件</h6>}
                       {conditions.fields.map((cond: Condition, i) => (
                         <div
                           className="form-row border py-2 mb-2 align-items-center"
@@ -1039,28 +1035,28 @@ const MetricForm: FC<MetricFormProps> = ({
                               }
                               options={(() => {
                                 const ret = [
-                                  { value: "=", label: "equals" },
-                                  { value: "!=", label: "does not equal" },
-                                  { value: "~", label: "matches the regex" },
+                                  { value: "=", label: "等于" },
+                                  { value: "!=", label: "不等于" },
+                                  { value: "~", label: "匹配正则表达式" },
                                   {
                                     value: "!~",
-                                    label: "does not match the regex",
+                                    label: "不匹配正则表达式",
                                   },
-                                  { value: "<", label: "is less than" },
-                                  { value: ">", label: "is greater than" },
+                                  { value: "<", label: "小于" },
+                                  { value: ">", label: "大于" },
                                   {
                                     value: "<=",
-                                    label: "is less than or equal to",
+                                    label: "小于等于"
                                   },
                                   {
                                     value: ">=",
-                                    label: "is greater than or equal to",
+                                    label: "大于等于"
                                   },
                                 ];
                                 if (supportsJS)
                                   ret.push({
                                     value: "=>",
-                                    label: "custom javascript",
+                                    label: "自定义Javascript",
                                   });
                                 return ret;
                               })()}
@@ -1070,7 +1066,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           <div className="col-auto mb-1">
                             <Field
                               required
-                              placeholder="Value"
+                              placeholder="值"
                               textarea={
                                 form.watch(`conditions.${i}.operator`) === "=>"
                               }
@@ -1105,20 +1101,20 @@ const MetricForm: FC<MetricFormProps> = ({
                           });
                         }}
                       >
-                        Add Condition
+                        添加条件
                       </button>
                     </div>
                   )}
                   {customzeTimestamp && (
                     <SelectField
-                      label="Timestamp Column"
+                      label="时间戳列"
                       createable
                       options={columnOptions}
                       value={form.watch("timestampColumn")}
                       onChange={(value) =>
                         form.setValue("timestampColumn", value)
                       }
-                      placeholder={"received_at"}
+                      placeholder={"接收时间"}
                     />
                   )}
                   {customizeUserIds && (
@@ -1133,7 +1129,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         value: userIdType,
                         label: userIdType,
                       }))}
-                      label="Identifier Types Supported"
+                      label="支持的标识符类型"
                     />
                   )}
                   {customizeUserIds &&
@@ -1141,7 +1137,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       return (
                         <div key={type}>
                           <SelectField
-                            label={type + " Column"}
+                            label={type + " 列"}
                             createable
                             options={columnOptions}
                             value={value.userIdColumns[type] || ""}
@@ -1171,10 +1167,10 @@ const MetricForm: FC<MetricFormProps> = ({
                 />
                 {value.type !== "binomial" && (
                   <div className="mt-2">
-                    <label>User Value Aggregation:</label>
+                    <label>用户值聚合：</label>
                     <Code language="sql" code={getAggregateSQLPreview(value)} />
                     <small className="text-muted">
-                      When there are multiple metric rows for a user
+                      当一个用户存在多条指标记录时
                     </small>
                   </div>
                 )}
@@ -1182,9 +1178,9 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
           </div>
         </Page>
-        <Page display="Behavior">
+        <Page display="行为">
           <div className="form-group">
-            <label>What is the Goal?</label>
+            <label>目标是什么？</label>
             <SelectField
               value={form.watch("inverse") ? "1" : "0"}
               onChange={(v) => {
@@ -1193,15 +1189,11 @@ const MetricForm: FC<MetricFormProps> = ({
               options={[
                 {
                   value: "0",
-                  label: `Increase the ${
-                    value.type === "binomial" ? "conversion rate" : value.type
-                  }`,
+                  label: `提高${value.type === "binomial" ? "转化率" : value.type}`,
                 },
                 {
                   value: "1",
-                  label: `Decrease the ${
-                    value.type === "binomial" ? "conversion rate" : value.type
-                  }`,
+                  label: `降低${value.type === "binomial" ? "转化率" : value.type}`,
                 },
               ]}
             />
@@ -1229,7 +1221,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 setShowAdvanced(true);
               }}
             >
-              Show advanced options{" "}
+              显示高级选项
             </a>
           ) : (
             <>
@@ -1246,7 +1238,7 @@ const MetricForm: FC<MetricFormProps> = ({
               {ignoreNullsSupported && value.type !== "binomial" && (
                 <div className="form-group">
                   <SelectField
-                    label="Converted Users Only"
+                    label="仅转换用户"
                     required
                     value={form.watch("ignoreNulls") ? "1" : "0"}
                     onChange={(v) => {
@@ -1256,17 +1248,16 @@ const MetricForm: FC<MetricFormProps> = ({
                     options={[
                       {
                         value: "0",
-                        label: "No",
+                        label: "否",
                       },
                       {
                         value: "1",
-                        label: "Yes",
+                        label: "是",
                       },
                     ]}
                   />
                   <small className="text-muted">
-                    If yes, exclude anyone with a metric value less than or
-                    equal to zero from analysis.
+                    若选择“是”，则在分析时排除指标值小于或等于零的任何用户。
                   </small>
                 </div>
               )}
@@ -1280,53 +1271,36 @@ const MetricForm: FC<MetricFormProps> = ({
               />
 
               <div className="form-group">
-                <label>Minimum Sample Size</label>
+                <label>最小样本量</label>
                 <input
                   type="number"
                   className="form-control"
                   {...form.register("minSampleSize", { valueAsNumber: true })}
                 />
                 <small className="text-muted">
-                  The{" "}
-                  {value.type === "binomial"
-                    ? "number of conversions"
-                    : `total ${value.type}`}{" "}
-                  required in an experiment variation before showing results
-                  (default{" "}
-                  {value.type === "binomial"
-                    ? metricDefaults.minimumSampleSize
-                    : getMetricFormatter(value.type)(
-                        metricDefaults.minimumSampleSize
-                      )}
-                  )
+                  该{value.type === "binomial" ? "转化次数" : `总计${value.type}`}是在实验版本显示结果之前所需的数量（默认值为{value.type === "binomial" ? metricDefaults.minimumSampleSize : getMetricFormatter(value.type)(metricDefaults.minimumSampleSize)}）
                 </small>
               </div>
               <Field
-                label="Max Percent Change"
+                label="最大百分比变化"
                 type="number"
                 step="any"
                 append="%"
                 {...form.register("maxPercentChange", { valueAsNumber: true })}
-                helpText={`An experiment that changes the metric by more than this percent will
-            be flagged as suspicious (default ${
-              metricDefaults.maxPercentageChange * 100
-            })`}
+                helpText={`若实验使指标变化超过此百分比，将被标记为可疑（默认值为${metricDefaults.maxPercentageChange * 100}）`}
               />
               <Field
-                label="Min Percent Change"
+                label="最小百分比变化"
                 type="number"
                 step="any"
                 append="%"
                 {...form.register("minPercentChange", { valueAsNumber: true })}
-                helpText={`An experiment that changes the metric by less than this percent will be
-            considered a draw (default ${
-              metricDefaults.minPercentageChange * 100
-            })`}
+                helpText={`若实验使指标变化小于此百分比，将被视为平局（默认值为${metricDefaults.minPercentageChange * 100}）`}
               />
 
               <PremiumTooltip commercialFeature="regression-adjustment">
                 <label className="mb-1">
-                  <GBCuped /> Regression Adjustment (CUPED)
+                  <GBCuped /> 回归调整（CUPED）
                 </label>
               </PremiumTooltip>
               <div className="px-3 py-2 pb-0 mb-2 border rounded">
@@ -1345,7 +1319,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           className="mr-1 cursor-pointer"
                           htmlFor="toggle-regressionAdjustmentOverride"
                         >
-                          Override organization-level settings
+                          覆盖组织级别设置
                         </label>
                       </div>
                     </div>
@@ -1362,7 +1336,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           className="mr-1"
                           htmlFor="toggle-regressionAdjustmentEnabled"
                         >
-                          Apply regression adjustment for this metric
+                          对此指标应用回归调整
                         </label>
                         <Toggle
                           id={"toggle-regressionAdjustmentEnabled"}
@@ -1373,8 +1347,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           disabled={!hasRegressionAdjustmentFeature}
                         />
                         <small className="form-text text-muted">
-                          (organization default:{" "}
-                          {settings.regressionAdjustmentEnabled ? "On" : "Off"})
+                          （组织默认值：{settings.regressionAdjustmentEnabled ? "开启" : "关闭"}）
                         </small>
                       </div>
                       <div
@@ -1386,7 +1359,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         }}
                       >
                         <Field
-                          label="Pre-exposure lookback period (days)"
+                          label="曝光前回溯期（天）"
                           type="number"
                           style={{
                             borderColor: regressionAdjustmentDaysHighlightColor,
@@ -1404,10 +1377,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           helpText={
                             <>
                               <span className="ml-2">
-                                (organization def111111ault:{" "}
-                                {settings.regressionAdjustmentDays ??
-                                  DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
-                                )
+                                （组织默认值：{settings.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS}）
                               </span>
                             </>
                           }

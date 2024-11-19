@@ -95,48 +95,48 @@ export function useCombinedMetrics({
         canEdit,
         onArchive: canEdit
           ? async (desiredState) => {
-              const newStatus = desiredState ? "archived" : "active";
-              await apiCall(`/metric/${m.id}`, {
-                method: "PUT",
-                body: JSON.stringify({
-                  status: newStatus,
-                }),
-              });
+            const newStatus = desiredState ? "archived" : "active";
+            await apiCall(`/metric/${m.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                status: newStatus,
+              }),
+            });
 
-              mutateDefinitions();
+            mutateDefinitions();
 
-              if (afterArchive) {
-                afterArchive(m.id, desiredState);
-              }
+            if (afterArchive) {
+              afterArchive(m.id, desiredState);
             }
+          }
           : undefined,
         onDuplicate:
           canDuplicate && setMetricModalProps
             ? () =>
-                setMetricModalProps({
-                  mode: "duplicate",
-                  currentMetric: {
-                    ...m,
-                    name: m.name + " (copy)",
-                  },
-                })
+              setMetricModalProps({
+                mode: "duplicate",
+                currentMetric: {
+                  ...m,
+                  name: m.name + " (copy)",
+                },
+              })
             : undefined,
         onEdit:
           canEdit && setMetricModalProps
             ? () =>
-                setMetricModalProps({
-                  mode: "edit",
-                  currentMetric: m,
-                })
+              setMetricModalProps({
+                mode: "edit",
+                currentMetric: m,
+              })
             : undefined,
         onDelete: canDelete
           ? async () => {
-              await apiCall(`/metric/${m.id}`, {
-                method: "DELETE",
-              });
+            await apiCall(`/metric/${m.id}`, {
+              method: "DELETE",
+            });
 
-              mutateDefinitions();
-            }
+            mutateDefinitions();
+          }
           : undefined,
       };
       return item;
@@ -163,47 +163,47 @@ export function useCombinedMetrics({
         canEdit,
         onArchive: canEdit
           ? async (archivedState) => {
-              await apiCall(`/fact-metrics/${m.id}`, {
-                method: "PUT",
-                body: JSON.stringify({
-                  archived: archivedState,
-                }),
-              });
+            await apiCall(`/fact-metrics/${m.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                archived: archivedState,
+              }),
+            });
 
-              mutateDefinitions();
+            mutateDefinitions();
 
-              if (afterArchive) {
-                afterArchive(m.id, archivedState);
-              }
+            if (afterArchive) {
+              afterArchive(m.id, archivedState);
             }
+          }
           : undefined,
         onDuplicate:
           canDuplicate && setMetricModalProps
             ? () =>
-                setMetricModalProps({
-                  mode: "duplicate",
-                  currentFactMetric: {
-                    ...m,
-                    name: m.name + " (copy)",
-                  },
-                })
+              setMetricModalProps({
+                mode: "duplicate",
+                currentFactMetric: {
+                  ...m,
+                  name: m.name + " (copy)",
+                },
+              })
             : undefined,
         onEdit:
           canEdit && setMetricModalProps
             ? () =>
-                setMetricModalProps({
-                  mode: "edit",
-                  currentFactMetric: m,
-                })
+              setMetricModalProps({
+                mode: "edit",
+                currentFactMetric: m,
+              })
             : undefined,
         onDelete: canDelete
           ? async () => {
-              await apiCall(`/fact-metrics/${m.id}`, {
-                method: "DELETE",
-              });
+            await apiCall(`/fact-metrics/${m.id}`, {
+              method: "DELETE",
+            });
 
-              mutateDefinitions();
-            }
+            mutateDefinitions();
+          }
           : undefined,
       };
       return item;
@@ -438,7 +438,7 @@ const MetricsList = (): React.ReactElement => {
                     metric.onDuplicate && metric.onDuplicate();
                   }}
                 >
-                  Duplicate
+                  复制
                 </button>
               );
             }
@@ -500,9 +500,8 @@ const MetricsList = (): React.ReactElement => {
                 <td>
                   <Link
                     href={getMetricLink(metric.id)}
-                    className={`${
-                      metric.archived ? "text-muted" : "text-dark"
-                    } font-weight-bold`}
+                    className={`${metric.archived ? "text-muted" : "text-dark"
+                      } font-weight-bold`}
                   >
                     <MetricName id={metric.id} />
                   </Link>

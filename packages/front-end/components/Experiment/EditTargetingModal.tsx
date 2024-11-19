@@ -349,7 +349,7 @@ function ChangeTypeSelector({
     },
     { label: "流量百分比", value: "traffic" },
     ...(experiment.type !== "multi-armed-bandit"
-      ? [{ label: "变体权重", value: "weights" }]
+      ? [{ label: "版本权重", value: "weights" }]
       : []),
     {
       label: "高级：一次进行多项变更",
@@ -455,7 +455,7 @@ function TargetingForm({
           />
           <SelectField
             containerClassName="flex-1"
-            label="基于属性分配变体"
+            label="基于属性分配版本"
             labelClassName="font-weight-bold"
             options={hashAttributeOptions}
             sort={false}
@@ -480,7 +480,7 @@ function TargetingForm({
               mt="4"
               size="lg"
               label="禁用粘性分桶"
-              description="不为该实验持久化变体分配（覆盖组织设置）"
+              description="不为该实验持久化版本分配（覆盖组织设置）"
               value={!!form.watch("disableStickyBucketing")}
               setValue={(v) => {
                 form.setValue("disableStickyBucketing", v === true);
@@ -567,8 +567,8 @@ function TargetingForm({
             changeType === "traffic" || type === "multi-armed-bandit"
               ? "流量百分比"
               : changeType === "weights"
-                ? "变体权重"
-                : "流量百分比与变体权重"
+                ? "版本权重"
+                : "流量百分比与版本权重"
           }
           customSplitOn={true}
         />

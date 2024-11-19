@@ -72,7 +72,7 @@ export default function TrafficAndTargeting({
                   {experiment.fallbackAttribute ? "s" : ""}{" "}
                   <Tooltip
                     popperStyle={{ lineHeight: 1.5 }}
-                    body="该用户属性将用于分配变体。通常这要么是已登录用户的ID，要么是存储在长期存在的Cookie中的匿名ID。"
+                    body="该用户属性将用于分配版本。通常这要么是已登录用户的ID，要么是存储在长期存在的Cookie中的匿名ID。"
                   >
                     <MdInfoOutline className="text-info" />
                   </Tooltip>

@@ -69,7 +69,7 @@ export default function ExperimentSettings({
             />
 
             <Field
-              label="当此百分比的实验用户处于多个变体中时发出警告"
+              label="当此百分比的实验用户处于多个版本中时发出警告"
               type="number"
               step="1"
               min="0"

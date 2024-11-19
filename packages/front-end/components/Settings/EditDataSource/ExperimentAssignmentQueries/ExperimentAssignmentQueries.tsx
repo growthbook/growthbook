@@ -112,7 +112,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   );
 
   if (!dataSource) {
-    console.error("ImplementationError: dataSource cannot be null");
+    console.error("实现错误：数据源不能为空");
     return null;
   }
 
@@ -120,11 +120,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="">
-          <h3>Experiment Assignment Queries</h3>
+          <h3>实验分配查询</h3>
           <p>
-            Queries that return a list of experiment variation assignment
-            events. Returns a record of which experiment variation was assigned
-            to each user.
+            这些查询会返回实验版本分配事件的列表。它会返回每个用户被分配到哪个实验版本的记录。
           </p>
         </div>
 
@@ -143,7 +141,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       {/* region Empty state */}
       {experimentExposureQueries.length === 0 ? (
         <div className="alert alert-info mb-0">
-          No experiment assignment queries
+          没有实验分配查询。
         </div>
       ) : null}
       {/* endregion Empty state */}
@@ -165,11 +163,11 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
                 <div className="row">
                   <div className="col-auto">
-                    <strong>Identifier: </strong>
+                    <strong>分隔符：</strong>
                     <code>{query.userIdType}</code>
                   </div>
                   <div className="col-auto">
-                    <strong>Dimension Columns: </strong>
+                    <strong>维度列：</strong>
                     {query.dimensions.map((d, i) => (
                       <Fragment key={i}>
                         {i ? ", " : ""}
@@ -177,7 +175,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                       </Fragment>
                     ))}
                     {!query.dimensions.length && (
-                      <em className="text-muted">none</em>
+                      <em className="text-muted">无</em>
                     )}
                   </div>
                 </div>
@@ -186,14 +184,14 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     className="alert alert-danger"
                     style={{ marginTop: "1rem" }}
                   >
-                    This query had an error with it the last time it ran:{" "}
+                    上次运行此查询时出现了错误：
                     <div className="font-weight-bold">{query.error}</div>
                     <div style={{ marginTop: "1rem" }}>
                       <Button
                         onClick={handleValidate()}
                         loading={validatingQuery}
                       >
-                        Check it again.
+                        再次检查
                       </Button>
                       {canEdit && (
                         <Button
@@ -222,14 +220,14 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                       className="dropdown-item py-2"
                       onClick={handleActionClicked(idx, "edit")}
                     >
-                      <FaPencilAlt className="mr-2" /> Edit Query
+                      <FaPencilAlt className="mr-2" /> 编辑查询
                     </button>
                     {query.dimensions.length > 0 ? (
                       <button
                         className="dropdown-item py-2"
                         onClick={handleActionClicked(idx, "dimension")}
                       >
-                        <BsGear className="mr-2" /> Configure Dimensions
+                        <BsGear className="mr-2" /> 配置维度
                       </button>
                     ) : null}
 

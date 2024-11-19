@@ -152,7 +152,7 @@ export default function ReleaseChangesForm({
               value === "new-phase-block-sticky");
           const recommended = isBandit
             ? value === recommendedRolloutData.recommendedReleasePlan &&
-              changeType !== "phase"
+            changeType !== "phase"
             : value === recommendedRolloutData.recommendedReleasePlan;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           return (
@@ -164,9 +164,8 @@ export default function ReleaseChangesForm({
               <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
               {requiresStickyBucketing && (
                 <Tooltip
-                  body={`${
-                    usingStickyBucketing ? "Uses" : "Requires"
-                  } Sticky Bucketing`}
+                  body={`${usingStickyBucketing ? "Uses" : "Requires"
+                    } Sticky Bucketing`}
                   className="mr-2"
                 >
                   <span className="text-info small ml-2">
@@ -195,21 +194,20 @@ export default function ReleaseChangesForm({
               ? `New phase${!isBandit ? ", new randomization seed." : "."}`
               : `New phase${!isBandit ? ", same randomization seed." : "."}`
             : form.watch("reseed")
-            ? `Same phase${!isBandit ? ", new randomization seed." : "."}`
-            : `Same phase${
-                !isBandit ? ", same randomization seed." : "."
+              ? `Same phase${!isBandit ? ", new randomization seed." : "."}`
+              : `Same phase${!isBandit ? ", same randomization seed." : "."
               }`}{" "}
           {isBandit &&
             form.watch("newPhase") &&
-            "Variation weights will be reset. "}
+            "将重置计划的权重"}
           {isBandit || usingStickyBucketing
             ? (form.watch("bucketVersion") ?? 0) <=
               (experiment.bucketVersion ?? 0)
               ? "Sticky Bucketed users will keep their assigned bucket."
               : (form.watch("minBucketVersion") ?? 0) <=
                 (experiment.minBucketVersion ?? 0)
-              ? "Sticky Bucketed users will be reassigned."
-              : "Sticky Bucketed users will be excluded from the experiment."
+                ? "Sticky Bucketed users will be reassigned."
+                : "Sticky Bucketed users will be excluded from the experiment."
             : "No sticky bucketing."}
           {form.watch("newPhase") && isBandit && (
             <div className="alert alert-warning text-danger mt-2">
@@ -220,8 +218,8 @@ export default function ReleaseChangesForm({
                   i < 3
                     ? formatPercent(1 / (experiment.variations.length ?? 2))
                     : i === 3
-                    ? "..."
-                    : null
+                      ? "..."
+                      : null
                 )
                 .filter(Boolean)
                 .join(", ")}
@@ -407,13 +405,13 @@ function ImpactTooltips({
                   {(recommendedRolloutData.reasons.addToNamespace ||
                     recommendedRolloutData.reasons.decreaseNamespaceRange ||
                     recommendedRolloutData.reasons.otherNamespaceChanges) && (
-                    <div className="mt-2">
-                      <strong>More restrictive namespace targeting</strong>{" "}
-                      without starting a new phase may bias results as users in
-                      your experiment analysis may fall back to the default
-                      feature value.
-                    </div>
-                  )}
+                      <div className="mt-2">
+                        <strong>More restrictive namespace targeting</strong>{" "}
+                        without starting a new phase may bias results as users in
+                        your experiment analysis may fall back to the default
+                        feature value.
+                      </div>
+                    )}
                 </div>
 
                 <div className="alert mt-2 mb-0 alert-info">
@@ -914,32 +912,32 @@ function getReleasePlanOptions({
       { label: "New Phase, re-randomize traffic", value: "new-phase" },
       ...(changeType === "phase"
         ? [
-            {
-              label: "New Phase, do not re-randomize",
-              value: "new-phase-same-seed",
-            },
-          ]
+          {
+            label: "New Phase, do not re-randomize",
+            value: "new-phase-same-seed",
+          },
+        ]
         : []), //todo: make for "new phase" only
       ...(changeType === "advanced"
         ? [
-            {
-              label: "New Phase, re-randomize traffic, block bucketed users",
-              value: "new-phase-block-sticky",
-            },
-          ]
+          {
+            label: "New Phase, re-randomize traffic, block bucketed users",
+            value: "new-phase-block-sticky",
+          },
+        ]
         : []),
       ...(changeType !== "phase" &&
-      (!recommendedRolloutData.disableSamePhase || changeType === "advanced")
+        (!recommendedRolloutData.disableSamePhase || changeType === "advanced")
         ? [
-            {
-              label: "Same Phase, apply changes to everyone",
-              value: "same-phase-everyone",
-            },
-            {
-              label: "Same Phase, apply changes to new traffic only",
-              value: "same-phase-sticky",
-            },
-          ]
+          {
+            label: "Same Phase, apply changes to everyone",
+            value: "same-phase-everyone",
+          },
+          {
+            label: "Same Phase, apply changes to new traffic only",
+            value: "same-phase-sticky",
+          },
+        ]
         : []),
     ];
   } else {
@@ -947,11 +945,11 @@ function getReleasePlanOptions({
       { label: "New Phase, reset Bandit", value: "new-phase" },
       ...(!recommendedRolloutData.disableSamePhase && changeType !== "phase"
         ? [
-            {
-              label: "Same phase",
-              value: "same-phase-sticky",
-            },
-          ]
+          {
+            label: "Same phase",
+            value: "same-phase-sticky",
+          },
+        ]
         : []),
     ];
   }

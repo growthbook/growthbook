@@ -188,7 +188,7 @@ export default function BanditRefNewFields({
 
           <FeatureVariationsInput
             simple={true}
-            label="Traffic Percent & Variations"
+            label="流量比例与计划"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
             coverageLabel="Traffic included in this Bandit"
@@ -296,9 +296,8 @@ export default function BanditRefNewFields({
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
                   value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
+                  label: `${d.name}${d.description ? ` — ${d.description}` : ""
+                    }${isDefaultDataSource ? " (default)" : ""}`,
                 };
               })}
               className="portal-overflow-ellipsis"

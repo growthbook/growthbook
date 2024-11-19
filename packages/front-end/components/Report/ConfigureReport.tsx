@@ -312,7 +312,7 @@ export default function ConfigureReport({
       <div className="row">
         <div className="col">
           <Field
-            label="Start Date (UTC)"
+            label="开始时间（UTC）"
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("startDate")}
@@ -321,7 +321,7 @@ export default function ConfigureReport({
         </div>
         <div className="col">
           <Field
-            label="End Date (UTC)"
+            label="结束时间（UTC）"
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("endDate")}
@@ -376,18 +376,18 @@ export default function ConfigureReport({
         newUi={false}
       />
       <SelectField
-        label="Difference Type"
+        label="差异类型"
         labelClassName="font-weight-bold"
         value={form.watch("differenceType")}
         onChange={(v) => form.setValue("differenceType", v as DifferenceType)}
         sort={false}
         options={[
           {
-            label: "Relative",
+            label: "相对",
             value: "relative",
           },
           {
-            label: "Absolute",
+            label: "绝对",
             value: "absolute",
           },
           {
@@ -395,7 +395,7 @@ export default function ConfigureReport({
             value: "scaled",
           },
         ]}
-        helpText="Choose the units to display lifts in"
+        helpText="选择用于显示提升量的单位"
       />
       <MetricSelector
         datasource={form.watch("datasource")}
@@ -411,7 +411,7 @@ export default function ConfigureReport({
         onlyBinomial
         value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
-        helpText="Users must convert on this metric before being included"
+        helpText="在被纳入统计之前，用户必须依据此指标完成转化"
       />
       {datasourceProperties?.experimentSegments && (
         <SelectField
@@ -420,7 +420,7 @@ export default function ConfigureReport({
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={form.watch("segment")}
           onChange={(value) => form.setValue("segment", value || "")}
-          initialOption="None (All Users)"
+          initialOption="无（所有用户）"
           options={filteredSegments.map((s) => {
             return {
               label: s.name,

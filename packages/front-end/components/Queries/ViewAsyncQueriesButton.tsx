@@ -19,7 +19,7 @@ const ViewAsyncQueriesButton: FC<{
   hideQueryCount?: boolean;
 }> = ({
   queries,
-  display = "View Queries",
+  display = "查看查询结果",
   color = "link",
   error,
   className = "",

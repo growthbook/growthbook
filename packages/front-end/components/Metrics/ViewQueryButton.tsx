@@ -6,7 +6,7 @@ const ViewQueryButton: FC<{
   language: QueryLanguage;
   queries: string[];
   display?: string;
-}> = ({ language, queries, display = "View Queries" }) => {
+}> = ({ language, queries, display = "查看查询结果" }) => {
   const [open, setOpen] = useState(false);
 
   return (

@@ -88,16 +88,16 @@ export default function BanditSummaryResultsTab({
         )}
 
         {isCurrentPhase &&
-        experiment.status === "running" &&
-        experiment.banditStage === "explore" ? (
+          experiment.status === "running" &&
+          experiment.banditStage === "explore" ? (
           <Callout status="info" mx="3" mb="2">
             This Bandit is still in its <strong>Exploratory</strong> stage.
             Please wait a little while longer before variation weights update.
           </Callout>
         ) : null}
         {isCurrentPhase &&
-        experiment.status === "running" &&
-        !phaseObj?.banditEvents?.length ? (
+          experiment.status === "running" &&
+          !phaseObj?.banditEvents?.length ? (
           <Callout status="info" mx="3" mb="4">
             No data yet.
           </Callout>
@@ -177,7 +177,7 @@ export default function BanditSummaryResultsTab({
                       value: "probabilities",
                     },
                     {
-                      label: "Variation Weights",
+                      label: "计划权重",
                       value: "weights",
                     },
                   ]}
@@ -211,8 +211,8 @@ export default function BanditSummaryResultsTab({
                 chartMode === "values"
                   ? undefined
                   : chartMode === "probabilities"
-                  ? "Probability of Winning"
-                  : "Variation Weight"
+                    ? "Probability of Winning"
+                    : "计划权重"
               }
               mode={chartMode}
               type={chartMode === "values" ? "line" : chartType}

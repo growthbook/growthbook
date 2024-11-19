@@ -102,10 +102,10 @@ const getTooltipContents = (
               <td></td>
               <td>
                 {mode === "values"
-                  ? "Variation Mean"
+                  ? "计划均值"
                   : mode === "probabilities"
-                  ? "Probability of Winning"
-                  : "Variation Weight"}
+                    ? "Probability of Winning"
+                    : "计划权重"}
               </td>
               {mode === "values" && <td>CI</td>}
               <td>Users</td>
@@ -118,9 +118,9 @@ const getTooltipContents = (
               const meta = d.meta;
               const crFormatted = metric
                 ? getExperimentMetricFormatter(metric, getFactTableById)(
-                    val,
-                    metricFormatterOptions
-                  )
+                  val,
+                  metricFormatterOptions
+                )
                 : val;
               return (
                 <tr key={i}>
@@ -143,16 +143,16 @@ const getTooltipContents = (
                       [
                       {metric
                         ? getExperimentMetricFormatter(
-                            metric,
-                            getFactTableById
-                          )(meta?.[i].rawCi?.[0] ?? 0, metricFormatterOptions)
+                          metric,
+                          getFactTableById
+                        )(meta?.[i].rawCi?.[0] ?? 0, metricFormatterOptions)
                         : meta?.[i].rawCi?.[0] ?? 0}
                       ,{" "}
                       {metric
                         ? getExperimentMetricFormatter(
-                            metric,
-                            getFactTableById
-                          )(meta?.[i].rawCi?.[1] ?? 0, metricFormatterOptions)
+                          metric,
+                          getFactTableById
+                        )(meta?.[i].rawCi?.[1] ?? 0, metricFormatterOptions)
                         : meta?.[i].rawCi?.[1] ?? 0}
                       ]
                     </td>
@@ -234,8 +234,8 @@ const getTooltipData = (
   const x = xCoords[closestIndex];
   const y = d?.variations
     ? d.variations.map(
-        (variation) => yScale(getYVal(variation, mode) ?? 0) ?? 0
-      )
+      (variation) => yScale(getYVal(variation, mode) ?? 0) ?? 0
+    )
     : undefined;
   const reweight = d?.reweight;
   const updateMessage = d?.updateMessage;
@@ -334,7 +334,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         weightsWereUpdated: !!event.banditResult?.weightsWereUpdated,
         updateMessage:
           event.banditResult?.updateMessage &&
-          event.banditResult?.updateMessage !== "successfully updated"
+            event.banditResult?.updateMessage !== "successfully updated"
             ? event.banditResult?.updateMessage
             : undefined,
         initial: eventNo === 0,
@@ -470,49 +470,49 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     () =>
       mode === "values"
         ? scaleLinear<number>({
-            domain: [
-              Math.min(
-                ...stackedData.map((d) =>
-                  Math.min(
-                    ...variationNames
-                      .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
-                      .filter(
-                        (_, i) =>
-                          !(
-                            d?.meta?.[i]?.cr === 0 &&
-                            (d?.meta?.[i]?.ci?.[0] ?? 0) < -190
-                          )
-                      )
-                      .filter(() => !d?.error && !d.initial)
-                      .filter((_, i) => showVariations[i])
-                  )
+          domain: [
+            Math.min(
+              ...stackedData.map((d) =>
+                Math.min(
+                  ...variationNames
+                    .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
+                    .filter(
+                      (_, i) =>
+                        !(
+                          d?.meta?.[i]?.cr === 0 &&
+                          (d?.meta?.[i]?.ci?.[0] ?? 0) < -190
+                        )
+                    )
+                    .filter(() => !d?.error && !d.initial)
+                    .filter((_, i) => showVariations[i])
                 )
-              ) * 0.97,
-              Math.max(
-                ...stackedData.map((d) =>
-                  Math.max(
-                    ...variationNames
-                      .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
-                      .filter(
-                        (_, i) =>
-                          !(
-                            d?.meta?.[i]?.cr === 0 &&
-                            (d?.meta?.[i]?.ci?.[1] ?? 0) > 190
-                          )
-                      )
-                      .filter(() => !d?.error && !d.initial)
-                      .filter((_, i) => showVariations[i])
-                  )
+              )
+            ) * 0.97,
+            Math.max(
+              ...stackedData.map((d) =>
+                Math.max(
+                  ...variationNames
+                    .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
+                    .filter(
+                      (_, i) =>
+                        !(
+                          d?.meta?.[i]?.cr === 0 &&
+                          (d?.meta?.[i]?.ci?.[1] ?? 0) > 190
+                        )
+                    )
+                    .filter(() => !d?.error && !d.initial)
+                    .filter((_, i) => showVariations[i])
                 )
-              ) * 1.03,
-            ],
-            range: [yMax, 0],
-            round: true,
-          })
+              )
+            ) * 1.03,
+          ],
+          range: [yMax, 0],
+          round: true,
+        })
         : scaleLinear<number>({
-            domain: [0, 1],
-            range: [yMax, 0],
-          }),
+          domain: [0, 1],
+          range: [yMax, 0],
+        }),
     [variationNames, mode, stackedData, yMax, showVariations]
   );
 
@@ -678,19 +678,19 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     },
                     ...(variationNames.length > 5
                       ? [
-                          {
-                            label: "Top 5",
-                            value: "5",
-                          },
-                        ]
+                        {
+                          label: "Top 5",
+                          value: "5",
+                        },
+                      ]
                       : []),
                     ...(variationNames.length > 3
                       ? [
-                          {
-                            label: "Top 3",
-                            value: "3",
-                          },
-                        ]
+                        {
+                          label: "Top 3",
+                          value: "3",
+                        },
+                      ]
                       : []),
                     {
                       label: "Winning variation",
@@ -698,13 +698,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     },
                     ...(form.watch("filterVariations") === ""
                       ? [
-                          {
-                            label: `selected (${
-                              showVariations.filter((sv) => sv).length
+                        {
+                          label: `selected (${showVariations.filter((sv) => sv).length
                             })`,
-                            value: "",
-                          },
-                        ]
+                          value: "",
+                        },
+                      ]
                       : []),
                   ]}
                   value={form.watch("filterVariations")}
@@ -847,8 +846,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         mode === "values"
                           ? curveMonotoneX
                           : mode === "probabilities"
-                          ? curveLinear
-                          : curveStepAfter
+                            ? curveLinear
+                            : curveStepAfter
                       }
                       defined={(d) =>
                         d.data.meta.type === "today" ? mode === "weights" : true
@@ -908,8 +907,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                             mode === "values"
                               ? curveMonotoneX
                               : mode === "probabilities"
-                              ? curveMonotoneX
-                              : curveStepAfter
+                                ? curveMonotoneX
+                                : curveStepAfter
                           }
                           defined={(d) =>
                             (mode !== "values" || d?.meta?.[i]?.users !== 0) &&
@@ -928,11 +927,11 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   tickLabelProps={(value, i) => {
                     return visibleTickIndexes.includes(i)
                       ? {
-                          fill: "var(--text-color-table)",
-                          fontSize: 11,
-                          textAnchor: "middle",
-                          dy: 5,
-                        }
+                        fill: "var(--text-color-table)",
+                        fontSize: 11,
+                        textAnchor: "middle",
+                        dy: 5,
+                      }
                       : { display: "none" };
                   }}
                   tickFormat={(d) => {
@@ -970,9 +969,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     mode === "values"
                       ? metric
                         ? getExperimentMetricFormatter(
-                            metric,
-                            getFactTableById
-                          )(v as number, metricFormatterOptions)
+                          metric,
+                          getFactTableById
+                        )(v as number, metricFormatterOptions)
                         : formatter(v as number)
                       : intPercentFormatter.format(v as number)
                   }

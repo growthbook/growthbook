@@ -352,7 +352,7 @@ const ExperimentsPage = (): React.ReactElement => {
           {!hasExperiments ? (
             <div className="box py-4 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>针对目标用户测试变体</h1>
+                <h1>针对目标用户测试版本</h1>
                 <p style={{ fontSize: "17px" }}>
                   通过关联特性开关、URL重定向或可视化编辑器进行无限制的测试。您还可以轻松地从其他平台导入现有实验。
                 </p>

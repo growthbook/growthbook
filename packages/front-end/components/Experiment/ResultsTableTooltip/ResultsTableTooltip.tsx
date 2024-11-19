@@ -143,19 +143,19 @@ export default function ResultsTableTooltip({
 
   const flags = !data.isGuardrail
     ? [
-        !data.rowResults.enoughData,
-        data.rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-          data.rowResults.resultsStatus !== "lost",
-        data.rowResults.suspiciousChange,
-      ]
+      !data.rowResults.enoughData,
+      data.rowResults.riskMeta.showRisk &&
+      ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
+      data.rowResults.resultsStatus !== "lost",
+      data.rowResults.suspiciousChange,
+    ]
     : [
-        !data.rowResults.enoughData,
-        data.rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-          data.rowResults.resultsStatus !== "lost",
-        data.rowResults.guardrailWarning,
-      ];
+      !data.rowResults.enoughData,
+      data.rowResults.riskMeta.showRisk &&
+      ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
+      data.rowResults.resultsStatus !== "lost",
+      data.rowResults.guardrailWarning,
+    ];
   const hasFlaggedItems = flags.some((flag) => flag);
 
   const metricInverseIconDisplay = data.metric.inverse ? (
@@ -244,10 +244,10 @@ export default function ResultsTableTooltip({
     data.layoutX === "element-right"
       ? "3%"
       : data.layoutX === "element-left"
-      ? "97%"
-      : data.layoutX === "element-center"
-      ? "50%"
-      : "50%";
+        ? "97%"
+        : data.layoutX === "element-center"
+          ? "50%"
+          : "50%";
 
   return (
     <div
@@ -270,9 +270,8 @@ export default function ResultsTableTooltip({
           width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
           top: data.yAlign === "top" ? 0 : "auto",
           bottom: data.yAlign === "bottom" ? 0 : "auto",
-          transformOrigin: `${arrowLeft} ${
-            data.yAlign === "top" ? "0%" : "100%"
-          }`,
+          transformOrigin: `${arrowLeft} ${data.yAlign === "top" ? "0%" : "100%"
+            }`,
         }}
         {...otherProps}
       >
@@ -367,7 +366,7 @@ export default function ResultsTableTooltip({
             style={{ paddingTop: 12 }}
           >
             {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ||
-            !data.rowResults.significant ? (
+              !data.rowResults.significant ? (
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
@@ -386,8 +385,8 @@ export default function ResultsTableTooltip({
                           : data.rowResults.significantReason}
                       </p>
                       {data.statsEngine === "frequentist" &&
-                      data.pValueCorrection &&
-                      !data.isGuardrail ? (
+                        data.pValueCorrection &&
+                        !data.isGuardrail ? (
                         <p className="mt-2 mb-0">
                           Note that p-values have been corrected using the{" "}
                           {data.pValueCorrection} method.
@@ -401,7 +400,7 @@ export default function ResultsTableTooltip({
                   <span style={{ marginRight: 12 }}>
                     {data.rowResults.significant
                       ? capitalizeFirstLetter(data.rowResults.resultsStatus)
-                      : "Not significant"}
+                      : "不显著"}
                   </span>
                   <RxInfoCircled
                     className="position-absolute"
@@ -428,8 +427,8 @@ export default function ResultsTableTooltip({
                 <span className="expectedArrows">
                   {(data.rowResults.directionalStatus === "winning" &&
                     !data.metric.inverse) ||
-                  (data.rowResults.directionalStatus === "losing" &&
-                    data.metric.inverse) ? (
+                    (data.rowResults.directionalStatus === "losing" &&
+                      data.metric.inverse) ? (
                     <FaArrowUp />
                   ) : (
                     <FaArrowDown />
@@ -452,7 +451,7 @@ export default function ResultsTableTooltip({
             >
               <div className="label mr-2">
                 {data.statsEngine === "bayesian"
-                  ? "95% Credible Interval:"
+                  ? "95% 可信区间:"
                   : `${confidencePct} Confidence Interval:`}
               </div>
               <div
@@ -504,12 +503,10 @@ export default function ResultsTableTooltip({
                     <>
                       {priorUsed ? (
                         <div className="mb-1">
-                          {`This metric was analyzed with a prior that is normally distributed with mean ${
-                            data.metricSnapshotSettings?.properPriorMean ?? 0
-                          } and standard deviation ${
-                            data.metricSnapshotSettings?.properPriorStdDev ??
+                          {`This metric was analyzed with a prior that is normally distributed with mean ${data.metricSnapshotSettings?.properPriorMean ?? 0
+                            } and standard deviation ${data.metricSnapshotSettings?.properPriorStdDev ??
                             DEFAULT_PROPER_PRIOR_STDDEV
-                          }.`}
+                            }.`}
                         </div>
                       ) : null}
                       {cupedUsed ? (
@@ -518,11 +515,10 @@ export default function ResultsTableTooltip({
                         </div>
                       ) : null}
                       <div>
-                        {`This affects metrics results (e.g., lift, ${
-                          data.statsEngine === "bayesian"
-                            ? "chance to win, credible intervals"
-                            : "p-values, confidence intervals"
-                        }), and estimated lift will often differ from the raw difference between variation and baseline.`}
+                        {`This affects metrics results (e.g., lift, ${data.statsEngine === "bayesian"
+                          ? "chance to win, credible intervals"
+                          : "p-values, confidence intervals"
+                          }), and estimated lift will often differ from the raw difference between variation and baseline.`}
                       </div>
                     </>
                   }
@@ -533,9 +529,8 @@ export default function ResultsTableTooltip({
                   />
                   <span>
                     {priorUsed
-                      ? `Your Bayesian prior ${
-                          cupedUsed ? "and CUPED " : ""
-                        }affects results`
+                      ? `Your Bayesian prior ${cupedUsed ? "and CUPED " : ""
+                      }affects results`
                       : "CUPED affects results"}
                   </span>
                 </Tooltip>
@@ -568,10 +563,10 @@ export default function ResultsTableTooltip({
                 ) : null}
 
                 {data.rowResults.riskMeta.showRisk &&
-                ["warning", "danger"].includes(
-                  data.rowResults.riskMeta.riskStatus
-                ) &&
-                data.rowResults.resultsStatus !== "lost" ? (
+                  ["warning", "danger"].includes(
+                    data.rowResults.riskMeta.riskStatus
+                  ) &&
+                  data.rowResults.resultsStatus !== "lost" ? (
                   <Tooltip
                     className="cursor-pointer"
                     body={data.rowResults.riskMeta.riskReason}
@@ -646,14 +641,14 @@ export default function ResultsTableTooltip({
             <table className="table-condensed results-table">
               <thead>
                 <tr>
-                  <th style={{ width: 130 }}>Variation</th>
+                  <th style={{ width: 130 }}>计划</th>
                   <th>
                     {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
-                    {quantileMetric === "event" ? "Events" : "Users"}
+                    {quantileMetric === "event" ? "事件" : "用户"}
                   </th>
                   {!quantileMetric ? (
                     <th>
-                      Numerator
+                      分子
                       {isBandit && (
                         <>
                           <br />
@@ -668,7 +663,7 @@ export default function ResultsTableTooltip({
                   {quantileMetric && quantileValue ? (
                     <th>{getPercentileLabel(quantileValue)}</th>
                   ) : (
-                    <th>Value</th>
+                    <th>值</th>
                   )}
                 </tr>
               </thead>
@@ -708,7 +703,7 @@ export default function ResultsTableTooltip({
                               marginLeft: 20,
                             }}
                           >
-                            baseline
+                            基线
                           </div>
                         ) : null}
                       </td>

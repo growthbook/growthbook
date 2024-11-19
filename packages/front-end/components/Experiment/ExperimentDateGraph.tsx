@@ -76,9 +76,8 @@ const getTooltipContents = (
   return (
     <>
       <table
-        className={`table-condensed ${styles.table} ${
-          yaxis !== "effect" && "mt-1"
-        }`}
+        className={`table-condensed ${styles.table} ${yaxis !== "effect" && "mt-1"
+          }`}
       >
         <thead>
           <tr>
@@ -153,9 +152,9 @@ const getTooltipContents = (
                             <>
                               {statsEngine === "frequentist"
                                 ? typeof variation.p === "number" &&
-                                  pValueFormatter(variation.p)
+                                pValueFormatter(variation.p)
                                 : typeof variation.ctw === "number" &&
-                                  percentFormatter.format(variation.ctw)}
+                                percentFormatter.format(variation.ctw)}
                             </>
                           )}
                         </td>
@@ -201,8 +200,8 @@ const getTooltipData = (
   const x = xCoords[closestIndex];
   const y = d.variations
     ? d.variations.map(
-        (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0
-      )
+      (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0
+    )
     : undefined;
   return { x, y, d, yaxis };
 };
@@ -295,10 +294,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.min(
-              ...d.variations
-                .filter((_, i) => showVariations[i])
-                .map((variation) => getYVal(variation, yaxis) ?? 0)
-            )
+            ...d.variations
+              .filter((_, i) => showVariations[i])
+              .map((variation) => getYVal(variation, yaxis) ?? 0)
+          )
           : 0
       )
     );
@@ -306,10 +305,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.max(
-              ...d.variations
-                .filter((_, i) => showVariations[i])
-                .map((variation) => getYVal(variation, yaxis) ?? 0)
-            )
+            ...d.variations
+              .filter((_, i) => showVariations[i])
+              .map((variation) => getYVal(variation, yaxis) ?? 0)
+          )
           : 0
       )
     );
@@ -317,14 +316,14 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.min(
-              ...d.variations
-                .filter((_, i) => showVariations[i])
-                .map((variation) =>
-                  variation.ci?.[0]
-                    ? variation.ci[0]
-                    : getYVal(variation, yaxis) ?? 0
-                )
-            )
+            ...d.variations
+              .filter((_, i) => showVariations[i])
+              .map((variation) =>
+                variation.ci?.[0]
+                  ? variation.ci[0]
+                  : getYVal(variation, yaxis) ?? 0
+              )
+          )
           : 0
       )
     );
@@ -332,14 +331,14 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       ...datapoints.map((d) =>
         d?.variations
           ? Math.max(
-              ...d.variations
-                .filter((_, i) => showVariations[i])
-                .map((variation) =>
-                  variation.ci?.[1]
-                    ? variation.ci[1]
-                    : getYVal(variation, yaxis) ?? 0
-                )
-            )
+            ...d.variations
+              .filter((_, i) => showVariations[i])
+              .map((variation) =>
+                variation.ci?.[1]
+                  ? variation.ci[1]
+                  : getYVal(variation, yaxis) ?? 0
+              )
+          )
           : 0
       )
     );
@@ -442,7 +441,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   ) : (
                     <BiCheckbox size={24} />
                   )}
-                  Show all
+                  全选
                 </div>
                 {variationNames.map((v, i) => {
                   if (i === 0 && yaxis === "effect") return null;
@@ -499,9 +498,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                         key={i}
                         className={styles.positionIndicator}
                         style={{
-                          transform: `translate(${tooltipLeft}px, ${
-                            tooltipData?.y?.[i] ?? 0
-                          }px)`,
+                          transform: `translate(${tooltipLeft}px, ${tooltipData?.y?.[i] ?? 0
+                            }px)`,
                           background: getVariationColor(i, true),
                         }}
                       />
@@ -549,7 +547,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     // Render a shaded area for error bars for each variation if defined
                     return (
                       typeof datapoints[0]?.variations?.[i]?.ci !==
-                        "undefined" && (
+                      "undefined" && (
                         <AreaClosed
                           key={`ci_${i}`}
                           yScale={yScale}

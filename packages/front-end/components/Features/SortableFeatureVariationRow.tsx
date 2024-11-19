@@ -24,7 +24,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
-// 定义可排序变体类型
+// 定义可排序版本类型
 export type SortableVariation = ExperimentValue & {
   id: string;
 };
@@ -42,13 +42,13 @@ interface SortableProps {
   feature?: FeatureInterface;
 }
 
-// 定义变体属性类型，包含可排序属性及HTML表格行元素的属性等
+// 定义版本属性类型，包含可排序属性及HTML表格行元素的属性等
 type VariationProps = SortableProps &
   React.HTMLAttributes<HTMLTableRowElement> & {
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-// 创建并导出可排序的变体行组件，使用forwardRef以便在父组件中获取子组件实例
+// 创建并导出可排序的版本行组件，使用forwardRef以便在父组件中获取子组件实例
 export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
   (
     {
@@ -190,7 +190,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               <div className="col-auto">
                 <MoreMenu zIndex={1000000}>
                   <Tooltip
-                    body="实验必须至少有两个变体"
+                    body="实验必须至少有两个版本"
                     shouldDisplay={variations.length <= 2}
                   >
                     <button
@@ -233,7 +233,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 // 设置组件显示名称
 VariationRow.displayName = "VariationRow";
 
-// 导出可排序的特征变体行组件
+// 导出可排序的特征版本行组件
 export function SortableFeatureVariationRow(props: SortableProps) {
   const {
     attributes,

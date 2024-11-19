@@ -64,7 +64,7 @@ export default function MetricsSettings() {
             </div>
             <p>
               <small className="text-muted mb-3">
-                在显示结果之前，实验变体中所需的总计数。
+                在显示结果之前，实验版本中所需的总计数。
               </small>
             </p>
           </div>

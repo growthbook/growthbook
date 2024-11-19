@@ -41,19 +41,19 @@ export const MetricsSelectorTooltip = ({
     <Tooltip
       body={
         <>
-          您只能选择{isSingular ? "a single metric" : "metrics"}，这些指标需满足以下所有条件：
+          您只能选择指标，这些指标需满足以下所有条件：
           <ul>
             <li>
-              {isSingular ? "is" : "are"}与实验的数据源相同
+              与实验的数据源相同
             </li>
             <li>
-              要么与实验分配表共享{isSingular ? "s" : ""}标识符类型，要么可通过连接表与之连接
+              要么与实验分配表共享标识符类型，要么可通过连接表与之连接
             </li>
             {onlyBinomial ? (
-              <li>{isSingular ? "is" : "are"}二项式指标</li>
+              <li>是二项式指标</li>
             ) : null}
             {noPercentileGoalMetrics ? (
-              <li>{isSingular ? "does" : "do"}使用百分位数上限</li>
+              <li>使用百分位数上限</li>
             ) : null}
           </ul>
         </>

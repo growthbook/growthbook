@@ -194,15 +194,15 @@ function getNumericColumnOptions({
 
   return specialColumnOptions.length > 0
     ? [
-        {
-          label: `${groupPrefix}Special`,
-          options: specialColumnOptions,
-        },
-        {
-          label: `${groupPrefix}Columns`,
-          options: columnOptions,
-        },
-      ]
+      {
+        label: `${groupPrefix}Special`,
+        options: specialColumnOptions,
+      },
+      {
+        label: `${groupPrefix}Columns`,
+        options: columnOptions,
+      },
+    ]
     : columnOptions;
 }
 
@@ -510,11 +510,11 @@ function getWHERE({
   const whereParts =
     factTable && columnRef
       ? getColumnRefWhereClause(
-          factTable,
-          columnRef,
-          (s) => s.replace(/'/g, "''"),
-          true
-        )
+        factTable,
+        columnRef,
+        (s) => s.replace(/'/g, "''"),
+        true
+      )
       : [];
 
   whereParts.push(
@@ -576,15 +576,15 @@ function getPreviewSQL({
     numerator.column === "$$count"
       ? "COUNT(*)"
       : numerator.column === "$$distinctUsers"
-      ? "1"
-      : `SUM(${numerator.column})`;
+        ? "1"
+        : `SUM(${numerator.column})`;
 
   const denominatorCol =
     denominator?.column === "$$count"
       ? "COUNT(*)"
       : denominator?.column === "$$distinctUsers"
-      ? "1"
-      : `SUM(${denominator?.column})`;
+        ? "1"
+        : `SUM(${denominator?.column})`;
 
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
@@ -629,43 +629,35 @@ function getPreviewSQL({
   const experimentSQL = `
 SELECT
   variation,
-  ${
-    type !== "quantile"
-      ? `${
-          type === "proportion" || numerator.column === "$$distinctUsers"
-            ? `-- Number of users who converted`
-            : `-- Total ${type === "ratio" ? "numerator" : "metric"} value`
-        }
+  ${type !== "quantile"
+      ? `${type === "proportion" || numerator.column === "$$distinctUsers"
+        ? `-- Number of users who converted`
+        : `-- Total ${type === "ratio" ? "numerator" : "metric"} value`
+      }
   SUM(m.value) as numerator,
-  ${
-    type === "ratio"
-      ? `-- ${
-          denominator?.column === "$$distinctusers"
-            ? `Number of users who converted`
-            : `Total denominator value`
+  ${type === "ratio"
+        ? `-- ${denominator?.column === "$$distinctusers"
+          ? `Number of users who converted`
+          : `Total denominator value`
         }\n  SUM(d.value)`
-      : `-- Number of users in experiment\n  COUNT(*)`
-  } as denominator,\n  `
+        : `-- Number of users in experiment\n  COUNT(*)`
+      } as denominator,\n  `
       : ""
-  }${
-    type === "quantile"
-      ? `-- Final result\n  PERCENTILE(${
-          quantileSettings.ignoreZeros
-            ? `m.value`
-            : `\n    -- COALESCE to include NULL in the calculation\n    COALESCE(m.value,0)\n  `
-        }, ${quantileSettings.quantile})`
+    }${type === "quantile"
+      ? `-- Final result\n  PERCENTILE(${quantileSettings.ignoreZeros
+        ? `m.value`
+        : `\n    -- COALESCE to include NULL in the calculation\n    COALESCE(m.value,0)\n  `
+      }, ${quantileSettings.quantile})`
       : `-- Final result\n  numerator / denominator`
-  } as value
+    } as value
 FROM
   experiment_users u
-  LEFT JOIN ${
-    type === "ratio" ? "numerator" : "metric"
-  } m ON (m.user = u.user)${
-    type === "ratio"
+  LEFT JOIN ${type === "ratio" ? "numerator" : "metric"
+    } m ON (m.user = u.user)${type === "ratio"
       ? `
   LEFT JOIN denominator d ON (d.user = u.user)`
       : ``
-  }
+    }
 GROUP BY variation`.trim();
 
   switch (type) {
@@ -699,11 +691,10 @@ GROUP BY user
       return {
         sql: `
 SELECT${identifierComment}
-  ${identifier} AS user,${
-          numerator.column === "$$distinctUsers"
+  ${identifier} AS user,${numerator.column === "$$distinctUsers"
             ? `\n  -- Each matching user counts as 1 conversion`
             : ""
-        }
+          }
   ${numeratorCol} AS value
 FROM
   ${numeratorName}${WHERE}
@@ -711,11 +702,10 @@ GROUP BY user${HAVING}
 `.trim(),
         denominatorSQL: `
 SELECT${identifierComment}
-  ${identifier} AS user,${
-          denominator?.column === "$$distinctUsers"
+  ${identifier} AS user,${denominator?.column === "$$distinctUsers"
             ? `\n  -- Each matching user counts as 1 conversion`
             : ""
-        }
+          }
   ${denominatorCol} AS value
 FROM
   ${denominatorName}${DENOMINATOR_WHERE}
@@ -845,8 +835,8 @@ export default function FactMetricModal({
     regressionAdjustmentDays > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
       : regressionAdjustmentDays < 7
-      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-      : "";
+        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+        : "";
 
   const isNew = !existing || duplicate;
   const initialType = existing?.metricType;
@@ -981,17 +971,17 @@ export default function FactMetricModal({
             values.numerator.column === "$$count"
               ? "count"
               : values.numerator.column === "$$distinctUsers"
-              ? "distinct_users"
-              : "sum",
+                ? "distinct_users"
+                : "sum",
           numerator_filters: values.numerator.filters.length,
           denominator_agg:
             values.denominator?.column === "$$count"
               ? "count"
               : values.denominator?.column === "$$distinctUsers"
-              ? "distinct_users"
-              : values.denominator?.column
-              ? "sum"
-              : "none",
+                ? "distinct_users"
+                : values.denominator?.column
+                  ? "sum"
+                  : "none",
           denominator_filters: values.denominator?.filters?.length || 0,
           ratio_same_fact_table:
             values.metricType === "ratio" &&
@@ -1073,9 +1063,8 @@ export default function FactMetricModal({
                 const defaultDatasource = d.id === settings.defaultDataSource;
                 return {
                   value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  } ${defaultDatasource ? " (default)" : ""}`,
+                  label: `${d.name}${d.description ? ` — ${d.description}` : ""
+                    } ${defaultDatasource ? " (default)" : ""}`,
                 };
               })}
               className="portal-overflow-ellipsis"
@@ -1298,11 +1287,10 @@ export default function FactMetricModal({
                               <label htmlFor="quantileIgnoreZeros">
                                 Ignore Zeros{" "}
                                 <Tooltip
-                                  body={`If the ${
-                                    quantileSettings.type === "unit"
-                                      ? "per-user"
-                                      : "rows"
-                                  } value is zero (or null), exclude it from the quantile calculation`}
+                                  body={`If the ${quantileSettings.type === "unit"
+                                    ? "per-user"
+                                    : "rows"
+                                    } value is zero (or null), exclude it from the quantile calculation`}
                                 />
                               </label>
                               <div style={{ padding: "6px 0" }}>
@@ -1345,7 +1333,7 @@ export default function FactMetricModal({
               ) : type === "ratio" ? (
                 <>
                   <div className="form-group">
-                    <label>Numerator</label>
+                    <label>分子</label>
                     <ColumnRefSelector
                       value={numerator}
                       setValue={(numerator) =>
@@ -1362,7 +1350,7 @@ export default function FactMetricModal({
                     />
                   </div>
                   <div className="form-group">
-                    <label>Denominator</label>
+                    <label>分母</label>
                     <ColumnRefSelector
                       value={
                         denominator || {
@@ -1382,7 +1370,7 @@ export default function FactMetricModal({
                   </div>
 
                   <HelperText status="info">
-                    The final metric value will be the Numerator divided by the
+                    The final metric value will be the 分子 divided by the
                     Denominator. We use the Delta Method to provide an accurate
                     estimation of variance.
                   </HelperText>
@@ -1404,7 +1392,7 @@ export default function FactMetricModal({
                     });
                   }}
                 >
-                  Show Advanced Settings
+                  显示高级设置
                 </a>
               )}
               {advancedOpen && (
@@ -1420,7 +1408,7 @@ export default function FactMetricModal({
                         style={{ verticalAlign: "middle" }}
                         title="Hide advanced settings"
                       >
-                        <FaTimes /> Hide
+                        <FaTimes /> 隐藏
                       </a>
                     </div>
                   }
@@ -1517,7 +1505,7 @@ export default function FactMetricModal({
                                   borderColor: regressionAdjustmentDaysHighlightColor,
                                   backgroundColor: regressionAdjustmentDaysHighlightColor
                                     ? regressionAdjustmentDaysHighlightColor +
-                                      "15"
+                                    "15"
                                     : "",
                                 }}
                                 className="ml-2"
@@ -1598,12 +1586,11 @@ export default function FactMetricModal({
                         {type === "proportion"
                           ? "number of conversions"
                           : type === "quantile"
-                          ? `number of ${
-                              quantileSettings.type === "unit"
-                                ? "users"
-                                : "events"
+                            ? `number of ${quantileSettings.type === "unit"
+                              ? "users"
+                              : "events"
                             }`
-                          : `total value`}{" "}
+                            : `total value`}{" "}
                         required in an experiment variation before showing
                         results (default{" "}
                         {type === "proportion"
@@ -1621,9 +1608,8 @@ export default function FactMetricModal({
                         valueAsNumber: true,
                       })}
                       helpText={`An experiment that changes the metric by more than this percent will
-            be flagged as suspicious (default ${
-              metricDefaults.maxPercentageChange * 100
-            })`}
+            be flagged as suspicious (default ${metricDefaults.maxPercentageChange * 100
+                        })`}
                     />
                     <Field
                       label="Min Percent Change"
@@ -1634,9 +1620,8 @@ export default function FactMetricModal({
                         valueAsNumber: true,
                       })}
                       helpText={`An experiment that changes the metric by less than this percent will be
-            considered a draw (default ${
-              metricDefaults.minPercentageChange * 100
-            })`}
+            considered a draw (default ${metricDefaults.minPercentageChange * 100
+                        })`}
                     />
 
                     <RiskThresholds

@@ -396,11 +396,11 @@ export async function getSnapshotWithDimension(
     snapshot?.dimension === ""
       ? snapshot
       : await _getSnapshot({
-          context,
-          experiment: id,
-          phase,
-          type,
-        });
+        context,
+        experiment: id,
+        phase,
+        type,
+      });
 
   res.status(200).json({
     status: 200,
@@ -603,12 +603,12 @@ export async function postExperiments(
     name: data.name || "",
     phases: data.phases
       ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
-          return {
-            ...phase,
-            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
-            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
-          };
-        })
+        return {
+          ...phase,
+          dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
+          dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
+        };
+      })
       : [],
     tags: data.tags || [],
     description: data.description || "",
@@ -638,7 +638,7 @@ export async function postExperiments(
       experimentType === "multi-armed-bandit"
         ? false
         : data.sequentialTestingEnabled ??
-          !!org?.settings?.sequentialTestingEnabled,
+        !!org?.settings?.sequentialTestingEnabled,
     sequentialTestingTuningParameter:
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
@@ -2248,7 +2248,7 @@ export async function postSnapshot(
   if (!experiment) {
     res.status(404).json({
       status: 404,
-      message: "Experiment not found",
+      message: "实验未找到",
     });
     return;
   }
@@ -2256,7 +2256,7 @@ export async function postSnapshot(
   if (!experiment.phases[phase]) {
     res.status(404).json({
       status: 404,
-      message: "Phase not found",
+      message: "阶段未找到",
     });
     return;
   }

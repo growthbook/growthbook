@@ -137,7 +137,7 @@ export default function BaselineChooser({
           "dropdown-underline": dropdownEnabled,
           "dropdown-underline-disabled": !dropdownEnabled,
         })}
-        header={<div className="h6 mb-0">Baseline variation</div>}
+        header={<div className="h6 mb-0">对照计划</div>}
         toggle={<div className="d-inline-flex align-items-center">{title}</div>}
         caret={dropdownEnabled}
         enabled={dropdownEnabled}

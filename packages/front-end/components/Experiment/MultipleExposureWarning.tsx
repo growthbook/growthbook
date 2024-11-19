@@ -28,11 +28,9 @@ export default function MultipleExposureWarning({
 
   return (
     <div className="alert alert-warning">
-      <strong>Multiple Exposures Warning</strong>.{" "}
-      {numberFormatter.format(multipleExposures)} users (
-      {percentFormatter.format(percent)}) saw multiple variations and were
-      automatically removed from results. Check for bugs in your implementation,
-      event tracking, or data pipeline.
+      <strong>多次曝光警告</strong>。{" "}
+      {numberFormatter.format(multipleExposures)} 个用户（
+      {percentFormatter.format(percent)}）看到了多个版本，并已自动从结果中移除。请检查您的实现、事件跟踪或数据管道中是否存在漏洞。
     </div>
   );
 }

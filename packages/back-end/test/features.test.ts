@@ -1179,7 +1179,7 @@ describe("SDK Payloads", () => {
           condition: `{"country":"us"}`,
           coverage: 0.8,
           dateStarted: new Date(),
-          name: "My Phase",
+          name: "我的阶段",
           namespace: {
             enabled: true,
             name: "namespace",

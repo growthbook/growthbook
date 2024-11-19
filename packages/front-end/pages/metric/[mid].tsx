@@ -661,7 +661,7 @@ const MetricPage: FC = () => {
                                 href="#"
                                 onClick={onClick}
                               >
-                                View Queries
+                                查看查询结果
                               </a>
                             )}
                           />{" "}
@@ -670,7 +670,7 @@ const MetricPage: FC = () => {
                       )}
                       {hasQueries && status === "running" && (
                         <div className="alert alert-info">
-                          Your analysis is currently running.{" "}
+                          您的分析正在运行{" "}
                           {analysis &&
                             "The data below is from the previous run."}
                         </div>

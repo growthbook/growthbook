@@ -17,7 +17,7 @@ export default function ExperimentVariationsInput({
 }: Props) {
   return (
     <div className={className}>
-      <label>变体</label>
+      <label>版本</label>
       <div className="row">
         <SortableVariationsList
           variations={variations}
@@ -51,7 +51,7 @@ export default function ExperimentVariationsInput({
                 e.preventDefault();
                 const newVariations = [...variations];
                 newVariations.push({
-                  name: `Variation ${variations.length}`,
+                  name: `计划${variations.length}`,
                   description: "",
                   key: variations.length + "",
                   screenshots: [],
@@ -63,7 +63,7 @@ export default function ExperimentVariationsInput({
               <span className="h4 pr-2 m-0 d-inline-block">
                 <GBAddCircle />
               </span>{" "}
-              新增变体
+              新增版本
             </button>
           </div>
         </div>

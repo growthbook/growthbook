@@ -32,16 +32,16 @@ export default function FixVariationIds({
         const ids = value.ids.map((id, i) => (id ? id : expected[i]));
 
         if (uniq(ids).length !== ids.length) {
-          throw new Error("Variation Ids must all be unique");
+          throw new Error("计划ID必须唯一");
         }
 
         await setVariationIds(ids);
       })}
       cta="保存"
       close={close}
-      header="Fix Variation Ids"
+      header="修复计划ID"
     >
-      <h3>Variation Ids</h3>
+      <h3>计划ID</h3>
       {names.map((name, i) => (
         <Field
           key={i}

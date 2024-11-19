@@ -240,7 +240,7 @@ export const POLICY_METADATA_MAP: Record<
       "Edit existing data source configuration settings (identifier types, experiment assignment queries)",
   },
   RunQueries: {
-    displayName: "Run Queries",
+    displayName: "执行查询",
     description:
       "Execute queries against data sources. Required to refresh experiment results.",
   },

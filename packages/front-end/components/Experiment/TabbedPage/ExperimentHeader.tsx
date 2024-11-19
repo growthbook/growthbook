@@ -302,7 +302,7 @@ export default function ExperimentHeader({
               ) : null}
               <div>
                 一旦启动，关联的更改将被激活，用户将{" "}
-                <strong>立即</strong> 看到您的实验变体。
+                <strong>立即</strong> 看到您的实验版本。
               </div>
             </div>
           </Modal>
@@ -686,7 +686,7 @@ export function ConvertBanditExperiment({
                       一个< strong>单一决策指标</strong>将被自动分配。您可以在运行实验之前更改它。
                     </li>
                     <li>
-                      实验变体将以< strong>相等权重</strong>开始 (
+                      实验版本将以< strong>相等权重</strong>开始 (
                       {experiment.variations
                         .map((_, i) =>
                           i < 3

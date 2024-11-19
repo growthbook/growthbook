@@ -75,15 +75,14 @@ export default function DataSourceMetrics({
             </span>
           </h2>
           <p className="m-0">
-            Metrics are what your experiments are trying to improve (or at least
-            not hurt). Below are the metrics defined from this data source.{" "}
-            <DocLink docSection="metrics">Learn more.</DocLink>
+            指标是您的实验试图去改进（或者至少不使其变差）的内容。以下是基于此数据源所定义的指标。{" "}
+            <DocLink docSection="metrics">了解更多。</DocLink>
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
           {canEdit &&
-          envAllowsCreatingMetrics() &&
-          canCreateMetricsInAllDataSourceProjects ? (
+            envAllowsCreatingMetrics() &&
+            canCreateMetricsInAllDataSourceProjects ? (
             <>
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={
@@ -219,12 +218,12 @@ export default function DataSourceMetrics({
                                 metric.onDuplicate?.();
                               }}
                             >
-                              Duplicate
+                              复制
                             </button>
                           ) : null}
                           {!metric.managedBy &&
-                          !metric.archived &&
-                          metric.onEdit ? (
+                            !metric.archived &&
+                            metric.onEdit ? (
                             <button
                               className="btn dropdown-item py-2"
                               onClick={(e) => {

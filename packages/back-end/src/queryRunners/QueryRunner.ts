@@ -148,8 +148,8 @@ export abstract class QueryRunner<
     if (!this.timer) {
       logger.debug(
         "Query finished for " +
-          this.model.id +
-          " runner, refreshing in 1 second"
+        this.model.id +
+        " runner, refreshing in 1 second"
       );
       this.timer = setTimeout(async () => {
         this.timer = null;
@@ -263,8 +263,7 @@ export abstract class QueryRunner<
       (q) => q.status === "queued"
     );
     logger.debug(
-      `Starting any queued queries for ${
-        this.model.id
+      `Starting any queued queries for ${this.model.id
       } runner that are ready: ${queuedQueries.map((q) => q.id)}`
     );
     for (const query of queuedQueries) {
@@ -383,10 +382,10 @@ export abstract class QueryRunner<
 
     logger.debug(
       this.model.id +
-        " has changes? " +
-        hasChanges +
-        ", New Status: " +
-        newStatus
+      " has changes? " +
+      hasChanges +
+      ", New Status: " +
+      newStatus
     );
 
     if (!hasChanges) return queryMap;
@@ -398,8 +397,8 @@ export abstract class QueryRunner<
       error = "Failed to run a majority of the database queries";
       logger.debug(
         "Query failed for " +
-          this.model.id +
-          " runner, transitioning to error state"
+        this.model.id +
+        " runner, transitioning to error state"
       );
     }
     if (
@@ -475,7 +474,7 @@ export abstract class QueryRunner<
       });
       this.model = newModel;
 
-      this.setStatus("finished", "Queries cancelled by user");
+      this.setStatus("finished", "用户取消查询");
     }
   }
 
@@ -597,10 +596,10 @@ export abstract class QueryRunner<
           if (existing.status === "running") {
             logger.debug(
               "Reusing previous query " +
-                existing.id +
-                " for query " +
-                query +
-                ". Currently running, checking every 3 seconds for changes"
+              existing.id +
+              " for query " +
+              query +
+              ". Currently running, checking every 3 seconds for changes"
             );
             const check = () => {
               getQueriesByIds(this.model.organization, [existing.id])
@@ -632,9 +631,9 @@ export abstract class QueryRunner<
           }
           logger.debug(
             "Creating query with cached values for " +
-              query +
-              " from " +
-              existing.id
+            query +
+            " from " +
+            existing.id
           );
           const copiedCachedDoc = await createNewQueryFromCached({
             existing: existing,

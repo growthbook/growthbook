@@ -203,20 +203,20 @@ const StopExperimentForm: FC<{
             (lastPhase?.coverage ?? 1) < 1 ? (
             <div className="alert alert-warning">
               <FaExclamationTriangle className="mr-1" />
-              当前只有< strong>{percentFormatter.format(lastPhase.coverage)}</strong>的流量指向此实验。推出时，< strong>100%</strong>的流量将指向已发布的变体。
+              当前只有< strong>{percentFormatter.format(lastPhase.coverage)}</strong>的流量指向此实验。推出时，< strong>100%</strong>的流量将指向已发布的版本。
             </div>
           ) : null}
 
           {!form.watch("excludeFromPayload") ? (
             <div className="row">
               <SelectField
-                label="要发布的变体"
+                label="要发布的版本"
                 containerClassName="col"
                 value={form.watch("releasedVariationId")}
                 onChange={(v) => {
                   form.setValue("releasedVariationId", v);
                 }}
-                helpText="将100%的实验流量发送到此变体"
+                helpText="将100%的实验流量发送到此版本"
                 placeholder="请选择一个..."
                 required
                 options={experiment.variations.map((v) => {

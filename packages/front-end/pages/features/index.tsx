@@ -392,7 +392,7 @@ export default function FeaturesPage() {
                               setModalOpen(true);
                             }}
                           >
-                            Duplicate
+                            复制
                           </button>
                         ) : null}
                       </MoreMenu>

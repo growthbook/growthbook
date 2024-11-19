@@ -275,11 +275,11 @@ export default function ReportPage() {
           newStyle={true}
           navClassName={canUpdateReport ? "" : "d-none"}
         >
-          <Tab key="results" anchor="results" display="Results" padding={false}>
+          <Tab key="results" anchor="results" display="结果" padding={false}>
             <div className="pt-3 px-3">
               <div className="row align-items-center mb-2">
                 <div className="col">
-                  <h2>Results</h2>
+                  <h2>结果</h2>
                 </div>
                 <div className="flex-1"></div>
                 <div className="col-auto d-flex align-items-end mr-3">
@@ -444,7 +444,7 @@ export default function ReportPage() {
                     No data yet.{" "}
                     {report.results &&
                       phaseAgeMinutes >= 120 &&
-                      "Make sure your experiment is tracking properly."}
+                      "确保你的实验正在被正确追踪。"}
                     {report.results &&
                       phaseAgeMinutes < 120 &&
                       "It was just started " +
@@ -571,10 +571,10 @@ export default function ReportPage() {
               <div className="row align-items-center mx-2 my-3">
                 <div className="col-auto small" style={{ lineHeight: 1.2 }}>
                   <div className="text-muted mb-1">
-                    The above results were computed with:
+                    以上结果由下列配置计算得出:
                   </div>
                   <div>
-                    <span className="text-muted">Engine:</span>{" "}
+                    <span className="text-muted">引擎：</span>{" "}
                     <span>
                       {report.args?.statsEngine === "frequentist"
                         ? "Frequentist"

@@ -147,7 +147,7 @@ export default function FactMetricList({ factTable }: Props) {
         {metrics.length > 0 && (
           <div className="col-auto">
             <Field
-              placeholder="Search..."
+              placeholder="搜索..."
               type="search"
               {...searchInputProps}
             />
@@ -205,7 +205,7 @@ export default function FactMetricList({ factTable }: Props) {
                     <Link
                       href={`/fact-metrics/${metric.id}`}
                       className="font-weight-bold"
-                      title="View Metric"
+                      title="查看指标"
                     >
                       <MetricName id={metric.id} />
                     </Link>
@@ -224,7 +224,7 @@ export default function FactMetricList({ factTable }: Props) {
                           className="btn dropdown-item"
                           onClick={() => setEditMetric(metric)}
                         >
-                          Edit
+                          编辑
                         </button>
                       )}
                       {canCreateMetrics && (
@@ -237,7 +237,7 @@ export default function FactMetricList({ factTable }: Props) {
                             })
                           }
                         >
-                          Duplicate
+                          复制
                         </button>
                       )}
                       {canEdit(metric) && (

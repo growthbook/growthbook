@@ -152,7 +152,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         />
       )}
       <Field
-        label="Display Name"
+        label="展示名称"
         {...form.register("name")}
         placeholder={form.watch("column")}
       />
@@ -161,14 +161,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         datatype: form.watch("datatype"),
         deleted: false,
       }) && (
-        <Checkbox
-          value={form.watch("alwaysInlineFilter") ?? false}
-          setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
-          label="Prompt all metrics to filter on this column"
-          description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
-          mb="3"
-        />
-      )}
+          <Checkbox
+            value={form.watch("alwaysInlineFilter") ?? false}
+            setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
+            label="Prompt all metrics to filter on this column"
+            description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
+            mb="3"
+          />
+        )}
       {showDescription ? (
         <div className="form-group">
           <label>Description</label>

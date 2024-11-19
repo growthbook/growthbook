@@ -83,7 +83,7 @@ export default function ExperimentImpactTab({
                   maximumFractionDigits: 3,
                 }).format(
                   (impact.scaledImpactAdjusted ?? 0) /
-                    (impact.scaledImpact ?? 0)
+                  (impact.scaledImpact ?? 0)
                 )}{" "}
                 &times; 365{" "}
               </span>
@@ -178,9 +178,8 @@ export default function ExperimentImpactTab({
         <>
           {experimentImpactType !== "other" ? (
             <div
-              className={`mt-2 alert alert-${
-                experimentImpactType === "winner" ? "success" : "info"
-              }`}
+              className={`mt-2 alert alert-${experimentImpactType === "winner" ? "success" : "info"
+                }`}
             >
               <span style={{ fontSize: "1.2em" }}>
                 {formatImpact(
@@ -188,11 +187,10 @@ export default function ExperimentImpactTab({
                   formatter,
                   formatterOptions
                 )}
-                {` per year is the summed impact ${
-                  experimentImpactType === "winner"
-                    ? "of the winning variations."
-                    : "of not shipping the worst variation."
-                } `}
+                {` per year is the summed impact ${experimentImpactType === "winner"
+                  ? "of the winning variations."
+                  : "of not shipping the worst variation."
+                  } `}
               </span>
             </div>
           ) : null}
@@ -202,20 +200,20 @@ export default function ExperimentImpactTab({
               <thead className="bg-light">
                 <tr>
                   <th>
-                    Experiment
+                    实验
                     <Tooltip
                       className="ml-1"
                       body={"Does not include Bandits"}
                     />
                   </th>
-                  <th>Date Ended</th>
-                  <th>Status</th>
+                  <th>结束时间</th>
+                  <th>状态</th>
                   <th>
                     {experimentImpactType === "winner"
-                      ? "Winning Variation"
+                      ? "Winning计划"
                       : experimentImpactType === "loser"
-                      ? "Worst Variation"
-                      : "Variation"}
+                        ? "Worst计划"
+                        : "计划"}
                   </th>
                   <th>
                     Scaled Impact{" "}
@@ -228,7 +226,7 @@ export default function ExperimentImpactTab({
                         <>
                           <div className={anyNullImpact ? "mb-2" : ""}>
                             {`This Daily Scaled Impact, available in your Experiment
-                              Results under the "Scaled Impact" Difference Type, is 
+                              Results under the "Scaled Impact" 差异类型, is 
                               adjusted if de-biasing is set to true and multiplied by
                               365 to yield the Annual Adjusted Scaled Impact.`}
                           </div>
@@ -266,8 +264,8 @@ export default function ExperimentImpactTab({
                               Math.sqrt(
                                 experimentImpactData.totalAdjustedImpactVariance
                               ) *
-                                1.96 *
-                                365,
+                              1.96 *
+                              365,
                               formatterOptions
                             )}
                           </span>

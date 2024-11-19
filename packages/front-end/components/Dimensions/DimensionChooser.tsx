@@ -94,39 +94,39 @@ export default function DimensionChooser({
   // Date is always available
   const builtInDimensions = [
     {
-      label: "Date Cohorts (First Exposure)",
+      label: "日期群组（首次曝光）",
       value: "pre:date",
     },
   ];
   // Activation status is only available when an activation metric is chosen
   if (datasource.properties?.activationDimension && activationMetric) {
     builtInDimensions.push({
-      label: "Activation status",
+      label: "激活状态",
       value: "pre:activation",
     });
   }
 
   return (
     <div>
-      {newUi && <div className="uppercase-title text-muted">Dimension</div>}
+      {newUi && <div className="uppercase-title text-muted">维度</div>}
       <SelectField
-        label={newUi ? undefined : "Dimension"}
+        label={newUi ? undefined : "维度"}
         labelClassName={labelClassName}
         containerClassName={newUi ? "select-dropdown-underline" : ""}
         options={[
           {
-            label: "Built-in",
+            label: "内置",
             options: builtInDimensions,
           },
           {
-            label: "Custom",
+            label: "自定义",
             options: filteredDimensions,
           },
         ]}
         formatGroupLabel={({ label }) => (
           <div className="pt-2 pb-1 border-bottom">{label}</div>
         )}
-        initialOption="None"
+        initialOption="无"
         value={value}
         onChange={(v) => {
           if (v === value) return;

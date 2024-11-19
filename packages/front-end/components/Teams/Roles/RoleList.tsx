@@ -69,7 +69,7 @@ export default function RoleList() {
                           await router.push(`/settings/role/duplicate/${r.id}`);
                         }}
                       >
-                        Duplicate
+                        复制
                       </Button>
                       {canManageRoles && isCustom ? (
                         <>
@@ -102,9 +102,8 @@ export default function RoleList() {
                         </>
                       ) : null}
                       <ConfirmButton
-                        modalHeader={`${
-                          isDeactivated ? "Reactivate" : "Deactivate"
-                        } ${r.id}`}
+                        modalHeader={`${isDeactivated ? "Reactivate" : "Deactivate"
+                          } ${r.id}`}
                         disabled={!canManageRoles || isOrgDefault}
                         ctaColor="danger"
                         confirmationText={
@@ -123,8 +122,7 @@ export default function RoleList() {
                         }
                         onClick={async () => {
                           await apiCall(
-                            `/role/${r.id}/${
-                              isDeactivated ? "activate" : "deactivate"
+                            `/role/${r.id}/${isDeactivated ? "activate" : "deactivate"
                             }`,
                             {
                               method: "POST",
@@ -141,9 +139,8 @@ export default function RoleList() {
                         >
                           <button
                             disabled={isOrgDefault}
-                            className={`dropdown-item ${
-                              !isDeactivated ? "text-danger" : ""
-                            }`}
+                            className={`dropdown-item ${!isDeactivated ? "text-danger" : ""
+                              }`}
                             type="button"
                           >
                             {isDeactivated ? "Reactivate" : "Deactivate"}

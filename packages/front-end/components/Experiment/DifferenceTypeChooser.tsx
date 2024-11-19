@@ -85,8 +85,8 @@ export default function DifferenceTypeChooser({
     differenceType
   );
   const differenceTypeMap = new Map<DifferenceType, string>([
-    ["relative", "Relative"],
-    ["absolute", "Absolute"],
+    ["relative", "相对"],
+    ["absolute", "绝对"],
     ["scaled", "Scaled Impact"],
   ]);
   const selectedDifferenceName = differenceTypeMap.get(differenceType);
@@ -112,15 +112,14 @@ export default function DifferenceTypeChooser({
 
   return (
     <div>
-      <div className="uppercase-title text-muted">Difference Type</div>
+      <div className="uppercase-title text-muted">差异类型</div>
       <Dropdown
         uuid={"difference-type-selector"}
         right={false}
         className="mt-2"
-        toggleClassName={`d-inline-block ${
-          disabled ? "" : "dropdown-underline"
-        }`}
-        header={<div className="h6 mb-0">Difference Type</div>}
+        toggleClassName={`d-inline-block ${disabled ? "" : "dropdown-underline"
+          }`}
+        header={<div className="h6 mb-0">差异类型</div>}
         toggle={<div className="d-inline-flex align-items-center">{title}</div>}
         caret={!disabled}
         enabled={!disabled}

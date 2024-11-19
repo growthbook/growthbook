@@ -86,8 +86,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
     <div className="">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <h3>Identifier Types</h3>
-          <p>The different units you use to split traffic in an experiment.</p>
+          <h3>标识符类型</h3>
+          <p>在实验中用于划分流量的不同单元。</p>
         </div>
 
         {canEdit && (
@@ -135,7 +135,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
                     style={{ borderRadius: 0 }}
                     useIcon
                     displayName={userIdTypes[idx]?.userIdType}
-                    deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
+                    deleteMessage={`你确定要删除标识符类型 ${userIdTypes[idx]?.userIdType} 吗？`}
                     title="删除"
                     text="删除"
                     outline={false}

@@ -311,7 +311,7 @@ export default function FactMetricPage() {
                 ids={factMetric.denominator.filters}
               />
             ) : (
-              <em>None</em>
+              <em>无</em>
             ),
         },
         {
@@ -347,7 +347,7 @@ export default function FactMetricPage() {
         <EditProjectsForm
           label={
             <>
-              Projects{" "}
+              项目{" "}
               <Tooltip
                 body={
                   "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
@@ -428,7 +428,7 @@ export default function FactMetricPage() {
                   setEditOpen(true);
                 }}
               >
-                Edit Metric
+                编辑指标
               </button>
             )}
             {canDelete && (
@@ -468,7 +468,7 @@ export default function FactMetricPage() {
       <div className="row mb-4">
         {projects.length > 0 ? (
           <div className="col-auto">
-            Projects:{" "}
+            项目:{" "}
             {factMetric.projects.length > 0 ? (
               factMetric.projects.map((p) => (
                 <span className="badge badge-secondary mr-1" key={p}>
@@ -476,7 +476,7 @@ export default function FactMetricPage() {
                 </span>
               ))
             ) : (
-              <em className="mr-1">All Projects</em>
+              <em className="mr-1">所有项目</em>
             )}
             {canEdit && (
               <a
@@ -492,7 +492,7 @@ export default function FactMetricPage() {
           </div>
         ) : null}
         <div className="col-auto">
-          Tags: <SortedTags tags={factMetric.tags} />
+          标签: <SortedTags tags={factMetric.tags} />
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"
@@ -503,7 +503,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Owner:{` ${factMetric.owner ?? ""}`}
+          负责人:{` ${factMetric.owner ?? ""}`}
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"
@@ -514,7 +514,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Data source:{" "}
+          数据源:{" "}
           <Link
             href={`/datasources/${factMetric.datasource}`}
             className="font-weight-bold"
@@ -544,7 +544,7 @@ export default function FactMetricPage() {
           </div>
 
           <div className="mb-5">
-            <h3>Metric Definition</h3>
+            <h3>指标定义</h3>
             <div className="mb-2">
               <MetricType
                 type={factMetric.metricType}
@@ -556,7 +556,7 @@ export default function FactMetricPage() {
                 data={numeratorData}
                 header={
                   factMetric.metricType === "ratio"
-                    ? "Numerator"
+                    ? "分子"
                     : "Metric Details"
                 }
               />
@@ -569,7 +569,7 @@ export default function FactMetricPage() {
           </div>
 
           <div className="mb-4">
-            <h3>Metric Window</h3>
+            <h3>指标窗口</h3>
             <div className="appbox p-3 mb-3">
               {factMetric.windowSettings.type === "conversion" ? (
                 <>
@@ -818,7 +818,7 @@ export default function FactMetricPage() {
             display={
               <>
                 <FaChartLine className="mr-1" size={16} />
-                Metric Analysis
+                指标分析
               </>
             }
             id="analysis"
@@ -838,7 +838,7 @@ export default function FactMetricPage() {
             display={
               <>
                 <GBExperiment className="mr-1" />
-                Experiments
+                实验
               </>
             }
             id="experiments"
@@ -853,7 +853,7 @@ export default function FactMetricPage() {
               display={
                 <>
                   <GBBandit className="mr-1" />
-                  Bandits
+                  多臂老虎机
                 </>
               }
               id="bandits"

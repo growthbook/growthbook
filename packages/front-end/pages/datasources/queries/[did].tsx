@@ -69,7 +69,7 @@ const DataSourceQueries = (): React.ReactElement => {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
-          Datasource <code>{did}</code> does not exist.
+          数据源<code>{did}</code>不存在。
         </div>
       </div>
     );
@@ -79,7 +79,7 @@ const DataSourceQueries = (): React.ReactElement => {
     return (
       <div className="container pagecontents p-4">
         <div className="d-flex">
-          <h1>Data Source Queries</h1>
+          <h1>数据源查询</h1>
         </div>
         <p>No queries have been run on this Data Source.</p>
       </div>
@@ -103,15 +103,15 @@ const DataSourceQueries = (): React.ReactElement => {
 
       <PageHead
         breadcrumb={[
-          { display: "Data Sources" },
+          { display: "数据源" },
           { display: d.name, href: `/datasources/${did}` },
-          { display: "Recent Queries" },
+          { display: "近期查询" },
         ]}
       />
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto d-flex">
           <h1>
-            Recent Queries{" "}
+            近期查询{" "}
             <Tooltip
               className="small"
               body="The 50 most recent queries run on this Data Source"

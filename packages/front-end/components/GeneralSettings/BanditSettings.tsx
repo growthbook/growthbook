@@ -72,7 +72,7 @@ export default function BanditSettings({
                 探索阶段
               </label>
               <div className="small text-muted mb-2">
-                变体权重更新前的时间段：
+                版本权重更新前的时间段：
               </div>
               <div className="row align-items-center">
                 <div className="col-auto">
@@ -137,7 +137,7 @@ export default function BanditSettings({
                 更新频率
               </label>
               <div className="small text-muted mb-2">
-                每隔多久更新一次变体权重：
+                每隔多久更新一次版本权重：
               </div>
               <div className="row align-items-center">
                 <div className="col-auto">

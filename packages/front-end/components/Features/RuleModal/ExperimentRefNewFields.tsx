@@ -156,7 +156,7 @@ export default function ExperimentRefNewFields({
                 form.setValue("hashAttribute", v);
               }}
               helpText={
-                "将与跟踪键一起哈希运算，以确定要分配的变体"
+                "将与跟踪键一起哈希运算，以确定要分配的版本"
               }
             />
             <FallbackAttributeSelector
@@ -177,7 +177,7 @@ export default function ExperimentRefNewFields({
                 mt="4"
                 size="lg"
                 label="禁用粘性分桶"
-                description="不要为此实验保留变体分配（覆盖您的组织设置）"
+                description="不要为此实验保留版本分配（覆盖您的组织设置）"
                 value={!!form.watch("disableStickyBucketing")}
                 setValue={(v) => {
                   form.setValue("disableStickyBucketing", v);
@@ -187,7 +187,7 @@ export default function ExperimentRefNewFields({
           </div>
 
           <FeatureVariationsInput
-            label="流量百分比与变体"
+            label="流量百分比与版本"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
             coverageLabel="此实验包含的流量"

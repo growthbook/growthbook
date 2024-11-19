@@ -131,7 +131,7 @@ const ImpactModal: FC<{
         helpText="How much do you think this will improve the metric?"
       />
       <Field
-        label="Number of Variations"
+        label="计划数量"
         type="number"
         min="2"
         max="20"
@@ -140,7 +140,7 @@ const ImpactModal: FC<{
         helpText="Including the baseline"
       />
       <Field
-        label="Percent of Total Traffic"
+        label="总流量比例"
         {...form.register("userAdjustment", {
           valueAsNumber: true,
         })}

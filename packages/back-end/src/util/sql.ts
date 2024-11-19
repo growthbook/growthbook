@@ -107,7 +107,7 @@ export function compileSqlTemplate(
     replacements.eventName = templateVariables.eventName;
   } else if (usesTemplateVariable(sql, "eventName")) {
     throw new Error(
-      "Error compiling SQL template: You must set eventName first."
+      "编译 SQL 模板错误：您必须先设置事件名称。"
     );
   }
 
@@ -115,7 +115,7 @@ export function compileSqlTemplate(
     replacements.valueColumn = templateVariables.valueColumn;
   } else if (usesTemplateVariable(sql, "valueColumn")) {
     throw new Error(
-      "Error compiling SQL template: You must set valueColumn first."
+      "编译 SQL 模板错误：You must set valueColumn first."
     );
   }
 
@@ -134,12 +134,12 @@ export function compileSqlTemplate(
   } catch (e) {
     if (e.message.includes("eventName")) {
       throw new Error(
-        "Error compiling SQL template: You must set eventName first."
+        "编译 SQL 模板错误：您必须先设置事件名称。"
       );
     }
     if (e.message.includes("valueColumn")) {
       throw new Error(
-        "Error compiling SQL template: You must set valueColumn first."
+        "编译 SQL 模板错误：You must set valueColumn first."
       );
     }
     if (e.message.includes("not defined in [object Object]")) {
@@ -158,7 +158,7 @@ export function compileSqlTemplate(
         ).join(", ")}`
       );
     }
-    throw new Error(`Error compiling SQL template: ${e.message}`);
+    throw new Error(`编译 SQL 模板错误：${e.message}`);
   }
 }
 

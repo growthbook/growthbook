@@ -599,7 +599,7 @@ export default function SDKConnectionForm({
                         popperClassName="text-left"
                         body={
                           <p className="mb-0">
-                            完整的功能定义，包括定位条件和实验变体，任何拥有客户端密钥的人都可查看。
+                            完整的功能定义，包括定位条件和实验版本，任何拥有客户端密钥的人都可查看。
                           </p>
                         }
                       >
@@ -725,7 +725,7 @@ export default function SDKConnectionForm({
                               body={
                                 <>
                                   <p>
-                                    实验和变体名称在调试或跟踪事件时有助于添加上下文。
+                                    实验和版本名称在调试或跟踪事件时有助于添加上下文。
                                   </p>
                                   <p>
                                     然而，如果在客户端或移动应用程序中启用此功能，可能会向用户暴露潜在的敏感信息。
@@ -736,7 +736,7 @@ export default function SDKConnectionForm({
                                 </>
                               }
                             >
-                              隐藏实验和变体名称 <FaInfoCircle />
+                              隐藏实验和版本名称 <FaInfoCircle />
                             </Tooltip>
                           </label>
                         </div>
@@ -839,7 +839,7 @@ export default function SDKConnectionForm({
                             body={
                               <>
                                 <div className="mb-2">
-                                  <strong>远程评估</strong> 通过仅在私有服务器而非前端环境中评估功能标志，全面保障您的SDK安全。这确保了定位规则内的任何敏感信息或未使用的功能变体都不会被客户端看到。
+                                  <strong>远程评估</strong> 通过仅在私有服务器而非前端环境中评估功能标志，全面保障您的SDK安全。这确保了定位规则内的任何敏感信息或未使用的功能版本都不会被客户端看到。
                                 </div>
                                 <div className="mb-2">
                                   远程评估提供与包含实验名称的SDK相同的安全优势。然而，后端SDK既不需要也不支持远程评估。
@@ -980,7 +980,7 @@ export default function SDKConnectionForm({
                               开发中的自动实验将发送到SDK。我们建议仅在非生产环境中启用此功能。
                             </p>
                             <p className="mb-0">
-                              要强制进入某个变体，可使用诸如{" "}
+                              要强制进入某个版本，可使用诸如{" "}
                               <code className="d-block">?my-experiment-id=2</code>
                               这样的URL查询字符串。
                             </p>

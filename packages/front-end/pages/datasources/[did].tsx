@@ -88,7 +88,7 @@ const DataSourcePage: FC = () => {
       const queriesUpdated =
         d &&
         JSON.stringify(d.settings?.queries) !==
-          JSON.stringify(dataSource.settings?.queries);
+        JSON.stringify(dataSource.settings?.queries);
       if (queriesUpdated) {
         apiCall<{ id: string }>("/experiments/import", {
           method: "POST",
@@ -138,19 +138,19 @@ const DataSourcePage: FC = () => {
       {d.projects?.includes(
         getDemoDatasourceProjectIdForOrganization(organization.id)
       ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
-            This is part of our sample dataset. You can safely delete this once
-            you are done exploring.
+          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+            <div className="flex-1">
+              This is part of our sample dataset. You can safely delete this once
+              you are done exploring.
+            </div>
+            <div style={{ width: 180 }} className="ml-2">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/datasources")}
+                source="datasource"
+              />
+            </div>
           </div>
-          <div style={{ width: 180 }} className="ml-2">
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/datasources")}
-              source="datasource"
-            />
-          </div>
-        </div>
-      )}
+        )}
 
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
@@ -198,63 +198,63 @@ const DataSourcePage: FC = () => {
             {(canUpdateConnectionParams ||
               canUpdateDataSourceSettings ||
               canDelete) && (
-              <div className="d-md-flex w-100 justify-content-between">
-                <div>
-                  {canUpdateConnectionParams ? (
-                    <button
-                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditConn(true);
-                      }}
+                <div className="d-md-flex w-100 justify-content-between">
+                  <div>
+                    {canUpdateConnectionParams ? (
+                      <button
+                        className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditConn(true);
+                        }}
+                      >
+                        <FaKey /> Edit Connection Info
+                      </button>
+                    ) : null}
+                    <DocLink
+                      className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
+                      docSection={d.type as DocSection}
+                      fallBackSection="datasources"
                     >
-                      <FaKey /> Edit Connection Info
-                    </button>
-                  ) : null}
-                  <DocLink
-                    className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
-                    docSection={d.type as DocSection}
-                    fallBackSection="datasources"
-                  >
-                    <FaExternalLinkAlt /> View Documentation
-                  </DocLink>
-                  {d?.properties?.supportsInformationSchema && (
-                    <button
+                      <FaExternalLinkAlt /> View Documentation
+                    </DocLink>
+                    {d?.properties?.supportsInformationSchema && (
+                      <button
+                        className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setViewSchema(true);
+                        }}
+                      >
+                        <FaDatabase /> View Schema Browser
+                      </button>
+                    )}
+                    <Link
                       className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setViewSchema(true);
-                      }}
+                      href={`/datasources/queries/${did}`}
                     >
-                      <FaDatabase /> View Schema Browser
-                    </button>
-                  )}
-                  <Link
-                    className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
-                    href={`/datasources/queries/${did}`}
-                  >
-                    <FaDatabase /> View Queries
-                  </Link>
-                </div>
+                      <FaDatabase /> 查看查询结果
+                    </Link>
+                  </div>
 
-                <div>
-                  {canDelete && (
-                    <DeleteButton
-                      displayName={d.name}
-                      className="font-weight-bold mt-1"
-                      text={`Delete "${d.name}" Datasource`}
-                      onClick={async () => {
-                        await apiCall(`/datasource/${d.id}`, {
-                          method: "DELETE",
-                        });
-                        mutateDefinitions({});
-                        router.push("/datasources");
-                      }}
-                    />
-                  )}
+                  <div>
+                    {canDelete && (
+                      <DeleteButton
+                        displayName={d.name}
+                        className="font-weight-bold mt-1"
+                        text={`Delete "${d.name}" Datasource`}
+                        onClick={async () => {
+                          await apiCall(`/datasource/${d.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions({});
+                          router.push("/datasources");
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
@@ -287,14 +287,14 @@ const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
     mixpanel.track(${JSON.stringify(
-      d.settings?.events?.experimentEvent || "$experiment_started"
-    )}, {
+                      d.settings?.events?.experimentEvent || "$experiment_started"
+                    )}, {
       ${quotePropertyName(
-        d.settings?.events?.experimentIdProperty || "Experiment name"
-      )}: experiment.key,
+                      d.settings?.events?.experimentIdProperty || "Experiment name"
+                    )}: experiment.key,
       ${quotePropertyName(
-        d.settings?.events?.variationIdProperty || "Variant name"
-      )}:  result.variationId,
+                      d.settings?.events?.variationIdProperty || "Variant name"
+                    )}:  result.variationId,
       $source: 'growthbook'
     })
   }
@@ -408,8 +408,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         >
           <>
             <p>
-              Explore the schemas, tables, and table metadata of your connected
-              datasource.
+              探索已连接数据源的schema、表以及表的元数据。
             </p>
             <div className="border rounded">
               <SchemaBrowser datasource={d} />

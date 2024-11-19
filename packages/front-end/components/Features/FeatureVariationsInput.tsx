@@ -88,12 +88,12 @@ export default function FeatureVariationsInput({
   const label = _label
     ? _label
     : simple
-      ? "流量百分比与变体"
+      ? "流量百分比与版本"
       : setVariations
-        ? "流量百分比、变体及权重"
+        ? "流量百分比、版本及权重"
         : hideCoverage || hideVariations
           ? "流量百分比"
-          : "流量百分比与变体权重";
+          : "流量百分比与版本权重";
 
   return (
     <div className="form-group">
@@ -147,7 +147,7 @@ export default function FeatureVariationsInput({
             </div>
           )}
           <Field
-            label="变体数量"
+            label="版本数量"
             type="number"
             value={numberOfVariations}
             onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
@@ -158,7 +158,7 @@ export default function FeatureVariationsInput({
               for (let i = 0; i < n; i++) {
                 newValues.push({
                   value: getDefaultVariationValue(defaultValue),
-                  name: i === 0 ? "对照" : `变体 ${i}`,
+                  name: i === 0 ? "对照" : `版本 ${i}`,
                   weight: 1 / n,
                   id: generateVariationId(),
                 });
@@ -221,10 +221,10 @@ export default function FeatureVariationsInput({
               <thead className={`${styles.variationSplitHeader}`}>
                 <tr>
                   <th className="pl-3">Id</th>
-                  {!valueAsId && <th>变体</th>}
+                  {!valueAsId && <th>版本</th>}
                   <th>
                     <Tooltip
-                      body="在GrowthBook内识别变体的可选方式。"
+                      body="在GrowthBook内识别版本的可选方式。"
                       tipPosition="top"
                     >
                       名称 <FaInfoCircle />
@@ -312,18 +312,18 @@ export default function FeatureVariationsInput({
                               }}
                             >
                               <GBAddCircle className="mr-2" />
-                              添加变体
+                              添加版本
                             </a>
                           )}
                           {valueType === "boolean" && (
                             <>
-                              <Tooltip body="布尔类型的特性只能有两个变体。使用不同的特性类型来添加多个变体。">
+                              <Tooltip body="布尔类型的特性只能有两个版本。使用不同的特性类型来添加多个版本。">
                                 <a
                                   role="button"
                                   className="btn btn-link p-0 disabled"
                                 >
                                   <GBAddCircle className="mr-2" />
-                                  添加变体
+                                  添加版本
                                 </a>
                               </Tooltip>
                             </>

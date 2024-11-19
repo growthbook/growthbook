@@ -83,7 +83,7 @@ function getDefaultVariations(num: number) {
   const variations: Variation[] = [];
   for (let i = 0; i < num; i++) {
     variations.push({
-      name: i ? `变体 ${i}` : "对照组",
+      name: i ? `版本 ${i}` : "对照组",
       description: "",
       key: i + "",
       screenshots: [],
@@ -707,7 +707,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   <div className="d-flex" style={{ gap: "2rem" }}>
                     <SelectField
                       containerClassName="flex-1"
-                      label="基于属性分配变体"
+                      label="基于属性分配版本"
                       labelClassName="font-weight-bold"
                       options={attributeSchema
                         .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -721,7 +721,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         form.setValue("hashAttribute", v);
                       }}
                       helpText={
-                        "将与种子（UUID）一起哈希运算，以确定要分配的变体"
+                        "将与种子（UUID）一起哈希运算，以确定要分配的版本"
                       }
                     />
                     <FallbackAttributeSelector
@@ -780,7 +780,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <hr />
               {isImport && (
                 <Callout status="info" mb="3">
-                  我们已根据所看到的数据预测出以下变体权重。可能需要进行调整。
+                  我们已根据所看到的数据预测出以下版本权重。可能需要进行调整。
                 </Callout>
               )}
               <FeatureVariationsInput

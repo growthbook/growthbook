@@ -26,7 +26,7 @@ const CustomRolePage: FC = () => {
       breadcrumb={"Duplicate Role"}
     >
       <>
-        <h1 className="pb-3">Duplicate {rid}</h1>
+        <h1 className="pb-3">复制 {rid}</h1>
         <RoleForm role={role} action="creating" />
       </>
     </RoleFormWrapper>

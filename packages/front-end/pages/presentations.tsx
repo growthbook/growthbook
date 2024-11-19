@@ -117,7 +117,7 @@ const PresentationPage = (): React.ReactElement => {
         console.error(res);
         setDeleteError(
           res.message ||
-            "There was an error submitting the form. Please try again."
+          "There was an error submitting the form. Please try again."
         );
         setDeleteLoading(false);
         setDeleteConfirmModal(false);
@@ -151,9 +151,9 @@ const PresentationPage = (): React.ReactElement => {
                 <div className="subtitle text-muted text-sm">
                   <small>
                     <p className="mb-0">
-                      Created by: {getUserDisplay(pres?.userId)}
+                      由{getUserDisplay(pres?.userId)}
                     </p>
-                    <p className="mb-0">on: {date(pres.dateCreated)}</p>
+                    <p className="mb-0">于{date(pres.dateCreated)}创建</p>
                   </small>
                 </div>
               </div>

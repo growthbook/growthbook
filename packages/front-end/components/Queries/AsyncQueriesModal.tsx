@@ -37,14 +37,14 @@ const AsyncQueriesModal: FC<{
 
     const formattedError = errorPart
       ? errorPart
-          .replace(/ {2}/g, "")
-          .split("\n")
-          .map((part, i) => (
-            <Fragment key={i}>
-              {part}
-              {i < errorPart.split("\n").length - 1 && <br />}
-            </Fragment>
-          ))
+        .replace(/ {2}/g, "")
+        .split("\n")
+        .map((part, i) => (
+          <Fragment key={i}>
+            {part}
+            {i < errorPart.split("\n").length - 1 && <br />}
+          </Fragment>
+        ))
       : undefined;
 
     return {
@@ -138,7 +138,7 @@ const AsyncQueriesModal: FC<{
     <Modal
       trackingEventModalType=""
       close={close}
-      header="Queries"
+      header="查询结果"
       open={true}
       size="max"
       closeCta="关闭"

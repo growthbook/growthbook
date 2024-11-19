@@ -236,7 +236,7 @@ export function PreLaunchChecklist({
           ) : (
             "配置"
           )}
-          变体分配和目标定位行为。
+          版本分配和目标定位行为。
         </>
       ),
       status: hasPhases ? "complete" : "incomplete",

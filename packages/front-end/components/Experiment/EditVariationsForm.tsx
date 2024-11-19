@@ -23,21 +23,21 @@ const EditVariationsForm: FC<{
       variations: experiment.variations
         ? experiment.variations
         : [
-            {
-              name: "Control",
-              description: "",
-              key: "0",
-              screenshots: [],
-              id: generateVariationId(),
-            },
-            {
-              name: "Variation",
-              description: "",
-              key: "1",
-              screenshots: [],
-              id: generateVariationId(),
-            },
-          ],
+          {
+            name: "控制",
+            description: "",
+            key: "0",
+            screenshots: [],
+            id: generateVariationId(),
+          },
+          {
+            name: "计划",
+            description: "",
+            key: "1",
+            screenshots: [],
+            id: generateVariationId(),
+          },
+        ],
     },
   });
   const { apiCall } = useAuth();
@@ -46,7 +46,7 @@ const EditVariationsForm: FC<{
     <Modal
       trackingEventModalType="edit-variations-form"
       trackingEventModalSource={source}
-      header={"编辑变体"}
+      header={"编辑版本"}
       open={true}
       close={cancel}
       size="lg"

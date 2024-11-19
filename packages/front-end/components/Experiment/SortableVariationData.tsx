@@ -37,7 +37,7 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
             <FaArrowsAlt />
           </div>
           <Field
-            label={i === 0 ? "控制名称" : `变体 ${i} 名称`}
+            label={i === 0 ? "控制名称" : `版本 ${i} 名称`}
             value={variation.name}
             onChange={(e) => {
               const newVariations = [...variations];

@@ -45,7 +45,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Error compiling SQL template: You must set eventName first."
+        "编译 SQL 模板错误：您必须先设置事件名称。"
       );
     });
 
@@ -56,7 +56,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Error compiling SQL template: You must set valueColumn first."
+        "编译 SQL 模板错误：You must set valueColumn first."
       );
     });
 

@@ -35,10 +35,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
     mode === "add"
-      ? "Add an Experiment Assignment query"
-      : `Edit ${
-          exposureQuery ? exposureQuery.name : "Experiment Assignment"
-        } query`;
+      ? "添加一个实验分配查询"
+      : `编辑${exposureQuery ? exposureQuery.name : "实验分配"}查询`;
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -57,13 +55,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       mode === "edit" && exposureQuery
         ? cloneDeep<ExposureQuery>(exposureQuery)
         : {
-            description: "",
-            id: uniqId("tbl_"),
-            name: "",
-            dimensions: [],
-            query: defaultQuery,
-            userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
-          },
+          description: "",
+          id: uniqId("tbl_"),
+          name: "",
+          dimensions: [],
+          query: defaultQuery,
+          userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
+        },
   });
 
   // User-entered values
@@ -105,7 +103,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   if (!exposureQuery && mode === "edit") {
     console.error(
-      "ImplementationError: exposureQuery is required for Edit mode"
+      "实现错误：编辑模式下需要曝光查询"
     );
     return null;
   }
@@ -138,13 +136,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       // Only selected `experiment_name`, add warning
       else if (returnedColumns.has("experiment_name")) {
         throw new Error(
-          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+          "缺少“版本名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“实验名称”。"
         );
       }
       // Only selected `variation_name`, add warning
       else if (returnedColumns.has("variation_name")) {
         throw new Error(
-          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+          "缺少“实验名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“版本名称”。"
         );
       }
     } else {
@@ -163,14 +161,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         !returnedColumns.has("variation_name")
       ) {
         throw new Error(
-          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+          "缺少“版本名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“实验名称”。"
         );
       } else if (
         returnedColumns.has("variation_name") &&
         !returnedColumns.has("experiment_name")
       ) {
         throw new Error(
-          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+          "缺少“实验名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“版本名称”。"
         );
       }
     }
@@ -198,7 +196,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       // Now, if missingColumns still has a length, throw an error
       if (missingColumns.length > 0) {
         throw new Error(
-          `You are missing the following columns: ${missingColumns.join(", ")}`
+          `你缺少以下列：${missingColumns.join(", ")}`
         );
       }
     }
@@ -242,15 +240,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         <div className="my-2 ml-3 mr-3">
           <div className="row">
             <div className="col-12">
-              <Field label="Display Name" required {...form.register("name")} />
+              <Field label="显示名称" required {...form.register("name")} />
               <Field
-                label="Description (optional)"
+                label="描述（可选）"
                 textarea
                 minRows={1}
                 {...form.register("description")}
               />
               <Field
-                label="Identifier Type"
+                label="分隔符类型"
                 options={identityTypes.map((i) => i.userIdType)}
                 required
                 {...form.register("userIdType")}
@@ -259,9 +257,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (
                   <div className="alert alert-info">
-                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
-                    prefilled query below may require editing to fit your data
-                    structure.
+                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> 下面预先填充的查询可能需要进行编辑以适配您的数据结构。
                   </div>
                 )}
                 {userEnteredQuery && (
@@ -281,7 +277,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     }}
                   >
                     <div className="d-flex align-items-center">
-                      Customize SQL
+                      自定义SQL
                       <FaExternalLinkAlt className="ml-2" />
                     </div>
                   </button>
@@ -298,7 +294,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     setShowAdvancedMode(!showAdvancedMode);
                   }}
                 >
-                  {showAdvancedMode ? "Hide" : "Show"} Advanced Options
+                  {showAdvancedMode ? "隐藏" : "显示"} 高级模式
                 </a>
                 {showAdvancedMode && (
                   <div>
@@ -315,12 +311,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                           className="mr-2 mb-0"
                           htmlFor="exposure-query-toggle"
                         >
-                          Use Name Columns
+                          使用名称列
                         </label>
-                        <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                        <Tooltip body="如果您在表中同时存储实验 / 版本名称以及其对应的 ID，请启用此项。" />
                       </div>
                       <StringArrayField
-                        label="Dimension Columns"
+                        label="维度列"
                         value={userEnteredDimensions}
                         onChange={(dimensions) => {
                           form.setValue("dimensions", dimensions);

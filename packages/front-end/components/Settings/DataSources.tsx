@@ -16,8 +16,8 @@ const DataSources: FC = () => {
   const { datasources, project, error, ready } = useDefinitions();
   const filteredDatasources = project
     ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
-      )
+      isProjectListValidForProject(ds.projects, project)
+    )
     : datasources;
 
   if (error) {
@@ -31,11 +31,11 @@ const DataSources: FC = () => {
     <table className="table appbox gbtable table-hover">
       <thead>
         <tr>
-          <th className="col-2">Display Name</th>
-          <th className="col-auto">Description</th>
-          <th className="col-2">Type</th>
-          <th className="col-2">Projects</th>
-          {!hasFileConfig() && <th className="col-2">Last Updated</th>}
+          <th className="col-2">显示名称</th>
+          <th className="col-auto">描述</th>
+          <th className="col-2">类型</th>
+          <th className="col-2">项目</th>
+          {!hasFileConfig() && <th className="col-2">最近一次修改</th>}
         </tr>
       </thead>
       <tbody>

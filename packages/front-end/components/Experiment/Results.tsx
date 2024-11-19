@@ -241,8 +241,8 @@ const Results: FC<{
               No data yet.{" "}
               {snapshot &&
                 phaseAgeMinutes >= 120 &&
-                `Make sure your ${isBandit ? "Bandit" : "Experiment"
-                } is tracking properly.`}
+                `确保你的${isBandit ? "多臂老虎机" : "实验"
+                }正在被正确追踪`}
               {snapshot &&
                 phaseAgeMinutes < 120 &&
                 (phaseAgeMinutes < 0
@@ -255,7 +255,7 @@ const Results: FC<{
               {!snapshot &&
                 datasource &&
                 permissionsUtil.canRunExperimentQueries(datasource) &&
-                `Click the "Update" button above.`}
+                `点击上方的"Update"按钮`}
               {snapshotLoading && <div> Snapshot loading...</div>}
             </Callout>
           )}
@@ -396,14 +396,14 @@ const Results: FC<{
           <div className="row align-items-center mx-2 my-3">
             <div className="col-auto small" style={{ lineHeight: 1.2 }}>
               <div className="text-muted mb-1">
-                The above results were computed with:
+                上述结果是通过以下方式计算得出的：
               </div>
               <div>
-                <span className="text-muted">Engine:</span>{" "}
+                <span className="text-muted">引擎：</span>{" "}
                 <span>
                   {analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"}
+                    ? "概率学派"
+                    : "贝叶斯派"}
                 </span>
               </div>
               <div>
@@ -412,24 +412,24 @@ const Results: FC<{
                 </span>{" "}
                 <span>
                   {analysis?.settings?.regressionAdjusted
-                    ? "Enabled"
-                    : "Disabled"}
+                    ? "已启用"
+                    : "已禁用"}
                 </span>
               </div>
               {analysis?.settings?.statsEngine === "frequentist" && (
                 <div>
                   <span className="text-muted">
-                    <GBSequential size={13} /> Sequential:
+                    <GBSequential size={13} /> 序贯分析：
                   </span>{" "}
                   <span>
                     {analysis?.settings?.sequentialTesting
-                      ? "Enabled"
-                      : "Disabled"}
+                      ? "已启用"
+                      : "已禁用"}
                   </span>
                 </div>
               )}
               <div>
-                <span className="text-muted">Run date:</span>{" "}
+                <span className="text-muted">运行日期：</span>{" "}
                 <span>
                   {getValidDate(snapshot?.dateCreated ?? "").toLocaleString([], {
                     year: "numeric",

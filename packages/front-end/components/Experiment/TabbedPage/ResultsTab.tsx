@@ -181,7 +181,7 @@ export default function ResultsTab({
     <div className="mt-3">
       {isBandit && hasResults ? (
         <Callout status="info" mb="5">
-          多臂老虎机在将流量引导至最佳变体方面比普通实验更具优势，但它们可能会产生有偏差的结果。
+          多臂老虎机在将流量引导至最佳版本方面比普通实验更具优势，但它们可能会产生有偏差的结果。
           {/*todo: docs*/}
         </Callout>
       ) : null}

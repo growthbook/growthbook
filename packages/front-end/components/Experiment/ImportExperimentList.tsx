@@ -271,7 +271,7 @@ const ImportExperimentList: FC<{
                 error={data.experiments.error}
                 ctaComponent={(onClick) => (
                   <a className="alert-link" href="#" onClick={onClick}>
-                    View Queries
+                    查看查询结果
                   </a>
                 )}
               />{" "}
@@ -393,7 +393,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
-                label="# Variations"
+                label="# 计划"
                 labelClassName="small mb-0"
                 type="number"
                 min={1}
@@ -536,7 +536,7 @@ const ImportExperimentList: FC<{
                                   vName =
                                     vName === "0"
                                       ? "Control"
-                                      : `Variation ${vName}`;
+                                      : `计划 ${vName}`;
                                 }
                                 return {
                                   name: vName,

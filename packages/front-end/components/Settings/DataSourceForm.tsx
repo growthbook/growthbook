@@ -46,255 +46,254 @@ const DataSourceForm: FC<{
   cta = "保存",
   secondaryCTA,
 }) => {
-  const { projects } = useDefinitions();
-  const [dirty, setDirty] = useState(false);
-  const [datasource, setDatasource] = useState<
-    Partial<DataSourceInterfaceWithParams> | undefined
-  >();
-  const [hasError, setHasError] = useState(false);
-  const permissionsUtil = usePermissionsUtil();
+    const { projects } = useDefinitions();
+    const [dirty, setDirty] = useState(false);
+    const [datasource, setDatasource] = useState<
+      Partial<DataSourceInterfaceWithParams> | undefined
+    >();
+    const [hasError, setHasError] = useState(false);
+    const permissionsUtil = usePermissionsUtil();
 
-  const permissionRequired = (project: string) => {
-    return existing
-      ? permissionsUtil.canUpdateDataSourceParams({
+    const permissionRequired = (project: string) => {
+      return existing
+        ? permissionsUtil.canUpdateDataSourceParams({
           projects: [project],
           type: datasource?.type,
         })
-      : permissionsUtil.canCreateDataSource({
+        : permissionsUtil.canCreateDataSource({
           projects: [project],
           type: datasource?.type,
         });
-  };
+    };
 
-  const projectOptions = useProjectOptions(
-    permissionRequired,
-    datasource?.projects || []
-  );
+    const projectOptions = useProjectOptions(
+      permissionRequired,
+      datasource?.projects || []
+    );
 
-  useEffect(() => {
-    track("View Datasource Form", {
-      source,
-    });
-  }, [source]);
+    useEffect(() => {
+      track("View Datasource Form", {
+        source,
+      });
+    }, [source]);
 
-  const { apiCall } = useAuth();
-  useEffect(() => {
-    if (data && !dirty) {
-      const newValue: Partial<DataSourceInterfaceWithParams> = {
-        ...data,
-      };
-      setDatasource(newValue);
+    const { apiCall } = useAuth();
+    useEffect(() => {
+      if (data && !dirty) {
+        const newValue: Partial<DataSourceInterfaceWithParams> = {
+          ...data,
+        };
+        setDatasource(newValue);
+      }
+    }, [data, dirty]);
+
+    if (!datasource) {
+      return null;
     }
-  }, [data, dirty]);
 
-  if (!datasource) {
-    return null;
-  }
+    const handleSubmit = async () => {
+      if (!dirty && data.id) return;
+      setHasError(false);
 
-  const handleSubmit = async () => {
-    if (!dirty && data.id) return;
-    setHasError(false);
-
-    try {
-      if (!datasource.type) {
-        throw new Error("Please select a data source type");
-      }
-
-      let id = data.id;
-
-      // Update
-      if (id) {
-        const res = await apiCall<{ status: number; message: string }>(
-          `/datasource/${data.id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify(datasource),
-          }
-        );
-        if (res.status > 200) {
-          throw new Error(res.message);
+      try {
+        if (!datasource.type) {
+          throw new Error("Please select a data source type");
         }
-      }
-      // Create
-      else {
-        const res = await apiCall<{ id: string }>(`/datasources`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...datasource,
-            settings: {
-              ...getInitialSettings(
-                "custom",
-                ensureAndReturn(datasource.params)
-              ),
-              ...(datasource.settings || {}),
-            },
-          }),
-        });
-        id = res.id;
-        track("Submit Datasource Form", {
+
+        let id = data.id;
+
+        // Update
+        if (id) {
+          const res = await apiCall<{ status: number; message: string }>(
+            `/datasource/${data.id}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(datasource),
+            }
+          );
+          if (res.status > 200) {
+            throw new Error(res.message);
+          }
+        }
+        // Create
+        else {
+          const res = await apiCall<{ id: string }>(`/datasources`, {
+            method: "POST",
+            body: JSON.stringify({
+              ...datasource,
+              settings: {
+                ...getInitialSettings(
+                  "custom",
+                  ensureAndReturn(datasource.params)
+                ),
+                ...(datasource.settings || {}),
+              },
+            }),
+          });
+          id = res.id;
+          track("Submit Datasource Form", {
+            source,
+            type: datasource.type,
+          });
+        }
+
+        setDirty(false);
+        await onSuccess(id);
+      } catch (e) {
+        track("Data Source Form Error", {
           source,
           type: datasource.type,
+          error: e.message.substr(0, 32) + "...",
         });
+        setHasError(true);
+        throw e;
       }
+    };
 
-      setDirty(false);
-      await onSuccess(id);
-    } catch (e) {
-      track("Data Source Form Error", {
-        source,
-        type: datasource.type,
-        error: e.message.substr(0, 32) + "...",
+    const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
+      e
+    ) => {
+      setDatasource({
+        ...datasource,
+        [e.target.name]: e.target.value,
       });
-      setHasError(true);
-      throw e;
-    }
-  };
+      setDirty(true);
+    };
+    const onManualChange = (name, value) => {
+      setDatasource({
+        ...datasource,
+        [name]: value,
+      });
+      setDirty(true);
+    };
 
-  const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
-    e
-  ) => {
-    setDatasource({
-      ...datasource,
-      [e.target.name]: e.target.value,
-    });
-    setDirty(true);
-  };
-  const onManualChange = (name, value) => {
-    setDatasource({
-      ...datasource,
-      [name]: value,
-    });
-    setDirty(true);
-  };
-
-  return (
-    <Modal
-      trackingEventModalType=""
-      inline={inline}
-      open={true}
-      submit={handleSubmit}
-      close={onCancel}
-      header={existing ? "Edit Data Source" : "Add Data Source"}
-      cta={cta}
-      size="lg"
-      secondaryCTA={secondaryCTA}
-    >
-      {importSampleData && !datasource.type && (
-        <div className="alert alert-info">
-          <div className="row align-items-center">
-            <div className="col">
-              <div>
-                <strong>Not ready to connect to your data source?</strong>
-              </div>{" "}
-              Try out GrowthBook first with a sample dataset.
-            </div>
-            <div className="col-auto">
-              <Button
-                color="info"
-                className="btn-sm"
-                onClick={async () => {
-                  await importSampleData();
-                }}
-              >
-                Use Sample Data
-              </Button>
+    return (
+      <Modal
+        trackingEventModalType=""
+        inline={inline}
+        open={true}
+        submit={handleSubmit}
+        close={onCancel}
+        header={existing ? "Edit Data Source" : "Add Data Source"}
+        cta={cta}
+        size="lg"
+        secondaryCTA={secondaryCTA}
+      >
+        {importSampleData && !datasource.type && (
+          <div className="alert alert-info">
+            <div className="row align-items-center">
+              <div className="col">
+                <div>
+                  <strong>Not ready to connect to your data source?</strong>
+                </div>{" "}
+                Try out GrowthBook first with a sample dataset.
+              </div>
+              <div className="col-auto">
+                <Button
+                  color="info"
+                  className="btn-sm"
+                  onClick={async () => {
+                    await importSampleData();
+                  }}
+                >
+                  Use Sample Data
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      <SelectField
-        label="Data Source Type"
-        value={datasource.type || typeOptions[0].type}
-        onChange={(value) => {
-          const option = typeOptions.filter((o) => o.type === value)[0];
-          if (!option) return;
+        )}
+        <SelectField
+          label="Data Source Type"
+          value={datasource.type || typeOptions[0].type}
+          onChange={(value) => {
+            const option = typeOptions.filter((o) => o.type === value)[0];
+            if (!option) return;
 
-          track("Data Source Type Selected", {
-            type: value,
-          });
+            track("Data Source Type Selected", {
+              type: value,
+            });
 
-          setDatasource({
-            ...datasource,
-            type: option.type,
-            params: option.default,
-          } as Partial<DataSourceInterfaceWithParams>);
-          setDirty(true);
-        }}
-        disabled={existing}
-        required
-        autoFocus={true}
-        placeholder="Choose Type..."
-        options={typeOptions.map((o) => {
-          return {
-            value: o.type,
-            label: o.display,
-          };
-        })}
-        helpText={
-          <DocLink
-            docSection={datasource.type as DocSection}
-            fallBackSection="datasources"
-          >
-            View documentation
-          </DocLink>
-        }
-      />
-      <div className="form-group">
-        <label>Display Name</label>
-        <input
-          type="text"
-          className="form-control"
-          name="name"
+            setDatasource({
+              ...datasource,
+              type: option.type,
+              params: option.default,
+            } as Partial<DataSourceInterfaceWithParams>);
+            setDirty(true);
+          }}
+          disabled={existing}
           required
-          onChange={onChange}
-          value={datasource.name}
+          autoFocus={true}
+          placeholder="Choose Type..."
+          options={typeOptions.map((o) => {
+            return {
+              value: o.type,
+              label: o.display,
+            };
+          })}
+          helpText={
+            <DocLink
+              docSection={datasource.type as DocSection}
+              fallBackSection="datasources"
+            >
+              查看文档
+            </DocLink>
+          }
         />
-      </div>
-      <div className="form-group">
-        <label>Description</label>
-        <textarea
-          className="form-control"
-          name="description"
-          onChange={onChange}
-          value={datasource.description}
-        />
-      </div>
-      {projects?.length > 0 && (
         <div className="form-group">
-          <MultiSelectField
-            label={
-              <>
-                Projects{" "}
-                <Tooltip
-                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                    existing ? "update" : "create"
-                  } Data Sources.`}
-                />
-              </>
-            }
-            placeholder="All projects"
-            value={datasource.projects || []}
-            options={projectOptions}
-            onChange={(v) => onManualChange("projects", v)}
-            customClassName="label-overflow-ellipsis"
-            helpText="Assign this data source to specific projects"
+          <label>显示名称</label>
+          <input
+            type="text"
+            className="form-control"
+            name="name"
+            required
+            onChange={onChange}
+            value={datasource.name}
           />
         </div>
-      )}
-      <ConnectionSettings
-        datasource={datasource}
-        existing={existing}
-        hasError={hasError}
-        setDatasource={setDatasource}
-        setDirty={setDirty}
-      />
-      <EditSchemaOptions
-        datasource={datasource}
-        setDatasource={setDatasource}
-        setDirty={setDirty}
-      />
-    </Modal>
-  );
-};
+        <div className="form-group">
+          <label>描述</label>
+          <textarea
+            className="form-control"
+            name="description"
+            onChange={onChange}
+            value={datasource.description}
+          />
+        </div>
+        {projects?.length > 0 && (
+          <div className="form-group">
+            <MultiSelectField
+              label={
+                <>
+                  Projects{" "}
+                  <Tooltip
+                    body={`The dropdown below has been filtered to only include projects where you have permission to ${existing ? "update" : "create"
+                      } Data Sources.`}
+                  />
+                </>
+              }
+              placeholder="All projects"
+              value={datasource.projects || []}
+              options={projectOptions}
+              onChange={(v) => onManualChange("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this data source to specific projects"
+            />
+          </div>
+        )}
+        <ConnectionSettings
+          datasource={datasource}
+          existing={existing}
+          hasError={hasError}
+          setDatasource={setDatasource}
+          setDirty={setDirty}
+        />
+        <EditSchemaOptions
+          datasource={datasource}
+          setDatasource={setDatasource}
+          setDirty={setDirty}
+        />
+      </Modal>
+    );
+  };
 
 export default DataSourceForm;
