@@ -52,7 +52,7 @@ export default function DisplayTestQueryResults({
                 e.preventDefault();
                 close();
               }}
-              aria-label="Close"
+              aria-label="关闭"
             >
               <span aria-hidden="true">×</span>
             </button>

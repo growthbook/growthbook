@@ -132,7 +132,7 @@ const genFormDefaultValues = ({
 export default function FeatureFromExperimentModal({
   close,
   inline,
-  cta = "Create",
+  cta = "创建",
   secondaryCTA,
   experiment,
   mutate,

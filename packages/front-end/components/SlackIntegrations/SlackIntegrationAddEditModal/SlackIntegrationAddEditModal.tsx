@@ -49,16 +49,16 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       mode.mode === "edit"
         ? mode.data
         : {
-            name: "",
-            events: [],
-            description: "",
-            slackAppId: "",
-            environments: [],
-            projects: [],
-            slackSigningKey: "",
-            slackIncomingWebHook: "",
-            tags: [],
-          },
+          name: "",
+          events: [],
+          description: "",
+          slackAppId: "",
+          environments: [],
+          projects: [],
+          slackSigningKey: "",
+          slackIncomingWebHook: "",
+          tags: [],
+        },
   });
 
   const handleSubmit = form.handleSubmit(async (values) => {
@@ -73,7 +73,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
     mode.mode == "edit"
       ? "Edit Slack integration"
       : "Create a new Slack integration";
-  const buttonText = mode.mode == "edit" ? "Save" : "Create";
+  const buttonText = mode.mode == "edit" ? "保存" : "创建";
 
   const handleFormValidation = useCallback(() => {
     const formValues = form.getValues();

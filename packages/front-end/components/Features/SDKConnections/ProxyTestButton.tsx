@@ -36,7 +36,7 @@ export default function ProxyTestButton({
           header="Proxy Status"
           open={true}
           close={() => setProxyTestResult(null)}
-          closeCta="Close"
+          closeCta="关闭"
         >
           {proxyTestResult.error ? (
             <div>

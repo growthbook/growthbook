@@ -42,7 +42,7 @@ export default function FeedbackModal({
       open={open}
       header={header}
       cta={ctaEnabled ? cta : sentCta ?? cta}
-      closeCta="Close"
+      closeCta="关闭"
       close={close}
       submit={() => {
         if (!formRef.current) return;

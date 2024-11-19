@@ -33,7 +33,7 @@ const CreateOrganization: FC<{
       submit={handleSubmit}
       open={true}
       header={"Create New Organization"}
-      cta={"Create"}
+      cta={"创建"}
       close={close}
       inline={!close}
     >

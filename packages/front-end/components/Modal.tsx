@@ -178,7 +178,7 @@ const Modal: FC<ModalProps> = ({
                 e.preventDefault();
                 close();
               }}
-              aria-label="Close"
+              aria-label="关闭"
             >
               <span aria-hidden="true">×</span>
             </button>
@@ -194,7 +194,7 @@ const Modal: FC<ModalProps> = ({
                 e.preventDefault();
                 close();
               }}
-              aria-label="Close"
+              aria-label="关闭"
             >
               <span aria-hidden="true">&times;</span>
             </button>
@@ -263,7 +263,7 @@ const Modal: FC<ModalProps> = ({
                   close();
                 }}
               >
-                {isSuccess && successMessage ? "Close" : closeCta}
+                {isSuccess && successMessage ? "关闭" : closeCta}
               </button>
             ) : null}
             {secondaryCTA}

@@ -236,10 +236,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             close={async () => {
               await safeLogout();
             }}
-            closeCta="Cancel"
-            cta="Sign In"
+            closeCta="取消"
+            cta="登录"
           >
-            <h3>Sign In Required</h3>
+            <h3>需要登录</h3>
             <p>
               You must sign in with your Enterprise SSO provider to continue.
             </p>
@@ -432,7 +432,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         trackingEventModalType=""
         header="logo"
         open={true}
-        cta="Try Again"
+        cta="请重试"
         submit={async () => {
           try {
             await init();
@@ -457,7 +457,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       <Modal
         trackingEventModalType=""
         open={true}
-        cta="OK"
+        cta="好的"
         submit={async () => {
           await redirectWithTimeout(window.location.href);
         }}

@@ -56,7 +56,7 @@ const EditOrganization: FC<{
       submit={handleSubmit}
       open={true}
       header={"Edit Organization"}
-      cta={"Update"}
+      cta={"更新"}
       close={close}
       inline={!close}
       secondaryCTA={

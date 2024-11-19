@@ -69,7 +69,7 @@ const AddOrphanedUserModal: FC<{
       header="Add User"
       open={true}
       cta="Add"
-      closeCta={"Cancel"}
+      closeCta={"取消"}
       submit={async () => {
         await apiCall<{
           emailSent: boolean;

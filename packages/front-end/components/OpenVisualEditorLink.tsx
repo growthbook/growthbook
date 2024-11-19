@@ -156,7 +156,7 @@ const OpenVisualEditorLink: FC<{
           open
           header="Visual Editor Target URL"
           close={() => setShowEditorUrlDialog(false)}
-          closeCta="Close"
+          closeCta="关闭"
           cta="Open settings"
           submit={openSettings}
         >
@@ -173,7 +173,7 @@ const OpenVisualEditorLink: FC<{
           open
           header="GrowthBook DevTools Extension"
           close={() => setShowExtensionDialog(false)}
-          closeCta="Close"
+          closeCta="关闭"
           cta="View extension"
           submit={() => {
             window.open(CHROME_EXTENSION_LINK);

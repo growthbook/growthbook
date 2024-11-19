@@ -42,7 +42,7 @@ export default function FeatureImplementationModal({
       open={true}
       close={close}
       size="lg"
-      closeCta="Close"
+      closeCta="关闭"
       header="Feature Implementation"
     >
       {first && <p>Congratulations on adding your first feature!</p>}

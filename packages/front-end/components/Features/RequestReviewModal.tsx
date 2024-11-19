@@ -210,7 +210,7 @@ export default function RequestReviewModal({
         cta={ctaCopy}
         close={close}
         autoCloseOnSubmit={canReview ? false : true}
-        closeCta="Cancel"
+        closeCta="取消"
         size="lg"
         submit={
           !isPendingReview || canReview || approved ? submitButton : undefined
@@ -344,7 +344,7 @@ export default function RequestReviewModal({
         open={true}
         close={close}
         header={"Review Draft Changes"}
-        cta={"Submit"}
+        cta={"提交"}
         size="lg"
         includeCloseCta={false}
         submit={submitReviewform.handleSubmit(async (data) => {

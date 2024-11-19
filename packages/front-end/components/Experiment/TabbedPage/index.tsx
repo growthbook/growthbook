@@ -207,7 +207,7 @@ export default function TabbedPage({
           header="Audit Log"
           close={() => setAuditModal(false)}
           size="lg"
-          closeCta="Close"
+          closeCta="关闭"
         >
           <HistoryTable type="experiment" id={experiment.id} />
         </Modal>
@@ -218,7 +218,7 @@ export default function TabbedPage({
           open={true}
           header="Experiment Watchers"
           close={() => setWatchersModal(false)}
-          closeCta="Close"
+          closeCta="关闭"
         >
           <ul>
             {usersWatching.map((u, i) => (

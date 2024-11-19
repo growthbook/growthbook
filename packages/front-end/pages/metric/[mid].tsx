@@ -401,19 +401,19 @@ const MetricPage: FC = () => {
       {metric.projects?.includes(
         getDemoDatasourceProjectIdForOrganization(organization.id)
       ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
-            This metric is part of our sample dataset. You can safely delete
-            this once you are done exploring.
+          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+            <div className="flex-1">
+              This metric is part of our sample dataset. You can safely delete
+              this once you are done exploring.
+            </div>
+            <div style={{ width: 180 }} className="ml-2">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/metrics")}
+                source="metric"
+              />
+            </div>
           </div>
-          <div style={{ width: 180 }} className="ml-2">
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/metrics")}
-              source="metric"
-            />
-          </div>
-        </div>
-      )}
+        )}
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto">
@@ -623,7 +623,7 @@ const MetricPage: FC = () => {
                             >
                               <RunQueriesButton
                                 icon="refresh"
-                                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                                cta={analysis ? "更新数据" : "运行分析"}
                                 mutate={mutate}
                                 model={metric}
                                 cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
@@ -990,8 +990,8 @@ const MetricPage: FC = () => {
                   canOpen={canEditMetric}
                 >
                   {supportsSQL &&
-                  metric.queryFormat !== "builder" &&
-                  metric.sql ? (
+                    metric.queryFormat !== "builder" &&
+                    metric.sql ? (
                     <>
                       {metric.userIdTypes && customizeUserIds && (
                         <RightRailSectionGroup
@@ -1145,13 +1145,11 @@ const MetricPage: FC = () => {
                           {metric.cappingSettings.value}
                         </span>{" "}
                         {metric.cappingSettings.type === "percentile" ? (
-                          <span className="text-gray">{`(${
-                            100 * metric.cappingSettings.value
-                          } pctile${
-                            metric.cappingSettings.ignoreZeros
+                          <span className="text-gray">{`(${100 * metric.cappingSettings.value
+                            } pctile${metric.cappingSettings.ignoreZeros
                               ? ", ignoring zeros"
                               : ""
-                          })`}</span>
+                            })`}</span>
                         ) : (
                           ""
                         )}{" "}
@@ -1189,11 +1187,10 @@ const MetricPage: FC = () => {
                         </strong>
                         <span className="text-gray">{` 
                         of first experiment exposure
-                        ${
-                          metric.windowSettings.delayHours
+                        ${metric.windowSettings.delayHours
                             ? " plus the conversion delay"
                             : ""
-                        }`}</span>
+                          }`}</span>
                       </li>
                     </>
                   ) : metric.windowSettings.type === "lookback" ? (
@@ -1219,11 +1216,10 @@ const MetricPage: FC = () => {
                       </li>
                       <li>
                         <span className="text-gray">{`Include all metric data after first experiment exposure
-                      ${
-                        metric.windowSettings.delayHours
-                          ? " plus the conversion delay"
-                          : ""
-                      }`}</span>
+                      ${metric.windowSettings.delayHours
+                            ? " plus the conversion delay"
+                            : ""
+                          }`}</span>
                       </li>
                     </>
                   )}

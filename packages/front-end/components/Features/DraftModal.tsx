@@ -148,30 +148,30 @@ export default function DraftModal({
       submit={
         hasPermission
           ? async () => {
-              try {
-                await apiCall(
-                  `/feature/${feature.id}/${revision.version}/publish`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({
-                      mergeResultSerialized: JSON.stringify(mergeResult),
-                      comment,
-                    }),
-                  }
-                );
-              } catch (e) {
-                await mutate();
-                throw e;
-              }
+            try {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/publish`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    mergeResultSerialized: JSON.stringify(mergeResult),
+                    comment,
+                  }),
+                }
+              );
+            } catch (e) {
               await mutate();
-              onPublish && onPublish();
+              throw e;
             }
+            await mutate();
+            onPublish && onPublish();
+          }
           : undefined
       }
-      cta="Publish"
+      cta="发布"
       ctaEnabled={!!mergeResult.success && hasChanges}
       close={close}
-      closeCta="Cancel"
+      closeCta="取消"
       size="max"
       secondaryCTA={
         permissionsUtil.canManageFeatureDrafts(feature) ? (

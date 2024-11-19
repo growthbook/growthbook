@@ -24,7 +24,7 @@ export default function CheckSDKConnectionModal({
       trackingEventModalType=""
       open={true}
       close={showModalClose ? close : undefined}
-      closeCta="Close"
+      closeCta="关闭"
       size="lg"
       cta={cta}
       header={"Check SDK Connection"}

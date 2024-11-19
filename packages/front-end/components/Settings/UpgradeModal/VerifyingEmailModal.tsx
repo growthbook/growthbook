@@ -71,7 +71,7 @@ export default function VerifyingEmailModal() {
     <Modal
       trackingEventModalType=""
       open={true}
-      cta="Invite Members"
+      cta="邀请成员"
       error={verifyEmailError}
       //close={() => close()}
       size="md"

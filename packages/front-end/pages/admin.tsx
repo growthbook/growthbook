@@ -226,9 +226,8 @@ function OrganizationRow({
                 <div className="col-2 text-right">SSO Enabled:</div>
                 <div className="col-auto font-weight-bold">
                   {ssoInfo
-                    ? `yes (${
-                        ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains.join(", ")})`
+                    ? `yes (${ssoInfo.id
+                    } for domains: ${ssoInfo.emailDomains.join(", ")})`
                     : "no"}
                 </div>
               </div>
@@ -259,9 +258,9 @@ function OrganizationRow({
                     <div className="col-auto font-weight-bold">
                       {organization?.subscription?.planNickname
                         ? organization?.subscription?.planNickname +
-                          " (" +
-                          organization?.subscription?.status +
-                          ")"
+                        " (" +
+                        organization?.subscription?.status +
+                        ")"
                         : "none"}
                     </div>
                   </div>
@@ -280,22 +279,22 @@ function OrganizationRow({
                   {((license ||
                     licenseLoading ||
                     organization?.subscription?.status === "active") && (
-                    <div className="row">
-                      <div className="col-2 text-right">Seats</div>
-                      <div className="col-auto font-weight-bold">
-                        {licenseLoading && <LoadingSpinner />}
-                        {license && license.seats}
-                        {!licenseLoading && !license && (
-                          <>
-                            {organization?.subscription?.qty &&
-                            organization?.subscription?.status === "active"
-                              ? organization.subscription.qty
-                              : ""}
-                          </>
-                        )}
+                      <div className="row">
+                        <div className="col-2 text-right">Seats</div>
+                        <div className="col-auto font-weight-bold">
+                          {licenseLoading && <LoadingSpinner />}
+                          {license && license.seats}
+                          {!licenseLoading && !license && (
+                            <>
+                              {organization?.subscription?.qty &&
+                                organization?.subscription?.status === "active"
+                                ? organization.subscription.qty
+                                : ""}
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )) || // Only show free seats if they are on a free plan, ie. there is no license, no subscription, nor are they on a legacy enterprise
+                    )) || // Only show free seats if they are on a free plan, ie. there is no license, no subscription, nor are they on a legacy enterprise
                     (!organization?.enterprise && (
                       <div className="row">
                         <div className="col-2 text-right">Free Seats:</div>
@@ -843,7 +842,7 @@ const EditMember: FC<{
       submit={handleSubmit}
       open={true}
       header={"Edit Member"}
-      cta={"Update"}
+      cta={"更新"}
       close={close}
       inline={!close}
     >

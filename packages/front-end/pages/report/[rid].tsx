@@ -300,9 +300,9 @@ export default function ReportPage() {
                     // and callbacks are not needed
                     disabled={true}
                     phase={0}
-                    setDifferenceType={() => {}}
-                    setAnalysisSettings={() => {}}
-                    mutate={() => {}}
+                    setDifferenceType={() => { }}
+                    setAnalysisSettings={() => { }}
+                    mutate={() => { }}
                   />
                 </div>
                 <div className="col-auto d-flex align-items-end mr-3">
@@ -320,8 +320,8 @@ export default function ReportPage() {
                 </div>
                 <div className="col-auto">
                   {hasData &&
-                  report.runStarted &&
-                  queryStatusData.status !== "running" ? (
+                    report.runStarted &&
+                    queryStatusData.status !== "running" ? (
                     <div
                       className="text-muted text-right"
                       style={{ width: 100, fontSize: "0.8em" }}
@@ -367,7 +367,7 @@ export default function ReportPage() {
                     >
                       <RunQueriesButton
                         icon="refresh"
-                        cta="Refresh Data"
+                        cta="刷新数据"
                         mutate={mutate}
                         model={report}
                         cancelEndpoint={`/report/${report.id}/cancel`}
@@ -448,8 +448,8 @@ export default function ReportPage() {
                     {report.results &&
                       phaseAgeMinutes < 120 &&
                       "It was just started " +
-                        ago(report.args.startDate) +
-                        ". Give it a little longer and click the 'Refresh' button to check again."}
+                      ago(report.args.startDate) +
+                      ". Give it a little longer and click the 'Refresh' button to check again."}
                     {!report.results &&
                       canUpdateReport &&
                       `Click the "Refresh" button.`}

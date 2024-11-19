@@ -139,7 +139,7 @@ const DimensionForm: FC<{
                   setSqlOpen(true);
                 }}
               >
-                {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                {sql ? "编辑" : "新增"} SQL <FaExternalLinkAlt />
               </button>
             </div>
           </div>

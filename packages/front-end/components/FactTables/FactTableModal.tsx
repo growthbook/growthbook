@@ -179,9 +179,8 @@ export default function FactTableModal({ existing, close }: Props) {
               const defaultDatasource = d.id === settings.defaultDataSource;
               return {
                 value: d.id,
-                label: `${d.name}${
-                  d.description ? ` — ${d.description}` : ""
-                } ${defaultDatasource ? " (default)" : ""}`,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""
+                  } ${defaultDatasource ? " (default)" : ""}`,
               };
             })}
             className="portal-overflow-ellipsis"
@@ -226,7 +225,7 @@ export default function FactTableModal({ existing, close }: Props) {
                   setSqlOpen(true);
                 }}
               >
-                {form.watch("sql") ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                {form.watch("sql") ? "编辑" : "新增"} SQL <FaExternalLinkAlt />
               </button>
             </div>
           </div>

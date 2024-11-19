@@ -64,7 +64,7 @@ export default function FeaturesGetStarted({ features }: Props) {
           close={() => setCodeModalOpen(false)}
           feature={features[0]}
           includeCheck={true}
-          cta="Check Connection"
+          cta="检查连接"
           goToNextStep={() => {
             setCodeModalOpen(false);
           }}
@@ -100,7 +100,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               image="/images/feature-icon.svg"
               title="2. Add your first feature"
               text="Create a feature within GrowthBook. Use features to toggle app behavior, do gradual rollouts, and run A/B tests."
-              cta="Add first feature"
+              cta="添加第一个feature"
               finishedCTA="Add a feature"
               imageLeft={true}
               permissionsError={!permissionsUtil.canViewFeatureModal(project)}

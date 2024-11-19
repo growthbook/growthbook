@@ -15,7 +15,7 @@ const QueryModal: FC<{
       header="View Query"
       open={true}
       size="max"
-      closeCta="Close"
+      closeCta="关闭"
     >
       {queries.map((query, i) => (
         <Code language={language} key={i} code={query} />

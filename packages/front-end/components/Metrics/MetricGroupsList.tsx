@@ -226,7 +226,7 @@ const MetricGroupsList: FC = () => {
           title={"Archive this metric group"}
           subtitle="This will archive this metric group. It will not be selectable in new experiments or reports."
           yesText="Archive"
-          noText="Cancel"
+          noText="取消"
           modalState={!!archiveModal}
           setModalState={(state) => {
             if (!state) setArchiveModal(null);

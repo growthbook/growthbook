@@ -99,20 +99,20 @@ export default function FeaturesHeader({
         <div className="pagecontents mx-auto px-3">
           {projectId ===
             getDemoDatasourceProjectIdForOrganization(organization.id) && (
-            <div className="alert alert-info mb-3 d-flex align-items-center">
-              <div className="flex-1">
-                This feature is part of our sample dataset and shows how Feature
-                Flags and Experiments can be linked together. You can delete
-                this once you are done exploring.
+              <div className="alert alert-info mb-3 d-flex align-items-center">
+                <div className="flex-1">
+                  This feature is part of our sample dataset and shows how Feature
+                  Flags and Experiments can be linked together. You can delete
+                  this once you are done exploring.
+                </div>
+                <div style={{ width: 180 }} className="ml-2">
+                  <DeleteDemoDatasourceButton
+                    onDelete={() => router.push("/features")}
+                    source="feature"
+                  />
+                </div>
               </div>
-              <div style={{ width: 180 }} className="ml-2">
-                <DeleteDemoDatasourceButton
-                  onDelete={() => router.push("/features")}
-                  source="feature"
-                />
-              </div>
-            </div>
-          )}
+            )}
 
           <div className="row align-items-center mb-2">
             <div className="col-auto d-flex align-items-center">
@@ -424,14 +424,14 @@ export default function FeaturesHeader({
           header="Audit Log"
           close={() => setAuditModal(false)}
           size="max"
-          closeCta="Close"
+          closeCta="关闭"
         >
           <HistoryTable type="feature" id={feature.id} />
         </Modal>
       )}
       {duplicateModal && (
         <FeatureModal
-          cta={"Duplicate"}
+          cta={"复制"}
           close={() => setDuplicateModal(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}`;

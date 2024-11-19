@@ -59,7 +59,7 @@ const ConfirmModal = ({
                 type="button"
                 className="close"
                 data-dismiss="modal"
-                aria-label="Close"
+                aria-label="关闭"
                 onClick={closeModal}
               >
                 <span aria-hidden="true">&times;</span>

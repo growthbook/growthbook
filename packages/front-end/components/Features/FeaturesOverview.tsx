@@ -582,16 +582,14 @@ export default function FeaturesOverview({
             </h4>
             <div className="mb-2">
               {dependents === 1
-                ? `Another ${
-                    dependentFeatures.length ? "feature" : "experiment"
-                  } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                : `Other ${
-                    dependentFeatures.length
-                      ? dependentExperiments.length
-                        ? "features and experiments"
-                        : "features"
-                      : "experiments"
-                  } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+                ? `Another ${dependentFeatures.length ? "feature" : "experiment"
+                } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                : `Other ${dependentFeatures.length
+                  ? dependentExperiments.length
+                    ? "features and experiments"
+                    : "features"
+                  : "experiments"
+                } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
             </div>
             <hr className="mb-2" />
             {showDependents ? (
@@ -732,7 +730,7 @@ export default function FeaturesOverview({
                     }}
                   >
                     {validationEnabled ? <GBEdit /> : <GBAddCircle />}{" "}
-                    {validationEnabled ? "Edit" : "Add"} JSON Validation
+                    {validationEnabled ? "编辑" : "新增"} JSON Validation
                   </a>
                 </div>
               )}
@@ -926,8 +924,8 @@ export default function FeaturesOverview({
                           !revisionHasChanges
                             ? "Draft is identical to the live version. Make changes first before publishing"
                             : !hasDraftPublishPermission
-                            ? "You do not have permission to publish this draft."
-                            : ""
+                              ? "You do not have permission to publish this draft."
+                              : ""
                         }
                       >
                         <a
@@ -1256,7 +1254,7 @@ export default function FeaturesOverview({
             open={true}
             close={() => setLogModal(false)}
             header="Revision Log"
-            closeCta={"Close"}
+            closeCta={"关闭"}
             size="lg"
           >
             <h3>Revision {revision.version}</h3>
@@ -1319,7 +1317,7 @@ export default function FeaturesOverview({
             header="Discard Draft"
             cta={"Discard"}
             submitColor="danger"
-            closeCta={"Cancel"}
+            closeCta={"取消"}
             submit={async () => {
               try {
                 await apiCall(

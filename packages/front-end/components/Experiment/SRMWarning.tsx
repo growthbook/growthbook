@@ -105,7 +105,7 @@ const SRMWarning: FC<{
               </p>
             </div>
           }
-          closeCta="Close"
+          closeCta="关闭"
           size="lg"
         >
           <div className="mx-2">

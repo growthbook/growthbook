@@ -51,7 +51,7 @@ const FilterSummary: FC<{
         trackingEventModalType=""
         header={"Experiment Details and Filters"}
         open={showExpandedFilter}
-        closeCta="Close"
+        closeCta="关闭"
         close={() => {
           setShowExpandedFilter(false);
         }}

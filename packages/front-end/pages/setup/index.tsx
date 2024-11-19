@@ -133,8 +133,8 @@ export default function SetupFlow() {
         trackingEventModalType="setup-growthbook"
         header={""}
         submit={() => handleSubmit()}
-        cta={"Finish Setup"}
-        closeCta="Cancel"
+        cta={"结束安装"}
+        closeCta="取消"
         step={step}
         setStep={(step) => {
           if (skipped.has(step)) {
@@ -154,18 +154,18 @@ export default function SetupFlow() {
           step === 0
             ? undefined
             : async () => {
-                setSkipped((prev) => {
-                  const next = new Set(prev);
-                  next.add(step);
-                  return next;
-                });
+              setSkipped((prev) => {
+                const next = new Set(prev);
+                next.add(step);
+                return next;
+              });
 
-                if (step >= 2) {
-                  handleSubmit();
-                } else {
-                  setStep((prev) => prev + 1);
-                }
+              if (step >= 2) {
+                handleSubmit();
+              } else {
+                setStep((prev) => prev + 1);
               }
+            }
         }
         skipped={skipped}
       >

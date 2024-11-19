@@ -532,7 +532,7 @@ const EditSDKWebhooksModal: FC<{
       submit={onSubmit}
       autoCloseOnSubmit={false}
       ctaEnabled={validHeaders}
-      cta={current.id ? "Update" : "Create"}
+      cta={current.id ? "更新" : "创建"}
       size="lg"
     >
       <Field label="Display Name" required {...form.register("name")} />

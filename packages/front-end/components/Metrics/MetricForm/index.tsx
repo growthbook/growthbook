@@ -644,8 +644,8 @@ const MetricForm: FC<MetricFormProps> = ({
         ctaEnabled={ctaEnabled}
         submit={onSubmit}
         cta={cta}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'false | "Cancel"' is not assignable to type ... Remove this comment to see the full error message
-        closeCta={!inline && "Cancel"}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'false | "取消"' is not assignable to type ... Remove this comment to see the full error message
+        closeCta={!inline && "取消"}
         size="lg"
         docSection="metrics"
         step={step}
@@ -923,7 +923,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           title={"Reset to default SQL"}
                           subtitle="This will reset both your SQL and identifier types to the default template for your datasource and type."
                           yesText="Reset"
-                          noText="Cancel"
+                          noText="取消"
                           modalState={showSqlResetConfirmationModal}
                           setModalState={(state) =>
                             setShowSqlResetConfirmationModal(state)

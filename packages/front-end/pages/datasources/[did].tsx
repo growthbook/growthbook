@@ -403,7 +403,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           trackingEventModalType=""
           open={true}
           close={() => setViewSchema(false)}
-          closeCta="Close"
+          closeCta="关闭"
           header="Schema Browser"
         >
           <>

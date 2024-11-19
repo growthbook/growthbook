@@ -90,7 +90,7 @@ export default function RevertModal({
       }
       cta="Revert and Publish"
       close={close}
-      closeCta="Cancel"
+      closeCta="取消"
       size="max"
     >
       <h3>Review Changes</h3>

@@ -99,7 +99,7 @@ const CustomMarkdown: React.FC = () => {
       </p>
       <Modal
         trackingEventModalType=""
-        cta={"Save"}
+        cta={"保存"}
         header={false}
         open
         inline

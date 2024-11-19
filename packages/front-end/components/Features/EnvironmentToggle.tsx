@@ -75,7 +75,7 @@ export default function EnvironmentToggle({
             setToggling(false);
           }}
           open={true}
-          cta="Confirm"
+          cta="确认"
           submit={() => submit(feature, environment, desiredState)}
         >
           You are about to set the <strong>{environment}</strong> environment to{" "}

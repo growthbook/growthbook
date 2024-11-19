@@ -185,7 +185,7 @@ const NorthStarMetricDisplay = ({
               >
                 <RunQueriesButton
                   icon="refresh"
-                  cta={analysis ? "Refresh Data" : "Run Analysis"}
+                  cta={analysis ? "更新数据" : "运行分析"}
                   mutate={mutate}
                   model={
                     analysis ?? {
@@ -214,7 +214,7 @@ const NorthStarMetricDisplay = ({
               >
                 <RunQueriesButton
                   icon="refresh"
-                  cta={analysis ? "Refresh Data" : "Run Analysis"}
+                  cta={analysis ? "更新数据" : "运行分析"}
                   model={
                     data.data.metric ?? {
                       queries: [],

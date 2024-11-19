@@ -209,7 +209,7 @@ export default function SavedGroupsPage() {
           header="Audit Log"
           close={() => setAuditModal(false)}
           size="max"
-          closeCta="Close"
+          closeCta="关闭"
         >
           <HistoryTable type="savedGroup" showName={true} showType={false} />
         </Modal>

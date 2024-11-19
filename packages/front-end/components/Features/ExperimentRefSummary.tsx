@@ -86,7 +86,7 @@ export default function ExperimentRefSummary({
       <ExperimentSkipped
         message="This experiment is archived. This rule will be skipped."
         experimentId={experiment.id}
-        cta="View experiment"
+        cta="查看实验"
       />
     );
   }
@@ -97,7 +97,7 @@ export default function ExperimentRefSummary({
       <ExperimentSkipped
         message="This experiment is not running. This rule will be skipped."
         experimentId={experiment.id}
-        cta="View experiment"
+        cta="查看实验"
       />
     );
   }
@@ -105,8 +105,8 @@ export default function ExperimentRefSummary({
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
       ? rule.variations.find(
-          (v) => v.variationId === experiment.releasedVariationId
-        )
+        (v) => v.variationId === experiment.releasedVariationId
+      )
       : null;
 
   if (experiment.status === "stopped" && !releasedValue) {
@@ -195,13 +195,13 @@ export default function ExperimentRefSummary({
                 <span className="mr-1 border px-2 py-1 bg-light rounded">
                   {namespaces?.find((n) => n.name === phase.namespace.name)
                     ?.label || (
-                    <span
-                      className="italic text-danger"
-                      title="this namespace is not found"
-                    >
-                      <FaExclamationTriangle /> {phase.namespace.name}
-                    </span>
-                  )}
+                      <span
+                        className="italic text-danger"
+                        title="this namespace is not found"
+                      >
+                        <FaExclamationTriangle /> {phase.namespace.name}
+                      </span>
+                    )}
                 </span>
               </Link>
             </>

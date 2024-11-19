@@ -70,7 +70,7 @@ export default function VercelIntegrationPage() {
           trackingEventModalType=""
           open
           close={() => window.close()}
-          cta="Continue"
+          cta="继续"
           submit={async () => {
             setIntegrationAlreadyExists(false);
             postToken();
@@ -81,7 +81,7 @@ export default function VercelIntegrationPage() {
             <strong>Notice:</strong> A Vercel integration already exists for
             your organization. By clicking <strong>{`"Continue"`}</strong> you
             will overwrite the existing integration. Click{" "}
-            <strong>{`"Cancel"`}</strong> to avoid your Vercel integration being
+            <strong>{`"取消"`}</strong> to avoid your Vercel integration being
             overwritten.
           </div>
         </Modal>

@@ -136,7 +136,7 @@ export default function FeatureModal({
   close,
   onSuccess,
   inline,
-  cta = "Create",
+  cta = "创建",
   secondaryCTA,
   featureToDuplicate,
 }: Props) {

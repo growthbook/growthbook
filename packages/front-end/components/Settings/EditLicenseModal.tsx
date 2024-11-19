@@ -13,7 +13,7 @@ const EditLicenseModal: FC<{
 }> = ({ close, mutate }) => {
   const { license, updateUser } = useUser();
   const { apiCall } = useAuth();
-  const [closeCta, setCloseCta] = useState("Cancel");
+  const [closeCta, setCloseCta] = useState("取消");
   const [successMessage, setSuccessMessage] = useState("");
   const [editField, setEditField] = useState(!license);
 
@@ -36,7 +36,7 @@ const EditLicenseModal: FC<{
         });
         await updateUser();
         await mutate();
-        setCloseCta("Close");
+        setCloseCta("关闭");
         setEditField(false);
         setSuccessMessage("License key accepted. Thank you!");
       })}

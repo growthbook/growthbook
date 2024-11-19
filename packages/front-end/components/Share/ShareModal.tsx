@@ -598,7 +598,7 @@ const ShareModal = ({
       close={() => setModalState(false)}
       submit={submitForm}
       cta="保存"
-      closeCta="Cancel"
+      closeCta="取消"
       navStyle="underlined"
       navFill={true}
       size="max"

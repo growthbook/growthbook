@@ -141,7 +141,7 @@ const AsyncQueriesModal: FC<{
       header="Queries"
       open={true}
       size="max"
-      closeCta="Close"
+      closeCta="关闭"
     >
       {!data && !apiError && <LoadingOverlay />}
       {apiError && <div className="alert alert-danger">{apiError.message}</div>}

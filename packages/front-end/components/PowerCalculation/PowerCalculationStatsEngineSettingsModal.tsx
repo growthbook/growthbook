@@ -27,8 +27,8 @@ export default function PowerCalculationStatsEngineSettingsModal({
     currentParams.type === "bayesian"
       ? "bayesian"
       : currentParams.sequentialTesting
-      ? "sequential"
-      : "frequentist";
+        ? "sequential"
+        : "frequentist";
 
   return (
     <Modal
@@ -38,7 +38,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
       header="Choose Statistics Engine"
       close={close}
       includeCloseCta={false}
-      cta="Update"
+      cta="更新"
       secondaryCTA={
         <button className="btn btn-link" onClick={close}>
           Cancel
@@ -59,27 +59,24 @@ export default function PowerCalculationStatsEngineSettingsModal({
           options={[
             {
               value: "bayesian",
-              label: `Bayesian${
-                orgSettings.statsEngine === "bayesian" ? " (Org default)" : ""
-              }`,
+              label: `Bayesian${orgSettings.statsEngine === "bayesian" ? " (Org default)" : ""
+                }`,
             },
             {
               value: "frequentist",
-              label: `Frequentist${
-                orgSettings.statsEngine === "frequentist" &&
-                !orgSettings.sequentialTestingEnabled
+              label: `Frequentist${orgSettings.statsEngine === "frequentist" &&
+                  !orgSettings.sequentialTestingEnabled
                   ? " (Org default)"
                   : ""
-              }`,
+                }`,
             },
             {
               value: "sequential",
-              label: `Frequentist, with Sequential Testing${
-                orgSettings.statsEngine === "frequentist" &&
-                orgSettings.sequentialTestingEnabled
+              label: `Frequentist, with Sequential Testing${orgSettings.statsEngine === "frequentist" &&
+                  orgSettings.sequentialTestingEnabled
                   ? " (Org default)"
                   : ""
-              }`,
+                }`,
               description: `Sequential Testing enables safe peeking at results but makes confidence intervals wider.`,
             },
           ]}

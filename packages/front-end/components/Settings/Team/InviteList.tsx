@@ -48,7 +48,7 @@ const InviteList: FC<{
         type="button"
         className="close"
         data-dismiss="alert"
-        aria-label="Close"
+        aria-label="关闭"
         onClick={(e) => {
           e.preventDefault();
           setResendMessage(null);
@@ -130,7 +130,7 @@ const InviteList: FC<{
         title={deleteInvite ? `Remove ${deleteInvite.email}?` : "Remove invite"}
         subtitle=""
         yesText="Remove"
-        noText="Cancel"
+        noText="取消"
         modalState={deleteInvite !== null}
         setModalState={() => setDeleteInvite(null)}
         onConfirm={async () => {

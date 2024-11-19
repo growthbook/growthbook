@@ -211,7 +211,7 @@ export default function ConfigureReport({
         mutate();
         viewResults();
       })}
-      cta="Save and Run"
+      cta="保存并运行"
     >
       <Field
         label="Tracking Key"

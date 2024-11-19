@@ -31,7 +31,7 @@ export default function NamespaceModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      cta={existing ? "Update" : "Create"}
+      cta={existing ? "更新" : "创建"}
       header={existing ? "Edit Namespace" : "Create Namespace"}
       submit={form.handleSubmit(async (value) => {
         if (existing) {

@@ -211,10 +211,10 @@ export default function FixConflictsModal({
         }
         await mutate();
       }}
-      cta={step === 1 ? "Update Draft" : "Next"}
+      cta={step === 1 ? "更新草稿" : "下一步"}
       ctaEnabled={!!mergeResult.success}
       close={close}
-      closeCta="Cancel"
+      closeCta="取消"
       size="max"
     >
       <Page

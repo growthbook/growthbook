@@ -18,7 +18,7 @@ export default function LicenseSuccessModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      cta="Invite Members"
+      cta="邀请成员"
       closeCta={"Skip"}
       close={close}
       size="md"

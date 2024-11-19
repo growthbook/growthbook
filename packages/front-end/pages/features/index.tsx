@@ -595,7 +595,7 @@ export default function FeaturesPage() {
     <div className="contents container pagecontents">
       {modalOpen && (
         <FeatureModal
-          cta={featureToDuplicate ? "Duplicate" : "Create"}
+          cta={featureToDuplicate ? "复制" : "创建"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;

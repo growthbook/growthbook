@@ -162,7 +162,7 @@ const RunQueriesButton: FC<{
               }
               await mutate();
             }}
-            title="Cancel"
+            title="取消"
           >
             <FaXmark size={14} style={{ marginTop: -3.5 }} />
           </div>

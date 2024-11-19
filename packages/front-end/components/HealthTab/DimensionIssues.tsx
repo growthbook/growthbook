@@ -150,7 +150,7 @@ export const DimensionIssues = ({
         trackingEventModalType="srm-dimension-issues"
         close={() => setModalOpen(false)}
         open={modalOpen}
-        closeCta={"Close"}
+        closeCta={"关闭"}
         header={
           <div>
             <h2>Explore Dimensions</h2>

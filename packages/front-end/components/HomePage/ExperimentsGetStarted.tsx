@@ -182,13 +182,13 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !hasFileConfig() &&
                       !(hasDataSource
                         ? datasources.some((datasource) =>
-                            permissionsUtil.canUpdateDataSourceSettings(
-                              datasource
-                            )
+                          permissionsUtil.canUpdateDataSourceSettings(
+                            datasource
                           )
+                        )
                         : permissionsUtil.canViewCreateDataSourceModal(project))
                     }
-                    cta="Add data source"
+                    cta="添加数据源"
                     finishedCTA="View data sources"
                     imageLeft={true}
                     onClick={(finished) => {
@@ -214,7 +214,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
-                    cta="Add metric"
+                    cta="添加指标"
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
@@ -246,7 +246,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={false}
-                    cta={"Import Experiment"}
+                    cta={"导入实验"}
                     finishedCTA="Import Experiment"
                     permissionsError={
                       !permissionsUtil.canViewExperimentModal(project)
@@ -331,7 +331,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={false}
-                    cta="Design New Experiment"
+                    cta="设计新的实验"
                     finishedCTA="Design New Experiment"
                     permissionsError={
                       !permissionsUtil.canViewExperimentModal(project)

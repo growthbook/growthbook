@@ -61,9 +61,9 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
 
   const [showContactSupport, setShowContactSupport] = useState(
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
-      license &&
-      license.hardCap &&
-      license.seats <= seatsInUse
+    license &&
+    license.hardCap &&
+    license.seats <= seatsInUse
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -163,12 +163,12 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     <Modal
       trackingEventModalType=""
       close={close}
-      header="Invite Member"
+      header="邀请成员"
       open={true}
-      cta="Invite"
+      cta="邀请"
       size="lg"
       closeCta={
-        successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
+        successfulInvites.length || failedInvites.length ? "关闭" : "取消"
       }
       autoCloseOnSubmit={false}
       submit={
