@@ -2,7 +2,7 @@ import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
-import { PiInfoFill } from "react-icons/pi";
+import { PiHourglassMedium, PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";
@@ -27,8 +27,14 @@ import Stepper from "@/components/Stepper/Stepper";
 import Link from "@/components/Radix/Link";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
-import Tabs from "@/components/Radix/Tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
+import useURLHash from "@/hooks/useURLHash";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -45,6 +51,7 @@ export default function DesignSystemPage() {
   const [stepperStep, setStepperStep] = useState(0);
   const [selectValue, setSelectValue] = useState("carrot");
   const [activeTab, setActiveTab] = useState("tab1");
+  const [tabInUrlHash, setUrlHash] = useURLHash(["tab1", "tab2"]);
 
   return (
     <div className="pagecontents container-fluid">
@@ -661,48 +668,49 @@ export default function DesignSystemPage() {
           <Box>
             Uncontrolled tabs with persistance in the URL
             <Tabs
-              defaultTabSlug="tab1"
-              persistHash
-              tabs={[
-                {
-                  slug: "tab1",
-                  label: "Tab 1",
-                  content: <Box p="4">Tab 1 content</Box>,
-                },
-                {
-                  slug: "tab2",
-                  label: "Tab 2",
-                  content: <Box p="4">Tab 2 content</Box>,
-                },
-              ]}
-            />
+              value={tabInUrlHash ?? "tab1"}
+              onValueChange={(tab) => {
+                if (tab === "tab1" || tab === "tab2") {
+                  setUrlHash(tab);
+                }
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="tab1">
+                  <PiHourglassMedium style={{ color: "var(--accent-10)" }} />{" "}
+                  Tab 1
+                </TabsTrigger>
+                <TabsTrigger value="tab2">Tab 2</TabsTrigger>
+              </TabsList>
+
+              <Box p="4">
+                <TabsContent value="tab1">Tab 1 content</TabsContent>
+                <TabsContent value="tab2">Tab 2 content</TabsContent>
+              </Box>
+            </Tabs>
           </Box>
 
           <Box>
             Tabs are lazy loaded by default, but you can use forceMount to
             disable this behavior (see console for output).
-            <Tabs
-              activeTab={activeTab}
-              onTabChange={(slug) => setActiveTab(slug)}
-              tabs={[
-                {
-                  slug: "tab1",
-                  label: "Tab 1",
-                  content: <TabContentExample number={1} />,
-                },
-                {
-                  slug: "tab2",
-                  label: "Tab 2",
-                  content: <TabContentExample number={2} />,
-                },
-                {
-                  slug: "tab3",
-                  label: "Tab 3 (forcibly mounted)",
-                  content: <TabContentExample number={3} />,
-                  forceMount: true,
-                },
-              ]}
-            />
+            <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
+              <TabsList>
+                <TabsTrigger value="tab1">Tab 1</TabsTrigger>
+                <TabsTrigger value="tab2">Tab 2</TabsTrigger>
+                <TabsTrigger value="tab3">Tab 3 (forcibly mounted)</TabsTrigger>
+              </TabsList>
+              <Box p="4">
+                <TabsContent value="tab1">
+                  <TabContentExample number={1} />
+                </TabsContent>
+                <TabsContent value="tab2">
+                  <TabContentExample number={2} />
+                </TabsContent>
+                <TabsContent value="tab3" forceMount>
+                  <TabContentExample number={3} />
+                </TabsContent>
+              </Box>
+            </Tabs>
           </Box>
         </Flex>
       </div>
@@ -717,5 +725,5 @@ function TabContentExample({ number }: { number: number }) {
     number,
   ]);
 
-  return <Box p="4">Tab number {number} content</Box>;
+  return <>Tab number {number} content</>;
 }

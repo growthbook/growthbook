@@ -1,78 +1,29 @@
 import { Tabs as RadixTabs } from "@radix-ui/themes";
-import { ReactNode } from "react";
-import useURLHash from "@/hooks/useURLHash";
 
-export type TabConfig = {
-  slug: string;
-  label: ReactNode;
-  content: ReactNode;
-  forceMount?: boolean;
-};
+export function Tabs({
+  children,
+  ...props
+}: React.ComponentProps<typeof RadixTabs.Root>) {
+  return <RadixTabs.Root {...props}>{children}</RadixTabs.Root>;
+}
 
-type SharedProps = {
-  tabs: TabConfig[];
-};
+export function TabsList({
+  children,
+  ...props
+}: React.ComponentProps<typeof RadixTabs.List>) {
+  return <RadixTabs.List {...props}>{children}</RadixTabs.List>;
+}
 
-type UncontrolledProps = {
-  defaultTabSlug: string;
-  persistHash?: boolean;
-  activeTab?: never;
-  onTabChange?: never;
-};
+export function TabsTrigger({
+  children,
+  ...props
+}: React.ComponentProps<typeof RadixTabs.Trigger>) {
+  return <RadixTabs.Trigger {...props}>{children}</RadixTabs.Trigger>;
+}
 
-type ControlledProps = {
-  defaultTabSlug?: never;
-  persistHash?: never;
-  activeTab: string;
-  onTabChange: (slug: string) => void;
-};
-
-export default function Tabs(
-  props: SharedProps & (UncontrolledProps | ControlledProps)
-) {
-  const { tabs } = props;
-  const slugs = tabs.map((tab) => tab.slug);
-
-  const [activeURLHash, setActiveURLHash] = useURLHash(slugs);
-
-  // If the tabs are controlled, use its values
-  let radixProps = {};
-  if ("activeTab" in props) {
-    radixProps = {
-      value: props.activeTab,
-      onValueChange: props.onTabChange,
-    };
-  } else if (props.persistHash) {
-    radixProps = {
-      value: activeURLHash ?? props.defaultTabSlug,
-      onValueChange: setActiveURLHash,
-    };
-  } else {
-    radixProps = {
-      defaultValue: props.defaultTabSlug,
-    };
-  }
-
-  return (
-    <RadixTabs.Root {...radixProps}>
-      <RadixTabs.List>
-        {tabs.map((tab) => (
-          <RadixTabs.Trigger value={tab.slug} key={`${tab.slug}-trigger`}>
-            {tab.label}
-          </RadixTabs.Trigger>
-        ))}
-      </RadixTabs.List>
-
-      {tabs.map((tab) => (
-        <RadixTabs.Content
-          {...(tab.forceMount ? { forceMount: true } : {})}
-          hidden={tab.forceMount && tab.slug !== props.activeTab}
-          value={tab.slug}
-          key={`${tab.slug}-content`}
-        >
-          {tab.content}
-        </RadixTabs.Content>
-      ))}
-    </RadixTabs.Root>
-  );
+export function TabsContent({
+  children,
+  ...props
+}: React.ComponentProps<typeof RadixTabs.Content>) {
+  return <RadixTabs.Content {...props}>{children}</RadixTabs.Content>;
 }
