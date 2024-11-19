@@ -203,7 +203,7 @@ const IdeaPage = (): ReactElement => {
                   displayName="Idea"
                   link={true}
                   className="dropdown-item text-dark"
-                  text="Delete"
+                  text="删除"
                   onClick={async () => {
                     await apiCall<{ status: number; message?: string }>(
                       `/idea/${iid}`,
@@ -432,7 +432,7 @@ const IdeaPage = (): ReactElement => {
                 <div>
                   <hr />
                   <RightRailSection
-                    title="Parameters"
+                    title="参数"
                     open={() => setImpactOpen(true)}
                     canOpen={
                       (!datasource ||
@@ -440,11 +440,11 @@ const IdeaPage = (): ReactElement => {
                       canEdit
                     }
                   >
-                    <RightRailSectionGroup title="Metric" type="badge">
+                    <RightRailSectionGroup title="指标" type="badge">
                       {metric?.name}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
-                      title="Percent of Traffic"
+                      title="流量比例"
                       type="code"
                     >
                       {idea?.estimateParams?.userAdjustment || "100"}%

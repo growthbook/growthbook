@@ -415,9 +415,8 @@ const ShareModal = ({
                         event.preventDefault();
                         setSelectedExperiments(e);
                       }}
-                      className={`cursor-pointer ${
-                        selectedExperiments.has(e.id) ? "selected" : ""
-                      }`}
+                      className={`cursor-pointer ${selectedExperiments.has(e.id) ? "selected" : ""
+                        }`}
                     >
                       <td>
                         <span className="h3 mb-0 checkmark">
@@ -649,10 +648,10 @@ const ShareModal = ({
                 // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
                 defaultTab={
                   byStatus.stopped.length > 0
-                    ? "Stopped"
+                    ? "已停止"
                     : byStatus.running.length > 0
-                    ? "Running"
-                    : null
+                      ? "运行中"
+                      : null
                 }
               >
                 {tabContents.map((con) => {

@@ -75,7 +75,7 @@ const genEnvironmentSettings = ({
     const defaultEnabled = canPublish ? e.defaultState ?? true : false;
     const enabled = canPublish
       ? featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
-        defaultEnabled
+      defaultEnabled
       : false;
     const rules = featureToDuplicate?.environmentSettings?.[e.id]?.rules ?? [];
 
@@ -113,23 +113,23 @@ const genFormDefaultValues = ({
   });
   return featureToDuplicate
     ? {
-        valueType: featureToDuplicate.valueType,
-        defaultValue: featureToDuplicate.defaultValue,
-        description: featureToDuplicate.description,
-        id: genDuplicatedKey(featureToDuplicate),
-        project: featureToDuplicate.project ?? project,
-        tags: featureToDuplicate.tags,
-        environmentSettings,
-      }
+      valueType: featureToDuplicate.valueType,
+      defaultValue: featureToDuplicate.defaultValue,
+      description: featureToDuplicate.description,
+      id: genDuplicatedKey(featureToDuplicate),
+      project: featureToDuplicate.project ?? project,
+      tags: featureToDuplicate.tags,
+      environmentSettings,
+    }
     : {
-        valueType: "" as FeatureValueType,
-        defaultValue: getDefaultValue("boolean"),
-        description: "",
-        id: "",
-        project,
-        tags: [],
-        environmentSettings,
-      };
+      valueType: "" as FeatureValueType,
+      defaultValue: getDefaultValue("boolean"),
+      description: "",
+      id: "",
+      project,
+      tags: [],
+      environmentSettings,
+    };
 };
 
 export default function FeatureModal({
@@ -265,7 +265,7 @@ export default function FeatureModal({
             setShowTags(true);
           }}
         >
-          + tags
+          + 标签
         </a>
       )}
 
@@ -287,7 +287,7 @@ export default function FeatureModal({
             setShowDescription(true);
           }}
         >
-          + description
+          + 描述
         </a>
       )}
 

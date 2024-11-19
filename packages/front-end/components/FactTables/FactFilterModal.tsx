@@ -144,7 +144,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                 setShowDescription(true);
               }}
             >
-              + description
+              + 描述
             </a>
           )}
 

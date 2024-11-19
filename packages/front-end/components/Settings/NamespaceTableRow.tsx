@@ -102,11 +102,11 @@ export default function NamespaceTableRow({
             ) : null}
             {experiments.length === 0 && canDelete ? (
               <DeleteButton
-                displayName="Namespace"
+                displayName="命名空间"
                 className="dropdown-item text-danger"
                 useIcon={false}
-                text="Delete"
-                title="Delete Namespace"
+                text="删除"
+                title="删除命名空间"
                 onClick={onDelete}
               />
             ) : null}

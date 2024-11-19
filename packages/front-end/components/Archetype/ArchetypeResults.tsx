@@ -461,7 +461,7 @@ const ArchetypeResults: FC<{
                         <DeleteButton
                           className="dropdown-item"
                           displayName="Archetype"
-                          text="Delete"
+                          text="删除"
                           useIcon={false}
                           onClick={async () => {
                             await apiCall(`/archetype/${archetype.id}`, {

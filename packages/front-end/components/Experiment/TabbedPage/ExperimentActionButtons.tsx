@@ -18,7 +18,7 @@ export default function ExperimentActionButtons({
         disabled={!editTargeting}
         onClick={() => editTargeting?.()}
       >
-        变更
+        修改
       </Button>
       <Button
         variant="outline"

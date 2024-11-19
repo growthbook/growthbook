@@ -188,7 +188,7 @@ const MetricGroupsList: FC = () => {
                         <DeleteButton
                           className="dropdown-item text-danger"
                           displayName="project"
-                          text="Delete"
+                          text="删除"
                           useIcon={false}
                           onClick={async () => {
                             await apiCall(`/metric-group/${mg.id}`, {

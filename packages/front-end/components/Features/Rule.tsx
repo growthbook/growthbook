@@ -246,7 +246,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   className="dropdown-item"
                   displayName="Rule"
                   useIcon={false}
-                  text="Delete"
+                  text="删除"
                   onClick={async () => {
                     track("Delete Feature Rule", {
                       ruleIndex: i,

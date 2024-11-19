@@ -242,7 +242,7 @@ export default function IdLists({ groups, mutate }: Props) {
                                   displayName="Saved Group"
                                   className="dropdown-item text-danger"
                                   useIcon={false}
-                                  text="Delete"
+                                  text="删除"
                                   title="Delete SavedGroup"
                                   onClick={async () => {
                                     await apiCall(`/saved-groups/${s.id}`, {

@@ -338,7 +338,7 @@ export default function FeatureFromExperimentModal({
           label: f.id + " (" + f.valueType + ")",
           value: f.id,
         }))}
-        initialOption="Create New Feature"
+        initialOption="新建Feature"
         value={form.watch("existing")}
         onChange={(value) => {
           if (value) {
@@ -370,13 +370,13 @@ export default function FeatureFromExperimentModal({
                 setShowTags(true);
               }}
             >
-              + tags
+              + 标签
             </a>
           )}
 
           {showDescription ? (
             <div className="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <MarkdownInput
                 value={form.watch("description") || ""}
                 setValue={(value) => form.setValue("description", value)}
@@ -392,7 +392,7 @@ export default function FeatureFromExperimentModal({
                 setShowDescription(true);
               }}
             >
-              + description
+              + 描述
             </a>
           )}
 

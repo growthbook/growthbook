@@ -41,19 +41,19 @@ type Form = UseFormReturn<PartialPowerCalculationParams>;
 
 type Config =
   | {
-      defaultSettingsValue?: (
-        priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings
-      ) => number | undefined;
-      defaultValue?: number;
-    }
+    defaultSettingsValue?: (
+      priorSettings: MetricPriorSettings | undefined,
+      orgSettings: OrganizationSettings
+    ) => number | undefined;
+    defaultValue?: number;
+  }
   | {
-      defaultSettingsValue?: (
-        priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings
-      ) => boolean | undefined;
-      defaultValue?: boolean;
-    };
+    defaultSettingsValue?: (
+      priorSettings: MetricPriorSettings | undefined,
+      orgSettings: OrganizationSettings
+    ) => boolean | undefined;
+    defaultValue?: boolean;
+  };
 
 const defaultValue = (
   { defaultSettingsValue, defaultValue }: Config,
@@ -169,11 +169,11 @@ const SelectStep = ({
                   ...(isBinomialMetric(metric)
                     ? { type: "binomial", ...field("conversionRate", metric) }
                     : {
-                        type: "mean",
-                        ...field("mean", metric),
-                        ...field("standardDeviation", metric),
-                        standardDeviation: undefined,
-                      }),
+                      type: "mean",
+                      ...field("mean", metric),
+                      ...field("standardDeviation", metric),
+                      standardDeviation: undefined,
+                    }),
                   ...field("overrideMetricLevelSettings", metric),
                   ...field("overrideProper", metric),
                   ...field("overridePriorLiftMean", metric),
@@ -464,7 +464,7 @@ const SetParamsStep = ({
       header="新的计算"
       close={close}
       includeCloseCta={false}
-      cta="Submit"
+      cta="提交"
       secondaryCTA={
         <button className="btn btn-link" onClick={onBack}>
           &lt; 后退
@@ -523,12 +523,12 @@ export default function PowerCalculationModal({
     (defaultValues, key) =>
       config[key].metricType
         ? {
-            ...defaultValues,
-            [key]: {
-              type: config[key].metricType,
-              value: defaultValue(config[key], undefined, settings),
-            },
-          }
+          ...defaultValues,
+          [key]: {
+            type: config[key].metricType,
+            value: defaultValue(config[key], undefined, settings),
+          },
+        }
         : defaultValues,
     {}
   );
@@ -543,7 +543,7 @@ export default function PowerCalculationModal({
             ...Object.keys(defaultValues).reduce(
               (values, key) =>
                 metrics[id].type === defaultValues[key].type ||
-                defaultValues[key].type === "all"
+                  defaultValues[key].type === "all"
                   ? { ...values, [key]: defaultValues[key].value }
                   : {},
               {}

@@ -150,7 +150,7 @@ export default function SDKConnectionPage() {
                   <DeleteButton
                     className="dropdown-item text-danger"
                     displayName="SDK Connection"
-                    text="Delete"
+                    text="删除"
                     useIcon={false}
                     onClick={async () => {
                       await apiCall(`/sdk-connections/${connection.id}`, {
@@ -235,7 +235,7 @@ export default function SDKConnectionPage() {
 
       <div className="row mb-2 align-items-center">
         <div className="col-auto">
-          <h2 className="mb-0">Connection</h2>
+          <h2 className="mb-0">连接</h2>
         </div>
       </div>
       <div
@@ -255,7 +255,7 @@ export default function SDKConnectionPage() {
             backgroundColor: "var(--text-color-primary)",
           }}
         />
-        <ConnectionNode first title="Your App">
+        <ConnectionNode first title="您的应用">
           <div
             className="d-flex flex-wrap justify-content-center"
             style={{ maxWidth: 325 }}

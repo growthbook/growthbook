@@ -245,7 +245,7 @@ export default function FeaturesHeader({
                         router.push("/features");
                       }}
                       className="dropdown-item text-danger"
-                      text="Delete"
+                      text="删除"
                       disabled={dependents > 0}
                     />
                   </Tooltip>

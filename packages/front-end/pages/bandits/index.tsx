@@ -86,16 +86,16 @@ const ExperimentsPage = (): React.ReactElement => {
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
-          ? "drafts"
-          : exp.status,
+            ? "drafts"
+            : exp.status,
         date:
           (exp.archived
             ? exp.dateUpdated
             : exp.status === "running"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-            : exp.status === "stopped"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-            : exp.dateCreated) ?? "",
+              ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+              : exp.status === "stopped"
+                ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+                : exp.dateCreated) ?? "",
       };
     },
     [getExperimentMetricById, getProjectById, getUserDisplay]
@@ -367,10 +367,10 @@ const ExperimentsPage = (): React.ReactElement => {
                             active && tabs.length > 1
                               ? `Hide ${tab} experiments`
                               : active
-                              ? `Remove filter`
-                              : tabs.length === 0
-                              ? `View only ${tab} experiments`
-                              : `Include ${tab} experiments`
+                                ? `Remove filter`
+                                : tabs.length === 0
+                                  ? `View only ${tab} experiments`
+                                  : `Include ${tab} experiments`
                           }
                         >
                           <span className="mr-1">
@@ -475,7 +475,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               {isFiltered && e.trackingKey && (
                                 <span
                                   className="testid text-muted small"
-                                  title="Experiment Id"
+                                  title="实验ID"
                                 >
                                   {e.trackingKey}
                                 </span>
@@ -489,7 +489,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               <Tooltip
                                 body={
                                   <>
-                                    Project <code>{e.project}</code> not found
+                                    项目<code>{e.project}</code>未找到
                                   </>
                                 }
                               >
@@ -503,7 +503,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           </td>
                         )}
 
-                        <td data-title="Tags:" className="table-tags">
+                        <td data-title="标签：" className="table-tags">
                           <SortedTags
                             tags={Object.values(e.tags)}
                             useFlex={true}
@@ -515,7 +515,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         <td className="nowrap" data-title="Status:">
                           {e.archived ? (
                             <span className="badge badge-secondary">
-                              archived
+                              已归档
                             </span>
                           ) : (
                             <ExperimentStatusIndicator status={e.status} />
@@ -525,12 +525,12 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.tab === "running"
                             ? "started"
                             : e.tab === "drafts"
-                            ? "created"
-                            : e.tab === "stopped"
-                            ? "ended"
-                            : e.tab === "archived"
-                            ? "updated"
-                            : ""}{" "}
+                              ? "created"
+                              : e.tab === "stopped"
+                                ? "ended"
+                                : e.tab === "archived"
+                                  ? "updated"
+                                  : ""}{" "}
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Summary:">

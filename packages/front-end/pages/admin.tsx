@@ -769,9 +769,9 @@ const Admin: FC = () => {
             <table className="table appbox" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>email</th>
-                  <th>Id</th>
+                  <th>名字</th>
+                  <th>邮箱</th>
+                  <th>ID</th>
                   <th>Created</th>
                   <th title="Verified Email">Verified</th>
                   <th>Orgs</th>

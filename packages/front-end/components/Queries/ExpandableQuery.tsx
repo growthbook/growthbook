@@ -36,16 +36,16 @@ const ExpandableQuery: FC<{
     <div className="mb-4">
       <h4 className="d-flex align-items-top">
         {query.status === "running" && (
-          <FaCircle className="text-info mr-2" title="Running" />
+          <FaCircle className="text-info mr-2" title="运行中" />
         )}
         {query.status === "queued" && (
           <FaSquare className="text-secondary mr-2" title="Queued" />
         )}
         {query.status === "failed" && (
-          <FaExclamationTriangle className="text-danger mr-2" title="Failed" />
+          <FaExclamationTriangle className="text-danger mr-2" title="失败" />
         )}
         {query.status === "succeeded" && (
-          <FaCheck className="text-success mr-2" title="Succeeded" />
+          <FaCheck className="text-success mr-2" title="成功" />
         )}
         <div className="mr-1">{title}</div>
         <span style={{ fontWeight: "normal" }}>

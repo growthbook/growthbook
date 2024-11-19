@@ -193,7 +193,7 @@ const DataSourceQueries = (): React.ReactElement => {
                     tipPosition="top"
                   >
                     {query.status === "running" && (
-                      <FaCircle className="text-info mr-2" title="Running" />
+                      <FaCircle className="text-info mr-2" title="运行中" />
                     )}
                     {query.status === "queued" && (
                       <FaSquare
@@ -204,13 +204,13 @@ const DataSourceQueries = (): React.ReactElement => {
                     {query.status === "failed" && (
                       <FaExclamationTriangle
                         className="text-danger mr-2"
-                        title="Failed"
+                        title="失败"
                       />
                     )}
                     {query.status === "succeeded" && (
                       <FaCheck
                         className="text-success mr-2"
-                        title="Succeeded"
+                        title="成功"
                       />
                     )}
                   </Tooltip>

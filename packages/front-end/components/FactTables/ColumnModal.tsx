@@ -187,7 +187,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             setShowDescription(true);
           }}
         >
-          + description
+          + 描述
         </a>
       )}
     </Modal>

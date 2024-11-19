@@ -36,7 +36,7 @@ const EnvironmentSelect: FC<{
         }}
       >
         <Text as="label" weight="bold" mb="4">
-          Enabled Environments
+          已启用环境
         </Text>
         <div>
           <Checkbox
@@ -44,15 +44,15 @@ const EnvironmentSelect: FC<{
               selectAllChecked
                 ? true
                 : selectAllIndeterminate
-                ? "indeterminate"
-                : false
+                  ? "indeterminate"
+                  : false
             }
             setValue={(v) =>
               environmentsUserCanAccess.forEach((env) => {
                 setValue(env, v === true);
               })
             }
-            label="Select All"
+            label="全选"
             weight="bold"
             mb="5"
           />
@@ -68,7 +68,7 @@ const EnvironmentSelect: FC<{
               disabled={
                 !permissionsUtil.canPublishFeature({ project }, [env.id])
               }
-              disabledMessage="You don't have permission to create features in this environment."
+              disabledMessage="您没有在该环境中创建特性的权限。"
               value={environmentSettings[env.id].enabled}
               setValue={(enabled) => setValue(env, enabled === true)}
               label={env.id}

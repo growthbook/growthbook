@@ -160,8 +160,8 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                           deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
                             " ↔ "
                           )}?`}
-                          title="Delete"
-                          text="Delete"
+                          title="删除"
+                          text="删除"
                           outline={false}
                         />
                       </MoreMenu>

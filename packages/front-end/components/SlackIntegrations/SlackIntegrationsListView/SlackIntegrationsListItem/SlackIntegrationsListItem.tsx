@@ -45,7 +45,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
               onClick={onDelete}
               outline={true}
               className="btn-sm"
-              text="Delete"
+              text="删除"
             />
           </div>
         </div>

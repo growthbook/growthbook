@@ -91,7 +91,7 @@ export default function FeaturesSettings() {
           <Field
             id="featureKeyExample"
             {...form.register("featureKeyExample")}
-            placeholder="my-feature"
+            placeholder="我的feature"
           />
           <p>
             <small className="text-muted mb-3">

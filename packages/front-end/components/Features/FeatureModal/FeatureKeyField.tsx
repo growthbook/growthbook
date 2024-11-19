@@ -10,14 +10,13 @@ const FeatureKeyField: FC<{
     label="Feature Key"
     {...keyField}
     pattern="^[a-zA-Z0-9_.:|-]+$"
-    placeholder={useOrgSettings().featureKeyExample || "my-feature"}
+    placeholder={useOrgSettings().featureKeyExample || "我的feature"}
     required
-    title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
+    title="只允许使用字母、数字以及字符'_-.:|'。不允许有空格。"
     helpText={
       <>
-        Only letters, numbers, and the characters <code>_</code>, <code>-</code>
-        , <code>.</code>, <code>:</code>, and <code>|</code> allowed. No spaces.{" "}
-        <strong>Cannot be changed later!</strong>
+        只允许使用字母、数字以及字符 <code>_</code>、<code>-</code>、<code>.</code>、<code>:</code> 和 <code>|</code>。不允许有空格。{" "}
+        <strong>之后无法更改！</strong>
       </>
     }
   />

@@ -28,8 +28,8 @@ const CreateOrJoinOrganizationPage: FC = () => {
     <div className="container-fluid pagecontents">
       <CreateOrJoinOrganization
         showFrame={false}
-        title="Join another organization"
-        subtitle="Select the organization you would like to join."
+        title="加入另一个组织"
+        subtitle="选择您想加入的组织"
       />
     </div>
   );

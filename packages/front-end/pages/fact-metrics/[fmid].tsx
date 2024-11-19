@@ -234,104 +234,104 @@ export default function FactMetricPage() {
     },
     ...(factMetric.metricType !== "proportion"
       ? [
-          {
-            label: `Value`,
-            value:
-              factMetric.numerator.column === "$$count"
-                ? "Count of Rows"
-                : factMetric.numerator.column === "$$distinctUsers"
+        {
+          label: `Value`,
+          value:
+            factMetric.numerator.column === "$$count"
+              ? "Count of Rows"
+              : factMetric.numerator.column === "$$distinctUsers"
                 ? "Unique Users"
                 : factMetric.numerator.column,
-          },
-        ]
+        },
+      ]
       : []),
     ...(!factMetric.numerator.column.startsWith("$$") &&
-    (factMetric.metricType !== "quantile" ||
-      factMetric.quantileSettings?.type === "unit")
+      (factMetric.metricType !== "quantile" ||
+        factMetric.quantileSettings?.type === "unit")
       ? [
-          {
-            label: "Per-User Aggregation",
-            value: "SUM",
-          },
-        ]
+        {
+          label: "Per-User Aggregation",
+          value: "SUM",
+        },
+      ]
       : userFilters.length > 0
-      ? [
+        ? [
           {
             label: "User Filter",
             value: userFilters.join(" AND "),
           },
         ]
-      : []),
+        : []),
     ...(factMetric.metricType === "quantile"
       ? [
-          {
-            label: "Quantile Scope",
-            value: factMetric.quantileSettings?.type,
-          },
-          {
-            label: "Ignore Zeros",
-            value: factMetric.quantileSettings?.ignoreZeros ? "Yes" : "No",
-          },
-          {
-            label: "Quantile",
-            value: getPercentileLabel(
-              factMetric.quantileSettings?.quantile ?? 0.5
-            ),
-          },
-        ]
+        {
+          label: "Quantile Scope",
+          value: factMetric.quantileSettings?.type,
+        },
+        {
+          label: "Ignore Zeros",
+          value: factMetric.quantileSettings?.ignoreZeros ? "Yes" : "No",
+        },
+        {
+          label: "Quantile",
+          value: getPercentileLabel(
+            factMetric.quantileSettings?.quantile ?? 0.5
+          ),
+        },
+      ]
       : []),
   ];
 
   const denominatorData: DataListItem[] =
     factMetric.metricType === "ratio" &&
-    factMetric.denominator &&
-    denominatorFactTable
+      factMetric.denominator &&
+      denominatorFactTable
       ? [
-          {
-            label: `Fact Table`,
-            value: <FactTableLink id={factMetric.denominator.factTableId} />,
-          },
-          ...Object.entries(factMetric.denominator.inlineFilters || {})
-            .filter(([, v]) => v.some((v) => !!v))
-            .map(([k, v]) => {
-              const columnName =
-                denominatorFactTable?.columns.find((c) => c.column === k)
-                  ?.name || k;
-              return {
-                label: columnName,
-                value: v.join(" OR "),
-              };
-            }),
-          {
-            label: `Row Filter`,
-            value:
-              factMetric.denominator.filters.length > 0 ? (
-                <FilterBadges
-                  factTable={denominatorFactTable}
-                  ids={factMetric.denominator.filters}
-                />
-              ) : (
-                <em>None</em>
-              ),
-          },
-          {
-            label: `Value`,
-            value:
-              factMetric.denominator.column === "$$count"
-                ? "Count of Rows"
-                : factMetric.denominator.column === "$$distinctUsers"
+        {
+          label: `Fact Table`,
+          value: <FactTableLink id={factMetric.denominator.factTableId} />,
+        },
+        ...Object.entries(factMetric.denominator.inlineFilters || {})
+          .filter(([, v]) => v.some((v) => !!v))
+          .map(([k, v]) => {
+            const columnName =
+              denominatorFactTable?.columns.find((c) => c.column === k)
+                ?.name || k;
+            return {
+              label: columnName,
+              value: v.join(" OR "),
+            };
+          }),
+        {
+          label: `Row Filter`,
+          value:
+            factMetric.denominator.filters.length > 0 ? (
+              <FilterBadges
+                factTable={denominatorFactTable}
+                ids={factMetric.denominator.filters}
+              />
+            ) : (
+              <em>None</em>
+            ),
+        },
+        {
+          label: `Value`,
+          value:
+            factMetric.denominator.column === "$$count"
+              ? "Count of Rows"
+              : factMetric.denominator.column === "$$distinctUsers"
                 ? "Unique Users"
                 : factMetric.denominator.column,
-          },
-          ...(!factMetric.denominator.column.startsWith("$$")
-            ? [
-                {
-                  label: "Per-User Aggregation",
-                  value: "SUM",
-                },
-              ]
-            : []),
-        ]
+        },
+        ...(!factMetric.denominator.column.startsWith("$$")
+          ? [
+            {
+              label: "Per-User Aggregation",
+              value: "SUM",
+            },
+          ]
+          : []),
+      ]
       : [];
 
   return (
@@ -611,7 +611,7 @@ export default function FactMetricPage() {
         <div className="col-12 col-md-4">
           <div className="appbox p-3">
             <RightRailSection
-              title="Advanced Settings"
+              title="高级设置"
               open={() => setEditOpen(true)}
               canOpen={canEdit}
             >
@@ -654,13 +654,11 @@ export default function FactMetricPage() {
                             {factMetric.cappingSettings.value}
                           </span>{" "}
                           {factMetric.cappingSettings.type === "percentile"
-                            ? `(${
-                                100 * factMetric.cappingSettings.value
-                              } pctile${
-                                factMetric.cappingSettings.ignoreZeros
-                                  ? ", ignoring zeros"
-                                  : ""
-                              })`
+                            ? `(${100 * factMetric.cappingSettings.value
+                            } pctile${factMetric.cappingSettings.ignoreZeros
+                              ? ", ignoring zeros"
+                              : ""
+                            })`
                             : ""}{" "}
                         </li>
                       </>

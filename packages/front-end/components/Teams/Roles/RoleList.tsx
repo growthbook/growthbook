@@ -93,8 +93,8 @@ export default function RoleList() {
                                 refreshOrganization();
                               }}
                               className="dropdown-item text-danger"
-                              displayName="Delete"
-                              text="Delete"
+                              displayName="删除"
+                              text="删除"
                               useIcon={false}
                               deleteMessage="Are you you want to delete this role?"
                             />

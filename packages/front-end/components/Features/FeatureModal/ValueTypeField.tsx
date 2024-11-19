@@ -8,17 +8,17 @@ const ValueTypeField: FC<{
 }> = ({ onChange, value }) => {
   return (
     <SelectField
-      label="Value Type"
+      label="数值类型"
       value={value}
       onChange={onChange}
-      placeholder="Select Type..."
+      placeholder="选择类型..."
       options={[
         {
-          label: "Boolean (true/false)",
+          label: "布尔值Boolean (true/false)",
           value: "boolean",
         },
-        { label: "String", value: "string" },
-        { label: "Number", value: "number" },
+        { label: "字符串String", value: "string" },
+        { label: "数值Number", value: "number" },
         { label: "JSON", value: "json" },
       ]}
       required

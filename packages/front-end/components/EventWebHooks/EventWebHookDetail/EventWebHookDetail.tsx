@@ -208,7 +208,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
                 onClick={onDelete}
                 useIcon={false}
                 className="dropdown-item text-danger"
-                text="Delete"
+                text="删除"
                 disabled={state && state.type === "loading"}
               />
             </MoreMenu>

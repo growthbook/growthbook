@@ -35,7 +35,7 @@ export default function ClickToCopy({
               performCopy(children);
             }
           }}
-          title="Copy to Clipboard"
+          title="复制到剪贴板"
           style={compact ? { lineHeight: 1.1 } : {}}
         >
           <span

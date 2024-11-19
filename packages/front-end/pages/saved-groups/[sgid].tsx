@@ -252,7 +252,7 @@ export default function EditSavedGroupPage() {
           <div>
             <DeleteButton
               className="font-weight-bold mr-4"
-              text="Delete"
+              text="删除"
               title="Delete this Saved Group"
               getConfirmationContent={getConfirmationContent}
               canDelete={(featuresReferencingSavedGroup?.size || 0) === 0}

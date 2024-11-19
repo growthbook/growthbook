@@ -135,7 +135,7 @@ export default function Code({
         {copySupported && (
           <div
             className="p-1 text-muted"
-            title="Copy to Clipboard"
+            title="复制到剪贴板"
             role="button"
             style={{ cursor: "pointer", fontSize: "1.1rem" }}
             onClick={async (e) => {
@@ -180,32 +180,32 @@ export default function Code({
           startingLineNumber={startingLineNumber ?? 1}
           {...(errorLine
             ? {
-                wrapLines: true,
-                lineProps: (
-                  lineNumber: number
-                ): React.HTMLProps<HTMLElement> => {
-                  const style: React.CSSProperties = {};
-                  if (errorLine && lineNumber === errorLine) {
-                    style.textDecoration = "underline wavy red";
-                    style.textUnderlineOffset = "0.2em";
-                  }
-                  return { style };
-                },
-              }
+              wrapLines: true,
+              lineProps: (
+                lineNumber: number
+              ): React.HTMLProps<HTMLElement> => {
+                const style: React.CSSProperties = {};
+                if (errorLine && lineNumber === errorLine) {
+                  style.textDecoration = "underline wavy red";
+                  style.textUnderlineOffset = "0.2em";
+                }
+                return { style };
+              },
+            }
             : {})}
           {...(highlightLine
             ? {
-                wrapLines: true,
-                lineProps: (
-                  lineNumber: number
-                ): React.HTMLProps<HTMLElement> => {
-                  const style: React.CSSProperties = {};
-                  if (highlightLine && lineNumber === highlightLine) {
-                    style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-                  }
-                  return { style };
-                },
-              }
+              wrapLines: true,
+              lineProps: (
+                lineNumber: number
+              ): React.HTMLProps<HTMLElement> => {
+                const style: React.CSSProperties = {};
+                if (highlightLine && lineNumber === highlightLine) {
+                  style.backgroundColor = "rgba(255, 255, 0, 0.2)";
+                }
+                return { style };
+              },
+            }
             : {})}
         >
           {code}

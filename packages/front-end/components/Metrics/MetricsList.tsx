@@ -480,7 +480,7 @@ const MetricsList = (): React.ReactElement => {
                   }}
                   displayName="Metric"
                   useIcon={false}
-                  text="Delete"
+                  text="删除"
                   canDelete={true}
                   disabled={false}
                 />

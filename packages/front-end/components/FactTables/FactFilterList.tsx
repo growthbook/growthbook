@@ -133,7 +133,7 @@ export default function FactFilterList({ factTable }: Props) {
                           displayName="Filter"
                           className="dropdown-item"
                           useIcon={false}
-                          text="Delete"
+                          text="删除"
                           additionalMessage={
                             "This will remove the filter from all metrics that are using it."
                           }

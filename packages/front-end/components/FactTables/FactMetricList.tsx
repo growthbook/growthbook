@@ -260,7 +260,7 @@ export default function FactMetricList({ factTable }: Props) {
                         <>
                           <hr className="m-1" />
                           <DeleteButton
-                            displayName="Delete"
+                            displayName="删除"
                             onClick={async () => {
                               setIsDeleting(true);
                               try {
@@ -274,7 +274,7 @@ export default function FactMetricList({ factTable }: Props) {
                             }}
                             useIcon={false}
                             className="dropdown-item text-danger"
-                            text="Delete"
+                            text="删除"
                             disabled={isDeleting}
                           />
                         </>

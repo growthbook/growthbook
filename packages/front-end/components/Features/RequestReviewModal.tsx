@@ -160,9 +160,9 @@ export default function RequestReviewModal({
   const hasChanges = mergeResultHasChanges(mergeResult);
   let ctaCopy = "Request Review";
   if (approved) {
-    ctaCopy = "Publish";
+    ctaCopy = "发布";
   } else if (canReview) {
-    ctaCopy = "Next";
+    ctaCopy = "下一步";
   }
   const showRevisionStatus = () => {
     switch (revision.status) {
@@ -393,7 +393,7 @@ export default function RequestReviewModal({
             options={[
               {
                 value: "Comment",
-                label: "Comment",
+                label: "评论",
                 description:
                   "Submit general feedback without explicit approval.",
               },

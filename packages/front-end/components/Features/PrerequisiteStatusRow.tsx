@@ -112,7 +112,7 @@ export default function PrerequisiteStatusRow({
                   className="dropdown-item"
                   displayName="Rule"
                   useIcon={false}
-                  text="Delete"
+                  text="删除"
                   onClick={async () => {
                     track("Delete Prerequisite", {
                       prerequisiteIndex: i,

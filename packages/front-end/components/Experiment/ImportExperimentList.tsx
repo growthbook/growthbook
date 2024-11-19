@@ -197,9 +197,8 @@ const ImportExperimentList: FC<{
                 const isDefaultDataSource = d.id === defaultDataSource;
                 return {
                   value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  } ${isDefaultDataSource ? " (default)" : ""}`,
+                  label: `${d.name}${d.description ? ` — ${d.description}` : ""
+                    } ${isDefaultDataSource ? " (default)" : ""}`,
                 };
               })}
               className="portal-overflow-ellipsis"
@@ -413,15 +412,15 @@ const ImportExperimentList: FC<{
                 labelClassName="small mb-0"
                 options={[
                   {
-                    display: "All",
+                    display: "全部",
                     value: "",
                   },
                   {
-                    display: "Running",
+                    display: "运行中",
                     value: "running",
                   },
                   {
-                    display: "Stopped",
+                    display: "已停止",
                     value: "stopped",
                   },
                 ]}
@@ -439,7 +438,7 @@ const ImportExperimentList: FC<{
                 value={alreadyImportedFilter}
                 setValue={setAlreadyImportedFilter}
               />{" "}
-              Hide Imported
+              隐藏导入的实验
             </div>
             <div className="col-auto align-self-center">
               <Toggle
@@ -572,7 +571,7 @@ const ImportExperimentList: FC<{
                               // Default to stopped if the last data was more than 3 days ago
                               status:
                                 getValidDate(e.endDate).getTime() <
-                                Date.now() - 72 * 60 * 60 * 1000
+                                  Date.now() - 72 * 60 * 60 * 1000
                                   ? "stopped"
                                   : "running",
                             };

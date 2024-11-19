@@ -425,7 +425,7 @@ const MetricPage: FC = () => {
             {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
-                text="Delete"
+                text="删除"
                 title="Delete this metric"
                 getConfirmationContent={getMetricUsage(metric)}
                 onClick={async () => {
@@ -863,7 +863,7 @@ const MetricPage: FC = () => {
                           <em>
                             No data for this metric yet.{" "}
                             {canRunMetricQuery
-                              ? "Click the Run Analysis button above."
+                              ? "点击上方的运行分析按钮。"
                               : null}
                           </em>
                         </div>
@@ -885,12 +885,12 @@ const MetricPage: FC = () => {
                 </div>
               </div>
             </Tab>
-            <Tab display="Experiments" anchor="experiments">
-              <h3>Experiments</h3>
+            <Tab display="实验" anchor="experiments">
+              <h3>实验</h3>
               <MetricExperiments metric={metric} outerClassName="" />
             </Tab>
-            <Tab display="Discussion" anchor="discussion" lazy={true}>
-              <h3>Comments</h3>
+            <Tab display="讨论" anchor="discussion" lazy={true}>
+              <h3>评论</h3>
               <DiscussionThread
                 type="metric"
                 id={data.metric.id}
@@ -905,7 +905,7 @@ const MetricPage: FC = () => {
         <div className="col-12 col-md-4 mt-md-5">
           <div className="appbox p-3" style={{ marginTop: "7px" }}>
             <RightRailSection
-              title="Owner"
+              title="负责人"
               open={() => setEditOwnerModal(true)}
               canOpen={canEditMetric}
             >
@@ -916,16 +916,16 @@ const MetricPage: FC = () => {
 
             <hr />
             <RightRailSection
-              title="Basic Info"
+              title="基础信息"
               open={() => setEditModalOpen(0)}
               canOpen={canEditMetric}
             >
-              <RightRailSectionGroup title="Type" type="commaList">
+              <RightRailSectionGroup title="类型" type="commaList">
                 {metric.type}
               </RightRailSectionGroup>
               {datasource && (
                 <RightRailSectionGroup
-                  title="Data Source"
+                  title="数据来源"
                   type="commaList"
                   titleClassName="align-top"
                 >
@@ -950,7 +950,7 @@ const MetricPage: FC = () => {
 
             <hr />
             <RightRailSection
-              title="Tags"
+              title="标签"
               open={() => setEditTags(true)}
               canOpen={canEditMetric}
             >
@@ -961,7 +961,7 @@ const MetricPage: FC = () => {
 
             <hr />
             <RightRailSection
-              title="Projects"
+              title="项目"
               open={() => setEditProjects(true)}
               canOpen={canEditMetric}
             >
@@ -985,7 +985,7 @@ const MetricPage: FC = () => {
               <>
                 <hr />
                 <RightRailSection
-                  title="Query Settings"
+                  title="查询设置"
                   open={() => setEditModalOpen(1)}
                   canOpen={canEditMetric}
                 >
@@ -1020,7 +1020,7 @@ const MetricPage: FC = () => {
                             </span>
                           </RightRailSectionGroup>
                         )}
-                      <RightRailSectionGroup title="Metric SQL" type="custom">
+                      <RightRailSectionGroup title="指标SQL" type="custom">
                         <Code language="sql" code={metric.sql} />
                       </RightRailSectionGroup>
                       {metric.type !== "binomial" && metric.aggregation && (
@@ -1120,7 +1120,7 @@ const MetricPage: FC = () => {
 
             <hr />
             <RightRailSection
-              title="Behavior"
+              title="行为"
               open={() => setEditModalOpen(2)}
               canOpen={canEditMetric}
             >
