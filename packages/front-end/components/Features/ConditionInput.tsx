@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
 import clsx from "clsx";
+import { datetime } from "shared/dates";
 import {
   condToJson,
   jsonToConds,
@@ -25,6 +26,7 @@ import CountrySelector, {
   ALL_COUNTRY_CODES,
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import DatePicker from "@/components/DatePicker";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -517,29 +519,37 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : displayType === "string" ? (
-                    <Field
-                      type={
-                        attribute.format === "date" &&
-                        !["$regex", "$notRegex"].includes(operator)
-                          ? "datetime-local"
-                          : undefined
-                      }
-                      value={value}
-                      onChange={handleFieldChange}
-                      name="value"
-                      className={styles.matchingInput}
-                      containerClassName={clsx("col-sm-12 col-md mb-2", {
-                        error: hasExtraWhitespace,
-                      })}
-                      helpText={
-                        hasExtraWhitespace ? (
-                          <small className="text-danger">
-                            Extra whitespace detected
-                          </small>
-                        ) : undefined
-                      }
-                      required
-                    />
+                    <>
+                      {attribute.format === "date" &&
+                      !["$regex", "$notRegex"].includes(operator) ? (
+                        <DatePicker
+                          date={value}
+                          setDate={(v) => {
+                            handleCondsChange(v ? datetime(v) : "", "value");
+                          }}
+                          inputWidth={180}
+                          containerClassName="col-sm-12 col-md mb-2"
+                        />
+                      ) : (
+                        <Field
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          className={styles.matchingInput}
+                          containerClassName={clsx("col-sm-12 col-md mb-2", {
+                            error: hasExtraWhitespace,
+                          })}
+                          helpText={
+                            hasExtraWhitespace ? (
+                              <small className="text-danger">
+                                Extra whitespace detected
+                              </small>
+                            ) : undefined
+                          }
+                          required
+                        />
+                      )}
+                    </>
                   ) : (
                     ""
                   )}

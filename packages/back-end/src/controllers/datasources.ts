@@ -266,6 +266,13 @@ export async function postInbuiltDataSource(
       }
   >
 ) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only super admins can add a datasource for now.",
+    });
+  }
+
   const context = getContextFromReq(req);
   const new_datasource_id = req.params.id || uniqid("ds_");
   const params = await createClickhouseUser(context, new_datasource_id);

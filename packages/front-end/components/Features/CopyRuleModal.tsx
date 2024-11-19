@@ -1,5 +1,5 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { filterEnvironmentsByFeature } from "shared/dist/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { useState } from "react";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";

@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/app/fact-tables",
+      "destination": "/app/metrics",
+      "permanent": false
+    }
+  ]
+}
