@@ -13,9 +13,17 @@ import {
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
-import { DropdownMenu, Text } from "@radix-ui/themes";
+import { Text } from "@radix-ui/themes";
 import router from "next/router";
 import clsx from "clsx";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/components/Radix/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -130,50 +138,50 @@ const TopNav: FC<{
   }
   const renderLogoutDropDown = () => {
     return (
-      <DropdownMenu.Item
+      <DropdownMenuItem
         key="sign-out"
-        onSelect={() => {
+        onClick={() => {
           logout();
         }}
       >
         Sign Out
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderEditProfileDropDown = () => {
     return (
-      <DropdownMenu.Item
+      <DropdownMenuItem
         key="edit-profile"
-        onSelect={() => {
+        onClick={() => {
           setEditUserOpen(true);
         }}
       >
         Edit Profile
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderNameAndEmailDropdownLabel = () => {
     return (
       <>
-        <DropdownMenu.Group style={{ marginBottom: 4 }}>
-          <DropdownMenu.Label style={{ height: "inherit" }}>
+        <DropdownMenuGroup style={{ marginBottom: 4 }}>
+          <DropdownMenuLabel style={{ height: "inherit" }}>
             {name && (
               <Text weight="bold" className="text-main">
                 {name}
               </Text>
             )}
-          </DropdownMenu.Label>
-          <DropdownMenu.Label style={{ height: "inherit" }}>
+          </DropdownMenuLabel>
+          <DropdownMenuLabel style={{ height: "inherit" }}>
             <Text className="text-secondary">{email}</Text>
-          </DropdownMenu.Label>
-        </DropdownMenu.Group>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
       </>
     );
   };
   const renderPersonalAccessTokensDropDown = () => {
     return (
-      <DropdownMenu.Item
-        className="dropdown-text-color"
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
         onClick={() => {
           router.push("/account/personal-access-tokens");
         }}
@@ -182,13 +190,13 @@ const TopNav: FC<{
           <PiKey size="16" className="mr-1" />
           Personal Access Tokens
         </div>
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderMyReportsDropDown = () => {
     return (
-      <DropdownMenu.Item
-        className="dropdown-text-color"
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
         onClick={() => {
           router.push("/reports");
         }}
@@ -197,13 +205,13 @@ const TopNav: FC<{
           <PiFiles size="16" className="mr-1" />
           My Reports
         </div>
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderMyActivityFeedsDropDown = () => {
     return (
-      <DropdownMenu.Item
-        className="dropdown-text-color"
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
         onClick={() => {
           router.push("/activity");
         }}
@@ -212,55 +220,53 @@ const TopNav: FC<{
           <PiListChecks size="16" className="mr-1" />
           Activity Feed
         </div>
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
 
   const renderThemeSubDropDown = () => {
     return (
-      <DropdownMenu.Sub>
-        <DropdownMenu.SubTrigger className="dropdown-text-color">
-          {activeIcon}
-        </DropdownMenu.SubTrigger>
-        <DropdownMenu.SubContent>
-          <DropdownMenu.Item
-            className="dropdown-text-color"
-            key="system"
-            onSelect={() => {
-              setTheme("system");
-            }}
-          >
-            <span>
-              <PiCircleHalf size="16" className="mr-1" />
-              System Default
-            </span>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className="dropdown-text-color"
-            key="light"
-            onSelect={() => {
-              setTheme("light");
-            }}
-          >
-            <span>
-              <PiSunDim size="16" className="mr-1" />
-              Light
-            </span>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className="dropdown-text-color"
-            key="dark"
-            onSelect={() => {
-              setTheme("dark");
-            }}
-          >
-            <span>
-              <PiMoon size="16" className="mr-1" />
-              Dark
-            </span>
-          </DropdownMenu.Item>
-        </DropdownMenu.SubContent>
-      </DropdownMenu.Sub>
+      <DropdownSubMenu
+        trigger={activeIcon}
+        triggerClassName={styles.dropdownItemIconColor}
+      >
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="system"
+          onClick={() => {
+            setTheme("system");
+          }}
+        >
+          <span>
+            <PiCircleHalf size="16" className="mr-1" />
+            System Default
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="light"
+          onClick={() => {
+            setTheme("light");
+          }}
+        >
+          <span>
+            <PiSunDim size="16" className="mr-1" />
+            Light
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="dark"
+          onClick={() => {
+            setTheme("dark");
+          }}
+        >
+          <span>
+            <PiMoon size="16" className="mr-1" />
+            Dark
+          </span>
+        </DropdownMenuItem>
+      </DropdownSubMenu>
     );
   };
   const renderOrganizationDropDown = () => {
@@ -374,9 +380,9 @@ const TopNav: FC<{
   const renderChangePassword = () => {
     if (!usingSSO()) {
       return (
-        <DropdownMenu.Item onSelect={() => setChangePasswordOpen(true)}>
+        <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
           Change Password
-        </DropdownMenu.Item>
+        </DropdownMenuItem>
       );
     }
   };
@@ -456,8 +462,9 @@ const TopNav: FC<{
             </>
           )}
           {renderOrganizationDropDown()}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
+          <DropdownMenu
+            variant="solid"
+            trigger={
               <div className="nav-link d-flex">
                 <Avatar
                   email={email || ""}
@@ -474,19 +481,18 @@ const TopNav: FC<{
                   </OverflowText>
                 </span>
               </div>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="start">
-              {renderNameAndEmailDropdownLabel()}
-              {renderEditProfileDropDown()}
-              {renderThemeSubDropDown()}
-              {renderMyActivityFeedsDropDown()}
-              {renderMyReportsDropDown()}
-              {renderPersonalAccessTokensDropDown()}
-              <DropdownMenu.Separator />
-              {renderChangePassword()}
-              {renderLogoutDropDown()}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+            }
+          >
+            {renderNameAndEmailDropdownLabel()}
+            {renderEditProfileDropDown()}
+            {renderThemeSubDropDown()}
+            {renderMyActivityFeedsDropDown()}
+            {renderMyReportsDropDown()}
+            {renderPersonalAccessTokensDropDown()}
+            <DropdownMenuSeparator />
+            {renderChangePassword()}
+            {renderLogoutDropDown()}
+          </DropdownMenu>
         </div>
       </div>
     </>

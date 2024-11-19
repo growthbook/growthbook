@@ -30,16 +30,6 @@ body {
   color: var(--text-color-muted) !important;
 }
 
-.dropdown-text-color {
-  &:focus {
-    svg {
-      color: white;
-    }
-  }
-  svg {
-    color: var(--text-color-muted);
-  }
-}
 .text-ellipsis {
   overflow: hidden;
   white-space: nowrap;
