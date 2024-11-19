@@ -36,8 +36,7 @@ import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import ControlledTabs, { Tab } from "@/components/Tabs/ControlledTabs";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -573,6 +572,8 @@ export default function SDKConnectionForm({
           <>
             <label>SDK Payload Security</label>
             <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
+              {/* Allow ControlledTabs to be used here as it's design does not match the new Tabs component */}
+              {/* eslint-disable-next-line react/forbid-elements */}
               <ControlledTabs
                 newStyle={true}
                 className="mb-3"

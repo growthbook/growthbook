@@ -1,7 +1,7 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import { Flex } from "@radix-ui/themes";
+import Tabs from "@/components/Radix/Tabs";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
@@ -137,42 +137,30 @@ export default function SDKLanguageSelector({
     if (!includeOther) {
       languages = languages.filter((l) => l !== "other");
     }
+
+    const tabsConfig = Object.entries(tabs).map(([slug, label]) => ({
+      slug,
+      label,
+      content: (
+        <Flex pt="5" pb="6" gap="3" wrap="wrap">
+          {languages.map((l) => (
+            <SDKLanguageOption
+              key={l}
+              language={l}
+              onClick={() => handleLanguageOptionClick(l)}
+              selected={selected.has(l)}
+            />
+          ))}
+        </Flex>
+      ),
+    }));
+
     return (
-      <ControlledTabs
-        buttonsClassName="px-3"
-        buttonsWrapperClassName="mb-3"
-        active={languageFilter}
-        setActive={(v) => setLanguageFilter((v ?? "all") as LanguageFilter)}
-      >
-        {Object.keys(tabs).map((tab) => (
-          <Tab
-            key={tab}
-            id={tab}
-            display={
-              <span
-                className={tab === languageFilter ? "text-main" : undefined}
-              >
-                {tabs[tab]}
-              </span>
-            }
-            padding={false}
-          >
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {languages.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
-            </div>
-          </Tab>
-        ))}
-      </ControlledTabs>
+      <Tabs
+        tabs={tabsConfig}
+        activeTab={languageFilter}
+        onTabChange={(v) => setLanguageFilter(v as LanguageFilter)}
+      />
     );
   }
 

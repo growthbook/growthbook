@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import Code from "@/components/SyntaxHighlighting/Code";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import Tabs from "@/components/Radix/Tabs";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -23,50 +22,20 @@ export default function DisplayTestQueryResults({
   expandable,
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
-
   const forceShowSql = error || !results.length;
 
-  // Match the line number from the error message that
-  // either has "line <line number>" in it,
-  // or ends with "[<line number>:<col number>]"
+  // Match the line number from the error message
   const errorLineMatch = error.match(/line\s+(\d+)|\[(\d+):\d+\]$/i);
   const errorLine = errorLineMatch
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
-  const [tab, setTab] = useState(forceShowSql ? "sql" : "results");
-
-  return (
-    <>
-      <ControlledTabs
-        className="pt-1 d-flex flex-column h-100"
-        buttonsClassName="px-3"
-        tabContentsClassName={clsx("px-3 pt-3 flex-grow-1 overflow-auto")}
-        navExtra={
-          <div className="flex-grow-1">
-            <button
-              type="button"
-              className="close"
-              style={{ padding: "0.3rem 1rem" }}
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
-        }
-        active={tab}
-        setActive={(tab) => setTab(tab ?? "results")}
-      >
-        <Tab
-          id="results"
-          display="Results"
-          padding={false}
-          visible={!forceShowSql}
-        >
+  const tabs = [
+    {
+      slug: "results",
+      label: "Results",
+      content: (
+        <>
           <div className="border p-2 bg-light">
             <div className="row">
               <div className="col-auto">
@@ -103,28 +72,62 @@ export default function DisplayTestQueryResults({
               </tbody>
             </table>
           </div>
-        </Tab>
-        <Tab id="sql" display="Rendered SQL" padding={false}>
-          <div style={{ overflowY: "auto", height: "100%" }}>
-            {error ? (
-              <div className="alert alert-danger mr-auto">{error}</div>
-            ) : (
-              !results.length && (
-                <div className="alert alert-warning mr-auto">
-                  <FaExclamationTriangle /> No rows returned, could not verify
-                  result
-                </div>
-              )
-            )}
-            <Code
-              code={sql}
-              language="sql"
-              errorLine={errorLine}
-              expandable={expandable}
-            />
-          </div>
-        </Tab>
-      </ControlledTabs>
-    </>
+        </>
+      ),
+    },
+    {
+      slug: "sql",
+      label: "Rendered SQL",
+      content: (
+        <div style={{ overflowY: "auto", height: "100%" }}>
+          {error ? (
+            <div className="alert alert-danger mr-auto">{error}</div>
+          ) : (
+            !results.length && (
+              <div className="alert alert-warning mr-auto">
+                <FaExclamationTriangle /> No rows returned, could not verify
+                result
+              </div>
+            )
+          )}
+          <Code
+            code={sql}
+            language="sql"
+            errorLine={errorLine}
+            expandable={expandable}
+          />
+        </div>
+      ),
+    },
+  ];
+
+  // Filter out the results tab if we're forcing SQL view
+  const visibleTabs = forceShowSql
+    ? tabs.filter((t) => t.slug === "sql")
+    : tabs;
+
+  return (
+    <div className="pt-1 d-flex flex-column h-100">
+      <div className="px-3 position-relative">
+        <button
+          type="button"
+          className="close position-absolute"
+          style={{ right: "1rem", top: "0" }}
+          onClick={(e) => {
+            e.preventDefault();
+            close();
+          }}
+          aria-label="Close"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div className={clsx("px-3 pt-3 flex-grow-1 overflow-auto")}>
+        <Tabs
+          tabs={visibleTabs}
+          defaultTabSlug={forceShowSql ? "sql" : "results"}
+        />
+      </div>
+    </div>
   );
 }

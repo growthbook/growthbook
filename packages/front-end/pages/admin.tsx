@@ -27,11 +27,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Tabs from "@/components/Radix/Tabs";
 
 interface memberOrgProps {
   id: string;
@@ -605,207 +604,220 @@ const Admin: FC = () => {
           <div className="divider border-bottom mb-3 mt-3" />
         </>
       )}
-      <ControlledTabs
-        newStyle={true}
-        className="mb-3"
-        active={activeTab}
-        setActive={(tab) => {
-          if (tab) {
-            setActiveTab(tab);
-          }
-        }}
-      >
-        <Tab display="Organizations" id="organizations" padding={false}>
-          <button
-            className="btn btn-primary float-right"
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgModalOpen(true);
-            }}
-          >
-            <FaPlus /> New Organization
-          </button>
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
-              <form
-                className="d-flex form form-inline"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setPage(1);
-                  loadOrgs(1, search);
-                }}
-              >
-                <Field
-                  label="Search:"
-                  labelClassName="mr-2"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  type="search"
-                />
-                <div>
-                  <button type="submit" className="btn btn-primary ml-2">
-                    <FaSearch />
-                  </button>
+      <Tabs
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab)}
+        tabs={[
+          {
+            slug: "organizations",
+            label: "Organizations",
+            content: (
+              <>
+                <button
+                  className="btn btn-primary float-right"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOrgModalOpen(true);
+                  }}
+                >
+                  <FaPlus /> New Organization
+                </button>
+                <div className="mb-2 row align-items-center">
+                  <div className="col-auto">
+                    <form
+                      className="d-flex form form-inline"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setPage(1);
+                        loadOrgs(1, search);
+                      }}
+                    >
+                      <Field
+                        label="Search:"
+                        labelClassName="mr-2"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        type="search"
+                      />
+                      <div>
+                        <button type="submit" className="btn btn-primary ml-2">
+                          <FaSearch />
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                  <div className="col-auto">
+                    <span className="text-muted">
+                      {numberFormatter.format(total)} matching organization
+                      {total === 1 ? "" : "s"}
+                    </span>
+                  </div>
                 </div>
-              </form>
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(total)} matching organization
-                {total === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
-          {error && <div className="alert alert-danger">{error}</div>}
-          <div className="position-relative">
-            {loading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th style={{ width: "260px" }}>Owner</th>
-                  <th>Created</th>
-                  <th>Id</th>
-                  {isCloud() && <th>Verified Domain</th>}
-                  {!isCloud() && <th>External Id</th>}
-                  <th style={{ width: "120px" }}>Members</th>
-                  <th style={{ width: "14px" }}></th>
-                  <th style={{ width: "40px" }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {orgs.map((o) => (
-                  <OrganizationRow
-                    organization={o}
-                    ssoInfo={ssoConnections.find(
-                      (sso) => sso.organization === o.id
-                    )}
-                    showExternalId={!isCloud()}
-                    showVerfiedDomain={isCloud()}
-                    key={o.id}
-                    current={o.id === orgId}
-                    onEdit={() => {
+                {error && <div className="alert alert-danger">{error}</div>}
+                <div className="position-relative">
+                  {loading && <LoadingOverlay />}
+                  <table
+                    className="table appbox"
+                    style={{ tableLayout: "fixed" }}
+                  >
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th style={{ width: "260px" }}>Owner</th>
+                        <th>Created</th>
+                        <th>Id</th>
+                        {isCloud() && <th>Verified Domain</th>}
+                        {!isCloud() && <th>External Id</th>}
+                        <th style={{ width: "120px" }}>Members</th>
+                        <th style={{ width: "14px" }}></th>
+                        <th style={{ width: "40px" }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orgs.map((o) => (
+                        <OrganizationRow
+                          organization={o}
+                          ssoInfo={ssoConnections.find(
+                            (sso) => sso.organization === o.id
+                          )}
+                          showExternalId={!isCloud()}
+                          showVerfiedDomain={isCloud()}
+                          key={o.id}
+                          current={o.id === orgId}
+                          onEdit={() => {
+                            loadOrgs(page, search);
+                          }}
+                          switchTo={(org) => {
+                            if (setOrgId) {
+                              setOrgId(org.id);
+                            }
+                            try {
+                              localStorage.setItem(
+                                "gb-last-picked-org",
+                                `"${org.id}"`
+                              );
+                            } catch (e) {
+                              console.warn("Cannot set gb-last-picked-org");
+                            }
+                            if (setSpecialOrg) {
+                              setSpecialOrg(org);
+                            }
+                          }}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                  <Pagination
+                    currentPage={page}
+                    numItemsTotal={total}
+                    perPage={50}
+                    onPageChange={(page) => {
+                      setPage(page);
                       loadOrgs(page, search);
                     }}
-                    switchTo={(org) => {
-                      if (setOrgId) {
-                        setOrgId(org.id);
-                      }
-                      try {
-                        localStorage.setItem(
-                          "gb-last-picked-org",
-                          `"${org.id}"`
-                        );
-                      } catch (e) {
-                        console.warn("Cannot set gb-last-picked-org");
-                      }
-                      if (setSpecialOrg) {
-                        setSpecialOrg(org);
-                      }
-                    }}
                   />
-                ))}
-              </tbody>
-            </table>
-            <Pagination
-              currentPage={page}
-              numItemsTotal={total}
-              perPage={50}
-              onPageChange={(page) => {
-                setPage(page);
-                loadOrgs(page, search);
-              }}
-            />
-          </div>
-          {!isCloud() && isMultiOrg() && (
-            <div className="divider border-top mt-3">
-              <OrphanedUsersList
-                mutateUsers={() => {
-                  loadOrgs(page, search);
-                }}
-                numUsersInAccount={0}
-                enableAdd={false}
-              />
-            </div>
-          )}
-        </Tab>
-        <Tab display="Members" id="members" padding={false}>
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
-              <form
-                className="d-flex form form-inline"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setMemberPage(1);
-                  loadMembers(1, memberSearch);
-                }}
-              >
-                <Field
-                  label="Search:"
-                  labelClassName="mr-2"
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  type="search"
-                />
-                <div>
-                  <button type="submit" className="btn btn-primary ml-2">
-                    <FaSearch />
-                  </button>
                 </div>
-              </form>
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(totalMembers)}{" "}
-                {memberSearch ? "matching" : ""} member
-                {totalMembers === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
-          {memberError && (
-            <div className="alert alert-danger">{memberError}</div>
-          )}
-          <div className="position-relative">
-            {memberLoading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>email</th>
-                  <th>Id</th>
-                  <th>Created</th>
-                  <th title="Verified Email">Verified</th>
-                  <th>Orgs</th>
-                  <th style={{ width: 40 }}></th>
-                  <th style={{ width: 40 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((m) => (
-                  <MemberRow
-                    member={m}
-                    memberOrgs={memberOrgs[m.id] ?? []}
-                    key={m.id}
-                    current={m.id === orgId}
-                    onEdit={() => {
+                {!isCloud() && isMultiOrg() && (
+                  <div className="divider border-top mt-3">
+                    <OrphanedUsersList
+                      mutateUsers={() => {
+                        loadOrgs(page, search);
+                      }}
+                      numUsersInAccount={0}
+                      enableAdd={false}
+                    />
+                  </div>
+                )}
+              </>
+            ),
+          },
+          {
+            slug: "members",
+            label: "Members",
+            content: (
+              <>
+                <div className="mb-2 row align-items-center">
+                  <div className="col-auto">
+                    <form
+                      className="d-flex form form-inline"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setMemberPage(1);
+                        loadMembers(1, memberSearch);
+                      }}
+                    >
+                      <Field
+                        label="Search:"
+                        labelClassName="mr-2"
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        type="search"
+                      />
+                      <div>
+                        <button type="submit" className="btn btn-primary ml-2">
+                          <FaSearch />
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                  <div className="col-auto">
+                    <span className="text-muted">
+                      {numberFormatter.format(totalMembers)}{" "}
+                      {memberSearch ? "matching" : ""} member
+                      {totalMembers === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+                {memberError && (
+                  <div className="alert alert-danger">{memberError}</div>
+                )}
+                <div className="position-relative">
+                  {memberLoading && <LoadingOverlay />}
+                  <table
+                    className="table appbox"
+                    style={{ tableLayout: "fixed" }}
+                  >
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>email</th>
+                        <th>Id</th>
+                        <th>Created</th>
+                        <th title="Verified Email">Verified</th>
+                        <th>Orgs</th>
+                        <th style={{ width: 40 }}></th>
+                        <th style={{ width: 40 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map((m) => (
+                        <MemberRow
+                          member={m}
+                          memberOrgs={memberOrgs[m.id] ?? []}
+                          key={m.id}
+                          current={m.id === orgId}
+                          onEdit={() => {
+                            loadMembers(memberPage, memberSearch);
+                          }}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                  <Pagination
+                    currentPage={memberPage}
+                    numItemsTotal={totalMembers}
+                    perPage={50}
+                    onPageChange={(page) => {
+                      setMemberPage(page);
                       loadMembers(memberPage, memberSearch);
                     }}
                   />
-                ))}
-              </tbody>
-            </table>
-            <Pagination
-              currentPage={memberPage}
-              numItemsTotal={totalMembers}
-              perPage={50}
-              onPageChange={(page) => {
-                setMemberPage(page);
-                loadMembers(memberPage, memberSearch);
-              }}
-            />
-          </div>
-        </Tab>
-      </ControlledTabs>
+                </div>
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };

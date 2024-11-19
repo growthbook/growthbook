@@ -2,8 +2,7 @@ import { FC, useState } from "react";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
 import { Team, useUser } from "@/services/UserContext";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
+import Tabs from "@/components/Radix/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 import RoleList from "@/components/Teams/Roles/RoleList";
@@ -28,13 +27,17 @@ const TeamPage: FC = () => {
     );
   }
 
-  return (
-    <div className="container-fluid pagecontents">
-      <Tabs defaultTab="members" newStyle={true}>
-        <Tab anchor="members" id="members" display="Members" padding={false}>
-          <MembersTabView />
-        </Tab>
-        <Tab anchor="teams" id="teams" display="Teams" padding={false} lazy>
+  const tabs = [
+    {
+      slug: "members",
+      label: "Members",
+      content: <MembersTabView />,
+    },
+    {
+      slug: "teams",
+      label: <PremiumTooltip commercialFeature="teams">Teams</PremiumTooltip>,
+      content: (
+        <>
           {modalOpen && (
             <TeamModal
               existing={modalOpen}
@@ -74,8 +77,16 @@ const TeamPage: FC = () => {
               sales@growthbook.io for more information and to set up a call.
             </div>
           )}
-        </Tab>
-        <Tab anchor="roles" id="roles" display="Roles" padding={false} lazy>
+        </>
+      ),
+    },
+    {
+      slug: "roles",
+      label: (
+        <PremiumTooltip commercialFeature="custom-roles">Roles</PremiumTooltip>
+      ),
+      content: (
+        <>
           <div className="filters md-form row mb-1 align-items-center">
             <div className="col-auto d-flex align-items-end">
               <div>
@@ -107,8 +118,14 @@ const TeamPage: FC = () => {
               sales@growthbook.io for more information and to set up a call.
             </div>
           )}
-        </Tab>
-      </Tabs>
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <div className="container-fluid pagecontents">
+      <Tabs defaultTabSlug="members" tabs={tabs} />
     </div>
   );
 };

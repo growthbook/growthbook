@@ -24,8 +24,7 @@ import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
+import Tabs, { TabConfig } from "@/components/Radix/Tabs";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
@@ -203,6 +202,58 @@ export default function ExperimentHeader({
       throw e;
     }
   }
+
+  const tabs: TabConfig[] = [
+    {
+      slug: "overview",
+      label: (
+        <>
+          <FaHome /> Overview
+        </>
+      ),
+      content: null,
+    },
+    {
+      slug: "results",
+      label: (
+        <>
+          <PiChartBarHorizontalFill /> Results
+        </>
+      ),
+      content: null,
+    },
+    ...(isBandit
+      ? [
+          {
+            slug: "explore",
+            label: (
+              <>
+                <FaMagnifyingGlassChart /> Explore
+              </>
+            ),
+            content: null,
+          },
+        ]
+      : []),
+    ...(disableHealthTab
+      ? []
+      : [
+          {
+            slug: "health",
+            label: (
+              <>
+                <FaHeartPulse /> Health
+                {healthNotificationCount > 0 && (
+                  <span className="notification-badge">
+                    {healthNotificationCount}
+                  </span>
+                )}
+              </>
+            ),
+            content: null,
+          },
+        ]),
+  ].filter(Boolean);
 
   return (
     <>
@@ -555,73 +606,24 @@ export default function ExperimentHeader({
               className="col-auto pt-2 tab-wrapper"
               id="experiment-page-tabs"
             >
-              <TabButtons className="mb-0 pb-0">
-                <TabButton
-                  active={tab === "overview"}
-                  display={
-                    <>
-                      <FaHome /> Overview
-                    </>
-                  }
-                  anchor="overview"
-                  onClick={() => setTab("overview")}
-                  newStyle={false}
-                  activeClassName="active-tab"
-                />
-                <TabButton
-                  active={tab === "results"}
-                  display={
-                    <>
-                      <PiChartBarHorizontalFill /> Results
-                    </>
-                  }
-                  anchor="results"
-                  onClick={() => setTab("results")}
-                  newStyle={false}
-                  activeClassName="active-tab"
-                  last={false}
-                />
-                {isBandit && (
-                  <TabButton
-                    active={tab === "explore"}
-                    display={
-                      <>
-                        <FaMagnifyingGlassChart /> Explore
-                      </>
-                    }
-                    anchor="explore"
-                    onClick={() => setTab("explore")}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                    last={false}
-                  />
-                )}
-                {disableHealthTab ? (
-                  <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                    <span className="nav-item nav-link text-muted">
-                      <FaHeartPulse /> Health
-                    </span>
-                  </DisabledHealthTabTooltip>
-                ) : (
-                  <TabButton
-                    active={tab === "health"}
-                    display={
-                      <>
-                        <FaHeartPulse /> Health
-                      </>
-                    }
-                    anchor="health"
-                    onClick={() => {
+              {disableHealthTab ? (
+                <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                  <span className="nav-item nav-link text-muted">
+                    <FaHeartPulse /> Health
+                  </span>
+                </DisabledHealthTabTooltip>
+              ) : (
+                <Tabs
+                  tabs={tabs}
+                  activeTab={tab}
+                  onTabChange={(newTab) => {
+                    if (newTab === "health") {
                       track("Open health tab", { source: "tab-click" });
-                      setTab("health");
-                    }}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                    last={true}
-                    notificationCount={healthNotificationCount}
-                  />
-                )}
-              </TabButtons>
+                    }
+                    setTab(newTab as ExperimentTab);
+                  }}
+                />
+              )}
             </div>
 
             <div className="flex-1" />

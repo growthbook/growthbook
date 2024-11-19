@@ -97,7 +97,6 @@ In practice, GrowthBook ensures that each variation has at least 1% of traffic, 
 5. **What’s the difference between multi-armed bandit and contextual bandit experiments?**<br />
    GrowthBook uses multi-armed bandit experiments, which focus on optimizing traffic allocation among variations based purely on overall performance ([the Decision Metric](/bandits/config#3-selecting-a-decision-metric)). These experiments treat all users the same, without taking individual user characteristics into account.
 
-   In contrast, contextual bandits use user-specific attributes (like location, device type, or past behavior) to select variations, aiming to tailor the experience to each user. 
+   In contrast, contextual bandits use user-specific attributes (like location, device type, or past behavior) to select variations, aiming to tailor the experience to each user.
 
    While multi-arm bandit experiments aim for a global "best" variation, contextual bandits work to find the best variation for each unique user context. If you'd like to see contextual bandits in GrowthBook, [please let us know](https://slack.growthbook.io/?ref=bandits-doc)!
-

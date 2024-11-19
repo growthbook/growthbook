@@ -41,8 +41,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import Tab from "@/components/Tabs/Tab";
-import Tabs from "@/components/Tabs/Tabs";
+import Tabs from "@/components/Radix/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -596,6 +595,29 @@ export default function FeaturesPage() {
     project,
   });
 
+  const tabs = [
+    {
+      slug: "all-features",
+      label: "All Features",
+      content: (
+        <>
+          {renderFeaturesTable()}
+          <Callout status="info" mt="5" mb="3">
+            Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>
+            , <strong>Environments</strong>, or <strong>Saved Groups</strong>?
+            They have moved to the <Link href="/sdks">SDK Configuration</Link>{" "}
+            tab.
+          </Callout>
+        </>
+      ),
+    },
+    {
+      slug: "drafts",
+      label: "Drafts",
+      content: <FeaturesDraftTable features={features} />,
+    },
+  ];
+
   return (
     <div className="contents container pagecontents">
       {modalOpen && (
@@ -692,20 +714,7 @@ export default function FeaturesPage() {
           </div>
         </>
       ) : (
-        <Tabs newStyle={true} defaultTab="all-features">
-          <Tab id="all-features" display="All Features" padding={false}>
-            {renderFeaturesTable()}
-            <Callout status="info" mt="5" mb="3">
-              Looking for <strong>Attributes</strong>,{" "}
-              <strong>Namespaces</strong>, <strong>Environments</strong>, or{" "}
-              <strong>Saved Groups</strong>? They have moved to the{" "}
-              <Link href="/sdks">SDK Configuration</Link> tab.
-            </Callout>
-          </Tab>
-          <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
-            <FeaturesDraftTable features={features} />
-          </Tab>
-        </Tabs>
+        <Tabs defaultTabSlug="all-features" tabs={tabs} />
       )}
     </div>
   );
