@@ -1,7 +1,7 @@
 @import "../../styles/colors.scss";
 
 .dragging {
-  z-index: 1;
+  z-index: 100 !important;
   box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
 }
 .thead {
@@ -10,6 +10,7 @@
   }
 }
 .tr {
+  position: relative;
   td {
     padding-top: 12px;
     padding-bottom: 12px;
@@ -25,9 +26,9 @@
 .colorMarker {
   width: 4px;
   position: absolute;
-  top: 15px;
+  top: 12px;
   left: 0;
-  height: calc(100% - 30px);
+  height: calc(100% - 24px);
 }
 
 .percentInput {

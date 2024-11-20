@@ -99,8 +99,6 @@ export default function FeatureVariationsInput({
     });
   };
 
-  console.log({ hideVariationIds, valueAsId, hideValueField, editingIds });
-
   const label = _label
     ? _label
     : simple
@@ -272,21 +270,27 @@ export default function FeatureVariationsInput({
                     {!disableVariations &&
                       !disableCustomSplit &&
                       !editingSplits && (
-                        <a
-                          role="button"
-                          className="ml-1 mb-0"
-                          onClick={() => {
-                            setEditingSplits(true);
-                          }}
-                        >
-                          <PiLockSimpleFill className="text-purple" size={15} />
-                        </a>
+                        <Tooltip body="Customize split">
+                          <a
+                            role="button"
+                            className="ml-1 mb-0"
+                            onClick={() => {
+                              setEditingSplits(true);
+                            }}
+                          >
+                            <PiLockSimpleFill
+                              className="text-purple"
+                              size={15}
+                            />
+                          </a>
+                        </Tooltip>
                       )}
                   </th>
                 </tr>
               </thead>
               <tbody>
                 <SortableVariationsList
+                  valuesAsIds={idsMatchIndexes}
                   variations={variations}
                   setVariations={!disableVariations ? setVariations : undefined}
                 >
@@ -334,7 +338,7 @@ export default function FeatureVariationsInput({
                                     value: getDefaultVariationValue(
                                       defaultValue
                                     ),
-                                    name: "",
+                                    name: `Variation ${variations.length}`,
                                     weight: 0,
                                     id: generateVariationId(),
                                   },
@@ -343,6 +347,11 @@ export default function FeatureVariationsInput({
                                   v.weight = newWeights[i] || 0;
                                 });
                                 setVariations(newValues);
+                                if (isEqualWeights) {
+                                  getEqualWeights(
+                                    newValues.length
+                                  ).forEach((w, i) => setWeight(i, w));
+                                }
                               }}
                             >
                               <GBAddCircle className="mr-1" />
