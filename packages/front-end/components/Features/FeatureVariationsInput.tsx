@@ -45,6 +45,7 @@ export interface Props {
   disableCoverage?: boolean;
   disableVariations?: boolean;
   disableCustomSplit?: boolean;
+  hideSplits?: boolean;
   label?: string | null;
   feature?: FeatureInterface;
   hideVariations?: boolean;
@@ -72,6 +73,7 @@ export default function FeatureVariationsInput({
   disableCoverage = false,
   disableVariations = false,
   disableCustomSplit = false,
+  hideSplits = false,
   label: _label,
   feature,
   hideVariations,
@@ -265,27 +267,29 @@ export default function FeatureVariationsInput({
                   {hideVariationIds && !valueAsId && <th>Value to Force</th>}
                   <th>Variation Name</th>
                   {showDescriptions && <th>Description</th>}
-                  <th>
-                    Split
-                    {!disableVariations &&
-                      !disableCustomSplit &&
-                      !editingSplits && (
-                        <Tooltip body="Customize split">
-                          <a
-                            role="button"
-                            className="ml-1 mb-0"
-                            onClick={() => {
-                              setEditingSplits(true);
-                            }}
-                          >
-                            <PiLockSimpleFill
-                              className="text-purple"
-                              size={15}
-                            />
-                          </a>
-                        </Tooltip>
-                      )}
-                  </th>
+                  {!hideSplits && (
+                    <th>
+                      Split
+                      {!disableVariations &&
+                        !disableCustomSplit &&
+                        !editingSplits && (
+                          <Tooltip body="Customize split">
+                            <a
+                              role="button"
+                              className="ml-1 mb-0"
+                              onClick={() => {
+                                setEditingSplits(true);
+                              }}
+                            >
+                              <PiLockSimpleFill
+                                className="text-purple"
+                                size={15}
+                              />
+                            </a>
+                          </Tooltip>
+                        )}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -309,6 +313,7 @@ export default function FeatureVariationsInput({
                       valueAsId={valueAsId}
                       hideVariationIds={hideVariationIds}
                       hideValueField={hideValueField || !editingIds}
+                      hideSplit={hideSplits}
                       feature={feature}
                       showDescription={showDescriptions}
                     />
@@ -372,7 +377,7 @@ export default function FeatureVariationsInput({
                             </>
                           )}
                         </div>
-                        {!isEqualWeights && !disableCustomSplit && (
+                        {!isEqualWeights && !disableCustomSplit && !hideSplits && (
                           <div className="col-auto text-right">
                             <a
                               role="button"

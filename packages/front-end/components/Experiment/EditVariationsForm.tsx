@@ -34,6 +34,8 @@ const EditVariationsForm: FC<{
   });
   const { apiCall } = useAuth();
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   return (
     <Modal
       trackingEventModalType="edit-variations-form"
@@ -60,7 +62,8 @@ const EditVariationsForm: FC<{
         setWeight={(i, weight) => {
           form.setValue(`variationWeights.${i}`, weight);
         }}
-        // hideValueField
+        valueAsId={isBandit}
+        hideSplits={isBandit}
         showDescriptions
         variations={
           form.watch("variations")?.map((v, i) => {
@@ -68,7 +71,7 @@ const EditVariationsForm: FC<{
               value: v.key || "",
               name: v.name,
               description: v.description,
-              weight: form.watch(`variationWeights.${i}`), // todo: use current phase
+              weight: form.watch(`variationWeights.${i}`),
               id: v.id,
             };
           }) ?? []

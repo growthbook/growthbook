@@ -39,6 +39,7 @@ interface SortableProps {
   setVariations?: (value: ExperimentValue[]) => void;
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
+  hideSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
@@ -63,6 +64,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       hideVariationIds,
       hideValueField,
       customSplit,
+      hideSplit,
       setWeight,
       feature,
       showDescription,
@@ -184,36 +186,45 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             )}
           </td>
         )}
-        <td key={`${variation.id}__${i}__4`} style={{ width: 180 }}>
+        <td
+          key={`${variation.id}__${i}__4`}
+          style={{ width: !hideSplit ? 180 : 60 }}
+        >
           <div className="row align-items-center">
-            {customSplit ? (
-              <div className="col d-flex flex-row">
-                <div className={`position-relative ${styles.percentInputWrap}`}>
-                  <Field
-                    id={`${variation.id}__${i}__3__input`}
-                    style={{ width: 95 }}
-                    value={val}
-                    onChange={(e) => {
-                      setVal(parseFloat(e.target.value));
-                    }}
-                    onBlur={() => {
-                      const decimal = (val >= 0 ? val : 0) / 100;
-                      rebalanceAndUpdate(i, decimal);
-                    }}
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="any"
-                    className={styles.percentInput}
-                    disabled={!setWeight}
-                  />
-                  <span>%</span>
-                </div>
-              </div>
-            ) : (
-              <div className="col d-flex flex-row">
-                {decimalToPercent(weights[i])}%
-              </div>
+            {!hideSplit && (
+              <>
+                {customSplit ? (
+                  <div className="col d-flex flex-row">
+                    <div
+                      className={`position-relative ${styles.percentInputWrap}`}
+                    >
+                      <Field
+                        id={`${variation.id}__${i}__3__input`}
+                        style={{ width: 95 }}
+                        value={val}
+                        onChange={(e) => {
+                          setVal(parseFloat(e.target.value));
+                        }}
+                        onBlur={() => {
+                          const decimal = (val >= 0 ? val : 0) / 100;
+                          rebalanceAndUpdate(i, decimal);
+                        }}
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="any"
+                        className={styles.percentInput}
+                        disabled={!setWeight}
+                      />
+                      <span>%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="col d-flex flex-row">
+                    {decimalToPercent(weights[i])}%
+                  </div>
+                )}
+              </>
             )}
             {variations.length > 1 && setVariations && (
               <div {...handle} title="Drag and drop to re-order rules">
