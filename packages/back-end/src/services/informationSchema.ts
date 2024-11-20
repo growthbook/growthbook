@@ -100,7 +100,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
             correspondingSchemaIndex
           ].dateCreated;
       }
-      if (!schema.tables) return;
+      if (!schema.tables || correspondingSchemaIndex === -1) return;
       schema.tables.forEach((table) => {
         const staleInformationSchemaTables =
           staleInformationSchema[correspondingIndex]?.schemas[
