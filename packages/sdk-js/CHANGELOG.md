@@ -1,5 +1,10 @@
 # Changelog
 
+## **1.3.0** - Unreleased
+
+- New `GrowthBookMultiUser` class for 2x performance boost in Node.js
+- Remove undocumented and deprecated `GrowthBook` constructor options: `realtimeKey`, `realtimeInterval`, and `stickyBucketIdentifierAttributes`.
+
 ## **1.2.1** - Oct 8, 2024
 
 - Set default cookie expiry (180 days) in cookie-related Sticky Bucket Services.
