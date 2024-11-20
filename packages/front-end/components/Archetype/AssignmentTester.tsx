@@ -16,6 +16,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import DatePicker from "@/components/DatePicker";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -36,6 +37,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
   const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
     false
   );
+  const [evalDate, setEvalDate] = useState<Date | undefined>(new Date());
 
   const { data, mutate: mutateData } = useArchetype({
     feature,
@@ -57,6 +59,19 @@ export default function AssignmentTester({ feature, version, project }: Props) {
     return false;
   }, [feature]);
 
+  const hasScheduled = useMemo(() => {
+    if (
+      Object.values(feature?.environmentSettings ?? {}).some((env) =>
+        env?.rules?.some(
+          (rule) =>
+            !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length
+        )
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }, [feature]);
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
 
@@ -68,13 +83,24 @@ export default function AssignmentTester({ feature, version, project }: Props) {
       body: JSON.stringify({
         attributes: formValues,
         skipRulesWithPrerequisites,
+        evalDate: evalDate?.toISOString() ?? new Date().toISOString(),
       }),
     })
       .then((data) => {
         setResults(data.results);
       })
       .catch((e) => console.error(e));
-  }, [formValues, apiCall, feature, version, skipRulesWithPrerequisites]);
+  }, [
+    formValues,
+    apiCall,
+    feature,
+    version,
+    skipRulesWithPrerequisites,
+    evalDate,
+  ]);
+
+  const evalDateStr = evalDate?.toISOString().split("T")[0] ?? "";
+  const isNow = evalDateStr === new Date().toISOString().split("T")[0];
 
   const showResults = () => {
     if (!results) {
@@ -244,44 +270,71 @@ export default function AssignmentTester({ feature, version, project }: Props) {
 
   return (
     <>
-      {hasPrerequisites && (
-        <div
-          className="d-flex justify-content-end position-relative mb-2"
-          style={{ marginTop: -30, zIndex: 1 }}
-        >
-          <div>
-            <div className="text-gray">
-              <span className="font-weight-bold">Prereq evaluation:</span>{" "}
-              <span>
-                Top-level: <span className="text-success">pass</span>.
-              </span>{" "}
-              <span>
-                Rules:{" "}
-                {skipRulesWithPrerequisites ? (
-                  <span className="text-danger">fail</span>
-                ) : (
-                  <span className="text-success">pass</span>
-                )}
-                .
-              </span>
-            </div>
-            <div className="d-flex mt-1 align-items-center">
-              <div className="flex-1" />
-              <label
-                className="mb-1 mr-2 small"
-                htmlFor="skipRulesWithPrerequisites"
+      <div className="d-flex flex-row align-items-center justify-content-between">
+        <h3 className="mb-0">Test Feature Rules</h3>
+        <div className="d-flex justify-content-end position-relative mb-1">
+          <div className="">
+            {hasPrerequisites && (
+              <div
+                className="text-gray d-flex justify-content-end"
+                style={{ gap: "5px" }}
               >
-                Skip rules with prerequisite targeting
-              </label>
-              <Toggle
-                id="skipRulesWithPrerequisites"
-                value={skipRulesWithPrerequisites}
-                setValue={(v) => setSkipRulesWithPrerequisites(v)}
-              />
+                <span className="font-weight-bold">Prereq evaluation:</span>{" "}
+                <span>
+                  Top-level: <span className="text-success">pass</span>.
+                </span>{" "}
+                <span>
+                  Rules:{" "}
+                  {skipRulesWithPrerequisites ? (
+                    <span className="text-danger">fail</span>
+                  ) : (
+                    <span className="text-success">pass</span>
+                  )}
+                  .
+                </span>
+              </div>
+            )}
+            <div className="d-flex mt-1 align-items-center">
+              {hasPrerequisites && (
+                <>
+                  <div className="flex-1" />
+                  <label
+                    className="mb-1 mr-2 small"
+                    htmlFor="skipRulesWithPrerequisites"
+                  >
+                    Skip rules with prerequisite targeting
+                  </label>
+                  <Toggle
+                    id="skipRulesWithPrerequisites"
+                    value={skipRulesWithPrerequisites}
+                    setValue={(v) => setSkipRulesWithPrerequisites(v)}
+                  />
+                </>
+              )}
+              {hasScheduled && (
+                <div className="ml-2">
+                  <div className="d-flex align-items-center mb-0">
+                    <label
+                      className="small text-muted mr-2 mb-0 small text-muted text-ellipsis"
+                      htmlFor="evalDate"
+                      title="When there are scheduled rules, this date select lets your see what values the user will get."
+                    >
+                      Evaluation Date
+                    </label>
+                    <DatePicker
+                      id="evalDate"
+                      date={evalDate}
+                      setDate={setEvalDate}
+                      precision="date"
+                      containerClassName="d-flex align-items-end mb-1"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       <div>
         {data && data?.archetype.length > 0 && (
@@ -344,7 +397,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
               </div>
               <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
                 <h4>
-                  Results{" "}
+                  Results{isNow ? " " : ` for ${evalDateStr}`}{" "}
                   <div className="text-warning float-right">
                     <Tooltip
                       body={

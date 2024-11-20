@@ -6,7 +6,7 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { getValidDate } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
@@ -53,6 +53,7 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Callout from "@/components/Radix/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import DatePicker from "@/components/DatePicker";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -530,17 +531,30 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   sort={false}
                 />
                 {status !== "draft" && (
-                  <Field
-                    label="Start Date (UTC)"
-                    type="datetime-local"
-                    {...form.register("phases.0.dateStarted")}
+                  <DatePicker
+                    label="Start Time (UTC)"
+                    date={form.watch("phases.0.dateStarted")}
+                    setDate={(v) => {
+                      form.setValue(
+                        "phases.0.dateStarted",
+                        v ? datetime(v) : ""
+                      );
+                    }}
+                    scheduleEndDate={form.watch("phases.0.dateEnded")}
+                    disableAfter={form.watch("phases.0.dateEnded") || undefined}
                   />
                 )}
                 {status === "stopped" && (
-                  <Field
-                    label="End Date (UTC)"
-                    type="datetime-local"
-                    {...form.register("phases.0.dateEnded")}
+                  <DatePicker
+                    label="End Time (UTC)"
+                    date={form.watch("phases.0.dateEnded")}
+                    setDate={(v) => {
+                      form.setValue("phases.0.dateEnded", v ? datetime(v) : "");
+                    }}
+                    scheduleStartDate={form.watch("phases.0.dateStarted")}
+                    disableBefore={
+                      form.watch("phases.0.dateStarted") || undefined
+                    }
                   />
                 )}
               </>

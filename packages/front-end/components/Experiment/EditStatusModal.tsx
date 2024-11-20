@@ -3,10 +3,12 @@ import {
   ExperimentStatus,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import DatePicker from "@/components/DatePicker";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -75,10 +77,12 @@ export default function EditStatusModal({
             {...form.register("reason")}
             placeholder="(optional)"
           />
-          <Field
+          <DatePicker
             label="Stop Time (UTC)"
-            type="datetime-local"
-            {...form.register("dateEnded")}
+            date={form.watch("dateEnded")}
+            setDate={(v) => {
+              form.setValue("dateEnded", v ? datetime(v) : "");
+            }}
           />
         </>
       )}

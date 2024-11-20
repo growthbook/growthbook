@@ -6,6 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -14,6 +15,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
+import DatePicker from "@/components/DatePicker";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -110,10 +112,12 @@ const StopExperimentForm: FC<{
             placeholder="(optional)"
           />
           {!hasLinkedChanges && (
-            <Field
-              label="Stop Time (UTC)"
-              type="datetime-local"
-              {...form.register("dateEnded")}
+            <DatePicker
+              label="End Time (UTC)"
+              date={form.watch("dateEnded")}
+              setDate={(v) => {
+                form.setValue("dateEnded", v ? datetime(v) : "");
+              }}
             />
           )}
         </>

@@ -5,10 +5,12 @@ import {
 } from "back-end/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
+import DatePicker from "@/components/DatePicker";
 
 export interface Props {
   close: () => void;
@@ -64,33 +66,40 @@ export default function EditPhaseModal({
       bodyClassName="px-4 pt-4"
     >
       <Field label="Phase Name" {...form.register("name")} required />
-      <Field
+      <DatePicker
         label="Start Time (UTC)"
-        type="datetime-local"
-        {...form.register("dateStarted")}
+        date={form.watch("dateStarted")}
+        setDate={(v) => {
+          form.setValue("dateStarted", v ? datetime(v) : "");
+        }}
+        scheduleEndDate={form.watch("dateEnded")}
+        disableAfter={form.watch("dateEnded") || undefined}
       />
       {!(isDraft && !isMultiPhase) ? (
         <>
-          <Field
+          <DatePicker
             label="End Time (UTC)"
-            type="datetime-local"
-            {...form.register("dateEnded")}
-            helpText={
-              <>
-                Leave blank if still running.{" "}
-                <a
-                  role="button"
-                  className="a"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("dateEnded", "");
-                  }}
-                >
-                  Clear Input
-                </a>
-              </>
-            }
+            date={form.watch("dateEnded")}
+            setDate={(v) => {
+              form.setValue("dateEnded", v ? datetime(v) : "");
+            }}
+            scheduleStartDate={form.watch("dateStarted")}
+            disableBefore={form.watch("dateStarted") || undefined}
+            containerClassName=""
           />
+          <div className="mb-3 mt-1 small">
+            Leave blank if still running.{" "}
+            <a
+              role="button"
+              className="a"
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("dateEnded", "");
+              }}
+            >
+              Clear Input
+            </a>
+          </div>
           {form.watch("dateEnded") && (
             <Field
               label="Reason for Stopping"

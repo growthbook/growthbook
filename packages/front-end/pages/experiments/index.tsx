@@ -4,7 +4,7 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiCaretDown, PiShuffle } from "react-icons/pi";
+import { PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -31,10 +31,12 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
-import Dropdown from "@/components/Dropdown/Dropdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
 
 const NUM_PER_PAGE = 20;
 
@@ -308,31 +310,14 @@ const ExperimentsPage = (): React.ReactElement => {
   }
 
   const addExperimentDropdownButton = (
-    <Dropdown
-      uuid="add-experiment"
-      className="py-0"
-      caret={false}
-      toggle={
-        <Button icon={<PiCaretDown />} iconPosition="right">
-          Add Experiment
-        </Button>
-      }
-    >
-      <div style={{ width: 220 }}>
-        <div
-          className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
-          onClick={() => setOpenNewExperimentModal(true)}
-        >
-          Create New Experiment
-        </div>
-        <div
-          className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
-          onClick={() => setOpenImportExperimentModal(true)}
-        >
-          Import Existing Experiment
-        </div>
-      </div>
-    </Dropdown>
+    <DropdownMenu trigger="Add Experiment" menuPlacement="end">
+      <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
+        Create New Experiment
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setOpenImportExperimentModal(true)}>
+        Import Existing Experiment
+      </DropdownMenuItem>
+    </DropdownMenu>
   );
 
   return (
