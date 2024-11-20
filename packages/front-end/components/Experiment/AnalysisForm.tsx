@@ -10,7 +10,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
-import { getValidDate } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   getAffectedEnvsForExperiment,
@@ -35,6 +35,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import DatePicker from "@/components/DatePicker";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -390,7 +391,6 @@ const AnalysisForm: FC<{
               label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
           className="portal-overflow-ellipsis"
-          initialOption={!isBandit ? "Manual" : undefined}
           helpText={
             <>
               <strong className="text-danger">Warning:</strong> Changing this
@@ -484,22 +484,28 @@ const AnalysisForm: FC<{
         {!!phaseObj && editDates && !isBandit && (
           <div className="row">
             <div className="col">
-              <Field
-                label="Start Date (UTC)"
-                labelClassName="font-weight-bold"
-                type="datetime-local"
-                {...form.register("dateStarted")}
+              <DatePicker
+                label="Start Time (UTC)"
                 helpText="Only include users who entered the experiment on or after this date"
+                date={form.watch("dateStarted")}
+                setDate={(v) => {
+                  form.setValue("dateStarted", v ? datetime(v) : "");
+                }}
+                scheduleEndDate={form.watch("dateEnded")}
+                disableAfter={form.watch("dateEnded") || undefined}
               />
             </div>
             {experiment.status === "stopped" && (
               <div className="col">
-                <Field
-                  label="End Date (UTC)"
-                  labelClassName="font-weight-bold"
-                  type="datetime-local"
-                  {...form.register("dateEnded")}
+                <DatePicker
+                  label="End Time (UTC)"
                   helpText="Only include users who entered the experiment on or before this date"
+                  date={form.watch("dateEnded")}
+                  setDate={(v) => {
+                    form.setValue("dateEnded", v ? datetime(v) : "");
+                  }}
+                  scheduleStartDate={form.watch("dateStarted")}
+                  disableBefore={form.watch("dateStarted") || undefined}
                 />
               </div>
             )}

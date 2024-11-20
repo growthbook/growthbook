@@ -37,6 +37,7 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import Link from "@/components/Radix/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "./OverflowText";
 
@@ -320,16 +321,17 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto">
           {!(isBandit && experiment.status === "running") &&
           canEditAnalysisSettings ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setAnalysisModal(true);
-              }}
-            >
-              <span className="text-dark">Analysis Settings</span>
-              <GBEdit className="ml-2" />
-            </a>
+            <div className="cursor-pointer">
+              <Link
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAnalysisModal(true);
+                }}
+              >
+                <span className="text-dark">Analysis Settings</span>
+                <GBEdit className="ml-2" />
+              </Link>
+            </div>
           ) : (
             <span>Analysis Settings</span>
           )}

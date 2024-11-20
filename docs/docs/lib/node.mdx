@@ -303,6 +303,80 @@ app.use(function(req, res, next) {
 })
 ```
 
+## Multi-User Instances
+
+Starting in version 1.3.0, we offer a new `GrowthBookMultiUser` class that can be re-used across requests. In our testing, this is up to 3x faster than creating a new GrowthBook instance for every request, but is a little more complex to set up.
+
+First, create and instantiate your singleton:
+
+```js
+const gb = new GrowthBookMultiUser({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123"
+});
+await gb.init({timeout: 3000});
+```
+
+Then, you can use this in any request by supplying a `UserContext` object to any of the feature evaluation methods.
+
+```js
+app.get("/", (req, res) => {
+  const userContext = {
+    attributes: {
+      id: req.user.id
+    }
+  };
+
+  if (gb.isOn("my-feature", userContext)) {
+    // Do something
+  }
+})
+```
+
+### Multi-User Event Tracking
+
+You can specify `trackingCallback` or `onFeatureUsage` either globally in your GrowthBookMultiUser class or per-request in your user context.
+
+We recommend using a global callback if you plan to track events directly from Node and using a user context callback if you plan to send events to the front-end to fire.
+
+When specified globally, the callbacks will receive an additional argument with the user context that triggered the event.
+
+```js
+const gb = new GrowthBookMultiUser({
+  trackingCallback: (experiment, result, userContext) => {
+    const userId = userContext.attributes.id;
+
+    console.log("Viewed Experiment", userId, {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
+  }
+})
+```
+
+### Multi-User Sticky Bucketing
+
+To use sticky bucketing with a multi-user instance, you must apply sticky buckets to your user context. This is an async operation since for some services (e.g. Redis), it may require a db lookup. Because of this, we recommend only doing this once per request and re-using the user context if you need to evaluate multiple feature flags.
+
+```js
+app.get("/", (req, res) => {
+  const stickyBucketService = new ExpressCookieStickyBucketService({
+      req,
+      res
+  });
+
+  const userContext = await gb.applyStickyBuckets({
+    attributes: {
+      id: req.user.id
+    }
+  }, stickyBucketService);
+
+  if (gb.isOn("my-feature", userContext)) {
+    // Do something
+  }
+})
+```
+
 ## TypeScript
 
 When used in a TypeScript project, GrowthBook includes basic type inference out of the box:

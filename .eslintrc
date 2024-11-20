@@ -118,6 +118,36 @@
       }
     },
     {
+      "files": ["./packages/front-end/**/*.ts*"],
+      "excludedFiles": ["./packages/front-end/components/Radix/**/*.ts*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@radix-ui/themes",
+                "message": "Use the component from @/components/Radix/ instead.",
+                "importNames": [
+                  "Avatar",
+                  "Badge",
+                  "Button",
+                  "Callout",
+                  "Checkbox",
+                  "DataList",
+                  "DropdownMenu",
+                  "Link",
+                  "RadioCards",
+                  "RadioGroup",
+                  "Select"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": [
         "./packages/docs/pages/_app.tsx",
         "./packages/front-end/components/Auth/InAppHelp.tsx",

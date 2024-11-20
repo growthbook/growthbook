@@ -151,20 +151,38 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
-export type RealtimeUsageData = {
-  key: string;
-  on: boolean;
-};
-
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
+}
+
+export interface TrackingDataWithUser {
+  experiment: Experiment<any>;
+  result: Result<any>;
+  user: UserContext;
 }
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>
 ) => Promise<void> | void;
+
+export type TrackingCallbackWithUser = (
+  experiment: Experiment<any>,
+  result: Result<any>,
+  user: UserContext
+) => Promise<void> | void;
+
+export type FeatureUsageCallback = (
+  key: string,
+  result: FeatureResult<any>
+) => void;
+
+export type FeatureUsageCallbackWithUser = (
+  key: string,
+  result: FeatureResult<any>,
+  user: UserContext
+) => void;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
@@ -174,7 +192,8 @@ export type ApplyDomChangesCallback = (
 
 export type RenderFunction = () => void;
 
-export interface Context {
+// Constructor Options
+export type Options = {
   enabled?: boolean;
   attributes?: Attributes;
   url?: string;
@@ -192,7 +211,6 @@ export interface Context {
     StickyAttributeKey,
     StickyAssignmentsDocument
   >;
-  stickyBucketIdentifierAttributes?: string[];
   stickyBucketService?: StickyBucketService;
   debug?: boolean;
   log?: (msg: string, ctx: any) => void;
@@ -207,10 +225,6 @@ export interface Context {
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
-  /** @deprecated */
-  realtimeKey?: string;
-  /** @deprecated */
-  realtimeInterval?: number;
   cacheKeyAttributes?: (keyof Attributes)[];
   /** @deprecated */
   user?: {
@@ -239,10 +253,93 @@ export interface Context {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
-}
+};
+
+export type MultiUserOptions = {
+  enabled?: boolean;
+  debug?: boolean;
+  globalAttributes?: Attributes;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  log?: (msg: string, ctx: any) => void;
+  qaMode?: boolean;
+  disableCache?: boolean;
+  trackingCallback?: TrackingCallbackWithUser;
+  onFeatureUsage?: (
+    key: string,
+    result: FeatureResult<any>,
+    user: UserContext
+  ) => void;
+  apiHost?: string;
+  streamingHost?: string;
+  apiHostRequestHeaders?: Record<string, string>;
+  streamingHostRequestHeaders?: Record<string, string>;
+  clientKey?: string;
+  decryptionKey?: string;
+  savedGroups?: SavedGroupsValues;
+};
+
+// Contexts
+export type GlobalContext = {
+  log: (msg: string, ctx: any) => void;
+  features?: FeatureDefinitions;
+  experiments?: AutoExperiment[];
+  enabled?: boolean;
+  qaMode?: boolean;
+  savedGroups?: SavedGroupsValues;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  trackingCallback?: TrackingCallbackWithUser;
+  onFeatureUsage?: FeatureUsageCallbackWithUser;
+  onExperimentEval?: (experiment: Experiment<any>, result: Result<any>) => void;
+  saveDeferredTrack?: (data: TrackingData) => void;
+  recordChangeId?: (changeId: string) => void;
+
+  /** @deprecated */
+  overrides?: Record<string, ExperimentOverride>;
+  /** @deprecated */
+  groups?: Record<string, boolean>;
+  /** @deprecated */
+  user?: {
+    id?: string;
+    anonId?: string;
+    [key: string]: string | undefined;
+  };
+};
+
+// Some global fields can be overridden by the user, others are always user-level
+export type UserContext = {
+  enabled?: boolean;
+  qaMode?: boolean;
+  attributes?: Attributes;
+  url?: string;
+  blockedChangeIds?: string[];
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
+  saveStickyBucketAssignmentDoc?: (
+    doc: StickyAssignmentsDocument
+  ) => Promise<unknown>;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  trackingCallback?: TrackingCallback;
+  onFeatureUsage?: FeatureUsageCallback;
+};
+
+export type StackContext = {
+  id?: string;
+  evaluatedFeatures: Set<string>;
+};
+
+export type EvalContext = {
+  global: GlobalContext;
+  user: UserContext;
+  stack: StackContext;
+};
 
 export type PrefetchOptions = Pick<
-  Context,
+  Options,
   | "decryptionKey"
   | "apiHost"
   | "apiHostRequestHeaders"
@@ -293,11 +390,6 @@ export type WidenPrimitives<T> = T extends string
   : T extends boolean
   ? boolean
   : T;
-
-export type FeatureEvalContext = {
-  id?: string;
-  evaluatedFeatures: Set<string>;
-};
 
 export type DOMMutation = {
   selector: string;

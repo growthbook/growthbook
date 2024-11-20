@@ -30,20 +30,14 @@ body {
   color: var(--text-color-muted) !important;
 }
 
-.dropdown-text-color {
-  &:focus {
-    svg {
-      color: white;
-    }
-  }
-  svg {
-    color: var(--text-color-muted);
-  }
-}
 .text-ellipsis {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.wrap-code,
+.wrap-code code {
+  white-space: pre-wrap !important;
 }
 
 #block-menu-container {
@@ -178,6 +172,12 @@ pre {
 }
 .mh-50 {
   max-height: 50% !important;
+}
+.mh-250px {
+  max-height: 250px !important;
+}
+.mh-350px {
+  max-height: 350px !important;
 }
 
 // default bootstrap overrides:
@@ -1930,6 +1930,15 @@ main.main.report {
     transparent 100%
   );
 }
+.fade-mask-vertical-1rem {
+  mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
 .w100-1rem {
   width: calc(100% - 2rem);
 }
@@ -3267,7 +3276,7 @@ input:disabled {
   width: 100%;
 }
 .tags-container {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -3402,4 +3411,10 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
+}
+.text-color-high {
+  color: var(--text-color-high);
+}
+.text-color-mid {
+  color: var(--text-color-mid);
 }

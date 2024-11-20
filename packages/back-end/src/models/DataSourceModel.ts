@@ -90,6 +90,18 @@ export async function getDataSourcesByOrganization(
     context.permissions.canReadMultiProjectResource(ds.projects)
   );
 }
+
+// WARNING: This does not restrict by organization
+export async function _dangerourslyGetAllDatasourcesByOrganizations(
+  organizations: string[]
+): Promise<DataSourceInterface[]> {
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    organization: { $in: organizations },
+  });
+
+  return docs.map(toInterface);
+}
+
 // WARNING: This does not restrict by organization
 export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
   const docs: DataSourceDocument[] = await DataSourceModel.find({

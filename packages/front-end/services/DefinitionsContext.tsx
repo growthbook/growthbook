@@ -10,6 +10,7 @@ import {
   FC,
   ReactNode,
   useCallback,
+  ReactElement,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
 import {
@@ -21,6 +22,8 @@ import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { findClosestRadixColor } from "./tags";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -201,13 +204,27 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.factTables;
   }, [data?.factTables]);
 
+  const allTags = useMemo(() => {
+    if (!data || !data.tags) {
+      return [];
+    }
+
+    return data.tags.map((tag) => {
+      if (tag.color.charAt(0) === "#") {
+        return { ...tag, color: findClosestRadixColor(tag.color) as string };
+      }
+
+      return tag;
+    });
+  }, [data?.tags]);
+
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
-  const getTagById = useGetById(data?.tags);
+  const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
   const getMetricGroupById = useGetById(data?.metricGroups);
@@ -240,7 +257,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
-      tags: data.tags,
+      tags: allTags,
       savedGroups: data.savedGroups,
       metricGroups: metricGroups,
       projects: data.projects,
@@ -272,7 +289,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
               tags: data.tags.concat(
                 newTags.map((t) => ({
                   id: t,
-                  color: "#029dd1",
+                  color: "blue",
                   description: "",
                 }))
               ),
@@ -293,3 +310,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     </DefinitionsContext.Provider>
   );
 };
+
+export function DefinitionsGuard({ children }: { children: ReactElement }) {
+  const { ready, error } = useDefinitions();
+
+  if (!error && !ready) {
+    return <LoadingOverlay />;
+  }
+
+  return children;
+}

@@ -19,7 +19,10 @@ import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
-import { DefinitionsProvider } from "@/services/DefinitionsContext";
+import {
+  DefinitionsGuard,
+  DefinitionsProvider,
+} from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { initEnv, isTelemetryEnabled } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -90,7 +93,37 @@ function App({
   useEffect(() => {
     if (!ready) return;
     if (isTelemetryEnabled()) {
-      gbContext.realtimeKey = "key_prod_cb40dfcb0eb98e44";
+      let _rtQueue: { key: string; on: boolean }[] = [];
+      let _rtTimer = 0;
+      gbContext.onFeatureUsage = (key, res) => {
+        _rtQueue.push({
+          key,
+          on: res.on,
+        });
+        if (!_rtTimer) {
+          _rtTimer = window.setTimeout(() => {
+            // Reset the queue
+            _rtTimer = 0;
+            const q = [_rtQueue];
+            _rtQueue = [];
+
+            window
+              .fetch(
+                `https://rt.growthbook.io/?key=key_prod_cb40dfcb0eb98e44&events=${encodeURIComponent(
+                  JSON.stringify(q)
+                )}`,
+
+                {
+                  cache: "no-cache",
+                  mode: "no-cors",
+                }
+              )
+              .catch(() => {
+                // TODO: retry in case of network errors?
+              });
+          }, 2000);
+        }
+      };
     }
     track("App Load");
   }, [ready]);
@@ -161,7 +194,9 @@ function App({
                               <GuidedGetStartedBar />
                               <OrganizationMessagesContainer />
                               <DemoDataSourceGlobalBannerContainer />
-                              <Component {...pageProps} />
+                              <DefinitionsGuard>
+                                <Component {...pageProps} />
+                              </DefinitionsGuard>
                             </main>
                           </DefinitionsProvider>
                         </GetStartedProvider>
