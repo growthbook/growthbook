@@ -1,6 +1,6 @@
 # Changelog
 
-## **1.3.0** - Unreleased
+## **1.3.0** - Nov 20, 2024
 
 - New `GrowthBookMultiUser` class for 2x performance boost in Node.js
 - Remove undocumented and deprecated `GrowthBook` constructor options: `realtimeKey`, `realtimeInterval`, and `stickyBucketIdentifierAttributes`.
