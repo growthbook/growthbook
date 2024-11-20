@@ -1,14 +1,15 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
-  Variation,
+  ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
+import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
-import { generateVariationId } from "@/services/features";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
-import ExperimentVariationsInput from "./ExperimentVariationsInput";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import { distributeWeights } from "@/services/utils";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -16,31 +17,25 @@ const EditVariationsForm: FC<{
   mutate: () => void;
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
-  const form = useForm<{
-    variations: Variation[];
-  }>({
-    defaultValues: {
-      variations: experiment.variations
-        ? experiment.variations
-        : [
-            {
-              name: "Control",
-              description: "",
-              key: "0",
-              screenshots: [],
-              id: generateVariationId(),
-            },
-            {
-              name: "Variation",
-              description: "",
-              key: "1",
-              screenshots: [],
-              id: generateVariationId(),
-            },
-          ],
-    },
+  const lastPhaseIndex = experiment.phases.length - 1;
+  const lastPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[lastPhaseIndex];
+
+  const defaultValues = {
+    variations: experiment.variations,
+    variationWeights:
+      lastPhase?.variationWeights ??
+      getEqualWeights(experiment.variations.length, 4),
+  };
+
+  const form = useForm<
+    ExperimentInterfaceStringDates & { variationWeights: number[] }
+  >({
+    defaultValues,
   });
   const { apiCall } = useAuth();
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <Modal
@@ -54,6 +49,37 @@ const EditVariationsForm: FC<{
         const data = { ...value };
         data.variations = [...data.variations];
 
+        // fix some common bugs
+        if (!isBandit) {
+          const newWeights = [
+            ...data.variations.map((_, i) =>
+              Math.min(
+                Math.max(
+                  data.variationWeights?.[i] ??
+                    1 / data.variations.length ??
+                    0.5,
+                  0
+                ),
+                1
+              )
+            ),
+          ];
+          data.variationWeights = distributeWeights(newWeights, true);
+        } else {
+          if (
+            data.variations.length !== data.variationWeights.length ||
+            data.variations.length !== lastPhase.variationWeights.length
+          ) {
+            // only recompute weights if original weights are the wrong size
+            data.variationWeights = getEqualWeights(
+              data.variations.length || 2,
+              4
+            );
+          } else {
+            data.variationWeights = [...lastPhase.variationWeights];
+          }
+        }
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(data),
@@ -63,9 +89,46 @@ const EditVariationsForm: FC<{
       })}
       cta="Save"
     >
-      <ExperimentVariationsInput
-        variations={form.watch("variations")}
-        setVariations={(variations) => form.setValue("variations", variations)}
+      <FeatureVariationsInput
+        label={null}
+        setWeight={(i, weight) => {
+          form.setValue(`variationWeights.${i}`, weight);
+        }}
+        valueAsId={isBandit}
+        hideSplits={isBandit}
+        showDescriptions
+        variations={
+          form.watch("variations")?.map((v, i) => {
+            return {
+              value: v.key || "",
+              name: v.name,
+              description: v.description,
+              weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
+            };
+          }) ?? []
+        }
+        setVariations={(v) => {
+          form.setValue(
+            "variations",
+            v.map((data, i) => {
+              return {
+                // default values
+                name: "",
+                description: "",
+                screenshots: [],
+                ...data,
+                key: data.value || `${i}` || "",
+              };
+            })
+          );
+          form.setValue(
+            `variationWeights`,
+            v.map((v) => v.weight)
+          );
+        }}
+        showPreview={false}
+        disableCoverage
       />
     </Modal>
   );

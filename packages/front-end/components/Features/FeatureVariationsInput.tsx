@@ -1,8 +1,8 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
-import { FaInfoCircle } from "react-icons/fa";
 import { getEqualWeights } from "shared/experiments";
+import { PiArrowsClockwise, PiLockSimpleFill } from "react-icons/pi";
 import {
   decimalToPercent,
   distributeWeights,
@@ -16,6 +16,7 @@ import {
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
+import Link from "@/components/Radix/Link";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -25,25 +26,30 @@ import {
 import SortableVariationsList from "./SortableVariationsList";
 
 export interface Props {
-  valueType: FeatureValueType;
+  valueType?: FeatureValueType;
   defaultValue?: string;
   variations: SortableVariation[];
   setWeight: (i: number, weight: number) => void;
   setVariations?: (variations: SortableVariation[]) => void;
-  coverage: number;
-  setCoverage: (coverage: number) => void;
+  coverage?: number;
+  setCoverage?: (coverage: number) => void;
   coverageLabel?: string;
   coverageTooltip?: string;
   valueAsId?: boolean;
+  hideVariationIds?: boolean;
+  hideValueField?: boolean;
+  startEditingIndexes?: boolean;
+  startEditingSplits?: boolean;
   showPreview?: boolean;
   hideCoverage?: boolean;
   disableCoverage?: boolean;
   disableVariations?: boolean;
   disableCustomSplit?: boolean;
-  label?: string;
-  customSplitOn?: boolean;
+  hideSplits?: boolean;
+  label?: string | null;
   feature?: FeatureInterface;
   hideVariations?: boolean;
+  showDescriptions?: boolean;
   simple?: boolean;
 }
 
@@ -58,21 +64,32 @@ export default function FeatureVariationsInput({
   coverageLabel = "Traffic included in this Experiment",
   coverageTooltip = "Users not included in the Experiment will skip this rule",
   valueAsId = false,
+  hideVariationIds = false,
+  hideValueField = false,
+  startEditingIndexes = false,
+  startEditingSplits = false,
   showPreview = true,
   hideCoverage = false,
   disableCoverage = false,
   disableVariations = false,
   disableCustomSplit = false,
+  hideSplits = false,
   label: _label,
-  customSplitOn,
   feature,
   hideVariations,
+  showDescriptions,
   simple,
 }: Props) {
   const weights = variations.map((v) => v.weight);
-  const isEqualWeights = weights.every((w) => w === weights[0]);
-  const [customSplit, setCustomSplit] = useState(
-    customSplitOn ?? !isEqualWeights
+  const isEqualWeights = weights.every(
+    (w) => Math.abs(w - weights[0]) < 0.0001
+  );
+
+  const idsMatchIndexes = variations.every((v, i) => v.value === i + "");
+
+  const [editingSplits, setEditingSplits] = useState(startEditingSplits);
+  const [editingIds, setEditingIds] = useState(
+    startEditingIndexes || !idsMatchIndexes
   );
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + ""
@@ -96,10 +113,10 @@ export default function FeatureVariationsInput({
 
   return (
     <div className="form-group">
-      <label>{label}</label>
+      {_label !== null ? <label>{label}</label> : null}
       {simple ? (
         <>
-          {!hideCoverage && (
+          {!hideCoverage && coverage !== undefined ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel} <Tooltip body={coverageTooltip} />
@@ -116,7 +133,7 @@ export default function FeatureVariationsInput({
                       let decimal = percentToDecimalForNumber(e[0]);
                       if (decimal > 1) decimal = 1;
                       if (decimal < 0) decimal = 0;
-                      setCoverage(decimal);
+                      setCoverage?.(decimal);
                     }}
                   />
                 </div>
@@ -131,7 +148,7 @@ export default function FeatureVariationsInput({
                         let decimal = percentToDecimal(e.target.value);
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
-                        setCoverage(decimal);
+                        setCoverage?.(decimal);
                       }}
                       type="number"
                       min={0}
@@ -144,7 +161,7 @@ export default function FeatureVariationsInput({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
           <Field
             label="Number of Variations"
             type="number"
@@ -168,8 +185,8 @@ export default function FeatureVariationsInput({
           />
         </>
       ) : (
-        <div className="gbtable">
-          {!hideCoverage && (
+        <>
+          {!hideCoverage && coverage !== undefined ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel} <Tooltip body={coverageTooltip} />
@@ -186,7 +203,7 @@ export default function FeatureVariationsInput({
                       let decimal = percentToDecimalForNumber(e[0]);
                       if (decimal > 1) decimal = 1;
                       if (decimal < 0) decimal = 0;
-                      setCoverage(decimal);
+                      setCoverage?.(decimal);
                     }}
                   />
                 </div>
@@ -201,7 +218,7 @@ export default function FeatureVariationsInput({
                         let decimal = percentToDecimal(e.target.value);
                         if (decimal > 1) decimal = 1;
                         if (decimal < 0) decimal = 0;
-                        setCoverage(decimal);
+                        setCoverage?.(decimal);
                       }}
                       type="number"
                       min={0}
@@ -214,49 +231,93 @@ export default function FeatureVariationsInput({
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
+
+          {!hideVariationIds &&
+            !startEditingIndexes &&
+            !valueAsId &&
+            !hideValueField && (
+              <div className="mb-2">
+                {!editingIds ? (
+                  <Link
+                    onClick={() => {
+                      setEditingIds(true);
+                    }}
+                  >
+                    Switch to advanced mode
+                  </Link>
+                ) : (
+                  <span className="text-muted">Advanced mode</span>
+                )}
+              </div>
+            )}
+
           {!hideVariations && (
-            <table className="table mb-0">
-              <thead className={`${styles.variationSplitHeader}`}>
+            <table className="table table-borderless mb-0">
+              <thead className={styles.thead}>
                 <tr>
-                  <th className="pl-3">Id</th>
-                  {!valueAsId && <th>Variation</th>}
-                  <th>
-                    <Tooltip
-                      body="Optional way to identify the variations within GrowthBook."
-                      tipPosition="top"
-                    >
-                      Name <FaInfoCircle />
-                    </Tooltip>
-                  </th>
-                  <th>
-                    Split
-                    {!disableVariations && !disableCustomSplit && (
-                      <div className="d-inline-block float-right form-check form-check-inline">
-                        <label className="mb-0 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="form-check-input position-relative"
-                            checked={customSplit}
-                            value={1}
-                            onChange={(e) => {
-                              setCustomSplit(e.target.checked);
-                              if (!e.target.checked) {
-                                setEqualWeights();
-                              }
+                  {!hideVariationIds && (
+                    <th className="pl-3 pr-0">
+                      {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
+                    </th>
+                  )}
+                  {!hideVariationIds && !hideValueField && editingIds && (
+                    <th>Id</th>
+                  )}
+                  {hideVariationIds && !valueAsId && <th>Value to Force</th>}
+                  <th>Variation Name</th>
+                  {showDescriptions && <th>Description</th>}
+                  {!hideSplits && (
+                    <th>
+                      Split
+                      {!disableVariations &&
+                        !disableCustomSplit &&
+                        !editingSplits && (
+                          <Tooltip
+                            body="Customize split"
+                            usePortal={true}
+                            tipPosition="top"
+                          >
+                            <a
+                              role="button"
+                              className="ml-1 mb-0"
+                              onClick={() => {
+                                setEditingSplits(true);
+                              }}
+                            >
+                              <PiLockSimpleFill
+                                className="text-purple"
+                                size={15}
+                              />
+                            </a>
+                          </Tooltip>
+                        )}
+                      {!isEqualWeights && !disableCustomSplit && !hideSplits && (
+                        <Tooltip
+                          body="Assign equal weights to all variations"
+                          usePortal={true}
+                          tipPosition="top"
+                        >
+                          <a
+                            role="button"
+                            className="ml-2 link-purple small"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setEqualWeights();
                             }}
-                            id="checkbox-customsplits"
-                            style={{ top: "2px" }}
-                          />{" "}
-                          Customize split
-                        </label>
-                      </div>
-                    )}
-                  </th>
+                          >
+                            <PiArrowsClockwise className="mr-1" size={12} />
+                            set equal
+                          </a>
+                        </Tooltip>
+                      )}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 <SortableVariationsList
+                  valuesAsIds={idsMatchIndexes}
                   variations={variations}
                   setVariations={!disableVariations ? setVariations : undefined}
                 >
@@ -270,26 +331,32 @@ export default function FeatureVariationsInput({
                         !disableVariations ? setVariations : undefined
                       }
                       setWeight={!disableVariations ? setWeight : undefined}
-                      customSplit={customSplit}
+                      customSplit={editingSplits}
                       valueType={valueType}
                       valueAsId={valueAsId}
+                      hideVariationIds={hideVariationIds}
+                      hideValueField={hideValueField || !editingIds}
+                      hideSplit={hideSplits}
                       feature={feature}
+                      showDescription={showDescriptions}
                     />
                   ))}
                 </SortableVariationsList>
+              </tbody>
+              <tfoot>
                 {!disableVariations && (
                   <tr>
-                    <td colSpan={4}>
+                    <td colSpan={10}>
                       <div className="row">
                         <div className="col">
                           {valueType !== "boolean" && setVariations && (
                             <a
                               role="button"
-                              className="btn btn-link p-0"
+                              className="btn btn-link link-purple font-weight-bold p-0"
                               onClick={() => {
                                 const newWeights = distributeWeights(
                                   [...weights, 0],
-                                  customSplit
+                                  editingSplits
                                 );
 
                                 // Add a new value and update weights
@@ -299,7 +366,7 @@ export default function FeatureVariationsInput({
                                     value: getDefaultVariationValue(
                                       defaultValue
                                     ),
-                                    name: "",
+                                    name: `Variation ${variations.length}`,
                                     weight: 0,
                                     id: generateVariationId(),
                                   },
@@ -308,9 +375,14 @@ export default function FeatureVariationsInput({
                                   v.weight = newWeights[i] || 0;
                                 });
                                 setVariations(newValues);
+                                if (isEqualWeights) {
+                                  getEqualWeights(
+                                    newValues.length
+                                  ).forEach((w, i) => setWeight(i, w));
+                                }
                               }}
                             >
-                              <GBAddCircle className="mr-2" />
+                              <GBAddCircle className="mr-1" />
                               Add variation
                             </a>
                           )}
@@ -328,42 +400,28 @@ export default function FeatureVariationsInput({
                             </>
                           )}
                         </div>
-                        {!isEqualWeights && !disableCustomSplit && (
-                          <div className="col-auto text-right">
-                            <a
-                              role="button"
-                              className="font-weight-bold link-purple"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEqualWeights();
-                              }}
-                            >
-                              set equal weights
-                            </a>
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
                 )}
 
-                {showPreview && (
+                {showPreview && coverage !== undefined ? (
                   <tr>
-                    <td colSpan={4} className="px-0 border-0">
+                    <td colSpan={10} className="px-0 border-0">
                       <div className="box pt-3 px-3">
                         <ExperimentSplitVisual
                           coverage={coverage}
                           values={variations}
-                          type={valueType}
+                          type={valueType ?? "string"}
                         />
                       </div>
                     </td>
                   </tr>
-                )}
-              </tbody>
+                ) : null}
+              </tfoot>
             </table>
           )}
-        </div>
+        </>
       )}
     </div>
   );
