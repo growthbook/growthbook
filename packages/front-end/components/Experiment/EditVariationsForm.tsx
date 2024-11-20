@@ -51,9 +51,14 @@ const EditVariationsForm: FC<{
 
         // fix some common bugs
         const newWeights = [
-          ...data.variations.map(
-            (_, i) =>
-              data.variationWeights?.[i] || data.variations.length || 0.5
+          ...data.variations.map((_, i) =>
+            Math.min(
+              Math.max(
+                data.variationWeights?.[i] ?? 1 / data.variations.length ?? 0.5,
+                0
+              ),
+              1
+            )
           ),
         ];
         const newWeightsFixed = distributeWeights(newWeights, true);

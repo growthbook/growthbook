@@ -262,7 +262,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       }}
                       type="button"
                     >
-                      remove
+                      Remove
                     </button>
                   </Tooltip>
                 </MoreMenu>
