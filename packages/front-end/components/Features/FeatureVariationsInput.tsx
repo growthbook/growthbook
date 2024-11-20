@@ -292,25 +292,28 @@ export default function FeatureVariationsInput({
                             </a>
                           </Tooltip>
                         )}
-                      {!isEqualWeights && !disableCustomSplit && !hideSplits && (
-                        <Tooltip
-                          body="Assign equal weights to all variations"
-                          usePortal={true}
-                          tipPosition="top"
-                        >
-                          <a
-                            role="button"
-                            className="ml-2 link-purple small"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setEqualWeights();
-                            }}
+                      {editingSplits &&
+                        !isEqualWeights &&
+                        !disableCustomSplit &&
+                        !hideSplits && (
+                          <Tooltip
+                            body="Assign equal weights to all variations"
+                            usePortal={true}
+                            tipPosition="top"
                           >
-                            <PiArrowsClockwise className="mr-1" size={12} />
-                            set equal
-                          </a>
-                        </Tooltip>
-                      )}
+                            <a
+                              role="button"
+                              className="ml-2 link-purple small"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setEqualWeights();
+                              }}
+                            >
+                              <PiArrowsClockwise className="mr-1" size={12} />
+                              set equal
+                            </a>
+                          </Tooltip>
+                        )}
                     </th>
                   )}
                 </tr>
