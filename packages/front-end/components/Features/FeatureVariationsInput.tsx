@@ -2,7 +2,7 @@ import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { getEqualWeights } from "shared/experiments";
-import { PiLockSimpleFill } from "react-icons/pi";
+import { PiArrowsClockwise, PiLockSimpleFill } from "react-icons/pi";
 import {
   decimalToPercent,
   distributeWeights,
@@ -273,7 +273,11 @@ export default function FeatureVariationsInput({
                       {!disableVariations &&
                         !disableCustomSplit &&
                         !editingSplits && (
-                          <Tooltip body="Customize split">
+                          <Tooltip
+                            body="Customize split"
+                            usePortal={true}
+                            tipPosition="top"
+                          >
                             <a
                               role="button"
                               className="ml-1 mb-0"
@@ -288,6 +292,25 @@ export default function FeatureVariationsInput({
                             </a>
                           </Tooltip>
                         )}
+                      {!isEqualWeights && !disableCustomSplit && !hideSplits && (
+                        <Tooltip
+                          body="Assign equal weights to all variations"
+                          usePortal={true}
+                          tipPosition="top"
+                        >
+                          <a
+                            role="button"
+                            className="ml-2 link-purple small"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setEqualWeights();
+                            }}
+                          >
+                            <PiArrowsClockwise className="mr-1" size={12} />
+                            set equal
+                          </a>
+                        </Tooltip>
+                      )}
                     </th>
                   )}
                 </tr>
@@ -377,20 +400,6 @@ export default function FeatureVariationsInput({
                             </>
                           )}
                         </div>
-                        {!isEqualWeights && !disableCustomSplit && !hideSplits && (
-                          <div className="col-auto text-right">
-                            <a
-                              role="button"
-                              className="font-weight-bold link-purple"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEqualWeights();
-                              }}
-                            >
-                              set equal weights
-                            </a>
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
