@@ -50,19 +50,35 @@ const EditVariationsForm: FC<{
         data.variations = [...data.variations];
 
         // fix some common bugs
-        const newWeights = [
-          ...data.variations.map((_, i) =>
-            Math.min(
-              Math.max(
-                data.variationWeights?.[i] ?? 1 / data.variations.length ?? 0.5,
-                0
-              ),
-              1
-            )
-          ),
-        ];
-        const newWeightsFixed = distributeWeights(newWeights, true);
-        data.variationWeights = newWeightsFixed;
+        if (!isBandit) {
+          const newWeights = [
+            ...data.variations.map((_, i) =>
+              Math.min(
+                Math.max(
+                  data.variationWeights?.[i] ??
+                    1 / data.variations.length ??
+                    0.5,
+                  0
+                ),
+                1
+              )
+            ),
+          ];
+          data.variationWeights = distributeWeights(newWeights, true);
+        } else {
+          if (
+            data.variations.length !== data.variationWeights.length ||
+            data.variations.length !== lastPhase.variationWeights.length
+          ) {
+            // only recompute weights if original weights are the wrong size
+            data.variationWeights = getEqualWeights(
+              data.variations.length || 2,
+              4
+            );
+          } else {
+            data.variationWeights = [...lastPhase.variationWeights];
+          }
+        }
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
