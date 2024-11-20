@@ -15,10 +15,6 @@ const mockCallback = (context: Context) => {
   return onFeatureUsage.mock;
 };
 
-async function sleep(ms: number) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 describe("features", () => {
   it("renders when features are set", () => {
     const context: Context = {
@@ -369,75 +365,6 @@ describe("features", () => {
     growthbook.destroy();
   });
 
-  it("fires real-time usage call", async () => {
-    const f = window.fetch;
-    const mock = jest.fn((url, options) => {
-      return Promise.resolve([url, options]);
-    });
-    // eslint-disable-next-line
-    (window.fetch as any) = mock;
-
-    const growthbook = new GrowthBook({
-      realtimeKey: "abc",
-      realtimeInterval: 50,
-      attributes: { id: "1" },
-      features: {
-        feature1: {
-          defaultValue: "1",
-          rules: [
-            {
-              id: "f",
-              force: "2",
-            },
-          ],
-        },
-        feature3: {
-          rules: [
-            {
-              variations: ["a", "b"],
-            },
-          ],
-        },
-      },
-    });
-
-    expect(growthbook.isOn("feature1")).toEqual(true);
-    expect(growthbook.isOff("feature2")).toEqual(true);
-    expect(growthbook.getFeatureValue("feature3", "default")).toEqual("a");
-
-    await sleep(100);
-
-    const events = [
-      {
-        key: "feature1",
-        on: true,
-      },
-      {
-        key: "feature2",
-        on: false,
-      },
-      {
-        key: "feature3",
-        on: true,
-      },
-    ];
-    const expectedUrl = `https://rt.growthbook.io/?key=abc&events=${encodeURIComponent(
-      JSON.stringify(events)
-    )}`;
-
-    expect(mock.mock.calls.length).toEqual(1);
-    expect(mock.mock.calls[0]).toEqual([
-      expectedUrl,
-      {
-        mode: "no-cors",
-        cache: "no-cache",
-      },
-    ]);
-
-    growthbook.destroy();
-    window.fetch = f;
-  });
-
   it("uses fallbacks get getFeatureValue", () => {
     const growthbook = new GrowthBook({
       features: {
@@ -452,33 +379,6 @@ describe("features", () => {
     expect(growthbook.getFeatureValue("testing", null)).toEqual(null);
 
     growthbook.destroy();
-  });
-
-  it("clears realtime timer on destroy", async () => {
-    const f = window.fetch;
-    const mock = jest.fn((url, options) => {
-      return Promise.resolve([url, options]);
-    });
-    // eslint-disable-next-line
-    (window.fetch as any) = mock;
-
-    const growthbook = new GrowthBook({
-      realtimeKey: "abc",
-      realtimeInterval: 50,
-      features: {
-        feature1: {
-          defaultValue: "1",
-        },
-      },
-    });
-
-    expect(growthbook.isOn("feature1")).toEqual(true);
-    growthbook.destroy();
-
-    await sleep(100);
-
-    expect(mock.mock.calls.length).toEqual(0);
-    window.fetch = f;
   });
 
   it("fires remote tracking calls", async () => {
