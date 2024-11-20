@@ -6,7 +6,7 @@
 }
 .thead {
   tr th {
-    padding-bottom: 0;
+    padding-bottom: 4px;
   }
 }
 .tr {
@@ -26,9 +26,11 @@
 .colorMarker {
   width: 4px;
   position: absolute;
-  top: 12px;
+  //top: 12px;
+  top: 0;
   left: 0;
-  height: calc(100% - 24px);
+  //height: calc(100% - 24px);
+  height: 100%;
 }
 
 .percentInput {

@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import { distributeWeights } from "@/services/utils";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -47,6 +48,16 @@ const EditVariationsForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
         data.variations = [...data.variations];
+
+        // fix some common bugs
+        const newWeights = [
+          ...data.variations.map(
+            (_, i) =>
+              data.variationWeights?.[i] || data.variations.length || 0.5
+          ),
+        ];
+        const newWeightsFixed = distributeWeights(newWeights, true);
+        data.variationWeights = newWeightsFixed;
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
