@@ -341,6 +341,9 @@ export default function FeatureFromExperimentModal({
             const newFeature = validFeatures.find((f) => f.id === value);
             if (newFeature) {
               updateValuesOnTypeChange(newFeature.valueType);
+              experiment.variations.forEach((_, i) =>
+                form.setValue(`variations.${i}.value`, newFeature.defaultValue)
+              );
             }
           }
 
