@@ -220,7 +220,7 @@ export default function ConfigureReport({
         helpText="Will match against the experiment_id column in your experiment assignment table"
       />
       <div className="form-group">
-        <label className="font-weight-bold">Variation Ids</label>
+        <label className="font-weight-bold">计划ID</label>
         <div className="row align-items-top">
           {variations.fields.map((v, i) => (
             <div
@@ -245,7 +245,7 @@ export default function ConfigureReport({
         </small>
       </div>
       <div className="form-group">
-        <label className="font-weight-bold">Variation Weights</label>
+        <label className="font-weight-bold">计划权重</label>
         <div className="row align-items-top">
           {variations.fields.map((v, i) => (
             <div

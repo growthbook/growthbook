@@ -153,11 +153,11 @@ export default function ReportPage() {
       <PageHead
         breadcrumb={[
           {
-            display: `Experiments`,
+            display: `实验`,
             href: `/experiments`,
           },
           {
-            display: `${experimentData?.experiment.name ?? "Report"}`,
+            display: `${experimentData?.experiment.name ?? "报告"}`,
             href: experimentData?.experiment.id
               ? `/experiment/${experimentData.experiment.id}`
               : undefined,
@@ -180,10 +180,10 @@ export default function ReportPage() {
             close={() => {
               setEditModalOpen(false);
             }}
-            header="Edit Report"
+            header="编辑报告"
             overflowAuto={false}
           >
-            <Field label="Title" {...form.register("title")} />
+            <Field label="标题" {...form.register("title")} />
             <div className="form-group">
               <label>Description</label>
               <MarkdownInput
@@ -214,12 +214,12 @@ export default function ReportPage() {
           {report?.experimentId && (
             <Link href={`/experiment/${report.experimentId}#results`}>
               <GBCircleArrowLeft className="mr-2" />
-              Go to experiment results
+              返回实验结果
             </Link>
           )}
           {canDeleteReport && (userId === report?.userId || !report?.userId) && (
             <DeleteButton
-              displayName="Custom Report"
+              displayName="自定义报告"
               link={false}
               className="float-right btn-sm"
               text="delete"
@@ -452,7 +452,7 @@ export default function ReportPage() {
                       ". Give it a little longer and click the 'Refresh' button to check again."}
                     {!report.results &&
                       canUpdateReport &&
-                      `Click the "Refresh" button.`}
+                      `点击"刷新"按钮。`}
                   </div>
                 )}
             </div>
@@ -577,8 +577,8 @@ export default function ReportPage() {
                     <span className="text-muted">引擎：</span>{" "}
                     <span>
                       {report.args?.statsEngine === "frequentist"
-                        ? "Frequentist"
-                        : "Bayesian"}
+                        ? "概率学派"
+                        : "贝叶斯"}
                     </span>
                   </div>
                   <div>
@@ -605,7 +605,7 @@ export default function ReportPage() {
                     </div>
                   )}
                   <div>
-                    <span className="text-muted">Run date:</span>{" "}
+                    <span className="text-muted">运行时间：</span>{" "}
                     <span>
                       {getValidDate(report.runStarted).toLocaleString([], {
                         year: "numeric",
@@ -624,10 +624,10 @@ export default function ReportPage() {
             <Tab
               key="configuration"
               anchor="configuration"
-              display="Configuration"
+              display="配置"
               forceRenderOnFocus={true}
             >
-              <h2>Configuration</h2>
+              <h2>配置</h2>
               <ConfigureReport
                 mutate={mutate}
                 report={report}

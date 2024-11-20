@@ -465,14 +465,12 @@ export function getRowResults({
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const enoughDataReason =
-    `This metric has a minimum ${
-      quantileMetricType(metric) ? "sample size" : "total"
-    } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total ${
-      quantileMetricType(metric) ? "sample size" : "metric value"
-    } of the variation is ${compactNumberFormatter.format(
+    `该指标有一个最小的${quantileMetricType(metric) ? "样本大小" : "总量"
+    }为${minSampleSize}；在展示结果之前，这个值必须在一个变量组中达到。 ` +
+    `变量组的总${quantileMetricType(metric) ? "样本大小" : "指标值"
+    }为${compactNumberFormatter.format(
       variationSampleSize
-    )} and the baseline total is ${compactNumberFormatter.format(
+    )}，基线组的总量为${compactNumberFormatter.format(
       baselineSampleSize
     )}.`;
   const percentComplete =
@@ -482,9 +480,9 @@ export function getRowResults({
   const timeRemainingMs =
     percentComplete > 0.1
       ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
-          (1 - percentComplete)) /
-          percentComplete -
-        (Date.now() - snapshotDate.getTime())
+        (1 - percentComplete)) /
+      percentComplete -
+      (Date.now() - snapshotDate.getTime())
       : null;
   const showTimeRemaining =
     timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
@@ -504,9 +502,7 @@ export function getRowResults({
     metricDefaults
   );
   const suspiciousChangeReason = suspiciousChange
-    ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
-      )}).`
+    ? `当百分比变化超过了最大百分比变化（${percentFormatter.format(metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0)}）时，就会出现可疑结果。`
     : "";
 
   const { risk, relativeRisk, showRisk } = getRisk(
@@ -522,18 +518,18 @@ export function getRowResults({
   let riskReason = "";
   if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
     riskStatus = "warning";
-    riskReason = `The relative risk (${percentFormatter.format(
+    riskReason = `该指标的相对风险(${percentFormatter.format(
       relativeRisk
-    )}) exceeds the warning threshold (${percentFormatter.format(
+    )})超过了危险阈值(${percentFormatter.format(
       winRiskThreshold
-    )}) for this metric.`;
+    )})。`;
   } else if (relativeRisk >= loseRiskThreshold) {
     riskStatus = "danger";
-    riskReason = `The relative risk (${percentFormatter.format(
+    riskReason = `该指标的相对风险(${percentFormatter.format(
       relativeRisk
-    )}) exceeds the danger threshold (${percentFormatter.format(
+    )})超过了危险阈值(${percentFormatter.format(
       loseRiskThreshold
-    )}) for this metric.`;
+    )})。`;
   }
   let riskFormatted = "";
 
@@ -574,42 +570,34 @@ export function getRowResults({
   let significantReason = "";
   if (!significant) {
     if (statsEngine === "bayesian") {
-      significantReason = `This metric is not statistically significant. The chance to win is not less than ${percentFormatter.format(
+      significantReason = `这个指标在统计学上并不显著。获胜的概率不小于${percentFormatter.format(
         ciLower
-      )} or greater than ${percentFormatter.format(ciUpper)}.`;
+      )}或大于${percentFormatter.format(ciUpper)}.`;
     } else {
-      significantReason = `This metric is not statistically significant. The p-value (${pValueFormatter(
+      significantReason = `这个指标在统计学上并不显著。p-value (${pValueFormatter(
         stats.pValueAdjusted ?? stats.pValue ?? 1
-      )}) is greater than the threshold (${pValueFormatter(pValueThreshold)}).`;
+      )})大于阈值(${pValueFormatter(pValueThreshold)}).`;
     }
   }
 
   let resultsReason = "";
   if (statsEngine === "bayesian") {
     if (resultsStatus === "won") {
-      resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
-        ciUpper
-      )} threshold and the change is in the desired direction.`;
+      resultsReason = `显著获胜，因为获胜概率高于 ${percentFormatter.format(ciUpper)} 阈值且变化方向符合预期。`;
     } else if (resultsStatus === "lost") {
-      resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
-        ciLower
-      )} threshold and the change is not in the desired direction.`;
+      resultsReason = `由于获胜概率低于 ${percentFormatter.format(ciLower)} 阈值，且变化方向也不符合预期，所以出现了显著损失。`;
     } else if (resultsStatus === "draw") {
       resultsReason =
-        "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
+        "变化是显著的，但太小以至于无关紧要（低于可检测到的最小变化阈值）。可视为平局。";
     }
   } else {
     if (resultsStatus === "won") {
-      resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
-      )} threshold`;
+      resultsReason = `由于 p 值低于 ${numberFormatter.format(pValueThreshold)} 阈值，所以是显著获胜`;
     } else if (resultsStatus === "lost") {
-      resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
-      )} threshold`;
+      resultsReason = `由于 p 值低于 ${numberFormatter.format(pValueThreshold)} 阈值，出现了显著损失`;
     } else if (resultsStatus === "draw") {
       resultsReason =
-        "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
+        "变化是显著的，但太小以至于无关紧要（低于可检测到的最小变化阈值）。可视为平局。";
     }
   }
 
@@ -620,7 +608,7 @@ export function getRowResults({
     resultsStatus !== "lost"
   ) {
     guardrailWarning =
-      "Uplift for this guardrail metric may be in the undesired direction.";
+      "该护栏指标的提升可能处于不理想的方向。";
   }
 
   return {
@@ -646,10 +634,10 @@ export function getRowResults({
 
 export function getEffectLabel(differenceType: DifferenceType): string {
   if (differenceType === "absolute") {
-    return "Absolute Change";
+    return "绝对值变化量";
   }
   if (differenceType === "scaled") {
     return "Scaled Impact";
   }
-  return "% Change";
+  return "% 变化率";
 }

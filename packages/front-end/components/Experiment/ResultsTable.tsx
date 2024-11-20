@@ -914,13 +914,13 @@ function getChangeTooltip(
   pValueThreshold: number
 ) {
   let changeText =
-    "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
+    "将变量与基线进行对比得出的提升量，以相对于基线值的百分比变化来表示。";
   if (differenceType == "absolute") {
     changeText =
-      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline.";
+      "变量组和基线组平均值之间的绝对差值。对于非比率指标，这是变量组和基线组中用户之间的平均差值。";
   } else if (differenceType == "scaled") {
     changeText =
-      "The total change in the metric per day if 100% of traffic were to have gone to the variation.";
+      "如果百分之百的流量都流向变量组，那么该指标每天的总变化量。";
   }
 
   const changeElem = (
@@ -934,8 +934,7 @@ function getChangeTooltip(
   if (hasRisk && statsEngine === "bayesian") {
     intervalText = (
       <>
-        The interval is a 95% 可信区间. The true value is more likely
-        to be in the thicker parts of the graph.
+        该区间是一个 95% 可信区间。真实值更有可能位于图表中较粗的部分。
       </>
     );
   }
