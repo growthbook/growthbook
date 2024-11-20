@@ -4,56 +4,30 @@ By harnessing the power of DataDog's monitoring and alerting capabilities, along
 
 ## Setup Instructions
 
-### 1. Instrument DataDog with Feature Flag Data
+### 1. Enable DataDog Real User Monitoring (RUM)
 
 DataDog has a number of products that can be used to monitor applications. For this example, we'll focus on how to integrate
-GrowthBook with [DataDog RUM](https://www.datadoghq.com/product/real-user-monitoring/).
+GrowthBook with [DataDog RUM](https://www.datadoghq.com/product/real-user-monitoring/). If using a broswer RUM library version < v5.17.0 you'll need to enable additional flags as explained [here](https://docs.datadoghq.com/real_user_monitoring/guide/setup-feature-flag-data-collection/?tab=browser#setup).
 
-To get started, you'll first need to instrument DataDog's RUM with their beta [Feature Flag Tracking](https://docs.datadoghq.com/real_user_monitoring/feature_flag_tracking/) feature.
+### 2. Report GrowthBook feature flag evaluations to DataDog
 
-When initializing `datadogRum` you can add `enableExperimentalFeatures` and pass in `feature_flags` to get access to the beta feature.
+In the `trackingCallback` function add the following line:
 
-```ts
-datadogRum.init({
-  applicationId: "sample-application-id",
-  clientToken: "sample-client-token",
-  site: "datadoghq.com",
-  service: "demo-app",
-  env: "dev",
-  version: "1.0.0",
-  sessionSampleRate: 100,
-  sessionReplaySampleRate: 100,
-  trackUserInteractions: true,
-  trackResources: true,
-  trackLongTasks: true,
-  defaultPrivacyLevel: "mask-user-input",
-// This enables the beta feature flag tracking
-  enableExperimentalFeatures: ["feature_flags"],
-});
-
-datadogRum.startSessionReplayRecording();
+```js
+ trackingCallback: (experiment, result) => {
+    datadogRum.addFeatureFlagEvaluation(experiment, result);
+  }
 ```
 
-Then, you can use the `addFeatureFlagEvaluation` method built in to the `datadogRum` package when evaluating GrowthBook Feature Flags.
+## Other examples (advanced)
 
-```ts
-import { datadogRum } from "@datadog/browser-rum";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-
-const welcomeMessage = useFeatureIsOn("welcome-message");
-
-datadogRum.addFeatureFlagEvaluation("welcome-message", welcomeMessage);
-```
-
-:::info Note
+### Integrate with traces
 
 If you are using [DataDog APM](https://www.datadoghq.com/product/apm/), you can do something similar by adding Feature Flag data to your traces. DataDog then
 has a helpful guide on how to [Connect Rum & Traces](https://docs.datadoghq.com/real_user_monitoring/connect_rum_and_traces/?tab=browserrum).
 This route will enable you do have alerts built around both front-end and back-end errors.
 
-:::
-
-### 2. Build a DataDog Dashboard & Monitor
+### Build a DataDog Dashboard & Monitor
 
 Now that you&apos;re passing Feature Flag data to DataDog, you can build monitors and alerts when the error rate between Feature Flags variations cross a specific threshold within a pre-defined time period.
 
@@ -75,7 +49,7 @@ This is the out-of-the-box search query created from the Create Monitor link abo
 
 ![](../../static/images/integrations/datadog/customize-monitor-query-in-data-dog.png)
 
-### 3. Build DataDog Webhook
+#### Build DataDog Webhook
 
 Once you&apos;ve defined a monitor&apos;s search query, you can then build an alert that uses DataDog&apos;s Webhooks to invokes a serverless function (e.g. AWS Lambda).
 
@@ -93,7 +67,7 @@ Now that you&apos;ve built the Webhook, you can go back to the monitor alert and
 
 ![](../../static/images/integrations/datadog/update-datadog-alert-to-post-to-webhook.png)
 
-### 4. Update Feature Flag via GrowthBook REST API.
+#### Update Feature Flag via GrowthBook REST API.
 
 The final step is to build a serverless function that hits the GrowthBook REST API endpoint to toggle status of a feature flag.
 

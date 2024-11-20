@@ -3,7 +3,6 @@ import { AppProps } from "next/app";
 import "@/styles/global.scss";
 import "@/styles/global-radix-overrides.scss";
 import "@radix-ui/themes/styles.css";
-import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import {
