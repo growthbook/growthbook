@@ -19,6 +19,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadioGroup from "@/components/Radix/RadioGroup";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -38,7 +39,6 @@ export default function FeatureValueField({
   label,
   value,
   setValue,
-  id,
   helpText,
   placeholder,
   feature,
@@ -76,17 +76,22 @@ export default function FeatureValueField({
       <div className="form-group">
         <label>{label}</label>
         <div>
-          <Toggle
-            id={id + "__toggle"}
-            value={value === "true"}
+          <RadioGroup
+            options={[
+              {
+                label: "TRUE",
+                value: "true",
+              },
+              {
+                label: "FALSE",
+                value: "false",
+              },
+            ]}
+            value={value}
             setValue={(v) => {
-              setValue(v ? "true" : "false");
+              setValue(v);
             }}
-            type="featureValue"
           />
-          <span className="text-gray font-weight-bold pl-2">
-            {value === "true" ? "TRUE" : "FALSE"}
-          </span>
         </div>
         {helpText && <small className="text-muted">{helpText}</small>}
       </div>
