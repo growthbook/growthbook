@@ -62,6 +62,7 @@ export default function ExperimentRefNewFields({
   setVariations,
   variationValuesAsIds = false,
   hideVariationIds = true,
+  startEditingIndexes = false,
   orgStickyBucketing,
 }: {
   step: number;
@@ -94,6 +95,7 @@ export default function ExperimentRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   variationValuesAsIds?: boolean;
   hideVariationIds?: boolean;
+  startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
 }) {
   const form = useFormContext();
@@ -204,6 +206,7 @@ export default function ExperimentRefNewFields({
             feature={feature}
             valueAsId={variationValuesAsIds}
             hideVariationIds={hideVariationIds}
+            startEditingIndexes={startEditingIndexes}
           />
 
           {namespaces && namespaces.length > 0 && (

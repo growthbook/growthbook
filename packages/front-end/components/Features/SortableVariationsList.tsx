@@ -57,11 +57,9 @@ const SortableVariationsList: FC<{
 
           if (oldIndex === -1 || newIndex === -1) return;
 
-          const newVariations = arrayMove<SortableVariation | Variation>(
-            variations,
-            oldIndex,
-            newIndex
-          );
+          const newVariations = arrayMove<
+            SortableVariation | (Variation & { value?: string })
+          >(variations, oldIndex, newIndex);
           if (valuesAsIds) {
             newVariations.forEach((variation, i) => {
               if (variation.value === undefined) return;

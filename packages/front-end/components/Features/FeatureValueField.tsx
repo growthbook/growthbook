@@ -22,7 +22,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   valueType?: FeatureValueType;
-  label: string;
+  label?: string;
   value: string;
   setValue: (v: string) => void;
   id: string;
@@ -73,8 +73,8 @@ export default function FeatureValueField({
 
   if (valueType === "boolean") {
     return (
-      <div className="form-group">
-        <label>{label}</label>
+      <div className={clsx("form-group", { "mb-0": label === undefined })}>
+        {label !== undefined && <label>{label}</label>}
         <div>
           <Toggle
             id={id + "__toggle"}
@@ -127,7 +127,13 @@ export default function FeatureValueField({
           }
         : {})}
       helpText={helpText}
-      style={valueType === undefined ? { width: 80 } : undefined}
+      style={
+        valueType === undefined
+          ? { width: 80 }
+          : valueType === "number"
+          ? { width: 120 }
+          : undefined
+      }
     />
   );
 }

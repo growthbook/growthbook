@@ -133,7 +133,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   };
                   setVariations(newVariations);
                 }}
-                label=""
                 valueType={valueType}
                 feature={feature}
                 renderJSONInline={false}
@@ -146,7 +145,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
-              label=""
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string"
@@ -169,7 +167,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
           <td key={`${variation.id}__${i}__3`}>
             {setVariations ? (
               <Field
-                label=""
                 value={variation.description || ""}
                 onChange={(e) => {
                   const newVariations = [...variations];

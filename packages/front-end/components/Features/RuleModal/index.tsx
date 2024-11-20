@@ -851,6 +851,7 @@ export default function RuleModal({
                   }
                   variationValuesAsIds={false}
                   hideVariationIds={true}
+                  startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
                 />
               </Page>
