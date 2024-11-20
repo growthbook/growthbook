@@ -26,10 +26,11 @@ export function getRecentlyDeletedTables(
       (updatedInformationSchemaRecord) =>
         updatedInformationSchemaRecord.databaseName === database.databaseName
     );
+    if (!database.schemas) return;
     database.schemas.forEach((schema) => {
       const correspondingSchemaIndex = updatedInformationSchema[
         correspondingIndex
-      ].schemas.findIndex(
+      ]?.schemas.findIndex(
         (updatedSchemaRecord) =>
           updatedSchemaRecord.schemaName === schema.schemaName
       );
@@ -88,21 +89,21 @@ export async function mergeStaleInformationSchemaWithUpdate(
     database.schemas.forEach((schema) => {
       const correspondingSchemaIndex = staleInformationSchema[
         correspondingIndex
-      ].schemas.findIndex(
+      ]?.schemas.findIndex(
         (staleSchemaRecord) =>
           staleSchemaRecord.schemaName === schema.schemaName
       );
 
       if (correspondingSchemaIndex > -1) {
         schema.dateCreated =
-          staleInformationSchema[correspondingIndex].schemas[
+          staleInformationSchema[correspondingIndex]?.schemas[
             correspondingSchemaIndex
           ].dateCreated;
       }
       if (!schema.tables) return;
       schema.tables.forEach((table) => {
         const staleInformationSchemaTables =
-          staleInformationSchema[correspondingIndex].schemas[
+          staleInformationSchema[correspondingIndex]?.schemas[
             correspondingSchemaIndex
           ]?.tables || [];
         const correspondingTableIndex = staleInformationSchemaTables.findIndex(
