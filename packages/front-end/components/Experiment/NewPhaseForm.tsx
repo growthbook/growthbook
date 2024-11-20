@@ -6,6 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights } from "shared/experiments";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -17,6 +18,7 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
+import DatePicker from "@/components/DatePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -123,10 +125,12 @@ const NewPhaseForm: FC<{
         />
       )}
       {!hasLinkedChanges && (
-        <Field
+        <DatePicker
           label="Start Time (UTC)"
-          type="datetime-local"
-          {...form.register("dateStarted")}
+          date={form.watch("dateStarted")}
+          setDate={(v) => {
+            form.setValue("dateStarted", v ? datetime(v) : "");
+          }}
         />
       )}
 

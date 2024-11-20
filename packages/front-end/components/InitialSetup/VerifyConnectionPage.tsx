@@ -6,7 +6,6 @@ import {
   FaExclamationCircle,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import { Link } from "@radix-ui/themes";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
@@ -24,6 +23,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import Callout from "@/components/Radix/Callout";
+import Link from "@/components/Radix/Link";
 
 interface Props {
   connection: string | null;

@@ -126,6 +126,9 @@
   // radix color-scheme;
   --color-text-high: #{colors.$radix-text-color-light};
   --color-text-mid: #{opacify(colors.$radix-text-color-light, 0.15)};
+
+  --color-background: #faf8ff;
+  --color-panel-solid: #ffffff;
 }
 
 @mixin dark-theme {
@@ -257,6 +260,9 @@
   // radix color-scheme;
   --color-text-high: #ffffff;
   --color-text-mid: #{opacify(#ffffff, 0.15)};
+
+  --color-background: #10172e;
+  --color-panel-solid: #1c2339;
 }
 
 .theme--light,

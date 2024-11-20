@@ -443,12 +443,17 @@ export default function RuleModal({
           );
         }
 
-        track("Create Experiment", {
-          source: "experiment-ref-new-rule-modal",
-          numTags: feature.tags?.length || 0,
-          numMetrics: 0,
-          numVariations: values.values.length || 0,
-        });
+        track(
+          values.experimentType === "multi-armed-bandit"
+            ? "Create Bandit"
+            : "Create Experiment",
+          {
+            source: "experiment-ref-new-rule-modal",
+            numTags: feature.tags?.length || 0,
+            numMetrics: 0,
+            numVariations: values.values.length || 0,
+          }
+        );
 
         // Experiment created, treat it as an experiment ref rule now
         values = {

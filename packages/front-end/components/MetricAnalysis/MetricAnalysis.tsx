@@ -44,6 +44,7 @@ import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMo
 import track from "@/services/track";
 import Callout from "@/components/Radix/Callout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const LOOKBACK_DAY_OPTIONS = [7, 14, 30, 180, 365];
 
@@ -70,11 +71,14 @@ function MetricAnalysisOverview({
     options?: Intl.NumberFormatOptions
   ) => string;
 }) {
+  const displayCurrency = useCurrency();
+  const formatterOptions = { currency: displayCurrency };
+
   let numeratorText = "Metric Total: ";
   let numeratorValue: string =
     metricType === "proportion"
       ? formatNumber(result.units * result.mean)
-      : formatter(result.units * result.mean);
+      : formatter(result.units * result.mean, formatterOptions);
   let denominatorText: string | JSX.Element = (
     <>
       {"Unique "}
@@ -86,8 +90,14 @@ function MetricAnalysisOverview({
   if (metricType === "ratio" && numeratorFormatter && denominatorFormatter) {
     numeratorText = "Numerator: ";
     denominatorText = "Denominator: ";
-    numeratorValue = numeratorFormatter(result.numerator ?? 0);
-    denominatorValue = denominatorFormatter(result.denominator ?? 0);
+    numeratorValue = numeratorFormatter(
+      result.numerator ?? 0,
+      formatterOptions
+    );
+    denominatorValue = denominatorFormatter(
+      result.denominator ?? 0,
+      formatterOptions
+    );
   }
 
   return (
@@ -115,7 +125,9 @@ function MetricAnalysisOverview({
             {"="}
           </div>
           <div className="col-auto">
-            <div style={{ fontSize: "2.5em" }}>{formatter(result.mean)}</div>
+            <div style={{ fontSize: "2.5em" }}>
+              {formatter(result.mean, formatterOptions)}
+            </div>
             {metricType === "ratio" ? null : (
               <>
                 {metricType === "proportion" ? "of" : "per"}{" "}
