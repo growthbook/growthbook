@@ -777,6 +777,7 @@ export async function postExperiment(
       currentPhase?: number;
       phaseStartDate?: string;
       phaseEndDate?: string;
+      variationWeights?: number[];
     },
     { id: string }
   >,
@@ -1009,6 +1010,16 @@ export async function postExperiment(
         ...changes,
       } as ExperimentInterface);
     }
+  }
+
+  if (data.variationWeights) {
+    const phases = [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variationWeights: data.variationWeights,
+    };
+    changes.phases = phases;
   }
 
   // Only some fields affect production SDK payloads

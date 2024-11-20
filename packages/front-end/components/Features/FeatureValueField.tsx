@@ -21,7 +21,7 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
-  valueType: FeatureValueType;
+  valueType?: FeatureValueType;
   label: string;
   value: string;
   setValue: (v: string) => void;
@@ -120,11 +120,14 @@ export default function FeatureValueField({
             min: "any",
             max: "any",
           }
-        : {
+        : valueType === "string"
+        ? {
             textarea: true,
             minRows: 1,
-          })}
+          }
+        : {})}
       helpText={helpText}
+      style={valueType === undefined ? { width: 80 } : undefined}
     />
   );
 }

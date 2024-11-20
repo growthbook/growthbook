@@ -1,6 +1,10 @@
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "back-end/types/experiment";
+import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
@@ -13,37 +17,19 @@ const EditVariationsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const lastPhaseIndex = experiment.phases.length - 1;
-  // const lastPhase: ExperimentPhaseStringDates | undefined =
-  //   experiment.phases[lastPhaseIndex];
+  const lastPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[lastPhaseIndex];
 
   const defaultValues = {
-    // condition: lastPhase?.condition ?? "",
-    // savedGroups: lastPhase?.savedGroups ?? [],
-    // prerequisites: lastPhase?.prerequisites ?? [],
-    // coverage: lastPhase?.coverage ?? 1,
-    // hashAttribute: experiment.hashAttribute || "id",
-    // fallbackAttribute: experiment.fallbackAttribute || "",
-    // hashVersion: experiment.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
-    // disableStickyBucketing: experiment.disableStickyBucketing ?? false,
-    // bucketVersion: experiment.bucketVersion || 1,
-    // minBucketVersion: experiment.minBucketVersion || 0,
-    // namespace: lastPhase?.namespace || {
-    //   enabled: false,
-    //   name: "",
-    //   range: [0, 1],
-    // },
-    // seed: lastPhase?.seed ?? "",
-    // trackingKey: experiment.trackingKey || "",
-    phases: experiment.phases,
     variations: experiment.variations,
-    // variationWeights:
-    //   lastPhase?.variationWeights ??
-    //   getEqualWeights(experiment.variations.length, 4),
-    // newPhase: false,
-    // reseed: true,
+    variationWeights:
+      lastPhase?.variationWeights ??
+      getEqualWeights(experiment.variations.length, 4),
   };
 
-  const form = useForm<ExperimentInterfaceStringDates>({
+  const form = useForm<
+    ExperimentInterfaceStringDates & { variationWeights: number[] }
+  >({
     defaultValues,
   });
   const { apiCall } = useAuth();
@@ -70,22 +56,19 @@ const EditVariationsForm: FC<{
       cta="Save"
     >
       <FeatureVariationsInput
-        valueType={"string"}
-        setWeight={(i, weight) =>
-          form.setValue(
-            `phases.${lastPhaseIndex}.variationWeights.${i}`,
-            weight
-          )
-        }
-        valueAsId={true}
+        label={null}
+        setWeight={(i, weight) => {
+          form.setValue(`variationWeights.${i}`, weight);
+        }}
+        // hideValueField
+        showDescriptions
         variations={
           form.watch("variations")?.map((v, i) => {
             return {
               value: v.key || "",
               name: v.name,
-              weight: form.watch(
-                `phases.${lastPhaseIndex}.variationWeights.${i}`
-              ), // todo: use current phase
+              description: v.description,
+              weight: form.watch(`variationWeights.${i}`), // todo: use current phase
               id: v.id,
             };
           }) ?? []
@@ -97,6 +80,7 @@ const EditVariationsForm: FC<{
               return {
                 // default values
                 name: "",
+                description: "",
                 screenshots: [],
                 ...data,
                 key: data.value || `${i}` || "",
@@ -104,13 +88,12 @@ const EditVariationsForm: FC<{
             })
           );
           form.setValue(
-            `phases.${lastPhaseIndex}.variationWeights`,
+            `variationWeights`,
             v.map((v) => v.weight)
           );
         }}
         showPreview={false}
         disableCoverage
-        customSplitOn={true}
       />
     </Modal>
   );

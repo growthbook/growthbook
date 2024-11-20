@@ -26,18 +26,22 @@ import styles from "./VariationsInput.module.scss";
 
 export type SortableVariation = ExperimentValue & {
   id: string;
+  description?: string;
 };
 
 interface SortableProps {
   i: number;
   variation: SortableVariation;
   variations: SortableVariation[];
-  valueType: FeatureValueType;
+  valueType?: FeatureValueType;
+  hideVariationIds?: boolean;
+  hideValueField?: boolean;
   setVariations?: (value: ExperimentValue[]) => void;
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
+  showDescription?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -55,9 +59,12 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueAsId,
       setVariations,
       valueType,
+      hideVariationIds,
+      hideValueField,
       customSplit,
       setWeight,
       feature,
+      showDescription,
       ...props
     },
     ref
@@ -88,11 +95,16 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     };
 
     return (
-      <tr ref={ref} {...props} key={`${variation.id}__${i}`}>
-        {!valueAsId && (
+      <tr
+        ref={ref}
+        {...props}
+        key={`${variation.id}__${i}`}
+        className="bg-white"
+      >
+        {!hideVariationIds && (
           <td
             style={{ width: 45 }}
-            className="position-relative pl-3"
+            className="position-relative pl-3 pr-0"
             key={`${variation.id}__${i}__0`}
           >
             <div
@@ -104,34 +116,39 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {i}
           </td>
         )}
-        <td key={`${variation.id}__${i}__1`}>
-          {setVariations ? (
-            <FeatureValueField
-              id={`value_${i}`}
-              value={variation.value}
-              placeholder={valueAsId ? i + "" : ""}
-              setValue={(value) => {
-                const newVariations = [...variations];
-                newVariations[i] = {
-                  ...variation,
-                  value,
-                };
-                setVariations(newVariations);
-              }}
-              label=""
-              valueType={valueType}
-              feature={feature}
-              renderJSONInline={false}
-            />
-          ) : (
-            <>{variation.value}</>
-          )}
-        </td>
+        {!hideValueField && (
+          <td key={`${variation.id}__${i}__1`}>
+            {setVariations ? (
+              <FeatureValueField
+                id={`value_${i}`}
+                value={variation.value}
+                placeholder={valueAsId ? i + "" : ""}
+                setValue={(value) => {
+                  const newVariations = [...variations];
+                  newVariations[i] = {
+                    ...variation,
+                    value,
+                  };
+                  setVariations(newVariations);
+                }}
+                label=""
+                valueType={valueType}
+                feature={feature}
+                renderJSONInline={false}
+              />
+            ) : (
+              <>{variation.value}</>
+            )}
+          </td>
+        )}
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
               label=""
-              placeholder={`${getVariationDefaultName(variation, valueType)}`}
+              placeholder={`${getVariationDefaultName(
+                variation,
+                valueType ?? "string"
+              )}`}
               value={variation.name || ""}
               onChange={(e) => {
                 const newVariations = [...variations];
@@ -146,7 +163,27 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <strong>{variation.name || ""}</strong>
           )}
         </td>
-        <td key={`${variation.id}__${i}__3`} style={{ width: 210 }}>
+        {showDescription && (
+          <td key={`${variation.id}__${i}__3`}>
+            {setVariations ? (
+              <Field
+                label=""
+                value={variation.description || ""}
+                onChange={(e) => {
+                  const newVariations = [...variations];
+                  newVariations[i] = {
+                    ...variation,
+                    description: e.target.value,
+                  };
+                  setVariations(newVariations);
+                }}
+              />
+            ) : (
+              <span>{variation.description || ""}</span>
+            )}
+          </td>
+        )}
+        <td key={`${variation.id}__${i}__4`} style={{ width: 180 }}>
           <div className="row align-items-center">
             {customSplit ? (
               <div className="col d-flex flex-row">

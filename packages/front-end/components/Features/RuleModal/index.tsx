@@ -849,6 +849,8 @@ export default function RuleModal({
                   setVariations={(variations) =>
                     form.setValue("values", variations)
                   }
+                  variationValuesAsIds={false}
+                  hideVariationIds={true}
                   orgStickyBucketing={orgStickyBucketing}
                 />
               </Page>
