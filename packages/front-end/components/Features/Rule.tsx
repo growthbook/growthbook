@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { useSortable } from "@dnd-kit/sortable";
+import { arrayMove, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef } from "react";
+import React, { forwardRef, useEffect, useState } from "react";
 import {
   FaArrowsAlt,
   FaExclamationTriangle,
@@ -84,7 +84,30 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const linkedExperiment =
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
 
-    const rules = getRules(feature, environment);
+    const [rules, setItems] = useState(getRules(feature, environment));
+    useEffect(() => {
+      setItems(getRules(feature, environment));
+    }, [feature, environment]);
+
+    const moveItem = async (fromIndex, toIndex) => {
+      if (toIndex >= 0 && toIndex < rules.length) {
+        setItems(arrayMove(rules, fromIndex, toIndex));
+        const res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/reorder`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              environment,
+              from: fromIndex,
+              to: toIndex,
+            }),
+          }
+        );
+        await mutate();
+        res.version && setVersion(res.version);
+      }
+    };
+
     const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
@@ -173,6 +196,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               className="mr-2"
             >
               <FaArrowsAlt />
+            </div>
+          )}
+          {rules.length > 1 && canEdit && (
+            <div>
+              <Button
+                onClick={() => moveItem(i, i - 1)}
+                disabled={i === 0} // disable move up for the first item
+              >
+                ↑
+              </Button>
+              <Button
+                onClick={() => moveItem(i, i + 1)}
+                disabled={i === rules.length - 1} // disable move down for the last item
+              >
+                ↓
+              </Button>
             </div>
           )}
           <div>
