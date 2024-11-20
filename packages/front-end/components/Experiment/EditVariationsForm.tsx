@@ -56,8 +56,7 @@ const EditVariationsForm: FC<{
               Math.min(
                 Math.max(
                   data.variationWeights?.[i] ??
-                    1 / data.variations.length ??
-                    0.5,
+                    1 / (data.variations?.length || 2),
                   0
                 ),
                 1
