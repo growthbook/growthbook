@@ -1,11 +1,33 @@
 @import "../../styles/colors.scss";
 
+.dragging {
+  z-index: 1;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+}
+.thead {
+  tr th {
+    padding-bottom: 0;
+  }
+}
+.tr {
+  td {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    vertical-align: middle;
+    border-top: none;
+    border-bottom: 1px solid var(--border-color-100);
+  }
+}
+.tr:last-of-type td {
+  border-bottom: none !important;
+}
+
 .colorMarker {
-  width: 6px;
+  width: 4px;
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 15px;
   left: 0;
+  height: calc(100% - 30px);
 }
 
 .percentInput {

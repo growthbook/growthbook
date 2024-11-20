@@ -185,7 +185,7 @@ export default function FeatureVariationsInput({
           />
         </>
       ) : (
-        <div className="gbtable">
+        <>
           {!hideCoverage && coverage !== undefined ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
@@ -253,8 +253,8 @@ export default function FeatureVariationsInput({
             )}
 
           {!hideVariations && (
-            <table className="table mb-0">
-              <thead>
+            <table className="table table-borderless mb-0">
+              <thead className={styles.thead}>
                 <tr>
                   {!hideVariationIds && (
                     <th className="pl-3 pr-0">
@@ -310,7 +310,8 @@ export default function FeatureVariationsInput({
                     />
                   ))}
                 </SortableVariationsList>
-
+              </tbody>
+              <tfoot>
                 {!disableVariations && (
                   <tr>
                     <td colSpan={10}>
@@ -394,10 +395,10 @@ export default function FeatureVariationsInput({
                     </td>
                   </tr>
                 ) : null}
-              </tbody>
+              </tfoot>
             </table>
           )}
-        </div>
+        </>
       )}
     </div>
   );

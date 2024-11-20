@@ -42,6 +42,7 @@ interface SortableProps {
   valueAsId: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
+  dragging?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -65,6 +66,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       setWeight,
       feature,
       showDescription,
+      dragging,
       ...props
     },
     ref
@@ -99,7 +101,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         ref={ref}
         {...props}
         key={`${variation.id}__${i}`}
-        className="bg-white"
+        className={`bg-white ${styles.tr} ${dragging && styles.dragging}`}
       >
         {!hideVariationIds && (
           <td
@@ -177,6 +179,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   };
                   setVariations(newVariations);
                 }}
+                textarea
+                minRows={1}
               />
             ) : (
               <span>{variation.description || ""}</span>
@@ -272,11 +276,13 @@ export function SortableFeatureVariationRow(props: SortableProps) {
     setNodeRef,
     transform,
     transition,
+    active,
   } = useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    border: "1px solid red !important",
   };
 
   return (
@@ -284,6 +290,7 @@ export function SortableFeatureVariationRow(props: SortableProps) {
       {...props}
       ref={setNodeRef}
       style={style}
+      dragging={active?.id === props?.variation?.id}
       handle={{ ...attributes, ...listeners }}
     />
   );
