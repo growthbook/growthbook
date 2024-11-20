@@ -26,7 +26,7 @@ export function getRecentlyDeletedTables(
       (updatedInformationSchemaRecord) =>
         updatedInformationSchemaRecord.databaseName === database.databaseName
     );
-    if (!database.schemas) return;
+    if (!database.schemas || correspondingIndex === -1) return;
     database.schemas.forEach((schema) => {
       const correspondingSchemaIndex = updatedInformationSchema[
         correspondingIndex
@@ -85,7 +85,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
       database.dateCreated =
         staleInformationSchema[correspondingIndex].dateCreated;
     }
-    if (!database.schemas) return;
+    if (!database.schemas || correspondingIndex === -1) return;
     database.schemas.forEach((schema) => {
       const correspondingSchemaIndex = staleInformationSchema[
         correspondingIndex
