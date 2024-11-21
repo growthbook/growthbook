@@ -98,11 +98,11 @@ pre {
 }
 
 .bg-white {
-  background-color: var(--surface-background-color) !important;
+  background-color: var(--color-surface) !important;
 }
 
 .bg-light {
-  background-color: var(--surface-background-color-alt) !important;
+  background-color: var(--color-surface) !important;
 }
 
 /* Importants here are necessary to override Bootstrap's default (which also have !important) */
@@ -280,15 +280,15 @@ pre {
 .nav-tabs .nav-link.active,
 .nav-tabs .nav-item.show .nav-link {
   color: var(--text-color-muted);
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   border-color: var(--border-color-200) var(--border-color-200)
-    var(--surface-background-color);
+    var(--color-panel-solid);
 }
 
 .nav-tabs .nav-link:hover,
 .nav-tabs .nav-link:focus {
   border-color: var(--border-color-200) var(--border-color-200)
-    var(--surface-background-color);
+    var(--color-panel-solid);
 }
 
 // endregion Tabs

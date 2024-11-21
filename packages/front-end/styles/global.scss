@@ -119,8 +119,8 @@ pre {
   font-size: 1.2em;
   .active-tab {
     color: var(--text-color-primary);
-    background: var(--background-color);
-    border-bottom-color: var(--background-color);
+    background: var(--color-background);
+    border-bottom-color: var(--color-background);
   }
 }
 
@@ -1257,7 +1257,7 @@ main.main.report {
 
 .box,
 .appbox {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   border: 1px solid var(--border-color-200);
   margin-bottom: 1em;
   border-radius: 5px;
