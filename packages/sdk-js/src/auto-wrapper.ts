@@ -1,14 +1,16 @@
 import Cookies from "js-cookie";
 import {
-  BrowserCookieStickyBucketService,
   CacheSettings,
-  Context,
+  Options as Context,
   FeatureApiResponse,
-  GrowthBook,
+  TrackingCallback,
+} from "./types/growthbook";
+import { GrowthBook } from "./GrowthBook";
+import {
+  BrowserCookieStickyBucketService,
   LocalStorageStickyBucketService,
   StickyBucketService,
-  TrackingCallback,
-} from "./index";
+} from "./sticky-bucket-service";
 
 type WindowContext = Context & {
   uuidCookieName?: string;
