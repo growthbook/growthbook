@@ -127,7 +127,7 @@ export default function ExperimentHeader({
   const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
-  const { phase } = useSnapshot();
+  const { phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
   const [showSdkForm, setShowSdkForm] = useState(false);
 
@@ -171,6 +171,9 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+
+  const hasResults = !!analysis?.results?.[0];
+  const shouldHideTabs = experiment.status === "draft" && !hasResults;
 
   async function startExperiment() {
     if (!experiment.phases?.length) {
@@ -541,7 +544,7 @@ export default function ExperimentHeader({
         </div>
       </div>
 
-      {experiment.status !== "draft" ? (
+      {shouldHideTabs ? null : (
         <div
           className={clsx(
             "experiment-tabs bg-white px-3 border-bottom d-print-none",
@@ -639,7 +642,7 @@ export default function ExperimentHeader({
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </>
   );
 }
