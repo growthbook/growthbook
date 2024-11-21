@@ -205,17 +205,3 @@ export function capitalizeWords(string): string {
     .map((word) => capitalizeFirstLetter(word))
     .join(" ");
 }
-
-export async function sha256(str): Promise<string> {
-  try {
-    const buffer = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(str)
-    );
-    const hashArray = Array.from(new Uint8Array(buffer));
-    return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  } catch (e) {
-    console.error(e);
-  }
-  return "";
-}

@@ -17,7 +17,6 @@ import {
   DefinitionsGuard,
   DefinitionsProvider,
 } from "@/services/DefinitionsContext";
-import track from "@/services/track";
 import { initEnv, isTelemetryEnabled } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
@@ -102,7 +101,6 @@ function App({
         }
       };
     }
-    track("App Load");
   }, [ready]);
 
   useEffect(() => {
@@ -111,14 +109,6 @@ function App({
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    growthbook.setURL(window.location.href);
-    track("page-load", {
-      pathName: router.pathname,
-    });
-  }, [ready, router.pathname]);
 
   const renderPreAuth = () => {
     if (preAuthTopNav) {

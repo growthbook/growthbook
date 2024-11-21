@@ -1,4 +1,3 @@
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { TeamInterface } from "back-end/types/team";
 import {
@@ -33,6 +32,7 @@ import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
+import sha256 from "crypto-js/sha256";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -44,9 +44,8 @@ import {
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
-import track, { getJitsuClient } from "@/services/track";
-import { AppFeatures } from "@/types/app-features";
-import { sha256 } from "@/services/utils";
+import { getJitsuClient, trackPageView } from "@/services/track";
+import { growthbook } from "@/services/utils";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -222,13 +221,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     shouldRun: () => !!orgId,
   });
 
-  const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
-  useEffect(() => {
+  const hashedOrganizationId = useMemo(() => {
     const id = currentOrg?.organization?.id || "";
-    if (!id) return;
-    sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).then((hashedOrgId) => {
-      setHashedOrganizationId(hashedOrgId);
-    });
+    if (!id) return "";
+    return sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).toString();
   }, [currentOrg?.organization?.id]);
 
   useEffect(() => {
@@ -296,15 +292,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     user?.role,
   ]);
 
-  useEffect(() => {
-    if (orgId && data?.userId) {
-      track("Organization Loaded");
-    }
-  }, [orgId, data?.userId]);
-
-  // Update growthbook tarageting attributes
-  const growthbook = useGrowthBook<AppFeatures>();
-
+  // User/build GrowthBook attributes
   useEffect(() => {
     let anonymous_id = "";
     // This is an undocumented way to get the anonymous id from Jitsu
@@ -323,36 +311,48 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     const build = getGrowthBookBuild();
 
-    growthbook?.setAttributes({
+    growthbook.updateAttributes({
       anonymous_id,
       id: data?.userId || "",
-      role: user?.role || "",
       superAdmin: data?.superAdmin || false,
-      organizationId: hashedOrganizationId,
-      orgDateCreated: currentOrg?.organization?.dateCreated
-        ? getValidDate(currentOrg.organization.dateCreated).toISOString()
-        : "",
-      url: router?.pathname || "",
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
-      accountPlan: currentOrg?.effectiveAccountPlan || "unknown",
-      hasLicenseKey: !!currentOrg?.organization?.licenseKey,
-      freeSeats: currentOrg?.organization?.freeSeats || 3,
-      discountCode: currentOrg?.organization?.discountCode || "",
       configFile: hasFileConfig(),
       usingSSO: usingSSO(),
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
     });
-  }, [
-    data,
-    currentOrg,
-    hashedOrganizationId,
-    router?.pathname,
-    growthbook,
-    user?.role,
-  ]);
+  }, [data?.superAdmin, data?.userId]);
+
+  // Org GrowthBook attributes
+  useEffect(() => {
+    growthbook.updateAttributes({
+      role: user?.role || "",
+      organizationId: hashedOrganizationId,
+      orgDateCreated: currentOrg?.organization?.dateCreated
+        ? getValidDate(currentOrg.organization.dateCreated).toISOString()
+        : "",
+      accountPlan: currentOrg?.effectiveAccountPlan || "unknown",
+      hasLicenseKey: !!currentOrg?.organization?.licenseKey,
+      freeSeats: currentOrg?.organization?.freeSeats || 3,
+      discountCode: currentOrg?.organization?.discountCode || "",
+    });
+  }, [currentOrg, hashedOrganizationId, user?.role]);
+
+  // Page GrowthBook attributes
+  useEffect(() => {
+    growthbook.setURL(window.location.href);
+    growthbook.updateAttributes({
+      url: router?.pathname || "",
+    });
+  }, [router?.pathname]);
+
+  // Track plogged-in page views
+  useEffect(() => {
+    if (!currentOrg?.organization?.id) return;
+    trackPageView(router.pathname);
+  }, [router?.pathname, currentOrg?.organization?.id]);
 
   useEffect(() => {
     if (!data?.email) return;

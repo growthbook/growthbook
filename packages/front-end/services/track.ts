@@ -141,6 +141,19 @@ function getOrGenerateSessionId() {
   return sessionId;
 }
 
+const PAGE_VIEW_EVENT = "Page View";
+const SESSION_START_EVENT = "Session Start";
+
+export function trackPageView(pathName: string) {
+  if (!Cookies.get(SESSION_ID_COOKIE)) {
+    track(SESSION_START_EVENT, {});
+  }
+
+  track(PAGE_VIEW_EVENT, {
+    pathName,
+  });
+}
+
 let _jitsu: JitsuClient;
 export function getJitsuClient(): JitsuClient | null {
   if (!isTelemetryEnabled()) return null;
@@ -221,7 +234,8 @@ export default function track(
 
   const jitsu = getJitsuClient();
   if (jitsu) {
-    jitsu.track(event, trackProps);
+    // Rename page load events for backwards compatibility in Jitsu
+    jitsu.track(event === PAGE_VIEW_EVENT ? "page-load" : event, trackProps);
   }
 }
 
