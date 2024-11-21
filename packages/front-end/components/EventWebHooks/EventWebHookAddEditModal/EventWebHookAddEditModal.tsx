@@ -253,7 +253,9 @@ const EventWebHookAddEditSettings = ({
         <div className="mt-4">
           <Field
             label={<b>API Key</b>}
-            placeholder="f123..."
+            type="password"
+            placeholder="********"
+            required
             {...form.register("apiKey")}
             onChange={(evt) => {
               form.setValue("apiKey", evt.target.value);
@@ -495,6 +497,13 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
     }
   };
 
+  const validateDataDogFields = (values: EventWebHookEditParams) => {
+    if (values.payloadType === "datadog" && !values.apiKey) {
+      return false;
+    }
+    return true;
+  };
+
   const form = useForm<EventWebHookEditParams>({
     defaultValues:
       mode.mode === "edit"
@@ -510,7 +519,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             payloadType: "json",
             method: "POST",
             headers: "{}",
-            apiKey: "",
           },
   });
 
@@ -537,6 +545,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
+    if (!validateDataDogFields(formValues)) return setSubmitEnabled(false);
 
     const schema = z.object({
       url: z.string().url(),

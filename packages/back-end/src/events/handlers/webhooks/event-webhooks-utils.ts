@@ -1,4 +1,5 @@
 import { createHmac } from "crypto";
+import { EventWebHookInterface } from "back-end/src/validators/event-webhook";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -15,6 +16,20 @@ export type EventWebHookErrorResult = {
 export type EventWebHookResult =
   | EventWebHookErrorResult
   | EventWebHookSuccessResult;
+
+export const getEventWebHookAdditionalHeaders = (
+  eventWebHook: EventWebHookInterface
+): Record<string, string> => {
+  if (eventWebHook.payloadType === "datadog") {
+    if (!eventWebHook.apiKey) {
+      throw new Error("API Key is required for Datadog webhooks");
+    }
+
+    return { "DD-API-KEY": eventWebHook.apiKey };
+  }
+
+  return {};
+};
 
 // region Web hook signing
 

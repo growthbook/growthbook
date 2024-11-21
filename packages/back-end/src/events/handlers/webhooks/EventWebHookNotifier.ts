@@ -24,6 +24,7 @@ import {
   EventWebHookErrorResult,
   EventWebHookResult,
   EventWebHookSuccessResult,
+  getEventWebHookAdditionalHeaders,
   getEventWebHookSignatureForPayload,
 } from "./event-webhooks-utils";
 
@@ -91,7 +92,7 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    let eventWebHook = await getEventWebHookById(
+    const eventWebHook = await getEventWebHookById(
       eventWebHookId,
       event.organizationId
     );
@@ -101,17 +102,6 @@ export class EventWebHookNotifier implements Notifier {
         `EventWebHookNotifier -> ImplementationError: No webhook for provided ID: ${eventWebHookId}`
       );
     }
-
-    // TODO: Find a non-hacky way of doing this
-    eventWebHook = {
-      ...eventWebHook,
-      headers: {
-        ...eventWebHook.headers,
-        ...(eventWebHook.payloadType === "datadog"
-          ? { "DD-API-KEY": eventWebHook.apiKey }
-          : {}),
-      },
-    };
 
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {
@@ -238,11 +228,14 @@ export class EventWebHookNotifier implements Notifier {
         payload,
       });
 
+      const additionalHeaders = getEventWebHookAdditionalHeaders(eventWebHook);
+
       const result = await cancellableFetch(
         url,
         {
           headers: {
             ...headers,
+            ...additionalHeaders,
             "Content-Type": "application/json",
             "X-GrowthBook-Signature": signature,
           },

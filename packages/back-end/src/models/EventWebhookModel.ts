@@ -4,6 +4,7 @@ import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
 import intersection from "lodash/intersection";
+import { AES, enc } from "crypto-js";
 import {
   NotificationEventName,
   zodNotificationEventNamesEnum,
@@ -11,6 +12,7 @@ import {
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { logger } from "back-end/src/util/logger";
+import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import {
   eventWebHookPayloadTypes,
   EventWebHookPayloadType,
@@ -20,147 +22,160 @@ import {
 import { ReqContext } from "back-end/types/organization";
 import { createEvent } from "./EventModel";
 
-const eventWebHookSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
-    required: true,
-  },
-  organizationId: {
-    type: String,
-    required: true,
-  },
-  name: {
-    type: String,
-    required: true,
-  },
-  headers: {
-    type: Map,
-    of: String,
-    required: false,
-  },
-  method: {
-    type: String,
-    required: false,
-    validate: {
-      validator(value: unknown) {
-        const zodSchema = z.enum(eventWebHookMethods);
+const eventWebHookSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+    organizationId: {
+      type: String,
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    },
+    headers: {
+      type: Map,
+      of: String,
+      required: false,
+    },
+    method: {
+      type: String,
+      required: false,
+      validate: {
+        validator(value: unknown) {
+          const zodSchema = z.enum(eventWebHookMethods);
 
-        const result = zodSchema.safeParse(value);
+          const result = zodSchema.safeParse(value);
 
-        if (!result.success) {
-          const errorString = errorStringFromZodResult(result);
-          logger.error(
-            {
-              error: JSON.stringify(errorString, null, 2),
-              result: JSON.stringify(result, null, 2),
-            },
-            "Invalid Method"
-          );
-        }
+          if (!result.success) {
+            const errorString = errorStringFromZodResult(result);
+            logger.error(
+              {
+                error: JSON.stringify(errorString, null, 2),
+                result: JSON.stringify(result, null, 2),
+              },
+              "Invalid Method"
+            );
+          }
 
-        return result.success;
+          return result.success;
+        },
+      },
+    },
+    payloadType: {
+      type: String,
+      required: false,
+      validate: {
+        validator(value: unknown) {
+          const zodSchema = z.enum(eventWebHookPayloadTypes);
+
+          const result = zodSchema.safeParse(value);
+
+          if (!result.success) {
+            const errorString = errorStringFromZodResult(result);
+            logger.error(
+              {
+                error: JSON.stringify(errorString, null, 2),
+                result: JSON.stringify(result, null, 2),
+              },
+              "Invalid Payload Type"
+            );
+          }
+
+          return result.success;
+        },
+      },
+    },
+    projects: {
+      type: [String],
+      required: false,
+    },
+    tags: {
+      type: [String],
+      required: false,
+    },
+    environments: {
+      type: [String],
+      required: false,
+    },
+    dateCreated: {
+      type: Date,
+      required: true,
+    },
+    dateUpdated: {
+      type: Date,
+      required: true,
+    },
+    enabled: {
+      type: Boolean,
+      required: true,
+    },
+    events: {
+      type: [String],
+      required: true,
+      validate: {
+        validator(value: unknown) {
+          const zodSchema = z
+            .array(z.enum(zodNotificationEventNamesEnum))
+            .min(1);
+
+          const result = zodSchema.safeParse(value);
+
+          if (!result.success) {
+            const errorString = errorStringFromZodResult(result);
+            logger.error(
+              {
+                error: JSON.stringify(errorString, null, 2),
+                result: JSON.stringify(result, null, 2),
+              },
+              "Invalid Event name"
+            );
+          }
+
+          return result.success;
+        },
+      },
+    },
+    url: {
+      type: String,
+      required: true,
+    },
+    signingKey: {
+      type: String,
+      required: true,
+    },
+    lastRunAt: {
+      type: Date,
+      required: false,
+    },
+    lastState: {
+      type: String,
+      enum: ["none", "success", "error"],
+      required: true,
+    },
+    lastResponseBody: {
+      type: String,
+      required: false,
+    },
+    apiKey: {
+      type: String,
+      required: false,
+      set: (value: string) => {
+        return value ? AES.encrypt(value, ENCRYPTION_KEY).toString() : null;
+      },
+      get: (value: string) => {
+        return value
+          ? AES.decrypt(value, ENCRYPTION_KEY).toString(enc.Utf8)
+          : null;
       },
     },
   },
-  payloadType: {
-    type: String,
-    required: false,
-    validate: {
-      validator(value: unknown) {
-        const zodSchema = z.enum(eventWebHookPayloadTypes);
-
-        const result = zodSchema.safeParse(value);
-
-        if (!result.success) {
-          const errorString = errorStringFromZodResult(result);
-          logger.error(
-            {
-              error: JSON.stringify(errorString, null, 2),
-              result: JSON.stringify(result, null, 2),
-            },
-            "Invalid Payload Type"
-          );
-        }
-
-        return result.success;
-      },
-    },
-  },
-  projects: {
-    type: [String],
-    required: false,
-  },
-  tags: {
-    type: [String],
-    required: false,
-  },
-  environments: {
-    type: [String],
-    required: false,
-  },
-  dateCreated: {
-    type: Date,
-    required: true,
-  },
-  dateUpdated: {
-    type: Date,
-    required: true,
-  },
-  enabled: {
-    type: Boolean,
-    required: true,
-  },
-  events: {
-    type: [String],
-    required: true,
-    validate: {
-      validator(value: unknown) {
-        const zodSchema = z.array(z.enum(zodNotificationEventNamesEnum)).min(1);
-
-        const result = zodSchema.safeParse(value);
-
-        if (!result.success) {
-          const errorString = errorStringFromZodResult(result);
-          logger.error(
-            {
-              error: JSON.stringify(errorString, null, 2),
-              result: JSON.stringify(result, null, 2),
-            },
-            "Invalid Event name"
-          );
-        }
-
-        return result.success;
-      },
-    },
-  },
-  url: {
-    type: String,
-    required: true,
-  },
-  signingKey: {
-    type: String,
-    required: true,
-  },
-  lastRunAt: {
-    type: Date,
-    required: false,
-  },
-  lastState: {
-    type: String,
-    enum: ["none", "success", "error"],
-    required: true,
-  },
-  lastResponseBody: {
-    type: String,
-    required: false,
-  },
-  apiKey: {
-    type: String,
-    required: false,
-  },
-});
+  { toJSON: { getters: true }, toObject: { getters: true } }
+);
 
 eventWebHookSchema.index({ organizationId: 1 });
 
