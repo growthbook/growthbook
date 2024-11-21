@@ -112,13 +112,16 @@ const EditVariationsForm: FC<{
           form.setValue(
             "variations",
             v.map((data, i) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const newData: any = { ...data };
+              newData.key = data.value || `${i}`;
+              delete newData.value;
               return {
                 // default values
                 name: "",
                 description: "",
                 screenshots: [],
-                ...data,
-                key: data.value || `${i}` || "",
+                ...newData,
               };
             })
           );
