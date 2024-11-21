@@ -156,6 +156,10 @@ const eventWebHookSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  apiKey: {
+    type: String,
+    required: false,
+  },
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
@@ -219,6 +223,7 @@ type CreateEventWebHookOptions = {
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: Record<string, string>;
+  apiKey?: string;
 };
 
 /**
@@ -238,6 +243,7 @@ export const createEventWebHook = async ({
   payloadType,
   method,
   headers,
+  apiKey,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
@@ -246,6 +252,7 @@ export const createEventWebHook = async ({
     id: `ewh-${randomUUID()}`,
     organizationId,
     name,
+    apiKey,
     dateCreated: now,
     dateUpdated: now,
     enabled,
@@ -332,6 +339,7 @@ export type UpdateEventWebHookAttributes = {
   payloadType?: EventWebHookPayloadType;
   method?: EventWebHookMethod;
   headers?: Record<string, string>;
+  apiKey?: string;
 };
 
 /**

@@ -378,6 +378,7 @@ export const EventWebHookDetailContainer = ({
                 "environments",
                 "method",
                 "headers",
+                "apiKey",
               ])
             ),
           }

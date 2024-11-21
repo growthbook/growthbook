@@ -38,6 +38,7 @@ router.post(
         payloadType: z.enum(eventWebHookPayloadTypes),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),
+        apiKey: z.string().trim().optional(),
       })
       .strict(),
   }),
@@ -116,6 +117,7 @@ router.put(
         payloadType: z.enum(eventWebHookPayloadTypes),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),
+        apiKey: z.string().trim().optional(),
       })
       .strict(),
   }),

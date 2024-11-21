@@ -16,7 +16,12 @@ export type {
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
 
-export const eventWebHookPayloadTypes = ["json", "slack", "discord"] as const;
+export const eventWebHookPayloadTypes = [
+  "json",
+  "slack",
+  "discord",
+  "datadog",
+] as const;
 
 export const legacyEventWebHookPayloadTypes = [
   ...eventWebHookPayloadTypes,
@@ -36,6 +41,7 @@ export type EventWebHookEditParams = {
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: string;
+  apiKey?: string;
 };
 
 export const notificationEventNames = [
@@ -185,6 +191,14 @@ export const WebhookIcon = ({
       return (
         <ImageIcon
           src={`/images/${type}-webhook.png`}
+          style={style}
+          className={className}
+        />
+      );
+    case "datadog":
+      return (
+        <ImageIcon
+          src={`/images/datadog-webhook.svg`}
           style={style}
           className={className}
         />

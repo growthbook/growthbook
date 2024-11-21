@@ -6,6 +6,7 @@ export const eventWebHookPayloadTypes = [
   "json",
   "slack",
   "discord",
+  "datadog",
 ] as const;
 
 export type EventWebHookPayloadType = typeof eventWebHookPayloadTypes[number];
@@ -34,6 +35,7 @@ export const eventWebHookInterface = z
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),
     lastResponseBody: z.union([z.string(), z.null()]),
+    apiKey: z.string().optional(),
   })
   .strict();
 

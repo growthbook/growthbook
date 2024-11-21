@@ -91,7 +91,7 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const eventWebHook = await getEventWebHookById(
+    let eventWebHook = await getEventWebHookById(
       eventWebHookId,
       event.organizationId
     );
@@ -101,6 +101,17 @@ export class EventWebHookNotifier implements Notifier {
         `EventWebHookNotifier -> ImplementationError: No webhook for provided ID: ${eventWebHookId}`
       );
     }
+
+    // TODO: Find a non-hacky way of doing this
+    eventWebHook = {
+      ...eventWebHook,
+      headers: {
+        ...eventWebHook.headers,
+        ...(eventWebHook.payloadType === "datadog"
+          ? { "DD-API-KEY": eventWebHook.apiKey }
+          : {}),
+      },
+    };
 
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {
@@ -149,6 +160,14 @@ export class EventWebHookNotifier implements Notifier {
 
           return { content: data.text };
         }
+
+        case "datadog":
+          return {
+            title: "Feature Flag Updated",
+            text: "The feature flag X was updated from Y to Z.",
+            tags: ["test:ExampleEvent"],
+            source_type_name: "growthbook",
+          };
 
         default:
           invalidPayloadType = payloadType;

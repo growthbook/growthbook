@@ -51,6 +51,7 @@ const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
   json: "JSON",
   slack: "Slack",
   discord: "Discord",
+  datadog: "DataDog",
 } as const;
 
 type Form = UseFormReturn<EventWebHookEditParams>;
@@ -247,6 +248,20 @@ const EventWebHookAddEditSettings = ({
           }}
         />
       </div>
+
+      {selectedPayloadType === "datadog" ? (
+        <div className="mt-4">
+          <Field
+            label={<b>API Key</b>}
+            placeholder="f123..."
+            {...form.register("apiKey")}
+            onChange={(evt) => {
+              form.setValue("apiKey", evt.target.value);
+              handleFormValidation();
+            }}
+          />
+        </div>
+      ) : null}
 
       {isDetailedWebhook && (
         <div className="mt-4">
@@ -495,6 +510,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             payloadType: "json",
             method: "POST",
             headers: "{}",
+            apiKey: "",
           },
   });
 
@@ -537,6 +553,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
+      apiKey: z.string().optional(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);

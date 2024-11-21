@@ -99,6 +99,7 @@ type PostEventWebHooksRequest = AuthRequest & {
     payloadType: EventWebHookPayloadType;
     method: EventWebHookMethod;
     headers: Record<string, string>;
+    apiKey?: string;
   };
 };
 
@@ -126,6 +127,7 @@ export const createEventWebHook = async (
     payloadType,
     method = "POST",
     headers = {},
+    apiKey,
   } = req.body;
 
   const created = await EventWebHook.createEventWebHook({
@@ -140,6 +142,7 @@ export const createEventWebHook = async (
     payloadType,
     method,
     headers,
+    apiKey,
   });
 
   return res.json({ eventWebHook: created });
