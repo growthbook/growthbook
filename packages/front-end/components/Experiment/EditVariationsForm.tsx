@@ -33,6 +33,8 @@ const EditVariationsForm: FC<{
   >({
     defaultValues,
   });
+
+  console.log(form.getValues("variations"));
   const { apiCall } = useAuth();
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -102,6 +104,7 @@ const EditVariationsForm: FC<{
               value: v.key || "",
               name: v.name,
               description: v.description,
+              screenshots: v.screenshots,
               weight: form.watch(`variationWeights.${i}`),
               id: v.id,
             };
