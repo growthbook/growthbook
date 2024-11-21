@@ -21,29 +21,23 @@ import {
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import FeatureValueField from "./FeatureValueField";
-import styles from "./VariationsInput.module.scss";
+import styles from "@/components/Features/VariationsInput.module.scss";
+import FeatureValueField from "@/components/Features/FeatureValueField";
 
 export type SortableVariation = ExperimentValue & {
   id: string;
-  description?: string;
 };
 
 interface SortableProps {
   i: number;
   variation: SortableVariation;
   variations: SortableVariation[];
-  valueType?: FeatureValueType;
-  hideVariationIds?: boolean;
-  hideValueField?: boolean;
+  valueType: FeatureValueType;
   setVariations?: (value: ExperimentValue[]) => void;
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
-  hideSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
-  showDescription?: boolean;
-  dragging?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -51,7 +45,10 @@ type VariationProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
+export const ExperimentVariationRow = forwardRef<
+  HTMLTableRowElement,
+  VariationProps
+>(
   (
     {
       i,
@@ -61,14 +58,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueAsId,
       setVariations,
       valueType,
-      hideVariationIds,
-      hideValueField,
       customSplit,
-      hideSplit,
       setWeight,
       feature,
-      showDescription,
-      dragging,
       ...props
     },
     ref
@@ -99,16 +91,11 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     };
 
     return (
-      <tr
-        ref={ref}
-        {...props}
-        key={`${variation.id}__${i}`}
-        className={`bg-white ${styles.tr} ${dragging && styles.dragging}`}
-      >
-        {!hideVariationIds && (
+      <tr ref={ref} {...props} key={`${variation.id}__${i}`}>
+        {!valueAsId && (
           <td
             style={{ width: 45 }}
-            className="position-relative pl-3 pr-0"
+            className="position-relative pl-3"
             key={`${variation.id}__${i}__0`}
           >
             <div
@@ -120,37 +107,34 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {i}
           </td>
         )}
-        {!hideValueField && (
-          <td key={`${variation.id}__${i}__1`}>
-            {setVariations ? (
-              <FeatureValueField
-                id={`value_${i}`}
-                value={variation.value}
-                placeholder={valueAsId ? i + "" : ""}
-                setValue={(value) => {
-                  const newVariations = [...variations];
-                  newVariations[i] = {
-                    ...variation,
-                    value,
-                  };
-                  setVariations(newVariations);
-                }}
-                valueType={valueType}
-                feature={feature}
-                renderJSONInline={false}
-              />
-            ) : (
-              <>{variation.value}</>
-            )}
-          </td>
-        )}
+        <td key={`${variation.id}__${i}__1`}>
+          {setVariations ? (
+            <FeatureValueField
+              id={`value_${i}`}
+              value={variation.value}
+              placeholder={valueAsId ? i + "" : ""}
+              setValue={(value) => {
+                const newVariations = [...variations];
+                newVariations[i] = {
+                  ...variation,
+                  value,
+                };
+                setVariations(newVariations);
+              }}
+              label=""
+              valueType={valueType}
+              feature={feature}
+              renderJSONInline={false}
+            />
+          ) : (
+            <>{variation.value}</>
+          )}
+        </td>
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
-              placeholder={`${getVariationDefaultName(
-                variation,
-                valueType ?? "string"
-              )}`}
+              label=""
+              placeholder={`${getVariationDefaultName(variation, valueType)}`}
               value={variation.name || ""}
               onChange={(e) => {
                 const newVariations = [...variations];
@@ -165,66 +149,36 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <strong>{variation.name || ""}</strong>
           )}
         </td>
-        {showDescription && (
-          <td key={`${variation.id}__${i}__3`}>
-            {setVariations ? (
-              <Field
-                value={variation.description || ""}
-                onChange={(e) => {
-                  const newVariations = [...variations];
-                  newVariations[i] = {
-                    ...variation,
-                    description: e.target.value,
-                  };
-                  setVariations(newVariations);
-                }}
-                textarea
-                minRows={1}
-              />
-            ) : (
-              <span>{variation.description || ""}</span>
-            )}
-          </td>
-        )}
-        <td
-          key={`${variation.id}__${i}__4`}
-          style={{ width: !hideSplit ? 180 : 60 }}
-        >
+        <td key={`${variation.id}__${i}__3`} style={{ width: 210 }}>
           <div className="row align-items-center">
-            {!hideSplit && (
-              <>
-                {customSplit ? (
-                  <div className="col d-flex flex-row">
-                    <div
-                      className={`position-relative ${styles.percentInputWrap}`}
-                    >
-                      <Field
-                        id={`${variation.id}__${i}__3__input`}
-                        style={{ width: 95 }}
-                        value={val}
-                        onChange={(e) => {
-                          setVal(parseFloat(e.target.value));
-                        }}
-                        onBlur={() => {
-                          const decimal = (val >= 0 ? val : 0) / 100;
-                          rebalanceAndUpdate(i, decimal);
-                        }}
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="any"
-                        className={styles.percentInput}
-                        disabled={!setWeight}
-                      />
-                      <span>%</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="col d-flex flex-row">
-                    {decimalToPercent(weights[i])}%
-                  </div>
-                )}
-              </>
+            {customSplit ? (
+              <div className="col d-flex flex-row">
+                <div className={`position-relative ${styles.percentInputWrap}`}>
+                  <Field
+                    id={`${variation.id}__${i}__3__input`}
+                    style={{ width: 95 }}
+                    value={val}
+                    onChange={(e) => {
+                      setVal(parseFloat(e.target.value));
+                    }}
+                    onBlur={() => {
+                      const decimal = (val >= 0 ? val : 0) / 100;
+                      rebalanceAndUpdate(i, decimal);
+                    }}
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="any"
+                    className={styles.percentInput}
+                    disabled={!setWeight}
+                  />
+                  <span>%</span>
+                </div>
+              </div>
+            ) : (
+              <div className="col d-flex flex-row">
+                {decimalToPercent(weights[i])}%
+              </div>
             )}
             {variations.length > 1 && setVariations && (
               <div {...handle} title="Drag and drop to re-order rules">
@@ -262,7 +216,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       }}
                       type="button"
                     >
-                      Remove
+                      remove
                     </button>
                   </Tooltip>
                 </MoreMenu>
@@ -275,30 +229,27 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
   }
 );
 
-VariationRow.displayName = "VariationRow";
+ExperimentVariationRow.displayName = "ExperimentVariationRow";
 
-export function SortableFeatureVariationRow(props: SortableProps) {
+export function SortableExperimentVariationRow(props: SortableProps) {
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
     transition,
-    active,
   } = useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    border: "1px solid red !important",
   };
 
   return (
-    <VariationRow
+    <ExperimentVariationRow
       {...props}
       ref={setNodeRef}
       style={style}
-      dragging={active?.id === props?.variation?.id}
       handle={{ ...attributes, ...listeners }}
     />
   );

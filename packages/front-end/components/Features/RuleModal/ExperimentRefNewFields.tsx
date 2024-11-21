@@ -60,6 +60,9 @@ export default function ExperimentRefNewFields({
   setWeight,
   variations,
   setVariations,
+  variationValuesAsIds = false,
+  hideVariationIds = true,
+  startEditingIndexes = false,
   orgStickyBucketing,
 }: {
   step: number;
@@ -90,6 +93,9 @@ export default function ExperimentRefNewFields({
   setWeight: (i: number, w: number) => void;
   variations: SortableVariation[];
   setVariations: (v: SortableVariation[]) => void;
+  variationValuesAsIds?: boolean;
+  hideVariationIds?: boolean;
+  startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
 }) {
   const form = useFormContext();
@@ -189,7 +195,7 @@ export default function ExperimentRefNewFields({
           <FeatureVariationsInput
             label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
-            valueType={feature?.valueType ?? "string"}
+            valueType={feature?.valueType}
             coverageLabel="Traffic included in this Experiment"
             coverageTooltip={`Users not included in the Experiment will skip this ${source}`}
             coverage={coverage}
@@ -198,6 +204,9 @@ export default function ExperimentRefNewFields({
             variations={variations}
             setVariations={setVariations}
             feature={feature}
+            valueAsId={variationValuesAsIds}
+            hideVariationIds={hideVariationIds}
+            startEditingIndexes={startEditingIndexes}
           />
 
           {namespaces && namespaces.length > 0 && (
