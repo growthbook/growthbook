@@ -79,6 +79,7 @@ export type FactTableData = {
     percentile: number;
     ignoreZeros: boolean;
   }[];
+  columns: string[];
 }
 
 export type BanditMetricData = Pick<
@@ -657,6 +658,13 @@ export interface SourceIntegrationInterface {
     params: ExperimentPipelineTrimMetricsParams
   ): string;
   runExperimentPipelineTrimMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<EmptyQueryResponse>;
+  getExperimentPipelineCreateMetricsQuery(
+    params: ExperimentPipelineFactMetricsParams
+  ): string;
+  runExperimentPipelineCreateMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<EmptyQueryResponse>;

@@ -53,17 +53,16 @@ export type SnapshotResult = {
   health?: ExperimentSnapshotHealth;
 };
 
-export type ExperimentResultsQueryParams = {
+export type ExperimentResultsPipelineQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  experimentId: string;
   queryParentId: string;
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
-
-export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
 export const MAX_METRICS_PER_QUERY = 20;
 
@@ -158,7 +157,7 @@ export function getFactMetricGroups(
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
-  params: ExperimentResultsQueryParams,
+  params: ExperimentResultsPipelineQueryParams,
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
@@ -215,7 +214,7 @@ export const startExperimentResultQueries = async (
     throw new Error("Table path generator not specified.");
   }
   const unitsTableFullName = integration.generateTablePath(
-      `${UNITS_TABLE_PREFIX}_${queryParentId}`,
+      `growthbook_${params.snapshotSettings.experimentId}_units`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true
@@ -331,7 +330,7 @@ export const startExperimentResultQueries = async (
 
   // 2. Update final metric Tables, left joining on new metrics
   const metricTableFullName = integration.generateTablePath(
-    `${UNITS_TABLE_PREFIX}_${queryParentId}`,
+    `growthbook_${params.snapshotSettings.experimentId}_metrics`,
     settings.pipelineSettings?.writeDataset,
     settings.pipelineSettings?.writeDatabase,
     true
@@ -356,12 +355,26 @@ export const startExperimentResultQueries = async (
   ) {
     throw new Error("Integration does not support multi-metric queries");
   }
+  const createMetricQuery = await startQuery({
+    name: `create_metric_table`,
+    query: integration.getExperimentPipelineCreateMetricsQuery(queryParams),
+    // don't run unless metrics query succeeds
+    dependencies: [updateUnitQuery.query],
+    run: (query, setExternalId) =>
+      integration.runExperimentPipelineCreateMetricsQuery(
+        query,
+        setExternalId
+      ),
+    process: (rows) => rows,
+    queryType: "experimentPipelineCreateMetric",
+  });
+  queries.push(createMetricQuery);
 
   const groupTrimMetricQuery = await startQuery({
     name: `trim_metric_table`,
-    query: "SELECT 1", //integration.getExperimentPipelineTrimMetricsQuery(queryParams),
+    query: integration.getExperimentPipelineTrimMetricsQuery(queryParams),
     // don't run unless metrics query succeeds
-    dependencies: [updateUnitQuery.query],
+    dependencies: [createMetricQuery.query],
     run: (query, setExternalId) =>
       integration.runExperimentPipelineTrimMetricsQuery(
         query,
@@ -408,7 +421,7 @@ export const startExperimentResultQueries = async (
 
 export class ExperimentPipelineQueryRunner extends QueryRunner<
   ExperimentSnapshotInterface,
-  ExperimentResultsQueryParams,
+  ExperimentResultsPipelineQueryParams,
   SnapshotResult
 > {
   private variationNames: string[] = [];
@@ -420,7 +433,7 @@ export class ExperimentPipelineQueryRunner extends QueryRunner<
     );
   }
 
-  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+  async startQueries(params: ExperimentResultsPipelineQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
     if (

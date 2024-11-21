@@ -138,6 +138,9 @@ export default class BigQuery extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `date_diff(${endCol}, ${startCol}, DAY)`;
   }
+  toTimestampCoerced(date: Date): string {
+    return `TIMESTAMP(${this.toTimestamp(date)})`;
+  }
   formatDate(col: string): string {
     return `format_date("%F", ${col})`;
   }

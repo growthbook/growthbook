@@ -233,6 +233,9 @@ export default abstract class SqlIntegration
   getFormatDialect(): FormatDialect {
     return "";
   }
+  toTimestampCoerced(date: Date): string {
+    return this.toTimestamp(date);
+  }
   toTimestamp(date: Date) {
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
   }
@@ -4202,6 +4205,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     endDate,
     experimentId,
     addFiltersToWhere,
+    useDateTrunc,
   }: {
     metrics: FactMetricInterface[];
     factTableMap: FactTableMap;
@@ -4211,6 +4215,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
+    useDateTrunc?: boolean;
   }) {
     const factTable = factTableMap.get(
       metrics[0]?.numerator?.factTableId || ""
@@ -4245,7 +4250,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add a rough date filter to improve query performance
     if (startDate) {
-      where.push(`m.timestamp >= ${this.toTimestamp(startDate)}`);
+      if (useDateTrunc) {
+        where.push(`${this.dateTrunc("m.timestamp")} >= ${this.dateTrunc(this.toTimestampCoerced(startDate))}`);
+      } else {
+        where.push(`m.timestamp >= ${this.toTimestamp(startDate)}`);
+      }
     }
     if (endDate) {
       where.push(`m.timestamp <= ${this.toTimestamp(endDate)}`);
@@ -4669,16 +4678,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     overrideConversionWindows,
     endDate,
     metricQuantileSettings,
+    baseCol,
   }: {
     col: string;
     metric: ExperimentMetricInterface;
     overrideConversionWindows: boolean;
     endDate: Date;
     metricQuantileSettings?: MetricQuantileSettings;
+    baseCol?: string;
   }): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause({
-        baseCol: "d.timestamp",
+        baseCol: baseCol ?? "d.timestamp",
         metricCol: "m.timestamp",
         metric,
         endDate,
@@ -4968,7 +4979,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       `
     DELETE 
     FROM ${params.tableName}
-    WHERE dt >= ${this.toTimestamp(params.lookbackDate)}
+    WHERE dt >= ${this.dateTrunc(this.toTimestampCoerced(params.lookbackDate))}
     `,
       this.getFormatDialect()
     );
@@ -4983,7 +4994,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getExperimentPipelineCreateUnitsQuery(
     params: ExperimentPipelineUnitsParams
   ): string {
-    const { settings,  } = params;
+    const { settings } = params;
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     const { experimentDimensions, unitDimensions } = this.processDimensions(
@@ -5191,10 +5202,50 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return await this.runQuery(query, setExternalId);
   }
 
+
+  getExperimentPipelineCreateMetricsQuery(
+    params: ExperimentPipelineFactMetricsParams
+  ): string {
+    const { settings, factTableMap,  } = params;
+    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+
+    const { experimentDimensions, unitDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      null
+    );
+
+    const factTableData = params.metricGroups.map((group, i) => this.getPipelineFactTableData({
+      group,
+      settings,
+      factTableMap,
+      lookbackDate: params.lookbackDate,
+      activationMetric: null,
+      index: i,
+    }));
+
+    // time type by integration
+    // TODO datatype by metric type
+    return `
+    CREATE TABLE IF NOT EXISTS ${params.tableName} (
+      ${exposureQuery.id} STRING
+${factTableData.map((d, i) => d.columns
+  .map(
+    (c) =>
+      `, ${c} NUMERIC`
+  )
+  .join("\n")).join("\n")}
+      , dt TIMESTAMP
+    )`;
+  }
+  async runExperimentPipelineCreateMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<EmptyQueryResponse> {
+    return await this.runQuery(query, setExternalId);
+  }
+
   getPipelineFactMetricsAggregationCTEs({
-    baseTable,
-    joinSelectClause,
-    previousTableMetricCols,
     factTableData,
     index,
     baseIdType,
@@ -5203,9 +5254,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     experimentId,
     endDate,
   }: {
-    baseTable: string,
-    joinSelectClause: string,
-    previousTableMetricCols: string[],
     factTableData: FactTableData,
     index: number,
     baseIdType: string,
@@ -5213,16 +5261,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap: FactTableMap,
     experimentId: string,
     endDate: Date,
-  }): {sql: string, metricCols: string[]} {
+  }): string {
 
-    const metricCols: string[] = [];
-    factTableData.metricData.forEach((data) => {
-      metricCols.push(`group_${index}_${data.alias}_value`);
-      if (data.ratioMetric) {
-        metricCols.push(`group_${index}_${data.alias}_denominator`);
-      }
-    });
-    return {metricCols, sql: `
+    return `
     , __factTable_${index} as (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
@@ -5231,11 +5272,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         startDate: factTableData.metricStart,
         factTableMap,
         experimentId,
+        useDateTrunc: true
       })})
     , __userMetricJoin_${index} as (
         SELECT
-          ${joinSelectClause}
-          ${previousTableMetricCols.map((c) => `, ${c}`).join("\n")}
+          d.${baseIdType} AS ${baseIdType}
+          , ${this.dateTrunc("m.timestamp")} AS dt
           ${factTableData.metricData
             .map(
               (data) =>
@@ -5247,6 +5289,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                   metricQuantileSettings: data.quantileMetric
                     ? data.metricQuantileSettings
                     : undefined,
+                  baseCol: "d.first_exposure_timestamp", //activation
                 })} AS group_${index}_${data.alias}_value
                 ${
                   data.ratioMetric
@@ -5256,6 +5299,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                         overrideConversionWindows:
                           data.overrideConversionWindows,
                         endDate: endDate,
+                        baseCol: "d.first_exposure_timestamp", //activation
                       })} AS group_${index}_${data.alias}_denominator`
                     : ""
                 }
@@ -5264,50 +5308,43 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .join("\n")}
           
         FROM
-          ${baseTable} d
-        LEFT JOIN __factTable_${index} m ON (
+          __distinctUsers d
+        JOIN __factTable_${index} m ON (
           m.${baseIdType} = d.${baseIdType}
-          --- OR consider aggregating and then joining, requires two joins tho...
-          ${index > 0 ? `
-          AND COALSECE(d.dt, ${this.dateTrunc("m.timestamp")}) = ${this.dateTrunc("m.timestamp")}
-          ` : ""}
         )
       )
       , __userMetricAgg_${index} AS (
         -- Get daily aggregate values
         SELECT
           umj.${baseIdType} AS ${baseIdType}
-          -- take max of these fields, but they should be 1:1 with id type
-          -- max is just simpler (and fails more safely) than a big group by
-          ${previousTableMetricCols.map((m) => `, MAX(${m}) AS ${m}`).join("\n")}
           ${factTableData.metricData
             .map(
               (data) =>
                 `, ${this.getAggregateMetricColumn(
                   data.metric,
                   false,
-                  `umj.${index}_${data.alias}_value`,
-                  `qm.${index}_${data.alias}_quantile`
+                  `umj.group_${index}_${data.alias}_value`,
+                  `qm.group_${index}_${data.alias}_quantile`
                 )} AS group_${index}_${data.alias}_value
                 ${
                   data.ratioMetric
                     ? `, ${this.getAggregateMetricColumn(
                         data.metric,
                         true,
-                        `umj.${index}_${data.alias}_denominator`,
-                        `qm.${index}_${data.alias}_quantile`
+                        `umj.group_${index}_${data.alias}_denominator`,
+                        `qm.group_${index}_${data.alias}_quantile`
                       )} AS group_${index}_${data.alias}_denominator`
                     : ""
                 }`
             )
             .join("\n")}
-          , ${this.dateTrunc("umj.metric_timestamp")} AS dt
+          , dt
         FROM
           __userMetricJoin_${index} umj
         GROUP BY
           umj.${baseIdType}
-          , ${this.dateTrunc("umj.metric_timestamp")}
-        )`}
+          , dt
+        )`;
   }
 
   getPipelineFactTableData({
@@ -5316,12 +5353,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap,
     lookbackDate,
     activationMetric,
+    index,
   }: {
     group: FactMetricInterface[],
     settings: ExperimentSnapshotSettings,
     factTableMap: FactTableMap,
     lookbackDate: Date,
     activationMetric: ExperimentMetricInterface | null,
+    index: number,
   }): FactTableData {
     const metrics = cloneDeep(group);
     metrics.forEach((m) => {
@@ -5392,6 +5431,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     if (eventQuantileData.length) {
       throw new Error("Event quantiles not supported.");
     }
+
+    const columns: string[] = []
+    metricData.forEach((data) => {
+      columns.push(`group_${index}_${data.alias}_value`);
+      if (data.ratioMetric) {
+        columns.push(`group_${index}_${data.alias}_denominator`);
+      }
+    });
     return {
       metricData: metricData,
       idTypes: factTable.userIdTypes,
@@ -5399,7 +5446,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       metricEnd,
       metricStart,
       percentileData,
-      
+      columns
     }
   }
 
@@ -5419,12 +5466,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
     const factTableMap = params.factTableMap;
 
-    const factTableData = params.metricGroups.map((group) => this.getPipelineFactTableData({
+    const factTableData = params.metricGroups.map((group, i) => this.getPipelineFactTableData({
       group,
       settings,
       factTableMap,
       lookbackDate: params.lookbackDate,
       activationMetric,
+      index: i
     }));
 
 
@@ -5453,38 +5501,23 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       (w) => w.date
     );
 
-
-    const joinSelectClause = `
-      d.variation AS variation
-      ${params.dimensions
-        .map((d) => `, d.dim_exp_${d} AS dim_exp_${d}`)
-        .join("\n")}
-      ${banditDates?.length ? `, d.bandit_period AS bandit_period,` : ""}
-      , d.${baseIdType} AS ${baseIdType}
-      , d.first_exposure_timestamp AS first_exposure_timestamp
-      , d.first_activation_timestamp AS first_activation_timestamp
-      , m.timestamp AS metric_timestamp
-    `;
-
-    const factTableCTEs: string[] = [];
-    const metricCols: string[] = [];
+    const dt: string[] = [];
     factTableData.forEach((d, i) => {
-      const { sql, metricCols: newMetricCols } = this.getPipelineFactMetricsAggregationCTEs({
-        baseTable: i === 0 ? `__distinctUsers` : `__userMetricAgg_${i - 1}`,
-        joinSelectClause,
-        previousTableMetricCols: metricCols,
-        factTableData: d,
-        index: i,
-        baseIdType,
-        idJoinMap,
-        factTableMap,
-        experimentId: settings.experimentId,
-        endDate: settings.endDate,
-      });
-      factTableCTEs.push(sql);
-      metricCols.push(...newMetricCols);
+      if (factTableData.length <= i + 1) {
+        dt.push(`m${i}.dt` + ")".repeat(factTableData.length - 1));
+      } else {
+        dt.push(`COALESCE(m${i}.dt, `);
+      }
     });
-    
+
+    const userId: string[] = [];
+    factTableData.forEach((d, i) => {
+      if (factTableData.length <= i + 1) {
+        userId.push(`m${i}.${baseIdType}` + ")".repeat(factTableData.length - 1));
+      } else {
+        userId.push(`COALESCE(m${i}.${baseIdType}, `);
+      }
+    });
     // TODO CUPED is always pre-experiment period, not pre-exposure
     // CUPED standalone pipeline...
 
@@ -5522,8 +5555,28 @@ ${factTableData.map((d) => d.metricData
           , first_activation_timestamp
         FROM ${params.unitsTableFullName}
       )
-      ${factTableCTEs.join("\n")}
-      SELECT * FROM __userMetricAgg_${factTableData.length - 1}
+      ${factTableData.map((d, i) => this.getPipelineFactMetricsAggregationCTEs({
+        factTableData: d,
+        index: i,
+        baseIdType,
+        idJoinMap,
+        factTableMap,
+        experimentId: settings.experimentId,
+        endDate: settings.endDate,
+      })).join("\n")}
+      --- get final metrics
+        SELECT
+          ${factTableData.length > 1 ? `${userId.join("\n")}` : `${baseIdType}`} AS ${baseIdType}
+          , ${factTableData.length > 1 ? `${dt.join("\n")}` : `m0.dt`} AS dt
+          ${factTableData.map((d, i) => d.columns.map((c) => `, ${c}`).join("\n")).join("\n")}
+        FROM
+          __userMetricAgg_0 m0
+          ${factTableData
+            .slice(1)
+            .map((d, i) => `FULL OUTER JOIN __userMetricAgg_${i + 1} m${i+1} ON (
+              m0.${baseIdType} = m${i+1}.${baseIdType}
+              AND m0.dt = m${i+1}.dt
+            )`)}
     `,
       this.getFormatDialect()
     );
