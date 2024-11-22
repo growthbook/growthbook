@@ -226,10 +226,7 @@ export default function track(
     sdk_version: growthbook.version,
     url: trackProps.url,
     user_id: id,
-    user_attributes_json: JSON.stringify({
-      ...growthbook.getAttributes(),
-      cloudOrgId: isCloud() ? org : "",
-    }),
+    user_attributes_json: JSON.stringify(growthbook.getAttributes()),
   });
 
   const jitsu = getJitsuClient();

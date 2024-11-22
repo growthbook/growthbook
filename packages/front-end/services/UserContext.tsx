@@ -330,6 +330,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.updateAttributes({
       role: user?.role || "",
       organizationId: hashedOrganizationId,
+      cloudOrgId: isCloud() ? currentOrg?.organization?.id || "" : "",
       orgDateCreated: currentOrg?.organization?.dateCreated
         ? getValidDate(currentOrg.organization.dateCreated).toISOString()
         : "",
