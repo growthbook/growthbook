@@ -12,7 +12,6 @@ import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -226,13 +225,21 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
             {label}
           </label>
           <div>
-            <Toggle
-              id={uuid}
-              value={value as boolean}
+            <RadioGroup
+              options={[
+                {
+                  label: "TRUE",
+                  value: "true",
+                },
+                {
+                  label: "FALSE",
+                  value: "false",
+                },
+              ]}
+              value={value as string}
               setValue={(v) => {
                 setValue(v as T);
               }}
-              type="featureValue"
               disabled={!field.required && !isset}
             />
           </div>
@@ -243,13 +250,21 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
       ) : (
         <>
           <div>
-            <Toggle
-              id={uuid}
-              value={value as boolean}
+            <RadioGroup
+              options={[
+                {
+                  label: "TRUE",
+                  value: "true",
+                },
+                {
+                  label: "FALSE",
+                  value: "false",
+                },
+              ]}
+              value={value as string}
               setValue={(v) => {
                 setValue(v as T);
               }}
-              type="featureValue"
               disabled={!field.required && !isset}
             />
           </div>
