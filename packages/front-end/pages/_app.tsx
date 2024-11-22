@@ -45,6 +45,7 @@ type ModAppProps = AppProps & {
     preAuth?: boolean;
     liteLayout?: boolean;
     preAuthTopNav?: boolean;
+    noLoadingOverlay?: boolean;
   };
 };
 
@@ -69,7 +70,8 @@ function App({
   pageProps,
   router,
 }: ModAppProps): React.ReactElement {
-  const [ready, setReady] = useState(false);
+  const noLoadingOverlay = Component.noLoadingOverlay || false;
+  const [ready, setReady] = useState(noLoadingOverlay);
   const [error, setError] = useState("");
 
   // hacky:
@@ -146,12 +148,12 @@ function App({
   const renderPreAuth = () => {
     if (preAuthTopNav) {
       return (
-        <>
+        <PageHeadProvider>
           <TopNavLite />
           <main className="container mt-5">
             <Component {...pageProps} />
           </main>
-        </>
+        </PageHeadProvider>
       );
     }
     return <Component {...pageProps} />;
