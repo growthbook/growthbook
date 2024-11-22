@@ -20,6 +20,7 @@ import {
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
 import { NotificationEventName } from "back-end/types/event";
+import { getDatadogMessageForNotificationEvent } from "back-end/src/events/handlers/datadog";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -152,12 +153,11 @@ export class EventWebHookNotifier implements Notifier {
         }
 
         case "datadog":
-          return {
-            title: "Feature Flag Updated",
-            text: "The feature flag X was updated from Y to Z.",
-            tags: ["test:ExampleEvent"],
-            source_type_name: "growthbook",
-          };
+          if (!event.version) {
+            throw new Error("Invalid DataDog event configuration");
+          }
+
+          return getDatadogMessageForNotificationEvent(event.data, eventId);
 
         default:
           invalidPayloadType = payloadType;
