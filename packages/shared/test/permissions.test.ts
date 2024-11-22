@@ -61,7 +61,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(false);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(false);
-    expect(p.canCreateSegment()).toBe(false);
+    expect(p.canCreateSegment(projectsResource)).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(false);
     expect(p.canDeleteApiKey()).toBe(false);
     expect(p.canDeleteArchetype(projectsResource)).toBe(false);
@@ -81,7 +81,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(false);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(false);
-    expect(p.canDeleteSegment()).toBe(false);
+    expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
@@ -118,7 +118,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateSegment()).toBe(false);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
@@ -170,7 +170,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(false);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(false);
-    expect(p.canCreateSegment()).toBe(false);
+    expect(p.canCreateSegment(projectsResource)).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(false);
     expect(p.canDeleteApiKey()).toBe(false);
     expect(p.canDeleteArchetype(projectsResource)).toBe(false);
@@ -190,7 +190,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(false);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(false);
-    expect(p.canDeleteSegment()).toBe(false);
+    expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
@@ -227,7 +227,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateSegment()).toBe(false);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
@@ -279,7 +279,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(false);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(false);
-    expect(p.canCreateSegment()).toBe(false);
+    expect(p.canCreateSegment(projectsResource)).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
     expect(p.canDeleteApiKey()).toBe(false);
     expect(p.canDeleteArchetype(projectsResource)).toBe(false);
@@ -299,7 +299,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(false);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(false);
-    expect(p.canDeleteSegment()).toBe(false);
+    expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
@@ -336,7 +336,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateSegment()).toBe(false);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
@@ -388,7 +388,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(false);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(false);
-    expect(p.canCreateSegment()).toBe(false);
+    expect(p.canCreateSegment(projectsResource)).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(false);
     expect(p.canDeleteApiKey()).toBe(false);
     expect(p.canDeleteArchetype(projectsResource)).toBe(false);
@@ -408,7 +408,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(false);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(false);
-    expect(p.canDeleteSegment()).toBe(false);
+    expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
@@ -445,7 +445,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateSegment()).toBe(false);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
@@ -497,7 +497,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(false);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(true);
-    expect(p.canCreateSegment()).toBe(false);
+    expect(p.canCreateSegment(projectsResource)).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
     expect(p.canDeleteApiKey()).toBe(false);
     expect(p.canDeleteArchetype(projectsResource)).toBe(true);
@@ -517,7 +517,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(false);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(true);
-    expect(p.canDeleteSegment()).toBe(false);
+    expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
@@ -554,7 +554,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
-    expect(p.canUpdateSegment()).toBe(false);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
@@ -606,7 +606,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(true);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(false);
-    expect(p.canCreateSegment()).toBe(true);
+    expect(p.canCreateSegment(projectsResource)).toBe(true);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
     expect(p.canDeleteApiKey()).toBe(false);
     expect(p.canDeleteArchetype(projectsResource)).toBe(false);
@@ -626,7 +626,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(true);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(false);
-    expect(p.canDeleteSegment()).toBe(true);
+    expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
@@ -663,7 +663,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateSegment()).toBe(true);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
@@ -715,7 +715,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(true);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(true);
-    expect(p.canCreateSegment()).toBe(true);
+    expect(p.canCreateSegment(projectsResource)).toBe(true);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
     expect(p.canDeleteApiKey()).toBe(false);
     expect(p.canDeleteArchetype(projectsResource)).toBe(true);
@@ -735,7 +735,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(true);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(true);
-    expect(p.canDeleteSegment()).toBe(true);
+    expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
@@ -772,7 +772,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
-    expect(p.canUpdateSegment()).toBe(true);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
@@ -824,7 +824,7 @@ describe("Role permissions", () => {
     expect(p.canCreateReport(projectResource)).toBe(true);
     expect(p.canCreateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canCreateSavedGroup(projectsResource)).toBe(true);
-    expect(p.canCreateSegment()).toBe(true);
+    expect(p.canCreateSegment(projectsResource)).toBe(true);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
     expect(p.canDeleteApiKey()).toBe(true);
     expect(p.canDeleteArchetype(projectsResource)).toBe(true);
@@ -844,7 +844,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteReport(projectResource)).toBe(true);
     expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canDeleteSavedGroup(projectsResource)).toBe(true);
-    expect(p.canDeleteSegment()).toBe(true);
+    expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(true);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
@@ -881,7 +881,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
-    expect(p.canUpdateSegment()).toBe(true);
+    expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
