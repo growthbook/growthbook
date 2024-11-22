@@ -549,12 +549,12 @@ export function getDefaultRuleValue({
         {
           value: defaultValue,
           weight: 0.5,
-          name: "",
+          name: "Control",
         },
         {
           value: value,
           weight: 0.5,
-          name: "",
+          name: "Variation 1",
         },
       ],
       coverage: 1,

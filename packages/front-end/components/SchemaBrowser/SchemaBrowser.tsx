@@ -157,7 +157,6 @@ export default function SchemaBrowser({
         datasourceName={datasource.name}
         datasourceId={datasource.id}
         canRunQueries={canRunQueries}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'InformationSchemaInterface | undefined' is n... Remove this comment to see the full error message
         informationSchema={informationSchema}
         setFetching={setFetching}
         fetching={fetching}
@@ -299,12 +298,14 @@ export default function SchemaBrowser({
         </>
       </SchemaBrowserWrapper>
       {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
-      <DatasourceTableData
-        canRunQueries={canRunQueries}
-        tableId={currentTable}
-        datasourceId={datasource.id}
-        setError={setError}
-      />
+      {currentTable ? (
+        <DatasourceTableData
+          canRunQueries={canRunQueries}
+          tableId={currentTable}
+          datasourceId={datasource.id}
+          setError={setError}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,8 +1,10 @@
-import { AppProps } from "next/app";
-import "@/styles/global.scss";
-import "@/styles/global-radix-overrides.scss";
+// NB: Order matters
 import "@radix-ui/themes/styles.css";
-import "@/styles/theme-config.css";
+import "@/styles/radix-config.css";
+import "@/styles/global-radix-overrides.scss";
+import "@/styles/global.scss";
+
+import { AppProps } from "next/app";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
