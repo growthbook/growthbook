@@ -81,7 +81,8 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
   url_path
 FROM events
 WHERE
-  timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+  event_name <> 'Experiment Viewed'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
           columns: generateColumns({
             timestamp: { datatype: "date" },
             user_id: { datatype: "string" },
