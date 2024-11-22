@@ -156,7 +156,8 @@ export default function ExperimentRefFields({
         )}
         {selectedExperiment && (
           <div className="form-group">
-            <label>Variation Values</label>
+            <label>计划赋值</label>
+            {/* <label>Variation Values</label> */}
             <div className="mb-3 box p-3">
               {selectedExperiment.variations.map((v, i) => (
                 <FeatureValueField

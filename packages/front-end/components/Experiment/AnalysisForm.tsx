@@ -399,7 +399,7 @@ const AnalysisForm: FC<{
             <SelectField
               label={
                 <>
-                  Experiment Assignment Table{" "}
+                  实验分配表{" "}
                   <Tooltip body="应与用于为本实验随机分配单元的标识符类型相对应" />
                 </>
               }

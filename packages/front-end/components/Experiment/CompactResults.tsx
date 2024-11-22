@@ -276,7 +276,7 @@ const CompactResults: FC<{
                   trigger={
                     <div className="d-inline-flex mx-3 align-items-center">
                       <FaUsers size={16} className="mr-1" />
-                      {numberFormatter.format(totalUsers)} total users
+                      共计{numberFormatter.format(totalUsers)}名用户
                       <FaAngleRight className="chevron ml-1" />
                     </div>
                   }

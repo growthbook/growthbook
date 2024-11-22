@@ -307,7 +307,7 @@ export default function BanditRefNewFields({
               <SelectField
                 label={
                   <>
-                    Experiment Assignment Table{" "}
+                    实验分配表{" "}
                     <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
                   </>
                 }

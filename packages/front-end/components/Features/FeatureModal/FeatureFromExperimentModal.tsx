@@ -333,7 +333,7 @@ export default function FeatureFromExperimentModal({
       })}
     >
       <SelectField
-        label="Create New or Use Existing?"
+        label="使用已有的或新建一个？"
         options={validFeatures.map((f) => ({
           label: f.id + " (" + f.valueType + ")",
           value: f.id,
@@ -428,7 +428,8 @@ export default function FeatureFromExperimentModal({
       )}
 
       <div className="form-group">
-        <label>Variation Values</label>
+        <label>计划赋值</label>
+        {/* <label>Variation Values</label> */}
         <div className="mb-3 bg-light border p-3">
           {experiment.variations.map((v, i) => (
             <FeatureValueField

@@ -28,11 +28,11 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
       <table className="table mx-2 mt-0 mb-2">
         <thead>
           <tr>
-            <th className="border-top-0">Variation</th>
-            <th className="border-top-0">Actual Units</th>
-            <th className="border-top-0">Expected Units</th>
-            <th className="border-top-0">Actual %</th>
-            <th className="border-top-0">Expected %</th>
+            <th className="border-top-0">计划</th>
+            <th className="border-top-0">实际单位</th>
+            <th className="border-top-0">期望单位</th>
+            <th className="border-top-0">实际 %</th>
+            <th className="border-top-0">期望 %</th>
           </tr>
         </thead>
         <tbody>

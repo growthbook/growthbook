@@ -263,9 +263,11 @@ export function PreLaunchChecklist({
         : "incomplete",
       display: (
         <>
-          验证您的应用是否正在向GrowthBook SDK传递
+          验证你的应用是否正在将<strong> 属性 </strong>和<strong> 跟踪回调 </strong>都传递到 GrowthBook 的SDK中。
+
+          {/* 验证您的应用是否正在向GrowthBook SDK传递
           <strong> 属性 </strong>
-          和一个 <strong> 跟踪回调 </strong>。
+          和一个 <strong> 跟踪回调 </strong>。 */}
         </>
       ),
     });
@@ -277,7 +279,8 @@ export function PreLaunchChecklist({
         : "incomplete",
       display: (
         <>
-          验证您的应用是否正在为您计划在分析中包含的所有指标跟踪事件。
+          验证你的应用是否正在针对你计划纳入分析的所有指标跟踪相关事件。
+          {/* 验证您的应用是否正在为您计划在分析中包含的所有指标跟踪事件。 */}
         </>
       ),
     });

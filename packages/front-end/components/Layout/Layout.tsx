@@ -134,21 +134,21 @@ const navlinks: SidebarLinkProps[] = [
         href: "/attributes",
         path: /^attributes/,
       },
-      {
-        name: "命名空间",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
+      // {
+      //   name: "命名空间",
+      //   href: "/namespaces",
+      //   path: /^namespaces/,
+      // },
       {
         name: "环境",
         href: "/environments",
         path: /^environments/,
       },
-      {
-        name: "已保存组",
-        href: "/saved-groups",
-        path: /^saved-groups/,
-      },
+      // {
+      //   name: "已保存组",
+      //   href: "/saved-groups",
+      //   path: /^saved-groups/,
+      // },
     ],
   },
   {

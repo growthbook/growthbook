@@ -319,12 +319,12 @@ const ExperimentsPage = (): React.ReactElement => {
         >
           创建新实验
         </div>
-        <div
+        {/* <div
           className="d-flex align-items-center cursor-pointer hover-highlight px-3 py-2"
           onClick={() => setOpenImportExperimentModal(true)}
         >
           导入现有实验
-        </div>
+        </div> */}
       </div>
     </Dropdown>
   );
