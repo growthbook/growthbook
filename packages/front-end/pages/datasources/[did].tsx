@@ -402,6 +402,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         <Modal
           trackingEventModalType=""
           open={true}
+          size={"lg"}
           close={() => setViewSchema(false)}
           closeCta="Close"
           header="Schema Browser"
@@ -411,7 +412,12 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               Explore the schemas, tables, and table metadata of your connected
               datasource.
             </p>
-            <div className="border rounded">
+            <div
+              className="border rounded"
+              style={{
+                maxHeight: "calc(93vh - 140px)",
+              }}
+            >
               <SchemaBrowser datasource={d} />
             </div>
           </>
