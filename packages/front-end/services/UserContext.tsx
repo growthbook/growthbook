@@ -349,7 +349,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     });
   }, [router?.pathname]);
 
-  // Track plogged-in page views
+  // Track logged-in page views
   useEffect(() => {
     if (!currentOrg?.organization?.id) return;
     trackPageView(router.pathname);

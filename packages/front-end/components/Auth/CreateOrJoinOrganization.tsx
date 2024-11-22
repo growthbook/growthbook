@@ -293,7 +293,7 @@ const CreateOrJoinOrganization: FC<{
         <WelcomeFrame
           leftside={leftside}
           loading={loading}
-          pathName="/create-or-join-org"
+          pathName="/create-org"
         >
           <a
             className="logout-link"

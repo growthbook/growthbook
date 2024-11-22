@@ -303,8 +303,8 @@ export async function postInbuiltDataSource(
 SELECT 
   device_id,
   timestamp,
-  simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
-  simpleJSONExtractString(properties_json, 'variation_id') as variation_id,
+  simpleJSONExtractString(properties_json, 'experimentId') as experiment_id,
+  simpleJSONExtractString(properties_json, 'variationId') as variation_id,
   geo_country as country,
   ua_browser as browser,
   ua_os as os,
@@ -335,8 +335,8 @@ WHERE
 SELECT 
   user_id,
   timestamp,
-  simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
-  simpleJSONExtractString(properties_json, 'variation_id') as variation_id,
+  simpleJSONExtractString(properties_json, 'experimentId') as experiment_id,
+  simpleJSONExtractString(properties_json, 'variationId') as variation_id,
   geo_country as country,
   ua_browser as browser,
   ua_os as os,

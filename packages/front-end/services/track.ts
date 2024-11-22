@@ -124,7 +124,11 @@ function getOrGeneratePageId() {
   return pageIds[pageIdKey];
 }
 
+let shouldFireSessionStart = false;
 function getOrGenerateSessionId() {
+  if (!Cookies.get(SESSION_ID_COOKIE)) {
+    shouldFireSessionStart = true;
+  }
   const sessionId = Cookies.get(SESSION_ID_COOKIE) || uuidv4();
   const now = new Date();
   Cookies.set(SESSION_ID_COOKIE, sessionId, {
@@ -145,8 +149,10 @@ const PAGE_VIEW_EVENT = "Page View";
 const SESSION_START_EVENT = "Session Start";
 
 export function trackPageView(pathName: string) {
-  if (!Cookies.get(SESSION_ID_COOKIE)) {
+  getOrGenerateSessionId();
+  if (shouldFireSessionStart) {
     track(SESSION_START_EVENT, {});
+    shouldFireSessionStart = false;
   }
 
   track(PAGE_VIEW_EVENT, {
