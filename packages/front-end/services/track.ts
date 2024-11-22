@@ -94,8 +94,9 @@ const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      credentials: "omit",
-      mode: "no-cors",
+      // TODO: Make ingestor accept text/plain content type so we can disable cors
+      //credentials: "omit",
+      //mode: "no-cors",
     });
   } catch (e) {
     if (inTelemetryDebugMode()) {
