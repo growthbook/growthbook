@@ -19,16 +19,16 @@ import {
 import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import Cookies from "js-cookie";
+import { growthbook, GB_SDK_ID } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
+  getIngestorHost,
   hasFileConfig,
   inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
-  dataWarehouseUrl,
 } from "./env";
-import { GB_SDK_ID } from "./utils";
 
 export type TrackEventProps = Record<string, unknown>;
 
@@ -81,15 +81,21 @@ const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
 const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
-  if (!dataWarehouseUrl) return;
+  if (inTelemetryDebugMode()) {
+    console.log("Telemetry Event - ", event);
+  }
+  if (!isTelemetryEnabled()) return;
+
   try {
-    await fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
+    await fetch(`${getIngestorHost()}/track?client_key=${GB_SDK_ID}`, {
       method: "POST",
       body: JSON.stringify(event),
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
+      credentials: "omit",
+      mode: "no-cors",
     });
   } catch (e) {
     if (inTelemetryDebugMode()) {
@@ -118,7 +124,11 @@ function getOrGeneratePageId() {
   return pageIds[pageIdKey];
 }
 
+let shouldFireSessionStart = false;
 function getOrGenerateSessionId() {
+  if (!Cookies.get(SESSION_ID_COOKIE)) {
+    shouldFireSessionStart = true;
+  }
   const sessionId = Cookies.get(SESSION_ID_COOKIE) || uuidv4();
   const now = new Date();
   Cookies.set(SESSION_ID_COOKIE, sessionId, {
@@ -133,6 +143,21 @@ function getOrGenerateSessionId() {
     sameSite: "strict",
   });
   return sessionId;
+}
+
+const PAGE_VIEW_EVENT = "Page View";
+const SESSION_START_EVENT = "Session Start";
+
+export function trackPageView(pathName: string) {
+  getOrGenerateSessionId();
+  if (shouldFireSessionStart) {
+    track(SESSION_START_EVENT, {});
+    shouldFireSessionStart = false;
+  }
+
+  track(PAGE_VIEW_EVENT, {
+    pathName,
+  });
 }
 
 let _jitsu: JitsuClient;
@@ -199,25 +224,21 @@ export default function track(
 
   void dataWareHouseTrack({
     event_name: event,
-    properties_json: JSON.stringify(trackProps),
+    properties_json: JSON.stringify(props),
     device_id: getOrGenerateDeviceId(),
     page_id: getOrGeneratePageId(),
     session_id: getOrGenerateSessionId(),
     sdk_language: "react",
-    // TODO: programmatically get sdk version. Importing from _app breaks tests
-    sdk_version: "1.2.0",
+    sdk_version: growthbook.version,
     url: trackProps.url,
     user_id: id,
-    user_attributes_json: "{}",
+    user_attributes_json: JSON.stringify(growthbook.getAttributes()),
   });
-
-  if (inTelemetryDebugMode()) {
-    console.log("Telemetry Event - ", event, trackProps);
-  }
 
   const jitsu = getJitsuClient();
   if (jitsu) {
-    jitsu.track(event, trackProps);
+    // Rename page load events for backwards compatibility in Jitsu
+    jitsu.track(event === PAGE_VIEW_EVENT ? "page-load" : event, trackProps);
   }
 }
 
