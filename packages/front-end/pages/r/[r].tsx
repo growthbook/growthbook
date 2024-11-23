@@ -1,4 +1,5 @@
 import PageHead from "@/components/Layout/PageHead";
+import {ReportInterface} from "back-end/types/report";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -17,7 +18,7 @@ export async function getServerSideProps(context) {
 
 interface ReportPageProps {
   r: string;
-  report: { title: string };
+  report: ReportInterface;
 }
 
 export default function ReportPage(props: ReportPageProps) {
