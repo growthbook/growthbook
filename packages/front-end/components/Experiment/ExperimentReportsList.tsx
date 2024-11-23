@@ -121,13 +121,13 @@ export default function ExperimentReportsList({
                             method: "DELETE",
                           }
                         );
-                        trackReport(
-                          "delete",
-                          "ExperimentReportsList",
-                          getDatasourceById(report.args.datasource)?.type ||
-                            null,
-                          report
-                        );
+                        // trackReport(
+                        //   "delete",
+                        //   "ExperimentReportsList",
+                        //   getDatasourceById(report.args.datasource)?.type ||
+                        //     null,
+                        //   report
+                        // );
                         mutate();
                       }}
                     />

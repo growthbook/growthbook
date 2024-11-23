@@ -1,15 +1,19 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { migrateReport } from "back-end/src/util/migrations";
-import { ReportInterface } from "back-end/types/report";
+import { migrateExperimentReport } from "back-end/src/util/migrations";
+import {ExperimentReportInterface, ExperimentSnapshotReportInterface, ReportInterface} from "back-end/types/report";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
+import { customAlphabet } from "nanoid";
+
+const TINYID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 const reportSchema = new mongoose.Schema({
   id: String,
+  tinyid: String,
   dateCreated: Date,
   dateUpdated: Date,
   organization: String,
@@ -22,32 +26,60 @@ const reportSchema = new mongoose.Schema({
   queries: queriesSchema,
   status: String,
   type: String,
+  snapshot: String,
   args: {},
   results: {},
 });
 
 type ReportDocument = mongoose.Document & ReportInterface;
 
+type ExperimentSnapshotReportDocument = mongoose.Document & ExperimentSnapshotReportInterface;
+type ExperimentReportDocument = mongoose.Document & ExperimentReportInterface;
+
 const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 
 const toInterface = (doc: ReportDocument): ReportInterface => {
-  return migrateReport(omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]));
+  switch (doc.type) {
+    case "experiment":
+      return migrateExperimentReport(omit(doc.toJSON<ExperimentReportDocument>(), ["__v", "_id"]));
+    case "experiment-snapshot":
+      return omit(doc.toJSON<ExperimentSnapshotReportDocument>(), ["__v", "_id"]);
+    default:
+      throw new Error("Invalid report type");
+  }
 };
 
 export async function createReport(
   organization: string,
-  initialValue: Partial<ReportInterface>
-): Promise<ReportInterface> {
+  initialValue: Partial<ExperimentSnapshotReportInterface>
+): Promise<ExperimentSnapshotReportInterface> {
+  const nanoid = customAlphabet(TINYID_ALPHABET);
+  let tries = 0;
+  let size = 6;
+  let collision = false;
+  let tinyid = "";
+  while (tries < 5) {
+    tinyid = nanoid(size);
+    collision = !!await ReportModel.exists({ tinyid });
+    if (!collision) break;
+    tries++;
+    if (tries >= 3) size++;
+  }
+  if (collision) {
+    throw new Error(`Unable to generate tinyid after ${tries} tries.`);
+  }
+
   const report = await ReportModel.create({
     status: "private",
     ...initialValue,
     organization,
     id: uniqid("rep_"),
+    tinyid,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
 
-  return toInterface(report);
+  return toInterface(report) as ExperimentSnapshotReportInterface;
 }
 
 export async function getReportById(
@@ -57,6 +89,16 @@ export async function getReportById(
   const report = await ReportModel.findOne({
     organization,
     id,
+  });
+
+  return report ? toInterface(report) : null;
+}
+
+export async function getReportByTinyid(
+  tinyid: string
+): Promise<ReportInterface | null> {
+  const report = await ReportModel.findOne({
+    tinyid
   });
 
   return report ? toInterface(report) : null;

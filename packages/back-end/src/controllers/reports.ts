@@ -1,8 +1,8 @@
-import { Response } from "express";
+import {Request, Response} from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import { ReportInterface } from "back-end/types/report";
+import {ExperimentReportInterface, ReportInterface} from "back-end/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -12,7 +12,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createReport,
   deleteReportById,
-  getReportById,
+  getReportById, getReportByTinyid,
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
@@ -48,7 +48,7 @@ export async function postReportFromSnapshot(
     context.permissions.throwPermissionError();
   }
 
-  const phase = experiment.phases[snapshot.phase];
+  const phase = experiment.phases?.[snapshot.phase];
   if (!phase) {
     throw new Error("Unknown experiment phase");
   }
@@ -63,18 +63,8 @@ export async function postReportFromSnapshot(
     userId: req.userId,
     title: `New Report - ${experiment.name}`,
     description: ``,
-    type: "experiment",
-    args: reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
-    results: analysis.results
-      ? {
-          dimensions: analysis.results,
-          unknownVariations: snapshot.unknownVariations || [],
-          multipleExposures: snapshot.multipleExposures || 0,
-        }
-      : undefined,
-    queries: snapshot.queries,
-    runStarted: snapshot.runStarted,
-    error: snapshot.error,
+    type: "experiment-snapshot",
+    snapshot: req.params.snapshot,
   });
 
   await req.audit({
@@ -166,6 +156,26 @@ export async function getReport(
   });
 }
 
+export async function getReportPublic(
+  req: Request<{ tinyid: string }>,
+  res: Response
+) {
+  const { tinyid } = req.params;
+  const report = await getReportByTinyid(tinyid);
+  if (!report) {
+    throw new Error("Unknown report id");
+  }
+
+  // todo: share permissions
+
+  // todo: report dependencies
+
+  res.status(200).json({
+    status: 200,
+    report,
+  });
+}
+
 export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -212,6 +222,9 @@ export async function refreshReport(
   if (!report) {
     throw new Error("Unknown report id");
   }
+  if (report.type !== "experiment") {
+    throw new Error("Invalid report type");
+  }
 
   const useCache = !req.query["force"];
 
@@ -255,9 +268,11 @@ export async function putReport(
   const { org } = context;
 
   const report = await getReportById(org.id, req.params.id);
-
   if (!report) {
     throw new Error("Unknown report id");
+  }
+  if (report.type !== "experiment") {
+    throw new Error("Invalid report type");
   }
 
   const experiment = await getExperimentById(
@@ -270,7 +285,7 @@ export async function putReport(
     context.permissions.throwPermissionError();
   }
 
-  const updates: Partial<ReportInterface> = {};
+  const updates: Partial<ExperimentReportInterface> = {};
   let needsRun = false;
   if ("args" in req.body) {
     updates.args = {
@@ -300,7 +315,7 @@ export async function putReport(
 
   await updateReport(org.id, req.params.id, updates);
 
-  const updatedReport: ReportInterface = {
+  const updatedReport: ExperimentReportInterface = {
     ...report,
     ...updates,
   };
@@ -342,6 +357,9 @@ export async function cancelReport(
   const report = await getReportById(org.id, id);
   if (!report) {
     throw new Error("Could not cancel query");
+  }
+  if (report.type !== "experiment") {
+    throw new Error("Invalid report type");
   }
 
   const integration = await getIntegrationFromDatasourceId(

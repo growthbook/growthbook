@@ -9,7 +9,7 @@ import {
 import omit from "lodash/omit";
 import { LegacyMetricInterface } from "back-end/types/metric";
 import {
-  migrateReport,
+  migrateExperimentReport,
   migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
@@ -1746,7 +1746,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics"),
@@ -1768,7 +1768,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "guardrails"),
@@ -1792,7 +1792,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "guardrails"),
@@ -1820,7 +1820,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "metricRegressionAdjustmentStatuses"),

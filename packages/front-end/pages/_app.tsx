@@ -17,7 +17,7 @@ import { OrganizationMessagesContainer } from "@/components/OrganizationMessages
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
-import { AuthProvider } from "@/services/auth";
+import {AuthProvider, useAuth} from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
 import {
   DefinitionsGuard,
@@ -35,16 +35,20 @@ import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { GB_SDK_ID } from "@/services/utils";
+import {UserContextProvider} from "@/services/UserContext";
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
 
 type ModAppProps = AppProps & {
   Component: {
+    envReady?: boolean;
     noOrganization?: boolean;
-    preAuth?: boolean;
     liteLayout?: boolean;
+    preAuth?: boolean;
     preAuthTopNav?: boolean;
+    progressiveAuth?: boolean;
+    progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
   };
 };
@@ -70,8 +74,7 @@ function App({
   pageProps,
   router,
 }: ModAppProps): React.ReactElement {
-  const noLoadingOverlay = Component.noLoadingOverlay || false;
-  const [ready, setReady] = useState(noLoadingOverlay);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
 
   // hacky:
@@ -79,8 +82,13 @@ function App({
 
   const organizationRequired = !Component.noOrganization;
   const preAuth = Component.preAuth || false;
+  const progressiveAuth = Component.progressiveAuth || false;
   const preAuthTopNav = Component.preAuthTopNav || false;
+  const progressiveAuthTopNav = Component.progressiveAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
+  const noLoadingOverlay = Component.noLoadingOverlay || false;
+
+  const { orgId } = useAuth();
 
   useEffect(() => {
     initEnv()
@@ -89,6 +97,7 @@ function App({
       })
       .catch((e) => {
         setError(e.message);
+        console.error(e.message);
       });
   }, []);
 
@@ -146,17 +155,45 @@ function App({
   }, [ready, router.pathname]);
 
   const renderPreAuth = () => {
-    if (preAuthTopNav) {
+    if (!ready || !progressiveAuth) {
       return (
         <PageHeadProvider>
-          <TopNavLite />
-          <main className="container mt-5">
-            <Component {...pageProps} />
-          </main>
+          {preAuthTopNav ? (
+            <>
+              <TopNavLite/>
+              <main className="container mt-5">
+                <Component {...{...pageProps, envReady: ready}} />
+              </main>
+            </>
+          ) : (
+            <Component {...{...pageProps, envReady: ready }} />
+          )}
         </PageHeadProvider>
       );
     }
-    return <Component {...pageProps} />;
+
+    return (
+      <AuthProvider exitOnNoAuth={!(preAuth || progressiveAuth)}>
+        <GrowthBookProvider growthbook={growthbook}>
+          <UserContextProvider key={orgId}>
+            <DefinitionsProvider>
+              <PageHeadProvider>
+                {preAuthTopNav || progressiveAuthTopNav ? (
+                  <>
+                    <TopNavLite/>
+                    <main className="container mt-5">
+                      <Component {...{...pageProps, envReady: ready}} />
+                    </main>
+                  </>
+                ) : (
+                  <Component {...{...pageProps, envReady: ready }} />
+                )}
+              </PageHeadProvider>
+            </DefinitionsProvider>
+          </UserContextProvider>
+        </GrowthBookProvider>
+      </AuthProvider>
+    );
   };
 
   return (
@@ -177,11 +214,11 @@ function App({
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      {ready ? (
+      {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
             <div id="portal-root" />
-            {preAuth ? (
+            {preAuth || progressiveAuth ? (
               renderPreAuth()
             ) : (
               <PageHeadProvider>
@@ -197,7 +234,7 @@ function App({
                               <OrganizationMessagesContainer />
                               <DemoDataSourceGlobalBannerContainer />
                               <DefinitionsGuard>
-                                <Component {...pageProps} />
+                                <Component {...{ ...pageProps, envReady: ready }} />
                               </DefinitionsGuard>
                             </main>
                           </DefinitionsProvider>
@@ -206,7 +243,7 @@ function App({
                         <div>
                           <TopNavLite />
                           <main className="container mt-5">
-                            <Component {...pageProps} />
+                            <Component {...{ ...pageProps, envReady: ready }} />
                           </main>
                         </div>
                       )}

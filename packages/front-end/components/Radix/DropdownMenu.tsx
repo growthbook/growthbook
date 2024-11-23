@@ -8,6 +8,7 @@ type AllowedChildren = string | React.ReactNode;
 
 type DropdownProps = {
   trigger: React.ReactNode;
+  triggerClassName?: string;
   menuPlacement?: "start" | "center" | "end";
   menuWidth?: "full" | number;
   children: AllowedChildren;
@@ -16,6 +17,7 @@ type DropdownProps = {
 
 export function DropdownMenu({
   trigger,
+  triggerClassName,
   menuPlacement = "start",
   menuWidth,
   children,
@@ -33,7 +35,7 @@ export function DropdownMenu({
 
   return (
     <RadixDropdownMenu.Root {...props}>
-      <RadixDropdownMenu.Trigger>{triggerComponent}</RadixDropdownMenu.Trigger>
+      <RadixDropdownMenu.Trigger className={triggerClassName}>{triggerComponent}</RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content
         align={menuPlacement}
         variant={variant}

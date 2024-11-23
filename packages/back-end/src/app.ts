@@ -281,6 +281,16 @@ if (!IS_CLOUD) {
   );
 }
 
+// public shareable reports
+app.get(
+  "/api/report/public/:tinyid",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  reportsController.getReportPublic
+)
+
 // Secret API routes (no JWT or CORS)
 app.use(
   "/api/v1",

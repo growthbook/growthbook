@@ -320,13 +320,13 @@ export default function ResultsTab({
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
-                    trackReport(
-                      "create",
-                      "ResultsTab",
-                      getDatasourceById(res.report.args.datasource)?.type ||
-                        null,
-                      res.report
-                    );
+                    // trackReport(
+                    //   "create",
+                    //   "ResultsTab",
+                    //   getDatasourceById(res.report.args.datasource)?.type ||
+                    //     null,
+                    //   res.report
+                    // );
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >

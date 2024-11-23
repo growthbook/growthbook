@@ -1,10 +1,11 @@
 import PageHead from "@/components/Layout/PageHead";
 
 export async function getServerSideProps(context) {
-  const { r } = context.params as { r: string };
+  const { r } = context.params;
 
-  // Example server-side data fetching
-  const report = { title: "My Report" }; // Replace with actual logic
+  const API_HOST = (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
+  const resp = await fetch(API_HOST + `/api/report/public/${r}`);
+  const { report } = await resp.json();
 
   return {
     props: {
@@ -19,25 +20,25 @@ interface ReportPageProps {
   report: { title: string };
 }
 
-export default function ReportPage({ report }: ReportPageProps) {
+export default function ReportPage(props: ReportPageProps) {
+  const { report } = props;
+
   return (
-    <>
+    <div className="pagecontents container-fluid">
       <PageHead
         breadcrumb={[
-          { display: `Reports`, href: `/reports` },
-          { display: report?.title ?? "foo" },
+          {display: `Reports`, href: `/reports`},
+          {display: report?.title ?? "(no title)"},
         ]}
       />
 
-      {/* Page Content */}
-      <div className="pagecontents container-fluid">
-        <h1>Report</h1>
-        <pre>{JSON.stringify(report, null, 2)}</pre>
-      </div>
-    </>
+      <h1>{report.title}</h1>
+      <pre>{JSON.stringify(report, null, 2)}</pre>
+    </div>
   );
 }
 
 ReportPage.preAuth = true;
-ReportPage.preAuthTopNav = true;
+ReportPage.progressiveAuth = true;
+ReportPage.progressiveAuthTopNav = true;
 ReportPage.noLoadingOverlay = true;

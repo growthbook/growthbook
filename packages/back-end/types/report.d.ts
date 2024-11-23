@@ -1,6 +1,6 @@
 import { MetricPriorSettings } from "./fact-table";
 import { AttributionModel, MetricOverride } from "./experiment";
-import { SnapshotVariation } from "./experiment-snapshot";
+import {ExperimentSnapshotInterface, SnapshotVariation} from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
 
@@ -15,8 +15,19 @@ export interface ReportInterfaceBase {
   description: string;
   runStarted: Date | null;
   error?: string;
-  queries: Queries;
+  queries?: Queries;
   status?: "published" | "private";
+}
+export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
+  type: "experiment-snapshot";
+  tinyid: string;
+  snapshot: string;
+}
+/** @deprecated */
+export interface ExperimentReportInterface extends ReportInterfaceBase {
+  type: "experiment";
+  args: ExperimentReportArgs;
+  results?: ExperimentReportResults;
 }
 
 export interface ExperimentReportVariation {
@@ -50,9 +61,7 @@ export type LegacyMetricRegressionAdjustmentStatus = {
 export interface ExperimentReportArgs {
   trackingKey: string;
   datasource: string;
-  /**
-   * @deprecated
-   */
+  /** @deprecated */
   userIdType?: "anonymous" | "user";
   exposureQueryId: string;
   startDate: Date;
@@ -89,15 +98,11 @@ export interface ExperimentReportResults {
   multipleExposures: number;
   dimensions: ExperimentReportResultDimension[];
 }
-export interface ExperimentReportInterface extends ReportInterfaceBase {
-  type: "experiment";
-  args: ExperimentReportArgs;
-  results?: ExperimentReportResults;
-}
 
-export type ReportInterface = ExperimentReportInterface;
+export type ReportInterface = ExperimentSnapshotReportInterface | ExperimentReportInterface;
 
-export type LegacyReportInterface = Omit<ReportInterface, "args"> & {
+/** @deprecated */
+export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   args: Omit<
     ExperimentReportArgs,
     "goalMetrics" | "guardrailMetrics" | "secondaryMetrics"
