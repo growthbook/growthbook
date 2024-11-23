@@ -1,6 +1,6 @@
 import { MetricPriorSettings } from "./fact-table";
-import { AttributionModel, MetricOverride } from "./experiment";
-import {ExperimentSnapshotInterface, SnapshotVariation} from "./experiment-snapshot";
+import { AttributionModel, ExperimentPhase, ExperimentType, MetricOverride, Variation, ExperimentAnalysisSettings } from "./experiment";
+import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
 
@@ -14,20 +14,34 @@ export interface ReportInterfaceBase {
   title: string;
   description: string;
   runStarted: Date | null;
-  error?: string;
-  queries?: Queries;
   status?: "published" | "private";
 }
+
 export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
   type: "experiment-snapshot";
   tinyid: string;
   snapshot: string;
+  experimentMetadata: ExperimentReportMetadata;
+  experimentAnalysisSettings: ExperimentAnalysisSettings;
 }
+
+export interface ExperimentReportMetadata {
+  type: ExperimentType;
+  phases: ExperimentReportPhase[];
+  variations: Omit<Variation, "description" | "screenshots">[];
+}
+export type ExperimentReportPhase = Pick<
+  ExperimentPhase,
+  "dateStarted" | "dateEnded" | "name" | "variationWeights" | "banditEvents"
+>;
+
 /** @deprecated */
 export interface ExperimentReportInterface extends ReportInterfaceBase {
   type: "experiment";
   args: ExperimentReportArgs;
   results?: ExperimentReportResults;
+  error?: string;
+  queries?: Queries;
 }
 
 export interface ExperimentReportVariation {

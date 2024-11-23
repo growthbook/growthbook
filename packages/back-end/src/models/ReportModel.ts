@@ -26,9 +26,11 @@ const reportSchema = new mongoose.Schema({
   queries: queriesSchema,
   status: String,
   type: String,
-  snapshot: String,
   args: {},
   results: {},
+  snapshot: String,
+  experimentMetadata: {},
+  experimentAnalysisSettings: {},
 });
 
 type ReportDocument = mongoose.Document & ReportInterface;

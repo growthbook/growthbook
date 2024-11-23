@@ -21,9 +21,10 @@ import { ReportQueryRunner } from "back-end/src/queryRunners/ReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { reportArgsFromSnapshot } from "back-end/src/services/reports";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { pick, omit } from "lodash";
+import {ExperimentAnalysisSettings, experimentAnalysisSettings} from "back-end/src/validators/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -65,6 +66,16 @@ export async function postReportFromSnapshot(
     description: ``,
     type: "experiment-snapshot",
     snapshot: req.params.snapshot,
+    experimentMetadata: {
+      type: experiment.type || "standard",
+      phases: experiment.phases.map((phase) =>
+        pick(phase, ["dateStarted", "dateEnded", "name", "variationWeights", "banditEvents"])
+      ),
+      variations: experiment.variations.map((variation) =>
+        omit(variation, ["description", "screenshots"])
+      ),
+    },
+    experimentAnalysisSettings: pick(experiment, Object.keys(experimentAnalysisSettings.shape)) as ExperimentAnalysisSettings,
   });
 
   await req.audit({
@@ -168,11 +179,14 @@ export async function getReportPublic(
 
   // todo: share permissions
 
-  // todo: report dependencies
+  const snapshot = report.type === "experiment-snapshot" ?
+    await findSnapshotById(report.organization, report.snapshot) :
+    undefined;
 
   res.status(200).json({
     status: 200,
     report,
+    snapshot,
   });
 }
 
