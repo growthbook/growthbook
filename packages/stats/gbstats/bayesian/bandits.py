@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import numpy as np
 import random
+import copy
 from pydantic.dataclasses import dataclass
 from scipy.stats import chi2  # type: ignore
 
@@ -17,8 +18,19 @@ from gbstats.utils import (
     variance_of_ratios,
     gaussian_credible_interval,
 )
-from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
+from gbstats.bayesian.tests import BayesianConfig, GaussianPrior, InverseGammaPrior
 from gbstats.models.settings import BanditWeightsSinglePeriod
+
+
+@dataclass
+class PooledMCMCConfig:
+    mcmc_seed: int = 0
+    prior_mean_distribution: GaussianPrior = field(default_factory=GaussianPrior)
+    prior_variance_distribution: InverseGammaPrior = field(
+        default_factory=InverseGammaPrior
+    )
+    burn: int = 1000
+    keep: int = 2000
 
 
 @dataclass
@@ -28,6 +40,7 @@ class BanditConfig(BayesianConfig):
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
     weight_by_period: bool = True
+    pooled_mcmc_config: Optional[PooledMCMCConfig] = None
 
 
 @dataclass
@@ -62,6 +75,119 @@ def get_error_bandit_result(
         reweight=reweight,
         weightsWereUpdated=False,
     )
+
+
+class BanditsMCMC:
+    def __init__(
+        self,
+        variation_means: np.ndarray,
+        variation_variances: np.ndarray,
+        config: PooledMCMCConfig,
+    ):
+        self.variation_means = variation_means
+        self.variation_variances = variation_variances
+        self.config = config
+        self.a = config.prior_variance_distribution.shape
+        self.b = config.prior_variance_distribution.scale
+        self.burn = config.burn
+        self.keep = config.keep
+        self.iters = self.burn + self.keep
+        self.num_variations = variation_means.size
+        self.seed = config.mcmc_seed
+
+    def run_mcmc(self):
+        self.initalize_parameters()
+        self.create_storage_arrays()
+        self.run_all_iterations()
+
+    def initalize_parameters(self):
+        self.alpha = copy.deepcopy(self.variation_means)
+        self.mu = float(np.mean(self.alpha))
+        self.gamma_2 = float(np.var(self.alpha, ddof=1))
+
+    def create_storage_arrays(self):
+        self.alpha_keep = np.empty((self.keep, self.num_variations))
+        self.mu_keep = np.empty((self.keep,))
+        self.gamma_2_keep = np.empty((self.keep,))
+
+    def run_all_iterations(self):
+        for iter in range(self.iters):
+            self.update_parameters(iter)
+            if iter >= self.burn:
+                storage_index = iter - self.burn
+                self.alpha_keep[storage_index, :] = self.alpha
+                self.mu_keep[storage_index] = self.mu
+                self.gamma_2_keep[storage_index] = self.gamma_2
+
+    def update_parameters(self, iter):
+        self.alpha = self.update_alpha(
+            self.variation_means,
+            self.variation_variances,
+            self.mu,
+            self.gamma_2,
+            self.seed + iter,
+        )
+        self.mu = self.update_mu(
+            self.alpha,
+            self.gamma_2,
+            self.config.prior_mean_distribution.mean,
+            self.config.prior_mean_distribution.variance,
+            self.config.prior_mean_distribution.proper,
+            self.seed + self.iters + iter,
+        )
+        self.gamma_2 = self.update_gamma_2(
+            self.mu, self.alpha, self.a, self.b, self.seed + 2 * self.iters + iter
+        )
+
+    @staticmethod
+    def update_mu(
+        alpha: np.ndarray,
+        gamma_2: float,
+        mu_0: float,
+        gamma_2_0: float,
+        proper: float,
+        seed: int,
+    ) -> float:
+        seed = random.randint(1, 10000000)
+        num_variations = alpha.size
+        prec = num_variations / gamma_2
+        precision_weighted_means = np.mean(alpha) * num_variations / gamma_2
+        if proper:
+            prec += +1 / gamma_2_0
+            precision_weighted_means += mu_0 / gamma_2_0
+        v = prec**-1
+        m = v * precision_weighted_means
+        rng = np.random.default_rng(seed=seed)
+        return np.sqrt(v) * rng.normal(size=1) + m
+
+    @staticmethod
+    def update_gamma_2(
+        mu: float, alpha: np.ndarray, a: float, b: float, seed: int
+    ) -> float:
+        shape = a + 0.5 * alpha.size
+        scale = b + 0.5 * np.sum((alpha - mu) ** 2)
+        rng = np.random.default_rng(seed=seed)
+        seed = random.randint(1, 10000000)
+        return float(1 / rng.gamma(size=1, shape=shape, scale=1 / scale))
+
+    @staticmethod
+    def update_alpha(
+        variation_means: np.ndarray,
+        variation_variances: np.ndarray,
+        mu: float,
+        gamma_2: float,
+        seed: int,
+    ) -> np.ndarray:
+        num_variations = variation_means.size
+        prec = 1 / variation_variances + 1 / gamma_2
+        precision_weighted_means = variation_means / variation_variances + mu / gamma_2
+        v_alpha = 1 / prec
+        s = np.sqrt(v_alpha)
+        seed = random.randint(1, 10000000)
+        rng = np.random.default_rng(seed=seed)
+        return np.array(
+            s * rng.normal(size=num_variations) + v_alpha * precision_weighted_means
+        )
 
 
 class Bandits(ABC):
@@ -226,12 +352,31 @@ class Bandits(ABC):
             if self.bandit_weights_seed
             else random.randint(0, 1000000)
         )
-        rng = np.random.default_rng(seed=seed)
-        y = rng.multivariate_normal(
-            mean=self.posterior_mean,
-            cov=np.diag(self.posterior_variance),
-            size=self.n_samples,
-        )
+        if self.config.pooled_mcmc_config:
+            mcmc = BanditsMCMC(
+                self.variation_means,
+                self.variation_variances,
+                self.config.pooled_mcmc_config,
+            )
+            mcmc.run_mcmc()
+            y = mcmc.alpha_keep
+            post_means = np.mean(y, axis=0)
+            post_vars = np.var(y, axis=0)
+            credible_intervals = [
+                gaussian_credible_interval(mn, s, self.config.alpha)
+                for mn, s in zip(post_means, np.sqrt(post_vars))
+            ]
+        else:
+            rng = np.random.default_rng(seed=seed)
+            y = rng.multivariate_normal(
+                mean=self.posterior_mean,
+                cov=np.diag(self.posterior_variance),
+                size=self.n_samples,
+            )
+            credible_intervals = [
+                gaussian_credible_interval(mn, s, self.config.alpha)
+                for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
+            ]
         if self.inverse:
             best_rows = np.min(y, axis=1)
         else:
@@ -244,10 +389,6 @@ class Bandits(ABC):
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
-        credible_intervals = [
-            gaussian_credible_interval(mn, s, self.config.alpha)
-            for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
-        ]
         enough_units = all(self.variation_counts >= 100)
         return BanditResponse(
             users=self.variation_counts.tolist(),

@@ -35,6 +35,12 @@ class GaussianPrior:
 
 
 @dataclass
+class InverseGammaPrior:
+    shape: float = 1
+    scale: float = 1
+
+
+@dataclass
 class BayesianConfig(BaseConfig):
     inverse: bool = False
     alpha: float = 0.05
