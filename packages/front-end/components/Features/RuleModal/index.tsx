@@ -728,7 +728,7 @@ export default function RuleModal({
         }
         step={step}
         setStep={setStep}
-        hideNav={ruleType !== "experiment-ref-new"}
+        hideNav={ruleType !== "experiment-ref-new" && ruleType !== "experiment"}
         backButton={true}
         onBackFirstStep={
           isNewRule ? () => setNewRuleOverviewPage(true) : undefined
@@ -795,7 +795,9 @@ export default function RuleModal({
           />
         ) : null}
 
-        {ruleType === "experiment-ref-new" && experimentType === "experiment"
+        {(ruleType === "experiment-ref-new" &&
+          experimentType === "experiment") ||
+        ruleType === "experiment"
           ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields

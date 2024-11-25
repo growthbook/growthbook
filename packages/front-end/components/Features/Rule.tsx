@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef } from "react";
+import React, { forwardRef, ReactElement } from "react";
 import {
   FaArrowsAlt,
   FaExclamationTriangle,
@@ -19,6 +19,7 @@ import Button from "@/components/Button";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import HelperText from "@/components/Radix/HelperText";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -81,9 +82,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
-    const title =
+    let title: string | ReactElement =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+    if (rule.type === "experiment") {
+      title = (
+        <div className="d-flex align-items-center">
+          {title}
+          <Tooltip
+            body={`This is a legacy "inline experiment" feature rule. New experiment rules must be created as references to experiments.`}
+          >
+            <HelperText status="info" size="sm" ml="3">
+              legacy
+            </HelperText>
+          </Tooltip>
+        </div>
+      );
+    }
 
     const linkedExperiment =
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
