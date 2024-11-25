@@ -31,7 +31,7 @@ export default function ProjectBadges({
 }: Props) {
   const { projects } = useDefinitions();
   if (!projectIds) {
-    return "All Projects";
+    return <>All Projects</>;
   }
 
   let filteredProjects = projectIds.map((pid) =>
