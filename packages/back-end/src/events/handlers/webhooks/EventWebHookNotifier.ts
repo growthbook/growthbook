@@ -152,9 +152,9 @@ export class EventWebHookNotifier implements Notifier {
           return { content: data.text };
         }
 
-        case "datadog":
+        case "datadogEvent":
           if (!event.version) {
-            throw new Error("Invalid DataDog event configuration");
+            throw new Error("Invalid DataDog Event webhook configuration");
           }
 
           return getDatadogMessageForNotificationEvent(event.data, eventId);

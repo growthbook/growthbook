@@ -6,7 +6,7 @@ export const eventWebHookPayloadTypes = [
   "json",
   "slack",
   "discord",
-  "datadog",
+  "datadogEvent",
 ] as const;
 
 export type EventWebHookPayloadType = typeof eventWebHookPayloadTypes[number];

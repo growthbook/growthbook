@@ -51,7 +51,7 @@ const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
   json: "JSON",
   slack: "Slack",
   discord: "Discord",
-  datadog: "DataDog",
+  datadogEvent: "DataDog Events",
 } as const;
 
 type Form = UseFormReturn<EventWebHookEditParams>;
@@ -249,7 +249,7 @@ const EventWebHookAddEditSettings = ({
         />
       </div>
 
-      {selectedPayloadType === "datadog" ? (
+      {selectedPayloadType === "datadogEvent" ? (
         <div className="mt-4">
           <Field
             label={<b>API Key</b>}
@@ -497,8 +497,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
     }
   };
 
-  const validateDataDogFields = (values: EventWebHookEditParams) => {
-    if (values.payloadType === "datadog" && !values.apiKey) {
+  const validateDataDogEventFields = (values: EventWebHookEditParams) => {
+    if (values.payloadType === "datadogEvent" && !values.apiKey) {
       return false;
     }
     return true;
@@ -545,7 +545,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
-    if (!validateDataDogFields(formValues)) return setSubmitEnabled(false);
+    if (!validateDataDogEventFields(formValues)) return setSubmitEnabled(false);
 
     const schema = z.object({
       url: z.string().url(),

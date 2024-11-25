@@ -20,7 +20,7 @@ export const eventWebHookPayloadTypes = [
   "json",
   "slack",
   "discord",
-  "datadog",
+  "datadogEvent",
 ] as const;
 
 export const legacyEventWebHookPayloadTypes = [
@@ -195,7 +195,7 @@ export const WebhookIcon = ({
           className={className}
         />
       );
-    case "datadog":
+    case "datadogEvent":
       return (
         <ImageIcon
           src={`/images/datadog-webhook.svg`}
