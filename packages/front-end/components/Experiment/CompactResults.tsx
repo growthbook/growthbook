@@ -81,6 +81,7 @@ const CompactResults: FC<{
   noStickyHeader?: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
+  ssrData?: Record<string, any>;
 }> = ({
   editMetrics,
   variations,
@@ -112,12 +113,14 @@ const CompactResults: FC<{
   noStickyHeader,
   noTooltip,
   experimentType,
-  // todo: static dependencies for reports
-  // metricDefs,
-  // metricGroupsDefs,
-  // pValueThreshold,
+  ssrData,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+
+  // ssr polyfills
+  const ssrGetExperimentMetricById = (metricId: string) => getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null;
+  const ssrMetricGroups = [...metricGroups, ...(ssrData?.metricGroups ?? [])];
+
   const pValueThreshold = usePValueThreshold();
 
   const [totalUsers, variationUsers] = useMemo(() => {
@@ -136,24 +139,24 @@ const CompactResults: FC<{
     expandedSecondaries,
     expandedGuardrails,
   } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedGoals = expandMetricGroups(goalMetrics, ssrMetricGroups);
     const expandedSecondaries = expandMetricGroups(
       secondaryMetrics,
-      metricGroups
+      ssrMetricGroups
     );
     const expandedGuardrails = expandMetricGroups(
       guardrailMetrics,
-      metricGroups
+      ssrMetricGroups
     );
 
     return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+  }, [goalMetrics, ssrMetricGroups, secondaryMetrics, guardrailMetrics]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
     [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
       (metricId) => {
-        const metric = getExperimentMetricById(metricId);
+        const metric = ssrGetExperimentMetricById(metricId);
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
@@ -164,7 +167,7 @@ const CompactResults: FC<{
     expandedGoals,
     expandedSecondaries,
     expandedGuardrails,
-    getExperimentMetricById,
+    ssrGetExperimentMetricById,
   ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
@@ -172,7 +175,7 @@ const CompactResults: FC<{
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail"
     ) {
-      const metric = getExperimentMetricById(metricId);
+      const metric = ssrGetExperimentMetricById(metricId);
 
       if (!metric) {
         return null;
@@ -207,7 +210,7 @@ const CompactResults: FC<{
       };
     }
 
-    if (!results || !results.variations || !ready) return [];
+    if (!results || !results.variations || (!ready && !ssrData)) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
       setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
@@ -215,7 +218,7 @@ const CompactResults: FC<{
     }
 
     const metricDefs = expandedGoals
-      .map((metricId) => getExperimentMetricById(metricId))
+      .map((metricId) => ssrGetExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
@@ -223,7 +226,7 @@ const CompactResults: FC<{
     );
 
     const secondaryDefs = expandedSecondaries
-      .map((metricId) => getExperimentMetricById(metricId))
+      .map((metricId) => ssrGetExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredSecondary = sortAndFilterMetricsByTags(
       secondaryDefs,
@@ -231,7 +234,7 @@ const CompactResults: FC<{
     );
 
     const guardrailDefs = expandedGuardrails
-      .map((metricId) => getExperimentMetricById(metricId))
+      .map((metricId) => ssrGetExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
@@ -259,8 +262,9 @@ const CompactResults: FC<{
     pValueThreshold,
     statsEngine,
     ready,
-    getExperimentMetricById,
+    ssrGetExperimentMetricById,
     metricFilter,
+    ssrData,
   ]);
 
   const users = useMemo(() => {

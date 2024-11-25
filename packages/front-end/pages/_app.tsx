@@ -5,7 +5,7 @@ import "@/styles/global-radix-overrides.scss";
 import "@radix-ui/themes/styles.css";
 import "@/styles/theme-config.css";
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Context,
   GrowthBook,
@@ -36,6 +36,9 @@ import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { GB_SDK_ID } from "@/services/utils";
 import {UserContextProvider} from "@/services/UserContext";
+
+// Make useLayoutEffect isomorphic (for SSR)
+if (typeof window === 'undefined') React.useLayoutEffect = React.useEffect;
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });

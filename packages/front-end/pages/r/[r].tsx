@@ -74,6 +74,132 @@ export default function ReportPage(props: ReportPageProps) {
         ?.regressionAdjustmentAvailable,
     })) || [];
 
+  const ssrData = {
+    metrics: {
+      "met_sktwi1114ln571qr6" : {
+        "id": "met_sktwi1114ln571qr6",
+        "organization": "org_sktwido9laa302j8",
+        "owner": "Bryce",
+        "datasource": "ds_sktwido9laa3285o",
+        "name": "net revenue",
+        "description": "",
+        "type": "revenue",
+        "table": "",
+        "column": "",
+        "inverse": false,
+        "ignoreNulls": false,
+        "denominator": "",
+        "winRisk": 0.0025,
+        "loseRisk": 0.0125,
+        "maxPercentChange": 0.5,
+        "minPercentChange": 0.005,
+        "minSampleSize": 150,
+        "regressionAdjustmentOverride": false,
+        "regressionAdjustmentEnabled": false,
+        "regressionAdjustmentDays": 14,
+        "dateCreated": "2023-09-29T22:46:49.266Z",
+        "dateUpdated": "2023-12-11T19:00:18.591Z",
+        "userIdTypes": [
+          "anonymous_id",
+          "user_id"
+        ],
+        "userIdColumns": {
+          "user_id": "user_id",
+          "anonymous_id": "anonymous_id"
+        },
+        "status": "active",
+        "sql": "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp,\n  amount * 0.8 as value\nFROM\n  orders",
+        "aggregation": "",
+        "timestampColumn": "",
+        "queryFormat": "sql",
+        "tags": [
+          "key metrics",
+          "foo",
+          "bar",
+          "barrrrrr",
+          "bazbazbazzz",
+          "foo1",
+          "foo2",
+          "foo333",
+          "growthbook-demo",
+          "more tags"
+        ],
+        "projects": [],
+        "conditions": [],
+        "queries": [
+          {
+            "query": "qry_sktwi1ip7lyz3kskg",
+            "status": "succeeded",
+            "name": "metric"
+          }
+        ],
+        "templateVariables": {
+          "eventName": "",
+          "valueColumn": ""
+        },
+        "analysisError": "",
+        "runStarted": "2024-07-24T00:19:30.595Z",
+        "windowSettings": {
+          "type": "conversion",
+          "windowValue": 60,
+          "windowUnit": "hours",
+          "delayHours": 0.25
+        },
+        "priorSettings": {
+          "override": false,
+          "proper": false,
+          "mean": 0,
+          "stddev": 0.3
+        },
+        "cappingSettings": {
+          "type": "",
+          "value": 0
+        }
+      }
+    },
+    metricGroups: [
+      {
+        "id": "mg_sktwi14ipm2uw2kon",
+        "owner": "Bryce",
+        "name": "bandit group",
+        "description": "for bandit testing",
+        "tags": [],
+        "projects": [],
+        "metrics": [
+          "met_sktwi1ii8m1h4x1fb",
+          "met_sktwi185qm0pwmzct"
+        ],
+        "datasource": "ds_sktwi185qm0pwe4w3",
+        "archived": false,
+        "organization": "org_sktwido9laa302j8",
+        "dateCreated": "2024-10-29T20:17:07.895Z",
+        "dateUpdated": "2024-10-30T20:33:53.040Z"
+      },
+      {
+        "id": "mg_sktwi1m1nm1vnob5n",
+        "owner": "Bryce",
+        "name": "rev metrics",
+        "description": "rev and conversion standard metrics",
+        "tags": [],
+        "projects": [],
+        "metrics": [
+          "met_sktwi1114ln571qr6",
+          "met_sktwio0slabgh7sp",
+          "met_sktwio0slabhfh22",
+          "met_sktwi1eoelbzeyh1x",
+          "met_sktwiqzgm2wfs058",
+          "fact__sktwipn8lzvkjb7b",
+          "met_sktwiqzgm2wfrljs"
+        ],
+        "datasource": "ds_sktwido9laa3285o",
+        "archived": false,
+        "organization": "org_sktwido9laa302j8",
+        "dateCreated": "2024-10-05T04:30:09.275Z",
+        "dateUpdated": "2024-11-06T23:36:18.333Z"
+      }
+    ],
+  };
+
   return (
     <div className="pagecontents container-fluid">
       <PageHead
@@ -111,6 +237,7 @@ export default function ReportPage(props: ReportPageProps) {
           differenceType={analysis.settings?.differenceType}
           isTabActive={true}
           experimentType={report.experimentMetadata.type}
+          ssrData={ssrData}
         />
       )}
       </div>

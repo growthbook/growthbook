@@ -168,8 +168,8 @@ export default function ResultsTable({
   }
 
   useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
+    globalThis.window?.addEventListener("resize", onResize, false);
+    return () => globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
@@ -506,9 +506,9 @@ export default function ResultsTable({
                       })}
                       style={{
                         width:
-                          window.innerWidth < 900 ? graphCellWidth : undefined,
+                          (globalThis.window?.innerWidth ?? 900) < 900 ? graphCellWidth : undefined,
                         minWidth:
-                          window.innerWidth >= 900 ? graphCellWidth : undefined,
+                          (globalThis.window?.innerWidth ?? 900) >= 900 ? graphCellWidth : undefined,
                       }}
                     >
                       <div className="position-relative">
@@ -647,7 +647,7 @@ export default function ResultsTable({
                       settings?: TooltipHoverSettings
                     ) => {
                       // No hover tooltip if the screen is too narrow. Clicks still work.
-                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                      if (e?.type === "mousemove" && (globalThis.window?.innerWidth ?? 900) < 900) {
                         return;
                       }
                       if (!rowResults.hasData) return;
