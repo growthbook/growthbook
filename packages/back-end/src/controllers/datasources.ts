@@ -279,7 +279,7 @@ export async function postInbuiltDataSource(
   const datasourceSettings: DataSourceSettings = {
     userIdTypes: [
       {
-        userIdType: "anonymous_id",
+        userIdType: "device_id",
       },
       {
         userIdType: "user_id",
@@ -288,7 +288,7 @@ export async function postInbuiltDataSource(
     queries: {
       exposure: [
         {
-          id: "anonymous_id",
+          id: "device_id",
           dimensions: [
             "country",
             "browser",
@@ -297,69 +297,58 @@ export async function postInbuiltDataSource(
             "source",
             "medium",
             "campaign",
-            "content",
-            "term",
           ],
-          name: "Anonymous Id Experiments",
+          name: "Device Id Experiments",
           query: `         
 SELECT 
-device_id as anonymous_id,
-timestamp,
-simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
-simpleJSONExtractString(properties_json, 'variation_id') as variation_id,
-geo_country as country,
-geo_city as city,
-ua_browser as browser,
-ua_os as os,
-ua_device_type as device_type,
-utm_source as source,
-utm_medium as medium,
-utm_campaign as campaign,
-utm_content as content,
-utm_term as term
+  device_id,
+  timestamp,
+  simpleJSONExtractString(properties_json, 'experimentId') as experiment_id,
+  simpleJSONExtractString(properties_json, 'variationId') as variation_id,
+  geo_country as country,
+  ua_browser as browser,
+  ua_os as os,
+  ua_device_type as device_type,
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign
 FROM events
 WHERE
-event_name = 'Experiment Viewed'
-AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
-              `,
-          userIdType: "anonymous_id",
+  event_name = 'Experiment Viewed'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+              `.trim(),
+          userIdType: "device_id",
         },
         {
           id: "user_id",
           dimensions: [
             "country",
-            "city",
             "browser",
             "os",
             "device_type",
             "source",
             "medium",
             "campaign",
-            "content",
-            "term",
           ],
           name: "Logged in User Id Experiments",
           query: `         
 SELECT 
-user_id,
-timestamp,
-simpleJSONExtractString(properties_json, 'experiment_id') as experiment_id,
-simpleJSONExtractString(properties_json, 'variation_id') as variation_id,
-geo_country as country,
-geo_city as city,
-ua_browser as browser,
-ua_os as os,
-ua_device_type as device_type,
-utm_source as source,
-utm_medium as medium,
-utm_campaign as campaign,
-utm_content as content,
-utm_term as term
+  user_id,
+  timestamp,
+  simpleJSONExtractString(properties_json, 'experimentId') as experiment_id,
+  simpleJSONExtractString(properties_json, 'variationId') as variation_id,
+  geo_country as country,
+  ua_browser as browser,
+  ua_os as os,
+  ua_device_type as device_type,
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign
 FROM events
 WHERE
-event_name = 'Experiment Viewed'
-AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
-              `,
+  event_name = 'Experiment Viewed'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+              `.trim(),
           userIdType: "user_id",
         },
       ],
@@ -368,7 +357,7 @@ AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
 
   const newDatasource = await createDataSource(
     context,
-    "Growthbook Inbuilt Datasource",
+    "Growthbook ClickHouse",
     "growthbook_clickhouse",
     params,
     datasourceSettings,
