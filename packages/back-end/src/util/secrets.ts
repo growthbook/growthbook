@@ -1,7 +1,7 @@
 import fs from "fs";
 import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
-import { stringToBoolean } from "shared/util";
+import { stringToBoolean, safeParseInt } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 import { z } from "zod";
 
@@ -103,7 +103,7 @@ if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
 
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
-export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
+export const EMAIL_PORT = safeParseInt(process.env.EMAIL_PORT || "") || 587;
 export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
 export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
@@ -123,30 +123,30 @@ export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
 // Update results every X hours
 export const EXPERIMENT_REFRESH_FREQUENCY =
-  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
+  safeParseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
+  safeParseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
   DEFAULT_METRIC_WINDOW_HOURS;
 
 // Update metrics every X hours
 export const METRIC_REFRESH_FREQUENCY =
-  parseInt(process.env.METRIC_REFRESH_FREQUENCY || "") || 24;
+  safeParseInt(process.env.METRIC_REFRESH_FREQUENCY || "") || 24;
 
 export const QUERY_CACHE_TTL_MINS =
-  parseInt(process.env.QUERY_CACHE_TTL_MINS || "") || 60;
+  safeParseInt(process.env.QUERY_CACHE_TTL_MINS || "") || 60;
 
 // When importing past experiments, limit to this number of days:
 export const IMPORT_LIMIT_DAYS =
-  parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
+  safeParseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
 
 // cache control currently feature only /api/features/*
 export const CACHE_CONTROL_MAX_AGE =
-  parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
+  safeParseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
 export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
-  parseInt(process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE || "") || 3600;
+  safeParseInt(process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE || "") || 3600;
 export const CACHE_CONTROL_STALE_IF_ERROR =
-  parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
+  safeParseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
 
 // remote Eval Edge
 export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
@@ -250,7 +250,7 @@ const getTrustProxyConfig = (): boolean | string | number => {
   // Check for nth hop config
   //    Trust the nth hop from the front-facing proxy server as the client.
   if (value.match(/^[0-9]+$/)) {
-    return parseInt(value);
+    return safeParseInt(value);
   }
 
   // If not a recognized boolean format or a valid integer, return value verbatim

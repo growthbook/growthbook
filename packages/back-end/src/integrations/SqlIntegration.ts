@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { safeParseInt } from "shared/util";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
@@ -446,7 +447,7 @@ export default abstract class SqlIntegration
           experiment_name: row.experiment_name,
           variation_id: row.variation_id ?? "",
           variation_name: row.variation_name,
-          users: parseInt(row.users) || 0,
+          users: safeParseInt(row.users) || 0,
           end_date: this.convertDate(row.end_date).toISOString(),
           start_date: this.convertDate(row.start_date).toISOString(),
           latest_data: this.convertDate(row.latest_data).toISOString(),
@@ -1080,8 +1081,8 @@ export default abstract class SqlIntegration
         return {
           variation: row.variation ?? "",
           dimension: row.dimension || "",
-          users: parseInt(row.users) || 0,
-          count: parseInt(row.users) || 0,
+          users: safeParseInt(row.users) || 0,
+          count: safeParseInt(row.users) || 0,
           ...metricData,
         };
       }),
@@ -1099,8 +1100,8 @@ export default abstract class SqlIntegration
         return {
           variation: row.variation ?? "",
           dimension: row.dimension || "",
-          users: parseInt(row.users) || 0,
-          count: parseInt(row.users) || 0,
+          users: safeParseInt(row.users) || 0,
+          count: safeParseInt(row.users) || 0,
           main_sum: parseFloat(row.main_sum) || 0,
           main_sum_squares: parseFloat(row.main_sum_squares) || 0,
           ...(row.quantile !== undefined && {
@@ -1144,7 +1145,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           variation: row.variation ?? "",
-          units: parseInt(row.units) || 0,
+          units: safeParseInt(row.units) || 0,
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
         };
@@ -2003,8 +2004,8 @@ export default abstract class SqlIntegration
         return {
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
-          units: parseInt(row.units) || 0,
-          total_units: parseInt(row.total_units) || 0,
+          units: safeParseInt(row.units) || 0,
+          total_units: safeParseInt(row.total_units) || 0,
         };
       }),
       statistics: statistics,

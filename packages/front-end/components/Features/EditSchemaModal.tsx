@@ -1,5 +1,11 @@
 import { useForm } from "react-hook-form";
 import {
+  safeParseInt,
+  getJSONValidator,
+  inferSimpleSchemaFromValue,
+  simpleToJSONSchema,
+} from "shared/util";
+import {
   FeatureInterface,
   JSONSchemaDef,
   SchemaField,
@@ -8,11 +14,6 @@ import {
 import React, { useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
-import {
-  getJSONValidator,
-  inferSimpleSchemaFromValue,
-  simpleToJSONSchema,
-} from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -131,7 +132,7 @@ function EditSchemaField({
                   type="number"
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, min: parseInt(e.target.value) })
+                    onChange({ ...value, min: safeParseInt(e.target.value) })
                   }
                 />
               </div>
@@ -144,7 +145,7 @@ function EditSchemaField({
                   max={value.type === "string" ? 256 : undefined}
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
-                    onChange({ ...value, max: parseInt(e.target.value) })
+                    onChange({ ...value, max: safeParseInt(e.target.value) })
                   }
                 />
               </div>

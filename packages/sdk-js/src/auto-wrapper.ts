@@ -1,4 +1,5 @@
 import Cookies from "js-cookie";
+import { safeParseInt } from "./util";
 import {
   CacheSettings,
   Options as Context,
@@ -221,7 +222,7 @@ function setAntiFlicker() {
   let timeoutMs =
     windowContext.antiFlickerTimeout ??
     (dataContext.antiFlickerTimeout
-      ? parseInt(dataContext.antiFlickerTimeout)
+      ? safeParseInt(dataContext.antiFlickerTimeout)
       : null) ??
     3500;
   if (!isFinite(timeoutMs)) {

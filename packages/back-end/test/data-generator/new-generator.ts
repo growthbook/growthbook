@@ -3,6 +3,7 @@ import { GrowthBook } from "@growthbook/growthbook";
 import normalSample from "@stdlib/random/base/normal";
 import { addDays } from "date-fns";
 import parseArgs from "minimist";
+import { safeParseInt } from "shared/util";
 
 type TableData = {
   userId: string;
@@ -379,7 +380,7 @@ function purchase(
     ),
   });
   trackExperiment(data, res, "confirmation-email", sim);
-  sim.dataTables.userRetention[parseInt(data.userId)] += normalInt(
+  sim.dataTables.userRetention[safeParseInt(data.userId)] += normalInt(
     res.value - 10,
     res.value + 10
   );

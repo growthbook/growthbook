@@ -1,4 +1,5 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
+import { safeParseInt } from "shared/util";
 import { Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { getEqualWeights } from "shared/experiments";
@@ -168,7 +169,7 @@ export default function FeatureVariationsInput({
             value={numberOfVariations}
             onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
             onBlur={(e) => {
-              let n = parseInt(e?.target?.value ?? numberOfVariations);
+              let n = safeParseInt(e?.target?.value ?? numberOfVariations);
               n = Math.min(Math.max(2, n), 100);
               const newValues: SortableVariation[] = [];
               for (let i = 0; i < n; i++) {

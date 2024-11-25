@@ -288,3 +288,8 @@ export function formatByteSizeString(numBytes: number, decimalPlaces = 1) {
     sizes[i]
   );
 }
+
+export function safeParseInt(v: string, radix?: number) {
+  // eslint-disable-next-line local-rules/no-parseInt
+  return Math.trunc(radix && radix !== 10 ? parseInt(v, radix) : Number(v));
+}

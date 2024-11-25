@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { safeParseInt } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -65,7 +66,7 @@ export default function HashVersionSelector({
         ]}
         value={value + ""}
         setValue={(v) => {
-          onChange((parseInt(v) || 2) as 1 | 2);
+          onChange((safeParseInt(v) || 2) as 1 | 2);
         }}
       />
     </>

@@ -1,4 +1,5 @@
 import uniqid from "uniqid";
+import { safeParseInt } from "shared/util";
 import {
   InformationSchema,
   RawInformationSchema,
@@ -87,7 +88,7 @@ export function formatInformationSchema(
       table = {
         tableName: row.table_name,
         path: tablePath,
-        numOfColumns: parseInt(row.column_count, 10),
+        numOfColumns: safeParseInt(row.column_count),
         id: uniqid("tbl_"),
         dateCreated: date,
         dateUpdated: date,

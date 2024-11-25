@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, safeParseInt } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
 import {
@@ -101,7 +101,7 @@ export const getArchetypeAndEval = async (
     throw new Error("Feature not found");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }

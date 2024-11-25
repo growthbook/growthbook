@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { safeParseInt } from "shared/util";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import clsx from "clsx";
@@ -314,7 +315,7 @@ export default function EditSqlModal({
             {testQueryResults && (
               <div className="" style={{ flex: 1, maxHeight: "45%" }}>
                 <DisplayTestQueryResults
-                  duration={parseInt(testQueryResults.duration || "0")}
+                  duration={safeParseInt(testQueryResults.duration || "0")}
                   results={testQueryResults.results || []}
                   sql={testQueryResults.sql || ""}
                   error={testQueryResults.error || ""}

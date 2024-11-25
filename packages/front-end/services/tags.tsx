@@ -26,6 +26,7 @@ import {
   mint,
   sky,
 } from "@radix-ui/colors";
+import { safeParseInt } from "shared/util";
 import { RadixColor } from "@/components/Radix/HelperText";
 
 export const TAG_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {
@@ -60,7 +61,7 @@ export const TAG_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {
 // Function to convert hex to RGB
 function hexToRgb(hex: string) {
   hex = hex.replace(/^#/, "");
-  const bigint = parseInt(hex, 16);
+  const bigint = safeParseInt(hex, 16);
   const r = (bigint >> 16) & 255;
   const g = (bigint >> 8) & 255;
   const b = bigint & 255;

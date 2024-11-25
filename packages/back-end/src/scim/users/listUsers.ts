@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
+import { safeParseInt } from "shared/util";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import {
   ScimListRequest,
@@ -19,8 +20,8 @@ export async function listUsers(
 
   // startIndex queryParam is 1-based so we need to subtract 1
   const queryOptions = {
-    startIndex: startIndex ? parseInt(startIndex) - 1 : START_INDEX_DEFAULT,
-    count: count ? parseInt(count) : COUNT_DEFAULT,
+    startIndex: startIndex ? safeParseInt(startIndex) - 1 : START_INDEX_DEFAULT,
+    count: count ? safeParseInt(count) : COUNT_DEFAULT,
   };
 
   const org = req.organization;

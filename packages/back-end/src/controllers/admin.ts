@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { safeParseInt } from "shared/util";
 import { OrganizationInterface } from "back-end/types/organization";
 import { UserInterface } from "back-end/types/user";
 import { getAllSSOConnections } from "back-end/src/models/SSOConnectionModel";
@@ -34,7 +35,7 @@ export async function getOrganizations(
   const { page, search } = req.query;
 
   const { organizations, total } = await findAllOrganizations(
-    parseInt(page || "") || 1,
+    safeParseInt(page || "") || 1,
     search || ""
   );
 
@@ -255,7 +256,7 @@ export async function getMembers(
 
   const organizationInfo: Record<string, object> = {};
   const filteredUsers = await getAllUsersFiltered(
-    parseInt(page ?? "1"),
+    safeParseInt(page ?? "1"),
     search
   );
   if (filteredUsers?.length > 0) {

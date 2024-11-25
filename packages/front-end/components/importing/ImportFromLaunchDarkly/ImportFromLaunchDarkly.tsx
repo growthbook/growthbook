@@ -10,6 +10,7 @@ import {
   FaRegWindowRestore,
 } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
+import { safeParseInt } from "shared/util";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "back-end/types/organization";
 import Link from "next/link";
@@ -692,7 +693,7 @@ export default function ImportFromLaunchDarkly() {
                   type="number"
                   value={intervalCap}
                   helpText="Lower this if you are getting rate limited"
-                  onChange={(e) => setIntervalCap(parseInt(e.target.value))}
+                  onChange={(e) => setIntervalCap(safeParseInt(e.target.value))}
                 />
               </div>
             </div>

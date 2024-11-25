@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { safeParseInt, isProjectListValidForProject } from "shared/util";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -81,7 +81,7 @@ const ImportExperimentList: FC<{
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
-        if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
+        if (minUsersFilter && e.users < (safeParseInt(minUsersFilter) || 0)) {
           return false;
         }
         if (alreadyImportedFilter) {
@@ -100,14 +100,15 @@ const ImportExperimentList: FC<{
 
         if (
           minLengthFilter &&
-          daysBetween(e.startDate, e.endDate) < (parseInt(minLengthFilter) || 0)
+          daysBetween(e.startDate, e.endDate) <
+            (safeParseInt(minLengthFilter) || 0)
         ) {
           return false;
         }
 
         if (
           minVariationsFilter &&
-          e.numVariations < parseInt(minVariationsFilter)
+          e.numVariations < safeParseInt(minVariationsFilter)
         ) {
           return false;
         }

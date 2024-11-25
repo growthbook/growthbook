@@ -4,6 +4,7 @@ import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
+import { safeParseInt } from "./index";
 import {
   FeatureInterface,
   FeatureRule,
@@ -1063,7 +1064,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
 
     if (type === "string") return value;
     if (type === "float") return parseFloat(value);
-    if (type === "integer") return parseInt(value);
+    if (type === "integer") return safeParseInt(value);
     else return value !== "false";
   };
 

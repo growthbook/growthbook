@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { safeParseInt } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { DiscussionParentType } from "back-end/types/discussion";
 import {
@@ -68,7 +69,7 @@ export async function deleteComment(
       context.permissions.throwPermissionError();
     }
 
-    const i = parseInt(index);
+    const i = safeParseInt(index);
 
     const discussion = await getDiscussionByParent(
       org.id,
@@ -82,7 +83,7 @@ export async function deleteComment(
       });
     }
 
-    const current = discussion.comments[parseInt(index)];
+    const current = discussion.comments[safeParseInt(index)];
     if (current && current?.userId !== userId) {
       return res.status(403).json({
         status: 403,
@@ -128,7 +129,7 @@ export async function putComment(
       context.permissions.throwPermissionError();
     }
 
-    const i = parseInt(index);
+    const i = safeParseInt(index);
 
     const discussion = await getDiscussionByParent(
       org.id,
@@ -202,7 +203,7 @@ export async function getRecentDiscussions(
 ) {
   const { org } = getContextFromReq(req);
   const { num } = req.params;
-  let intNum = parseInt(num);
+  let intNum = safeParseInt(num);
   if (intNum > 100) intNum = 100;
 
   try {

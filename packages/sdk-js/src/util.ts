@@ -7,6 +7,11 @@ import {
   VariationRange,
 } from "./types/growthbook";
 
+export function safeParseInt(v: string, radix?: number) {
+  // eslint-disable-next-line local-rules/no-parseInt
+  return Math.trunc(radix && radix !== 10 ? parseInt(v, radix) : Number(v));
+}
+
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
   SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
@@ -250,7 +255,7 @@ export function getQueryStringOverride(
     .split("&") // Split into key/value pairs
     .map((kv) => kv.split("=", 2))
     .filter(([k]) => k === id) // Look for key that matches the experiment id
-    .map(([, v]) => parseInt(v)); // Parse the value into an integer
+    .map(([, v]) => safeParseInt(v)); // Parse the value into an integer
 
   if (match.length > 0 && match[0] >= 0 && match[0] < numVariations)
     return match[0];

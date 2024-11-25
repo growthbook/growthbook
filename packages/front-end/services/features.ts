@@ -1,5 +1,11 @@
 import { useEffect, useMemo } from "react";
 import {
+  safeParseInt,
+  generateVariationId,
+  validateAndFixCondition,
+  validateFeatureValue,
+} from "shared/util";
+import {
   Environment,
   NamespaceUsage,
   SDKAttributeFormat,
@@ -20,11 +26,6 @@ import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  generateVariationId,
-  validateAndFixCondition,
-  validateFeatureValue,
-} from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -1053,7 +1054,7 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
       : id;
     // Parse the 4 (number) out of '_4' (string)
     const num =
-      (numSuffix ? parseInt(numSuffix.match(/[\d]+/)?.[0] || "0") : 0) + 1;
+      (numSuffix ? safeParseInt(numSuffix.match(/[\d]+/)?.[0] || "0") : 0) + 1;
 
     return `${keyRoot}_${num}`;
   } catch (e) {

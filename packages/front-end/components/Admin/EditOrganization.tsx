@@ -1,5 +1,6 @@
 import { useState, FC } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
+import { safeParseInt } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
@@ -190,7 +191,7 @@ const EditOrganization: FC<{
                 min={0}
                 className="form-control"
                 value={freeSeats}
-                onChange={(e) => setFreeSeats(parseInt(e.target.value))}
+                onChange={(e) => setFreeSeats(safeParseInt(e.target.value))}
               />
               <div>
                 <span className="text-muted small">

@@ -1,10 +1,10 @@
 import { FC } from "react";
+import { safeParseInt, experimentHasLinkedChanges } from "shared/util";
 import {
   ExperimentInterfaceStringDates,
   ExperimentResultsType,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { experimentHasLinkedChanges } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -166,11 +166,11 @@ const StopExperimentForm: FC<{
             containerClassName="col-lg"
             value={form.watch("winner") + ""}
             onChange={(v) => {
-              form.setValue("winner", parseInt(v) || 0);
+              form.setValue("winner", safeParseInt(v) || 0);
 
               form.setValue(
                 "releasedVariationId",
-                experiment.variations[parseInt(v)]?.id ||
+                experiment.variations[safeParseInt(v)]?.id ||
                   form.watch("releasedVariationId")
               );
             }}

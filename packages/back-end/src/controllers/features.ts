@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
-import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
 import {
+  safeParseInt,
   autoMerge,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -10,6 +9,8 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
 } from "shared/util";
+import { evaluateFeatures } from "@growthbook/proxy-eval";
+import { isEqual } from "lodash";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -541,7 +542,7 @@ export async function postFeatureRebase(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -626,7 +627,7 @@ export async function postFeatureRequestReview(
   const revision = await getRevision(
     context.org.id,
     feature.id,
-    parseInt(version)
+    safeParseInt(version)
   );
   if (!revision) {
     throw new Error("Could not find feature revision");
@@ -665,7 +666,7 @@ export async function postFeatureReviewOrComment(
   const revision = await getRevision(
     context.org.id,
     feature.id,
-    parseInt(version)
+    safeParseInt(version)
   );
   if (!revision) {
     throw new Error("Could not find feature revision");
@@ -726,7 +727,7 @@ export async function postFeaturePublish(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   const reviewStatuses = [
     "pending-review",
     "changes-requested",
@@ -843,7 +844,7 @@ export async function postFeatureRevert(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -930,7 +931,7 @@ export async function postFeatureFork(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -974,7 +975,7 @@ export async function postFeatureDiscard(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -1037,7 +1038,11 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -1378,7 +1383,7 @@ export async function putRevisionComment(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -1421,7 +1426,11 @@ export async function postFeatureDefaultValue(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: environments,
@@ -1509,7 +1518,11 @@ export async function putFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -1614,7 +1627,11 @@ export async function postFeatureMoveRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];
@@ -1690,7 +1707,11 @@ export async function deleteFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    safeParseInt(version)
+  );
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];
@@ -1869,7 +1890,7 @@ export async function postFeatureEvaluate(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision(org.id, feature.id, safeParseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -1997,7 +2018,7 @@ export async function getRevisionLog(
   const revision = await getRevision(
     context.org.id,
     feature.id,
-    parseInt(version)
+    safeParseInt(version)
   );
   if (!revision) {
     throw new Error("Could not find feature revision");
@@ -2027,7 +2048,7 @@ export async function getFeatureById(
   // The above only fetches the most recent revisions
   // If we're requesting a specific version that's older than that, fetch it directly
   if (req.query.v) {
-    const version = parseInt(req.query.v);
+    const version = safeParseInt(req.query.v);
     if (!revisions.some((r) => r.version === version)) {
       const revision = await getRevision(org.id, id, version);
       if (revision) {
