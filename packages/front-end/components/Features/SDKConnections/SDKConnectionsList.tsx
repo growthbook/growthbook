@@ -19,7 +19,7 @@ import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Radix/Badge";
@@ -288,7 +288,7 @@ export default function SDKConnectionsList() {
                         })}
                         style={{ gap: "0.5rem" }}
                       >
-                        <ProjectBadges
+                        <ProjectNames
                           projectIds={
                             filteredProjectIdsWithDisallowed.length
                               ? filteredProjectIdsWithDisallowed

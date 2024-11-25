@@ -22,7 +22,7 @@ export interface Props {
   skipMargin?: boolean;
 }
 
-export default function ProjectBadges({
+export default function ProjectNames({
   resourceType,
   projectIds,
   invalidProjectIds = [],

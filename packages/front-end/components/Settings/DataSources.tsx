@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -69,13 +69,13 @@ const DataSources: FC = () => {
             <td>{d.type}</td>
             <td>
               {(d?.projects?.length || 0) > 0 ? (
-                <ProjectBadges
+                <ProjectNames
                   resourceType="data source"
                   projectIds={d.projects}
                   className="badge-ellipsis short align-middle"
                 />
               ) : (
-                <ProjectBadges
+                <ProjectNames
                   resourceType="data source"
                   className="badge-ellipsis short align-middle"
                 />

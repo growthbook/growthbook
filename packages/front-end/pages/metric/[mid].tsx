@@ -49,7 +49,7 @@ import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
@@ -467,13 +467,13 @@ const MetricPage: FC = () => {
         <div className="col">
           Projects:{" "}
           {metric?.projects?.length ? (
-            <ProjectBadges
+            <ProjectNames
               resourceType="metric"
               projectIds={metric.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges
+            <ProjectNames
               resourceType="metric"
               className="badge-ellipsis align-middle"
             />
@@ -967,13 +967,13 @@ const MetricPage: FC = () => {
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length ? (
-                  <ProjectBadges
+                  <ProjectNames
                     resourceType="metric"
                     projectIds={metric.projects}
                     className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectBadges
+                  <ProjectNames
                     resourceType="metric"
                     className="badge-ellipsis align-middle"
                   />

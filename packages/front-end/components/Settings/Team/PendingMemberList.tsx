@@ -3,7 +3,7 @@ import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
 import { PendingMember } from "back-end/types/organization";
 import { datetime } from "shared/dates";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -85,7 +85,7 @@ const PendingMemberList: FC<{
                       if (p?.name) {
                         return (
                           <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
+                            <ProjectNames
                               resourceType="member"
                               projectIds={[p.id]}
                               className="badge-ellipsis short align-middle font-weight-normal"
