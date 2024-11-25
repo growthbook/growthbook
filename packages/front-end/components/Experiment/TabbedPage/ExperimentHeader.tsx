@@ -210,7 +210,11 @@ export default function ExperimentHeader({
 
   return (
     <>
-      <div className="experiment-header bg-white px-3 pt-3">
+      <div
+        className={clsx("experiment-header", "bg-white", "px-3", "pt-3", {
+          border: shouldHideTabs,
+        })}
+      >
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
