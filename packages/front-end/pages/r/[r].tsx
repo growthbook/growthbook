@@ -85,6 +85,7 @@ export default function ReportPage(props: ReportPageProps) {
 
       <h1>{report.title}</h1>
 
+      <div className="bg-white border">
       {!snapshot || !analysis ? (
         <Callout status="error">Missing snapshot!</Callout>
       ) : (
@@ -112,12 +113,12 @@ export default function ReportPage(props: ReportPageProps) {
           experimentType={report.experimentMetadata.type}
         />
       )}
+      </div>
 
-
-      <Code language="json" code={JSON.stringify(report, null, 2)} />
+      <Code language="json" code={JSON.stringify(report, null, 2)} style={{maxHeight: 400, overflowY: "auto"}} />
 
       <code>snapshot</code>
-      <Code language="json" code={JSON.stringify(snapshot, null, 2)} />
+      <Code language="json" code={JSON.stringify(snapshot, null, 2)} style={{maxHeight: 400, overflowY: "auto"}} />
 
     </div>
   );

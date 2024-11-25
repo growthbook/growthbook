@@ -112,6 +112,10 @@ const CompactResults: FC<{
   noStickyHeader,
   noTooltip,
   experimentType,
+  // todo: static dependencies for reports
+  // metricDefs,
+  // metricGroupsDefs,
+  // pValueThreshold,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();

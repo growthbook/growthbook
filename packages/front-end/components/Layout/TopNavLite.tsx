@@ -170,7 +170,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
   };
 
   return (
-    <div className="navbar bg-white border-bottom" style={{ minHeight: 56 }}>
+    <div className={`navbar ${styles.topbarlite}`}>
       <Head>
         <title>GrowthBook</title>
       </Head>

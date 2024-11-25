@@ -13,7 +13,6 @@ html,
 body,
 #__next,
 main {
-  height: 100%;
   min-height: 100%;
 }
 
@@ -46,7 +45,9 @@ body {
 }
 
 .main {
-  padding-left: 240px;
+  &:not(.lite) {
+    padding-left: 240px;
+  }
   padding-top: 60px;
 
   &.present {
@@ -788,7 +789,7 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report {
+main.main.report, main.main.r {
   .experiment-results {
     th {
       &.axis-col {

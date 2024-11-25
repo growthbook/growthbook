@@ -181,7 +181,7 @@ function App({
                 {preAuthTopNav || progressiveAuthTopNav ? (
                   <>
                     <TopNavLite/>
-                    <main className="container mt-5">
+                    <main className={`main lite ${parts[0]}`}>
                       <Component {...{...pageProps, envReady: ready}} />
                     </main>
                   </>

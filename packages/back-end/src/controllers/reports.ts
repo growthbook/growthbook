@@ -25,6 +25,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { pick, omit } from "lodash";
 import {ExperimentAnalysisSettings, experimentAnalysisSettings} from "back-end/src/validators/experiments";
+import uniqid from "uniqid";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -34,10 +35,13 @@ export async function postReportFromSnapshot(
   const { org } = context;
 
   const snapshot = await findSnapshotById(org.id, req.params.snapshot);
-
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
+  // Create a new report-specific snapshot
+  snapshot.id = uniqid("snp_");
+  snapshot.type = "report";
+  // todo: clone & save the snapshot as a type: "report". Bake dependencies (metrics etc)
 
   const experiment = await getExperimentById(context, snapshot.experiment);
 
