@@ -173,7 +173,8 @@ export default function ExperimentHeader({
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const hasResults = !!analysis?.results?.[0];
-  const shouldHideTabs = experiment.status === "draft" && !hasResults;
+  const shouldHideTabs =
+    experiment.status === "draft" && !hasResults && phases.length === 1;
 
   async function startExperiment() {
     if (!experiment.phases?.length) {
