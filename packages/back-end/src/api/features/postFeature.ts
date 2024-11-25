@@ -85,6 +85,16 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       Object.keys(req.body.environments ?? {})
     );
 
+    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+    if (req.body.project) {
+      const projects = await req.context.getProjects();
+      if (!projects.some((p) => p.id === req.body.project)) {
+        throw new Error(
+          `Project id ${req.body.project} is not a valid project.`
+        );
+      }
+    }
+
     const tags = req.body.tags || [];
 
     if (tags.length > 0) {

@@ -892,10 +892,10 @@ import sha256 from 'crypto-js/sha256';
 const salt = "f09jq3fij"; // Your secure attribute salt (set in Organization Settings)
 
 // hashing a secureString attribute
-const userEmail = sha256(salt + user.email);
+const userEmail = sha256(salt + user.email).toString();
 
 // hashing a secureString[] attribute
-const userTags = user.tags.map(tag => sha256(salt + tag));
+const userTags = user.tags.map(tag => sha256(salt + tag).toString());
 
 gb.setAttributes({
   id: user.id,

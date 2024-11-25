@@ -54,32 +54,42 @@ export interface InitialDatasourceResources {
 function getBuiltInWarehouseResources(): InitialDatasourceResources {
   return {
     factTables: [
+      // Events
       {
         factTable: {
           name: "Clickhouse Events",
           description: "",
           sql: `SELECT
-    timestamp,
-    user_id,
-    device_id as anonymous_id,
-    user_attributes_json,
-    event_name,
-    geo_country,
-    geo_city,
-    geo_lat,
-    geo_lon,
-    ua_device_type,
-    ua_browser,
-    ua_os,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    url_path,
-    session_id
-  FROM events`,
+  timestamp,
+  user_id,
+  device_id,
+  session_id,
+  page_id,
+  properties_json,
+  user_attributes_json,
+  event_name,
+  geo_country,
+  geo_city,
+  geo_lat,
+  geo_lon,
+  ua_device_type,
+  ua_browser,
+  ua_os,
+  utm_source,
+  utm_medium,
+  utm_campaign,
+  url_path
+FROM events
+WHERE
+  event_name <> 'Experiment Viewed'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
           columns: generateColumns({
             timestamp: { datatype: "date" },
             user_id: { datatype: "string" },
+            device_id: { datatype: "string" },
+            session_id: { datatype: "string" },
+            page_id: { datatype: "string" },
+            properties_json: { datatype: "string" },
             user_attributes_json: { datatype: "string" },
             event_name: { datatype: "string", alwaysInlineFilter: true },
             geo_country: { datatype: "string" },
@@ -93,9 +103,8 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
             utm_medium: { datatype: "string" },
             utm_campaign: { datatype: "string" },
             url_path: { datatype: "string" },
-            session_id: { datatype: "string" },
           }),
-          userIdTypes: ["user_id", "anonymous_id"],
+          userIdTypes: ["user_id", "device_id"],
           eventName: "",
         },
         filters: [],
@@ -108,7 +117,19 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
               column: "$$count",
               filters: [],
               inlineFilters: {
-                event_name: ["page_view"],
+                event_name: ["Page View"],
+              },
+            },
+          },
+          {
+            name: "Sessions per User",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              filters: [],
+              inlineFilters: {
+                event_name: ["Session Start"],
               },
             },
           },
@@ -120,7 +141,7 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
               column: "$$count",
               filters: [],
               inlineFilters: {
-                event_name: ["page_view"],
+                event_name: ["Page View"],
               },
             },
             denominator: {
@@ -128,11 +149,65 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
               column: "$$count",
               filters: [],
               inlineFilters: {
-                event_name: ["session_start"],
+                event_name: ["Session Start"],
               },
             },
           },
         ],
+      },
+      // Page Views
+      {
+        factTable: {
+          name: "Clickhouse Page Views",
+          description: "",
+          sql: `SELECT
+  timestamp,
+  user_id,
+  device_id,
+  session_id,
+  page_id,
+  url_path,
+  properties_json,
+  user_attributes_json,
+  geo_country,
+  geo_city,
+  geo_lat,
+  geo_lon,
+  ua_device_type,
+  ua_browser,
+  ua_os,
+  utm_source,
+  utm_medium,
+  utm_campaign
+FROM events
+WHERE
+  event_name = 'Page View'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          columns: generateColumns({
+            timestamp: { datatype: "date" },
+            user_id: { datatype: "string" },
+            device_id: { datatype: "string" },
+            session_id: { datatype: "string" },
+            page_id: { datatype: "string" },
+            url_path: { datatype: "string", alwaysInlineFilter: true },
+            properties_json: { datatype: "string" },
+            user_attributes_json: { datatype: "string" },
+            geo_country: { datatype: "string" },
+            geo_city: { datatype: "string" },
+            geo_lat: { datatype: "number" },
+            geo_lon: { datatype: "number" },
+            ua_device_type: { datatype: "string" },
+            ua_browser: { datatype: "string" },
+            ua_os: { datatype: "string" },
+            utm_source: { datatype: "string" },
+            utm_medium: { datatype: "string" },
+            utm_campaign: { datatype: "string" },
+          }),
+          userIdTypes: ["user_id", "device_id"],
+          eventName: "",
+        },
+        filters: [],
+        metrics: [],
       },
     ],
   };
