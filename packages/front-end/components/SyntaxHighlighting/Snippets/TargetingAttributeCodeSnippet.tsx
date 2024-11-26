@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
+import { paddedVersionString } from "@growthbook/growthbook";
 import { useAttributeSchema } from "@/services/features";
 import Code from "@/components/SyntaxHighlighting/Code";
 
@@ -76,10 +77,12 @@ export default function TargetingAttributeCodeSnippet({
   language,
   hashSecureAttributes = false,
   secureAttributeSalt = "",
+  version,
 }: {
   language: SDKLanguage;
   hashSecureAttributes?: boolean;
   secureAttributeSalt?: string;
+  version?: string;
 }) {
   const introText = (
     <span>
@@ -170,6 +173,29 @@ window.growthbook_config.attributes = ${stringify(
     );
   }
   if (language === "nodejs") {
+    const useMultiUser =
+      paddedVersionString(version) >= paddedVersionString("1.3.1");
+
+    if (useMultiUser) {
+      return (
+        <>
+          {introText}
+          <Code
+            language="javascript"
+            code={`
+app.use((req, res, next) => {
+  const userContext = {
+    attributes: ${indentLines(stringify(exampleAttributes), 4)}
+  }
+  
+  req.growthbook = client.getScopedInstance(userContext);
+});
+          `.trim()}
+          />
+        </>
+      );
+    }
+
     return (
       <>
         {introText}

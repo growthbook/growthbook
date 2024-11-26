@@ -318,4 +318,47 @@ export class GrowthBookMultiUser<
 
     return userContext;
   }
+
+  public createScopedInstance(userContext: UserContext) {
+    return new UserScopedGrowthBook(this, userContext);
+  }
+}
+
+export class UserScopedGrowthBook<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AppFeatures extends Record<string, any> = Record<string, any>
+> {
+  private _gb: GrowthBookMultiUser;
+  private _userContext: UserContext;
+
+  constructor(gb: GrowthBookMultiUser<AppFeatures>, userContext: UserContext) {
+    this._gb = gb;
+    this._userContext = userContext;
+  }
+
+  public runInlineExperiment<T>(experiment: Experiment<T>): Result<T> {
+    return this._gb.runInlineExperiment(experiment, this._userContext);
+  }
+
+  public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
+    return this._gb.isOn(key, this._userContext);
+  }
+
+  public isOff<K extends string & keyof AppFeatures = string>(key: K): boolean {
+    return this._gb.isOff(key, this._userContext);
+  }
+
+  public getFeatureValue<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(key: K, defaultValue: V): WidenPrimitives<V> {
+    return this._gb.getFeatureValue(key, defaultValue, this._userContext);
+  }
+
+  public evalFeature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K): FeatureResult<V | null> {
+    return this._gb.evalFeature(id, this._userContext);
+  }
 }

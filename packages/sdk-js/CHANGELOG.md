@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.3.1** - Nov 25, 2024
+
+- New `GrowthBookMultiUser.getScopedInstance()` method to make it easier to use in express-like back-end frameworks.
+
 ## **1.3.0** - Nov 20, 2024
 
 - New `GrowthBookMultiUser` class for 2x performance boost in Node.js

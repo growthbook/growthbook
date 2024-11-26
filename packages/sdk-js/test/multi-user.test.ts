@@ -479,3 +479,59 @@ describe("GrowthBookMultiUser", () => {
     });
   });
 });
+
+describe("UserScopedGrowthBook", () => {
+  it("Supports basic feature evaluation with scoped instance", () => {
+    const gb = new GrowthBookMultiUser();
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+            rules: [
+              {
+                condition: { country: "US" },
+                force: true,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const experiment: Experiment<boolean> = {
+      key: "exp",
+      variations: [false, true],
+      condition: { country: "US" },
+      weights: [0, 1],
+    };
+
+    const scoped = gb.createScopedInstance({
+      attributes: {
+        id: "1",
+        country: "US",
+      },
+    });
+
+    expect(scoped.isOn("feature")).toEqual(true);
+    expect(scoped.isOff("feature")).toEqual(false);
+    expect(scoped.getFeatureValue("feature", false)).toEqual(true);
+    expect(scoped.evalFeature("feature").value).toEqual(true);
+    expect(scoped.runInlineExperiment(experiment).variationId).toEqual(1);
+
+    const scoped2 = gb.createScopedInstance({
+      attributes: {
+        id: "1",
+        country: "GB",
+      },
+    });
+
+    expect(scoped2.isOn("feature")).toEqual(false);
+    expect(scoped2.isOff("feature")).toEqual(true);
+    expect(scoped2.getFeatureValue("feature", true)).toEqual(false);
+    expect(scoped2.evalFeature("feature").value).toEqual(false);
+    expect(scoped2.runInlineExperiment(experiment).variationId).toEqual(0);
+
+    gb.destroy();
+  });
+});

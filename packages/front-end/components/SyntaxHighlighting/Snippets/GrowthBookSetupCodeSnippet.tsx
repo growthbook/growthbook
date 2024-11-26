@@ -180,6 +180,56 @@ export default function MyApp() {
   if (language === "nodejs") {
     const useInit =
       paddedVersionString(version) >= paddedVersionString("1.0.0");
+    const useMultiUser =
+      paddedVersionString(version) >= paddedVersionString("1.3.1");
+
+    if (useMultiUser) {
+      return (
+        <>
+          Create and initialize a GrowthBook client
+          <Code
+            language="javascript"
+            code={`
+  const { GrowthBookMultiUser } = require("@growthbook/growthbook");
+  
+  const client = new GrowthBookMultiUser({
+    apiHost: ${JSON.stringify(apiHost)},
+    clientKey: ${JSON.stringify(apiKey)},${
+              encryptionKey
+                ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
+                : ""
+            }
+    trackingCallback: (experiment, result, userContext) => {
+      // ${trackingComment}
+      console.log("Viewed Experiment", userContext.attributes.id, {
+        experimentId: experiment.key,
+        variationId: result.key
+      });
+    }
+  });
+
+  await client.init({ timeout: 1000 });
+          `.trim()}
+          />
+          Add a middleware before any routes that will use GrowthBook.
+          <Code
+            language="javascript"
+            code={`
+app.use((req, res, next) => {
+  const userContext = {
+    attributes: {
+      id: req.user.id
+    }
+  }
+  
+  req.growthbook = client.getScopedInstance(userContext);
+});
+          `.trim()}
+          />
+        </>
+      );
+    }
+
     return (
       <>
         Add some polyfills for missing browser APIs
