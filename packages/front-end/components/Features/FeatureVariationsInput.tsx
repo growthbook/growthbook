@@ -220,7 +220,7 @@ export default function FeatureVariationsInput({
             <table className="table mb-0">
               <thead className={`${styles.variationSplitHeader}`}>
                 <tr>
-                  <th className="pl-3">Id</th>
+                  <th className="pl-3">ID</th>
                   {!valueAsId && <th>版本</th>}
                   <th>
                     <Tooltip

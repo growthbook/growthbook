@@ -8,7 +8,8 @@ services:
     volumes:
       - mongodata:/data/db
   growthbook:
-    image: "growthbook/growthbook:latest"
+    # image: "mmj:v0.0.0"
+    image: "mmj:v0.0.2"
     ports:
       - "3000:3000"
       - "3100:3100"
