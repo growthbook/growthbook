@@ -49,10 +49,10 @@ To achieve these goals we will essentially split our traffic into 2 groups:
 1. Create an experiment called, for example, ”Global Holdout Q1 2024”.
 2. **Splits:** Set coverage to 10% and then use a 50/50 split (again to achieve our 5% holdout control population, which you can customize).
 
-3. **Metrics:** Likely you do not want to use conversion windows with a holdout experiment. Users are going to get exposed to the holdout experiment as soon as you start testing the feature, so conversion windows may expire before you ever actually expose the **holdout treatment** group to the experiment. We recommend two alternatives:
+3. **Metrics:** Do not use conversion windows with a holdout experiment. Users are going to get exposed to the holdout experiment as soon as you start adding it to features, so conversion windows may close before certain features are launched or tested. We recommend two alternatives:
    1. Use metrics that have no conversion window to roll up behavior data from their first holdout check until the present, or
    2. Use a Lookback Window to only measure the last X days of the holdout. For example, if you want to run a holdout for 2 months, but only measure effects in the last month, you can use metrics with 30 day Lookback Windows (you can use metric overrides within the experiment to do this, or create versions of your metrics that use Lookback Windows).
-4. Add a Boolean Feature Flag (`holdout-q1-2024`) to the holdout experiment where the control group gets False, the treatment group gets True, and the default value is also True.
+4. Add a Boolean Feature Flag (in our example, we call this `holdout-q1-2024`) to the holdout experiment where the control group gets False, the treatment group gets True, and the default value is also True.
 5. Start the holdout experiment.
 
 Your feature flag for the holdout should look like this:
@@ -65,11 +65,11 @@ Note: an alternative is to use a String Feature Flag with values of `holdout` an
 
 ### 2. Add Holdout as Prerequisite to All Future Features
 
-Now, for any future feature or experiment, you can add the "Global Holdout Q1 2024" feature as a [prerequisite](/features/prerequisites). This can be done in one of two ways.
+Now, for any future feature or experiment, you can add the "Global Holdout Q1 2024" feature as a [prerequisite](/features/prerequisites) to hold out the **`holdout control`** group. This can be done in one of two ways.
 
 **Prerequisite as targeting condition**
 
-You can now add your holdout experiment as a prerequisite to every Feature Rule you want the holdout to apply to. Whenever creating a feature rule, be sure to add the holdout feature as a prerequisite targeting condition, where users that are True get the feature applied to them. For example, see the following set of rules for the mock feature `my-feauture-2024`:
+Your holdout experiment can be added as a prerequisite targeting condition to every Feature Rule you want the holdout to apply to. Whenever creating a feature rule, be sure to add the holdout feature as a prerequisite targeting condition, where users that are True get the feature applied to them. For example, see the following set of rules for the mock feature `my-feauture-2024`:
 
 <div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
 <img src="/images/statistics/holdout-targeting.png" alt="Feature Rule for an Example Feature Experiment with Holdout" style={{ width: 800 }} />
