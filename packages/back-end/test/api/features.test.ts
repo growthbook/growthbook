@@ -40,6 +40,7 @@ describe("features API", () => {
         canPublishFeature: () => true,
         canCreateFeature: () => true,
       },
+      getProjects: async () => [{ id: "project" }],
     });
 
     createFeature.mockImplementation((v) => v);
