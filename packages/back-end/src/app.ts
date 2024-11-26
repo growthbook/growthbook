@@ -289,7 +289,7 @@ app.get(
     origin: "*",
   }),
   reportsController.getReportPublic
-)
+);
 
 // Secret API routes (no JWT or CORS)
 app.use(

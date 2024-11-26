@@ -1,18 +1,29 @@
-import {Request, Response} from "express";
+import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import {ExperimentReportInterface, ReportInterface} from "back-end/types/report";
+import { pick, omit } from "lodash";
+import uniqid from "uniqid";
+import uniq from "lodash/uniq";
+import { expandMetricGroups } from "shared/experiments";
+import {
+  ExperimentReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import {createExperimentSnapshotModel, findSnapshotById} from "back-end/src/models/ExperimentSnapshotModel";
-import {getMetricMap, getMetricsByIds} from "back-end/src/models/MetricModel";
+import {
+  createExperimentSnapshotModel,
+  findSnapshotById,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap, getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
   createReport,
   deleteReportById,
-  getReportById, getReportByTinyid,
+  getReportById,
+  getReportByTinyid,
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
@@ -25,14 +36,14 @@ import {
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { pick, omit } from "lodash";
-import {ExperimentAnalysisSettings, experimentAnalysisSettings} from "back-end/src/validators/experiments";
-import uniqid from "uniqid";
-import uniq from "lodash/uniq";
-import {expandMetricGroups} from "shared/experiments";
-import {useCurrency} from "front-end/hooks/useCurrency";
-import {useDefinitions} from "front-end/services/DefinitionsContext";
+import {getFactTableMap, getFactTablesByIds} from "back-end/src/models/FactTableModel";
+import {
+  ExperimentAnalysisSettings,
+  experimentAnalysisSettings,
+} from "back-end/src/validators/experiments";
+import { getFactMetrics } from "back-end/src/routers/fact-table/fact-table.controller";
+import {FactMetricInterface} from "back-end/types/fact-table";
+import {MetricInterface} from "back-end/types/metric";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -82,13 +93,22 @@ export async function postReportFromSnapshot(
     experimentMetadata: {
       type: experiment.type || "standard",
       phases: experiment.phases.map((phase) =>
-        pick(phase, ["dateStarted", "dateEnded", "name", "variationWeights", "banditEvents"])
+        pick(phase, [
+          "dateStarted",
+          "dateEnded",
+          "name",
+          "variationWeights",
+          "banditEvents",
+        ])
       ),
       variations: experiment.variations.map((variation) =>
         omit(variation, ["description", "screenshots"])
       ),
     },
-    experimentAnalysisSettings: pick(experiment, Object.keys(experimentAnalysisSettings.shape)) as ExperimentAnalysisSettings,
+    experimentAnalysisSettings: pick(
+      experiment,
+      Object.keys(experimentAnalysisSettings.shape)
+    ) as ExperimentAnalysisSettings,
   });
 
   await req.audit({
@@ -193,20 +213,63 @@ export async function getReportPublic(
 
   // todo: share permissions
 
-  const snapshot = report.type === "experiment-snapshot" ?
-    await findSnapshotById(report.organization, report.snapshot) :
-    undefined;
+  const snapshot =
+    report.type === "experiment-snapshot"
+      ? await findSnapshotById(report.organization, report.snapshot)
+      : undefined;
 
   const metricGroups = await context.models.metricGroups.getAll();
-  let metricIds = expandMetricGroups(uniq([
+  const experimentMetricIds = expandMetricGroups(uniq([
     ...(snapshot?.settings?.goalMetrics ?? []),
     ...(snapshot?.settings?.secondaryMetrics ?? []),
     ...(snapshot?.settings?.guardrailMetrics ?? []),
-    ...(snapshot?.settings?.activationMetric ? [snapshot?.settings?.activationMetric] : []),
   ]), metricGroups);
 
-  const metrics = await getMetricsByIds(context, metricIds);
-  const metricMap = metrics.reduce((map, metric) => Object.assign(map, { [metric.id]: metric }), {});
+  const metricIds =
+    uniq([
+      ...experimentMetricIds,
+      ...(snapshot?.settings?.activationMetric
+        ? [snapshot?.settings?.activationMetric]
+        : []),
+    ]);
+
+  const metrics: MetricInterface[] = await getMetricsByIds(
+    context,
+    metricIds.filter((m) => m.startsWith("met_"))
+  );
+  const factMetrics: FactMetricInterface[] = await context.models.factMetrics.getByIds(
+    metricIds.filter((m) => m.startsWith("fact__"))
+  );
+
+  const denominatorMetricIds = uniq(metrics
+    .filter((m) => !!m.denominator)
+    .map((m) => m.denominator)
+    .filter((id) => id && !metricIds.includes(id)) as string[]
+  );
+  const denominatorMetrics = await getMetricsByIds(context, denominatorMetricIds);
+
+  const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
+    (map, metric) => Object.assign(map, { [metric.id]: metric }),
+    {}
+  );
+
+  let factTableIds: string[] = [];
+  factMetrics.forEach((m) => {
+    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    if (m?.denominator?.factTableId) factTableIds.push(m.denominator.factTableId);
+  });
+  factTableIds = uniq(factTableIds);
+  const factTables = await getFactTablesByIds(context, factTableIds);
+  const factTableMap = factTables.reduce(
+    (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
+    {}
+  );
+
+  const ssrData: Record<string, any> = {
+    metrics: metricMap,
+    metricGroups: metricGroups,
+    factTables: factTableMap,
+  };
 
   // todo - metrics:
   // 1. denominator metrics (in legacy metrics)
@@ -235,14 +298,8 @@ export async function getReportPublic(
   // 1. { metricDefaults, getMinSampleSizeForMetric } = useOrganizationMetricDefaults();
   // 2. { ciUpper, ciLower } = useConfidenceLevels();
   // 3. pValueThreshold = usePValueThreshold();
-  // 4. displayCurrency = useCurrency();
+  // 4. displayCurrency = useCurrency(); (user context)
   // 5. getMaxPercentageChangeForMetric, getMinPercentageChangeForMetric, getMinSampleSizeForMetric
-
-
-  const ssrData: Record<string, any> = {
-    metrics: metricMap,
-    metricGroups: metricGroups,
-  };
 
   res.status(200).json({
     status: 200,

@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from "react";
+import React, {FC, useCallback, useMemo} from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
@@ -47,7 +47,6 @@ import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { ExperimentTab } from "./TabbedPage";
-import {MetricGroupInterface} from "back-end/types/metric-groups";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -116,14 +115,22 @@ const CompactResults: FC<{
   experimentType,
   ssrData,
 }) => {
-  const { getExperimentMetricById, getMetricGroupById, metricGroups, ready } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    // getMetricGroupById,
+    metricGroups,
+    ready,
+  } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
   // ssr polyfills
-  const ssrGetExperimentMetricById = (metricId: string) => getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null;
+  const ssrGetExperimentMetricById = useCallback((metricId: string) =>
+    getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null, []);
   const ssrMetricGroups = [...metricGroups, ...(ssrData?.metricGroups ?? [])];
-  const ssrGetMetricGroupById = (metricGroupId: string) => getMetricGroupById(metricGroupId) || ssrMetricGroups?.[metricGroupId] || null;
-
+  // const ssrGetMetricGroupById = useCallback((metricGroupId: string) =>
+  //   getMetricGroupById(metricGroupId) ||
+  //   ssrMetricGroups?.[metricGroupId] ||
+  //   null, []);
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;

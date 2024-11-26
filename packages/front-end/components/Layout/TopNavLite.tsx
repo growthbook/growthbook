@@ -1,22 +1,29 @@
 import Head from "next/head";
 import { FaAngleRight } from "react-icons/fa";
 import Link from "next/link";
+import { Text } from "@radix-ui/themes";
+import {
+  PiCaretDownFill,
+  PiCircleHalf,
+  PiMoon,
+  PiSunDim,
+} from "react-icons/pi";
+import { useMemo } from "react";
 import { safeLogout } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Avatar from "@/components/Avatar/Avatar";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { usePageHead } from "@/components/Layout/PageHead";
-import styles from "./TopNav.module.scss";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import {Text} from "@radix-ui/themes";
-import {PiCaretDownFill, PiCircleHalf, PiMoon, PiSunDim} from "react-icons/pi";
 import {
   DropdownMenu,
-  DropdownMenuGroup, DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownSubMenu
+  DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/components/Radix/DropdownMenu";
-import {useMemo} from "react";
+import styles from "./TopNav.module.scss";
 
 export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
   const { email, name, user } = useUser();
@@ -72,42 +79,42 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
   const renderThemeDropDown = (isMenu?: boolean) => {
     const components = (
       <>
-      <DropdownMenuItem
-        className={styles.dropdownItemIconColor}
-        key="system"
-        onClick={() => {
-          setTheme("system");
-        }}
-      >
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="system"
+          onClick={() => {
+            setTheme("system");
+          }}
+        >
           <span>
             <PiCircleHalf size="16" className="mr-1" />
             System Default
           </span>
-      </DropdownMenuItem>
-    <DropdownMenuItem
-      className={styles.dropdownItemIconColor}
-      key="light"
-      onClick={() => {
-        setTheme("light");
-      }}
-    >
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="light"
+          onClick={() => {
+            setTheme("light");
+          }}
+        >
           <span>
             <PiSunDim size="16" className="mr-1" />
             Light
           </span>
-    </DropdownMenuItem>
-    <DropdownMenuItem
-      className={styles.dropdownItemIconColor}
-      key="dark"
-      onClick={() => {
-        setTheme("dark");
-      }}
-    >
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="dark"
+          onClick={() => {
+            setTheme("dark");
+          }}
+        >
           <span>
             <PiMoon size="16" className="mr-1" />
             Dark
           </span>
-    </DropdownMenuItem>
+        </DropdownMenuItem>
       </>
     );
 
@@ -176,23 +183,23 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
       </Head>
       <div style={{ width: 240 }}>
         <Link href="/">
-        {theme === "dark" ? (
-          <>
-            <img
-              alt="GrowthBook"
-              src="/logo/growth-book-logo-white.svg"
-              style={{ width: 160, height: 30, marginLeft: 4, marginTop: -8 }}
-            />
-          </>
-        ) : (
-          <>
-            <img
-              alt="GrowthBook"
-              src="/logo/growth-book-logo-color.svg"
-              style={{ width: 160, height: 30, marginLeft: 4, marginTop: -8 }}
-            />
-          </>
-        )}
+          {theme === "dark" ? (
+            <>
+              <img
+                alt="GrowthBook"
+                src="/logo/growth-book-logo-white.svg"
+                style={{ width: 160, height: 30, marginLeft: 4, marginTop: -8 }}
+              />
+            </>
+          ) : (
+            <>
+              <img
+                alt="GrowthBook"
+                src="/logo/growth-book-logo-color.svg"
+                style={{ width: 160, height: 30, marginLeft: 4, marginTop: -8 }}
+              />
+            </>
+          )}
         </Link>
       </div>
       {renderTitleOrBreadCrumb()}
@@ -209,13 +216,13 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
                   className="mr-2"
                 />{" "}
                 <span className="d-none d-lg-inline">
-                    <OverflowText maxWidth={200}>
-                      <Text weight={"bold"} style={{ fontSize: 14 }}>
-                        {email}
-                      </Text>{" "}
-                      <PiCaretDownFill />
-                    </OverflowText>
-                  </span>
+                  <OverflowText maxWidth={200}>
+                    <Text weight={"bold"} style={{ fontSize: 14 }}>
+                      {email}
+                    </Text>{" "}
+                    <PiCaretDownFill />
+                  </OverflowText>
+                </span>
               </div>
             }
           >
@@ -225,9 +232,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
             {renderLogoutDropDown()}
           </DropdownMenu>
         ) : (
-          <div className="mr-1">
-            {renderThemeDropDown(true)}
-          </div>
+          <div className="mr-1">{renderThemeDropDown(true)}</div>
         )}
       </div>
     </div>

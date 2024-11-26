@@ -1,5 +1,12 @@
 import { MetricPriorSettings } from "./fact-table";
-import { AttributionModel, ExperimentPhase, ExperimentType, MetricOverride, Variation, ExperimentAnalysisSettings } from "./experiment";
+import {
+  AttributionModel,
+  ExperimentPhase,
+  ExperimentType,
+  MetricOverride,
+  Variation,
+  ExperimentAnalysisSettings,
+} from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
@@ -113,7 +120,9 @@ export interface ExperimentReportResults {
   dimensions: ExperimentReportResultDimension[];
 }
 
-export type ReportInterface = ExperimentSnapshotReportInterface | ExperimentReportInterface;
+export type ReportInterface =
+  | ExperimentSnapshotReportInterface
+  | ExperimentReportInterface;
 
 /** @deprecated */
 export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {

@@ -35,7 +35,9 @@ export function DropdownMenu({
 
   return (
     <RadixDropdownMenu.Root {...props}>
-      <RadixDropdownMenu.Trigger className={triggerClassName}>{triggerComponent}</RadixDropdownMenu.Trigger>
+      <RadixDropdownMenu.Trigger className={triggerClassName}>
+        {triggerComponent}
+      </RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content
         align={menuPlacement}
         variant={variant}

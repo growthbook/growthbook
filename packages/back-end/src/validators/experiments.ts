@@ -154,8 +154,9 @@ export const experimentAnalysisSettings = z
     statsEngine: z.enum(statsEngines).optional(),
   })
   .strict();
-export type ExperimentAnalysisSettings = z.infer<typeof experimentAnalysisSettings>;
-
+export type ExperimentAnalysisSettings = z.infer<
+  typeof experimentAnalysisSettings
+>;
 
 export const experimentInterface = z
   .object({

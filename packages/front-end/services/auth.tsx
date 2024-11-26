@@ -202,10 +202,7 @@ export async function redirectWithTimeout(url: string, timeout: number = 5000) {
 export const AuthProvider: React.FC<{
   exitOnNoAuth?: boolean;
   children: ReactNode;
-}> = ({
-  exitOnNoAuth = true,
-  children,
-}) => {
+}> = ({ exitOnNoAuth = true, children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);

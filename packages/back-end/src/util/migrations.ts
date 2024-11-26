@@ -10,7 +10,8 @@ import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
 import {
-  ExperimentReportArgs, ExperimentReportInterface,
+  ExperimentReportArgs,
+  ExperimentReportInterface,
   LegacyReportInterface,
   ReportInterface,
 } from "back-end/types/report";
@@ -608,7 +609,9 @@ export function upgradeExperimentDoc(
   return experiment as ExperimentInterface;
 }
 
-export function migrateExperimentReport(orig: LegacyReportInterface): ExperimentReportInterface {
+export function migrateExperimentReport(
+  orig: LegacyReportInterface
+): ExperimentReportInterface {
   const { args, ...report } = orig;
 
   const {

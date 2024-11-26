@@ -17,7 +17,7 @@ import { OrganizationMessagesContainer } from "@/components/OrganizationMessages
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
-import {AuthProvider, useAuth} from "@/services/auth";
+import { AuthProvider, useAuth } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
 import {
   DefinitionsGuard,
@@ -35,10 +35,10 @@ import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { GB_SDK_ID } from "@/services/utils";
-import {UserContextProvider} from "@/services/UserContext";
+import { UserContextProvider } from "@/services/UserContext";
 
 // Make useLayoutEffect isomorphic (for SSR)
-if (typeof window === 'undefined') React.useLayoutEffect = React.useEffect;
+if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
@@ -163,13 +163,13 @@ function App({
         <PageHeadProvider>
           {preAuthTopNav ? (
             <>
-              <TopNavLite/>
+              <TopNavLite />
               <main className="container mt-5">
-                <Component {...{...pageProps, envReady: ready}} />
+                <Component {...{ ...pageProps, envReady: ready }} />
               </main>
             </>
           ) : (
-            <Component {...{...pageProps, envReady: ready }} />
+            <Component {...{ ...pageProps, envReady: ready }} />
           )}
         </PageHeadProvider>
       );
@@ -183,13 +183,13 @@ function App({
               <PageHeadProvider>
                 {preAuthTopNav || progressiveAuthTopNav ? (
                   <>
-                    <TopNavLite/>
+                    <TopNavLite />
                     <main className={`main lite ${parts[0]}`}>
-                      <Component {...{...pageProps, envReady: ready}} />
+                      <Component {...{ ...pageProps, envReady: ready }} />
                     </main>
                   </>
                 ) : (
-                  <Component {...{...pageProps, envReady: ready }} />
+                  <Component {...{ ...pageProps, envReady: ready }} />
                 )}
               </PageHeadProvider>
             </DefinitionsProvider>
@@ -237,7 +237,9 @@ function App({
                               <OrganizationMessagesContainer />
                               <DemoDataSourceGlobalBannerContainer />
                               <DefinitionsGuard>
-                                <Component {...{ ...pageProps, envReady: ready }} />
+                                <Component
+                                  {...{ ...pageProps, envReady: ready }}
+                                />
                               </DefinitionsGuard>
                             </main>
                           </DefinitionsProvider>

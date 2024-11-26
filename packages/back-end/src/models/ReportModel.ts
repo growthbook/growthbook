@@ -1,15 +1,20 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import { customAlphabet } from "nanoid";
 import { migrateExperimentReport } from "back-end/src/util/migrations";
-import {ExperimentReportInterface, ExperimentSnapshotReportInterface, ReportInterface} from "back-end/types/report";
+import {
+  ExperimentReportInterface,
+  ExperimentSnapshotReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
-import { customAlphabet } from "nanoid";
 
-const TINYID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+const TINYID_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 const reportSchema = new mongoose.Schema({
   id: String,
@@ -35,7 +40,8 @@ const reportSchema = new mongoose.Schema({
 
 type ReportDocument = mongoose.Document & ReportInterface;
 
-type ExperimentSnapshotReportDocument = mongoose.Document & ExperimentSnapshotReportInterface;
+type ExperimentSnapshotReportDocument = mongoose.Document &
+  ExperimentSnapshotReportInterface;
 type ExperimentReportDocument = mongoose.Document & ExperimentReportInterface;
 
 const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
@@ -43,9 +49,14 @@ const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 const toInterface = (doc: ReportDocument): ReportInterface => {
   switch (doc.type) {
     case "experiment":
-      return migrateExperimentReport(omit(doc.toJSON<ExperimentReportDocument>(), ["__v", "_id"]));
+      return migrateExperimentReport(
+        omit(doc.toJSON<ExperimentReportDocument>(), ["__v", "_id"])
+      );
     case "experiment-snapshot":
-      return omit(doc.toJSON<ExperimentSnapshotReportDocument>(), ["__v", "_id"]);
+      return omit(doc.toJSON<ExperimentSnapshotReportDocument>(), [
+        "__v",
+        "_id",
+      ]);
     default:
       throw new Error("Invalid report type");
   }
@@ -62,7 +73,7 @@ export async function createReport(
   let tinyid = "";
   while (tries < 5) {
     tinyid = nanoid(size);
-    collision = !!await ReportModel.exists({ tinyid });
+    collision = !!(await ReportModel.exists({ tinyid }));
     if (!collision) break;
     tries++;
     if (tries >= 3) size++;
@@ -100,7 +111,7 @@ export async function getReportByTinyid(
   tinyid: string
 ): Promise<ReportInterface | null> {
   const report = await ReportModel.findOne({
-    tinyid
+    tinyid,
   });
 
   return report ? toInterface(report) : null;
