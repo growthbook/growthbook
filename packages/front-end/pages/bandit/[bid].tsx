@@ -55,6 +55,7 @@ const BanditExperimentPage = (): ReactElement => {
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
+    envs: string[];
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${bid}`);
 
@@ -287,6 +288,7 @@ const BanditExperimentPage = (): ReactElement => {
             newPhase={newPhase}
             editPhases={editPhases}
             editPhase={editPhase}
+            envs={envs}
             editTargeting={editTargeting}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
