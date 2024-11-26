@@ -61,25 +61,25 @@ Your feature flag for the holdout should look like this:
 <img src="/images/statistics/holdout-splits.png" alt="Traffic Splits for an Example Holdout Experiment" style={{ width: 800, margin: "0 auto" }} />
 </div>
 
-Note: an alternative is to use a String Feature Flag with values of `holdout` and `test` for the holdout experiment and `test` for the default value. That way you can more easily interpret the UI when you begin adding the holdout as a pre-requisite for future features.
+Note: an alternative is to use a String Feature Flag with values of `holdout` and `test` for the holdout experiment and `test` for the default value. That way you can more easily interpret the UI when you begin adding the holdout as a prerequisite for future features.
 
-### 2. Add Holdout as Pre-requisite to All Future Features
+### 2. Add Holdout as Prerequisite to All Future Features
 
-Now, for any future feature or experiment, you can add the "Global Holdout Q1 2024" feature as a [pre-requisite](/features/prerequisites). This can be done in one of two ways.
+Now, for any future feature or experiment, you can add the "Global Holdout Q1 2024" feature as a [prerequisite](/features/prerequisites). This can be done in one of two ways.
 
-**Pre-requisite as targeting condition**
+**Prerequisite as targeting condition**
 
-You can now add your holdout experiment as a pre-requisite to every Feature Rule you want the holdout to apply to. Whenever creating a feature rule, be sure to add the holdout feature as a pre-requisite targeting condition, where users that are True get the feature applied to them. For example, see the following set of rules for the mock feature `my-feauture-2024`:
+You can now add your holdout experiment as a prerequisite to every Feature Rule you want the holdout to apply to. Whenever creating a feature rule, be sure to add the holdout feature as a prerequisite targeting condition, where users that are True get the feature applied to them. For example, see the following set of rules for the mock feature `my-feauture-2024`:
 
 <div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
 <img src="/images/statistics/holdout-targeting.png" alt="Feature Rule for an Example Feature Experiment with Holdout" style={{ width: 800 }} />
 </div>
 
-You can see in the image above that if the pre-requisite `holdout-q1-2024` is `True`, which it will be for the holdout treatment group and the 90\% who are not in the holdout control or test group, then the experiment will apply to them. In practice, we check this condition by evaluating the holdout experiment, firing an exposure event for the holdout test, and then only proceeding if they evaluate to `True` on way or another.
+You can see in the image above that if the prerequisite `holdout-q1-2024` is `True`, which it will be for the holdout treatment group and the 90\% who are not in the holdout control or test group, then the experiment will apply to them. In practice, we check this condition by evaluating the holdout experiment, firing an exposure event for the holdout test, and then only proceeding if they evaluate to `True` on way or another.
 
 In other words, the 5\% in the holdout control group will skip the feature rule, getting the default feature value, and the 5\% in the holdout treatment group and the 90\% in the general population will be evaluated for the feature rule. Any time the feature rule is checked, an experiment exposure will be fired for the holdout experiment to ensure you can track the effect of the feature on the holdout population.
 
-**Pre-requisite rule at top of rule list**
+**Prerequisite rule at top of rule list**
 
 A second option is to ensure that every user in the holdout control group gets the default value for your feature flag by creating a rule at the very top of your feature flag that sends all control feature traffic to the default value. You can do that with a Forced Rule that sends all users that are `False` on the holdout feature to the default value for your feature flag.
 
@@ -97,7 +97,7 @@ If you take this approach, be sure to set the Force Rule to target users that ar
 
 ### 3. Launch Features
 
-Once you are ready to launch your feature, you can use "temporary rollouts" as before or you can create custom feature rules to manually target your rollout. Of course, if you create new feature rules you do not want to apply to the holdout, you must either add the holdout experiment as a pre-requisite targeting condition for those rules or instead use the approach where the holdout pre-requisite is at the top of the list and targeting just those users in the control condition.
+Once you are ready to launch your feature, you can use "temporary rollouts" as before or you can create custom feature rules to manually target your rollout. Of course, if you create new feature rules you do not want to apply to the holdout, you must either add the holdout experiment as a prerequisite targeting condition for those rules or instead use the approach where the holdout prerequisite is at the top of the list and targeting just those users in the control condition.
 
 ### 4. Monitor your Holdout Experiment!
 
