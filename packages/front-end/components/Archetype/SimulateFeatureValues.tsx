@@ -36,6 +36,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Radix/Button";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -62,7 +63,7 @@ export const SimulateFeatureValues: FC<{
   ] = useState<ArchetypeAttributeValues>({});
   const [evaluatedFeatures, setEvaluatedFeatures] = useState<string[]>([]);
   const environments = useEnvironments();
-  const showAllEnv = environments.length < maxEnvironments;
+  const showAllEnv = environments.length <= maxEnvironments;
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>(
     showAllEnv ? "all" : environments[0].id
   );
@@ -190,7 +191,7 @@ export const SimulateFeatureValues: FC<{
     });
   }
 
-  const showEnvDropdown = true; //environments.length > maxEnvironments;
+  const showEnvDropdown = true;
   const numColumns = showEnvDropdown ? 4 : environments.length + 3;
   const environmentOptions = [
     ...environments.map((e) => {
@@ -206,25 +207,18 @@ export const SimulateFeatureValues: FC<{
       <div className="mb-3">
         <div className="row mb-3">
           <div className="col">
-            <div
-              className="border border-primary bg-white p-3 rounded cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setEditAttributesModalOpen(true);
-              }}
-            >
-              {attributeText} {attributeNodes}
-              <br />
+            <div className="border border-primary bg-white p-3 rounded">
+              {attributeText} {attributeNodes}{" "}
               <a
                 href="#"
-                className="mt-2 d-inline-block"
+                className="ml-2"
                 onClick={(e) => {
                   e.preventDefault();
                   setEditAttributesModalOpen(true);
                 }}
               >
-                {attributes && Object.keys(attributes).length ? "Edit" : "Set"}{" "}
-                User Attributes
+                ({attributes && Object.keys(attributes).length ? "edit" : "set"}
+                )
               </a>
             </div>
           </div>
@@ -271,7 +265,7 @@ export const SimulateFeatureValues: FC<{
               style={{ top: "56px", zIndex: 900 }}
             >
               <tr>
-                <th>Name</th>
+                <th>Feature Name</th>
                 <SortableTH field="tags">Tags</SortableTH>
                 <th style={{ borderRight: "1px solid rgba(155,155,155, 0.2)" }}>
                   Prerequisites
@@ -414,7 +408,7 @@ export const SimulateFeatureValues: FC<{
           )}
         </div>
       </div>
-      <div className="alert-info mt-5 p-3 cursor-pointer align-items-center">
+      <div className="alert-info mt-5 mb-5 p-3 cursor-pointer align-items-center">
         <div
           className="d-flex"
           onClick={(e) => {
@@ -429,7 +423,7 @@ export const SimulateFeatureValues: FC<{
             These results use the JS SDK, which supports the V2 hashing
             algorithm. If you use one of the older or unsupported SDKs, you may
             want to change the hashing algorithm of the experiment to v1 to
-            ensure accurate results.
+            ensure accurate results. Click for more info.
           </div>
           <div className="p-2">
             <FaChevronRight
@@ -467,12 +461,23 @@ export const SimulateFeatureValues: FC<{
           }}
         />
       )}
-      <div className="container-fluid pagecontents pt-4">
+      <div className="">
         <div className="row mb-3">
           <div className="col">
             <h1>Simulate Features</h1>
           </div>
+          <div className="col-auto">
+            <Button
+              onClick={() => {
+                setEditAttributesModalOpen(true);
+              }}
+            >
+              {attributes && Object.keys(attributes).length ? "Edit" : "Set"}{" "}
+              Attributes
+            </Button>
+          </div>
         </div>
+
         {!canCreate ? (
           <PremiumTooltip
             commercialFeature="simulate-features"
