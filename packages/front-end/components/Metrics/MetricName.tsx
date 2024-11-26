@@ -97,6 +97,7 @@ export function OfficialBadge({
 
 export default function MetricName({
   id,
+  metric: _metric, // if provided, will be used instead of id
   disableTooltip,
   showOfficialLabel,
   showDescription,
@@ -104,6 +105,7 @@ export default function MetricName({
   metrics,
 }: {
   id: string;
+  metric?: ExperimentMetricInterface;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
@@ -111,7 +113,7 @@ export default function MetricName({
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
-  const metric = getExperimentMetricById(id);
+  const metric = _metric ?? getExperimentMetricById(id);
 
   if (isGroup) {
     // check if this is a metric group:

@@ -47,6 +47,7 @@ import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { ExperimentTab } from "./TabbedPage";
+import {MetricGroupInterface} from "back-end/types/metric-groups";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -115,13 +116,14 @@ const CompactResults: FC<{
   experimentType,
   ssrData,
 }) => {
-  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+  const { getExperimentMetricById, getMetricGroupById, metricGroups, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   // ssr polyfills
   const ssrGetExperimentMetricById = (metricId: string) => getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null;
   const ssrMetricGroups = [...metricGroups, ...(ssrData?.metricGroups ?? [])];
+  const ssrGetMetricGroupById = (metricGroupId: string) => getMetricGroupById(metricGroupId) || ssrMetricGroups?.[metricGroupId] || null;
 
-  const pValueThreshold = usePValueThreshold();
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -490,7 +492,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
             href={getMetricLink(metric.id)}
             className="metriclabel text-dark"
           >
-            <MetricName id={metric.id} disableTooltip />
+            <MetricName metric={metric} disableTooltip />
             <PercentileLabel metric={metric} />
           </Link>
         </span>

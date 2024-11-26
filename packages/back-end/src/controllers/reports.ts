@@ -7,8 +7,8 @@ import {
   getExperimentById,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMap } from "back-end/src/models/MetricModel";
+import {createExperimentSnapshotModel, findSnapshotById} from "back-end/src/models/ExperimentSnapshotModel";
+import {getMetricMap, getMetricsByIds} from "back-end/src/models/MetricModel";
 import {
   createReport,
   deleteReportById,
@@ -20,12 +20,19 @@ import {
 import { ReportQueryRunner } from "back-end/src/queryRunners/ReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { generateReportNotebook } from "back-end/src/services/notebook";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { pick, omit } from "lodash";
 import {ExperimentAnalysisSettings, experimentAnalysisSettings} from "back-end/src/validators/experiments";
 import uniqid from "uniqid";
+import uniq from "lodash/uniq";
+import {expandMetricGroups} from "shared/experiments";
+import {useCurrency} from "front-end/hooks/useCurrency";
+import {useDefinitions} from "front-end/services/DefinitionsContext";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -41,7 +48,9 @@ export async function postReportFromSnapshot(
   // Create a new report-specific snapshot
   snapshot.id = uniqid("snp_");
   snapshot.type = "report";
-  // todo: clone & save the snapshot as a type: "report". Bake dependencies (metrics etc)
+  await createExperimentSnapshotModel({ data: snapshot, context });
+
+  // todo: hash dependencies so we can see if settings/inputs are stale
 
   const experiment = await getExperimentById(context, snapshot.experiment);
 
@@ -69,7 +78,7 @@ export async function postReportFromSnapshot(
     title: `New Report - ${experiment.name}`,
     description: ``,
     type: "experiment-snapshot",
-    snapshot: req.params.snapshot,
+    snapshot: snapshot.id,
     experimentMetadata: {
       type: experiment.type || "standard",
       phases: experiment.phases.map((phase) =>
@@ -180,6 +189,7 @@ export async function getReportPublic(
   if (!report) {
     throw new Error("Unknown report id");
   }
+  const context = await getContextForAgendaJobByOrgId(report.organization);
 
   // todo: share permissions
 
@@ -187,10 +197,58 @@ export async function getReportPublic(
     await findSnapshotById(report.organization, report.snapshot) :
     undefined;
 
+  const metricGroups = await context.models.metricGroups.getAll();
+  let metricIds = expandMetricGroups(uniq([
+    ...(snapshot?.settings?.goalMetrics ?? []),
+    ...(snapshot?.settings?.secondaryMetrics ?? []),
+    ...(snapshot?.settings?.guardrailMetrics ?? []),
+    ...(snapshot?.settings?.activationMetric ? [snapshot?.settings?.activationMetric] : []),
+  ]), metricGroups);
+
+  const metrics = await getMetricsByIds(context, metricIds);
+  const metricMap = metrics.reduce((map, metric) => Object.assign(map, { [metric.id]: metric }), {});
+
+  // todo - metrics:
+  // 1. denominator metrics (in legacy metrics)
+  // 2. fact tables (in fact metrics) + getFactTableById
+  // 3. scrub defs
+
+  // todo - MetricValueColumn, etc (ResultsTable, ResultsTableTooltip):
+  // 1. displayCurrency = useCurrency();
+  // 2. { getFactTableById, getMetricById } = useDefinitions();
+  // 3. ResultsTableTooltip: useCurrency, usePValueThreshold, getFactTableById
+
+  // todo - PercentGraph:
+  // 1. import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+  // 2. import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+  // 3. import usePValueThreshold from "@/hooks/usePValueThreshold";
+
+  // todo - AlignedGraph:
+  // 1. metricDisplayCurrency = useCurrency();
+  // 2. { getFactTableById } = useDefinitions();
+
+  // todo - ChangeColumn:
+  // 1. displayCurrency = useCurrency();
+  // 2. { getFactTableById } = useDefinitions();
+
+  // todo - definitions:
+  // 1. { metricDefaults, getMinSampleSizeForMetric } = useOrganizationMetricDefaults();
+  // 2. { ciUpper, ciLower } = useConfidenceLevels();
+  // 3. pValueThreshold = usePValueThreshold();
+  // 4. displayCurrency = useCurrency();
+  // 5. getMaxPercentageChangeForMetric, getMinPercentageChangeForMetric, getMinSampleSizeForMetric
+
+
+  const ssrData: Record<string, any> = {
+    metrics: metricMap,
+    metricGroups: metricGroups,
+  };
+
   res.status(200).json({
     status: 200,
     report,
     snapshot,
+    ssrData,
   });
 }
 

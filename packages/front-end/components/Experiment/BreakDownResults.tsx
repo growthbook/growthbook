@@ -295,7 +295,7 @@ const BreakDownResults: FC<{
               labelHeader={
                 <div style={{ marginBottom: 2 }}>
                   {getRenderLabelColumn(
-                    regressionAdjustmentEnabled,
+                    !!regressionAdjustmentEnabled,
                     statsEngine
                   )(table.metric.name, table.metric, table.rows[0])}
                 </div>
