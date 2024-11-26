@@ -78,9 +78,87 @@ export async function createClickhouseUser(
     query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
   });
 
-  logger.info(`Creating Clickhouse view ${viewName}`);
+  logger.info(`Creating Clickhouse materialized view ${viewName}`);
   await client.command({
-    query: `CREATE VIEW ${viewName} DEFINER=CURRENT_USER SQL SECURITY DEFINER AS SELECT * FROM ${CLICKHOUSE_MAIN_TABLE} WHERE organization = '${orgId}'`,
+    query: `CREATE MATERIALIZED VIEW ${viewName} 
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(timestamp) 
+ORDER BY timestamp
+DEFINER=CURRENT_USER SQL SECURITY DEFINER
+AS SELECT 
+    timestamp,
+    client_key,
+    event_name,
+    properties_json,
+    user_id,
+    context_json,
+    url,
+    url_path,
+    url_host,
+    url_query,
+    url_fragment,
+    device_id,
+    page_id,
+    session_id,
+    sdk_language,
+    sdk_version,
+    page_title,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_term,
+    utm_content,
+    event_uuid,
+    ip,
+    geo_country,
+    geo_city,
+    geo_lat,
+    geo_lon,
+    ua,
+    ua_browser,
+    ua_os,
+    ua_device_type
+FROM ${CLICKHOUSE_MAIN_TABLE} 
+WHERE organization = '${orgId}';`,
+  });
+
+  logger.info(`Copying existing data to the materialized view`);
+  await client.command({
+    query: `INSERT INTO ${viewName} SELECT
+    timestamp,
+    client_key,
+    event_name,
+    properties_json,
+    user_id,
+    context_json,
+    url,
+    url_path,
+    url_host,
+    url_query,
+    url_fragment,
+    device_id,
+    page_id,
+    session_id,
+    sdk_language,
+    sdk_version,
+    page_title,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_term,
+    utm_content,
+    event_uuid,
+    ip,
+    geo_country,
+    geo_city,
+    geo_lat,
+    geo_lon,
+    ua,
+    ua_browser,
+    ua_os,
+    ua_device_type
+FROM ${CLICKHOUSE_MAIN_TABLE}
+WHERE organization = '${orgId}';`,
   });
 
   logger.info(`Granting select permissions on ${viewName} to ${user}`);
