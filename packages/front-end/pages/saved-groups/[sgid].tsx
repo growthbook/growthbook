@@ -1,12 +1,11 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { getMatchingRules, SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiInfoFill } from "react-icons/pi";
+import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
+import { getMatchingRules, isIdListSupportedDatatype } from "shared/util";
 import Link from "next/link";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -18,11 +17,15 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { DocLink } from "@/components/DocLink";
+import LargeSavedGroupPerformanceWarning, {
+  useLargeSavedGroupSupport,
+} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ProjectBadges from "@/components/ProjectBadges";
 
 const NUM_PER_PAGE = 10;
 
@@ -35,7 +38,6 @@ export default function EditSavedGroupPage() {
   const savedGroup = data?.savedGroup;
   const { features } = useFeaturesList(false);
   const environments = useEnvironments();
-  const { data: sdkConnectionData } = useSDKConnections();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
@@ -54,10 +56,17 @@ export default function EditSavedGroupPage() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
-  const [disableSubmit, setDisableSubmit] = useState(true);
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
     "replace"
   );
+  const { attributeSchema } = useOrgSettings();
+  const { projects } = useDefinitions();
+
+  const {
+    hasLargeSavedGroupFeature,
+    supportedConnections,
+    unsupportedConnections,
+  } = useLargeSavedGroupSupport();
 
   const [
     savedGroupForm,
@@ -65,9 +74,6 @@ export default function EditSavedGroupPage() {
   ] = useState<null | Partial<SavedGroupInterface>>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [passByReferenceOnly, setPassByReferenceOnly] = useState(
-    savedGroup?.passByReferenceOnly || false
-  );
 
   const mutateValues = useCallback(
     (newValues: string[]) => {
@@ -82,14 +88,9 @@ export default function EditSavedGroupPage() {
     [mutate, savedGroup]
   );
 
-  const {
-    featuresReferencingSavedGroup,
-    projectsReferencingSavedGroup,
-  } = useMemo(() => {
+  const featuresReferencingSavedGroup = useMemo(() => {
     const featuresReferencingSavedGroup: Set<string> = new Set();
-    const projectsReferencingSavedGroup: Set<string> = new Set();
-    if (!savedGroup)
-      return { featuresReferencingSavedGroup, projectsReferencingSavedGroup };
+    if (!savedGroup) return featuresReferencingSavedGroup;
     features.forEach((feature) => {
       const matches = getMatchingRules(
         feature,
@@ -102,42 +103,19 @@ export default function EditSavedGroupPage() {
 
       if (matches.length > 0) {
         featuresReferencingSavedGroup.add(feature.id);
-        projectsReferencingSavedGroup.add(feature.project || "");
       }
     });
-    return { featuresReferencingSavedGroup, projectsReferencingSavedGroup };
+    return featuresReferencingSavedGroup;
   }, [savedGroup, features, environments]);
-
-  const referencingUnsupportedSdkConnections = useMemo(() => {
-    if (projectsReferencingSavedGroup.size === 0) {
-      return [];
-    }
-    return (sdkConnectionData?.connections || []).filter((connection) => {
-      return (
-        (!getConnectionSDKCapabilities(connection).includes(
-          "savedGroupReferences"
-        ) ||
-          !connection.savedGroupReferencesEnabled) &&
-        (connection.projects?.length === 0 ||
-          connection.projects?.some((project) =>
-            projectsReferencingSavedGroup.has(project)
-          ))
-      );
-    });
-  }, [sdkConnectionData, projectsReferencingSavedGroup]);
-
-  const convertingLegacyWithUnsupportedConnections =
-    !savedGroup?.passByReferenceOnly &&
-    passByReferenceOnly &&
-    referencingUnsupportedSdkConnections.length > 0;
 
   const getConfirmationContent = useMemo(() => {
     return getSavedGroupMessage(featuresReferencingSavedGroup);
   }, [featuresReferencingSavedGroup]);
 
-  const legacyLargeSavedGroup =
-    (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
-    !savedGroup?.passByReferenceOnly;
+  const attr = (attributeSchema || []).find(
+    (attr) => attr.property === savedGroup?.attributeKey
+  );
+  const dataType = attr?.datatype;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -173,6 +151,7 @@ export default function EditSavedGroupPage() {
       )}
       {addItems && (
         <Modal
+          trackingEventModalType="edit-saved-group-add-items"
           close={() => {
             setAddItems(false);
             setItemsToAdd([]);
@@ -181,11 +160,7 @@ export default function EditSavedGroupPage() {
           size="lg"
           header="Add Items to List"
           cta="Save"
-          ctaEnabled={
-            itemsToAdd.length > 0 &&
-            !disableSubmit &&
-            !convertingLegacyWithUnsupportedConnections
-          }
+          ctaEnabled={itemsToAdd.length > 0}
           submit={async () => {
             let newValues: Set<string>;
             if (importOperation === "append") {
@@ -193,7 +168,6 @@ export default function EditSavedGroupPage() {
                 method: "POST",
                 body: JSON.stringify({
                   items: itemsToAdd,
-                  passByReferenceOnly,
                 }),
               });
               newValues = new Set([...values, ...itemsToAdd]);
@@ -202,7 +176,6 @@ export default function EditSavedGroupPage() {
                 method: "PUT",
                 body: JSON.stringify({
                   values: itemsToAdd,
-                  passByReferenceOnly,
                 }),
               });
               newValues = new Set(itemsToAdd);
@@ -251,23 +224,7 @@ export default function EditSavedGroupPage() {
             </div>
             <IdListItemInput
               values={itemsToAdd}
-              passByReferenceOnly={savedGroup.passByReferenceOnly || false}
-              bypassSmallListSizeLimit={legacyLargeSavedGroup}
-              groupReferencedByUnsupportedSdks={
-                referencingUnsupportedSdkConnections.length > 0
-              }
               setValues={(newValues) => setItemsToAdd(newValues)}
-              setPassByReferenceOnly={setPassByReferenceOnly}
-              disableSubmit={
-                disableSubmit || convertingLegacyWithUnsupportedConnections
-              }
-              setDisableSubmit={setDisableSubmit}
-              limit={
-                SMALL_GROUP_SIZE_LIMIT -
-                (importOperation === "append"
-                  ? savedGroup.values?.length || 0
-                  : 0)
-              }
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </>
@@ -298,6 +255,7 @@ export default function EditSavedGroupPage() {
               text="Delete"
               title="Delete this Saved Group"
               getConfirmationContent={getConfirmationContent}
+              canDelete={(featuresReferencingSavedGroup?.size || 0) === 0}
               onClick={async () => {
                 await apiCall(`/saved-groups/${savedGroup.id}`, {
                   method: "DELETE",
@@ -317,186 +275,212 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div className="row m-0 mb-3 align-items-center justify-content-flex-start">
-          <div className="mr-4">Attribute Key: {savedGroup.attributeKey}</div>
-          <div className="mr-4">
-            Date Updated: {ago(savedGroup.dateUpdated)}
+          <div className="col-auto mr-4">
+            Attribute Key: <strong>{savedGroup.attributeKey}</strong>
           </div>
-          <div className="mr-4">
-            Owner: {savedGroup.owner ? savedGroup.owner : "None"}
+          {(projects.length > 0 || (savedGroup.projects?.length ?? 0) > 0) && (
+            <div className="col-auto d-flex mr-4">
+              <div className="mr-2">Projects:</div>
+
+              <div>
+                {(savedGroup.projects?.length || 0) > 0 ? (
+                  <div className={"d-flex align-items-center"}>
+                    <ProjectBadges
+                      projectIds={savedGroup.projects}
+                      resourceType="saved group"
+                    />
+                  </div>
+                ) : (
+                  <ProjectBadges
+                    resourceType="saved group"
+                    className="badge-ellipsis short align-middle"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          <div className="col-auto mr-4">
+            Date Updated: <strong>{ago(savedGroup.dateUpdated)}</strong>
+          </div>
+          <div className="col-auto mr-4">
+            Owner:{" "}
+            <strong>{savedGroup.owner ? savedGroup.owner : "None"}</strong>
           </div>
         </div>
         <div>{savedGroup.description}</div>
-        {legacyLargeSavedGroup && (
-          <div className="alert alert-info">
-            <PiInfoFill style={{ marginTop: "-2px" }} />
-            We&apos;ve added new restrictions on how large ID lists (over{" "}
-            {SMALL_GROUP_SIZE_LIMIT} items) can be used. This ID list has been
-            grandfathered in, and is not subject to these restrictions.{" "}
-            <DocLink docSection="savedGroups">Learn more</DocLink>
+        {!isIdListSupportedDatatype(dataType) && (
+          <div className="alert alert-danger">
+            <PiWarningFill style={{ marginTop: "-2px" }} />
+            The attribute for this saved group has an unsupported datatype. It
+            cannot be edited and it may produce unexpected behavior when used in
+            SDKs. Try using a{" "}
+            <Link href="/saved-groups#conditionGroups">
+              Condition Group
+            </Link>{" "}
+            instead
           </div>
         )}
         <hr />
-        <>
-          <div className="row m-0 mb-4 align-items-center justify-content-between">
-            <div className="">
-              <Field
-                placeholder="Search..."
-                type="search"
-                value={filter}
-                onChange={(e) => {
-                  setFilter(e.target.value);
-                }}
-              />
-            </div>
-            <div className="">
-              <button
-                className="btn btn-outline-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAddItems(true);
-                }}
-              >
-                <div className="row align-items-center m-0 p-1">
-                  <span className="mr-1 lh-full">
-                    <FaPlusCircle />
-                  </span>
-                  <span className="lh-full">Edit List Items</span>
-                </div>
-              </button>
-            </div>
-          </div>
-          <h4>ID List Items</h4>
-          <div className="row m-0 mb-3 align-items-center justify-content-between">
-            <div className="row m-0 align-items-center">
-              {selected.size > 0 && (
-                <>
-                  <DeleteButton
-                    text={`Delete Selected (${selected.size})`}
-                    title={`Delete selected item${
-                      selected.size > 1 ? "s" : ""
-                    }`}
-                    getConfirmationContent={async () => ""}
-                    onClick={async () => {
-                      await apiCall(
-                        `/saved-groups/${savedGroup.id}/remove-items`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({ items: [...selected] }),
-                        }
-                      );
-                      const newValues = values.filter(
-                        (value) => !selected.has(value)
-                      );
-                      mutateValues(newValues);
-                      setSelected(new Set());
-                    }}
-                    link={true}
-                    useIcon={true}
-                    displayName={`${selected.size} selected item${
-                      selected.size > 1 ? "s" : ""
-                    }`}
-                  />
-                </>
-              )}
-            </div>
-            <div className="d-flex align-items-center">
-              {values.length > 0 && (
-                <div className="mr-3">
-                  {(start + 1).toLocaleString()}-
-                  {(start + valuesPage.length).toLocaleString()} of{" "}
-                  {(values.length || 0).toLocaleString()}
-                </div>
-              )}
-              <div
-                className="cursor-pointer text-color-primary"
-                onClick={() => {
-                  setSortNewestFirst(!sortNewestFirst);
-                  setCurrentPage(1);
-                }}
-              >
-                <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                <span className="lh-full align-middle">
-                  {sortNewestFirst ? "Newest" : "Oldest"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <table className="table gbtable table-hover appbox">
-            <thead>
-              <tr>
-                <th style={{ width: "48px" }}>
-                  <input
-                    type="checkbox"
-                    checked={
-                      values.length > 0 && selected.size === values.length
-                    }
-                    readOnly={true}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelected(new Set(values));
-                      } else {
-                        setSelected(new Set());
-                      }
-                    }}
-                  />
-                </th>
-                <th>{savedGroup.attributeKey}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {valuesPage.map((value) => {
-                return (
-                  <tr
-                    key={value}
-                    onClick={() => {
-                      if (selected.has(value)) {
-                        const newSelected = new Set(selected);
-                        newSelected.delete(value);
-                        setSelected(newSelected);
-                      } else {
-                        setSelected(new Set(selected).add(value));
-                      }
-                    }}
-                  >
-                    <td>
-                      <input
-                        type="checkbox"
-                        readOnly={true}
-                        checked={selected.has(value)}
-                      />
-                    </td>
-                    <td>{value}</td>
-                  </tr>
-                );
-              })}
-              {!values.length && (
-                <tr>
-                  <td colSpan={2}>
-                    This group doesn&apos;t have any items yet
-                  </td>
-                </tr>
-              )}
-              {values.length && !filteredValues.length ? (
-                <tr>
-                  <td colSpan={2}>No matching items</td>
-                </tr>
-              ) : (
-                <></>
-              )}
-            </tbody>
-          </table>
-          {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
-            <Pagination
-              numItemsTotal={values.length}
-              currentPage={currentPage}
-              perPage={NUM_PER_PAGE}
-              onPageChange={(d) => {
-                setCurrentPage(d);
+        <LargeSavedGroupPerformanceWarning
+          style="banner"
+          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+          supportedConnections={supportedConnections}
+          unsupportedConnections={unsupportedConnections}
+          openUpgradeModal={() => setUpgradeModal(true)}
+        />
+        <div className="row m-0 mb-4 align-items-center justify-content-between">
+          <div className="">
+            <Field
+              placeholder="Search..."
+              type="search"
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value);
               }}
             />
-          )}
-        </>
+          </div>
+          <div className="">
+            <button
+              className="btn btn-outline-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setAddItems(true);
+              }}
+            >
+              <div className="row align-items-center m-0 p-1">
+                <span className="mr-1 lh-full">
+                  <FaPlusCircle />
+                </span>
+                <span className="lh-full">Edit List Items</span>
+              </div>
+            </button>
+          </div>
+        </div>
+        <h4>ID List Items</h4>
+        <div className="row m-0 mb-3 align-items-center justify-content-between">
+          <div className="row m-0 align-items-center">
+            {selected.size > 0 && (
+              <>
+                <DeleteButton
+                  text={`Delete Selected (${selected.size})`}
+                  title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
+                  getConfirmationContent={async () => ""}
+                  onClick={async () => {
+                    await apiCall(
+                      `/saved-groups/${savedGroup.id}/remove-items`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({ items: [...selected] }),
+                      }
+                    );
+                    const newValues = values.filter(
+                      (value) => !selected.has(value)
+                    );
+                    mutateValues(newValues);
+                    setSelected(new Set());
+                  }}
+                  link={true}
+                  useIcon={true}
+                  displayName={`${selected.size} selected item${
+                    selected.size > 1 ? "s" : ""
+                  }`}
+                />
+              </>
+            )}
+          </div>
+          <div className="d-flex align-items-center">
+            {values.length > 0 && (
+              <div className="mr-3">
+                {(start + 1).toLocaleString()}-
+                {(start + valuesPage.length).toLocaleString()} of{" "}
+                {(values.length || 0).toLocaleString()}
+              </div>
+            )}
+            <div
+              className="cursor-pointer text-color-primary"
+              onClick={() => {
+                setSortNewestFirst(!sortNewestFirst);
+                setCurrentPage(1);
+              }}
+            >
+              <PiArrowsDownUp className="mr-1 lh-full align-middle" />
+              <span className="lh-full align-middle">
+                {sortNewestFirst ? "Newest" : "Oldest"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <table className="table gbtable table-hover appbox">
+          <thead>
+            <tr>
+              <th style={{ width: "48px" }}>
+                <input
+                  type="checkbox"
+                  checked={values.length > 0 && selected.size === values.length}
+                  readOnly={true}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelected(new Set(values));
+                    } else {
+                      setSelected(new Set());
+                    }
+                  }}
+                />
+              </th>
+              <th>{savedGroup.attributeKey}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {valuesPage.map((value) => {
+              return (
+                <tr
+                  key={value}
+                  onClick={() => {
+                    if (selected.has(value)) {
+                      const newSelected = new Set(selected);
+                      newSelected.delete(value);
+                      setSelected(newSelected);
+                    } else {
+                      setSelected(new Set(selected).add(value));
+                    }
+                  }}
+                >
+                  <td>
+                    <input
+                      type="checkbox"
+                      readOnly={true}
+                      checked={selected.has(value)}
+                    />
+                  </td>
+                  <td>{value}</td>
+                </tr>
+              );
+            })}
+            {!values.length && (
+              <tr>
+                <td colSpan={2}>This group doesn&apos;t have any items yet</td>
+              </tr>
+            )}
+            {values.length && !filteredValues.length ? (
+              <tr>
+                <td colSpan={2}>No matching items</td>
+              </tr>
+            ) : (
+              <></>
+            )}
+          </tbody>
+        </table>
+        {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
+          <Pagination
+            numItemsTotal={values.length}
+            currentPage={currentPage}
+            perPage={NUM_PER_PAGE}
+            onPageChange={(d) => {
+              setCurrentPage(d);
+            }}
+          />
+        )}
       </div>
     </>
   );

@@ -3,37 +3,38 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import {
   Changeset,
   ExperimentInterface,
+  ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "../../types/experiment";
-import { ReqContext } from "../../types/organization";
-import { VisualChange } from "../../types/visual-changeset";
+} from "back-end/types/experiment";
+import { ReqContext } from "back-end/types/organization";
+import { VisualChange } from "back-end/types/visual-changeset";
 import {
   determineNextDate,
-  generateTrackingKey,
   toExperimentApiInterface,
-} from "../services/experiments";
-import { logger } from "../util/logger";
-import { upgradeExperimentDoc } from "../util/migrations";
+} from "back-end/src/services/experiments";
+import { logger } from "back-end/src/util/logger";
+import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
   refreshSDKPayloadCache,
   URLRedirectExperiment,
   VisualExperiment,
-} from "../services/features";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { FeatureInterface } from "../../types/feature";
-import { getAffectedSDKPayloadKeys } from "../util/features";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/src/services/features";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { FeatureInterface } from "back-end/types/feature";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getCollection,
   removeMongooseFields,
   ToInterface,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -54,6 +55,28 @@ type FilterKeys = ExperimentInterface & { _id: string };
 
 type SortFilter = {
   [key in keyof Partial<FilterKeys>]: 1 | -1;
+};
+
+const banditResultObject = {
+  _id: false,
+  singleVariationResults: [
+    {
+      _id: false,
+      users: Number,
+      cr: Number,
+      ci: [Number],
+    },
+  ],
+  currentWeights: [Number],
+  updatedWeights: [Number],
+  srm: Number,
+  bestArmProbabilities: [Number],
+  additionalReward: Number,
+  seed: Number,
+  updateMessage: String,
+  error: String,
+  reweight: Boolean,
+  weightsWereUpdated: Boolean,
 };
 
 const experimentSchema = new mongoose.Schema({
@@ -186,6 +209,14 @@ const experimentSchema = new mongoose.Schema({
       seed: String,
       variationWeights: [Number],
       groups: [String],
+      banditEvents: [
+        {
+          _id: false,
+          date: Date,
+          banditResult: banditResultObject,
+          snapshotId: String,
+        },
+      ],
     },
   ],
   data: String,
@@ -209,6 +240,13 @@ const experimentSchema = new mongoose.Schema({
       },
     },
   ],
+  type: String,
+  banditStage: String,
+  banditStageDateStarted: Date,
+  banditScheduleValue: Number,
+  banditScheduleUnit: String,
+  banditBurnInValue: Number,
+  banditBurnInUnit: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -273,7 +311,12 @@ export async function getAllExperiments(
   {
     project,
     includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {}
+    type,
+  }: {
+    project?: string;
+    includeArchived?: boolean;
+    type?: ExperimentType;
+  } = {}
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -285,6 +328,12 @@ export async function getAllExperiments(
 
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (type === "multi-armed-bandit") {
+    query.type = "multi-armed-bandit";
+  } else if (type === "standard") {
+    query.type = { $in: ["standard", null] };
   }
 
   return await findExperiments(context, query);
@@ -366,20 +415,13 @@ export async function createExperiment({
 }): Promise<ExperimentInterface> {
   data.organization = context.org.id;
 
-  if (!data.trackingKey) {
-    // Try to generate a unique tracking key based on the experiment name
-    let n = 1;
-    let found: null | string = null;
-    while (n < 10 && !found) {
-      const key = generateTrackingKey(data.name || data.id || "", n);
-      if (!(await getExperimentByTrackingKey(context, key))) {
-        found = key;
-      }
-      n++;
-    }
+  if (!data.name) throw new Error("Cannot create experiment with empty name!");
 
-    // Fall back to uniqid if couldn't generate
-    data.trackingKey = found || uniqid();
+  if (!data.trackingKey) {
+    data.trackingKey = await generateTrackingKey(
+      data,
+      async (key: string) => await getExperimentByTrackingKey(context, key)
+    );
   }
 
   const nextUpdate = determineNextDate(
@@ -430,8 +472,13 @@ export async function updateExperiment({
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   // TODO: are there some changes where we don't want to update the dateUpdated?
-  const allChanges = { ...changes };
+  const allChanges = {
+    ...changes,
+  };
   allChanges.dateUpdated = new Date();
+
+  if (allChanges.name === "")
+    throw new Error("Cannot set empty name for experiment!");
 
   await ExperimentModel.updateOne(
     {
@@ -590,6 +637,35 @@ export async function getPastExperimentsByDatasource(
     trackingKey: exp.trackingKey,
     exposureQueryId: exp.exposureQueryId,
   }));
+}
+
+export async function getExperimentsUsingMetric(
+  context: ReqContext | ApiReqContext,
+  metricId: string,
+  limit?: number
+): Promise<ExperimentInterface[]> {
+  const experiments = await findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      $or: [
+        { metrics: metricId },
+        { goalMetrics: metricId },
+        { guardrails: metricId },
+        { guardrailMetrics: metricId },
+        { secondaryMetrics: metricId },
+        { activationMetric: metricId },
+      ],
+      archived: {
+        $ne: true,
+      },
+    },
+    // hard cap at 1000 to prevent too many results
+    limit !== undefined ? limit : 1000,
+    { _id: -1 }
+  );
+
+  return experiments;
 }
 
 export async function getRecentExperimentsUsingMetric(

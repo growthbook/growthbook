@@ -1,13 +1,13 @@
 import { Stripe } from "stripe";
 import { isActiveSubscriptionStatus } from "enterprise";
-import { STRIPE_SECRET } from "../util/secrets";
+import { STRIPE_SECRET } from "back-end/src/util/secrets";
 import {
   findOrganizationByStripeCustomerId,
   updateOrganization,
   updateOrganizationByStripeId,
-} from "../models/OrganizationModel";
-import { OrganizationInterface } from "../../types/organization";
-import { logger } from "../util/logger";
+} from "back-end/src/models/OrganizationModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { logger } from "back-end/src/util/logger";
 
 // TODO: Get rid of this file once all license data has moved off all organizations
 export const stripe = new Stripe(STRIPE_SECRET || "", {

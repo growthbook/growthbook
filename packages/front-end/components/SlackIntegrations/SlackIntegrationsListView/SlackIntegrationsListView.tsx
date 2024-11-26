@@ -5,7 +5,6 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { FaPlug } from "react-icons/fa";
 import pick from "lodash/pick";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import { TagInterface } from "back-end/types/tag";
@@ -19,6 +18,7 @@ import useApi from "@/hooks/useApi";
 import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Radix/Button";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
@@ -102,10 +102,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
       {/* Empty state */}
       {slackIntegrations.length === 0 ? (
         <SlackIntegrationsEmptyState>
-          <button className="btn btn-primary" onClick={onCreateModalOpen}>
-            <FaPlug className="mr-2" />
-            Create a Slack integration
-          </button>
+          <Button onClick={onCreateModalOpen}>New Slack integration</Button>
         </SlackIntegrationsEmptyState>
       ) : (
         <div>
@@ -123,14 +120,8 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
             </div>
           ))}
 
-          <div className="mt-4">
-            <button
-              className="btn btn-primary mb-5"
-              onClick={onCreateModalOpen}
-            >
-              <FaPlug className="mr-2" />
-              Create a Slack integration
-            </button>
+          <div className="mt-4 mb-5">
+            <Button onClick={onCreateModalOpen}>New Slack integration</Button>
           </div>
         </div>
       )}

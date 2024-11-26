@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { windowTypeValidator } from "../routers/fact-table/fact-table.validators";
-import { statsEngines } from "../util/constants";
+import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
+import { statsEngines } from "back-end/src/util/constants";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -13,14 +13,43 @@ export const experimentResultsType = [
   "lost",
   "inconclusive",
 ] as const;
-
 export type ExperimentResultsType = typeof experimentResultsType[number];
+
+export const singleVariationResult = z.object({
+  users: z.number().optional(),
+  cr: z.number().optional(),
+  ci: z.tuple([z.number(), z.number()]).optional(),
+});
+
+export const banditResult = z.object({
+  singleVariationResults: z.array(singleVariationResult).optional(),
+  currentWeights: z.array(z.number()),
+  updatedWeights: z.array(z.number()),
+  srm: z.number().optional(),
+  bestArmProbabilities: z.array(z.number()).optional(),
+  seed: z.number().optional(),
+  updateMessage: z.string().optional(),
+  error: z.string().optional(),
+  reweight: z.boolean().optional(),
+  weightsWereUpdated: z.boolean().optional(),
+});
+
+export const banditEvent = z
+  .object({
+    date: z.date(),
+    banditResult: banditResult,
+    snapshotId: z.string().optional(), // 0th may not have snapshot
+  })
+  .strict();
+
+export type BanditResult = z.infer<typeof banditResult>;
+export type BanditEvent = z.infer<typeof banditEvent>;
 
 export const experimentPhase = z
   .object({
     dateStarted: z.date(),
     dateEnded: z.date().optional(),
-    name: z.string(),
+    name: z.string().min(1),
     reason: z.string(),
     coverage: z.number(),
     condition: z.string(),
@@ -29,13 +58,12 @@ export const experimentPhase = z
     namespace: namespaceValue,
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
+    banditEvents: z.array(banditEvent).optional(),
   })
   .strict();
-
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
 
 export const experimentStatus = ["draft", "running", "stopped"] as const;
-
 export type ExperimentStatus = typeof experimentStatus[number];
 
 export const screenshot = z
@@ -46,7 +74,6 @@ export const screenshot = z
     description: z.string().optional(),
   })
   .strict();
-
 export type Screenshot = z.infer<typeof screenshot>;
 
 export const variation = z
@@ -58,14 +85,12 @@ export const variation = z
     screenshots: z.array(screenshot),
   })
   .strict();
-
 export type Variation = z.infer<typeof variation>;
 
 export const attributionModel = [
   "firstExposure",
   "experimentDuration",
 ] as const;
-
 export type AttributionModel = typeof attributionModel[number];
 
 export const implementationType = [
@@ -74,15 +99,14 @@ export const implementationType = [
   "configuration",
   "custom",
 ] as const;
-
 export type ImplementationType = typeof implementationType[number];
 
 export const experimentNotification = [
   "auto-update",
   "multiple-exposures",
   "srm",
+  "significance",
 ] as const;
-
 export type ExperimentNotification = typeof experimentNotification[number];
 
 export const metricOverride = z
@@ -102,8 +126,13 @@ export const metricOverride = z
     regressionAdjustmentDays: z.number().optional(),
   })
   .strict();
-
 export type MetricOverride = z.infer<typeof metricOverride>;
+
+export const experimentType = ["standard", "multi-armed-bandit"] as const;
+export type ExperimentType = typeof experimentType[number];
+
+export const banditStageType = ["explore", "exploit", "paused"] as const;
+export type banditStageType = typeof banditStageType[number];
 
 export const experimentInterface = z
   .object({
@@ -160,10 +189,10 @@ export const experimentInterface = z
     nextSnapshotAttempt: z.date().optional(),
     autoSnapshots: z.boolean(),
     ideaSource: z.string().optional(),
-    regressionAdjustmentEnabled: z.boolean().optional(),
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    regressionAdjustmentEnabled: z.boolean().optional(),
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
@@ -177,7 +206,13 @@ export const experimentInterface = z
           .strict()
       )
       .optional(),
+    type: z.enum(experimentType).optional(),
+    banditStage: z.enum(banditStageType).optional(),
+    banditStageDateStarted: z.date().optional(),
+    banditScheduleValue: z.number().optional(),
+    banditScheduleUnit: z.enum(["hours", "days"]).optional(),
+    banditBurnInValue: z.number().optional(),
+    banditBurnInUnit: z.enum(["hours", "days"]).optional(),
   })
   .strict();
-
 export type ExperimentInterface = z.infer<typeof experimentInterface>;

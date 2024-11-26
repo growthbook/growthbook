@@ -10,11 +10,11 @@ import {
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
-} from "../../types/feature";
-import { FeatureDefinitionWithProject } from "../../types/api";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ExperimentInterface } from "../../types/experiment";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+} from "back-end/types/feature";
+import { FeatureDefinitionWithProject } from "back-end/types/api";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -133,12 +133,17 @@ export function replaceSavedGroupsInCondition(
   return newString;
 }
 
-export function isRuleEnabled(rule: FeatureRule): boolean {
+export function isRuleEnabled(
+  rule: FeatureRule,
+  date?: Date | number
+): boolean {
   // Manually disabled
   if (!rule.enabled) return false;
 
   // Disabled because of an automatic schedule
-  if (!getCurrentEnabledState(rule.scheduleRules || [], new Date())) {
+  // when used in filter/some array loops, the second parameter will be the index, which is not a date.
+  const enabledDate = date instanceof Date ? date : new Date();
+  if (!getCurrentEnabledState(rule.scheduleRules || [], enabledDate)) {
     return false;
   }
 
@@ -170,7 +175,7 @@ export function getEnabledEnvironments(
         if (!ruleFilter) return true;
         const env = settings[e];
         if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some(isRuleEnabled);
+        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -309,6 +314,7 @@ export function getFeatureDefinition({
   experimentMap,
   revision,
   returnRuleId = false,
+  date,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -316,6 +322,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
+  date?: Date;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -356,7 +363,9 @@ export function getFeatureDefinition({
   const defRules = [
     ...prerequisiteRules,
     ...(rules
-      ?.filter(isRuleEnabled)
+      ?.filter((r) => {
+        return isRuleEnabled(r, date);
+      })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {};
 

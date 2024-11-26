@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "@back-end/types/organization";
+import { GlobalPermission } from "back-end/types/organization";
 import { Permissions } from "shared/permissions";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
@@ -122,7 +122,14 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
             </span>
           )}
           {props.name}
-          {props.beta && <div className="badge badge-warning ml-2">beta</div>}
+          {props.beta && (
+            <div
+              className="badge border text-uppercase ml-2"
+              style={{ opacity: 0.65 }}
+            >
+              beta
+            </div>
+          )}
           {props.subLinks && (
             <div className={clsx("float-right", styles.chevron)}>
               <FiChevronRight />

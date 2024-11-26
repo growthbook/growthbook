@@ -1,16 +1,16 @@
-import { UpdateExperimentResponse } from "../../../types/openapi";
-import { getDataSourceById } from "../../models/DataSourceModel";
+import { UpdateExperimentResponse } from "back-end/types/openapi";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateExperiment as updateExperimentToDb,
   getExperimentById,
   getExperimentByTrackingKey,
-} from "../../models/ExperimentModel";
+} from "back-end/src/models/ExperimentModel";
 import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
-} from "../../services/experiments";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateExperimentValidator } from "../../validators/openapi";
+} from "back-end/src/services/experiments";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { updateExperimentValidator } from "back-end/src/validators/openapi";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator

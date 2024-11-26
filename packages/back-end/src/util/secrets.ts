@@ -198,11 +198,20 @@ const webhooksValidator = z.array(
       url: z.string(),
       headers: z.unknown().optional(),
       signingKey: z.string().optional(),
-      method: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+      method: z
+        .enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"])
+        .optional(),
       sendPayload: z.boolean().optional(),
       payloadFormat: z
-        .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+        .enum([
+          "standard",
+          "standard-no-payload",
+          "sdkPayload",
+          "edgeConfig",
+          "none",
+        ])
         .optional(),
+      payloadKey: z.string().optional(),
     })
     .strict()
 );
@@ -258,3 +267,10 @@ export const USE_PROXY =
 
 export const SUPERADMIN_DEFAULT_ROLE =
   process.env.SUPERADMIN_DEFAULT_ROLE ?? "readonly";
+
+export const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST || "";
+export const CLICKHOUSE_ADMIN_USER = process.env.CLICKHOUSE_ADMIN_USER || "";
+export const CLICKHOUSE_ADMIN_PASSWORD =
+  process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
+export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
+export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";

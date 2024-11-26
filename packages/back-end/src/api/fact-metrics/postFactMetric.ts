@@ -11,12 +11,12 @@ import {
 import {
   CreateFactMetricProps,
   FactTableInterface,
-} from "../../../types/fact-table";
-import { PostFactMetricResponse } from "../../../types/openapi";
-import { getFactTable } from "../../models/FactTableModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postFactMetricValidator } from "../../validators/openapi";
-import { OrganizationInterface } from "../../../types/organization";
+} from "back-end/types/fact-table";
+import { PostFactMetricResponse } from "back-end/types/openapi";
+import { getFactTable } from "back-end/src/models/FactTableModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postFactMetricValidator } from "back-end/src/validators/openapi";
+import { OrganizationInterface } from "back-end/types/organization";
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,

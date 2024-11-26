@@ -13,13 +13,13 @@ import {
   NotificationEventPayloadDataType,
   NotificationEventPayloadExtraAttributes,
   NotificationEventPayload,
-} from "../events/base-types";
-import { EventInterface, BaseEventInterface } from "../../types/event";
-import { eventData } from "../validators/events";
-import { errorStringFromZodResult } from "../util/validation";
-import { logger } from "../util/logger";
-import { ReqContext } from "../../types/organization";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
+} from "back-end/src/events/base-types";
+import { EventInterface, BaseEventInterface } from "back-end/types/event";
+import { eventData } from "back-end/src/validators/events";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { logger } from "back-end/src/util/logger";
+import { ReqContext } from "back-end/types/organization";
+import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;

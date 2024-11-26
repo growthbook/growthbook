@@ -41,9 +41,10 @@ import {
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
-} from "../../types/api";
+} from "back-end/types/api";
 import {
   ExperimentRefRule,
+  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -52,40 +53,49 @@ import {
   FeatureTestResult,
   ForceRule,
   RolloutRule,
-} from "../../types/feature";
-import { getAllFeatures } from "../models/FeatureModel";
+} from "back-end/types/feature";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
   getAllVisualExperiments,
-} from "../models/ExperimentModel";
-import { getFeatureDefinition, getParsedCondition } from "../util/features";
+} from "back-end/src/models/ExperimentModel";
+import {
+  getFeatureDefinition,
+  getParsedCondition,
+} from "back-end/src/util/features";
 import {
   getAllSavedGroups,
   getSavedGroupsById,
-} from "../models/SavedGroupModel";
+} from "back-end/src/models/SavedGroupModel";
 import {
   Environment,
   OrganizationInterface,
   ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
-} from "../../types/organization";
-import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+} from "back-end/types/organization";
+import {
+  getSDKPayload,
+  updateSDKPayload,
+} from "back-end/src/models/SdkPayloadModel";
+import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { ApiFeature, ApiFeatureEnvironment } from "back-end/types/openapi";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
-} from "../api/features/postFeature";
-import { ArchetypeAttributeValues } from "../../types/archetype";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { triggerWebhookJobs } from "../jobs/updateAllJobs";
-import { URLRedirectInterface } from "../../types/url-redirect";
+} from "back-end/src/api/features/postFeature";
+import { ArchetypeAttributeValues } from "back-end/types/archetype";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -311,9 +321,7 @@ export async function getSavedGroupMap(
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups =
     typeof savedGroups === "undefined"
-      ? await getAllSavedGroups(organization.id, {
-          includeLargeSavedGroupValues: true,
-        })
+      ? await getAllSavedGroups(organization.id)
       : savedGroups;
 
   function getGroupValues(
@@ -648,10 +656,9 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
-  const encryptedSavedGroups = await encrypt(
-    JSON.stringify(scrubbedSavedGroups),
-    encryptionKey
-  );
+  const encryptedSavedGroups = scrubbedSavedGroups
+    ? await encrypt(JSON.stringify(scrubbedSavedGroups), encryptionKey)
+    : undefined;
 
   return {
     features: {},
@@ -659,7 +666,6 @@ export async function getFeatureDefinitionsResponse({
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
-    savedGroups: {},
     encryptedSavedGroups: encryptedSavedGroups,
   };
 }
@@ -761,9 +767,7 @@ export async function getFeatureDefinitions({
       attributes = context.org.settings?.attributeSchema;
     }
   }
-  const savedGroups = await getAllSavedGroups(context.org.id, {
-    includeLargeSavedGroupValues: true,
-  });
+  const savedGroups = await getAllSavedGroups(context.org.id);
 
   if (
     hashSecureAttributes &&
@@ -863,6 +867,7 @@ export function evaluateFeature({
   revision,
   scrubPrerequisites = true,
   skipRulesWithPrerequisites = true,
+  date = new Date(),
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -872,6 +877,7 @@ export function evaluateFeature({
   revision: FeatureRevisionInterface;
   scrubPrerequisites?: boolean;
   skipRulesWithPrerequisites?: boolean;
+  date?: Date;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -904,7 +910,9 @@ export function evaluateFeature({
         environment: env.id,
         revision,
         returnRuleId: true,
+        date,
       });
+
       if (definition) {
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
@@ -939,7 +947,7 @@ export function evaluateFeature({
             [feature.id]: definition,
           },
           savedGroups: savedGroups,
-          attributes: attributes,
+          attributes: attributes ? attributes : {},
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           log: (msg: string, ctx: any) => {
             const ruleId = ctx?.rule?.id ?? null;
@@ -1234,7 +1242,7 @@ export function applySavedGroupHashing(
         salt,
         attributes,
         attribute,
-        doHash: attribute.hashAttribute,
+        doHash: shouldHash(attribute),
       });
     }
   });
@@ -1283,15 +1291,7 @@ any {
       // check if a new attribute is referenced, and whether we need to hash it
       // otherwise, inherit the previous attribute and hashing status
       attribute = attributes.find((a) => a.property === key) ?? attribute;
-      doHash = attribute
-        ? !!(
-            attribute?.datatype &&
-            ["secureString", "secureString[]"].includes(
-              attribute?.datatype ?? ""
-            ) &&
-            !["$inGroup", "$notInGroup"].includes(key)
-          )
-        : doHash;
+      doHash = attribute ? shouldHash(attribute, key) : doHash;
 
       newObj[key] = processVal({
         obj: obj[key],
@@ -1331,6 +1331,14 @@ any {
   }
 }
 
+function shouldHash(attribute: SDKAttribute, operator?: string) {
+  return !!(
+    attribute?.datatype &&
+    ["secureString", "secureString[]"].includes(attribute?.datatype ?? "") &&
+    (!operator || !["$inGroup", "$notInGroup"].includes(operator))
+  );
+}
+
 export function sha256(str: string, salt: string): string {
   return createHash("sha256")
     .update(salt + str)
@@ -1350,7 +1358,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     }
 
     if (r.type === "experiment-ref") {
-      const experimentRule: ExperimentRefRule = {
+      const experimentRefRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
@@ -1361,6 +1369,24 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+      };
+      return experimentRefRule;
+    } else if (r.type === "experiment") {
+      const values = r.values || r.value;
+      if (!values) {
+        throw new Error("Missing values");
+      }
+      const experimentRule: ExperimentRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        hashAttribute: r.hashAttribute ?? "",
+        coverage: r.coverage,
+        // missing tracking key will be filled in by addIdsToRules
+        trackingKey: r.trackingKey ?? "",
+        enabled: r.enabled != null ? r.enabled : true,
+        description: r.description ?? "",
+        values: values,
       };
       return experimentRule;
     } else if (r.type === "force") {

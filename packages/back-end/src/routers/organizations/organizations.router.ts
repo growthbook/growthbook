@@ -1,6 +1,6 @@
 import express from "express";
-import { wrapController } from "../wrapController";
-import { IS_CLOUD } from "../../util/secrets";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();
@@ -58,6 +58,10 @@ router.put(
 router.put(
   "/organization/get-started-checklist",
   organizationsController.putGetStartedChecklistItem
+);
+router.put(
+  "/organization/setup-event-tracker",
+  organizationsController.putSetupEventTracker
 );
 
 // API keys

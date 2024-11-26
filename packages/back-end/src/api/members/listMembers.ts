@@ -1,11 +1,11 @@
-import { ListMembersResponse } from "../../../types/openapi";
-import { expandOrgMembers } from "../../services/organizations";
+import { ListMembersResponse } from "back-end/types/openapi";
+import { expandOrgMembers } from "back-end/src/services/organizations";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listMembersValidator } from "../../validators/openapi";
+} from "back-end/src/util/handler";
+import { listMembersValidator } from "back-end/src/validators/openapi";
 
 export const listMembers = createApiRequestHandler(listMembersValidator)(
   async (req): Promise<ListMembersResponse> => {

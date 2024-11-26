@@ -2,17 +2,17 @@ import crypto from "crypto";
 import { promisify } from "util";
 import { Request } from "express";
 import md5 from "md5";
-import { UserInterface } from "../../types/user";
+import { UserInterface } from "back-end/types/user";
 import {
   getAllUserEmailsAcrossAllOrgs,
   getUserByEmail,
   updateUser,
-} from "../models/UserModel";
-import { findOrganizationsByMemberId } from "../models/OrganizationModel";
-import { createEventWithPayload } from "../models/EventModel";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
-import { UserLoginInterface } from "../validators/users";
+} from "back-end/src/models/UserModel";
+import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
+import { createEventWithPayload } from "back-end/src/models/EventModel";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { UserLoginInterface } from "back-end/src/validators/users";
 import { validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;

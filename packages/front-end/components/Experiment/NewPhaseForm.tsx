@@ -1,13 +1,14 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
+import { getEqualWeights } from "shared/experiments";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
-import { getEqualWeights } from "@/services/utils";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -17,12 +18,14 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
+import DatePicker from "@/components/DatePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-}> = ({ experiment, close, mutate }) => {
+  source?: string;
+}> = ({ experiment, close, mutate, source }) => {
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -87,25 +90,15 @@ const NewPhaseForm: FC<{
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
-  const [
-    savedGroupTargetingSdkIssues,
-    setSavedGroupTargetingSdkIssues,
-  ] = useState(false);
-  const [
-    attributeTargetingSdkIssues,
-    setAttributeTargetingSdkIssues,
-  ] = useState(false);
-  const canSubmit =
-    !attributeTargetingSdkIssues && !savedGroupTargetingSdkIssues;
-
   return (
     <Modal
+      trackingEventModalType="new-phase-form"
+      trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
       close={close}
       open={true}
       submit={submit}
       cta={"Start"}
-      ctaEnabled={canSubmit}
       closeCta="Cancel"
       size="lg"
     >
@@ -132,10 +125,12 @@ const NewPhaseForm: FC<{
         />
       )}
       {!hasLinkedChanges && (
-        <Field
+        <DatePicker
           label="Start Time (UTC)"
-          type="datetime-local"
-          {...form.register("dateStarted")}
+          date={form.watch("dateStarted")}
+          setDate={(v) => {
+            form.setValue("dateStarted", v ? datetime(v) : "");
+          }}
         />
       )}
 
@@ -144,7 +139,6 @@ const NewPhaseForm: FC<{
           value={form.watch("savedGroups") || []}
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
           project={experiment.project || ""}
-          setSavedGroupTargetingSdkIssues={setSavedGroupTargetingSdkIssues}
         />
       )}
 
@@ -154,7 +148,6 @@ const NewPhaseForm: FC<{
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
-          setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
         />
       )}
 

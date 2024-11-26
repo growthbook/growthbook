@@ -1,6 +1,36 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React, { ReactNode } from "react";
 import qs from "query-string";
+import { getEqualWeights } from "shared/experiments";
+import {
+  BrowserCookieStickyBucketService,
+  Context,
+  GrowthBook,
+} from "@growthbook/growthbook-react";
+import Cookies from "js-cookie";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
+
+export const GB_SDK_ID =
+  process.env.NODE_ENV === "production"
+    ? "sdk-ueFMOgZ2daLa0M"
+    : "sdk-UmQ03OkUDAu7Aox";
+
+export const gbContext: Context = {
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: GB_SDK_ID,
+  enableDevMode: true,
+  trackingCallback: (experiment, result) => {
+    track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+  stickyBucketService: new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  }),
+};
+export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
 export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);
@@ -27,7 +57,10 @@ export function getSRMNeededPrecisionP1(
   return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
 
-export function phaseSummary(phase: ExperimentPhaseStringDates): ReactNode {
+export function phaseSummary(
+  phase: ExperimentPhaseStringDates,
+  skipWeights: boolean = false
+): ReactNode {
   if (!phase) {
     return null;
   }
@@ -36,41 +69,17 @@ export function phaseSummary(phase: ExperimentPhaseStringDates): ReactNode {
       <span className="percent-traffic">
         {Math.floor(phase.coverage * 100)}%
       </span>{" "}
-      traffic,{" "}
-      <span className="split">
-        {formatTrafficSplit(phase.variationWeights || [])}
-      </span>{" "}
-      split
+      traffic
+      {!skipWeights && (
+        <>
+          ,{" "}
+          <span className="split">
+            {formatTrafficSplit(phase.variationWeights || [])}
+          </span>{" "}
+          split
+        </>
+      )}
     </>
-  );
-}
-
-// Returns n "equal" decimals rounded to 3 places that add up to 1
-// The sum always adds to 1. In some cases the values are not equal.
-// For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
-export function getEqualWeights(n: number, precision: number = 4): number[] {
-  // The power of 10 we need to manipulate weights to the correct precision
-  const multiplier = Math.pow(10, precision);
-
-  // Naive even weighting with rounding
-  // For n=3, this will result in `0.3333`
-  const w = Math.round(multiplier / n) / multiplier;
-
-  // Determine how far off we are from a sum of 1
-  // For n=3, this will be 0.9999-1 = -0.0001
-  const diff = w * n - 1;
-
-  // How many of the weights do we need to add a correction to?
-  // For n=3, we only have to adjust 1 of the weights to make it sum to 1
-  const numCorrections = Math.round(Math.abs(diff) * multiplier);
-  const delta = (diff < 0 ? 1 : -1) / multiplier;
-
-  return (
-    Array(n)
-      .fill(0)
-      .map((v, i) => +(w + (i < numCorrections ? delta : 0)).toFixed(precision))
-      // Put the larger weights first
-      .sort((a, b) => b - a)
   );
 }
 
@@ -96,6 +105,13 @@ export function distributeWeights(
   }
 
   return newWeights;
+}
+
+export function percentToDecimalForNumber(
+  val: number,
+  precision: number = 4
+): number {
+  return parseFloat((val / 100).toFixed(precision));
 }
 
 export function percentToDecimal(val: string, precision: number = 4): number {
@@ -188,18 +204,4 @@ export function capitalizeWords(string): string {
     .split(" ")
     .map((word) => capitalizeFirstLetter(word))
     .join(" ");
-}
-
-export async function sha256(str): Promise<string> {
-  try {
-    const buffer = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(str)
-    );
-    const hashArray = Array.from(new Uint8Array(buffer));
-    return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  } catch (e) {
-    console.error(e);
-  }
-  return "";
 }

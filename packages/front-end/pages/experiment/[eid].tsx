@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
@@ -59,6 +59,12 @@ const ExperimentPage = (): ReactElement => {
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (data?.experiment?.type === "multi-armed-bandit") {
+      router.replace(window.location.href.replace("experiment/", "bandit/"));
+    }
+  }, [data, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -121,6 +127,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {stopModalOpen && (
@@ -128,6 +135,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="eid"
         />
       )}
       {variationsModalOpen && (
@@ -135,6 +143,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {duplicateModalOpen && (
@@ -145,7 +154,8 @@ const ExperimentPage = (): ReactElement => {
             name: experiment.name + " (Copy)",
             trackingKey: "",
           }}
-          source="duplicate"
+          source="duplicate-eid"
+          duplicate={true}
         />
       )}
       {tagsModalOpen && (
@@ -159,6 +169,7 @@ const ExperimentPage = (): ReactElement => {
           }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {projectModalOpen && (
@@ -191,6 +202,7 @@ const ExperimentPage = (): ReactElement => {
               </div>
             ) : null
           }
+          source="eid"
         />
       )}
       {phaseModalOpen && (
@@ -198,6 +210,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="eid"
         />
       )}
       {editPhaseId !== null && (
@@ -207,6 +220,7 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           i={editPhaseId}
           editTargeting={editTargeting}
+          source="eid"
         />
       )}
       {editPhasesOpen && (
@@ -215,6 +229,7 @@ const ExperimentPage = (): ReactElement => {
           mutateExperiment={mutate}
           experiment={experiment}
           editTargeting={editTargeting}
+          source="eid"
         />
       )}
       {targetingModalOpen && (
@@ -223,6 +238,7 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          // source="eid"
         />
       )}
 

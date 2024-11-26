@@ -119,11 +119,35 @@ export interface paths {
     /** Update a single experiment */
     post: operations["updateExperiment"];
   };
+  "/experiments/{id}/snapshot": {
+    /** Create Experiment Snapshot */
+    post: operations["postExperimentSnapshot"];
+    parameters: {
+        /** @description The experiment id of the experiment to update */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
     get: operations["getExperimentResults"];
     parameters: {
         /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/experiments/{id}/visual-changesets": {
+    /** Get all visual changesets */
+    get: operations["listVisualChangesets"];
+  };
+  "/snapshots/{id}": {
+    /** Get an experiment snapshot status */
+    get: operations["getExperimentSnapshot"];
+    parameters: {
+        /** @description The id of the requested resource (a snapshot ID, not experiment ID) */
       path: {
         id: string;
       };
@@ -142,10 +166,6 @@ export interface paths {
     put: operations["putMetric"];
     /** Deletes a metric */
     delete: operations["deleteMetric"];
-  };
-  "/experiments/{id}/visual-changesets": {
-    /** Get all visual changesets */
-    get: operations["listVisualChangesets"];
   };
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
@@ -198,6 +218,18 @@ export interface paths {
   "/organizations/{id}": {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
+  };
+  "/attributes": {
+    /** Get the organization's attributes */
+    get: operations["listAttributes"];
+    /** Create a new attribute */
+    post: operations["postAttribute"];
+  };
+  "/attributes/${property}": {
+    /** Update an attribute */
+    put: operations["putAttribute"];
+    /** Deletes a single attribute */
+    delete: operations["deleteAttribute"];
   };
   "/members": {
     /** Get all organization members */
@@ -417,6 +449,18 @@ export interface components {
       defaultState: boolean;
       projects: (string)[];
     };
+    Attribute: {
+      property: string;
+      /** @enum {string} */
+      datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+      description?: string;
+      hashAttribute?: boolean;
+      archived?: boolean;
+      enum?: string;
+      /** @enum {string} */
+      format?: "" | "version" | "date" | "isoCountryCode";
+      projects?: (string)[];
+    };
     Segment: {
       id: string;
       owner: string;
@@ -487,7 +531,7 @@ export interface components {
               trackingKey?: string;
               hashAttribute?: string;
               fallbackAttribute?: string;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               namespace?: {
@@ -557,7 +601,7 @@ export interface components {
                 trackingKey?: string;
                 hashAttribute?: string;
                 fallbackAttribute?: string;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 namespace?: {
@@ -642,7 +686,7 @@ export interface components {
           trackingKey?: string;
           hashAttribute?: string;
           fallbackAttribute?: string;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           namespace?: {
@@ -712,7 +756,7 @@ export interface components {
             trackingKey?: string;
             hashAttribute?: string;
             fallbackAttribute?: string;
-            disableStickyBucketing?: any;
+            disableStickyBucketing?: boolean;
             bucketVersion?: number;
             minBucketVersion?: number;
             namespace?: {
@@ -781,7 +825,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -863,7 +907,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -939,7 +983,7 @@ export interface components {
       fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       variations: ({
@@ -979,7 +1023,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -1037,6 +1084,11 @@ export interface components {
         excludeFromPayload: boolean;
       };
     };
+    ExperimentSnapshot: {
+      id: string;
+      experiment: string;
+      status: string;
+    };
     ExperimentMetric: {
       metricId: string;
       overrides: {
@@ -1056,7 +1108,10 @@ export interface components {
       queryFilter: string;
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
-      /** @enum {unknown} */
+      /**
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @enum {unknown}
+       */
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
@@ -1125,7 +1180,10 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
@@ -1298,8 +1356,7 @@ export interface components {
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
       description?: string;
-      /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-      passByReferenceOnly?: boolean;
+      projects?: (string)[];
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -1565,7 +1622,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -1635,7 +1692,7 @@ export interface operations {
                           trackingKey?: string;
                           hashAttribute?: string;
                           fallbackAttribute?: string;
-                          disableStickyBucketing?: any;
+                          disableStickyBucketing?: boolean;
                           bucketVersion?: number;
                           minBucketVersion?: number;
                           namespace?: {
@@ -1764,6 +1821,40 @@ export interface operations {
                       variationId: string;
                     })[];
                   experimentId: string;
+                } | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: boolean;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -1816,6 +1907,40 @@ export interface operations {
                         variationId: string;
                       })[];
                     experimentId: string;
+                  } | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
@@ -1887,7 +2012,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -1957,7 +2082,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2074,7 +2199,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2144,7 +2269,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2262,6 +2387,40 @@ export interface operations {
                       variationId: string;
                     })[];
                   experimentId: string;
+                } | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: boolean;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -2314,6 +2473,40 @@ export interface operations {
                         variationId: string;
                       })[];
                     experimentId: string;
+                  } | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
@@ -2385,7 +2578,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2455,7 +2648,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2576,7 +2769,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2646,7 +2839,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -3405,7 +3598,7 @@ export interface operations {
                 fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 variations: ({
@@ -3445,7 +3638,10 @@ export interface operations {
                   queryFilter: string;
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
-                  /** @enum {unknown} */
+                  /**
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @enum {unknown}
+                   */
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
@@ -3547,14 +3743,17 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -3626,7 +3825,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3666,7 +3865,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -3760,7 +3962,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3800,7 +4002,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -3898,14 +4103,17 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -3977,7 +4185,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -4017,7 +4225,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4080,6 +4291,33 @@ export interface operations {
       };
     };
   };
+  postExperimentSnapshot: {
+    /** Create Experiment Snapshot */
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * @description Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual. 
+           * @enum {string}
+           */
+          triggeredBy?: "manual" | "schedule";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
+            };
+          };
+        };
+      };
+    };
+  };
   getExperimentResults: {
     /** Get results for an experiment */
     parameters: {
@@ -4111,7 +4349,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -4190,6 +4431,65 @@ export interface operations {
                         })[];
                     })[];
                 })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  listVisualChangesets: {
+    /** Get all visual changesets */
+    parameters: {
+        /** @description The experiment id the visual changesets belong to */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            visualChangesets: ({
+                id?: string;
+                urlPatterns: ({
+                    include?: boolean;
+                    /** @enum {string} */
+                    type: "simple" | "regex";
+                    pattern: string;
+                  })[];
+                editorUrl: string;
+                experiment: string;
+                visualChanges: ({
+                    description?: string;
+                    css?: string;
+                    js?: string;
+                    variation: string;
+                    domMutations: ({
+                        selector: string;
+                        /** @enum {string} */
+                        action: "append" | "set" | "remove";
+                        attribute: string;
+                        value?: string;
+                        parentSelector?: string;
+                        insertBeforeSelector?: string;
+                      })[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  getExperimentSnapshot: {
+    /** Get an experiment snapshot status */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
             };
           };
         };
@@ -4346,7 +4646,7 @@ export interface operations {
           /** @description Description of the metric */
           description?: string;
           /**
-           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @description Type of metric. See [Metrics documentation](/app/metrics/legacy) 
            * @enum {string}
            */
           type: "binomial" | "count" | "duration" | "revenue";
@@ -4395,12 +4695,12 @@ export interface operations {
             };
             /**
              * @deprecated 
-             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowStart?: number;
             /**
              * @deprecated 
-             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
             /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
@@ -4430,7 +4730,7 @@ export interface operations {
             conversionSQL: string;
             /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
             userAggregationSQL?: string;
-            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
           };
           /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
@@ -4713,7 +5013,7 @@ export interface operations {
           /** @description Description of the metric */
           description?: string;
           /**
-           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @description Type of metric. See [Metrics documentation](/app/metrics/legacy) 
            * @enum {string}
            */
           type?: "binomial" | "count" | "duration" | "revenue";
@@ -4762,12 +5062,12 @@ export interface operations {
             };
             /**
              * @deprecated 
-             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowStart?: number;
             /**
              * @deprecated 
-             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
             /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
@@ -4797,7 +5097,7 @@ export interface operations {
             conversionSQL?: string;
             /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
             userAggregationSQL?: string;
-            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
           };
           /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed */
@@ -4852,49 +5152,6 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
-          };
-        };
-      };
-    };
-  };
-  listVisualChangesets: {
-    /** Get all visual changesets */
-    parameters: {
-        /** @description The experiment id the visual changesets belong to */
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            visualChangesets: ({
-                id?: string;
-                urlPatterns: ({
-                    include?: boolean;
-                    /** @enum {string} */
-                    type: "simple" | "regex";
-                    pattern: string;
-                  })[];
-                editorUrl: string;
-                experiment: string;
-                visualChanges: ({
-                    description?: string;
-                    css?: string;
-                    js?: string;
-                    variation: string;
-                    domMutations: ({
-                        selector: string;
-                        /** @enum {string} */
-                        action: "append" | "set" | "remove";
-                        attribute: string;
-                        value?: string;
-                        parentSelector?: string;
-                        insertBeforeSelector?: string;
-                      })[];
-                  })[];
-              })[];
           };
         };
       };
@@ -4961,7 +5218,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -5001,7 +5258,10 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
@@ -5163,8 +5423,7 @@ export interface operations {
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
                 description?: string;
-                /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-                passByReferenceOnly?: boolean;
+                projects?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -5198,6 +5457,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };
@@ -5222,8 +5482,7 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
-              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-              passByReferenceOnly?: boolean;
+              projects?: (string)[];
             };
           };
         };
@@ -5259,8 +5518,7 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
-              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-              passByReferenceOnly?: boolean;
+              projects?: (string)[];
             };
           };
         };
@@ -5286,6 +5544,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };
@@ -5310,8 +5569,7 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
-              /** @description Whether the saved group must be referenced by ID rather than its list of items for performance reasons */
-              passByReferenceOnly?: boolean;
+              projects?: (string)[];
             };
           };
         };
@@ -5452,6 +5710,149 @@ export interface operations {
               /** @description The email address of the organization owner */
               ownerEmail?: string;
             };
+          };
+        };
+      };
+    };
+  };
+  listAttributes: {
+    /** Get the organization's attributes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attributes: ({
+                property: string;
+                /** @enum {string} */
+                datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+                description?: string;
+                hashAttribute?: boolean;
+                archived?: boolean;
+                enum?: string;
+                /** @enum {string} */
+                format?: "" | "version" | "date" | "isoCountryCode";
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postAttribute: {
+    /** Create a new attribute */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The attribute property */
+          property: string;
+          /**
+           * @description The attribute datatype 
+           * @enum {string}
+           */
+          datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+          /** @description The description of the new attribute */
+          description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
+          /** @description Shall the attribute be hashed */
+          hashAttribute?: boolean;
+          enum?: string;
+          /**
+           * @description The attribute's format 
+           * @enum {string}
+           */
+          format?: "" | "version" | "date" | "isoCountryCode";
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attribute: {
+              property: string;
+              /** @enum {string} */
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+              description?: string;
+              hashAttribute?: boolean;
+              archived?: boolean;
+              enum?: string;
+              /** @enum {string} */
+              format?: "" | "version" | "date" | "isoCountryCode";
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putAttribute: {
+    /** Update an attribute */
+    parameters: {
+        /** @description The attribute property */
+      path: {
+        property: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * @description The attribute datatype 
+           * @enum {string}
+           */
+          datatype?: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+          /** @description The description of the new attribute */
+          description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
+          /** @description Shall the attribute be hashed */
+          hashAttribute?: boolean;
+          enum?: string;
+          /**
+           * @description The attribute's format 
+           * @enum {string}
+           */
+          format?: "" | "version" | "date" | "isoCountryCode";
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attribute: {
+              property: string;
+              /** @enum {string} */
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+              description?: string;
+              hashAttribute?: boolean;
+              archived?: boolean;
+              enum?: string;
+              /** @enum {string} */
+              format?: "" | "version" | "date" | "isoCountryCode";
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteAttribute: {
+    /** Deletes a single attribute */
+    parameters: {
+        /** @description The attribute property */
+      path: {
+        property: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedProperty: string;
           };
         };
       };
@@ -6898,7 +7299,7 @@ export interface operations {
   };
 }
 import { z } from "zod";
-import * as openApiValidators from "../src/validators/openapi";
+import * as openApiValidators from "back-end/src/validators/openapi";
 
 // Schemas
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
@@ -6906,6 +7307,7 @@ export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidato
 export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
 export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
 export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
+export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
@@ -6917,6 +7319,7 @@ export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatu
 export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
 export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
+export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
@@ -6957,13 +7360,15 @@ export type ListExperimentsResponse = operations["listExperiments"]["responses"]
 export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
+export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
+export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
-export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
@@ -6976,6 +7381,10 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListAttributesResponse = operations["listAttributes"]["responses"]["200"]["content"]["application/json"];
+export type PostAttributeResponse = operations["postAttribute"]["responses"]["200"]["content"]["application/json"];
+export type PutAttributeResponse = operations["putAttribute"]["responses"]["200"]["content"]["application/json"];
+export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];

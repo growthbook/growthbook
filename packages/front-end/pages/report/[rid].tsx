@@ -168,6 +168,7 @@ export default function ReportPage() {
       <div className="container-fluid pagecontents experiment-details">
         {editModalOpen && (
           <Modal
+            trackingEventModalType=""
             open={true}
             submit={form.handleSubmit(async (value) => {
               await apiCall(`/report/${report.id}`, {
@@ -301,7 +302,6 @@ export default function ReportPage() {
                     phase={0}
                     setDifferenceType={() => {}}
                     setAnalysisSettings={() => {}}
-                    loading={false}
                     mutate={() => {}}
                   />
                 </div>
@@ -415,6 +415,7 @@ export default function ReportPage() {
                     variations={variations}
                     metrics={getAllMetricIdsFromExperiment(report.args, false)}
                     trackingKey={report.title}
+                    dimension={report.args.dimension ?? undefined}
                     project={experimentData?.experiment.project || ""}
                   />
                 </div>
@@ -477,6 +478,7 @@ export default function ReportPage() {
                   metricOverrides={report.args.metricOverrides || []}
                   reportDate={report.dateCreated}
                   results={report.results?.dimensions || []}
+                  queryStatusData={queryStatusData}
                   status={"stopped"}
                   startDate={getValidDate(report.args.startDate).toISOString()}
                   dimensionId={report.args.dimension}

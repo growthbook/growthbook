@@ -7,17 +7,17 @@ import intersection from "lodash/intersection";
 import {
   NotificationEventName,
   zodNotificationEventNamesEnum,
-} from "../events/base-types";
-import { errorStringFromZodResult } from "../util/validation";
-import { EventWebHookInterface } from "../../types/event-webhook";
-import { logger } from "../util/logger";
+} from "back-end/src/events/base-types";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { logger } from "back-end/src/util/logger";
 import {
   eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "../types/EventWebHook";
-import { ReqContext } from "../../types/organization";
+} from "back-end/src/validators/event-webhook";
+import { ReqContext } from "back-end/types/organization";
 import { createEvent } from "./EventModel";
 
 const eventWebHookSchema = new mongoose.Schema({
@@ -170,14 +170,35 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
 
+  // Add defaults values
+  const defaults = {
+    ...(payload.method ? {} : { method: "POST" }),
+    // All webhook are created with a payloadType. This is here for antiquated ones
+    // which don't have one and should be considered raw.
+    ...(payload.payloadType ? {} : { payloadType: "raw" }),
+    ...(payload.headers ? {} : { headers: {} }),
+    ...(payload.tags ? {} : { tags: [] }),
+    ...(payload.projects ? {} : { projects: [] }),
+    ...(payload.environments ? {} : { environments: [] }),
+  };
+
+  if (Object.keys(defaults).length)
+    void (async () => {
+      try {
+        EventWebHookModel.updateOne(
+          { id: doc.id },
+          {
+            $set: defaults,
+          }
+        );
+      } catch (_) {
+        return;
+      }
+    })();
+
   return {
+    ...defaults,
     ...payload,
-    method: payload.method || "POST",
-    payloadType: payload.payloadType || "raw",
-    headers: payload.headers || {},
-    projects: payload.projects || [],
-    tags: payload.tags || [],
-    environments: payload.environments || [],
   };
 };
 

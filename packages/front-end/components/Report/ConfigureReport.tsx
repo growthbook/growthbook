@@ -11,10 +11,10 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getValidDate } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
-import { DifferenceType } from "@back-end/types/stats";
+import { DifferenceType } from "back-end/types/stats";
 import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
@@ -41,6 +41,7 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import DatePicker from "@/components/DatePicker";
 
 export default function ConfigureReport({
   report,
@@ -176,12 +177,10 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
-  const userIdType = exposureQueries.find(
-    (e) => e.id === form.getValues("exposureQueryId")
-  )?.userIdType;
 
   return (
     <Modal
+      trackingEventModalType=""
       inline={true}
       header=""
       size="fill"
@@ -216,7 +215,7 @@ export default function ConfigureReport({
       cta="Save and Run"
     >
       <Field
-        label="Experiment Key"
+        label="Tracking Key"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your experiment assignment table"
@@ -274,64 +273,79 @@ export default function ConfigureReport({
         </small>
       </div>
       {datasource?.properties?.userIds && (
-        <Field
-          label="Experiment Assignment Table"
-          labelClassName="font-weight-bold"
-          {...form.register("exposureQueryId")}
-          options={exposureQueries.map((e) => ({
-            display: e.name,
-            value: e.id,
-          }))}
-          helpText={
+        <SelectField
+          label={
             <>
-              <div>
-                Should correspond to the Identifier Type used to randomize units
-                for this experiment
-              </div>
-              {userIdType ? (
-                <>
-                  Identifier Type: <code>{userIdType}</code>
-                </>
-              ) : null}
+              Experiment Assignment Table{" "}
+              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
             </>
           }
+          labelClassName="font-weight-bold"
+          value={form.watch("exposureQueryId") ?? ""}
+          onChange={(v) => form.setValue("exposureQueryId", v)}
+          required
+          options={exposureQueries?.map((q) => {
+            return {
+              label: q.name,
+              value: q.id,
+            };
+          })}
+          formatOptionLabel={({ label, value }) => {
+            const userIdType = exposureQueries?.find((e) => e.id === value)
+              ?.userIdType;
+            return (
+              <>
+                {label}
+                {userIdType ? (
+                  <span
+                    className="text-muted small float-right position-relative"
+                    style={{ top: 3 }}
+                  >
+                    Identifier Type: <code>{userIdType}</code>
+                  </span>
+                ) : null}
+              </>
+            );
+          }}
         />
       )}
 
       <div className="row">
         <div className="col">
-          <Field
+          <DatePicker
             label="Start Date (UTC)"
-            labelClassName="font-weight-bold"
-            type="datetime-local"
-            {...form.register("startDate")}
-            helpText="Only include users who entered the experiment between the start and end dates"
+            date={form.watch("startDate")}
+            setDate={(v) => {
+              form.setValue("startDate", v ? datetime(v) : "");
+            }}
+            scheduleEndDate={form.watch("endDate")}
+            disableAfter={form.watch("endDate") || undefined}
           />
         </div>
         <div className="col">
-          <Field
+          <DatePicker
             label="End Date (UTC)"
-            labelClassName="font-weight-bold"
-            type="datetime-local"
-            {...form.register("endDate")}
-            helpText={
-              <div>
-                <div style={{ marginRight: -10 }}>
-                  <a
-                    role="button"
-                    className="a"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      form.setValue("endDate", "");
-                    }}
-                  >
-                    Clear input
-                  </a>{" "}
-                  to use latest data whenever report is run
-                </div>
-              </div>
-            }
+            date={form.watch("endDate")}
+            setDate={(v) => {
+              form.setValue("endDate", v ? datetime(v) : "");
+            }}
+            scheduleStartDate={form.watch("startDate")}
+            disableBefore={form.watch("startDate") || undefined}
+            containerClassName=""
           />
+          <div className="mb-3 mt-1 small">
+            Leave blank to use latest data whenever report is run.{" "}
+            <a
+              role="button"
+              className="a"
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("endDate", "");
+              }}
+            >
+              Clear Input
+            </a>
+          </div>
         </div>
       </div>
 

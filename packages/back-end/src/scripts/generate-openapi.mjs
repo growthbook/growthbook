@@ -21,7 +21,6 @@ async function run() {
   const spec = path.join(__dirname, "..", "..", "generated", "spec.yaml");
   const api = load(fs.readFileSync(spec));
   const dereferenced = await SwaggerParser.dereference(api);
-
   const validators = [];
 
   // Step 2: Convert to Typescript types
@@ -37,7 +36,7 @@ async function run() {
   // Step 3: Add additional named types for easier access
   // Export each schema as a named type
   output += `import { z } from "zod";\n`;
-  output += `import * as openApiValidators from "../src/validators/openapi";\n`;
+  output += `import * as openApiValidators from "back-end/src/validators/openapi";\n`;
   output += "\n// Schemas\n";
   Object.keys(api.components.schemas).forEach((k) => {
     // Zod validator for response body

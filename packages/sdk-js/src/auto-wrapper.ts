@@ -1,13 +1,16 @@
 import Cookies from "js-cookie";
 import {
-  BrowserCookieStickyBucketService,
   CacheSettings,
-  Context,
+  Options as Context,
   FeatureApiResponse,
-  GrowthBook,
+  TrackingCallback,
+} from "./types/growthbook";
+import { GrowthBook } from "./GrowthBook";
+import {
+  BrowserCookieStickyBucketService,
   LocalStorageStickyBucketService,
   StickyBucketService,
-} from "./index";
+} from "./sticky-bucket-service";
 
 type WindowContext = Context & {
   uuidCookieName?: string;
@@ -21,6 +24,7 @@ type WindowContext = Context & {
   cacheSettings?: CacheSettings;
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
+  additionalTrackingCallback?: TrackingCallback;
 };
 declare global {
   interface Window {
@@ -286,6 +290,12 @@ const gb = new GrowthBook({
   trackingCallback: async (e, r) => {
     const promises: Promise<unknown>[] = [];
     const eventParams = { experiment_id: e.key, variation_id: r.key };
+
+    if (windowContext.additionalTrackingCallback) {
+      promises.push(
+        Promise.resolve(windowContext.additionalTrackingCallback(e, r))
+      );
+    }
 
     // GA4 - gtag
     if (window.gtag) {

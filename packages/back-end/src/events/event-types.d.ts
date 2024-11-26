@@ -3,12 +3,12 @@
 /**
  * You can get this property on the response.locals.eventAudit property
  */
-import { EventUser } from "../validators/events";
+import { EventUser } from "back-end/src/validators/events";
 export {
   EventUser,
   EventUserLoggedIn,
   EventUserApiKey,
-} from "../validators/events";
+} from "back-end/src/validators/events";
 
 /**
  * You can get this property on the response.locals.eventAudit property.

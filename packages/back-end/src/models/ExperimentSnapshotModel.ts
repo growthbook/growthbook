@@ -1,12 +1,13 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import {
+  SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
-import { migrateSnapshot } from "../util/migrations";
-import { notifyExperimentChange } from "../services/experimentNotifications";
+} from "back-end/types/experiment-snapshot";
+import { migrateSnapshot } from "back-end/src/util/migrations";
+import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 
@@ -15,6 +16,28 @@ const experimentSnapshotTrafficObject = {
   name: String,
   srm: Number,
   variationUnits: [Number],
+};
+
+const banditResultObject = {
+  _id: false,
+  singleVariationResults: [
+    {
+      _id: false,
+      users: Number,
+      cr: Number,
+      ci: [Number],
+    },
+  ],
+  currentWeights: [Number],
+  updatedWeights: [Number],
+  srm: Number,
+  bestArmProbabilities: [Number],
+  additionalReward: Number,
+  seed: Number,
+  updateMessage: String,
+  error: String,
+  reweight: Boolean,
+  weightsWereUpdated: Boolean,
 };
 
 const experimentSnapshotSchema = new mongoose.Schema({
@@ -26,6 +49,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   experiment: String,
   phase: Number,
   type: { type: String },
+  triggeredBy: String,
   dateCreated: Date,
   runStarted: Date,
   manual: Boolean,
@@ -86,6 +110,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
+  banditResult: banditResultObject,
   health: {
     _id: false,
     traffic: {
@@ -203,13 +228,12 @@ export type AddOrUpdateSnapshotAnalysisParams = {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
-  context: Context;
 };
 
 export async function addOrUpdateSnapshotAnalysis(
   params: AddOrUpdateSnapshotAnalysisParams
 ) {
-  const { organization, id, analysis, context } = params;
+  const { organization, id, analysis } = params;
   // looks for snapshots with this ID but WITHOUT these analysis settings
   const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
     {
@@ -224,7 +248,7 @@ export async function addOrUpdateSnapshotAnalysis(
   // if analysis already exist, no documents will be returned by above query
   // so instead find and update existing analysis in DB
   if (experimentSnapshotModel.matchedCount === 0) {
-    await updateSnapshotAnalysis({ organization, id, analysis, context });
+    await updateSnapshotAnalysis({ organization, id, analysis });
   }
 }
 
@@ -232,12 +256,10 @@ export async function updateSnapshotAnalysis({
   organization,
   id,
   analysis,
-  context,
 }: {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
-  context: Context;
 }) {
   await ExperimentSnapshotModel.updateOne(
     {
@@ -256,10 +278,12 @@ export async function updateSnapshotAnalysis({
   });
   if (!experimentSnapshotModel) throw "Internal error";
 
-  await notifyExperimentChange({
-    context,
-    snapshot: experimentSnapshotModel,
-  });
+  // Not notifying on new analysis because new analyses in an existing snapshot
+  // are akin to ad-hoc snapshots
+  // await notifyExperimentChange({
+  //   context,
+  //   snapshot: experimentSnapshotModel,
+  // });
 }
 
 export async function deleteSnapshotById(organization: string, id: string) {
@@ -289,17 +313,29 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
-export async function getLatestSnapshot(
-  experiment: string,
-  phase: number,
-  dimension?: string,
-  withResults: boolean = true
-): Promise<ExperimentSnapshotInterface | null> {
+export async function getLatestSnapshot({
+  experiment,
+  phase,
+  dimension,
+  beforeSnapshot,
+  withResults = true,
+  type,
+}: {
+  experiment: string;
+  phase: number;
+  dimension?: string;
+  beforeSnapshot?: ExperimentSnapshotDocument;
+  withResults?: boolean;
+  type?: SnapshotType;
+}): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     experiment,
     phase,
     dimension: dimension || null,
   };
+  if (type) {
+    query.type = type;
+  }
 
   // First try getting new snapshots that have a `status` field
   let all = await ExperimentSnapshotModel.find(
@@ -308,6 +344,9 @@ export async function getLatestSnapshot(
       status: {
         $in: withResults ? ["success"] : ["success", "running", "error"],
       },
+      ...(beforeSnapshot
+        ? { dateCreated: { $lt: beforeSnapshot.dateCreated } }
+        : {}),
     },
     null,
     {
@@ -315,6 +354,7 @@ export async function getLatestSnapshot(
       limit: 1,
     }
   ).exec();
+
   if (all[0]) {
     return toInterface(all[0]);
   }
@@ -323,6 +363,7 @@ export async function getLatestSnapshot(
   if (withResults) {
     query.results = { $exists: true, $type: "array", $ne: [] };
   }
+
   all = await ExperimentSnapshotModel.find(query, null, {
     sort: { dateCreated: -1 },
     limit: 1,

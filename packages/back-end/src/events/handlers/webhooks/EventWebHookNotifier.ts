@@ -1,25 +1,25 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { getAgendaInstance } from "../../../services/queueing";
-import { getEvent } from "../../../models/EventModel";
+import { getAgendaInstance } from "back-end/src/services/queueing";
+import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
   updateEventWebHookStatus,
-} from "../../../models/EventWebhookModel";
+} from "back-end/src/models/EventWebhookModel";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
-} from "../../../../types/event-webhook";
-import { findOrganizationById } from "../../../models/OrganizationModel";
-import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
-import { logger } from "../../../util/logger";
-import { cancellableFetch } from "../../../util/http.util";
+} from "back-end/types/event-webhook";
+import { findOrganizationById } from "back-end/src/models/OrganizationModel";
+import { createEventWebHookLog } from "back-end/src/models/EventWebHookLogModel";
+import { logger } from "back-end/src/util/logger";
+import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
-} from "../slack/slack-event-handler-utils";
-import { getLegacyMessageForNotificationEvent } from "../legacy";
-import { LegacyNotificationEvent } from "../../notification-events";
-import { NotificationEventName } from "../../../../types/event";
+} from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
+import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
+import { NotificationEventName } from "back-end/types/event";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -111,11 +111,17 @@ export class EventWebHookNotifier implements Notifier {
 
     const payload = await (async () => {
       let invalidPayloadType: never;
-      const { payloadType } = eventWebHook;
 
-      if (!payloadType) return event.data;
+      // There might be very old webhook definitions who don't have
+      // a payloadType at all. Assume "raw" in this case.
+      const payloadType = eventWebHook.payloadType || "raw";
 
       switch (payloadType) {
+        case "json": {
+          if (!event.version) throw new Error("Internal error");
+          return event.data;
+        }
+
         case "raw": {
           const legacyPayload:
             | LegacyNotificationEvent

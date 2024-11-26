@@ -6,6 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -14,12 +15,15 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
+import DatePicker from "@/components/DatePicker";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-}> = ({ experiment, close, mutate }) => {
+  source?: string;
+}> = ({ experiment, close, mutate, source }) => {
+  const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
@@ -85,7 +89,13 @@ const StopExperimentForm: FC<{
 
   return (
     <Modal
-      header={isStopped ? "Edit Experiment Results" : "Stop Experiment"}
+      trackingEventModalType="stop-experiment-form"
+      trackingEventModalSource={source}
+      header={
+        isStopped
+          ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`
+          : `Stop ${isBandit ? "Bandit" : "Experiment"}`
+      }
       close={close}
       open={true}
       submit={submit}
@@ -96,16 +106,18 @@ const StopExperimentForm: FC<{
       {!isStopped && (
         <>
           <Field
-            label="Reason for stopping the test"
+            label="Reason for stopping"
             textarea
             {...form.register("reason")}
             placeholder="(optional)"
           />
           {!hasLinkedChanges && (
-            <Field
-              label="Stop Time (UTC)"
-              type="datetime-local"
-              {...form.register("dateEnded")}
+            <DatePicker
+              label="End Time (UTC)"
+              date={form.watch("dateEnded")}
+              setDate={(v) => {
+                form.setValue("dateEnded", v ? datetime(v) : "");
+              }}
             />
           )}
         </>
@@ -185,8 +197,8 @@ const StopExperimentForm: FC<{
               </div>
 
               <small className="form-text text-muted">
-                Keep the experiment running until you can implement the changes
-                in code.{" "}
+                Keep the {isBandit ? "Bandit" : "Experiment"} running until you
+                can implement the changes in code.{" "}
                 <DocLink docSection="temporaryRollout">Learn more</DocLink>
               </small>
             </div>

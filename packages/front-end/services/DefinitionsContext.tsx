@@ -10,6 +10,7 @@ import {
   FC,
   ReactNode,
   useCallback,
+  ReactElement,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
 import {
@@ -18,8 +19,11 @@ import {
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { findClosestRadixColor } from "./tags";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -29,9 +33,12 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
+  metricGroups: MetricGroupInterface[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
+  _factTablesIncludingArchived: FactTableInterface[];
   factMetrics: FactMetricInterface[];
+  _factMetricsIncludingArchived: FactMetricInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -51,6 +58,7 @@ type DefinitionContextValue = Definitions & {
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getMetricGroupById: (id: string) => null | MetricGroupInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -72,9 +80,12 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  metricGroups: [],
   projects: [],
   factTables: [],
+  _factTablesIncludingArchived: [],
   factMetrics: [],
+  _factMetricsIncludingArchived: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -85,6 +96,7 @@ const defaultValue: DefinitionContextValue = {
   getFactTableById: () => null,
   getFactMetricById: () => null,
   getExperimentMetricById: () => null,
+  getMetricGroupById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -142,15 +154,80 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metrics;
   }, [data?.metrics]);
 
+  const metricGroups = useMemo(() => {
+    if (!data || !data.metricGroups) {
+      return [];
+    }
+    return data.metricGroups;
+  }, [data?.metricGroups]);
+
+  const activeFactMetrics = useMemo(() => {
+    if (!data || !data.factMetrics) {
+      return [];
+    }
+    return data.factMetrics.filter((m) => {
+      const numeratorFactTable = data.factTables.find(
+        (f) => f.id === m.denominator?.factTableId
+      );
+      const denominatorFactTable = m.denominator?.factTableId
+        ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
+        : null;
+
+      return (
+        !m.archived &&
+        !numeratorFactTable?.archived &&
+        !denominatorFactTable?.archived
+      );
+    });
+  }, [data?.factMetrics]);
+
+  const allFactMetrics = useMemo(() => {
+    if (!data || !data.factMetrics) {
+      return [];
+    }
+    return data.factMetrics;
+  }, [data?.factMetrics]);
+
+  const activeFactTables = useMemo(() => {
+    if (!data || !data.factTables) {
+      return [];
+    }
+
+    return data.factTables.filter((t) => !t.archived);
+  }, [data?.factTables]);
+
+  const allFactTables = useMemo(() => {
+    if (!data || !data.factTables) {
+      return [];
+    }
+
+    return data.factTables;
+  }, [data?.factTables]);
+
+  const allTags = useMemo(() => {
+    if (!data || !data.tags) {
+      return [];
+    }
+
+    return data.tags.map((tag) => {
+      if (tag.color.charAt(0) === "#") {
+        return { ...tag, color: findClosestRadixColor(tag.color) as string };
+      }
+
+      return tag;
+    });
+  }, [data?.tags]);
+
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
-  const getTagById = useGetById(data?.tags);
+  const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+  const getMetricGroupById = useGetById(data?.metricGroups);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -168,6 +245,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
+    //console.log("data is", data);
     const filteredProject =
       data.projects && data.projects.map((p) => p.id).includes(project)
         ? project
@@ -179,12 +257,15 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
-      tags: data.tags,
+      tags: allTags,
       savedGroups: data.savedGroups,
+      metricGroups: metricGroups,
       projects: data.projects,
       project: filteredProject,
-      factTables: data.factTables,
-      factMetrics: data.factMetrics,
+      factTables: activeFactTables,
+      _factTablesIncludingArchived: allFactTables,
+      factMetrics: activeFactMetrics,
+      _factMetricsIncludingArchived: allFactMetrics,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -196,6 +277,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getFactTableById,
       getFactMetricById,
       getExperimentMetricById,
+      getMetricGroupById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
@@ -207,7 +289,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
               tags: data.tags.concat(
                 newTags.map((t) => ({
                   id: t,
-                  color: "#029dd1",
+                  color: "blue",
                   description: "",
                 }))
               ),
@@ -228,3 +310,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     </DefinitionsContext.Provider>
   );
 };
+
+export function DefinitionsGuard({ children }: { children: ReactElement }) {
+  const { ready, error } = useDefinitions();
+
+  if (!error && !ready) {
+    return <LoadingOverlay />;
+  }
+
+  return children;
+}

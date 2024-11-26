@@ -17,7 +17,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
-import { getWatchedByUser } from "../../models/WatchModel";
+import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
@@ -25,17 +25,18 @@ import {
   findAllLegacySdkWebhooks,
   findSdkWebhookById,
   updateSdkWebhook,
-} from "../../models/WebhookModel";
+} from "back-end/src/models/WebhookModel";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
-} from "../../types/AuthRequest";
+} from "back-end/src/types/AuthRequest";
 import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getContextForAgendaJobByOrgObject,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -44,13 +45,13 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
-} from "../../services/organizations";
+} from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
-} from "../../services/datasource";
-import { updatePassword } from "../../services/users";
-import { getAllTags } from "../../models/TagModel";
+} from "back-end/src/services/datasource";
+import { updatePassword } from "back-end/src/services/users";
+import { getAllTags } from "back-end/src/models/TagModel";
 import {
   Invite,
   MemberRoleWithProjects,
@@ -59,20 +60,20 @@ import {
   OrganizationSettings,
   Role,
   SDKAttribute,
-} from "../../../types/organization";
+} from "back-end/types/organization";
 import {
   auditDetailsUpdate,
   getRecentWatchedAudits,
   isValidAuditEntityType,
-} from "../../services/audit";
-import { getAllFeatures } from "../../models/FeatureModel";
-import { findDimensionsByOrganization } from "../../models/DimensionModel";
+} from "back-end/src/services/audit";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
   IS_CLOUD,
   IS_MULTI_ORG,
-} from "../../util/secrets";
+} from "back-end/src/util/secrets";
 import {
   sendInviteEmail,
   sendNewMemberEmail,
@@ -80,10 +81,10 @@ import {
   sendNewOrgEmail,
   sendPendingMemberApprovalEmail,
   sendOwnerEmailChangeEmail,
-} from "../../services/email";
-import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import { getAllSavedGroups } from "../../models/SavedGroupModel";
-import { getMetricsByOrganization } from "../../models/MetricModel";
+} from "back-end/src/services/email";
+import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import { getAllSavedGroups } from "back-end/src/models/SavedGroupModel";
+import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -97,11 +98,11 @@ import {
   deactivateRoleById,
   activateRoleById,
   addGetStartedChecklistItem,
-} from "../../models/OrganizationModel";
-import { ConfigFile } from "../../init/config";
-import { ExperimentRule, NamespaceValue } from "../../../types/feature";
-import { usingOpenId } from "../../services/auth";
-import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
+} from "back-end/src/models/OrganizationModel";
+import { ConfigFile } from "back-end/src/init/config";
+import { ExperimentRule, NamespaceValue } from "back-end/types/feature";
+import { usingOpenId } from "back-end/src/services/auth";
+import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import {
   createOrganizationApiKey,
   createUserPersonalAccessApiKey,
@@ -110,34 +111,34 @@ import {
   getAllApiKeysByOrganization,
   getApiKeyByIdOrKey,
   getUnredactedSecretKey,
-} from "../../models/ApiKeyModel";
-import { getUserPermissions } from "../../util/organization.util";
+} from "back-end/src/models/ApiKeyModel";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
   deleteUser,
   getUserById,
   getAllUsers,
   getUserByEmail,
-} from "../../models/UserModel";
+} from "back-end/src/models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
-} from "../../models/ExperimentModel";
+} from "back-end/src/models/ExperimentModel";
 import {
   findAllAuditsByEntityType,
   findAllAuditsByEntityTypeParent,
   findAuditByEntity,
   findAuditByEntityParent,
-} from "../../models/AuditModel";
-import { EntityType } from "../../types/Audit";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
-import { TeamInterface } from "../../../types/team";
-import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
+} from "back-end/src/models/AuditModel";
+import { EntityType } from "back-end/src/types/Audit";
+import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
+import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
+import { TeamInterface } from "back-end/types/team";
+import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
-} from "../../services/licenseData";
-import { findSDKConnectionsByIds } from "../../models/SdkConnectionModel";
+} from "back-end/src/services/licenseData";
+import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -151,6 +152,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     datasources,
     dimensions,
     segments,
+    metricGroups,
     tags,
     savedGroups,
     projects,
@@ -161,6 +163,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
     context.models.segments.getAll(),
+    context.models.metricGroups.getAll(),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     context.models.projects.getAll(),
@@ -189,6 +192,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     }),
     dimensions,
     segments,
+    metricGroups,
     tags,
     savedGroups,
     projects,
@@ -669,6 +673,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     licenseKey,
     messages,
     externalId,
+    setupEventTracker,
   } = org;
 
   let license;
@@ -696,6 +701,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   const filteredEnvironments = settings?.environments?.filter((environment) =>
     context.permissions.canReadMultiProjectResource(environment.projects)
   );
+
+  // Use a stripped down list of invites if the user doesn't have permission to manage the team
+  // The full invite object contains a key which can be used to accept the invite
+  // Without this filtering, a user could accept an invite of a higher-priveleged user and assume their role
+  const filteredInvites = context.permissions.canManageTeam()
+    ? invites
+    : invites.map((i) => ({ email: i.email }));
 
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
@@ -744,7 +756,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       features: watch?.features || [],
     },
     organization: {
-      invites,
+      invites: filteredInvites,
       ownerEmail,
       externalId,
       name,
@@ -769,6 +781,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       messages: messages || [],
       pendingMembers: org.pendingMembers,
       getStartedChecklistItems: org.getStartedChecklistItems,
+      setupEventTracker,
+      dateCreated: org.dateCreated,
     },
     seatsInUse,
   });
@@ -1220,6 +1234,7 @@ export async function deleteInvite(
 }
 
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
+  // Note: Request will not have an organization at this point. Do not use getContextFromReq
   const { company, externalId } = req.body;
 
   const orgs = await hasOrganization();
@@ -1260,6 +1275,12 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       externalId,
     });
 
+    const context = getContextForAgendaJobByOrgObject(org);
+
+    const project = await context.models.projects.create({
+      name: "My First Project",
+    });
+
     // Alert the site manager about new organizations that are created
     try {
       await sendNewOrgEmail(company, req.email);
@@ -1267,9 +1288,11 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       req.log.error(e, "New org email sending failure");
     }
 
+    // Include project id in response
     res.status(200).json({
       status: 200,
       orgId: org.id,
+      projectId: project.id,
     });
   } catch (e) {
     res.status(400).json({
@@ -2110,6 +2133,29 @@ export async function putGetStartedChecklistItem(
   }
 
   addGetStartedChecklistItem(org.id, checklistItem);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putSetupEventTracker(
+  req: AuthRequest<{
+    eventTracker: string;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { eventTracker } = req.body;
+
+  try {
+    await updateOrganization(org.id, {
+      setupEventTracker: eventTracker,
+    });
+  } catch (e) {
+    throw new Error("Failed to save setup event tracker");
+  }
 
   res.status(200).json({
     status: 200,

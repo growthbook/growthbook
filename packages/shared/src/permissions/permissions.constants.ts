@@ -73,7 +73,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   DataSourceConfiguration: ["readData", "editDatasourceSettings", "runQueries"],
   RunQueries: ["readData", "runQueries"],
-  MetricsFullAccess: ["readData", "createMetrics", "runQueries"],
+  MetricsFullAccess: [
+    "readData",
+    "createMetrics",
+    "runQueries",
+    "createMetricGroups",
+  ],
   FactTablesFullAccess: [
     "readData",
     "manageFactTables",
@@ -472,6 +477,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "canReview",
   "manageFeatureDrafts",
   "manageFeatures",
+  "manageArchetype",
   "manageProjects",
   "createAnalyses",
   "createIdeas",
@@ -484,6 +490,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "runQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
+  "manageSavedGroups",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
@@ -491,6 +498,7 @@ export const GLOBAL_PERMISSIONS = [
   "createPresentations",
   "createDimensions",
   "createSegments",
+  "createMetricGroups",
   "organizationSettings",
   "superDeleteReport",
   "manageTeam",
@@ -501,8 +509,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageBilling",
   "manageNorthStarMetric",
   "manageNamespaces",
-  "manageSavedGroups",
-  "manageArchetype",
   "manageCustomRoles",
   "viewAuditLog",
 ] as const;

@@ -1,8 +1,8 @@
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { ApiReqContext } from "../../../types/api";
-import { sdkLanguages } from "../../util/constants";
-import { getEnvironments } from "../../services/organizations";
-import { IS_CLOUD } from "../../util/secrets";
+import { ApiReqContext } from "back-end/types/api";
+import { sdkLanguages } from "back-end/src/util/constants";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const capabilityParams = [
   ["encryption", "encryptPayload"],

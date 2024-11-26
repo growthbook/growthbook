@@ -28,6 +28,9 @@ export default function InlineCode({ code, language, className }: Props) {
   style['code[class*="language-"]'].fontSize = "0.85rem";
   style['code[class*="language-"]'].lineHeight = 1.5;
   style['code[class*="language-"]'].fontWeight = 600;
+  // this next line actually doesn't do anything- its overridden somewhere in Prism.
+  style['code[class*="language-"]'].whiteSpace = "pre-wrap";
+  style['pre[class*="language-"]'].whiteSpace = "pre-wrap";
 
   return (
     <Suspense
@@ -43,7 +46,7 @@ export default function InlineCode({ code, language, className }: Props) {
       <Prism
         language={language}
         style={style}
-        className={clsx("border-0 p-0 m-0 bg-transparent", className)}
+        className={clsx("border-0 p-0 m-0 bg-transparent wrap-code", className)}
         showLineNumbers={false}
       >
         {code}

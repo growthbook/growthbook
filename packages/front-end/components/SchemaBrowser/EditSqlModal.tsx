@@ -155,6 +155,7 @@ export default function EditSqlModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
@@ -190,7 +191,7 @@ export default function EditSqlModal({
           shouldDisplay={!canRunQueries}
           tipPosition="top"
         >
-          <label className="mr-4">
+          <label className="mx-4 mb-0">
             <input
               type="checkbox"
               disabled={!canRunQueries}

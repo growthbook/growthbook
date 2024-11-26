@@ -3,9 +3,8 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
-import { appendQueryParamsToURL } from "@/services/utils";
+import { appendQueryParamsToURL, growthbook } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
-import { growthbook } from "@/pages/_app";
 import Modal from "./Modal";
 import Button from "./Button";
 
@@ -152,6 +151,7 @@ const OpenVisualEditorLink: FC<{
 
       {showEditorUrlDialog && openSettings && (
         <Modal
+          trackingEventModalType=""
           open
           header="Visual Editor Target URL"
           close={() => setShowEditorUrlDialog(false)}
@@ -168,6 +168,7 @@ const OpenVisualEditorLink: FC<{
 
       {showExtensionDialog && (
         <Modal
+          trackingEventModalType=""
           open
           header="GrowthBook DevTools Extension"
           close={() => setShowExtensionDialog(false)}

@@ -38,6 +38,7 @@ export default function FeedbackModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={open}
       header={header}
       cta={ctaEnabled ? cta : sentCta ?? cta}

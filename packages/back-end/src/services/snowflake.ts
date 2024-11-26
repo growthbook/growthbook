@@ -1,7 +1,8 @@
 import { createConnection } from "snowflake-sdk";
-import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
-import { QueryResponse } from "../types/Integration";
-import { logger } from "../util/logger";
+import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import { QueryResponse } from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
+import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -16,7 +17,7 @@ function getProxySettings(): ProxyOptions {
 
   const parsed = new URL(uri);
   return {
-    proxyProtocol: parsed.protocol,
+    proxyProtocol: parsed.protocol.replace(":", ""),
     proxyHost: parsed.hostname,
     proxyPort: (parsed.port ? parseInt(parsed.port) : 0) || undefined,
     proxyUser: parsed.username || undefined,
@@ -31,6 +32,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 ): Promise<QueryResponse<T[]>> {
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
+
   const connection = createConnection({
     account,
     username: conn.username,
@@ -41,12 +43,14 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     role: conn.role,
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
+    accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
   });
-  // promise with timeout to prevent hanging
+  // promise with timeout to prevent hanging, esp. for test query
+  const connectionTimeout = sql === TEST_QUERY_SQL ? 30000 : 600000;
   await new Promise((resolve, reject) => {
     const promiseTimeout = setTimeout(() => {
       reject(new Error("Snowflake connection timeout"));
-    }, 30000);
+    }, connectionTimeout);
     connection.connect((err, conn) => {
       clearTimeout(promiseTimeout);
       if (err) {

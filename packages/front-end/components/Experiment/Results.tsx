@@ -8,8 +8,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "@back-end/types/report";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -23,6 +23,7 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/components/Radix/Callout";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
@@ -152,7 +153,6 @@ const Results: FC<{
     hasData &&
     snapshot &&
     analysis &&
-    analysis.results?.[0] &&
     !analysis?.settings?.dimensions?.length;
 
   const showBreakDownResults =
@@ -160,21 +160,20 @@ const Results: FC<{
     hasData &&
     snapshot?.dimension &&
     snapshot.dimension.substring(0, 8) !== "pre:date" && // todo: refactor hardcoded dimension
-    analysis &&
-    analysis.results?.[0] &&
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
   const showDateResults =
     !draftMode &&
     hasData &&
-    snapshot?.dimension &&
-    snapshot.dimension.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
-    analysis &&
-    analysis.results?.[0] &&
+    snapshot?.dimension?.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
   if (error) {
-    return <div className="alert alert-danger m-3">{error.message}</div>;
+    return (
+      <Callout status="error" mx="3" my="4">
+        {error.message}
+      </Callout>
+    );
   }
 
   const datasource = getDatasourceById(experiment.datasource);
@@ -183,6 +182,8 @@ const Results: FC<{
     experiment.goalMetrics.length > 0 ||
     experiment.secondaryMetrics.length > 0 ||
     experiment.guardrailMetrics.length > 0;
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <>
@@ -239,11 +240,13 @@ const Results: FC<{
         status !== "running" &&
         hasMetrics &&
         !snapshotLoading && (
-          <div className="alert alert-info m-3">
+          <Callout status="info" mx="3" mb="4">
             No data yet.{" "}
             {snapshot &&
               phaseAgeMinutes >= 120 &&
-              "Make sure your experiment is tracking properly."}
+              `Make sure your ${
+                isBandit ? "Bandit" : "Experiment"
+              } is tracking properly.`}
             {snapshot &&
               phaseAgeMinutes < 120 &&
               (phaseAgeMinutes < 0
@@ -258,7 +261,7 @@ const Results: FC<{
               permissionsUtil.canRunExperimentQueries(datasource) &&
               `Click the "Update" button above.`}
             {snapshotLoading && <div> Snapshot loading...</div>}
-          </div>
+          </Callout>
         )}
 
       {snapshot && !snapshot.dimension && (
@@ -310,6 +313,7 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
+
       {showDateResults ? (
         <DateResults
           goalMetrics={experiment.goalMetrics}
@@ -347,6 +351,7 @@ const Results: FC<{
           differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
+          isBandit={isBandit}
         />
       ) : showCompactResults ? (
         <>
@@ -386,6 +391,7 @@ const Results: FC<{
             setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
             setTab={setTab}
+            experimentType={experiment.type}
           />
         </>
       ) : null}
@@ -473,9 +479,11 @@ export function sortAndFilterMetricsByTags(
 
   // get all possible tags from the metric definitions
   const tagsInMetrics: Set<string> = new Set();
+  const allMetrics: ExperimentMetricInterface[] = [];
   metrics.forEach((metric) => {
     if (!metric) return;
     metricDefs[metric.id] = metric;
+    allMetrics.push(metric);
     metric.tags?.forEach((tag) => {
       tagsInMetrics.add(tag);
     });
@@ -506,14 +514,14 @@ export function sortAndFilterMetricsByTags(
   }
 
   // add any remaining metrics to the end
-  for (const metricId in metricDefs) {
-    const metric = metricDefs[metricId];
+  for (const i in allMetrics) {
+    const metric = allMetrics[i];
     if (filterByTag) {
       if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
-        sortedMetrics.push(metricId);
+        sortedMetrics.push(metric.id);
       }
     } else {
-      sortedMetrics.push(metricId);
+      sortedMetrics.push(metric.id);
     }
   }
 

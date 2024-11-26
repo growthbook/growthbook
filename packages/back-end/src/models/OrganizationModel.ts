@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "@back-end/types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
   Invite,
   Member,
@@ -11,15 +11,15 @@ import {
   OrganizationInterface,
   OrganizationMessage,
   Role,
-} from "../../types/organization";
-import { upgradeOrganizationDoc } from "../util/migrations";
-import { ApiOrganization } from "../../types/openapi";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/types/organization";
+import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
+import { ApiOrganization } from "back-end/types/openapi";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const baseMemberFields = {
   _id: false,
@@ -131,6 +131,7 @@ const organizationSchema = new mongoose.Schema({
   customRoles: {},
   deactivatedRoles: [],
   disabled: Boolean,
+  setupEventTracker: String,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -187,6 +188,7 @@ export async function createOrganization({
           defaultState: true,
         },
       ],
+      killswitchConfirmation: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },

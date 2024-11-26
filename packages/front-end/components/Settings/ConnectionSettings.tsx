@@ -63,6 +63,9 @@ export default function ConnectionSettings({
   let invalidType: never;
   let datasourceComponent = <></>;
   switch (datasource.type) {
+    case "growthbook_clickhouse":
+      // The in-built datastore does not have editable settings
+      break;
     case "athena":
       datasourceComponent = (
         <AthenaForm
@@ -161,6 +164,7 @@ export default function ConnectionSettings({
         <SnowflakeForm
           existing={existing}
           onParamChange={onParamChange}
+          onManualParamChange={onManualParamChange}
           params={datasource?.params || {}}
         />
       );

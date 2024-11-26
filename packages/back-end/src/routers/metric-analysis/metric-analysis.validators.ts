@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryPointerValidator } from "../../validators/queries";
+import { queryPointerValidator } from "back-end/src/validators/queries";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([
   "metric",
@@ -8,6 +8,8 @@ export const metricAnalysisPopulationTypeValidator = z.enum([
   "population",
   "segment",
 ]);
+
+export const metricAnalysisSourceValidator = z.enum(["metric", "northstar"]);
 
 export const metricAnalysisSettingsValidator = z
   .object({
@@ -31,6 +33,7 @@ export const createMetricAnalysisPropsValidator = z
     endDate: z.string(),
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
+    source: metricAnalysisSourceValidator,
     force: z.boolean().optional(),
   })
   .strict();
@@ -81,5 +84,6 @@ export const metricAnalysisInterfaceValidator = z
     result: metricAnalysisResultValidator.optional(),
     settings: metricAnalysisSettingsValidator,
     queries: z.array(queryPointerValidator),
+    source: metricAnalysisSourceValidator.optional(),
   })
   .strict();

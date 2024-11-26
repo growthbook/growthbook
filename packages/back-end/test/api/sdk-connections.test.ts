@@ -7,20 +7,20 @@ import {
   findSDKConnectionById,
   editSDKConnection,
   deleteSDKConnectionById,
-} from "../../src/models/SdkConnectionModel";
-import { validatePayload } from "../../src/api/sdk-connections/validations";
-import { sdkConnectionFactory } from "../factories/SdkConnection.factory";
+} from "back-end/src/models/SdkConnectionModel";
+import { validatePayload } from "back-end/src/api/sdk-connections/validations";
+import { sdkConnectionFactory } from "back-end/test/factories/SdkConnection.factory";
 import { setupApp } from "./api.setup";
 
-jest.mock("../../src/api/sdk-connections/validations", () => ({
+jest.mock("back-end/src/api/sdk-connections/validations", () => ({
   validatePayload: jest.fn(),
 }));
 
 const originalValidatePayload = jest.requireActual(
-  "../../src/api/sdk-connections/validations"
+  "back-end/src/api/sdk-connections/validations"
 ).validatePayload;
 
-jest.mock("../../src/models/SdkConnectionModel", () => ({
+jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   toApiSDKConnectionInterface: jest.fn(),
   createSDKConnection: jest.fn(),
   editSDKConnection: jest.fn(),
@@ -427,11 +427,11 @@ describe("sdk-connections API", () => {
     expect(auditMock).toHaveBeenCalledWith({
       details: `{"pre":{"id":"${
         existing.id
-      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         existing.key
       }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript"},"post":{"id":"${
         existing.id
-      }","name":"my-new-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+      }","name":"my-new-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         existing.key
       }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
       entity: { id: updated.id, object: "sdk-connection" },

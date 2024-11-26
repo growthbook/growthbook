@@ -19,6 +19,8 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { ArchetypeInterface } from "back-end/types/archetype";
+import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -119,6 +121,18 @@ export class Permissions {
     return this.checkGlobalPermission("createSegments");
   };
 
+  public canCreateMetricGroup = (): boolean => {
+    return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canUpdateMetricGroup = (): boolean => {
+    return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canDeleteMetricGroup = (): boolean => {
+    return this.checkGlobalPermission("createMetricGroups");
+  };
+
   public canManageOrgSettings = (): boolean => {
     return this.checkGlobalPermission("organizationSettings");
   };
@@ -142,30 +156,6 @@ export class Permissions {
 
   public canViewAuditLogs = (): boolean => {
     return this.checkGlobalPermission("viewAuditLog");
-  };
-
-  public canCreateArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canUpdateArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canDeleteArchetype = (): boolean => {
-    return this.checkGlobalPermission("manageArchetype");
-  };
-
-  public canCreateSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
-  };
-
-  public canUpdateSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
-  };
-
-  public canDeleteSavedGroup = (): boolean => {
-    return this.checkGlobalPermission("manageSavedGroups");
   };
 
   public canCreateNamespace = (): boolean => {
@@ -400,6 +390,35 @@ export class Permissions {
     );
   };
 
+  public canCreateArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "manageArchetype"
+    );
+  };
+
+  public canUpdateArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">,
+    updates: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "projects" in updates ? { projects: updates.projects } : {},
+      "manageArchetype"
+    );
+  };
+
+  public canDeleteArchetype = (
+    archetype: Pick<ArchetypeInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: archetype?.projects ? archetype.projects : [] },
+      "manageArchetype"
+    );
+  };
+
   // Helper methods for the front-end
   public canViewCreateFactTableModal = (project?: string): boolean => {
     return this.canCreateFactTable({ projects: project ? [project] : [] });
@@ -560,18 +579,27 @@ export class Permissions {
   };
 
   public canViewCreateDataSourceModal = (project?: string): boolean => {
-    return this.canCreateDataSource({ projects: project ? [project] : [] });
+    return this.canCreateDataSource({
+      projects: project ? [project] : [],
+      type: undefined,
+    });
   };
 
-  public canCreateDataSource = (
-    datasource: Pick<DataSourceInterface, "projects">
-  ): boolean => {
+  public canCreateDataSource = (datasource: {
+    projects?: DataSourceInterface["projects"];
+    type: DataSourceInterface["type"] | undefined;
+  }): boolean => {
+    if (datasource?.type === "growthbook_clickhouse") return false;
+
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
-  public canUpdateDataSourceParams = (
-    datasource: Pick<DataSourceInterface, "projects">
-  ): boolean => {
+  public canUpdateDataSourceParams = (datasource: {
+    projects?: DataSourceInterface["projects"];
+    type: DataSourceInterface["type"] | undefined;
+  }): boolean => {
+    if (datasource?.type === "growthbook_clickhouse") return false;
+
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
@@ -624,6 +652,12 @@ export class Permissions {
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canCreateExperimentSnapshot = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.canRunExperimentQueries(datasource);
   };
 
   public canRunMetricQueries = (
@@ -710,6 +744,34 @@ export class Permissions {
       [environment.id],
       "manageEnvironments"
     );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewSavedGroupModal = (project?: string): boolean => {
+    return this.canCreateSavedGroup({ projects: project ? [project] : [] });
+  };
+
+  public canCreateSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canUpdateSavedGroup = (
+    existing: Pick<SavedGroupInterface, "projects">,
+    updates: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageSavedGroups"
+    );
+  };
+
+  public canDeleteSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
   };
 
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions
