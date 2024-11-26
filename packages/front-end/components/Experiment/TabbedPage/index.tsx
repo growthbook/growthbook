@@ -124,7 +124,8 @@ export default function TabbedPage({
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab]);
 
-  const { phase, setPhase } = useSnapshot();
+  // const { phase, setPhase } = useSnapshot();
+  const phase = experiment.phases?.length - 1 || 0;
 
   const variables = {
     experiment: experiment.name,
@@ -331,7 +332,8 @@ export default function TabbedPage({
                   role="button"
                   onClick={(e) => {
                     e.preventDefault();
-                    setPhase(experiment.phases.length - 1);
+                    mutate();
+                    // setPhase(experiment.phases.length - 1);
                   }}
                 >
                   Switch to the latest phase
@@ -364,13 +366,15 @@ export default function TabbedPage({
             experiment={experiment}
             mutate={mutate}
             safeToEdit={safeToEdit}
-            editVariations={!viewingOldPhase ? editVariations : undefined}
+            // editVariations={!viewingOldPhase ? editVariations : undefined}
+            editVariations={editVariations}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
             setUrlRedirectModal={setUrlRedirectModal}
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
-            editTargeting={!viewingOldPhase ? editTargeting : undefined}
+            // editTargeting={!viewingOldPhase ? editTargeting : undefined}
+            editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
           />
           {experiment.status !== "draft" && (
