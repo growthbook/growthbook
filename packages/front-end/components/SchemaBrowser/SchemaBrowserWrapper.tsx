@@ -17,8 +17,8 @@ export default function SchemaBrowserWrapper({
   children: React.ReactNode;
   datasourceName: string;
   datasourceId: string;
-  informationSchema: InformationSchemaInterface;
-  setError: (error: string) => void;
+  informationSchema?: InformationSchemaInterface;
+  setError: (error: string | null) => void;
   setFetching: (fetching: boolean) => void;
   canRunQueries: boolean;
   fetching: boolean;
@@ -59,7 +59,6 @@ export default function SchemaBrowserWrapper({
                 }
                 onClick={async (e) => {
                   e.preventDefault();
-                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                   setError(null);
                   try {
                     await apiCall<{

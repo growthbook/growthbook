@@ -104,3 +104,14 @@ $sidebarwidth: 240px;
     left: 0;
   }
 }
+
+.dropdownItemIconColor {
+  &:focus {
+    svg {
+      color: white;
+    }
+  }
+  svg {
+    color: var(--text-color-muted);
+  }
+}

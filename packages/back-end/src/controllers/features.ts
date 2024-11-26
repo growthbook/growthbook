@@ -1846,6 +1846,7 @@ export async function postFeatureEvaluate(
       attributes: Record<string, boolean | string | number | object>;
       scrubPrerequisites?: boolean;
       skipRulesWithPrerequisites?: boolean;
+      evalDate?: string;
     },
     { id: string; version: string }
   >,
@@ -1860,6 +1861,7 @@ export async function postFeatureEvaluate(
     attributes,
     scrubPrerequisites,
     skipRulesWithPrerequisites,
+    evalDate,
   } = req.body;
 
   const results = await evalFeature({
@@ -1869,6 +1871,7 @@ export async function postFeatureEvaluate(
     featureId: id,
     version,
     context,
+    evalDate,
   });
 
   res.status(200).json({
@@ -1884,26 +1887,26 @@ async function evalFeature({
   featureId,
   version,
   context,
+  evalDate,
 }: {
   attributes: Record<string, boolean | string | number | object>;
   scrubPrerequisites?: boolean;
   skipRulesWithPrerequisites?: boolean;
   featureId: string;
-  version?: string;
   context: ReqContext;
+  evalDate?: string;
 }) {
   const feature = await getFeature(context, featureId);
   const { org } = context;
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (!version) {
-    version = feature.version.toString();
-  }
+
   const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
+  const date = evalDate ? new Date(evalDate) : new Date();
 
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(context);
@@ -1918,6 +1921,7 @@ async function evalFeature({
     environments,
     scrubPrerequisites,
     skipRulesWithPrerequisites,
+    date,
   });
 }
 

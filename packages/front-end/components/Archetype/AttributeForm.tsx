@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
 import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
+import { datetime } from "shared/dates";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import TabButton from "@/components/Tabs/TabButton";
@@ -9,6 +10,7 @@ import TabButtons from "@/components/Tabs/TabButtons";
 import SelectField from "@/components/Forms/SelectField";
 import Toggle from "@/components/Forms/Toggle";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import DatePicker from "@/components/DatePicker";
 import styles from "./AttributeForm.module.scss";
 
 export interface Props {
@@ -125,27 +127,53 @@ export default function AttributeForm({
                 className=""
               />
             ) : attribute.datatype === "string[]" ? (
+              <MultiSelectField
+                options={
+                  (attribute.enum
+                    ? attribute.enum
+                        .split(",")
+                        .map((v) => ({ value: v.trim(), label: v.trim() }))
+                    : attributeForm
+                        .watch(attribute.property)
+                        ?.map((v: string) => ({ value: v, label: v }))) || []
+                }
+                value={attributeForm.watch(attribute.property) || []}
+                onChange={(value) => {
+                  attributeForm.setValue(attribute.property, value);
+                  updateFormValues();
+                }}
+                creatable={!attribute.enum}
+              />
+            ) : attribute.datatype === "string" ? (
               <>
                 {attribute.format === "date" ? (
-                  <></>
-                ) : (
-                  <MultiSelectField
-                    options={
-                      (attribute.enum
-                        ? attribute.enum
-                            .split(",")
-                            .map((v) => ({ value: v.trim(), label: v.trim() }))
-                        : attributeForm
-                            .watch(attribute.property)
-                            ?.map((v: string) => ({ value: v, label: v }))) ||
-                      []
+                  <DatePicker
+                    precision="date"
+                    date={
+                      attributeForm.watch(attribute.property)
+                        ? new Date(attributeForm.watch(attribute.property))
+                        : undefined
                     }
-                    value={attributeForm.watch(attribute.property) || []}
-                    onChange={(value) => {
-                      attributeForm.setValue(attribute.property, value);
+                    setDate={(v) => {
+                      console.log("set date called", v);
+                      attributeForm.setValue(
+                        attribute.property,
+                        v ? datetime(v) : ""
+                      );
                       updateFormValues();
                     }}
-                    creatable={!attribute.enum}
+                  />
+                ) : (
+                  <Field
+                    className=""
+                    {...attributeForm.register(attribute.property)}
+                    onChange={(e) => {
+                      attributeForm.setValue(
+                        attribute.property,
+                        e.target.value
+                      );
+                      updateFormValues();
+                    }}
                   />
                 )}
               </>

@@ -26,7 +26,6 @@ const percentFormatter = (
     : new Intl.NumberFormat(undefined, {
         style: "percent",
         maximumFractionDigits: digits,
-        // @ts-expect-error TS is outdated: https://caniuse.com/mdn-javascript_builtins_intl_numberformat_numberformat_options_parameter_options_roundingmode_parameter
         roundingMode: "floor",
       }).format(v);
 
