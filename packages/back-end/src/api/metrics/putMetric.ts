@@ -15,6 +15,10 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
       throw new Error("Metric not found");
     }
 
+    if (req.body.projects) {
+      await req.context.models.projects.ensureProjectsExist(req.body.projects);
+    }
+
     const validationResult = putMetricApiPayloadIsValid(req.body);
 
     if (!validationResult.valid) {

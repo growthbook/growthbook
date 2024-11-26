@@ -15,11 +15,19 @@ import { upsertWatch } from "back-end/src/models/WatchModel";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
+    const { datasourceId, owner: ownerEmail, project } = req.body;
+
+    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+    if (project) {
+      const projects = await req.context.getProjects();
+      if (!projects.some((p) => p.id === project)) {
+        throw new Error(`Project id ${project} is not a valid project.`);
+      }
+    }
+
     if (!req.context.permissions.canCreateExperiment(req.body)) {
       req.context.permissions.throwPermissionError();
     }
-
-    const { datasourceId, owner: ownerEmail } = req.body;
 
     const datasource = await getDataSourceById(req.context, datasourceId);
 
