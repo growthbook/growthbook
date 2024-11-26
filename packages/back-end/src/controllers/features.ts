@@ -1857,6 +1857,7 @@ export async function postFeatureEvaluate(
 ) {
   const { id, version } = req.params;
   const context = getContextFromReq(req);
+  const { org } = context;
   const {
     attributes,
     scrubPrerequisites,
@@ -1864,40 +1865,7 @@ export async function postFeatureEvaluate(
     evalDate,
   } = req.body;
 
-  const results = await evalFeature({
-    attributes,
-    scrubPrerequisites,
-    skipRulesWithPrerequisites,
-    featureId: id,
-    version,
-    context,
-    evalDate,
-  });
-
-  res.status(200).json({
-    status: 200,
-    results: results,
-  });
-}
-
-async function evalFeature({
-  attributes,
-  scrubPrerequisites,
-  skipRulesWithPrerequisites,
-  featureId,
-  version,
-  context,
-  evalDate,
-}: {
-  attributes: Record<string, boolean | string | number | object>;
-  scrubPrerequisites?: boolean;
-  skipRulesWithPrerequisites?: boolean;
-  featureId: string;
-  context: ReqContext;
-  evalDate?: string;
-}) {
-  const feature = await getFeature(context, featureId);
-  const { org } = context;
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1912,7 +1880,7 @@ async function evalFeature({
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  return evaluateFeature({
+  const results = evaluateFeature({
     feature,
     revision,
     attributes,
@@ -1922,6 +1890,11 @@ async function evalFeature({
     scrubPrerequisites,
     skipRulesWithPrerequisites,
     date,
+  });
+
+  res.status(200).json({
+    status: 200,
+    results: results,
   });
 }
 
