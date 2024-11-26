@@ -630,6 +630,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         v.map((v) => v.weight)
                       );
                     }}
+                    variationValuesAsIds={true}
+                    hideVariationIds={!isImport}
                     orgStickyBucketing={orgStickyBucketing}
                   />
                 </Page>
@@ -818,7 +820,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setWeight={(i, weight) =>
                   form.setValue(`phases.0.variationWeights.${i}`, weight)
                 }
-                valueAsId={true}
+                valueAsId={false}
+                startEditingIndexes={true}
                 variations={
                   form.watch("variations")?.map((v, i) => {
                     return {
@@ -847,6 +850,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     v.map((v) => v.weight)
                   );
                 }}
+                hideVariationIds={false}
                 showPreview={!!isNewExperiment}
                 disableCustomSplit={type === "multi-armed-bandit"}
               />

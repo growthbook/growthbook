@@ -1,8 +1,8 @@
 import clsx from "clsx";
 import { ReactElement } from "react";
-import { Link } from "@radix-ui/themes";
 import { GBEdit } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Link from "@/components/Radix/Link";
 
 export interface Props {
   className?: string;
@@ -38,7 +38,7 @@ export default function HeaderWithEdit({
                 edit();
               }}
             >
-              <GBEdit className="cursor-pointer" />
+              <GBEdit />
             </Link>
           </span>
         ) : disabledMessage ? (

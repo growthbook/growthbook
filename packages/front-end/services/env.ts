@@ -20,16 +20,13 @@ const env: EnvironmentInitValue = {
   allowCreateMetrics: true,
   usingFileProxy: false,
   superadminDefaultRole: "readonly",
+  ingestorOverride: "",
 };
-
-export let dataWarehouseUrl;
 
 export async function initEnv() {
   const res = await fetch("/api/init");
   const json = await res.json();
   Object.assign(env, json);
-
-  dataWarehouseUrl = env.dataWarehouseUrl;
 
   if (env.sentryDSN) {
     Sentry.init({
@@ -102,4 +99,7 @@ export function usingFileProxy() {
 }
 export function getSuperadminDefaultRole() {
   return env.superadminDefaultRole;
+}
+export function getIngestorHost() {
+  return env.ingestorOverride || "https://us1.gb-ingest.com";
 }

@@ -7,7 +7,6 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
-import { Link } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,6 +21,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
+import Link from "@/components/Radix/Link";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -88,10 +88,7 @@ const NorthStarMetricDisplay = ({
       <div className="mt-2">
         <div className="mb-4">
           <h4>
-            <Link
-              href={getMetricLink(metric.id)}
-              className="metriclabel text-dark"
-            >
+            <Link color="dark" href={getMetricLink(metric.id)}>
               <MetricName id={metric.id} disableTooltip />
             </Link>
           </h4>

@@ -6,6 +6,7 @@ import {
   getLicense,
   isActiveSubscriptionStatus,
   isAirGappedLicenseKey,
+  licenseInit,
   postSubscriptionUpdateToLicenseServer,
 } from "enterprise";
 import {
@@ -80,6 +81,10 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { LegacyExperimentPhase } from "back-end/types/experiment";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUsersByIds } from "back-end/src/models/UserModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -1122,6 +1127,10 @@ export async function getContextForAgendaJobByOrgId(
   const organization = await findOrganizationById(orgId);
 
   if (!organization) throw new Error("Organization not found");
+
+  if (organization.licenseKey && !getLicense(organization.licenseKey)) {
+    await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
+  }
 
   return getContextForAgendaJobByOrgObject(organization);
 }

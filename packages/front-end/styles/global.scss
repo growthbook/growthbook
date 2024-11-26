@@ -30,16 +30,6 @@ body {
   color: var(--text-color-muted) !important;
 }
 
-.dropdown-text-color {
-  &:focus {
-    svg {
-      color: white;
-    }
-  }
-  svg {
-    color: var(--text-color-muted);
-  }
-}
 .text-ellipsis {
   overflow: hidden;
   white-space: nowrap;
@@ -972,7 +962,6 @@ main.main.report {
 .gbtable {
   background-color: var(--surface-background-color);
   margin-bottom: 0;
-
   thead {
     th {
       font-size: 11px;
@@ -3421,10 +3410,4 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
-}
-.text-color-high {
-  color: var(--text-color-high);
-}
-.text-color-mid {
-  color: var(--text-color-mid);
 }
