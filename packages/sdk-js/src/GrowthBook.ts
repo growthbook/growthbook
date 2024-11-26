@@ -1046,7 +1046,7 @@ export class GrowthBook<
           // If it's a conditional rule, skip if the condition doesn't pass
           if (rule.condition && !this._conditionPasses(rule.condition)) {
             process.env.NODE_ENV !== "production" &&
-              this.log("Skip rule because of force condition didn't match", {
+              this.log("Skip rule because force condition didn't match", {
                 id,
                 rule,
               });

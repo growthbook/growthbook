@@ -1897,9 +1897,6 @@ async function evalFeature({
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (feature.organization !== org.id) {
-    throw new Error("Feature does not belong to this organization");
-  }
   if (!version) {
     version = feature.version.toString();
   }
@@ -1925,14 +1922,11 @@ async function evalFeature({
 }
 
 export async function postFeaturesEvaluate(
-  req: AuthRequest<
-    {
-      attributes: Record<string, boolean | string | number | object>;
-      featureIds: string[];
-      environment: string;
-    },
-    { version: string }
-  >,
+  req: AuthRequest<{
+    attributes: Record<string, boolean | string | number | object>;
+    featureIds: string[];
+    environment: string;
+  }>,
   res: Response<
     {
       status: 200;

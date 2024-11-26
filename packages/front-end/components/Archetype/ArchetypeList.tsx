@@ -3,8 +3,6 @@ import { ArchetypeInterface } from "back-end/types/archetype";
 import Link from "next/link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
@@ -12,6 +10,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Radix/Button";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -47,21 +46,13 @@ export const ArchetypeList: FC<{
         </div>
         {canCreateGlobal && (
           <div className="col-auto">
-            <button
-              className="btn btn-primary float-right"
+            <Button
               onClick={() => {
                 setEditArchetype({});
-                track("Viewed Add Archetype Modal", {
-                  source: "archetype-list",
-                });
               }}
-              type="button"
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
               Add Archetype
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -203,6 +194,7 @@ export const ArchetypeList: FC<{
                   ? "Create Archetype"
                   : "Edit Archetype"
               }
+              source={"archetype-list"}
             />
           )}
         </div>

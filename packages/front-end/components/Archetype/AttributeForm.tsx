@@ -125,23 +125,30 @@ export default function AttributeForm({
                 className=""
               />
             ) : attribute.datatype === "string[]" ? (
-              <MultiSelectField
-                options={
-                  (attribute.enum
-                    ? attribute.enum
-                        .split(",")
-                        .map((v) => ({ value: v.trim(), label: v.trim() }))
-                    : attributeForm
-                        .watch(attribute.property)
-                        ?.map((v: string) => ({ value: v, label: v }))) || []
-                }
-                value={attributeForm.watch(attribute.property) || []}
-                onChange={(value) => {
-                  attributeForm.setValue(attribute.property, value);
-                  updateFormValues();
-                }}
-                creatable={!attribute.enum}
-              />
+              <>
+                {attribute.format === "date" ? (
+                  <></>
+                ) : (
+                  <MultiSelectField
+                    options={
+                      (attribute.enum
+                        ? attribute.enum
+                            .split(",")
+                            .map((v) => ({ value: v.trim(), label: v.trim() }))
+                        : attributeForm
+                            .watch(attribute.property)
+                            ?.map((v: string) => ({ value: v, label: v }))) ||
+                      []
+                    }
+                    value={attributeForm.watch(attribute.property) || []}
+                    onChange={(value) => {
+                      attributeForm.setValue(attribute.property, value);
+                      updateFormValues();
+                    }}
+                    creatable={!attribute.enum}
+                  />
+                )}
+              </>
             ) : (
               <Field
                 className=""
