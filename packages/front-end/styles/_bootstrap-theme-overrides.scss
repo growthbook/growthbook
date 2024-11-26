@@ -86,7 +86,7 @@ pre {
 
 .card {
   background-color: var(--surface-background-color);
-  border-color: var(--border-color-200);
+  border-color: var(--slate-a4);
 }
 .dark {
   .card {
@@ -98,11 +98,11 @@ pre {
 }
 
 .bg-white {
-  background-color: var(--color-surface) !important;
+  background-color: var(--color-panel-solid) !important;
 }
 
 .bg-light {
-  background-color: var(--color-surface) !important;
+  background-color: var(--color-panel-solid) !important;
 }
 
 /* Importants here are necessary to override Bootstrap's default (which also have !important) */
