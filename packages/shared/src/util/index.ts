@@ -26,10 +26,10 @@ export function getAffectedEnvsForExperiment({
   linkedFeatures,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
-  orgEnvironments?: Environment[];
+  orgEnvironments: Environment[];
   linkedFeatures?: FeatureInterface[];
 }): string[] {
-  if (!orgEnvironments) {
+  if (!orgEnvironments.length) {
     return [];
   }
   // Visual changesets are not environment-scoped, so it affects all of them
@@ -54,11 +54,26 @@ export function getAffectedEnvsForExperiment({
           false,
         orgEnvIds,
         undefined,
-        // the boolean below omits skips environments if they are disabled on the feature
+        // the boolean below skips environments if they are disabled on the feature
         true
       );
       if (matches.length) {
-        matches.forEach((match) => envs.add(match.environmentId));
+        const featureProject = linkedFeature.project || "";
+        matches.forEach((matchRule) => {
+          const environmentProjects =
+            orgEnvironments.find((env) => env.id === matchRule.environmentId)
+              ?.projects || [];
+
+          // if the linkedFeature is in all projects, or if a rule's environment is in all projects, add the environment as it'll be affected
+          if (!featureProject.length || !environmentProjects.length) {
+            envs.add(matchRule.environmentId);
+          }
+
+          // otherwise only add the environment if the feature's project overlaps with the environments projects - if there is no overlap, this rule won't affect
+          if (environmentProjects.includes(featureProject)) {
+            envs.add(matchRule.environmentId);
+          }
+        });
       }
     });
     return Array.from(envs);
