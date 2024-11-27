@@ -1,0 +1,18 @@
+services:
+  - type: web
+    plan: free
+    name: mongo
+    runtime: docker
+    autoDeploy: false
+    repo: https://github.com/render-examples/mongodb
+    disk:
+      name: data
+      mountPath: /data/db
+      sizeGB: 5
+  - type: web
+    plan: free
+    name: growthbook
+    runtime: docker
+    repo: https://github.com/ahdriel/growthbook
+    previews:
+      generation: manual
