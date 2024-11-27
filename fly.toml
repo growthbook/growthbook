@@ -4,19 +4,40 @@ primary_region = 'sjc'
 [build]
 
 [[services]]
-  protocol="tcp"
+  processes = ["app"]
   internal_port = 3000
-  force_https = true
-  auto_stop_machines = 'stop'
+  protocol = "tcp"
+  auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
-  processes = ['app']
 
   [[services.ports]]
-    handlers = ['http', 'tls']
-    port = "443"
+    port = 80
+    handlers = ["http"]
+    force_https = true
+  
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+[[services]]
+  processes = ["api"]
+  internal_port = 3100
+  protocol = "tcp"
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[services.ports]]
+    port = 8080
+    handlers = ["http"]
+    force_https = true
+  
+  [[services.ports]]
+    port = 4433
+    handlers = ["tls", "http"]
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
+  memory = "1gb"
+  cpu_kind = "shared"
   cpus = 1
