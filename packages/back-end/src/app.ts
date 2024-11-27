@@ -814,7 +814,7 @@ const errorHandler: ErrorRequestHandler = (
 
   res.status(status).json({
     status: status,
-    message: err.message || "An error occurred",
+    message: err.message || "An error occurred.",
     errorId: SENTRY_DSN ? res.sentry : undefined,
   });
 };
