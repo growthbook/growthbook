@@ -35,9 +35,6 @@ $topbarheight: 60px;
   max-width: 225px;
   max-height: 46px;
 }
-.closebutton {
-  display: none !important;
-}
 .mainmenu {
   padding: 10px;
   font-size: 14px;
@@ -66,22 +63,5 @@ $topbarheight: 60px;
   }
   .sidebaropen {
     left: 0;
-  }
-  .closebutton {
-    position: absolute;
-    top: $topbarheight;
-    right: 0;
-    width: 40px !important;
-    height: 40px !important;
-    min-height: auto !important;
-    padding: 0 !important;
-    display: block !important;
-
-    svg {
-      display: inline-block;
-      width: 36px;
-      height: 36px;
-      color: #fff;
-    }
   }
 }

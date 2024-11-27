@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars, FaBuilding } from "react-icons/fa";
+import { FaAngleRight, FaBuilding } from "react-icons/fa";
 import {
   PiPlusBold,
   PiCaretDownFill,
@@ -10,6 +10,8 @@ import {
   PiListChecks,
   PiMoon,
   PiSunDim,
+  PiX,
+  PiList,
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
@@ -50,10 +52,17 @@ import { usePageHead } from "./PageHead";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
+  isLeftMenuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+}> = ({
+  toggleLeftMenu,
+  isLeftMenuOpen,
+  pageTitle,
+  showNotices,
+  showLogo = true,
+}) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [
@@ -439,7 +448,7 @@ const TopNav: FC<{
               }}
             >
               <span className="sr-only">Open main menu</span>
-              <FaBars />
+              {isLeftMenuOpen ? <PiX /> : <PiList />}
             </a>
           ) : showLogo ? (
             <div>
