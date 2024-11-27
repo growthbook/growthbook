@@ -1,11 +1,6 @@
 app = 'growthbook'
+org = 'growthbook'
 primary_region = 'sjc'
-
-[env]
-  IS_CLOUD=true
-  IS_MULTI_ORG=true
-  ALLOW_SELF_ORG_CREATION=true
-  DISABLE_TELEMETRY=debug
 
 [build]
 
@@ -22,11 +17,10 @@ primary_region = 'sjc'
 
 [[services]]
   internal_port = 3100
-  force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ['api']
+  processes = ['app']
 
   [[services.ports]]
     port = "8080"

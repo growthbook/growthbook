@@ -29,23 +29,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # - name: Deploy MongoDB
-      #   uses: superfly/fly-pr-review-apps@1.3.0
-      #   env:
-      #     MONGO_INITDB_ROOT_USERNAME: root
-      #     MONGO_INITDB_ROOT_PASSWORD: password
-      #   with:
-      #     org: growthbook
-      #     region: sjc
-      #     image: "mongo:latest"
-      #     name: pr-${{ github.event.number }}-growthbook-mongo
-
-      - name: Deploy PR to fly
+      - name: Deploy PR preview
         id: deploy
         uses: superfly/fly-pr-review-apps@1.3.0
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          MONGODB_URI: mongodb://root:password@pr-${{ github.event.number }}-growthbook-mongo.internal/growthbook?authSource=admin
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
           APP_ORIGIN: https://pr-${{ github.event.number }}-growthbook.fly.dev
           API_HOST: https://pr-${{ github.event.number }}-growthbook.fly.dev:8080
         with:
