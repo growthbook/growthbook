@@ -230,6 +230,7 @@ export default function track(
     device_id: getOrGenerateDeviceId(),
     page_id: getOrGeneratePageId(),
     session_id: getOrGenerateSessionId(),
+    page_title: document.title,
     sdk_language: "react",
     sdk_version: growthbook.version,
     url: trackProps.url,
