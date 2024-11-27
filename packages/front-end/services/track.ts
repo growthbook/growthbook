@@ -74,7 +74,6 @@ interface DataWarehouseTrackedEvent {
   // User-supplied targeting attributes
   user_id?: string;
   context_json: string; // JSON-encoded string
-  user_attributes_json: string; // DEPRECATED version of context_json
 }
 
 const DEVICE_ID_COOKIE = "gb_device_id";
@@ -235,7 +234,6 @@ export default function track(
     url: trackProps.url,
     user_id: id,
     context_json: JSON.stringify(growthbook.getAttributes()),
-    user_attributes_json: JSON.stringify(growthbook.getAttributes()),
   });
 
   const jitsu = getJitsuClient();
