@@ -12,24 +12,28 @@ on:
       - ".dockerignore"
     types: [opened, synchronize, reopened, ready_for_review]
 
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  FLY_REGION: sjc
+  FLY_ORG: growthbook
+
 jobs:
   preview:
+    if: ${{ github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
-    #    if: ${{ github.repository == 'growthbook/growthbook' && github.event.pull_request.draft == false }}
-    # Temporarily disable until we fix Okteto deploys
-    if: false
-    steps:
-      - name: Context
-        uses: okteto/context@latest
-        with:
-          url: ${{ secrets.OKTETO_URL }}
-          token: ${{ secrets.OKTETO_TOKEN }}
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    concurrency:
+      group: pr-${{ github.event.number }}
+      cancel-in-progress: true
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
 
-      - name: Deploy preview environment
-        uses: okteto/deploy-preview@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          name: pr-${{ github.event.number }}-bttf
-          timeout: 30m
-          scope: personal
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy PR to fly
+        id: deploy
+        uses: superfly/fly-pr-review-apps@1.2.0
