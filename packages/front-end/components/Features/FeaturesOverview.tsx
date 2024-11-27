@@ -40,7 +40,6 @@ import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import {
   getFeatureDefaultValue,
   getRules,
@@ -51,7 +50,6 @@ import {
   useFeaturesList,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
-import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
@@ -75,6 +73,13 @@ import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
+import Badge from "@/components/Radix/Badge";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -1066,25 +1071,27 @@ export default function FeaturesOverview({
               </p>
 
               <div className="mb-0">
-                <ControlledTabs
-                  setActive={(v) => {
-                    setEnv(v || "");
-                  }}
-                  active={env}
-                  showActiveCount={true}
-                  newStyle={false}
-                  buttonsClassName="px-3 py-2 h4"
-                >
+                <Tabs value={env} onValueChange={(v) => setEnv(v)}>
+                  <TabsList>
+                    {environments.map((e) => {
+                      const rules = getRules(feature, e.id);
+                      return (
+                        <TabsTrigger key={e.id} value={e.id}>
+                          {e.id}
+                          <Badge
+                            label={`${rules.length}`}
+                            color={rules.length > 0 ? undefined : "gray"}
+                            ml="2"
+                            variant="soft"
+                          />
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
                   {environments.map((e) => {
                     const rules = getRules(feature, e.id);
                     return (
-                      <Tab
-                        key={e.id}
-                        id={e.id}
-                        display={e.id}
-                        count={rules.length}
-                        padding={false}
-                      >
+                      <TabsContent key={e.id} value={e.id}>
                         <div className="mb-4 border border-top-0">
                           {rules.length > 0 ? (
                             <RuleList
@@ -1106,13 +1113,13 @@ export default function FeaturesOverview({
 
                           {canEditDrafts && !isLocked && (
                             <div className="p-3 d-flex align-items-center">
-                              <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
+                              <h5 className="ml-0 mb-0">Add Rule to {e.id}</h5>
                               <div className="flex-1" />
                               <Button
                                 onClick={() => {
                                   setRuleModal({
-                                    environment: env,
-                                    i: getRules(feature, env).length,
+                                    environment: e.id,
+                                    i: getRules(feature, e.id).length,
                                   });
                                   track("Viewed Rule Modal", {
                                     source: "add-rule",
@@ -1125,10 +1132,10 @@ export default function FeaturesOverview({
                             </div>
                           )}
                         </div>
-                      </Tab>
+                      </TabsContent>
                     );
                   })}
-                </ControlledTabs>
+                </Tabs>
               </div>
             </>
           )}

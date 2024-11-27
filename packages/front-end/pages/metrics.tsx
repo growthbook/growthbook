@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
@@ -10,8 +10,8 @@ import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/components/Radix/Button";
 import {
   Tabs,
-  TabsTrigger,
   TabsList,
+  TabsTrigger,
   TabsContent,
 } from "@/components/Radix/Tabs";
 
@@ -26,6 +26,7 @@ const MetricsPage = (): React.ReactElement => {
     factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
 
   const [showNewModal, setShowNewModal] = React.useState(false);
+  const [activeTab, setActiveTab] = useState("active");
 
   return (
     <div className="container pagecontents">

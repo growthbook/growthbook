@@ -1,20 +1,16 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import { Flex } from "@radix-ui/themes";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
 } from "./SDKLanguageLogo";
-
-const tabs: Record<LanguageFilter, string> = {
-  popular: "Popular",
-  all: "All",
-  browser: "Browser",
-  server: "Server",
-  mobile: "Mobile",
-  edge: "Edge",
-};
 
 export function SDKLanguageOption({
   language,
@@ -137,42 +133,107 @@ export default function SDKLanguageSelector({
     if (!includeOther) {
       languages = languages.filter((l) => l !== "other");
     }
+
     return (
-      <ControlledTabs
-        buttonsClassName="px-3"
-        buttonsWrapperClassName="mb-3"
-        active={languageFilter}
-        setActive={(v) => setLanguageFilter((v ?? "all") as LanguageFilter)}
+      <Tabs
+        value={languageFilter}
+        onValueChange={(v) => setLanguageFilter(v as LanguageFilter)}
       >
-        {Object.keys(tabs).map((tab) => (
-          <Tab
-            key={tab}
-            id={tab}
-            display={
-              <span
-                className={tab === languageFilter ? "text-main" : undefined}
-              >
-                {tabs[tab]}
-              </span>
-            }
-            padding={false}
-          >
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {languages.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
-            </div>
-          </Tab>
-        ))}
-      </ControlledTabs>
+        <TabsList>
+          <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+          <TabsTrigger value="python">Python</TabsTrigger>
+          <TabsTrigger value="ruby">Ruby</TabsTrigger>
+          <TabsTrigger value="java">Java</TabsTrigger>
+          <TabsTrigger value="php">PHP</TabsTrigger>
+          <TabsTrigger value="go">Go</TabsTrigger>
+          <TabsTrigger value="csharp">C#</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="javascript">
+          <Flex pt="5" pb="6" gap="3" wrap="wrap">
+            {languages.map((l) => (
+              <SDKLanguageOption
+                key={l}
+                language={l}
+                onClick={() => handleLanguageOptionClick(l)}
+                selected={selected.has(l)}
+              />
+            ))}
+          </Flex>
+        </TabsContent>
+        <TabsContent value="python">
+          <Flex pt="5" pb="6" gap="3" wrap="wrap">
+            {languages.map((l) => (
+              <SDKLanguageOption
+                key={l}
+                language={l}
+                onClick={() => handleLanguageOptionClick(l)}
+                selected={selected.has(l)}
+              />
+            ))}
+          </Flex>
+        </TabsContent>
+        <TabsContent value="ruby">
+          <Flex pt="5" pb="6" gap="3" wrap="wrap">
+            {languages.map((l) => (
+              <SDKLanguageOption
+                key={l}
+                language={l}
+                onClick={() => handleLanguageOptionClick(l)}
+                selected={selected.has(l)}
+              />
+            ))}
+          </Flex>
+        </TabsContent>
+        <TabsContent value="java">
+          <Flex pt="5" pb="6" gap="3" wrap="wrap">
+            {languages.map((l) => (
+              <SDKLanguageOption
+                key={l}
+                language={l}
+                onClick={() => handleLanguageOptionClick(l)}
+                selected={selected.has(l)}
+              />
+            ))}
+          </Flex>
+        </TabsContent>
+        <TabsContent value="php">
+          <Flex pt="5" pb="6" gap="3" wrap="wrap">
+            {languages.map((l) => (
+              <SDKLanguageOption
+                key={l}
+                language={l}
+                onClick={() => handleLanguageOptionClick(l)}
+                selected={selected.has(l)}
+              />
+            ))}
+          </Flex>
+        </TabsContent>
+        <TabsContent value="go">
+          <Flex pt="5" pb="6" gap="3" wrap="wrap">
+            {languages.map((l) => (
+              <SDKLanguageOption
+                key={l}
+                language={l}
+                onClick={() => handleLanguageOptionClick(l)}
+                selected={selected.has(l)}
+              />
+            ))}
+          </Flex>
+        </TabsContent>
+        <TabsContent value="csharp">
+          <Flex pt="5" pb="6" gap="3" wrap="wrap">
+            {languages.map((l) => (
+              <SDKLanguageOption
+                key={l}
+                language={l}
+                onClick={() => handleLanguageOptionClick(l)}
+                selected={selected.has(l)}
+              />
+            ))}
+          </Flex>
+        </TabsContent>
+      </Tabs>
     );
   }
 

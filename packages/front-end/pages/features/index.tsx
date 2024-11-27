@@ -41,8 +41,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import Tab from "@/components/Tabs/Tab";
-import Tabs from "@/components/Tabs/Tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -692,8 +696,12 @@ export default function FeaturesPage() {
           </div>
         </>
       ) : (
-        <Tabs newStyle={true} defaultTab="all-features">
-          <Tab id="all-features" display="All Features" padding={false}>
+        <Tabs defaultValue="all-features">
+          <TabsList>
+            <TabsTrigger value="all-features">All Features</TabsTrigger>
+            <TabsTrigger value="drafts">Drafts</TabsTrigger>
+          </TabsList>
+          <TabsContent value="all-features">
             {renderFeaturesTable()}
             <Callout status="info" mt="5" mb="3">
               Looking for <strong>Attributes</strong>,{" "}
@@ -701,10 +709,10 @@ export default function FeaturesPage() {
               <strong>Saved Groups</strong>? They have moved to the{" "}
               <Link href="/sdks">SDK Configuration</Link> tab.
             </Callout>
-          </Tab>
-          <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+          </TabsContent>
+          <TabsContent value="drafts">
             <FeaturesDraftTable features={features} />
-          </Tab>
+          </TabsContent>
         </Tabs>
       )}
     </div>

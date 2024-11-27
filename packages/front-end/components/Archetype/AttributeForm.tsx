@@ -4,8 +4,12 @@ import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import TabButton from "@/components/Tabs/TabButton";
-import TabButtons from "@/components/Tabs/TabButtons";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import SelectField from "@/components/Forms/SelectField";
 import Toggle from "@/components/Forms/Toggle";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -29,7 +33,7 @@ export default function AttributeForm({
     JSON.stringify(formValues)
   );
   const [jsonErrors, setJsonErrors] = useState<string | null>();
-  const [tab, setTab] = useState<"simple" | "adv">("simple");
+  const [activeTab, setActiveTab] = useState<"simple" | "adv">("simple");
 
   const attributeSchema = useAttributeSchema(true);
 
@@ -154,24 +158,11 @@ export default function AttributeForm({
     <>
       <div>
         <h4>Attributes</h4>
-        <TabButtons className="mb-0 pb-0">
-          <TabButton
-            active={tab === "simple"}
-            display={<>Form</>}
-            anchor="simple"
-            onClick={() => {
-              setTab("simple");
-              updateFormValues(true);
-            }}
-            newStyle={false}
-            activeClassName="active-tab"
-          />
-          <TabButton
-            active={tab === "adv"}
-            display={<>JSON</>}
-            anchor="adv"
-            onClick={() => {
-              setTab("adv");
+        <Tabs
+          value={activeTab}
+          onValueChange={(v: "simple" | "adv") => {
+            setActiveTab(v);
+            if (v === "adv") {
               try {
                 const parsed = JSON.parse(jsonAttributes);
                 setFormValues(parsed);
@@ -179,18 +170,18 @@ export default function AttributeForm({
               } catch (e) {
                 setJsonErrors(e.message);
               }
-            }}
-            newStyle={false}
-            activeClassName="active-tab"
-            last={false}
-          />
-        </TabButtons>
-
-        <div
-          className={`border border-secondary rounded ${styles.attributeBox} pb-2 bg-light`}
+            } else {
+              updateFormValues(true);
+            }
+          }}
         >
-          {tab === "simple" ? (
-            <div className=" form-group rounded">
+          <TabsList>
+            <TabsTrigger value="simple">Form</TabsTrigger>
+            <TabsTrigger value="adv">JSON</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="simple">
+            <div className="border border-secondary rounded form-group rounded">
               <div
                 className={`${styles.attrHeader} d-flex flex-row align-items-center justify-content-between small border-bottom p-1 mb-2 sticky-top`}
               >
@@ -209,11 +200,13 @@ export default function AttributeForm({
                 <>No attributes defined yet</>
               )}
             </div>
-          ) : (
+          </TabsContent>
+
+          <TabsContent value="adv">
             <div className="p-2">
-              <div className=" form-group rounded">
+              <div className="form-group rounded">
                 <Field
-                  label={`JSON Values`}
+                  label="JSON Values"
                   value={jsonAttributes}
                   onChange={(e) => {
                     setJsonAttributes(e.target.value);
@@ -231,7 +224,7 @@ export default function AttributeForm({
                   textarea={true}
                   minRows={30}
                   containerClassName="mb-0"
-                  helpText={`Enter user attributes in JSON format.`}
+                  helpText="Enter user attributes in JSON format."
                 />
                 {jsonErrors && (
                   <div className="text-danger">
@@ -260,8 +253,8 @@ export default function AttributeForm({
                 )}
               </div>
             </div>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );

@@ -80,6 +80,7 @@
     "no-restricted-imports": "off",
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
+    "react/forbid-elements": [1, { "forbid": ["ControlledTabs"] }],
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
     "import/order": [
@@ -115,7 +116,46 @@
         "./packages/front-end/**/*.ts*"
       ],
       "rules": {
-        "no-restricted-imports": ["error", { "patterns": ["..*"] }]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["..*"]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/front-end/**/*.ts*"],
+      "excludedFiles": ["./packages/front-end/components/Radix/**/*.ts*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@radix-ui/themes",
+                "message": "Use the component from @/components/Radix/ instead.",
+                "importNames": [
+                  "Avatar",
+                  "Badge",
+                  "Button",
+                  "Callout",
+                  "Checkbox",
+                  "DataList",
+                  "DropdownMenu",
+                  "HelperText",
+                  "Link",
+                  "LinkButton",
+                  "MetadataTable",
+                  "RadioCards",
+                  "RadioGroup",
+                  "Select",
+                  "Tabs"
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {

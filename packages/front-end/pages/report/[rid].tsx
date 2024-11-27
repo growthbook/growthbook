@@ -18,8 +18,6 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import DateResults from "@/components/Experiment/DateResults";
 import { useAuth } from "@/services/auth";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
 import {
   GBCircleArrowLeft,
   GBCuped,
@@ -44,6 +42,12 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -65,7 +69,7 @@ export default function ReportPage() {
 
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const [active, setActive] = useState<string | null>("Results");
+  const [tab, setTab] = useState<string>("results");
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
@@ -269,13 +273,15 @@ export default function ReportPage() {
           )}
         </div>
 
-        <ControlledTabs
-          active={active}
-          setActive={setActive}
-          newStyle={true}
-          navClassName={canUpdateReport ? "" : "d-none"}
-        >
-          <Tab key="results" anchor="results" display="Results" padding={false}>
+        <Tabs value={tab} onValueChange={setTab}>
+          {canUpdateReport && (
+            <TabsList>
+              <TabsTrigger value="results">Results</TabsTrigger>
+              <TabsTrigger value="configuration">Configuration</TabsTrigger>
+            </TabsList>
+          )}
+
+          <TabsContent value="results">
             <div className="pt-3 px-3">
               <div className="row align-items-center mb-2">
                 <div className="col">
@@ -403,7 +409,7 @@ export default function ReportPage() {
                     supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                     editMetrics={
                       canUpdateReport
-                        ? () => setActive("Configuration")
+                        ? () => setTab("configuration")
                         : undefined
                     }
                     generateReport={false}
@@ -618,23 +624,18 @@ export default function ReportPage() {
                 </div>
               </div>
             )}
-          </Tab>
+          </TabsContent>
           {canUpdateReport && (
-            <Tab
-              key="configuration"
-              anchor="configuration"
-              display="Configuration"
-              forceRenderOnFocus={true}
-            >
+            <TabsContent value="configuration">
               <h2>Configuration</h2>
               <ConfigureReport
                 mutate={mutate}
                 report={report}
-                viewResults={() => setActive("Results")}
+                viewResults={() => setTab("results")}
               />
-            </Tab>
+            </TabsContent>
           )}
-        </ControlledTabs>
+        </Tabs>
       </div>
     </>
   );

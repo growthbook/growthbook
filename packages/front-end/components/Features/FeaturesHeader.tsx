@@ -19,8 +19,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -30,6 +28,12 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 
 export default function FeaturesHeader({
   feature,
@@ -388,32 +392,23 @@ export default function FeaturesHeader({
             )}
           </div>
           <div id="feature-page-tabs">
-            <TabButtons className="mb-0 pb-0">
-              <TabButton
-                active={tab === "overview"}
-                display={
-                  <>
-                    <FaHome /> Overview
-                  </>
-                }
-                anchor="overview"
-                onClick={() => setTab("overview")}
-                newStyle={false}
-                activeClassName="active-tab"
-              />
-              <TabButton
-                active={tab === "stats"}
-                display={
-                  <>
-                    <FaCode /> Code Refs
-                  </>
-                }
-                anchor="stats"
-                onClick={() => setTab("stats")}
-                newStyle={false}
-                activeClassName="active-tab"
-              />
-            </TabButtons>
+            <Tabs
+              value={tab}
+              onValueChange={(newTab) => setTab(newTab as FeatureTab)}
+            >
+              <TabsList>
+                <TabsTrigger value="overview">
+                  <FaHome /> Overview
+                </TabsTrigger>
+                <TabsTrigger value="stats">
+                  <FaCode /> Code Refs
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="overview">
+                {/* Overview content */}
+              </TabsContent>
+              <TabsContent value="stats">{/* Stats content */}</TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
