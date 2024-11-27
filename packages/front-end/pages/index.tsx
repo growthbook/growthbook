@@ -55,7 +55,7 @@ export default function Home(): React.ReactElement {
       <div className="alert alert-danger">
         {experimentsError?.message ||
           featuresError?.message ||
-          "An error occurred"}
+          "An error occurred."}
       </div>
     );
   }
