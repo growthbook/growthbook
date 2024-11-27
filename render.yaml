@@ -1,6 +1,6 @@
 services:
   - type: web
-    plan: free
+    plan: starter
     name: mongo
     runtime: docker
     autoDeploy: false
