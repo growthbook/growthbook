@@ -4,6 +4,7 @@ primary_region = 'sjc'
 [build]
 
 [[services]]
+  protocol="tcp"
   internal_port = 3000
   force_https = true
   auto_stop_machines = 'stop'
@@ -12,6 +13,7 @@ primary_region = 'sjc'
   processes = ['app']
 
   [[services.ports]]
+    handlers = ['http', 'tls']
     port = "443"
 
 [[vm]]
