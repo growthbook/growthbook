@@ -362,6 +362,7 @@ export default function TabbedPage({
             verifiedConnections={verifiedConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            envs={envs}
           />
           <Implementation
             experiment={experiment}
@@ -375,6 +376,7 @@ export default function TabbedPage({
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
+            envs={envs}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">

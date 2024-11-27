@@ -28,6 +28,7 @@ export interface Props {
   setVisualEditorModal: (open: boolean) => void;
   setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
+  envs: string[];
 }
 
 export default function Implementation({
@@ -42,6 +43,7 @@ export default function Implementation({
   setVisualEditorModal,
   setUrlRedirectModal,
   linkedFeatures,
+  envs,
 }: Props) {
   const phases = experiment.phases || [];
 
@@ -146,7 +148,7 @@ export default function Implementation({
         phaseIndex={phases.length - 1}
       />
 
-      <AnalysisSettings experiment={experiment} mutate={mutate} />
+      <AnalysisSettings experiment={experiment} mutate={mutate} envs={envs} />
     </div>
   );
 }

@@ -19,6 +19,7 @@ export interface Props {
   disableEditing?: boolean;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  envs: string[];
 }
 
 export default function SetupTabOverview({
@@ -31,6 +32,7 @@ export default function SetupTabOverview({
   disableEditing,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  envs,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -56,6 +58,7 @@ export default function SetupTabOverview({
           verifiedConnections={verifiedConnections}
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          envs={envs}
         />
       ) : null}
 
