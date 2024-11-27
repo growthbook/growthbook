@@ -1,7 +1,7 @@
 name: PR Preview Environment
 
 on:
-  pull_request:
+  push:
     branches:
       - main
     paths:
@@ -10,7 +10,6 @@ on:
       - "yarn.lock"
       - "Dockerfile"
       - ".dockerignore"
-    types: [opened, synchronize, reopened, ready_for_review]
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
