@@ -172,7 +172,7 @@ function App({
                       ) : (
                         <div>
                           <TopNavLite />
-                          <main className="container mt-5">
+                          <main className="container">
                             <Component {...pageProps} />
                           </main>
                         </div>
