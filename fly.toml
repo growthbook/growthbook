@@ -1,4 +1,3 @@
-app = 'growthbook'
 org = 'growthbook'
 primary_region = 'sjc'
 
@@ -13,17 +12,7 @@ primary_region = 'sjc'
   processes = ['app']
 
   [[services.ports]]
-    port = "80"
-
-[[services]]
-  internal_port = 3100
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
-
-  [[services.ports]]
-    port = "8080"
+    port = "443"
 
 [[vm]]
   memory = '1gb'
