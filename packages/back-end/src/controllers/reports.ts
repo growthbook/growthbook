@@ -36,14 +36,17 @@ import {
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import {getFactTableMap, getFactTablesByIds} from "back-end/src/models/FactTableModel";
+import {
+  getFactTableMap,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
 import {
   ExperimentAnalysisSettings,
   experimentAnalysisSettings,
 } from "back-end/src/validators/experiments";
 import { getFactMetrics } from "back-end/src/routers/fact-table/fact-table.controller";
-import {FactMetricInterface} from "back-end/types/fact-table";
-import {MetricInterface} from "back-end/types/metric";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { MetricInterface } from "back-end/types/metric";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -219,19 +222,21 @@ export async function getReportPublic(
       : undefined;
 
   const metricGroups = await context.models.metricGroups.getAll();
-  const experimentMetricIds = expandMetricGroups(uniq([
-    ...(snapshot?.settings?.goalMetrics ?? []),
-    ...(snapshot?.settings?.secondaryMetrics ?? []),
-    ...(snapshot?.settings?.guardrailMetrics ?? []),
-  ]), metricGroups);
-
-  const metricIds =
+  const experimentMetricIds = expandMetricGroups(
     uniq([
-      ...experimentMetricIds,
-      ...(snapshot?.settings?.activationMetric
-        ? [snapshot?.settings?.activationMetric]
-        : []),
-    ]);
+      ...(snapshot?.settings?.goalMetrics ?? []),
+      ...(snapshot?.settings?.secondaryMetrics ?? []),
+      ...(snapshot?.settings?.guardrailMetrics ?? []),
+    ]),
+    metricGroups
+  );
+
+  const metricIds = uniq([
+    ...experimentMetricIds,
+    ...(snapshot?.settings?.activationMetric
+      ? [snapshot?.settings?.activationMetric]
+      : []),
+  ]);
 
   const metrics: MetricInterface[] = await getMetricsByIds(
     context,
@@ -241,12 +246,16 @@ export async function getReportPublic(
     metricIds.filter((m) => m.startsWith("fact__"))
   );
 
-  const denominatorMetricIds = uniq(metrics
-    .filter((m) => !!m.denominator)
-    .map((m) => m.denominator)
-    .filter((id) => id && !metricIds.includes(id)) as string[]
+  const denominatorMetricIds = uniq(
+    metrics
+      .filter((m) => !!m.denominator)
+      .map((m) => m.denominator)
+      .filter((id) => id && !metricIds.includes(id)) as string[]
   );
-  const denominatorMetrics = await getMetricsByIds(context, denominatorMetricIds);
+  const denominatorMetrics = await getMetricsByIds(
+    context,
+    denominatorMetricIds
+  );
 
   const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
     (map, metric) => Object.assign(map, { [metric.id]: metric }),
@@ -256,7 +265,8 @@ export async function getReportPublic(
   let factTableIds: string[] = [];
   factMetrics.forEach((m) => {
     if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
-    if (m?.denominator?.factTableId) factTableIds.push(m.denominator.factTableId);
+    if (m?.denominator?.factTableId)
+      factTableIds.push(m.denominator.factTableId);
   });
   factTableIds = uniq(factTableIds);
   const factTables = await getFactTablesByIds(context, factTableIds);

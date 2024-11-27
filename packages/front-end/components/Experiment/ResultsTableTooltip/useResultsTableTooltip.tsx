@@ -26,6 +26,7 @@ export function useResultsTableTooltip({
   differenceType,
   pValueCorrection,
   noTooltip,
+  ssrPolyfills,
 }: {
   orderedVariations: ExperimentReportVariationWithIndex[];
   rows: ExperimentTableRow[];

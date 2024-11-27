@@ -45,8 +45,9 @@ body {
 }
 
 .main {
-  &:not(.lite) {
-    padding-left: 240px;
+  padding-left: 240px;
+  &.lite {
+    padding-left: 0;
   }
   padding-top: 60px;
 

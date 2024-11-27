@@ -51,6 +51,7 @@ import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
@@ -90,6 +91,7 @@ export type ResultsTableProps = {
   noTooltip?: boolean;
   isBandit?: boolean;
   isGoalMetrics?: boolean;
+  ssrPolyfills?: SSRExperimentReportPolyfills;
 };
 
 const ROW_HEIGHT = 56;
@@ -129,6 +131,7 @@ export default function ResultsTable({
   noStickyHeader,
   noTooltip,
   isBandit,
+  ssrPolyfills,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
@@ -235,7 +238,11 @@ export default function ResultsTable({
 
         const denominator =
           !isFactMetric(row.metric) && row.metric.denominator
-            ? getMetricById(row.metric.denominator) ?? undefined
+            ? (ssrPolyfills?.getExperimentMetricById?.(
+                row.metric.denominator
+              ) ||
+                getMetricById(row.metric.denominator)) ??
+              undefined
             : undefined;
         const rowResults = getRowResults({
           stats,
@@ -254,7 +261,7 @@ export default function ResultsTable({
           isLatestPhase,
           experimentStatus: status,
           displayCurrency,
-          getFactTableById,
+          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -277,7 +284,9 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
+    ssrPolyfills?.getFactTableById,
     getFactTableById,
+    ssrPolyfills?.getExperimentMetricById,
     getMetricById,
   ]);
 
@@ -340,6 +349,7 @@ export default function ResultsTable({
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
           isBandit={isBandit}
+          ssrPolyfills={ssrPolyfills}
         />
       </CSSTransition>
 
@@ -708,6 +718,7 @@ export default function ResultsTable({
                               hover: isHovered,
                             })}
                             showRatio={!isBandit}
+                            ssrPolyfills={ssrPolyfills}
                           />
                         ) : (
                           <td />
@@ -720,6 +731,7 @@ export default function ResultsTable({
                             hover: isHovered,
                           })}
                           showRatio={!isBandit}
+                          ssrPolyfills={ssrPolyfills}
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (

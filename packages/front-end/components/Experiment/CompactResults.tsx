@@ -1,4 +1,4 @@
-import React, {FC, useCallback, useMemo} from "react";
+import React, { FC, useCallback, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
@@ -42,6 +42,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -81,7 +82,7 @@ const CompactResults: FC<{
   noStickyHeader?: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
-  ssrData?: Record<string, any>;
+  ssrPolyfills?: SSRExperimentReportPolyfills;
 }> = ({
   editMetrics,
   variations,
@@ -113,7 +114,7 @@ const CompactResults: FC<{
   noStickyHeader,
   noTooltip,
   experimentType,
-  ssrData,
+  ssrPolyfills,
 }) => {
   const {
     getExperimentMetricById,
@@ -122,15 +123,6 @@ const CompactResults: FC<{
     ready,
   } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
-
-  // ssr polyfills
-  const ssrGetExperimentMetricById = useCallback((metricId: string) =>
-    getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null, []);
-  const ssrMetricGroups = [...metricGroups, ...(ssrData?.metricGroups ?? [])];
-  // const ssrGetMetricGroupById = useCallback((metricGroupId: string) =>
-  //   getMetricGroupById(metricGroupId) ||
-  //   ssrMetricGroups?.[metricGroupId] ||
-  //   null, []);
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -148,24 +140,35 @@ const CompactResults: FC<{
     expandedSecondaries,
     expandedGuardrails,
   } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, ssrMetricGroups);
+    const expandedGoals = expandMetricGroups(
+      goalMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
     const expandedSecondaries = expandMetricGroups(
       secondaryMetrics,
-      ssrMetricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
     const expandedGuardrails = expandMetricGroups(
       guardrailMetrics,
-      ssrMetricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
 
     return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, ssrMetricGroups, secondaryMetrics, guardrailMetrics]);
+  }, [
+    goalMetrics,
+    metricGroups,
+    ssrPolyfills?.metricGroups,
+    secondaryMetrics,
+    guardrailMetrics,
+  ]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
     [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
       (metricId) => {
-        const metric = ssrGetExperimentMetricById(metricId);
+        const metric =
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId);
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
@@ -176,7 +179,8 @@ const CompactResults: FC<{
     expandedGoals,
     expandedSecondaries,
     expandedGuardrails,
-    ssrGetExperimentMetricById,
+    ssrPolyfills?.getExperimentMetricById,
+    getExperimentMetricById,
   ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
@@ -184,7 +188,9 @@ const CompactResults: FC<{
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail"
     ) {
-      const metric = ssrGetExperimentMetricById(metricId);
+      const metric =
+        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+        getExperimentMetricById(metricId);
 
       if (!metric) {
         return null;
@@ -219,7 +225,7 @@ const CompactResults: FC<{
       };
     }
 
-    if (!results || !results.variations || (!ready && !ssrData)) return [];
+    if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
       setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
@@ -227,7 +233,11 @@ const CompactResults: FC<{
     }
 
     const metricDefs = expandedGoals
-      .map((metricId) => ssrGetExperimentMetricById(metricId))
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
@@ -235,7 +245,11 @@ const CompactResults: FC<{
     );
 
     const secondaryDefs = expandedSecondaries
-      .map((metricId) => ssrGetExperimentMetricById(metricId))
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredSecondary = sortAndFilterMetricsByTags(
       secondaryDefs,
@@ -243,7 +257,11 @@ const CompactResults: FC<{
     );
 
     const guardrailDefs = expandedGuardrails
-      .map((metricId) => ssrGetExperimentMetricById(metricId))
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
@@ -271,9 +289,10 @@ const CompactResults: FC<{
     pValueThreshold,
     statsEngine,
     ready,
-    ssrGetExperimentMetricById,
+    ssrPolyfills?.getExperimentMetricById,
+    getExperimentMetricById,
     metricFilter,
-    ssrData,
+    ssrPolyfills,
   ]);
 
   const users = useMemo(() => {
@@ -407,6 +426,7 @@ const CompactResults: FC<{
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
             isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
           />
         </div>
       ) : null}

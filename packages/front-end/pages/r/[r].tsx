@@ -4,15 +4,18 @@ import {
 } from "back-end/types/report";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getValidDate } from "shared/dates";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-} from "shared/constants";
-import React from "react";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import React, { useCallback } from "react";
 import { getSnapshotAnalysis } from "shared/util";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { FactTableInterface } from "back-end/types/fact-table";
 import CompactResults from "@/components/Experiment/CompactResults";
 import Callout from "@/components/Radix/Callout";
 import PageHead from "@/components/Layout/PageHead";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -51,8 +54,50 @@ interface ReportPageProps {
   ssrData?: Record<string, any>;
 }
 
+export interface SSRExperimentReportPolyfills {
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  metricGroups: MetricGroupInterface[];
+  getMetricGroupById: (id: string) => null | MetricGroupInterface;
+  getFactTableById: (id: string) => null | FactTableInterface;
+}
+
 export default function ReportPage(props: ReportPageProps) {
   const { report, snapshot, ssrData } = props;
+
+  const {
+    getExperimentMetricById,
+    getMetricGroupById,
+    getFactTableById,
+    metricGroups,
+  } = useDefinitions();
+  // const pValueThreshold = usePValueThreshold();
+
+  // ssr polyfills
+  const ssrGetExperimentMetricById = useCallback(
+    (metricId: string) =>
+      getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null,
+    []
+  );
+  const ssrMetricGroups = [...metricGroups, ...(ssrData?.metricGroups ?? [])];
+  const ssrGetMetricGroupById = useCallback(
+    (metricGroupId: string) =>
+      getMetricGroupById(metricGroupId) ||
+      ssrMetricGroups?.[metricGroupId] ||
+      null,
+    [ssrMetricGroups]
+  );
+  const ssrGetFactTableById = useCallback(
+    (id) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
+    []
+  );
+
+  const ssrPolyfills: SSRExperimentReportPolyfills = {
+    getExperimentMetricById: ssrGetExperimentMetricById,
+    metricGroups: ssrMetricGroups,
+    getMetricGroupById: ssrGetMetricGroupById,
+    getFactTableById: ssrGetFactTableById,
+  };
+
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
@@ -136,7 +181,7 @@ export default function ReportPage(props: ReportPageProps) {
             differenceType={analysis.settings?.differenceType}
             isTabActive={true}
             experimentType={report.experimentMetadata.type}
-            ssrData={ssrData}
+            ssrPolyfills={ssrPolyfills}
           />
         )}
       </div>

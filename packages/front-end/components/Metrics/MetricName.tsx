@@ -104,7 +104,7 @@ export default function MetricName({
   isGroup,
   metrics,
 }: {
-  id: string;
+  id?: string;
   metric?: ExperimentMetricInterface;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
@@ -113,11 +113,11 @@ export default function MetricName({
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
-  const metric = _metric ?? getExperimentMetricById(id);
+  const metric = _metric ?? getExperimentMetricById(id ?? "");
 
   if (isGroup) {
     // check if this is a metric group:
-    const metricGroup = getMetricGroupById(id);
+    const metricGroup = getMetricGroupById(id ?? "");
     if (!metricGroup) {
       return <>{id}</>;
     }

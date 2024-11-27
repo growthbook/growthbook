@@ -46,6 +46,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -92,6 +93,7 @@ interface Props
   close: () => void;
   differenceType: DifferenceType;
   isBandit?: boolean;
+  ssrPolyfills?: SSRExperimentReportPolyfills;
 }
 export default function ResultsTableTooltip({
   left,
@@ -101,6 +103,7 @@ export default function ResultsTableTooltip({
   close,
   differenceType,
   isBandit,
+  ssrPolyfills,
   ...otherProps
 }: Props) {
   useEffect(() => {
@@ -132,7 +135,11 @@ export default function ResultsTableTooltip({
   const deltaFormatter =
     differenceType === "relative"
       ? formatPercent
-      : getExperimentMetricFormatter(data.metric, getFactTableById, true);
+      : getExperimentMetricFormatter(
+          data.metric,
+          ssrPolyfills?.getFactTableById || getFactTableById,
+          true
+        );
   const deltaFormatterOptions = {
     currency: displayCurrency,
     ...(differenceType === "relative" ? { maximumFractionDigits: 2 } : {}),
@@ -722,7 +729,7 @@ export default function ResultsTableTooltip({
                         <td>
                           {getExperimentMetricFormatter(
                             data.metric,
-                            getFactTableById,
+                            ssrPolyfills?.getFactTableById || getFactTableById,
                             true
                           )(row.value, { currency: displayCurrency })}
                         </td>
@@ -739,6 +746,7 @@ export default function ResultsTableTooltip({
                         stats={row}
                         users={row?.users || 0}
                         showRatio={false}
+                        ssrPolyfills={ssrPolyfills}
                       />
                     </tr>
                   );
