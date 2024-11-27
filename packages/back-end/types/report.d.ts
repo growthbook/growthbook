@@ -1,4 +1,4 @@
-import { MetricPriorSettings } from "./fact-table";
+import {FactTableInterface, MetricPriorSettings} from "./fact-table";
 import {
   AttributionModel,
   ExperimentPhase,
@@ -10,6 +10,9 @@ import {
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
+import {ExperimentMetricInterface} from "shared/experiments";
+import {OrganizationSettings} from "back-end/types/organization";
+import {MetricGroupInterface} from "back-end/types/metric-groups";
 
 export interface ReportInterfaceBase {
   id: string;
@@ -138,3 +141,10 @@ export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
     secondaryMetrics?: string[];
   };
 };
+
+export type SSRExperimentReportData = {
+  metrics: Record<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+  factTables: Record<string, FactTableInterface>;
+  settings: OrganizationSettings;
+}

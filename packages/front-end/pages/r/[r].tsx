@@ -1,10 +1,10 @@
 import {
   ExperimentSnapshotReportInterface,
-  MetricSnapshotSettings,
+  MetricSnapshotSettings, SSRExperimentReportData,
 } from "back-end/types/report";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getValidDate } from "shared/dates";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import {DEFAULT_P_VALUE_THRESHOLD, DEFAULT_PROPER_PRIOR_STDDEV} from "shared/constants";
 import React, { useCallback } from "react";
 import { getSnapshotAnalysis } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -16,6 +16,12 @@ import PageHead from "@/components/Layout/PageHead";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import {OrganizationSettings} from "back-end/types/organization";
+import {useCurrency} from "@/hooks/useCurrency";
+import {supportedCurrencies} from "@/services/settings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import {METRIC_DEFAULTS, useOrganizationMetricDefaults} from "@/hooks/useOrganizationMetricDefaults";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -51,7 +57,7 @@ interface ReportPageProps {
   r: string;
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
-  ssrData?: Record<string, any>;
+  ssrData?: SSRExperimentReportData;
 }
 
 export interface SSRExperimentReportPolyfills {
@@ -59,6 +65,11 @@ export interface SSRExperimentReportPolyfills {
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
+  useOrgSettings: typeof useOrgSettings;
+  useCurrency: typeof useCurrency;
+  usePValueThreshold: typeof usePValueThreshold;
+  useConfidenceLevels: typeof useConfidenceLevels;
+  useOrganizationMetricDefaults: typeof useOrganizationMetricDefaults;
 }
 
 export default function ReportPage(props: ReportPageProps) {
@@ -70,7 +81,7 @@ export default function ReportPage(props: ReportPageProps) {
     getFactTableById,
     metricGroups,
   } = useDefinitions();
-  // const pValueThreshold = usePValueThreshold();
+  const hasCsrSettings = !!(Object.keys(useOrgSettings() || {})?.length);
 
   // ssr polyfills
   const ssrGetExperimentMetricById = useCallback(
@@ -91,11 +102,56 @@ export default function ReportPage(props: ReportPageProps) {
     []
   );
 
+  const ssrUseOrgSettings = useCallback(() => hasCsrSettings ?
+    useOrgSettings() :
+    ssrData?.settings || {},
+  [hasCsrSettings]);
+  const ssrUseCurrency = useCallback(() =>
+      hasCsrSettings ?
+      useCurrency() :
+      ssrData?.settings?.displayCurrency &&
+      ssrData.settings.displayCurrency in supportedCurrencies
+        ? ssrData.settings.displayCurrency
+        : "USD",
+    [hasCsrSettings]);
+  const ssrUsePValueThreshold = useCallback(() => hasCsrSettings ?
+      usePValueThreshold() :
+      ssrData?.settings?.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+    [hasCsrSettings]);
+  const ssrUseConfidenceLevels = useCallback(() => hasCsrSettings ?
+    useConfidenceLevels() :
+    (() => {
+      const ciUpper = ssrData?.settings?.confidenceLevel || 0.95;
+      return {
+        ciUpper,
+        ciLower: 1 - ciUpper,
+        ciUpperDisplay: Math.round(ciUpper * 100) + "%",
+        ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
+      };
+    })(),
+    [hasCsrSettings]
+  );
+  const ssrUseOrganizationMetricDefaults = useCallback(() => hasCsrSettings ?
+    useOrganizationMetricDefaults() :
+    ({
+      ...useOrganizationMetricDefaults(),
+      metricDefaults: {
+        ...METRIC_DEFAULTS,
+        ...(ssrData?.settings?.metricDefaults || {})
+      },
+    }),
+  [hasCsrSettings]);
+
   const ssrPolyfills: SSRExperimentReportPolyfills = {
     getExperimentMetricById: ssrGetExperimentMetricById,
     metricGroups: ssrMetricGroups,
     getMetricGroupById: ssrGetMetricGroupById,
     getFactTableById: ssrGetFactTableById,
+    useOrgSettings: ssrUseOrgSettings,
+    useCurrency: ssrUseCurrency,
+    usePValueThreshold: ssrUsePValueThreshold,
+    useConfidenceLevels: ssrUseConfidenceLevels,
+    useOrganizationMetricDefaults: ssrUseOrganizationMetricDefaults,
   };
 
   const phases = report.experimentMetadata.phases;

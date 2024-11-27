@@ -144,10 +144,10 @@ export default function ResultsTable({
     metricDefaults,
     getMinSampleSizeForMetric,
   } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
-  const displayCurrency = useCurrency();
-  const orgSettings = useOrgSettings();
+  const { ciUpper, ciLower } = ssrPolyfills?.useConfidenceLevels?.() || useConfidenceLevels();
+  const pValueThreshold = ssrPolyfills?.usePValueThreshold?.() || usePValueThreshold();
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || useCurrency();
+  const orgSettings = ssrPolyfills?.useOrgSettings?.() || useOrgSettings();
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 

@@ -53,7 +53,7 @@ export default function MetricValueColumn({
   ssrPolyfills,
   ...otherProps
 }: Props) {
-  const displayCurrency = useCurrency();
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || useCurrency();
   const formatterOptions = { currency: displayCurrency };
   const { getFactTableById, getMetricById } = useDefinitions();
 

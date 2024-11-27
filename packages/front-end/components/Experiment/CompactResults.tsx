@@ -391,6 +391,7 @@ const CompactResults: FC<{
           noTooltip={noTooltip}
           isBandit={isBandit}
           isGoalMetrics={true}
+          ssrPolyfills={ssrPolyfills}
         />
       ) : null}
 
@@ -463,6 +464,7 @@ const CompactResults: FC<{
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
             isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
           />
         </div>
       ) : (

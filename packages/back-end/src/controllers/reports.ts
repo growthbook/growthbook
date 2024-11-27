@@ -9,6 +9,7 @@ import { expandMetricGroups } from "shared/experiments";
 import {
   ExperimentReportInterface,
   ReportInterface,
+  SSRExperimentReportData,
 } from "back-end/types/report";
 import {
   getExperimentById,
@@ -44,9 +45,9 @@ import {
   ExperimentAnalysisSettings,
   experimentAnalysisSettings,
 } from "back-end/src/validators/experiments";
-import { getFactMetrics } from "back-end/src/routers/fact-table/fact-table.controller";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { MetricInterface } from "back-end/types/metric";
+import {OrganizationSettings} from "back-end/types/organization";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -275,15 +276,32 @@ export async function getReportPublic(
     {}
   );
 
-  const ssrData: Record<string, any> = {
+  const settingsKeys = [
+    "confidenceLevel",
+    "metricDefaults",
+    "multipleExposureMinPercent",
+    "statsEngine",
+    "pValueThreshold",
+    "pValueCorrection",
+    "regressionAdjustmentEnabled",
+    "regressionAdjustmentDays",
+    "srmThreshold",
+    "attributionModel",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
+    "displayCurrency",
+  ];
+  const orgSettings: OrganizationSettings = pick(context.org.settings, settingsKeys);
+  // todo: consider including experiment's project settings in future? likely not...
+
+  const ssrData: SSRExperimentReportData = {
     metrics: metricMap,
     metricGroups: metricGroups,
     factTables: factTableMap,
+    settings: orgSettings,
   };
 
   // todo - metrics:
-  // 1. denominator metrics (in legacy metrics)
-  // 2. fact tables (in fact metrics) + getFactTableById
   // 3. scrub defs
 
   // todo - MetricValueColumn, etc (ResultsTable, ResultsTableTooltip):

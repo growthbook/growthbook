@@ -125,10 +125,10 @@ export default function ResultsTableTooltip({
     };
   }, [data, tooltipOpen, close]);
 
-  const displayCurrency = useCurrency();
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || useCurrency();
 
   const { getFactTableById } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
+  const pValueThreshold = ssrPolyfills?.usePValueThreshold?.() || usePValueThreshold();
   if (!data) {
     return null;
   }
