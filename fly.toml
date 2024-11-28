@@ -5,6 +5,7 @@ primary_region = 'sjc'
 
 [processes]
   app = "cd packages/front-end; yarn start"
+  api = "cd packages/back-end; yarn start"
 
 [env]
   IS_CLOUD = true
@@ -13,6 +14,7 @@ primary_region = 'sjc'
   DISABLE_TELEMETRY = "debug"
 
 [[services]]
+  processes = ["app"]
   internal_port = 3000
   protocol = "tcp"
   auto_stop_machines = "stop"
@@ -29,6 +31,7 @@ primary_region = 'sjc'
     handlers = ["tls", "http"]
 
 [[services]]
+  processes = ["api"]
   internal_port = 3100
   protocol = "tcp"
   auto_stop_machines = "stop"
