@@ -3,10 +3,6 @@ primary_region = 'sjc'
 
 [build]
 
-[processes]
-  app = "yarn workspace front-end start"
-  api = "yarn workspace back-end start"
-
 [env]
   IS_CLOUD = true
   IS_MULTI_ORG = true
@@ -14,7 +10,6 @@ primary_region = 'sjc'
   DISABLE_TELEMETRY = "debug"
 
 [[services]]
-  processes = ["app"]
   internal_port = 3000
   protocol = "tcp"
   auto_stop_machines = "stop"
@@ -31,7 +26,6 @@ primary_region = 'sjc'
     handlers = ["tls", "http"]
 
 [[services]]
-  processes = ["api"]
   internal_port = 3100
   protocol = "tcp"
   auto_stop_machines = "stop"
