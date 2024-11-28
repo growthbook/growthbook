@@ -28,7 +28,6 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { trackReport } from "@/services/track";
 import Callout from "@/components/Radix/Callout";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
@@ -320,13 +319,6 @@ export default function ResultsTab({
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
-                    // trackReport(
-                    //   "create",
-                    //   "ResultsTab",
-                    //   getDatasourceById(res.report.args.datasource)?.type ||
-                    //     null,
-                    //   res.report
-                    // );
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >

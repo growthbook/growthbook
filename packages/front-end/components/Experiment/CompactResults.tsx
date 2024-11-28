@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from "react";
+import { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
@@ -179,7 +179,7 @@ const CompactResults: FC<{
     expandedGoals,
     expandedSecondaries,
     expandedGuardrails,
-    ssrPolyfills?.getExperimentMetricById,
+    ssrPolyfills,
     getExperimentMetricById,
   ]);
 
@@ -289,10 +289,9 @@ const CompactResults: FC<{
     pValueThreshold,
     statsEngine,
     ready,
-    ssrPolyfills?.getExperimentMetricById,
+    ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
-    ssrPolyfills,
   ]);
 
   const users = useMemo(() => {

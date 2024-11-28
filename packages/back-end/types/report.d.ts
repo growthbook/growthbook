@@ -1,4 +1,7 @@
-import {FactTableInterface, MetricPriorSettings} from "./fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { OrganizationSettings } from "back-end/types/organization";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,
   ExperimentPhase,
@@ -10,9 +13,6 @@ import {
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
-import {ExperimentMetricInterface} from "shared/experiments";
-import {OrganizationSettings} from "back-end/types/organization";
-import {MetricGroupInterface} from "back-end/types/metric-groups";
 
 export interface ReportInterfaceBase {
   id: string;
@@ -147,4 +147,4 @@ export type SSRExperimentReportData = {
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;
   settings: OrganizationSettings;
-}
+};

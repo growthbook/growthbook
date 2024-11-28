@@ -138,16 +138,24 @@ export default function ResultsTable({
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getFactTableById, getMetricById } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   const {
     metricDefaults,
     getMinSampleSizeForMetric,
   } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = ssrPolyfills?.useConfidenceLevels?.() || useConfidenceLevels();
-  const pValueThreshold = ssrPolyfills?.usePValueThreshold?.() || usePValueThreshold();
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || useCurrency();
-  const orgSettings = ssrPolyfills?.useOrgSettings?.() || useOrgSettings();
+
+  const _confidenceLevels = useConfidenceLevels();
+  const _pValueThreshold = usePValueThreshold();
+  const _displayCurrency = useCurrency();
+  const _orgSettings = useOrgSettings();
+
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
+  const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -241,7 +249,7 @@ export default function ResultsTable({
             ? (ssrPolyfills?.getExperimentMetricById?.(
                 row.metric.denominator
               ) ||
-                getMetricById(row.metric.denominator)) ??
+                getExperimentMetricById(row.metric.denominator)) ??
               undefined
             : undefined;
         const rowResults = getRowResults({
@@ -284,10 +292,9 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
-    ssrPolyfills?.getFactTableById,
+    ssrPolyfills,
     getFactTableById,
-    ssrPolyfills?.getExperimentMetricById,
-    getMetricById,
+    getExperimentMetricById,
   ]);
 
   const {
@@ -718,7 +725,14 @@ export default function ResultsTable({
                               hover: isHovered,
                             })}
                             showRatio={!isBandit}
-                            ssrPolyfills={ssrPolyfills}
+                            displayCurrency={displayCurrency}
+                            getExperimentMetricById={
+                              ssrPolyfills?.getExperimentMetricById ||
+                              getExperimentMetricById
+                            }
+                            getFactTableById={
+                              ssrPolyfills?.getFactTableById || getFactTableById
+                            }
                           />
                         ) : (
                           <td />
@@ -731,7 +745,14 @@ export default function ResultsTable({
                             hover: isHovered,
                           })}
                           showRatio={!isBandit}
-                          ssrPolyfills={ssrPolyfills}
+                          displayCurrency={displayCurrency}
+                          getExperimentMetricById={
+                            ssrPolyfills?.getExperimentMetricById ||
+                            getExperimentMetricById
+                          }
+                          getFactTableById={
+                            ssrPolyfills?.getFactTableById || getFactTableById
+                          }
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (

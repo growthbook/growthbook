@@ -47,7 +47,7 @@ import {
 } from "back-end/src/validators/experiments";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { MetricInterface } from "back-end/types/metric";
-import {OrganizationSettings} from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -291,7 +291,10 @@ export async function getReportPublic(
     "sequentialTestingTuningParameter",
     "displayCurrency",
   ];
-  const orgSettings: OrganizationSettings = pick(context.org.settings, settingsKeys);
+  const orgSettings: OrganizationSettings = pick(
+    context.org.settings,
+    settingsKeys
+  );
   // todo: consider including experiment's project settings in future? likely not...
 
   const ssrData: SSRExperimentReportData = {

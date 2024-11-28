@@ -125,13 +125,19 @@ export default function ResultsTableTooltip({
     };
   }, [data, tooltipOpen, close]);
 
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || useCurrency();
+  const _currency = useCurrency();
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
-  const { getFactTableById } = useDefinitions();
-  const pValueThreshold = ssrPolyfills?.usePValueThreshold?.() || usePValueThreshold();
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+
+  const _pValueThreshold = usePValueThreshold();
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+
   if (!data) {
     return null;
   }
+
   const deltaFormatter =
     differenceType === "relative"
       ? formatPercent
@@ -746,7 +752,14 @@ export default function ResultsTableTooltip({
                         stats={row}
                         users={row?.users || 0}
                         showRatio={false}
-                        ssrPolyfills={ssrPolyfills}
+                        displayCurrency={displayCurrency}
+                        getExperimentMetricById={
+                          ssrPolyfills?.getExperimentMetricById ||
+                          getExperimentMetricById
+                        }
+                        getFactTableById={
+                          ssrPolyfills?.getFactTableById || getFactTableById
+                        }
                       />
                     </tr>
                   );

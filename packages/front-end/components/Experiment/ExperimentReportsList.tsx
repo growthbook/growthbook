@@ -8,8 +8,6 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -23,7 +21,6 @@ export default function ExperimentReportsList({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { userId, users } = useUser();
-  const { getDatasourceById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
@@ -121,13 +118,6 @@ export default function ExperimentReportsList({
                             method: "DELETE",
                           }
                         );
-                        // trackReport(
-                        //   "delete",
-                        //   "ExperimentReportsList",
-                        //   getDatasourceById(report.args.datasource)?.type ||
-                        //     null,
-                        //   report
-                        // );
                         mutate();
                       }}
                     />

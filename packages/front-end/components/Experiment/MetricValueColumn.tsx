@@ -11,14 +11,12 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
   getMetricFormatter,
 } from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -38,7 +36,9 @@ interface Props
   rowSpan?: number;
   showRatio?: boolean;
   noDataMessage?: ReactElement | string;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  displayCurrency: string;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getFactTableById: (id: string) => null | FactTableInterface;
 }
 
 export default function MetricValueColumn({
@@ -50,25 +50,23 @@ export default function MetricValueColumn({
   rowSpan,
   showRatio = true,
   noDataMessage = "no data",
-  ssrPolyfills,
+  displayCurrency,
+  getExperimentMetricById,
+  getFactTableById,
   ...otherProps
 }: Props) {
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || useCurrency();
   const formatterOptions = { currency: displayCurrency };
-  const { getFactTableById, getMetricById } = useDefinitions();
 
-  const overall = getExperimentMetricFormatter(
-    metric,
-    ssrPolyfills?.getFactTableById || getFactTableById
-  )(stats.cr, formatterOptions);
+  const overall = getExperimentMetricFormatter(metric, getFactTableById)(
+    stats.cr,
+    formatterOptions
+  );
 
   const numeratorValue = stats.value;
   const denominatorValue = isRatioMetric(
     metric,
     !isFactMetric(metric) && metric.denominator
-      ? (ssrPolyfills?.getExperimentMetricById?.(metric.denominator) ||
-          getMetricById(metric.denominator)) ??
-          undefined
+      ? getExperimentMetricById(metric.denominator) ?? undefined
       : undefined
   )
     ? stats.denominator ?? stats.users
@@ -83,15 +81,15 @@ export default function MetricValueColumn({
       quantileMetric === "event" ? "events" : "users"
     }`;
   } else if (isFactMetric(metric)) {
-    numerator = getColumnRefFormatter(
-      metric.numerator,
-      ssrPolyfills?.getFactTableById || getFactTableById
-    )(numeratorValue, formatterOptions);
+    numerator = getColumnRefFormatter(metric.numerator, getFactTableById)(
+      numeratorValue,
+      formatterOptions
+    );
     if (metric.metricType === "ratio" && metric.denominator) {
-      denominator = getColumnRefFormatter(
-        metric.denominator,
-        ssrPolyfills?.getFactTableById || getFactTableById
-      )(denominatorValue, formatterOptions);
+      denominator = getColumnRefFormatter(metric.denominator, getFactTableById)(
+        denominatorValue,
+        formatterOptions
+      );
     }
   } else {
     numerator = getMetricFormatter(

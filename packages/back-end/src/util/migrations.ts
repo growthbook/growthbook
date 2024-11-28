@@ -13,7 +13,6 @@ import {
   ExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
-  ReportInterface,
 } from "back-end/types/report";
 import { WebhookInterface } from "back-end/types/webhook";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
