@@ -4,8 +4,8 @@ primary_region = 'sjc'
 [build]
 
 [processes]
-  app = "cd packages/front-end; yarn start"
-  api = "cd packages/back-end; yarn start"
+  app = "yarn workspace front-end start"
+  api = "yarn workspace back-end start"
 
 [env]
   IS_CLOUD = true
