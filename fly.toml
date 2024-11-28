@@ -3,6 +3,15 @@ primary_region = 'sjc'
 
 [build]
 
+[processes]
+  app = "cd packages/front-end; yarn start"
+
+[env]
+  IS_CLOUD = true
+  IS_MULTI_ORG = true
+  ALLOW_SELF_ORG_CREATION = true
+  DISABLE_TELEMETRY = "debug"
+
 [[services]]
   internal_port = 3000
   protocol = "tcp"
