@@ -4,7 +4,6 @@ primary_region = 'sjc'
 [build]
 
 [[services]]
-  processes = ["app"]
   internal_port = 3000
   protocol = "tcp"
   auto_stop_machines = "stop"
@@ -21,7 +20,6 @@ primary_region = 'sjc'
     handlers = ["tls", "http"]
 
 [[services]]
-  processes = ["api"]
   internal_port = 3100
   protocol = "tcp"
   auto_stop_machines = "stop"

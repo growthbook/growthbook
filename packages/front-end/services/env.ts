@@ -26,6 +26,7 @@ const env: EnvironmentInitValue = {
 export async function initEnv() {
   const res = await fetch("/api/init");
   const json = await res.json();
+  console.log("json", json);
   Object.assign(env, json);
 
   if (env.sentryDSN) {
