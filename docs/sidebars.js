@@ -735,6 +735,18 @@ const sidebars = {
           ],
         },
         {
+          type: "category",
+          label: "Metrics",
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "kb/metrics/fact-metric-optimization",
+              label: "Fact Metric Optimization",
+            }
+          ],
+        },
+        {
           type: "doc",
           id: "kb/glossary",
           label: "Glossary",
