@@ -9,35 +9,35 @@ import {
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { ExperimentInterface } from "../../types/experiment";
+} from "back-end/types/feature";
+import { ExperimentInterface } from "back-end/types/experiment";
 import {
   generateRuleId,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
   refreshSDKPayloadCache,
-} from "../services/features";
-import { upgradeFeatureInterface } from "../util/migrations";
-import { ReqContext } from "../../types/organization";
-import {
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
-} from "../events/notification-events";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
+} from "back-end/src/services/features";
+import { upgradeFeatureInterface } from "back-end/src/util/migrations";
+import { ReqContext } from "back-end/types/organization";
 import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
-} from "../util/features";
-import { EventAuditUser } from "../events/event-types";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { logger } from "../util/logger";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
-import { simpleSchemaValidator } from "../validators/features";
-import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
-import { createEvent } from "./EventModel";
+} from "back-end/src/util/features";
+import { EventUser } from "back-end/src/events/event-types";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { logger } from "back-end/src/util/logger";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { ApiReqContext } from "back-end/types/api";
+import { simpleSchemaValidator } from "back-end/src/validators/features";
+import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
+import { ResourceEvents } from "back-end/src/events/base-types";
+import {
+  createEvent,
+  hasPreviousObject,
+  CreateEventData,
+  CreateEventParams,
+} from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
   getExperimentMapForFeature,
@@ -48,6 +48,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  getRevision,
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
@@ -140,7 +141,7 @@ featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
-const FeatureModel = mongoose.model<LegacyFeatureInterface>(
+export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
   featureSchema
 );
@@ -367,6 +368,92 @@ export async function deleteAllFeaturesForAProject({
   }
 }
 
+export const createFeatureEvent = async <
+  Event extends ResourceEvents<"feature">
+>(eventData: {
+  context: ReqContext;
+  event: Event;
+  data: CreateEventData<"feature", Event, FeatureInterface>;
+}) => {
+  const event: CreateEventParams<"feature", Event> = await (async () => {
+    const groupMap = await getSavedGroupMap(eventData.context.org);
+    const experimentMap = await getExperimentMapForFeature(
+      eventData.context,
+      eventData.data.object.id
+    );
+
+    const currentRevision = await getRevision(
+      eventData.data.object.organization,
+      eventData.data.object.id,
+      eventData.data.object.version
+    );
+
+    const currentApiFeature = getApiFeatureObj({
+      feature: eventData.data.object,
+      organization: eventData.context.org,
+      groupMap,
+      experimentMap,
+      revision: currentRevision,
+    });
+
+    if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
+      return {
+        ...eventData,
+        object: "feature",
+        data: {
+          object: currentApiFeature,
+        },
+        projects: [currentApiFeature.project],
+        tags: currentApiFeature.tags,
+        environments: getApiFeatureEnabledEnvs(currentApiFeature),
+        containsSecrets: false,
+      } as CreateEventParams<"feature", Event>;
+
+    const previousRevision = await getRevision(
+      eventData.data.previous_object.organization,
+      eventData.data.previous_object.id,
+      eventData.data.previous_object.version
+    );
+
+    const previousApiFeature = getApiFeatureObj({
+      feature: eventData.data.previous_object,
+      organization: eventData.context.org,
+      groupMap,
+      experimentMap,
+      revision: previousRevision,
+    });
+
+    return {
+      ...eventData,
+      object: "feature",
+      objectId: eventData.data.object.id,
+      data: {
+        object: currentApiFeature,
+        previous_object: getApiFeatureObj({
+          feature: eventData.data.previous_object,
+          organization: eventData.context.org,
+          groupMap,
+          experimentMap,
+          revision: previousRevision,
+        }),
+      },
+      projects: Array.from(
+        new Set([previousApiFeature.project, currentApiFeature.project])
+      ),
+      tags: Array.from(
+        new Set([...previousApiFeature.tags, ...currentApiFeature.tags])
+      ),
+      environments: getChangedApiFeatureEnvironments(
+        previousApiFeature,
+        currentApiFeature
+      ),
+      containsSecrets: false,
+    } as CreateEventParams<"feature", Event>;
+  })();
+
+  await createEvent<"feature", Event>(event);
+};
+
 /**
  * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
  * will log an update event in the events collection
@@ -374,134 +461,52 @@ export async function deleteAllFeaturesForAProject({
  * @param previous
  * @param current
  */
-async function logFeatureUpdatedEvent(
+export const logFeatureUpdatedEvent = async (
   context: ReqContext | ApiReqContext,
   previous: FeatureInterface,
   current: FeatureInterface
-): Promise<string | undefined> {
-  const groupMap = await getSavedGroupMap(context.org);
-  const experimentMap = await getExperimentMapForFeature(context, current.id);
-
-  const currentApiFeature = getApiFeatureObj({
-    feature: current,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-  });
-  const previousApiFeature = getApiFeatureObj({
-    feature: previous,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-  });
-
-  const payload: FeatureUpdatedNotificationEvent = {
-    object: "feature",
-    event: "feature.updated",
+) =>
+  createFeatureEvent({
+    context,
+    event: "updated",
     data: {
-      current: currentApiFeature,
-      previous: previousApiFeature,
+      object: current,
+      previous_object: previous,
     },
-    user: context.auditUser,
-    projects: Array.from(
-      new Set([previousApiFeature.project, currentApiFeature.project])
-    ),
-    tags: Array.from(
-      new Set([...previousApiFeature.tags, ...currentApiFeature.tags])
-    ),
-    environments: getChangedApiFeatureEnvironments(
-      previousApiFeature,
-      currentApiFeature
-    ),
-    containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
-}
+  });
 
 /**
  * @param organization
  * @param feature
  * @returns event.id
  */
-async function logFeatureCreatedEvent(
+export const logFeatureCreatedEvent = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface
-): Promise<string | undefined> {
-  const groupMap = await getSavedGroupMap(context.org);
-  const experimentMap = await getExperimentMapForFeature(context, feature.id);
-
-  const apiFeature = getApiFeatureObj({
-    feature,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-  });
-
-  const payload: FeatureCreatedNotificationEvent = {
-    object: "feature",
-    event: "feature.created",
-    user: context.auditUser,
+) =>
+  createFeatureEvent({
+    context,
+    event: "created",
     data: {
-      current: apiFeature,
+      object: feature,
     },
-    projects: [apiFeature.project],
-    tags: apiFeature.tags,
-    environments: getApiFeatureEnabledEnvs(apiFeature),
-    containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
-}
+  });
 
 /**
  * @param organization
  * @param previousFeature
  */
-async function logFeatureDeletedEvent(
+export const logFeatureDeletedEvent = async (
   context: ReqContext | ApiReqContext,
   previousFeature: FeatureInterface
-): Promise<string | undefined> {
-  const groupMap = await getSavedGroupMap(context.org);
-  const experimentMap = await getExperimentMapForFeature(
+) =>
+  createFeatureEvent({
     context,
-    previousFeature.id
-  );
-
-  const apiFeature = getApiFeatureObj({
-    feature: previousFeature,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-  });
-
-  const payload: FeatureDeletedNotificationEvent = {
-    object: "feature",
-    event: "feature.deleted",
-    user: context.auditUser,
+    event: "deleted",
     data: {
-      previous: apiFeature,
+      object: previousFeature,
     },
-    projects: [apiFeature.project],
-    tags: apiFeature.tags,
-    environments: getApiFeatureEnabledEnvs(apiFeature),
-    containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
-}
+  });
 
 async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
@@ -683,6 +688,7 @@ export async function toggleMultipleEnvironments(
     const updatedFeature = await updateFeature(context, feature, {
       environmentSettings: featureCopy.environmentSettings,
     });
+
     return updatedFeature;
   }
 
@@ -704,7 +710,7 @@ export async function addFeatureRule(
   revision: FeatureRevisionInterface,
   env: string,
   rule: FeatureRule,
-  user: EventAuditUser,
+  user: EventUser,
   resetReview: boolean
 ) {
   if (!rule.id) {
@@ -735,7 +741,7 @@ export async function editFeatureRule(
   environment: string,
   i: number,
   updates: Partial<FeatureRule>,
-  user: EventAuditUser,
+  user: EventUser,
   resetReview: boolean
 ) {
   const changes = { rules: revision.rules || {}, status: revision.status };
@@ -813,7 +819,7 @@ export async function removeProjectFromFeatures(
 export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
-  user: EventAuditUser,
+  user: EventUser,
   requireReview: boolean
 ) {
   await updateRevision(

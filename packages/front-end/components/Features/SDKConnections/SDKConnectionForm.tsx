@@ -3,7 +3,7 @@ import {
   SDKConnectionInterface,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
   FaCheck,
@@ -40,6 +40,8 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -84,6 +86,7 @@ export default function SDKConnectionForm({
   const router = useRouter();
 
   const { hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint"
   );
@@ -91,6 +94,8 @@ export default function SDKConnectionForm({
     "hash-secure-attributes"
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
+
+  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
   useEffect(() => {
     if (edit) return;
@@ -132,6 +137,8 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
+      savedGroupReferencesEnabled:
+        initialValue.savedGroupReferencesEnabled ?? false,
     },
   });
 
@@ -179,12 +186,23 @@ export default function SDKConnectionForm({
     form.getValues(),
     "min-ver-intersection"
   );
-
   const showVisualEditorSettings = latestSdkCapabilities.includes(
     "visualEditor"
   );
-
   const showRedirectSettings = latestSdkCapabilities.includes("redirects");
+  const showEncryption = currentSdkCapabilities.includes("encryption");
+  const showRemoteEval = currentSdkCapabilities.includes("remoteEval");
+
+  const showSavedGroupSettings = useMemo(
+    () => currentSdkCapabilities.includes("savedGroupReferences"),
+    [currentSdkCapabilities]
+  );
+
+  useEffect(() => {
+    if (!showSavedGroupSettings) {
+      form.setValue("savedGroupReferencesEnabled", false);
+    }
+  }, [showSavedGroupSettings, form]);
 
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
@@ -206,11 +224,22 @@ export default function SDKConnectionForm({
     selectedEnvironment
   );
 
-  const projectsOptions = [...filteredProjects, ...disallowedProjects].map(
-    (p) => ({
-      label: p.name,
-      value: p.id,
-    })
+  const permissionRequired = (project: string) => {
+    return edit
+      ? permissionsUtil.canUpdateSDKConnection(
+          { projects: [project], environment: form.watch("environment") },
+          {}
+        )
+      : permissionsUtil.canCreateSDKConnection({
+          projects: [project],
+          environment: form.watch("environment"),
+        });
+  };
+
+  const projectsOptions = useProjectOptions(
+    permissionRequired,
+    form.watch("projects") || [],
+    [...filteredProjects, ...disallowedProjects]
   );
   const selectedValidProjects = selectedProjects?.filter((p) => {
     return disallowedProjects?.find((dp) => dp.id === p) === undefined;
@@ -294,6 +323,7 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
+      trackingEventModalType=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       autoCloseOnSubmit={autoCloseOnSubmit}
@@ -489,7 +519,12 @@ export default function SDKConnectionForm({
 
         <div className="mb-4">
           <label>
-            Filter by Projects
+            Filter by Projects{" "}
+            <Tooltip
+              body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                edit ? "update" : "create"
+              } SDK Connections.`}
+            />
             {!!selectedProjects?.length && (
               <> ({selectedValidProjects?.length ?? 0})</>
             )}
@@ -623,45 +658,47 @@ export default function SDKConnectionForm({
                   >
                     <div>
                       <label className="mb-3">Cipher Options</label>
-                      <div className="mb-4 d-flex align-items-center">
-                        <Toggle
-                          id="encryptSDK"
-                          value={form.watch("encryptPayload")}
-                          setValue={(val) =>
-                            form.setValue("encryptPayload", val)
-                          }
-                          disabled={!hasEncryptionFeature}
-                        />
-                        <label className="ml-2 mb-0" htmlFor="encryptSDK">
-                          <PremiumTooltip
-                            commercialFeature="encrypt-features-endpoint"
-                            body={
-                              <>
-                                <p>
-                                  SDK payloads will be encrypted via the AES
-                                  encryption algorithm. When evaluating feature
-                                  flags in a public or insecure environment
-                                  (such as a browser), encryption provides an
-                                  additional layer of security through
-                                  obfuscation. This allows you to target users
-                                  based on sensitive attributes.
-                                </p>
-                                <p className="mb-0 text-warning-orange small">
-                                  <FaExclamationCircle /> When using an insecure
-                                  environment, do not rely exclusively on
-                                  payload encryption as a means of securing
-                                  highly sensitive data. Because the client
-                                  performs the decryption, the unencrypted
-                                  payload may be extracted with sufficient
-                                  effort.
-                                </p>
-                              </>
+                      {showEncryption && (
+                        <div className="mb-4 d-flex align-items-center">
+                          <Toggle
+                            id="encryptSDK"
+                            value={form.watch("encryptPayload")}
+                            setValue={(val) =>
+                              form.setValue("encryptPayload", val)
                             }
-                          >
-                            Encrypt SDK payload <FaInfoCircle />
-                          </PremiumTooltip>
-                        </label>
-                      </div>
+                            disabled={!hasEncryptionFeature}
+                          />
+                          <label className="ml-2 mb-0" htmlFor="encryptSDK">
+                            <PremiumTooltip
+                              commercialFeature="encrypt-features-endpoint"
+                              body={
+                                <>
+                                  <p>
+                                    SDK payloads will be encrypted via the AES
+                                    encryption algorithm. When evaluating
+                                    feature flags in a public or insecure
+                                    environment (such as a browser), encryption
+                                    provides an additional layer of security
+                                    through obfuscation. This allows you to
+                                    target users based on sensitive attributes.
+                                  </p>
+                                  <p className="mb-0 text-warning-orange small">
+                                    <FaExclamationCircle /> When using an
+                                    insecure environment, do not rely
+                                    exclusively on payload encryption as a means
+                                    of securing highly sensitive data. Because
+                                    the client performs the decryption, the
+                                    unencrypted payload may be extracted with
+                                    sufficient effort.
+                                  </p>
+                                </>
+                              }
+                            >
+                              Encrypt SDK payload <FaInfoCircle />
+                            </PremiumTooltip>
+                          </label>
+                        </div>
+                      )}
 
                       <div className="mb-4 d-flex align-items-center">
                         <Toggle
@@ -781,7 +818,7 @@ export default function SDKConnectionForm({
                   </Tab>
                 )}
 
-                {["frontend", "nocode", "other"].includes(languageType) && (
+                {showRemoteEval && (
                   <Tab
                     id="remote"
                     padding={false}
@@ -1079,6 +1116,55 @@ export default function SDKConnectionForm({
                   {...form.register("proxyHost")}
                 />
               )}
+            </div>
+          </div>
+        )}
+        {showSavedGroupSettings && (
+          <div className="mt-1">
+            <label>Saved Groups</label>
+            <div className="mt-2">
+              <div className="mb-4 d-flex align-items-center">
+                <Toggle
+                  id="sdk-connection-large-saved-groups-toggle"
+                  value={form.watch("savedGroupReferencesEnabled")}
+                  setValue={(val) =>
+                    form.setValue("savedGroupReferencesEnabled", val)
+                  }
+                  disabled={!hasLargeSavedGroupFeature}
+                />
+                <label
+                  className="ml-2 mb-0 cursor-pointer"
+                  htmlFor="sdk-connection-large-saved-groups-toggle"
+                >
+                  <PremiumTooltip
+                    commercialFeature="large-saved-groups"
+                    body={
+                      <>
+                        <p>
+                          Reduce the size of your payload by moving ID List
+                          Saved Groups from inline evaluation to a separate key
+                          in the payload json. Re-using an ID List in multiple
+                          features or experiments will no longer meaningfully
+                          increase the size of your payload.
+                        </p>
+                        <p>
+                          This feature is not supported by old SDK versions.
+                          Ensure that your SDK implementation is up to date
+                          before enabling this feature.
+                        </p>
+                        {form.watch("remoteEvalEnabled") && (
+                          <p>
+                            You will also need to update your proxy server for
+                            remote evaluation to continue working correctly.
+                          </p>
+                        )}
+                      </>
+                    }
+                  >
+                    Pass Saved Groups by reference <FaInfoCircle />
+                  </PremiumTooltip>
+                </label>
+              </div>
             </div>
           </div>
         )}

@@ -72,6 +72,7 @@ const DimensionForm: FC<{
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         open={true}
         size="md"

@@ -3,35 +3,40 @@ import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
   Permission,
   UserPermissions,
-} from "../../types/organization";
-import { EventAuditUser } from "../events/event-types";
+} from "back-end/types/organization";
+import { EventUser } from "back-end/src/events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
   getEnvironmentIdsFromOrg,
-} from "../util/organization.util";
-import { TeamInterface } from "../../types/team";
-import { FactMetricModel } from "../models/FactMetricModel";
-import { ProjectModel } from "../models/ProjectModel";
-import { ProjectInterface } from "../../types/project";
-import { addTags, getAllTags } from "../models/TagModel";
-import { AuditInterfaceInput } from "../../types/audit";
-import { insertAudit } from "../models/AuditModel";
-import { logger } from "../util/logger";
-import { UrlRedirectModel } from "../models/UrlRedirectModel";
-import { ExperimentInterface } from "../../types/experiment";
-import { DataSourceInterface } from "../../types/datasource";
-import { getExperimentsByIds } from "../models/ExperimentModel";
-import { getDataSourcesByOrganization } from "../models/DataSourceModel";
-import { SegmentModel } from "../models/SegmentModel";
+} from "back-end/src/util/organization.util";
+import { TeamInterface } from "back-end/types/team";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { ProjectInterface } from "back-end/types/project";
+import { addTags, getAllTags } from "back-end/src/models/TagModel";
+import { AuditInterfaceInput } from "back-end/types/audit";
+import { insertAudit } from "back-end/src/models/AuditModel";
+import { logger } from "back-end/src/util/logger";
+import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import { SegmentModel } from "back-end/src/models/SegmentModel";
+import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;
+  metric: ExperimentMetricInterface;
 };
 
 export class ReqContextClass {
@@ -40,6 +45,8 @@ export class ReqContextClass {
     factMetrics: FactMetricModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
+    metricAnalysis: MetricAnalysisModel;
+    metricGroups: MetricGroupModel;
     segments: SegmentModel;
   };
   private initModels() {
@@ -47,6 +54,8 @@ export class ReqContextClass {
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
+      metricAnalysis: new MetricAnalysisModel(this),
+      metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
     };
   }
@@ -60,7 +69,7 @@ export class ReqContextClass {
   public role?: string;
   public isApiRequest = false;
   public environments: string[];
-  public auditUser: EventAuditUser;
+  public auditUser: EventUser;
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
@@ -87,7 +96,7 @@ export class ReqContextClass {
     apiKey?: string;
     role?: string;
     teams?: TeamInterface[];
-    auditUser: EventAuditUser;
+    auditUser: EventUser;
     req?: Request;
   }) {
     this.org = org;
@@ -113,7 +122,7 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user.id, org, teams || []);
+      this.userPermissions = getUserPermissions(user, org, teams || []);
     }
     // If an API key or background job is making this request
     else {
@@ -131,7 +140,7 @@ export class ReqContextClass {
       };
     }
 
-    this.permissions = new Permissions(this.userPermissions, this.superAdmin);
+    this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
   }
@@ -143,7 +152,6 @@ export class ReqContextClass {
     envs?: string[] | Set<string>
   ) {
     return userHasPermission(
-      this.superAdmin,
       this.userPermissions,
       permission,
       project,
@@ -194,10 +202,12 @@ export class ReqContextClass {
   public foreignRefs: ForeignRefsCache = {
     experiment: new Map(),
     datasource: new Map(),
+    metric: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
+    metric,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids)
@@ -205,6 +215,9 @@ export class ReqContextClass {
     // An org doesn't have that many data sources, so we just fetch them all
     await this.addMissingForeignRefs("datasource", datasource, () =>
       getDataSourcesByOrganization(this)
+    );
+    await this.addMissingForeignRefs("metric", metric, (ids) =>
+      getExperimentMetricsByIds(this, ids)
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

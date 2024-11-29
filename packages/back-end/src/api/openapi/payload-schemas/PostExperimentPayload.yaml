@@ -34,6 +34,10 @@ properties:
     type: array
     items:
       type: string
+  secondaryMetrics:
+    type: array
+    items:
+      type: string
   guardrailMetrics:
     type: array
     items:
@@ -59,7 +63,7 @@ properties:
     type: number
     enum: [1, 2]
   disableStickyBucketing:
-    type: boolean;
+    type: boolean
   bucketVersion:
     type: number
   minBucketVersion:
@@ -78,6 +82,7 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
   statsEngine:
     type: string
     enum:
@@ -194,3 +199,6 @@ properties:
           type: array
           items:
             type: number
+  regressionAdjustmentEnabled:
+    type: boolean
+    description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses

@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit } from "@/components/Icons";
@@ -21,13 +21,16 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 
 export default function FactTablePage() {
   const router = useRouter();
   const { ftid } = router.query;
 
   const [editOpen, setEditOpen] = useState(false);
-  const [showSQL, setShowSQL] = useState(false);
+  const [editSQLOpen, setEditSQLOpen] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -37,14 +40,14 @@ export default function FactTablePage() {
   const permissionsUtil = usePermissionsUtil();
 
   const {
-    factTables,
+    getFactTableById,
     ready,
     mutateDefinitions,
     getProjectById,
     projects,
     getDatasourceById,
   } = useDefinitions();
-  const factTable = factTables.find((f) => f.id === ftid);
+  const factTable = getFactTableById(ftid as string);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -61,16 +64,53 @@ export default function FactTablePage() {
     !factTable.managedBy &&
     permissionsUtil.canViewEditFactTableModal(factTable);
 
-  const hasColumns = factTable.columns?.some((col) => !col.deleted);
-
   return (
     <div className="pagecontents container-fluid">
       {editOpen && (
         <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
       )}
+      {editSQLOpen && (
+        <EditFactTableSQLModal
+          close={() => setEditSQLOpen(false)}
+          factTable={factTable}
+          save={async (data) => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify(data),
+            });
+            await mutateDefinitions();
+          }}
+        />
+      )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={factTable.owner}
+          save={async (owner) => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+          }}
+          mutate={mutateDefinitions}
+        />
+      )}
       {editProjectsOpen && (
         <EditProjectsForm
-          projects={factTable.projects}
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Fact Tables"
+                }
+              />
+            </>
+          }
+          value={factTable.projects}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateFactTable({ projects: [project] }, {})
+          }
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
             await apiCall(`/fact-tables/${factTable.id}`, {
@@ -95,6 +135,7 @@ export default function FactTablePage() {
           }}
           cancel={() => setEditTagsModal(false)}
           mutate={mutateDefinitions}
+          source="ftid"
         />
       )}
       <PageHead
@@ -103,6 +144,13 @@ export default function FactTablePage() {
           { display: factTable.name },
         ]}
       />
+      {factTable.archived && (
+        <div className="alert alert-secondary mb-2">
+          <strong>This Fact Table is archived.</strong> Existing references will
+          continue working, but you will be unable to add metrics from this Fact
+          Table to new experiments.
+        </div>
+      )}
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
@@ -121,6 +169,22 @@ export default function FactTablePage() {
                 }}
               >
                 Edit Fact Table
+              </button>
+              <button
+                className="dropdown-item"
+                onClick={async () => {
+                  await apiCall(
+                    `/fact-tables/${factTable.id}/${
+                      factTable.archived ? "unarchive" : "archive"
+                    }`,
+                    {
+                      method: "POST",
+                    }
+                  );
+                  mutateDefinitions();
+                }}
+              >
+                {factTable.archived ? "Unarchive" : "Archive"} Fact Table
               </button>
               <DeleteButton
                 className="dropdown-item"
@@ -176,6 +240,19 @@ export default function FactTablePage() {
             </a>
           )}
         </div>
+        {(factTable.owner || canEdit) && (
+          <div className="col-auto">
+            Owner: {factTable.owner}
+            {canEdit && (
+              <a
+                className="ml-1 cursor-pointer"
+                onClick={() => setEditOwnerModal(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
+          </div>
+        )}
         <div className="col-auto">
           Data source:{" "}
           <Link
@@ -204,82 +281,60 @@ export default function FactTablePage() {
         />
       </div>
 
-      <div className="mb-4">
-        {hasColumns && (
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowSQL(!showSQL);
-            }}
-            className="text-dark"
-          >
-            {showSQL ? "Hide" : "Show"} Fact Table SQL{" "}
-            {showSQL ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
-        )}
-        {(showSQL || !hasColumns) && (
-          <div className="appbox p-3">
-            <Code
-              code={factTable.sql}
-              language="sql"
-              containerClassName="m-0"
-              className="mb-4"
-              filename={
-                canEdit ? (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditOpen(true);
-                    }}
-                  >
-                    Edit SQL <GBEdit />
-                  </a>
-                ) : (
-                  "SQL"
-                )
-              }
-            />
-            {usesEventName(factTable.sql) && (
-              <div className="mt-2">
-                <strong>eventName</strong> = <code>{factTable.eventName}</code>
-              </div>
-            )}
+      <div className="row mb-4">
+        <div className="col col-md-6 d-flex flex-column">
+          <h3>SQL Definition</h3>
+          <Code
+            code={factTable.sql}
+            language="sql"
+            containerClassName="m-0 flex-1"
+            className="flex-1"
+            maxHeight="405px"
+            filename={
+              canEdit ? (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditSQLOpen(true);
+                  }}
+                >
+                  Edit SQL <GBEdit />
+                </a>
+              ) : (
+                "SQL"
+              )
+            }
+          />
+          {usesEventName(factTable.sql) && (
+            <div className="p-2 bg-light border border-top-0">
+              <strong>eventName</strong> = <code>{factTable.eventName}</code>
+            </div>
+          )}
+        </div>
+        <div className="col col-md-6 d-flex flex-column">
+          <h3>Columns</h3>
+          <div className="appbox p-3 flex-1 mb-0">
+            <ColumnList factTable={factTable} />
           </div>
-        )}
+        </div>
       </div>
 
       <div className="row mb-4">
-        <div className="col">
-          <div className="mb-4">
-            <h3>Columns</h3>
-            <div className="mb-1">
-              All of the columns returned by the Fact Table SQL.
-            </div>
-            <div className="appbox p-3">
-              <ColumnList factTable={factTable} />
-            </div>
+        <div className="col d-flex flex-column">
+          <h3>Row Filters</h3>
+          <div className="mb-1">
+            Row Filters are re-usable SQL snippets that let you limit the rows
+            that are included in a Metric.
           </div>
-        </div>
-        <div className="col">
-          <div className="mb-4">
-            <h3>Filters</h3>
-            <div className="mb-4">
-              <div className="mb-1">
-                Filters are re-usable SQL snippets that let you limit the rows
-                that are included in a Metric.
-              </div>
-              <div className="appbox p-3">
-                <FactFilterList factTable={factTable} />
-              </div>
-            </div>
+          <div className="appbox p-3 flex-1">
+            <FactFilterList factTable={factTable} />
           </div>
         </div>
       </div>
 
       <h3>Metrics</h3>
-      <div className="mb-4">
+      <div className="mb-5">
         <div className="mb-1">
           Metrics are built on top of Columns and Filters. These are what you
           use as Goals and Guardrails in experiments. This page only shows

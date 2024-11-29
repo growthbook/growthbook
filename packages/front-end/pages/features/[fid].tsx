@@ -56,7 +56,7 @@ export default function FeaturePage() {
   const experiments = data?.experiments;
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
-    `tabbedPageTab__${data?.feature?.id}`,
+    `tabbedPageTab__${fid}`,
     "overview"
   );
 

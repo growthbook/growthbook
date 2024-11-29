@@ -1,32 +1,36 @@
-/* 
+/*
 Track anonymous usage statistics
 - No identifiable information is sent.
 - Helps us figure out how often features are used so we can prioritize development
-- For example, if people start creating a metric and then 
+- For example, if people start creating a metric and then
   abandon the form, that tells us the UI needs improvement.
-- You can disable this tracking completely by setting 
+- You can disable this tracking completely by setting
   DISABLE_TELEMETRY=1 in your env.
 */
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "@back-end/types/stats";
+import { v4 as uuidv4 } from "uuid";
+import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "@back-end/types/experiment-snapshot";
-import { ExperimentReportInterface } from "@back-end/types/report";
+} from "back-end/types/experiment-snapshot";
+import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import Cookies from "js-cookie";
+import { growthbook, GB_SDK_ID } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
+  getIngestorHost,
   hasFileConfig,
   inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
 } from "./env";
 
-type TrackEventProps = Record<string, unknown>;
+export type TrackEventProps = Record<string, unknown>;
 
 export interface TrackSnapshotProps {
   id: string;
@@ -46,7 +50,135 @@ export interface TrackSnapshotProps {
   error?: string;
 }
 
-let jitsu: JitsuClient;
+interface DataWarehouseTrackedEvent {
+  // Core event data
+  event_name: string;
+  properties_json: string; // JSON-encoded string of event properties
+
+  // UUIDs generated and tracked automatically in the SDK
+  device_id: string;
+  page_id: string;
+  session_id: string;
+
+  // Metadata gathered automatically by SDK
+  sdk_language: string;
+  sdk_version: string;
+  url: string;
+  page_title?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+
+  // User-supplied targeting attributes
+  user_id?: string;
+  context_json: string; // JSON-encoded string
+}
+
+const DEVICE_ID_COOKIE = "gb_device_id";
+const SESSION_ID_COOKIE = "gb_session_id";
+const pageIds: Record<string, string> = {};
+
+const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
+  if (inTelemetryDebugMode()) {
+    console.log("Telemetry Event - ", event);
+  }
+  if (!isTelemetryEnabled()) return;
+
+  try {
+    await fetch(`${getIngestorHost()}/track?client_key=${GB_SDK_ID}`, {
+      method: "POST",
+      body: JSON.stringify(event),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      // TODO: Make ingestor accept text/plain content type so we can disable cors
+      //credentials: "omit",
+      //mode: "no-cors",
+    });
+  } catch (e) {
+    if (inTelemetryDebugMode()) {
+      console.error("Failed to fire tracking event");
+      console.error(e);
+    }
+  }
+};
+
+function getOrGenerateDeviceId() {
+  const deviceId = Cookies.get(DEVICE_ID_COOKIE) || uuidv4();
+  Cookies.set(DEVICE_ID_COOKIE, deviceId, {
+    expires: 365,
+    sameSite: "strict",
+  });
+  return deviceId;
+}
+
+function getOrGeneratePageId() {
+  // On initial load if the router hasn't initialized a state change yet then history.state will be null.
+  // Since this only happens on one pageload, using a hardcoded default key should still work as its own key
+  const pageIdKey = window.history.state?.key || "";
+  if (!(pageIdKey in pageIds)) {
+    pageIds[pageIdKey] = uuidv4();
+  }
+  return pageIds[pageIdKey];
+}
+
+let shouldFireSessionStart = false;
+function getOrGenerateSessionId() {
+  if (!Cookies.get(SESSION_ID_COOKIE)) {
+    shouldFireSessionStart = true;
+  }
+  const sessionId = Cookies.get(SESSION_ID_COOKIE) || uuidv4();
+  const now = new Date();
+  Cookies.set(SESSION_ID_COOKIE, sessionId, {
+    expires: new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes() + 30,
+      now.getSeconds()
+    ),
+    sameSite: "strict",
+  });
+  return sessionId;
+}
+
+const PAGE_VIEW_EVENT = "Page View";
+const SESSION_START_EVENT = "Session Start";
+
+export function trackPageView(pathName: string) {
+  getOrGenerateSessionId();
+  if (shouldFireSessionStart) {
+    track(SESSION_START_EVENT, {});
+    shouldFireSessionStart = false;
+  }
+
+  track(PAGE_VIEW_EVENT, {
+    pathName,
+  });
+}
+
+let _jitsu: JitsuClient;
+export function getJitsuClient(): JitsuClient | null {
+  if (!isTelemetryEnabled()) return null;
+
+  if (!_jitsu) {
+    _jitsu = jitsuClient({
+      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
+      log_level: "ERROR",
+      tracking_host: "https://t.growthbook.io",
+      cookie_name: "__growthbookid",
+      capture_3rd_party_cookies: isCloud() ? ["_ga"] : false,
+      randomize_url: true,
+    });
+  }
+
+  return _jitsu;
+}
+
 export default function track(
   event: string,
   props: TrackEventProps = {}
@@ -60,6 +192,8 @@ export default function track(
   const org = currentUser?.org;
   const id = currentUser?.id;
   const role = currentUser?.role;
+  const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
+  const orgCreationDate = currentUser?.orgCreationDate;
 
   // Mask the hostname and sanitize URLs to avoid leaking private info
   const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
@@ -73,9 +207,12 @@ export default function track(
     doc_host: host,
     doc_search: "",
     doc_path: location.pathname,
-    referer: "",
+    referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,
+    build_version: build.lastVersion,
+    account_plan: effectiveAccountPlan,
+    org_creation_date: orgCreationDate,
     configFile: hasFileConfig(),
     role: id ? role : "",
     // Track anonymous hashed identifiers for all deployments
@@ -86,23 +223,24 @@ export default function track(
     org: isCloud() ? org : "",
   };
 
-  if (inTelemetryDebugMode()) {
-    console.log("Telemetry Event - ", event, trackProps);
-  }
-  if (!isTelemetryEnabled()) return;
+  void dataWareHouseTrack({
+    event_name: event,
+    properties_json: JSON.stringify(props),
+    device_id: getOrGenerateDeviceId(),
+    page_id: getOrGeneratePageId(),
+    session_id: getOrGenerateSessionId(),
+    sdk_language: "react",
+    sdk_version: growthbook.version,
+    url: trackProps.url,
+    user_id: id,
+    context_json: JSON.stringify(growthbook.getAttributes()),
+  });
 
-  if (!jitsu) {
-    jitsu = jitsuClient({
-      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
-      log_level: "ERROR",
-      tracking_host: "https://t.growthbook.io",
-      cookie_name: "__growthbookid",
-      capture_3rd_party_cookies: false,
-      randomize_url: true,
-    });
+  const jitsu = getJitsuClient();
+  if (jitsu) {
+    // Rename page load events for backwards compatibility in Jitsu
+    jitsu.track(event === PAGE_VIEW_EVENT ? "page-load" : event, trackProps);
   }
-
-  jitsu.track(event, trackProps);
 }
 
 export function trackSnapshot(
@@ -193,7 +331,10 @@ function getTrackingPropsFromReport(
 
 export function parseSnapshotDimension(
   dimension: string
-): { type: string; id: string } {
+): {
+  type: string;
+  id: string;
+} {
   if (!dimension) {
     return { type: "none", id: "" };
   }

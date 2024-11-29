@@ -1,18 +1,18 @@
-import { DataSourceInterface } from "../../types/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
   createInformationSchema,
   updateInformationSchemaById,
-} from "../models/InformationSchemaModel";
+} from "back-end/src/models/InformationSchemaModel";
 import {
   InformationSchema,
   InformationSchemaInterface,
-} from "../types/Integration";
-import { updateDataSource } from "../models/DataSourceModel";
-import { removeDeletedInformationSchemaTables } from "../models/InformationSchemaTablesModel";
-import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
-import { promiseAllChunks } from "../util/promise";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
+} from "back-end/src/types/Integration";
+import { updateDataSource } from "back-end/src/models/DataSourceModel";
+import { removeDeletedInformationSchemaTables } from "back-end/src/models/InformationSchemaTablesModel";
+import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(
@@ -26,10 +26,11 @@ export function getRecentlyDeletedTables(
       (updatedInformationSchemaRecord) =>
         updatedInformationSchemaRecord.databaseName === database.databaseName
     );
+    if (!database.schemas || correspondingIndex === -1) return;
     database.schemas.forEach((schema) => {
       const correspondingSchemaIndex = updatedInformationSchema[
         correspondingIndex
-      ].schemas.findIndex(
+      ]?.schemas.findIndex(
         (updatedSchemaRecord) =>
           updatedSchemaRecord.schemaName === schema.schemaName
       );
@@ -84,25 +85,25 @@ export async function mergeStaleInformationSchemaWithUpdate(
       database.dateCreated =
         staleInformationSchema[correspondingIndex].dateCreated;
     }
-    if (!database.schemas) return;
+    if (!database.schemas || correspondingIndex === -1) return;
     database.schemas.forEach((schema) => {
       const correspondingSchemaIndex = staleInformationSchema[
         correspondingIndex
-      ].schemas.findIndex(
+      ]?.schemas.findIndex(
         (staleSchemaRecord) =>
           staleSchemaRecord.schemaName === schema.schemaName
       );
 
       if (correspondingSchemaIndex > -1) {
         schema.dateCreated =
-          staleInformationSchema[correspondingIndex].schemas[
+          staleInformationSchema[correspondingIndex]?.schemas[
             correspondingSchemaIndex
           ].dateCreated;
       }
-      if (!schema.tables) return;
+      if (!schema.tables || correspondingSchemaIndex === -1) return;
       schema.tables.forEach((table) => {
         const staleInformationSchemaTables =
-          staleInformationSchema[correspondingIndex].schemas[
+          staleInformationSchema[correspondingIndex]?.schemas[
             correspondingSchemaIndex
           ]?.tables || [];
         const correspondingTableIndex = staleInformationSchemaTables.findIndex(

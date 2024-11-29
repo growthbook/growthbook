@@ -1,5 +1,24 @@
 # Changelog
 
+## **1.3.0** - Nov 20, 2024
+
+- New `GrowthBookMultiUser` class for 2x performance boost in Node.js
+- Remove undocumented and deprecated `GrowthBook` constructor options: `realtimeKey`, `realtimeInterval`, and `stickyBucketIdentifierAttributes`.
+
+## **1.2.1** - Oct 8, 2024
+
+- Set default cookie expiry (180 days) in cookie-related Sticky Bucket Services.
+- Provide `getKey` method in Sticky Bucket Services.
+
+## **1.2.0** - Aug 20, 2024
+
+- Make `trackingCallback` optionally async; await it when navigating in a URL redirect test
+- Fix bug related to `stickyBucketAssignmentDocs` not being read when attributes change
+- Remove native anti-flicker code from JS SDK; add improved anti-flicker support to the HTML script tag
+- Prevent some URL redirect navigate stampedes
+- Change default `maxAge` cache setting to 4 hours to reduce multiple exposures when starting a new experiment phase
+- Now `cacheSettings` can optionally be set from the SDK context
+
 ## **1.1.0** - July 1, 2024
 
 - Fix package.json ESM exports. Can now load the SDK in Astro and Node (with `type="module"`) without errors.

@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import {
   getAffectedEnvsForExperiment,
@@ -29,6 +29,7 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -60,6 +61,12 @@ const ExperimentPage = (): ReactElement => {
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (data?.experiment?.type === "multi-armed-bandit") {
+      router.replace(window.location.href.replace("experiment/", "bandit/"));
+    }
+  }, [data, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -122,6 +129,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {stopModalOpen && (
@@ -129,6 +137,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="eid"
         />
       )}
       {variationsModalOpen && (
@@ -136,6 +145,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {duplicateModalOpen && (
@@ -146,7 +156,8 @@ const ExperimentPage = (): ReactElement => {
             name: experiment.name + " (Copy)",
             trackingKey: "",
           }}
-          source="duplicate"
+          source="duplicate-eid"
+          duplicate={true}
         />
       )}
       {tagsModalOpen && (
@@ -160,11 +171,25 @@ const ExperimentPage = (): ReactElement => {
           }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {projectModalOpen && (
         <EditProjectForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
+                }
+              />
+            </>
+          }
           cancel={() => setProjectModalOpen(false)}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateExperiment({ project }, {})
+          }
           mutate={mutate}
           current={experiment.project}
           apiEndpoint={`/experiment/${experiment.id}`}
@@ -179,6 +204,7 @@ const ExperimentPage = (): ReactElement => {
               </div>
             ) : null
           }
+          source="eid"
         />
       )}
       {phaseModalOpen && (
@@ -186,6 +212,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="eid"
         />
       )}
       {editPhaseId !== null && (
@@ -195,6 +222,7 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           i={editPhaseId}
           editTargeting={editTargeting}
+          source="eid"
         />
       )}
       {editPhasesOpen && (
@@ -203,6 +231,7 @@ const ExperimentPage = (): ReactElement => {
           mutateExperiment={mutate}
           experiment={experiment}
           editTargeting={editTargeting}
+          source="eid"
         />
       )}
       {targetingModalOpen && (
@@ -211,6 +240,7 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          // source="eid"
         />
       )}
 

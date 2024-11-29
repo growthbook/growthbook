@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "@back-end/types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
   Invite,
   Member,
@@ -11,15 +11,15 @@ import {
   OrganizationInterface,
   OrganizationMessage,
   Role,
-} from "../../types/organization";
-import { upgradeOrganizationDoc } from "../util/migrations";
-import { ApiOrganization } from "../../types/openapi";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/types/organization";
+import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
+import { ApiOrganization } from "back-end/types/openapi";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const baseMemberFields = {
   _id: false,
@@ -130,6 +130,8 @@ const organizationSchema = new mongoose.Schema({
   getStartedChecklistItems: [String],
   customRoles: {},
   deactivatedRoles: [],
+  disabled: Boolean,
+  setupEventTracker: String,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -186,6 +188,7 @@ export async function createOrganization({
           defaultState: true,
         },
       ],
+      killswitchConfirmation: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },
@@ -225,6 +228,7 @@ export async function findAllOrganizations(
           { ownerEmail: regex },
           { id: regex },
           { externalId: regex },
+          { verifiedDomain: regex },
         ],
       }
     : {};
@@ -325,6 +329,21 @@ export async function findOrganizationsByMemberId(userId: string) {
           id: userId,
         },
       },
+      disabled: { $ne: true },
+    })
+    .toArray();
+  return docs.map(toInterface);
+}
+
+export async function findOrganizationsByMemberIds(userId: string[]) {
+  const docs = await getCollection(COLLECTION)
+    .find({
+      members: {
+        $elemMatch: {
+          id: { $in: userId },
+        },
+      },
+      disabled: { $ne: true },
     })
     .toArray();
   return docs.map(toInterface);
@@ -333,6 +352,7 @@ export async function findOrganizationsByMemberId(userId: string) {
 export async function findOrganizationByInviteKey(key: string) {
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
+    disabled: { $ne: true },
   });
   return doc ? toInterface(doc) : null;
 }
@@ -393,7 +413,10 @@ export async function removeProjectFromProjectRoles(
 }
 
 export async function findOrganizationsByDomain(domain: string) {
-  const docs = await OrganizationModel.find({ verifiedDomain: domain });
+  const docs = await OrganizationModel.find({
+    verifiedDomain: domain,
+    disabled: { $ne: true },
+  });
   return docs.map(toInterface);
 }
 

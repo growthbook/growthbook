@@ -7,7 +7,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface } from "../types/metric";
+import { LegacyMetricInterface } from "back-end/types/metric";
 import {
   migrateReport,
   migrateSavedGroup,
@@ -18,29 +18,32 @@ import {
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
-} from "../src/util/migrations";
-import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
-import { encryptParams } from "../src/services/datasource";
-import { MixpanelConnectionParams } from "../types/integrations/mixpanel";
-import { PostgresConnectionParams } from "../types/integrations/postgres";
+} from "back-end/src/util/migrations";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "back-end/types/datasource";
+import { encryptParams } from "back-end/src/services/datasource";
+import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import {
   ExperimentRule,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../types/feature";
-import { OrganizationInterface } from "../types/organization";
+} from "back-end/types/feature";
+import { OrganizationInterface } from "back-end/types/organization";
 import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "../types/experiment-snapshot";
+} from "back-end/types/experiment-snapshot";
 import {
   ExperimentReportResultDimension,
   LegacyReportInterface,
-} from "../types/report";
-import { Queries } from "../types/query";
-import { ExperimentPhase } from "../types/experiment";
-import { LegacySavedGroupInterface } from "../types/saved-group";
+} from "back-end/types/report";
+import { Queries } from "back-end/types/query";
+import { ExperimentPhase } from "back-end/types/experiment";
+import { LegacySavedGroupInterface } from "back-end/types/saved-group";
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart and conversion*Hours", () => {
@@ -510,6 +513,35 @@ describe("Metric Migration", () => {
 });
 
 describe("Datasource Migration", () => {
+  it("adds settings when missing completely", () => {
+    const datasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    expect(upgradeDatasourceObject({ ...datasource }).settings).toEqual({
+      userIdTypes: [
+        {
+          userIdType: "user_id",
+          description: "Logged-in user id",
+        },
+        {
+          userIdType: "anonymous_id",
+          description: "Anonymous visitor id",
+        },
+      ],
+    });
+  });
   it("updates old datasource objects - userIdTypes", () => {
     const baseDatasource: DataSourceInterface = {
       dateCreated: new Date(),
@@ -1046,6 +1078,9 @@ describe("Experiment Migration", () => {
     hashVersion: 2,
     releasedVariationId: "",
     attributionModel: "experimentDuration",
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
     variations: [
       {
         id: "0",
@@ -1194,6 +1229,43 @@ describe("Experiment Migration", () => {
           };
         }),
       ],
+    });
+  });
+  it("Updates metric field names", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      })
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_abc"],
+      guardrailMetrics: ["met_def"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
+    });
+  });
+
+  it("Does not override new metrics", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        goalMetrics: ["met_123"],
+        secondaryMetrics: ["met_456"],
+        guardrailMetrics: ["met_789"],
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      })
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_123"],
+      secondaryMetrics: ["met_456"],
+      guardrailMetrics: ["met_789"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
     });
   });
 });
@@ -1384,6 +1456,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [
@@ -1486,6 +1559,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: [],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [],
@@ -1595,6 +1669,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: true,
         metricSettings: [
@@ -1674,8 +1749,56 @@ describe("Report Migration", () => {
     expect(migrateReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics"),
         attributionModel: "experimentDuration",
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+      },
+    });
+  });
+
+  it("migrates metrics and guardrails", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_123"],
+        guardrailMetrics: ["met_456"],
+        secondaryMetrics: [],
+      },
+    });
+  });
+
+  it("does not migrate metrics and guardrails if new fields present", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
       },
     });
   });
@@ -1700,7 +1823,7 @@ describe("Report Migration", () => {
     expect(migrateReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics", "metricRegressionAdjustmentStatuses"),
         settingsForSnapshotMetrics: [
           {
             metric: "met_123",
@@ -1713,6 +1836,9 @@ describe("Report Migration", () => {
             properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
           },
         ],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
       },
     });
   });

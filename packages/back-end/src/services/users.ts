@@ -2,18 +2,17 @@ import crypto from "crypto";
 import { promisify } from "util";
 import { Request } from "express";
 import md5 from "md5";
-import { UserInterface } from "../../types/user";
+import { UserInterface } from "back-end/types/user";
 import {
   getAllUserEmailsAcrossAllOrgs,
   getUserByEmail,
   updateUser,
-} from "../models/UserModel";
-import { findOrganizationsByMemberId } from "../models/OrganizationModel";
-import { UserLoginNotificationEvent } from "../events/notification-events";
-import { createEvent } from "../models/EventModel";
-import { UserLoginAuditableProperties } from "../events/event-types";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/src/models/UserModel";
+import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
+import { createEventWithPayload } from "back-end/src/models/EventModel";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { UserLoginInterface } from "back-end/src/validators/users";
 import { validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
@@ -74,9 +73,9 @@ export async function updatePassword(userId: string, password: string) {
  * Some tracking properties exist on the request object
  * @param req
  */
-export const getAuditableUserPropertiesFromRequest = (
+export const getUserLoginPropertiesFromRequest = (
   req: Request
-): Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> => {
+): Pick<UserLoginInterface, "userAgent" | "device" | "ip" | "os"> => {
   const userAgent = (req.headers["user-agent"] as string) || "";
   const device = (req.headers["sec-ch-ua"] as string) || "";
   const os = (req.headers["sec-ch-ua-platform"] as string) || "";
@@ -105,7 +104,7 @@ export async function trackLoginForUser({
   userAgent,
   ip,
   os,
-}: Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> & {
+}: Pick<UserLoginInterface, "userAgent" | "device" | "ip" | "os"> & {
   email: string;
 }): Promise<void> {
   const user = await getUserByEmail(email);
@@ -120,40 +119,40 @@ export async function trackLoginForUser({
 
   const organizationIds = organizations.map((org) => org.id);
 
-  const auditedData: UserLoginAuditableProperties = {
-    email: user.email,
-    id: user.id,
-    name: user.name || "",
-    ip,
-    userAgent,
-    os,
-    device,
-  };
-
-  const event: UserLoginNotificationEvent = {
-    object: "user",
-    event: "user.login",
-    user: {
-      type: "dashboard",
-      email: user.email,
-      id: user.id,
-      name: user.name || "",
-    },
-    data: {
-      current: auditedData,
-    },
-    projects: [],
-    tags: [],
-    environments: [],
-    // The event contains the ip, userAgent, etc. of users
-    // When marked as containing secrets, view access will be restricted to admins
-    containsSecrets: true,
-  };
-
   try {
     // Create a login event for all of a user's organizations
     const eventCreatePromises = organizationIds.map((organizationId) =>
-      createEvent(organizationId, event)
+      createEventWithPayload({
+        payload: {
+          object: "user",
+          event: "user.login",
+          user: {
+            type: "dashboard",
+            email: user.email,
+            id: user.id,
+            name: user.name || "",
+          },
+          data: {
+            object: {
+              email: user.email,
+              id: user.id,
+              name: user.name || "",
+              ip,
+              userAgent,
+              os,
+              device,
+            },
+          },
+          projects: [],
+          tags: [],
+          environments: [],
+          // The event contains the ip, userAgent, etc. of users
+          // When marked as containing secrets, view access will be restricted to admins
+          containsSecrets: true,
+        },
+        organizationId,
+        objectId: user.id,
+      })
     );
     await Promise.all(eventCreatePromises);
   } catch (e) {

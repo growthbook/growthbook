@@ -1,6 +1,9 @@
-import { FC, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import {
+  DefaultMemberRole,
+  MemberRoleWithProjects,
+} from "back-end/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
@@ -18,11 +21,14 @@ type InviteResult = {
   inviteUrl: string;
 };
 
-const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
-  mutate,
-  close,
-}) => {
-  const { license, seatsInUse, organization } = useUser();
+interface Props {
+  mutate: () => void;
+  close: () => void;
+  defaultRole?: DefaultMemberRole;
+}
+
+const InviteModal = ({ mutate, close, defaultRole }: Props) => {
+  const { license, seatsInUse, organization, effectiveAccountPlan } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -33,6 +39,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       roleInfo: {
         projectRoles: [],
         ...getDefaultRole(organization),
+        ...(defaultRole ? { role: defaultRole } : {}),
       },
     },
   });
@@ -53,7 +60,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
-    license && license.hardCap && license.seats <= seatsInUse
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
+      license &&
+      license.hardCap &&
+      license.seats <= seatsInUse
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -70,7 +80,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   // Hit a hard cap and needs to contact sales to increase the number of seats on their license
   if (showContactSupport) {
     return (
-      <Modal open={true} close={close} size="md" header={"Reached seat limit"}>
+      <Modal
+        trackingEventModalType=""
+        open={true}
+        close={close}
+        size="md"
+        header={"Reached seat limit"}
+      >
         <div className="my-3">
           Whoops! You reached the seat limit on your license. To increase your
           number of seats, please contact{" "}
@@ -96,6 +112,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     }
 
     if (
+      ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
       license.seats < seatsInUse + value.email.length
@@ -144,6 +161,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header="Invite Member"
       open={true}

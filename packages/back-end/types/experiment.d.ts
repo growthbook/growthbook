@@ -1,22 +1,27 @@
-import { MetricWindowSettings } from "./fact-table";
 import {
-  ExperimentRefVariation,
-  FeatureInterface,
-  FeaturePrerequisite,
-  NamespaceValue,
-  SavedGroupTargeting,
-} from "./feature";
-import { StatsEngine } from "./stats";
-import { CustomFieldValues } from "./custom-fields";
+  ExperimentPhase,
+  Variation,
+  MetricOverride,
+  ExperimentInterface,
+} from "back-end/src/validators/experiments";
+import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
-export type ImplementationType = "visual" | "code" | "configuration" | "custom";
+export {
+  AttributionModel,
+  ImplementationType,
+  MetricOverride,
+  ExperimentStatus,
+  ExperimentType,
+  ExperimentPhase,
+  banditStageType,
+  ExperimentInterface,
+  ExperimentNotification,
+  ExperimentResultsType,
+  Screenshot,
+  Variation,
+} from "back-end/src/validators/experiments";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
-
-export type ExperimentNotification =
-  | "auto-update"
-  | "multiple-exposures"
-  | "srm";
 
 export type DomChange = {
   selector: string;
@@ -25,27 +30,13 @@ export type DomChange = {
   value: string;
 };
 
-export interface Screenshot {
-  path: string;
-  width?: number;
-  height?: number;
-  description?: string;
-}
-
-export interface LegacyVariation extends Variation {
+export type LegacyVariation = Variation & {
   /** @deprecated */
   css?: string;
   /** @deprecated */
   dom?: DomChange[];
-}
+};
 
-export interface Variation {
-  id: string;
-  name: string;
-  description?: string;
-  key: string;
-  screenshots: Screenshot[];
-}
 export interface VariationWithIndex extends Variation {
   index: number;
 }
@@ -57,52 +48,12 @@ export interface LegacyExperimentPhase extends ExperimentPhase {
   groups?: string[];
 }
 
-export interface ExperimentPhase {
-  dateStarted: Date;
-  dateEnded?: Date;
-  name: string;
-  reason: string;
-  coverage: number;
-  condition: string;
-  savedGroups?: SavedGroupTargeting[];
-  prerequisites?: FeaturePrerequisite[];
-  namespace: NamespaceValue;
-  seed?: string;
-  variationWeights: number[];
-}
-
 export type ExperimentPhaseStringDates = Omit<
   ExperimentPhase,
   "dateStarted" | "dateEnded"
 > & {
   dateStarted?: string;
   dateEnded?: string;
-};
-
-export type ExperimentStatus = "draft" | "running" | "stopped";
-
-export type AttributionModel = "firstExposure" | "experimentDuration";
-
-export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
-
-export type MetricOverride = {
-  id: string;
-
-  windowType?: MetricWindowSettings["type"];
-  windowHours?: number;
-  delayHours?: number;
-
-  winRisk?: number;
-  loseRisk?: number;
-
-  properPriorOverride?: boolean;
-  properPriorEnabled?: boolean;
-  properPriorMean?: number;
-  properPriorStdDev?: number;
-
-  regressionAdjustmentOverride?: boolean;
-  regressionAdjustmentEnabled?: boolean;
-  regressionAdjustmentDays?: number;
 };
 
 export type LegacyMetricOverride = MetricOverride & {
@@ -118,6 +69,9 @@ export interface LegacyExperimentInterface
     | "attributionModel"
     | "releasedVariationId"
     | "metricOverrides"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
   > {
   /**
    * @deprecated
@@ -128,70 +82,11 @@ export interface LegacyExperimentInterface
   variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];
   releasedVariationId?: string;
-}
-
-export interface ExperimentInterface {
-  id: string;
-  trackingKey: string;
-  organization: string;
-  project?: string;
-  owner: string;
-  datasource: string;
-  exposureQueryId: string;
-  /**
-   * @deprecated Always set to 'code'
-   */
-  implementation: ImplementationType;
-  /**
-   * @deprecated
-   */
-  userIdType?: "anonymous" | "user";
-  hashAttribute: string;
-  fallbackAttribute?: string;
-  hashVersion: 1 | 2;
-  disableStickyBucketing?: boolean;
-  pastNotifications?: ExperimentNotification[];
-  bucketVersion?: number;
-  minBucketVersion?: number;
-  name: string;
-  dateCreated: Date;
-  dateUpdated: Date;
-  tags: string[];
-  description?: string;
-  hypothesis?: string;
-  metrics: string[];
-  metricOverrides?: MetricOverride[];
+  metrics?: string[];
   guardrails?: string[];
-  activationMetric?: string;
-  segment?: string;
-  queryFilter?: string;
-  skipPartialData?: boolean;
-  attributionModel?: AttributionModel;
-  autoAssign: boolean;
-  previewURL: string;
-  targetURLRegex: string;
-  variations: Variation[];
-  archived: boolean;
-  status: ExperimentStatus;
-  phases: ExperimentPhase[];
-  results?: ExperimentResultsType;
-  winner?: number;
-  analysis?: string;
-  releasedVariationId: string;
-  excludeFromPayload?: boolean;
-  lastSnapshotAttempt?: Date;
-  nextSnapshotAttempt?: Date;
-  autoSnapshots: boolean;
-  ideaSource?: string;
-  regressionAdjustmentEnabled?: boolean;
-  hasVisualChangesets?: boolean;
-  hasURLRedirects?: boolean;
-  linkedFeatures?: string[];
-  sequentialTestingEnabled?: boolean;
-  sequentialTestingTuningParameter?: number;
-  statsEngine?: StatsEngine;
-  manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
-  customFields?: CustomFieldValues;
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
 }
 
 export type ExperimentInterfaceStringDates = Omit<

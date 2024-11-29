@@ -1,5 +1,12 @@
 export type {
-  Context,
+  Options as Context,
+  Options,
+  MultiUserOptions,
+  TrackingCallbackWithUser,
+  TrackingDataWithUser,
+  FeatureUsageCallback,
+  FeatureUsageCallbackWithUser,
+  UserContext,
   Attributes,
   Polyfills,
   CacheSettings,
@@ -43,6 +50,7 @@ export type {
   InitSyncOptions,
   Helpers,
   GrowthBookPayload,
+  SavedGroupsValues,
 } from "./types/growthbook";
 
 export type {
@@ -60,6 +68,8 @@ export {
 } from "./feature-repository";
 
 export { GrowthBook, prefetchPayload } from "./GrowthBook";
+
+export { GrowthBookMultiUser } from "./GrowthBookMultiUser";
 
 export {
   StickyBucketService,

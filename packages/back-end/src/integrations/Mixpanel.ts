@@ -1,14 +1,15 @@
 import cloneDeep from "lodash/cloneDeep";
-import { ReqContext } from "../../types/organization";
+import { getConversionWindowHours } from "shared/experiments";
+import { ReqContext } from "back-end/types/organization";
 import {
   DataSourceInterface,
   DataSourceProperties,
-} from "../../types/datasource";
-import { DimensionInterface } from "../../types/dimension";
-import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
-import { MetricInterface, MetricType } from "../../types/metric";
-import { decryptDataSourceParams } from "../services/datasource";
-import { formatQuery, runQuery } from "../services/mixpanel";
+} from "back-end/types/datasource";
+import { DimensionInterface } from "back-end/types/dimension";
+import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { MetricInterface, MetricType } from "back-end/types/metric";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { formatQuery, runQuery } from "back-end/src/services/mixpanel";
 import {
   DimensionSlicesQueryResponse,
   DropTableQueryResponse,
@@ -16,22 +17,22 @@ import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
   ExperimentUnitsQueryResponse,
+  MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+} from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
   getAggregateFunctions,
   getMixpanelPropertyColumn,
-} from "../util/mixpanel";
-import { compileSqlTemplate } from "../util/sql";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { applyMetricOverrides } from "../util/integration";
+} from "back-end/src/util/mixpanel";
+import { compileSqlTemplate } from "back-end/src/util/sql";
+import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   context: ReqContext;
@@ -59,6 +60,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
       this.params = { projectId: "", secret: "", username: "" };
       this.decryptionError = true;
     }
+  }
+  getMetricAnalysisQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runMetricAnalysisQuery(): Promise<MetricAnalysisQueryResponse> {
+    throw new Error("Method not implemented.");
   }
   getDropUnitsTableQuery(): string {
     throw new Error("Method not implemented.");
@@ -283,18 +290,25 @@ export default class Mixpanel implements SourceIntegrationInterface {
             }
 
             ${metrics
-              .map(
-                (metric, i) => `// Metric - ${metric.name}
-              if(isMetric${i}(event) && ${this.getConversionWindowCondition(
+              .map((metric, i) => {
+                const conversionWindowCondition = this.getConversionWindowCondition(
                   metric,
+                  snapshotSettings.endDate,
                   "state.start"
-                )}) {
-                state.m${i}.push(${this.getMetricValueExpression(
+                );
+
+                return `// Metric - ${metric.name}
+                    if(isMetric${i}(event) ${
+                  conversionWindowCondition
+                    ? `&& ${conversionWindowCondition}`
+                    : ""
+                }) {
+                      state.m${i}.push(${this.getMetricValueExpression(
                   metric.column
                 )});
-              }
-            `
-              )
+                    }
+                  `;
+              })
               .join("")}
           }
           return state;
@@ -664,21 +678,29 @@ function is${name}(event) {
 
   private getConversionWindowCondition(
     metric: MetricInterface,
+    experimentEnd: Date,
     conversionWindowStart: string = ""
   ) {
+    const windowHours = getConversionWindowHours(metric.windowSettings);
     const checks: string[] = [];
     const start = (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000;
-    const end =
-      start +
-      (metric.windowSettings.windowValue || DEFAULT_CONVERSION_WINDOW_HOURS) *
-        60 *
-        60 *
-        1000;
+    // add conversion delay
     if (start) {
       checks.push(`event.time - ${conversionWindowStart} >= ${start}`);
     }
-    checks.push(`event.time - ${conversionWindowStart} < ${end}`);
-    return checks.join(" && ");
+    // if conversion window, add conversion end
+    if (metric.windowSettings.type === "conversion") {
+      const end = start + windowHours * 60 * 60 * 1000;
+      checks.push(`event.time - ${conversionWindowStart} < ${end}`);
+    }
+    // if lookback window, add additional lookback start
+    if (metric.windowSettings.type === "lookback") {
+      const lookbackLength = windowHours * 60 * 60 * 1000;
+      checks.push(
+        `${experimentEnd.getTime()} - event.time <= ${lookbackLength}`
+      );
+    }
+    return checks.length ? checks.join(" && ") : "";
   }
 
   private getValidMetricCondition(metric: MetricInterface) {

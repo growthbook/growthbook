@@ -6,7 +6,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBPremiumBadge } from "@/components/Icons";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
-  commercialFeature: CommercialFeature;
+  commercialFeature?: CommercialFeature;
   children: ReactNode;
   body?: string | JSX.Element | null;
   premiumText?: string | JSX.Element;
@@ -32,7 +32,9 @@ export default function PremiumTooltip({
   ...otherProps
 }: Props) {
   const { hasCommercialFeature } = useUser();
-  const hasFeature = hasCommercialFeature(commercialFeature);
+  const hasFeature = commercialFeature
+    ? hasCommercialFeature(commercialFeature)
+    : true;
 
   return (
     <Tooltip
@@ -59,16 +61,21 @@ export default function PremiumTooltip({
       innerClassName={innerClassName || ""}
       popperStyle={popperStyle}
       usePortal={usePortal}
+      // do not fire track event they have the feature
+      trackingEventTooltipType={hasFeature ? undefined : "premium-tooltip"}
+      trackingEventTooltipSource={commercialFeature}
       {...otherProps}
     >
-      {!hasFeature && (
-        <GBPremiumBadge
-          className="text-premium"
-          shouldDisplay={!hasFeature}
-          prependsText={true}
-        />
-      )}
-      {children}
+      <div className="d-flex align-items-center">
+        {!hasFeature && (
+          <GBPremiumBadge
+            className="text-premium"
+            shouldDisplay={!hasFeature}
+            prependsText={true}
+          />
+        )}
+        {children}
+      </div>
     </Tooltip>
   );
 }

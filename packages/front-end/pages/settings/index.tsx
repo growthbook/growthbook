@@ -10,11 +10,13 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
 } from "shared/constants";
-import { OrganizationSettings } from "@back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
+import Link from "next/link";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
@@ -27,7 +29,11 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import HelperText from "@/components/Radix/HelperText";
+import { AppFeatures } from "@/types/app-features";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -46,6 +52,8 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const {
     refreshOrganization,
     settings,
@@ -53,6 +61,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasCommercialFeature,
   } = useUser();
   const [saveMsg, setSaveMsg] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [cronString, setCronString] = useState("");
   const [
@@ -120,6 +129,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ],
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
+      disableMultiMetricQueries: false,
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
@@ -127,6 +137,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsPlatformUrl: "",
       featureKeyExample: "",
       featureRegexValidator: "",
+      featureListMarkdown: settings.featureListMarkdown || "",
+      featurePageMarkdown: settings.featurePageMarkdown || "",
+      experimentListMarkdown: settings.experimentListMarkdown || "",
+      metricListMarkdown: settings.metricListMarkdown || "",
+      metricPageMarkdown: settings.metricPageMarkdown || "",
+      banditScheduleValue: settings.banditScheduleValue ?? 1,
+      banditScheduleUnit: settings.banditScheduleUnit ?? "days",
+      banditBurnInValue: settings.banditBurnInValue ?? 1,
+      banditBurnInUnit: settings.banditBurnInUnit ?? "days",
     },
   });
   const { apiCall } = useAuth();
@@ -337,20 +356,43 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <ExperimentSettings
               cronString={cronString}
               updateCronString={updateCronString}
-              hasCommercialFeature={hasCommercialFeature}
             />
 
-            <div className="divider border-bottom mb-3 mt-3" />
+            {growthbook.isOn("bandits") && (
+              <>
+                <div className="divider border-bottom mb-3 mt-3" />
+                <BanditSettings page="org-settings" />
+              </>
+            )}
 
+            <div className="divider border-bottom mb-3 mt-3" />
             <MetricsSettings />
 
             <div className="divider border-bottom mb-3 mt-3" />
-
             <FeaturesSettings />
 
             <div className="divider border-bottom mb-3 mt-3" />
-
             <DatasourceSettings />
+          </div>
+          <div className="my-3 bg-white p-3 border">
+            <div className="row">
+              <div className="col-sm-3 h4">
+                <PremiumTooltip commercialFeature="custom-markdown">
+                  Custom Markdown
+                </PremiumTooltip>
+              </div>
+              <div className="col-sm-9">
+                {hasCommercialFeature("custom-markdown") ? (
+                  <Link href="/settings/custom-markdown">
+                    View Custom Markdown Settings
+                  </Link>
+                ) : (
+                  <span className="text-muted">
+                    View Custom Markdown Settings
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -361,6 +403,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       >
         <div className="container-fluid pagecontents d-flex">
           <div className="flex-grow-1 mr-4">
+            {submitError && (
+              <div className="float-right mt-2">
+                <HelperText status="error">{submitError}</HelperText>
+              </div>
+            )}
             {saveMsg && (
               <TempMessage
                 className="mb-0 py-2"
@@ -372,15 +419,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </TempMessage>
             )}
           </div>
-          <div>
+          <div style={{ marginRight: "4rem" }}>
             <Button
-              style={{ marginRight: "4rem" }}
-              color={"primary"}
               disabled={!ctaEnabled}
               onClick={async () => {
+                setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
               }}
+              setError={setSubmitError}
             >
               Save
             </Button>

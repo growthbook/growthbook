@@ -19,6 +19,7 @@ const EditExperimentNameForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header={"Edit Name"}
       open={true}
       close={cancel}
@@ -32,7 +33,10 @@ const EditExperimentNameForm: FC<{
       })}
       cta="Save"
     >
-      <Field label="Name" {...form.register("name")} />
+      <Field
+        label="Name"
+        {...form.register("name", { setValueAs: (s) => s?.trim() })}
+      />
     </Modal>
   );
 };

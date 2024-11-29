@@ -64,6 +64,7 @@ export default function EnvironmentModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       header={
@@ -77,14 +78,15 @@ export default function EnvironmentModal({
         if (existing.id) {
           const env = newEnvs.filter((e) => e.id === existing.id)[0];
           if (!env) throw new Error("Could not edit environment");
-          env.description = value.description;
-          env.toggleOnList = value.toggleOnList;
-          env.defaultState = value.defaultState;
-          env.projects = value.projects;
           await apiCall(`/environment/${existing.id}`, {
             method: "PUT",
             body: JSON.stringify({
-              environment: env,
+              environment: {
+                description: value.description,
+                toggleOnList: value.toggleOnList,
+                defaultState: value.defaultState,
+                projects: value.projects,
+              },
             }),
           });
         } else {
@@ -98,7 +100,7 @@ export default function EnvironmentModal({
           }
           const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",
-            description: value.description,
+            description: value.description || "",
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
             projects: value.projects,

@@ -5,8 +5,10 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
   Policy,
 } from "shared/permissions";
-import type { ReqContextClass } from "../src/services/context";
-import { attributeDataTypes } from "../src/util/organization.util";
+import { z } from "zod";
+import { environment } from "back-end/src/routers/environment/environment.validators";
+import type { ReqContextClass } from "back-end/src/services/context";
+import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -130,7 +132,7 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
-export type SDKAttributeFormat = "" | "version" | "date";
+export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 
 export type SDKAttributeType = typeof attributeDataTypes[number];
 
@@ -153,13 +155,7 @@ export type ExperimentUpdateSchedule = {
   hours?: number;
 };
 
-export type Environment = {
-  id: string;
-  description?: string;
-  toggleOnList?: boolean;
-  defaultState?: boolean;
-  projects?: string[];
-};
+export type Environment = z.infer<typeof environment>;
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
@@ -209,6 +205,16 @@ export interface OrganizationSettings {
   powerCalculatorEnabled?: boolean;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  featureListMarkdown?: string;
+  featurePageMarkdown?: string;
+  experimentListMarkdown?: string;
+  experimentPageMarkdown?: string;
+  metricListMarkdown?: string;
+  metricPageMarkdown?: string;
+  banditScheduleValue?: number;
+  banditScheduleUnit?: "hours" | "days";
+  banditBurnInValue?: number;
+  banditBurnInUnit?: "hours" | "days";
 }
 
 export interface SubscriptionQuote {
@@ -287,6 +293,8 @@ export interface OrganizationInterface {
   getStartedChecklistItems?: string[];
   customRoles?: Role[];
   deactivatedRoles?: string[];
+  disabled?: boolean;
+  setupEventTracker?: string;
 }
 
 export type NamespaceUsage = Record<

@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef } from "react";
+import React, { forwardRef, ReactElement } from "react";
 import {
   FaArrowsAlt,
   FaExclamationTriangle,
@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { filterEnvironmentsByFeature } from "shared/dist/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
@@ -19,6 +19,7 @@ import Button from "@/components/Button";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import HelperText from "@/components/Radix/HelperText";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -32,7 +33,11 @@ interface SortableProps {
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
-  setRuleModal: (args: { environment: string; i: number }) => void;
+  setRuleModal: (args: {
+    environment: string;
+    i: number;
+    defaultType?: string;
+  }) => void;
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];
@@ -77,9 +82,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
-    const title =
+    let title: string | ReactElement =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+    if (rule.type === "experiment") {
+      title = (
+        <div className="d-flex align-items-center">
+          {title}
+          <Tooltip
+            body={`This is a legacy "inline experiment" feature rule. New experiment rules must be created as references to experiments.`}
+          >
+            <HelperText status="info" size="sm" ml="3">
+              legacy
+            </HelperText>
+          </Tooltip>
+        </div>
+      );
+    }
 
     const linkedExperiment =
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
@@ -110,13 +129,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return null;
     }
     return (
-      <div
-        className={`p-3 ${
-          i < rules.length - 1 ? "border-bottom" : ""
-        } bg-white`}
-        {...props}
-        ref={ref}
-      >
+      <div className={`p-3 border bg-white`} {...props} ref={ref}>
         <div className="d-flex mb-2 align-items-center">
           <div>
             <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
@@ -137,12 +150,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <div className="flex-1 mx-2">
             {linkedExperiment ? (
               <div>
-                Experiment:{" "}
-                <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
-                <Link href={`/experiment/${linkedExperiment.id}`}>
-                  View Experiment{" "}
+                {linkedExperiment.type === "multi-armed-bandit"
+                  ? "Bandit"
+                  : "Experiment"}
+                : <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
+                <Link
+                  href={`/${
+                    linkedExperiment.type === "multi-armed-bandit"
+                      ? "bandit"
+                      : "experiment"
+                  }/${linkedExperiment.id}`}
+                >
+                  View{" "}
+                  {linkedExperiment.type === "multi-armed-bandit"
+                    ? "Bandit"
+                    : "Experiment"}
                   <FaExternalLinkAlt
-                    className="small ml-1 position-relative"
+                    className="small ml-1 position-relative ml-2"
                     style={{ top: "-1px" }}
                   />
                 </Link>
@@ -332,6 +356,7 @@ export function SortableRule(props: SortableProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: active?.id === props.rule.id ? 0.3 : 1,
+    margin: -1,
   };
 
   return (

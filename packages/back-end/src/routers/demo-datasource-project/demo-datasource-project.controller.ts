@@ -7,27 +7,30 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import { PostgresConnectionParams } from "../../../types/integrations/postgres";
-import { createDataSource } from "../../models/DataSourceModel";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { createDataSource } from "back-end/src/models/DataSourceModel";
 import {
   createExperiment,
   getAllExperiments,
-} from "../../models/ExperimentModel";
-import { createMetric, createSnapshot } from "../../services/experiments";
-import { PrivateApiErrorResponse } from "../../../types/api";
-import { DataSourceSettings } from "../../../types/datasource";
-import { ExperimentInterface } from "../../../types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "../../../types/feature";
-import { MetricInterface } from "../../../types/metric";
-import { ProjectInterface } from "../../../types/project";
-import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
-import { getMetricMap } from "../../models/MetricModel";
-import { createFeature } from "../../models/FeatureModel";
-import { getFactTableMap } from "../../models/FactTableModel";
-import { MetricWindowSettings } from "../../../types/fact-table";
+} from "back-end/src/models/ExperimentModel";
+import {
+  createMetric,
+  createSnapshot,
+} from "back-end/src/services/experiments";
+import { PrivateApiErrorResponse } from "back-end/types/api";
+import { DataSourceSettings } from "back-end/types/datasource";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
+import { MetricInterface } from "back-end/types/metric";
+import { ProjectInterface } from "back-end/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { createFeature } from "back-end/src/models/FeatureModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { MetricWindowSettings } from "back-end/types/fact-table";
 
 // region Constants for Demo Datasource
 
@@ -162,7 +165,7 @@ export const postDemoDatasourceProject = async (
   req: CreateDemoDatasourceProjectRequest,
   res: Response<
     CreateDemoDatasourceProjectResponse | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const context = getContextFromReq(req);
@@ -178,7 +181,10 @@ export const postDemoDatasourceProject = async (
 
   if (
     !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
-    !context.permissions.canCreateDataSource({ projects: [demoProjId] })
+    !context.permissions.canCreateDataSource({
+      projects: [demoProjId],
+      type: "postgres",
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -259,7 +265,7 @@ export const postDemoDatasourceProject = async (
       | "owner"
       | "description"
       | "datasource"
-      | "metrics"
+      | "goalMetrics"
       | "project"
       | "hypothesis"
       | "exposureQueryId"
@@ -280,7 +286,7 @@ spacing and headings.`,
       owner: ASSET_OWNER,
       datasource: datasource.id,
       project: project.id,
-      metrics: metrics
+      goalMetrics: metrics
         .map((m) => m.id)
         .concat(ratioMetric ? ratioMetric?.id : []),
       exposureQueryId: "user_id",
@@ -419,6 +425,8 @@ spacing and headings.`,
       metricMap: metricMap,
       factTableMap,
       useCache: true,
+      type: "standard",
+      triggeredBy: "manual",
     });
 
     res.status(200).json({

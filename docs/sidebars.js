@@ -87,44 +87,7 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Running Experiments",
-      collapsed: true,
-      link: {
-        type: "doc",
-        id: "experiments",
-      },
-      items: [
-        {
-          type: "doc",
-          id: "feature-flag-experiments",
-          label: "In Code (Feature Flags)",
-        },
-        {
-          type: "doc",
-          id: "visual-editor",
-          label: "Visual Editor",
-        },
-        {
-          type: "doc",
-          id: "running-experiments/url-redirects",
-          label: "URL Redirects",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "running-experiments/making-changes",
-          label: "Making Changes",
-        },
-        {
-          type: "doc",
-          id: "sticky-bucketing",
-          label: "Sticky Bucketing",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Experiment Analysis",
+      label: "Data & Metrics",
       collapsed: true,
       items: [
         {
@@ -175,6 +138,11 @@ const sidebars = {
               type: "doc",
               id: "warehouses/postgres",
               label: "Postgres",
+            },
+            {
+              type: "doc",
+              id: "warehouses/vertica",
+              label: "Vertica",
             },
             {
               type: "doc",
@@ -285,34 +253,121 @@ const sidebars = {
           ],
         },
         {
+          type: "category",
+          label: "Metrics and Fact Tables",
+          collapsed: true,
+
+          link: {
+            type: "doc",
+            id: "metrics/metrics",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "metrics/metrics",
+              label: "Metrics Overview",
+            },
+            {
+              type: "doc",
+              id: "metrics/metric-examples",
+              label: "Metric Examples and Use Cases",
+            },
+            {
+              type: "doc",
+              id: "metrics/legacy-metrics",
+              label: "Legacy Metrics",
+            },
+          ],
+        },
+        {
           type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
+      ],
+    },
+    {
+      type: "category",
+      label: "Experimentation",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "experiments",
+      },
+      items: [
         {
           type: "doc",
-          id: "experimentation-analysis/fact-tables",
-          label: "Fact Tables",
+          id: "feature-flag-experiments",
+          label: "Feature Flag Experiments",
         },
         {
           type: "doc",
-          id: "experimentation-analysis/metrics",
-          label: "Metrics",
+          id: "visual-editor",
+          label: "Visual Editor",
         },
+        {
+          type: "doc",
+          id: "running-experiments/url-redirects",
+          label: "URL Redirects",
+        },
+
         {
           type: "doc",
           id: "experimentation-analysis/experiment-configuration",
-          label: "Experiments (Setup)",
+          label: "Experiment Settings",
         },
+
         {
           type: "doc",
           id: "experimentation-analysis/experiment-results",
-          label: "Experiments (Results)",
+          label: "Experiment Results",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/making-changes",
+          label: "Make Changes to Experiments",
+        },
+        {
+          type: "category",
+          label: "Bandits",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "bandits/overview",
+              label: "Overview",
+            },
+            {
+              type: "doc",
+              id: "bandits/config",
+              label: "Configuring Bandits",
+            },
+            {
+              type: "doc",
+              id: "bandits/results",
+              label: "Understanding Results",
+            },
+          ],
+        },
+        {
+          type: "doc",
+          id: "sticky-bucketing",
+          label: "Sticky Bucketing",
         },
         {
           type: "doc",
           id: "experimentation-analysis/dimensions",
           label: "Dimensions",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/pre-launch-checklist",
+          label: "Pre-Launch Checklists",
+        },
+        {
+          type: "doc",
+          id: "importing-experiments",
+          label: "Importing External Experiments",
         },
         {
           type: "category",
@@ -460,17 +515,38 @@ const sidebars = {
         "self-host/environment-variables",
         "self-host/config-yml",
         "self-host/production",
+        { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
+    {
+      type: "doc",
+      id: "dashboard",
+      label: "Management Dashboard",
+    },
     {
       type: "category",
       collapsed: true,
       label: "Webhooks",
       items: [
         { type: "doc", id: "webhooks/overview", label: "Webhooks overview" },
-        { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
+        {
+          type: "category",
+          label: "Event Webhooks",
+          collapsed: true,
+          link: {
+            type: "doc",
+            id: "webhooks/event-webhooks",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "webhooks/event-webhooks/events",
+              label: "Available Events",
+            },
+          ],
+        },
         { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
         {
           type: "doc",
@@ -565,6 +641,16 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/deno-hono",
+          label: "Deno + Hono",
+        },
+        {
+          type: "doc",
+          id: "guide/nextjs-and-vercel-feature-flags",
+          label: "Next.js + Vercel Feature Flags",
+        },
+        {
+          type: "doc",
           id: "guide/nextjs-app-router",
           label: "Next.js (App Router)",
         },
@@ -646,6 +732,18 @@ const sidebars = {
               id: "kb/experiments/holdouts",
               label: "Holdouts in GrowthBook",
             },
+          ],
+        },
+        {
+          type: "category",
+          label: "Metrics",
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "kb/metrics/fact-metric-optimization",
+              label: "Fact Metric Optimization",
+            }
           ],
         },
         {

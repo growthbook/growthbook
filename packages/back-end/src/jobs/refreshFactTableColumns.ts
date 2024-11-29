@@ -1,17 +1,22 @@
 import Agenda, { Job } from "agenda";
-import { ReqContext } from "../../types/organization";
-import { getFactTable, updateFactTableColumns } from "../models/FactTableModel";
-import { getDataSourceById } from "../models/DataSourceModel";
+import { canInlineFilterColumn } from "shared/experiments";
+import { ReqContext } from "back-end/types/organization";
+import {
+  getFactTable,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
-} from "../../types/fact-table";
-import { determineColumnTypes } from "../util/sql";
-import { getSourceIntegrationObject } from "../services/datasource";
-import { DataSourceInterface } from "../../types/datasource";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { trackJob } from "../services/otel";
+} from "back-end/types/fact-table";
+import { determineColumnTypes } from "back-end/src/util/sql";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { trackJob } from "back-end/src/services/otel";
+import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
@@ -54,10 +59,43 @@ const refreshFactTableColumns = trackJob(
   }
 );
 
+export async function runColumnTopValuesQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: Pick<FactTableInterface, "sql" | "eventName">,
+  column: ColumnInterface
+): Promise<string[]> {
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (
+    !integration.getColumnTopValuesQuery ||
+    !integration.runColumnTopValuesQuery
+  ) {
+    throw new Error("Top values not supported on this data source");
+  }
+
+  const sql = integration.getColumnTopValuesQuery({
+    factTable,
+    column,
+    limit: 100,
+  });
+
+  const result = await integration.runColumnTopValuesQuery(sql);
+
+  return result.rows.map((r) => r.value);
+}
+
 export async function runRefreshColumnsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "columns" | "userIdTypes"
+  >
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -125,6 +163,22 @@ export async function runRefreshColumnsQuery(
       });
     }
   });
+
+  for (const col of columns) {
+    if (col.alwaysInlineFilter && canInlineFilterColumn(factTable, col)) {
+      try {
+        col.topValues = await runColumnTopValuesQuery(
+          context,
+          datasource,
+          factTable,
+          col
+        );
+        col.topValuesDate = new Date();
+      } catch (e) {
+        logger.error("Error running top values query", e);
+      }
+    }
+  }
 
   return columns;
 }

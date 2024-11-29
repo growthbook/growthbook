@@ -3,37 +3,27 @@
 /**
  * You can get this property on the response.locals.eventAudit property
  */
-export type EventAuditUser =
-  | EventAuditUserLoggedIn
-  | EventAuditUserApiKey
-  | null;
+import { EventUser } from "back-end/src/validators/events";
+export {
+  EventUser,
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "back-end/src/validators/events";
 
 /**
  * You can get this property on the response.locals.eventAudit property.
  * Example usage:
- *    (req, res: Response<MyResponseData, EventAuditUserForResponseLocals>) => {}
+ *    (req, res: Response<MyResponseData, EventUserForResponseLocals>) => {}
  */
-export type EventAuditUserForResponseLocals = {
-  eventAudit: EventAuditUser;
-};
-
-export type EventAuditUserLoggedIn = {
-  type: "dashboard";
-  id: string;
-  email: string;
-  name: string;
-};
-
-export type EventAuditUserApiKey = {
-  type: "api_key";
-  apiKey: string;
+export type EventUserForResponseLocals = {
+  eventAudit: EventUser;
 };
 
 // endregion Audit
 
 // region user.login
 
-export type UserLoginAuditableProperties = {
+export type UserLoginEventProperties = {
   id: string;
   email: string;
   name: string;

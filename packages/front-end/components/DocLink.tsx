@@ -8,7 +8,7 @@ const docSections = {
   experimentResults: "/app/experiment-results",
   stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
-  factTables: "/app/fact-tables",
+  factTables: "/app/metrics",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
   dashboard: "/app/experiment-configuration",
@@ -20,6 +20,15 @@ const docSections = {
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
   bigquery: "/guide/bigquery",
+  presto: "/warehouses/prestodb-or-trino",
+  snowflake: "/warehouses/snowflake",
+  vertica: "/warehouses/vertica",
+  databricks: "/warehouses/databricks",
+  clickhouse: "/warehouses/clickhouse",
+  postgres: "/warehouses/postgres",
+  mysql: "/warehouses/mysql-or-mariadb",
+  mssql: "/warehouses/ms-sql-or-sql-server",
+  redshift: "/warehouses/redshift",
   google_analytics: "/app/datasources#google-analytics",
   //Language
   buildYourOwn: "/lib/build-your-own",
@@ -53,7 +62,7 @@ const docSections = {
   temporaryRollout: "/app/visual#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
-  autoMetrics: "/app/metrics/#auto-generate-metrics",
+  autoMetrics: "/app/metrics/legacy#auto-generate-metrics",
   targetingChanges:
     "/app/experiment-configuration#making-changes-while-running",
   shopify: "/integrations/shopify",
@@ -61,6 +70,9 @@ const docSections = {
   wordpress: "/integrations/wordpress",
   prerequisites: "/features/prerequisites",
   statisticsSequential: "/statistics/sequential",
+  customMarkdown: "/using/growthbook-best-practices#custom-markdown",
+  savedGroups: "/features/targeting#saved-groups",
+  ga4BigQuery: "/guide/GA4-google-analytics",
 };
 
 export type DocSection = keyof typeof docSections;

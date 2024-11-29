@@ -444,6 +444,7 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
 
   return (
     <Modal
+      trackingEventModalType=""
       header="Edit Feature Validation"
       cta="Save"
       size="lg"

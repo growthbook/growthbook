@@ -40,7 +40,11 @@ export default function RuleList({
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
-  setRuleModal: (rule: { environment: string; i: number }) => void;
+  setRuleModal: (args: {
+    environment: string;
+    i: number;
+    defaultType?: string;
+  }) => void;
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];
@@ -71,19 +75,13 @@ export default function RuleList({
   );
 
   const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
-  const showInactiveToggle = items.length > 3 && disabledRules.length;
+  const showInactiveToggle =
+    (items.length > 3 && disabledRules.length) || hideDisabled;
 
   if (!items.length) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
-      </div>
-    );
-  }
-  if (disabledRules.length === items.length && hideDisabled) {
-    return (
-      <div className="px-3 mb-3">
-        <em>No Active Rules</em>
       </div>
     );
   }
@@ -168,10 +166,15 @@ export default function RuleList({
           </label>
         </div>
       ) : null}
+      {disabledRules.length === items.length && hideDisabled && (
+        <div className="px-3 mb-3">
+          <em>No Active Rules</em>
+        </div>
+      )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
           <SortableRule
-            key={rule.id}
+            key={i + rule.id}
             environment={environment}
             i={i}
             rule={rule}

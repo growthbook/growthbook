@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.0.10"
+    },
+    {
+      "version": "0.0.8"
+    },
+    {
+      "version": "0.0.7",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
       "version": "0.0.6",
       "capabilities": [
         "looseUnmarshalling",

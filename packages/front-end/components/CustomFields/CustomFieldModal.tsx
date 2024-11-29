@@ -75,6 +75,7 @@ export default function CustomFieldModal({
 
   return (
     <Modal
+      trackingEventModalType={"custom-field"}
       open={true}
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}

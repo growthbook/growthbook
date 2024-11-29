@@ -13,6 +13,7 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -121,14 +122,13 @@ const IdeasPage = (): React.ReactElement => {
           <div style={{ flex: 1 }} />
           {canCreateIdeas ? (
             <div className="col-auto">
-              <button
-                className="btn btn-primary float-left"
+              <Button
                 onClick={() => {
                   setCurrent({});
                 }}
               >
                 New Idea
-              </button>
+              </Button>
             </div>
           ) : null}
         </div>

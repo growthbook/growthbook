@@ -1,7 +1,7 @@
 import express from "express";
 import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawArchetypeController from "./archetype.controller";
 
 const router = express.Router();
@@ -28,6 +28,7 @@ router.post(
       description: z.string(),
       isPublic: z.boolean(),
       attributes: z.string(),
+      projects: z.array(z.string()).optional(),
     }),
   }),
   ArchetypeController.postArchetype
@@ -46,6 +47,7 @@ router.put(
       description: z.string(),
       isPublic: z.boolean(),
       attributes: z.string(),
+      projects: z.array(z.string()).optional(),
     }),
   }),
   ArchetypeController.putArchetype

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, omit } from "lodash";
-import { ApiSdkConnection } from "../../types/openapi";
+import { ApiSdkConnection } from "back-end/types/openapi";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -10,18 +10,18 @@ import {
   ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
-} from "../../types/sdk-connection";
-import { cancellableFetch } from "../util/http.util";
+} from "back-end/types/sdk-connection";
+import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
   PROXY_HOST_INTERNAL,
   PROXY_HOST_PUBLIC,
-} from "../util/secrets";
-import { errorStringFromZodResult } from "../util/validation";
-import { triggerSingleSDKWebhookJobs } from "../jobs/updateAllJobs";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
+} from "back-end/src/util/secrets";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -50,6 +50,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeRedirectExperiments: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
+  savedGroupReferencesEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -131,6 +132,16 @@ export async function findSDKConnectionsByOrganization(
   );
 }
 
+export async function _dangerousGetSdkConnectionsAcrossMultipleOrgs(
+  organizationIds: string[]
+) {
+  const docs = await SDKConnectionModel.find({
+    organization: { $in: organizationIds },
+  });
+
+  return docs.map(toInterface);
+}
+
 export async function findAllSDKConnectionsAcrossAllOrgs() {
   const docs = await SDKConnectionModel.find();
   return docs.map(toInterface);
@@ -169,6 +180,7 @@ export const createSDKConnectionValidator = z
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
+    savedGroupReferencesEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -242,6 +254,7 @@ export const editSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
+    savedGroupReferencesEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -303,7 +316,7 @@ export async function editSDKConnection(
     "includeDraftExperiments",
     "includeExperimentNames",
     "includeRedirectExperiments",
-    "remoteEvalEnabled",
+    "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {

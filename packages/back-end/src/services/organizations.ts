@@ -6,6 +6,7 @@ import {
   getLicense,
   isActiveSubscriptionStatus,
   isAirGappedLicenseKey,
+  licenseInit,
   postSubscriptionUpdateToLicenseServer,
 } from "enterprise";
 import {
@@ -14,15 +15,32 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import {
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+} from "shared/constants";
+import {
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
+import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
+} from "back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   ExpandedMember,
   ExpandedMemberInfo,
@@ -30,38 +48,43 @@ import {
   Member,
   MemberRoleInfo,
   MemberRoleWithProjects,
+  MetricDefaults,
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
   ReqContext,
-} from "../../types/organization";
-import { ApiReqContext, ExperimentOverride } from "../../types/api";
-import { ConfigFile } from "../init/config";
+} from "back-end/types/organization";
+import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
+import { ConfigFile } from "back-end/src/init/config";
 import {
   createDataSource,
   getDataSourceById,
   updateDataSource,
-} from "../models/DataSourceModel";
+} from "back-end/src/models/DataSourceModel";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
   updateMetric,
-} from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
+} from "back-end/src/models/MetricModel";
+import { MetricInterface } from "back-end/types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
-} from "../models/DimensionModel";
-import { DimensionInterface } from "../../types/dimension";
-import { DataSourceInterface } from "../../types/datasource";
-import { SSOConnectionInterface } from "../../types/sso-connection";
-import { logger } from "../util/logger";
-import { SegmentInterface } from "../../types/segment";
-import { getAllExperiments } from "../models/ExperimentModel";
-import { LegacyExperimentPhase } from "../../types/experiment";
-import { addTags } from "../models/TagModel";
-import { getUsersByIds } from "../models/UserModel";
+} from "back-end/src/models/DimensionModel";
+import { DimensionInterface } from "back-end/types/dimension";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { logger } from "back-end/src/util/logger";
+import { SegmentInterface } from "back-end/types/segment";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { LegacyExperimentPhase } from "back-end/types/experiment";
+import { addTags } from "back-end/src/models/TagModel";
+import { getUsersByIds } from "back-end/src/models/UserModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -74,7 +97,7 @@ import { ReqContextClass } from "./context";
 export {
   getEnvironments,
   getEnvironmentIdsFromOrg,
-} from "../util/organization.util";
+} from "back-end/src/util/organization.util";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -143,6 +166,40 @@ export function getConfidenceLevelsForOrg(context: ReqContext) {
     ciUpperDisplay: Math.round(ciUpper * 100) + "%",
     ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
   };
+}
+
+export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
+  const defaultMetricWindowSettings: MetricWindowSettings = {
+    type: DEFAULT_METRIC_WINDOW,
+    windowValue: DEFAULT_METRIC_WINDOW_HOURS,
+    delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    windowUnit: "hours",
+  };
+  const defaultMetricCappingSettings: MetricCappingSettings = {
+    type: DEFAULT_METRIC_CAPPING,
+    value: DEFAULT_METRIC_CAPPING_VALUE,
+  };
+  const defaultMetricPriorSettings: MetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
+
+  const METRIC_DEFAULTS = {
+    minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
+    maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
+    minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    windowSettings: defaultMetricWindowSettings,
+    cappingSettings: defaultMetricCappingSettings,
+    priorSettings: defaultMetricPriorSettings,
+  };
+
+  return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
+}
+
+export function getPValueThresholdForOrg(context: ReqContext): number {
+  return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
 export function getRole(
@@ -998,16 +1055,6 @@ const expandedMemberInfoCache: Record<
 > = {};
 const EXPANDED_MEMBER_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
 
-// Garbage collection for cache (probably not needed)
-setInterval(() => {
-  const now = Date.now();
-  Object.keys(expandedMemberInfoCache).forEach((k) => {
-    if (expandedMemberInfoCache[k].e <= now) {
-      delete expandedMemberInfoCache[k];
-    }
-  });
-}, EXPANDED_MEMBER_CACHE_TTL);
-
 // Add email/name to the organization members array
 export async function expandOrgMembers(
   members: Member[],
@@ -1080,6 +1127,10 @@ export async function getContextForAgendaJobByOrgId(
   const organization = await findOrganizationById(orgId);
 
   if (!organization) throw new Error("Organization not found");
+
+  if (organization.licenseKey && !getLicense(organization.licenseKey)) {
+    await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
+  }
 
   return getContextForAgendaJobByOrgObject(organization);
 }

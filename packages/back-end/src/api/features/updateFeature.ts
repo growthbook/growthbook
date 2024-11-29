@@ -1,26 +1,29 @@
 import { featureRequiresReview, validateFeatureValue } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateFeatureValidator } from "../../validators/openapi";
+import { UpdateFeatureResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { updateFeatureValidator } from "back-end/src/validators/openapi";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
-} from "../../models/FeatureModel";
-import { getExperimentMapForFeature } from "../../models/ExperimentModel";
+} from "back-end/src/models/FeatureModel";
+import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToRules,
   getApiFeatureObj,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
-} from "../../services/features";
-import { FeatureInterface } from "../../../types/feature";
-import { getEnabledEnvironments } from "../../util/features";
-import { addTagsDiff } from "../../models/TagModel";
-import { auditDetailsUpdate } from "../../services/audit";
-import { createRevision } from "../../models/FeatureRevisionModel";
-import { FeatureRevisionInterface } from "../../../types/feature-revision";
-import { getEnvironmentIdsFromOrg } from "../../services/organizations";
+} from "back-end/src/services/features";
+import { FeatureInterface } from "back-end/types/feature";
+import { getEnabledEnvironments } from "back-end/src/util/features";
+import { addTagsDiff } from "back-end/src/models/TagModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -50,6 +53,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         )
       ) {
         req.context.permissions.throwPermissionError();
+      }
+    }
+
+    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+    if (project) {
+      const projects = await req.context.getProjects();
+      if (!projects.some((p) => p.id === req.body.project)) {
+        throw new Error(
+          `Project id ${req.body.project} is not a valid project.`
+        );
       }
     }
 
@@ -203,13 +216,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.context,
       feature.id
     );
-
+    const revision = await getRevision(
+      updatedFeature.organization,
+      updatedFeature.id,
+      updatedFeature.version
+    );
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
       }),
     };
   }

@@ -4,6 +4,7 @@ import { ReactElement, useEffect, useState } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import { getApiHost, usingSSO } from "@/services/env";
+import { trackPageView } from "@/services/track";
 
 export default function ResetPasswordPage(): ReactElement {
   const router = useRouter();
@@ -37,6 +38,11 @@ export default function ResetPasswordPage(): ReactElement {
       });
   }, [token, router.isReady]);
 
+  // This page is before the user is part of an org, so need to manually fire a page load event
+  useEffect(() => {
+    trackPageView("/reset-password");
+  }, []);
+
   if (usingSSO()) {
     return (
       <div className="container">
@@ -49,6 +55,7 @@ export default function ResetPasswordPage(): ReactElement {
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       autoCloseOnSubmit={false}
       submit={

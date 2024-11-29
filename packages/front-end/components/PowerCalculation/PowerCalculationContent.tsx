@@ -26,7 +26,6 @@ const percentFormatter = (
     : new Intl.NumberFormat(undefined, {
         style: "percent",
         maximumFractionDigits: digits,
-        // @ts-expect-error TS is outdated: https://caniuse.com/mdn-javascript_builtins_intl_numberformat_numberformat_options_parameter_options_roundingmode_parameter
         roundingMode: "floor",
       }).format(v);
 
@@ -86,11 +85,17 @@ const AnalysisSettings = ({
             <h2>Analysis Settings</h2>
             <p>
               {params.nVariations} Variations ·{" "}
-              {engineType[params.statsEngineSettings.type]} (Sequential Testing{" "}
-              {params.statsEngineSettings.sequentialTesting
-                ? "enabled"
-                : "disabled"}
-              ) ·{" "}
+              {engineType[params.statsEngineSettings.type]}
+              {params.statsEngineSettings.type === "frequentist"
+                ? ` (Sequential Testing 
+              ${
+                params.statsEngineSettings.sequentialTesting
+                  ? "enabled"
+                  : "disabled"
+              })
+              `
+                : ""}{" "}
+              ·{" "}
               <Link
                 href="#"
                 onClick={() => setShowStatsEngineSettingsModal(true)}

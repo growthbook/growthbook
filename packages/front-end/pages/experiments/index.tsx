@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -14,14 +15,11 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
-import { GBAddCircle } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
-import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
-import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
@@ -32,17 +30,37 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import LinkButton from "@/components/Radix/LinkButton";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
 
 const NUM_PER_PAGE = 20;
 
+export function experimentDate(exp: ExperimentInterfaceStringDates): string {
+  return (
+    (exp.archived
+      ? exp.dateUpdated
+      : exp.status === "running"
+      ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+      : exp.status === "stopped"
+      ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+      : exp.dateCreated) ?? ""
+  );
+}
+
 const ExperimentsPage = (): React.ReactElement => {
-  const growthbook = useGrowthBook<AppFeatures>();
+  // const growthbook = useGrowthBook<AppFeatures>();
 
   const {
     ready,
     project,
     getExperimentMetricById,
     getProjectById,
+    getDatasourceById,
   } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
@@ -52,7 +70,7 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tabs.includes("archived"));
+  } = useExperiments(project, tabs.includes("archived"), "standard");
 
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
@@ -60,6 +78,9 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
+    false
+  );
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -76,9 +97,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
-        metricNames: exp.metrics
+        metricNames: exp.goalMetrics
           .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
+        datasource: getDatasourceById(exp.datasource)?.name || "",
         projectId,
         projectName,
         projectIsDeReferenced,
@@ -87,14 +109,7 @@ const ExperimentsPage = (): React.ReactElement => {
           : exp.status === "draft"
           ? "drafts"
           : exp.status,
-        date:
-          (exp.archived
-            ? exp.dateUpdated
-            : exp.status === "running"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-            : exp.status === "stopped"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-            : exp.dateCreated) ?? "",
+        date: experimentDate(exp),
       };
     },
     [getExperimentMetricById, getProjectById, getUserDisplay]
@@ -123,6 +138,7 @@ const ExperimentsPage = (): React.ReactElement => {
     localStorageKey: "experiments",
     defaultSortField: "date",
     defaultSortDir: -1,
+    updateSearchQueryOnChange: true,
     searchFields: [
       "name^3",
       "trackingKey^2",
@@ -163,6 +179,15 @@ const ExperimentsPage = (): React.ReactElement => {
         if (item.variations.some((v) => !!v.screenshots?.length)) {
           has.push("screenshots");
         }
+        if (
+          item.status === "stopped" &&
+          !item.excludeFromPayload &&
+          (item.linkedFeatures?.length ||
+            item.hasURLRedirects ||
+            item.hasVisualChangesets)
+        ) {
+          has.push("rollout", "tempRollout");
+        }
         return has;
       },
       variations: (item) => item.variations.length,
@@ -180,15 +205,59 @@ const ExperimentsPage = (): React.ReactElement => {
       tag: (item) => item.tags,
       project: (item) => [item.project, item.projectName],
       feature: (item) => item.linkedFeatures || [],
+      datasource: (item) => item.datasource,
       metric: (item) => [
         ...item.metricNames,
-        ...item.metrics,
-        ...(item.guardrails || []),
-        item.activationMetric,
+        ...getAllMetricIdsFromExperiment(item),
       ],
+      goal: (item) => [...item.metricNames, ...item.goalMetrics],
     },
     filterResults,
   });
+
+  const searchTermFilterExplainations = (
+    <>
+      <p>This search field supports advanced syntax search, including:</p>
+      <ul>
+        <li>
+          <strong>name</strong>: The experiment name (eg: name:~homepage)
+        </li>
+        <li>
+          <strong>id</strong>: The experiment id (eg: name:^exp)
+        </li>
+        <li>
+          <strong>status</strong>: Experiment status, can be one of
+          &apos;stopped&apos;, &apos;running&apos;, &apos;draft&apos;,
+          &apos;archived&apos;
+        </li>
+        <li>
+          <strong>datasource</strong>: Experiment datasource
+        </li>
+        <li>
+          <strong>metric</strong>: Experiment uses the specified metric (eg:
+          metric:~revenue)
+        </li>
+        <li>
+          <strong>owner</strong>: The creator of the experiment (eg: owner:abby)
+        </li>
+        <li>
+          <strong>tag</strong>: Experiments tagged with this tag
+        </li>
+        <li>
+          <strong>project</strong>: The experiment&apos;s project
+        </li>
+        <li>
+          <strong>feature</strong>: The experiment is linked to the specified
+          feature
+        </li>
+        <li>
+          <strong>created</strong>:The experiment&apos;s creation date, in UTC.
+          Date entered is parsed so supports most formats.
+        </li>
+      </ul>
+      <p>Click to see all syntax fields supported in our docs.</p>
+    </>
+  );
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -240,6 +309,17 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }
 
+  const addExperimentDropdownButton = (
+    <DropdownMenu trigger="Add Experiment" menuPlacement="end">
+      <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
+        Create New Experiment
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setOpenImportExperimentModal(true)}>
+        Import Existing Experiment
+      </DropdownMenuItem>
+    </DropdownMenu>
+  );
+
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
@@ -250,61 +330,38 @@ const ExperimentsPage = (): React.ReactElement => {
             </div>
             <div style={{ flex: 1 }} />
             {settings.powerCalculatorEnabled && (
-              <Link
-                className="btn btn-outline-primary float-right"
-                type="button"
-                href="/power-calculator"
-              >
-                Power Calculator
-              </Link>
-            )}
-            {canAdd && (
               <div className="col-auto">
-                <button
-                  className="btn btn-primary float-right"
-                  onClick={() => {
-                    setOpenNewExperimentModal(true);
-                  }}
-                >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
-                  Add Experiment
-                </button>
+                <LinkButton variant="outline" href="/power-calculator">
+                  Power Calculator
+                </LinkButton>
               </div>
             )}
+            {canAdd && (
+              <div className="col-auto">{addExperimentDropdownButton}</div>
+            )}
           </div>
+          <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <div
-              className="appbox d-flex flex-column align-items-center"
-              style={{ padding: "70px 305px 60px 305px" }}
-            >
-              <h1>Test Variations with Targeted Users</h1>
-              <p style={{ fontSize: "17px" }}>
-                Run unlimited tests with linked feature flags, URL redirects or
-                the Visual Editor. You can also easily import existing
-                experiments from other platforms.
-              </p>
-              <div className="row">
-                <Link href="/getstarted/experiment-guide">
-                  {" "}
-                  <button className="btn btn-outline-primary mr-2">
-                    Setup Instructions
-                  </button>
-                </Link>
-                {canAdd && (
-                  <button
-                    className="btn btn-primary float-right"
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Experiment
-                  </button>
-                )}
+            <div className="box py-4 text-center">
+              <div className="mx-auto" style={{ maxWidth: 650 }}>
+                <h1>Test Variations with Targeted Users</h1>
+                <p style={{ fontSize: "17px" }}>
+                  Run unlimited tests with linked feature flags, URL redirects
+                  or the Visual Editor. You can also easily import existing
+                  experiments from other platforms.
+                </p>
+              </div>
+              <div
+                className="d-flex justify-content-center"
+                style={{ gap: "1rem" }}
+              >
+                <LinkButton
+                  href="/getstarted/experiment-guide"
+                  variant="outline"
+                >
+                  Setup Instructions
+                </LinkButton>
+                {canAdd && addExperimentDropdownButton}
               </div>
             </div>
           ) : (
@@ -347,12 +404,12 @@ const ExperimentsPage = (): React.ReactElement => {
                               : `Include ${tab} experiments`
                           }
                         >
-                          <span className="mr-1">
+                          <span className="mr-1 ml-2">
                             {tab.slice(0, 1).toUpperCase()}
                             {tab.slice(1)}
                           </span>
                           {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2">
+                            <span className="badge bg-white border text-dark mr-2 mb-0">
                               {tabCounts[tab] || 0}
                             </span>
                           )}
@@ -370,6 +427,14 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
                 <div className="col-auto">
                   <TagsFilter filter={tagsFilter} items={items} />
+                </div>
+                <div className="col-auto">
+                  <Link
+                    href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
+                    target="_blank"
+                  >
+                    <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                  </Link>
                 </div>
                 <div className="col-auto ml-auto">
                   <Toggle
@@ -511,7 +576,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.archived ? (
                             ""
                           ) : e.status === "running" && phase ? (
-                            phaseSummary(phase)
+                            phaseSummary(phase, e.type === "multi-armed-bandit")
                           ) : e.status === "stopped" && e.results ? (
                             <ResultsIndicator results={e.results} />
                           ) : (
@@ -535,18 +600,19 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal &&
-        (growthbook?.isOn("new-experiment-modal") ? (
-          <AddExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ) : (
-          <ImportExperimentModal
-            onClose={() => setOpenNewExperimentModal(false)}
-            source="experiment-list"
-          />
-        ))}
+      {openNewExperimentModal && (
+        <NewExperimentForm
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="bandits-list"
+          isNewExperiment={true}
+        />
+      )}
+      {openImportExperimentModal && (
+        <ImportExperimentModal
+          onClose={() => setOpenImportExperimentModal(false)}
+          source="experiment-list"
+        />
+      )}
     </>
   );
 };

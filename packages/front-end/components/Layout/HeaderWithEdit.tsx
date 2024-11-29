@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { ReactElement } from "react";
 import { GBEdit } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Link from "@/components/Radix/Link";
 
 export interface Props {
   className?: string;
@@ -30,7 +31,7 @@ export default function HeaderWithEdit({
         {children}{" "}
         {edit ? (
           <span className="ml-1">
-            <a
+            <Link
               className={editClassName}
               role="button"
               onClick={(e) => {
@@ -40,7 +41,7 @@ export default function HeaderWithEdit({
               }}
             >
               <GBEdit />
-            </a>
+            </Link>
           </span>
         ) : disabledMessage ? (
           <span className="ml-1 text-muted">

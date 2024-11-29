@@ -1,7 +1,7 @@
-import { DeleteProjectResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { deleteProjectValidator } from "../../validators/openapi";
-import { auditDetailsDelete } from "../../services/audit";
+import { DeleteProjectResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { deleteProjectValidator } from "back-end/src/validators/openapi";
+import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteProject = createApiRequestHandler(deleteProjectValidator)(
   async (req): Promise<DeleteProjectResponse> => {

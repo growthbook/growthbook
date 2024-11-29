@@ -178,13 +178,14 @@ const drawChange = ({
                           <a
                             href="#"
                             className="mr-2"
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.preventDefault();
                               setEditingVisualChange({
                                 visualChange: changes,
                                 visualChangeIndex: j,
                                 visualChangeset: vc,
-                              })
-                            }
+                              });
+                            }}
                           >
                             <FaPencilAlt />
                           </a>
@@ -356,6 +357,7 @@ export const VisualChangesetTable: FC<Props> = ({
           visualChangeset={editingVisualChangeset}
           mutate={mutate}
           close={() => setEditingVisualChangeset(null)}
+          source={"visual-changeset-table"}
         />
       ) : null}
 

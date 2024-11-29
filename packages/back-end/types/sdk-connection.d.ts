@@ -44,7 +44,7 @@ export type CreateSDKConnectionParams = {
   remoteEvalEnabled?: boolean;
 };
 
-import { sdkLanguages } from "../src/util/constants";
+import { sdkLanguages } from "back-end/src/util/constants";
 
 export type SDKLanguage = typeof sdkLanguages[number];
 
@@ -79,6 +79,7 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
 }
 
 export interface ProxyTestResult {

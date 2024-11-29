@@ -5,6 +5,7 @@ import {
 } from "back-end/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
+  expandMetricGroups,
   ExperimentMetricInterface,
   isExpectedDirection,
   isStatSig,
@@ -22,6 +23,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
+import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -31,7 +33,7 @@ const numberFormatter = new Intl.NumberFormat();
 // Represents data for one metric graph
 type Metric = {
   metric: ExperimentMetricInterface;
-  isGuardrail: boolean;
+  resultGroup: "goal" | "secondary" | "guardrail";
   datapoints: ExperimentDateGraphDataPoint[];
 };
 
@@ -39,20 +41,27 @@ const DateResults: FC<{
   variations: ExperimentReportVariation[];
   results: ExperimentReportResultDimension[];
   seriestype: string;
-  metrics: string[];
-  guardrails?: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
   statsEngine?: StatsEngine;
   differenceType?: DifferenceType;
 }> = ({
   results,
   variations,
   seriestype,
-  metrics,
-  guardrails,
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
   statsEngine,
   differenceType,
 }) => {
-  const { getExperimentMetricById, getFactTableById, ready } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactTableById,
+    metricGroups,
+    ready,
+  } = useDefinitions();
 
   const pValueThreshold = usePValueThreshold();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -92,6 +101,24 @@ const DateResults: FC<{
     });
   }, [results, cumulative, variations]);
 
+  const {
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+  } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedSecondaries = expandMetricGroups(
+      secondaryMetrics,
+      metricGroups
+    );
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      metricGroups
+    );
+
+    return { expandedGoals, expandedSecondaries, expandedGuardrails };
+  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
     if (!ready) return [];
@@ -103,7 +130,11 @@ const DateResults: FC<{
 
     // Merge goal and guardrail metrics
     return (
-      Array.from(new Set(metrics.concat(guardrails || [])))
+      Array.from(
+        new Set(
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
+        )
+      )
         .map((metricId) => {
           const metric = getExperimentMetricById(metricId);
           if (!metric) return;
@@ -221,7 +252,11 @@ const DateResults: FC<{
 
           return {
             metric,
-            isGuardrail: !metrics.includes(metricId),
+            resultGroup: getMetricResultGroup(
+              metric.id,
+              expandedGoals,
+              expandedSecondaries
+            ),
             datapoints,
           };
         })
@@ -237,8 +272,9 @@ const DateResults: FC<{
     displayCurrency,
     getExperimentMetricById,
     getFactTableById,
-    guardrails,
-    metrics,
+    expandedGuardrails,
+    expandedGoals,
+    expandedSecondaries,
     pValueThreshold,
     statsEngine,
     variations,
@@ -276,6 +312,7 @@ const DateResults: FC<{
           label="Users"
           datapoints={users}
           formatter={formatNumber}
+          cumulative={cumulative}
         />
       </div>
       {metricSections && (
@@ -296,12 +333,12 @@ const DateResults: FC<{
         </>
       )}
 
-      {metricSections.map(({ metric, isGuardrail, datapoints }) => (
+      {metricSections.map(({ metric, resultGroup, datapoints }) => (
         <div className="mb-5" key={metric.id}>
           <h3>
             {metric.name}{" "}
-            {isGuardrail && (
-              <small className="badge badge-secondary">Guardrail</small>
+            {resultGroup !== "goal" && (
+              <small className="badge badge-secondary">{resultGroup}</small>
             )}
           </h3>
           <ExperimentDateGraph

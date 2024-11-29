@@ -7,16 +7,18 @@ import intersection from "lodash/intersection";
 import {
   NotificationEventName,
   zodNotificationEventNamesEnum,
-} from "../events/base-types";
-import { errorStringFromZodResult } from "../util/validation";
-import { EventWebHookInterface } from "../../types/event-webhook";
-import { logger } from "../util/logger";
+} from "back-end/src/events/base-types";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { logger } from "back-end/src/util/logger";
 import {
   eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "../types/EventWebHook";
+} from "back-end/src/validators/event-webhook";
+import { ReqContext } from "back-end/types/organization";
+import { createEvent } from "./EventModel";
 
 const eventWebHookSchema = new mongoose.Schema({
   id: {
@@ -165,8 +167,40 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @param doc
  * @returns
  */
-const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
-  omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
+const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
+  const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
+
+  // Add defaults values
+  const defaults = {
+    ...(payload.method ? {} : { method: "POST" }),
+    // All webhook are created with a payloadType. This is here for antiquated ones
+    // which don't have one and should be considered raw.
+    ...(payload.payloadType ? {} : { payloadType: "raw" }),
+    ...(payload.headers ? {} : { headers: {} }),
+    ...(payload.tags ? {} : { tags: [] }),
+    ...(payload.projects ? {} : { projects: [] }),
+    ...(payload.environments ? {} : { environments: [] }),
+  };
+
+  if (Object.keys(defaults).length)
+    void (async () => {
+      try {
+        EventWebHookModel.updateOne(
+          { id: doc.id },
+          {
+            $set: defaults,
+          }
+        );
+      } catch (_) {
+        return;
+      }
+    })();
+
+  return {
+    ...defaults,
+    ...payload,
+  };
+};
 
 export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   "EventWebHook",
@@ -407,4 +441,29 @@ export const getAllEventWebHooksForEvent = async ({
   });
 
   return docs.map(toInterface);
+};
+
+export const sendEventWebhookTestEvent = async (
+  context: ReqContext,
+  webhookId: string
+) => {
+  if (!context.permissions.canCreateEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const webhook = await getEventWebHookById(webhookId, context.org.id);
+
+  if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
+
+  await createEvent({
+    context,
+    object: "webhook",
+    objectId: webhook.id,
+    event: "test",
+    data: { object: { webhookId: webhook.id } },
+    containsSecrets: false,
+    projects: [],
+    tags: [],
+    environments: [],
+  });
 };

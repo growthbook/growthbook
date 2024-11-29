@@ -13,26 +13,26 @@ import {
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
-} from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
+} from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
-} from "../services/organizations";
+} from "back-end/src/services/organizations";
 import {
   updateSubscriptionInDb,
   stripe,
   getCoupon,
   getPrice,
-} from "../services/stripe";
-import { SubscriptionQuote } from "../../types/organization";
-import { sendStripeTrialWillEndEmail } from "../services/email";
-import { logger } from "../util/logger";
-import { updateOrganization } from "../models/OrganizationModel";
+} from "back-end/src/services/stripe";
+import { SubscriptionQuote } from "back-end/types/organization";
+import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
+import { logger } from "back-end/src/util/logger";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
-} from "../services/licenseData";
+} from "back-end/src/services/licenseData";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>

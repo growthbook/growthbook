@@ -1,14 +1,17 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { Document } from "mongodb";
-import { UserInterface } from "../../types/user";
-import { usingOpenId, validatePasswordFormat } from "../services/auth";
-import { hash } from "../services/users";
+import { UserInterface } from "back-end/types/user";
+import {
+  usingOpenId,
+  validatePasswordFormat,
+} from "back-end/src/services/auth";
+import { hash } from "back-end/src/services/users";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const userSchema = new mongoose.Schema({
   id: {
@@ -23,6 +26,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: String,
   superAdmin: Boolean,
   verified: Boolean,
+  agreedToTerms: Boolean,
   minTokenDate: Date,
   dateCreated: Date,
 });
@@ -50,6 +54,46 @@ export async function markUserAsVerified(id: string) {
 export async function getAllUsers(): Promise<UserInterface[]> {
   const users = await getCollection(COLLECTION).find().toArray();
   return users.map((u) => toInterface(u));
+}
+
+export async function getAllUsersFiltered(
+  page: number,
+  search?: string
+): Promise<UserInterface[]> {
+  const query: {
+    $or?: [{ name: unknown }, { email: unknown }];
+  } = {};
+  if (search) {
+    query["$or"] = [
+      { name: { $regex: `${search}.*`, $options: "i" } },
+      { email: { $regex: `${search}`, $options: "i" } },
+    ];
+  }
+
+  const docs = await getCollection(COLLECTION)
+    .find(query)
+    .sort([["dateCreated", -1]])
+    .skip((page - 1) * 50)
+    .limit(50)
+    .toArray();
+
+  // return the user interface but filter out password hash
+  return docs
+    .map((u) => toInterface(u))
+    .map((u) => ({ ...u, passwordHash: "" }));
+}
+
+export async function getTotalNumUsers(search?: string): Promise<number> {
+  const query: {
+    $or?: [{ name: unknown }, { email: unknown }];
+  } = {};
+  if (search) {
+    query["$or"] = [
+      { name: { $regex: `${search}.*`, $options: "i" } },
+      { email: { $regex: `${search}`, $options: "i" } },
+    ];
+  }
+  return await getCollection(COLLECTION).countDocuments(query);
 }
 
 export async function getUserById(id: string): Promise<UserInterface | null> {
@@ -83,12 +127,14 @@ export async function createUser({
   password,
   verified = false,
   superAdmin = false,
+  agreedToTerms = false,
 }: {
   name: string;
   email: string;
   password?: string;
   verified?: boolean;
   superAdmin?: boolean;
+  agreedToTerms?: boolean;
 }) {
   let passwordHash = "";
 
@@ -106,6 +152,7 @@ export async function createUser({
       verified,
       superAdmin,
       dateCreated: new Date(),
+      agreedToTerms,
     })
   );
 }
@@ -178,7 +225,7 @@ export async function getAllUserEmailsAcrossAllOrgs(): Promise<string[]> {
         "orgs.0": { $exists: true },
       },
     },
-  ]);
+  ]).allowDiskUse(true);
 
   return users.map((u) => u.email);
 }

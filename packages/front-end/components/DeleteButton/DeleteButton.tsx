@@ -6,8 +6,8 @@ import {
   ReactElement,
   isValidElement,
 } from "react";
-import { FaTrash } from "react-icons/fa";
 import clsx from "clsx";
+import { PiTrashFill } from "react-icons/pi";
 import Modal from "@/components/Modal";
 
 const DeleteButton: FC<{
@@ -59,6 +59,7 @@ const DeleteButton: FC<{
     <>
       {confirming ? (
         <Modal
+          trackingEventModalType=""
           header={`Delete ${displayName}`}
           close={() => setConfirming(false)}
           open={true}
@@ -99,7 +100,7 @@ const DeleteButton: FC<{
           !disabled && setConfirming(true);
         }}
       >
-        {useIcon && <FaTrash className={iconClassName} />}
+        {useIcon && <PiTrashFill className={iconClassName} />}
         {text && ` ${text}`}
       </a>
     </>

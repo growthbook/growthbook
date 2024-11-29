@@ -3,18 +3,18 @@ import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
-} from "../../src/models/DataSourceModel";
+} from "back-end/src/models/DataSourceModel";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "../../types/datasource";
-import { testQueryValidity } from "../../src/services/datasource";
-import { usingFileConfig } from "../../src/init/config";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
-import { roleToPermissionMap } from "../../src/util/organization.util";
+} from "back-end/types/datasource";
+import { testQueryValidity } from "back-end/src/services/datasource";
+import { usingFileConfig } from "back-end/src/init/config";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { roleToPermissionMap } from "back-end/src/util/organization.util";
 
-jest.mock("../../src/services/datasource");
-jest.mock("../../src/init/config");
+jest.mock("back-end/src/services/datasource");
+jest.mock("back-end/src/init/config");
 
 const mockedTestQueryValidity: jest.MockedFunction<
   typeof testQueryValidity
@@ -71,17 +71,14 @@ describe("dataSourceModel", () => {
   // We just need a few properties of the context for these tests
   const partialContext: Pick<ReqContext, "permissions" | "org"> = {
     org,
-    permissions: new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", org),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    permissions: new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", org),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    ),
+      projects: {},
+    }),
   };
   const context = (partialContext as unknown) as ReqContext;
 

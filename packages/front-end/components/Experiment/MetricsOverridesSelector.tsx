@@ -55,7 +55,10 @@ export default function MetricsOverridesSelector({
   );
 
   const metrics = new Set(
-    form.watch("metrics").concat(form.watch("guardrails"))
+    form
+      .watch("goalMetrics")
+      .concat(form.watch("guardrailMetrics"))
+      .concat(form.watch("secondaryMetrics"))
   );
   const activationMetric = form.watch("activationMetric");
   if (activationMetric) {
@@ -215,7 +218,7 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong className="text-body">
+                  <strong>
                     <MetricName id={metricDefinition?.id || ""} />
                   </strong>
                 </label>

@@ -1,4 +1,3 @@
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { TeamInterface } from "back-end/types/team";
 import {
@@ -31,17 +30,22 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
+import { Permissions, userHasPermission } from "shared/permissions";
+import { getValidDate } from "shared/dates";
+import sha256 from "crypto-js/sha256";
 import {
-  Permissions,
-  getDefaultRole,
-  userHasPermission,
-} from "shared/permissions";
-import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
+  getGrowthBookBuild,
+  getSuperadminDefaultRole,
+  hasFileConfig,
+  isCloud,
+  isMultiOrg,
+  isSentryEnabled,
+  usingSSO,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
-import track from "@/services/track";
-import { AppFeatures } from "@/types/app-features";
-import { sha256 } from "@/services/utils";
+import { getJitsuClient, trackPageView } from "@/services/track";
+import { growthbook } from "@/services/utils";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -85,13 +89,11 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
   createSegments: false,
+  createMetricGroups: false,
   manageApiKeys: false,
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
-  manageSavedGroups: false,
-  manageArchetype: false,
-  manageCustomFields: false,
   manageTags: false,
   manageTeam: false,
   manageEventWebhooks: false,
@@ -101,6 +103,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   viewAuditLog: false,
   readData: false,
   manageCustomRoles: false,
+  manageCustomFields: false,
 };
 
 export interface UserContextValue {
@@ -167,17 +170,14 @@ export const UserContext = createContext<UserContextValue>({
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
-  permissionsUtil: new Permissions(
-    {
-      global: {
-        permissions: {},
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
+  permissionsUtil: new Permissions({
+    global: {
+      permissions: {},
+      limitAccessByEnvironment: false,
+      environments: [],
     },
-    false
-  ),
+    projects: {},
+  }),
   quote: null,
   watching: {
     experiments: [],
@@ -193,6 +193,8 @@ let currentUser: null | {
   id: string;
   org: string;
   role: string;
+  effectiveAccountPlan: string;
+  orgCreationDate: string;
 } = null;
 export function getCurrentUser() {
   return currentUser;
@@ -220,17 +222,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     shouldRun: () => !!orgId,
   });
 
-  const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
-  useEffect(() => {
+  const hashedOrganizationId = useMemo(() => {
     const id = currentOrg?.organization?.id || "";
-    sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).then((hashedOrgId) => {
-      setHashedOrganizationId(hashedOrgId);
-    });
+    if (!id) return "";
+    return sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).toString();
   }, [currentOrg?.organization?.id]);
 
   useEffect(() => {
     if (data?.organizations && setOrganizations) {
-      setOrganizations(data.organizations);
+      setOrganizations(data.organizations, data.superAdmin);
     }
   }, [data, setOrganizations]);
 
@@ -269,49 +269,92 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.superAdmin ? "admin" : "readonly",
+      role: data.superAdmin ? getSuperadminDefaultRole() : "readonly",
       projectRoles: [],
     };
   }
-
-  const role =
-    (data?.superAdmin && "admin") ||
-    (user?.role ?? getDefaultRole(currentOrg?.organization || {}).role);
 
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      role: role || "",
+      role: user?.role || "",
+      effectiveAccountPlan: currentOrg?.effectiveAccountPlan ?? "",
+      orgCreationDate: currentOrg?.organization?.dateCreated
+        ? getValidDate(currentOrg.organization.dateCreated).toISOString()
+        : "",
     };
-  }, [orgId, data?.userId, role]);
+  }, [
+    orgId,
+    currentOrg?.effectiveAccountPlan,
+    currentOrg?.organization,
+    data?.userId,
+    user?.role,
+  ]);
 
+  // User/build GrowthBook attributes
   useEffect(() => {
-    if (orgId && data?.userId) {
-      track("Organization Loaded");
+    let anonymous_id = "";
+    // This is an undocumented way to get the anonymous id from Jitsu
+    // Lots of type guards added to avoid breaking if we update Jitsu in the future
+    const jitsu = getJitsuClient();
+    if (
+      jitsu &&
+      "getAnonymousId" in jitsu &&
+      typeof jitsu.getAnonymousId === "function"
+    ) {
+      const _anonymous_id = jitsu.getAnonymousId();
+      if (typeof _anonymous_id === "string") {
+        anonymous_id = _anonymous_id;
+      }
     }
-  }, [orgId, data?.userId]);
 
-  // Update growthbook tarageting attributes
-  const growthbook = useGrowthBook<AppFeatures>();
-  useEffect(() => {
-    growthbook?.setAttributes({
+    const build = getGrowthBookBuild();
+
+    growthbook.updateAttributes({
+      anonymous_id,
       id: data?.userId || "",
-      name: data?.userName || "",
       superAdmin: data?.superAdmin || false,
-      company: currentOrg?.organization?.name || "",
-      organizationId: hashedOrganizationId,
-      userAgent: window.navigator.userAgent,
-      url: router?.pathname || "",
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
-      accountPlan: currentOrg?.accountPlan || "unknown",
+      configFile: hasFileConfig(),
+      usingSSO: usingSSO(),
+      buildSHA: build.sha,
+      buildDate: build.date,
+      buildVersion: build.lastVersion,
+    });
+  }, [data?.superAdmin, data?.userId]);
+
+  // Org GrowthBook attributes
+  useEffect(() => {
+    growthbook.updateAttributes({
+      role: user?.role || "",
+      organizationId: hashedOrganizationId,
+      cloudOrgId: isCloud() ? currentOrg?.organization?.id || "" : "",
+      orgDateCreated: currentOrg?.organization?.dateCreated
+        ? getValidDate(currentOrg.organization.dateCreated).toISOString()
+        : "",
+      accountPlan: currentOrg?.effectiveAccountPlan || "unknown",
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
     });
-  }, [data, currentOrg, hashedOrganizationId, router?.pathname, growthbook]);
+  }, [currentOrg, hashedOrganizationId, user?.role]);
+
+  // Page GrowthBook attributes
+  useEffect(() => {
+    growthbook.setURL(window.location.href);
+    growthbook.updateAttributes({
+      url: router?.pathname || "",
+    });
+  }, [router?.pathname]);
+
+  // Track logged-in page views
+  useEffect(() => {
+    if (!currentOrg?.organization?.id) return;
+    trackPageView(router.pathname);
+  }, [router?.pathname, currentOrg?.organization?.id]);
 
   useEffect(() => {
     if (!data?.email) return;
@@ -336,14 +379,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         return false;
 
       return userHasPermission(
-        data.superAdmin || false,
         currentOrg.currentUserPermissions,
         permission,
         project,
         envs ? [...envs] : undefined
       );
     },
-    [currentOrg, data?.superAdmin, data?.userId]
+    [currentOrg, data?.userId]
   );
 
   const permissions = useMemo(() => {
@@ -376,10 +418,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      },
-      data?.superAdmin || false
+      }
     );
-  }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
+  }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {

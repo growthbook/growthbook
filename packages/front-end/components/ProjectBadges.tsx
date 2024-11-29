@@ -14,12 +14,14 @@ export interface Props {
     | "team"
     | "fact table"
     | "attribute"
-    | "sdk connection";
+    | "sdk connection"
+    | "saved group";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
   sort?: boolean;
   className?: string;
+  skipMargin?: boolean;
 }
 
 export default function ProjectBadges({
@@ -29,6 +31,7 @@ export default function ProjectBadges({
   invalidProjectMessage = "This project is invalid",
   sort = true,
   className = "badge-ellipsis short",
+  skipMargin = false,
 }: Props) {
   const { projects, project } = useDefinitions();
   if (!projectIds) {
@@ -60,7 +63,6 @@ export default function ProjectBadges({
   }
 
   const showMissingProjectErr = filteredProjects.some((p) => !p);
-
   return (
     <>
       {filteredProjects.map((p, i) => {
@@ -88,7 +90,7 @@ export default function ProjectBadges({
               project === p?.id ? "badge-primary bg-purple" : "badge-gray",
               className
             )}
-            skipMargin={i === 0}
+            skipMargin={skipMargin || i === 0}
           />
         );
       })}

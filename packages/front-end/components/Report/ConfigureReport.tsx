@@ -11,11 +11,14 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getValidDate } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
-import { DifferenceType } from "@back-end/types/stats";
-import { getMetricSnapshotSettings } from "shared/experiments";
+import { DifferenceType } from "back-end/types/stats";
+import {
+  getAllMetricIdsFromExperiment,
+  getMetricSnapshotSettings,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,9 +31,7 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { trackReport } from "@/services/track";
-import MetricsSelector, {
-  MetricsSelectorTooltip,
-} from "@/components/Experiment/MetricsSelector";
+import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
@@ -39,6 +40,8 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import DatePicker from "@/components/DatePicker";
 
 export default function ConfigureReport({
   report,
@@ -82,10 +85,10 @@ export default function ConfigureReport({
     "sequential-testing"
   );
 
-  const allExperimentMetricIds = uniq([
-    ...report.args.metrics,
-    ...(report.args.guardrails ?? []),
-  ]);
+  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
+    report.args,
+    false
+  );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m)
   );
@@ -174,12 +177,10 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
-  const userIdType = exposureQueries.find(
-    (e) => e.id === form.getValues("exposureQueryId")
-  )?.userIdType;
 
   return (
     <Modal
+      trackingEventModalType=""
       inline={true}
       header=""
       size="fill"
@@ -214,7 +215,7 @@ export default function ConfigureReport({
       cta="Save and Run"
     >
       <Field
-        label="Experiment Key"
+        label="Tracking Key"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your experiment assignment table"
@@ -272,102 +273,99 @@ export default function ConfigureReport({
         </small>
       </div>
       {datasource?.properties?.userIds && (
-        <Field
-          label="Experiment Assignment Table"
-          labelClassName="font-weight-bold"
-          {...form.register("exposureQueryId")}
-          options={exposureQueries.map((e) => ({
-            display: e.name,
-            value: e.id,
-          }))}
-          helpText={
+        <SelectField
+          label={
             <>
-              <div>
-                Should correspond to the Identifier Type used to randomize units
-                for this experiment
-              </div>
-              {userIdType ? (
-                <>
-                  Identifier Type: <code>{userIdType}</code>
-                </>
-              ) : null}
+              Experiment Assignment Table{" "}
+              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
             </>
           }
+          labelClassName="font-weight-bold"
+          value={form.watch("exposureQueryId") ?? ""}
+          onChange={(v) => form.setValue("exposureQueryId", v)}
+          required
+          options={exposureQueries?.map((q) => {
+            return {
+              label: q.name,
+              value: q.id,
+            };
+          })}
+          formatOptionLabel={({ label, value }) => {
+            const userIdType = exposureQueries?.find((e) => e.id === value)
+              ?.userIdType;
+            return (
+              <>
+                {label}
+                {userIdType ? (
+                  <span
+                    className="text-muted small float-right position-relative"
+                    style={{ top: 3 }}
+                  >
+                    Identifier Type: <code>{userIdType}</code>
+                  </span>
+                ) : null}
+              </>
+            );
+          }}
         />
       )}
 
       <div className="row">
         <div className="col">
-          <Field
+          <DatePicker
             label="Start Date (UTC)"
-            labelClassName="font-weight-bold"
-            type="datetime-local"
-            {...form.register("startDate")}
-            helpText="Only include users who entered the experiment between the start and end dates"
+            date={form.watch("startDate")}
+            setDate={(v) => {
+              form.setValue("startDate", v ? datetime(v) : "");
+            }}
+            scheduleEndDate={form.watch("endDate")}
+            disableAfter={form.watch("endDate") || undefined}
           />
         </div>
         <div className="col">
-          <Field
+          <DatePicker
             label="End Date (UTC)"
-            labelClassName="font-weight-bold"
-            type="datetime-local"
-            {...form.register("endDate")}
-            helpText={
-              <div>
-                <div style={{ marginRight: -10 }}>
-                  <a
-                    role="button"
-                    className="a"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      form.setValue("endDate", "");
-                    }}
-                  >
-                    Clear input
-                  </a>{" "}
-                  to use latest data whenever report is run
-                </div>
-              </div>
-            }
+            date={form.watch("endDate")}
+            setDate={(v) => {
+              form.setValue("endDate", v ? datetime(v) : "");
+            }}
+            scheduleStartDate={form.watch("startDate")}
+            disableBefore={form.watch("startDate") || undefined}
+            containerClassName=""
           />
+          <div className="mb-3 mt-1 small">
+            Leave blank to use latest data whenever report is run.{" "}
+            <a
+              role="button"
+              className="a"
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("endDate", "");
+              }}
+            >
+              Clear Input
+            </a>
+          </div>
         </div>
       </div>
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you are trying to improve with this experiment.{" "}
-          </span>
-          <MetricsSelectorTooltip />
-        </div>
-        <MetricsSelector
-          selected={form.watch("metrics")}
-          onChange={(metrics) => form.setValue("metrics", metrics)}
-          datasource={report.args.datasource}
-          exposureQueryId={exposureQueryId}
-          project={project?.id}
-          includeFacts={true}
-        />
-      </div>
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you want to monitor, but are NOT specifically trying to
-            improve.{" "}
-          </span>
-          <MetricsSelectorTooltip />
-        </div>
-        <MetricsSelector
-          selected={form.watch("guardrails") ?? []}
-          onChange={(metrics) => form.setValue("guardrails", metrics)}
-          datasource={report.args.datasource}
-          exposureQueryId={exposureQueryId}
-          project={project?.id}
-          includeFacts={true}
-        />
-      </div>
+      <ExperimentMetricsSelector
+        datasource={report.args.datasource}
+        exposureQueryId={exposureQueryId}
+        project={project?.id}
+        goalMetrics={form.watch("goalMetrics")}
+        secondaryMetrics={form.watch("secondaryMetrics")}
+        guardrailMetrics={form.watch("guardrailMetrics")}
+        setGoalMetrics={(goalMetrics) =>
+          form.setValue("goalMetrics", goalMetrics)
+        }
+        setSecondaryMetrics={(secondaryMetrics) =>
+          form.setValue("secondaryMetrics", secondaryMetrics)
+        }
+        setGuardrailMetrics={(guardrailMetrics) =>
+          form.setValue("guardrailMetrics", guardrailMetrics)
+        }
+      />
       <DimensionChooser
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null | undefined' is not assignable... Remove this comment to see the full error message
         value={form.watch("dimension")}

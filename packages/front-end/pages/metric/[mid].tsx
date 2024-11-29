@@ -7,14 +7,8 @@ import React, {
   ReactNode,
   ReactElement,
 } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import {
-  FaArchive,
-  FaChevronRight,
-  FaQuestionCircle,
-  FaTimes,
-} from "react-icons/fa";
+import { FaArchive, FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
@@ -36,7 +30,6 @@ import { getMetricFormatter } from "@/services/metrics";
 import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
 import RunQueriesButton, {
@@ -68,7 +61,9 @@ import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -85,6 +80,8 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
+  const { organization } = useUser();
+
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
@@ -107,11 +104,8 @@ const MetricPage: FC = () => {
     setHoverDate(ret.d);
   };
 
-  const { organization } = useUser();
-
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
-    experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
   const {
@@ -147,7 +141,6 @@ const MetricPage: FC = () => {
     : null;
   const canRunMetricQuery =
     datasource && permissionsUtil.canRunMetricQueries(datasource);
-  const experiments = data.experiments;
 
   let analysis = data.metric.analysis || null;
   if (!analysis || !("average" in analysis)) {
@@ -182,6 +175,13 @@ const MetricPage: FC = () => {
       <>Not available for metrics with custom aggregations.</>
     );
   }
+
+  const variables = {
+    metricName: metric.name,
+    tags: metric.tags || [],
+    metricType: metric.type,
+    metricDatasource: datasource?.name || "",
+  };
 
   const getMetricUsage = (metric: MetricInterface) => {
     return async (): Promise<ReactElement | null> => {
@@ -298,7 +298,6 @@ const MetricPage: FC = () => {
             setEditModalOpen(false);
           }}
           onSuccess={() => {
-            mutateDefinitions();
             mutate();
           }}
         />
@@ -316,13 +315,28 @@ const MetricPage: FC = () => {
               }),
             });
           }}
+          source="mid"
         />
       )}
       {editProjects && (
         <EditProjectsForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
+                }
+              />
+            </>
+          }
           cancel={() => setEditProjects(false)}
+          entityName="Metric"
           mutate={mutate}
-          projects={metric.projects || []}
+          value={metric.projects || []}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateMetric({ projects: [project] }, {})
+          }
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -477,6 +491,10 @@ const MetricPage: FC = () => {
             </a>
           )}
         </div>
+      </div>
+
+      <div className="mt-3">
+        <CustomMarkdown page={"metric"} variables={variables} />
       </div>
 
       <div className="row">
@@ -637,7 +655,7 @@ const MetricPage: FC = () => {
                           <ViewAsyncQueriesButton
                             queries={metric.queries.map((q) => q.query)}
                             error={metric.analysisError}
-                            ctaCommponent={(onClick) => (
+                            ctaComponent={(onClick) => (
                               <a
                                 className="alert-link"
                                 href="#"
@@ -869,29 +887,7 @@ const MetricPage: FC = () => {
             </Tab>
             <Tab display="Experiments" anchor="experiments">
               <h3>Experiments</h3>
-              <p>The most recent 10 experiments using this metric.</p>
-              <div className="list-group">
-                {experiments.map((e) => (
-                  <Link
-                    href={`/experiment/${e.id}`}
-                    key={e.id}
-                    className="list-group-item list-group-item-action"
-                  >
-                    <div className="d-flex">
-                      <strong className="mr-3">{e.name}</strong>
-                      <div style={{ flex: 1 }} />
-                      <StatusIndicator
-                        archived={false}
-                        status={e.status || "stopped"}
-                      />
-                      <FaChevronRight
-                        className="ml-3"
-                        style={{ fontSize: "1.5em" }}
-                      />
-                    </div>
-                  </Link>
-                ))}
-              </div>
+              <MetricExperiments metric={metric} outerClassName="" />
             </Tab>
             <Tab display="Discussion" anchor="discussion" lazy={true}>
               <h3>Comments</h3>

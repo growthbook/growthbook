@@ -1,11 +1,11 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
-import { expandOrgMembers } from "../../services/organizations";
+import { expandOrgMembers } from "back-end/src/services/organizations";
 import {
   ScimListRequest,
   ScimListResponse,
   ScimUser,
-} from "../../../types/scim";
+} from "back-end/types/scim";
 import { expandedMembertoScimUser } from "./getUser";
 
 export const START_INDEX_DEFAULT = 0;
@@ -54,9 +54,6 @@ export async function listUsers(
     totalResults: filteredUsers.length,
     Resources: resources,
     startIndex: queryOptions.startIndex,
-    itemsPerPage:
-      resources.length < queryOptions.count
-        ? resources.length
-        : queryOptions.count,
+    itemsPerPage: queryOptions.count,
   });
 }

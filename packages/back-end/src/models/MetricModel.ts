@@ -1,11 +1,20 @@
 import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
-import { getConfigMetrics, usingFileConfig } from "../init/config";
-import { upgradeMetricDoc } from "../util/migrations";
-import { ALLOW_CREATE_METRICS } from "../util/secrets";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+import {
+  InsertMetricProps,
+  LegacyMetricInterface,
+  MetricInterface,
+} from "back-end/types/metric";
+import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
+import { upgradeMetricDoc } from "back-end/src/util/migrations";
+import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -121,17 +130,18 @@ const metricSchema = new mongoose.Schema({
     conversionDelayHours: Number,
   },
 });
+
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
-type MetricDocument = mongoose.Document & LegacyMetricInterface;
 
 const MetricModel = mongoose.model<LegacyMetricInterface>(
   "Metric",
   metricSchema
 );
+const COLLECTION = "metrics";
 
-function toInterface(doc: MetricDocument): MetricInterface {
-  return upgradeMetricDoc(doc.toJSON());
-}
+const toInterface: ToInterface<MetricInterface> = (doc) => {
+  return upgradeMetricDoc(removeMongooseFields(doc));
+};
 
 export async function insertMetric(metric: Partial<MetricInterface>) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
@@ -140,19 +150,7 @@ export async function insertMetric(metric: Partial<MetricInterface>) {
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function insertMetrics(
-  metrics: Pick<
-    MetricInterface,
-    | "name"
-    | "type"
-    | "sql"
-    | "id"
-    | "organization"
-    | "datasource"
-    | "dateCreated"
-    | "dateUpdated"
-  >[]
-) {
+export async function insertMetrics(metrics: InsertMetricProps[]) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
   }
@@ -202,17 +200,21 @@ export async function deleteAllMetricsForAProject({
   projectId: string;
   context: ReqContext | ApiReqContext;
 }) {
-  const metricsToDelete = await MetricModel.find({
-    organization: context.org.id,
-    projects: [projectId],
-  });
+  const metricsToDelete = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+      projects: [projectId],
+    })
+    .toArray();
 
   for (const metric of metricsToDelete) {
-    await deleteMetricById(context, metric);
+    await deleteMetricById(context, toInterface(metric));
   }
 }
 
-export async function getMetricMap(context: ReqContext | ApiReqContext) {
+export async function getMetricMap(
+  context: ReqContext | ApiReqContext
+): Promise<Map<string, ExperimentMetricInterface>> {
   const metricMap = new Map<string, ExperimentMetricInterface>();
   const allMetrics = await getMetricsByOrganization(context);
   allMetrics.forEach((m) => {
@@ -232,6 +234,7 @@ async function findMetrics(
   additionalQuery?: Partial<MetricInterface>
 ) {
   const metrics: MetricInterface[] = [];
+  const metricIds = new Set<string>();
 
   // If using config.yml, first check there
   if (usingFileConfig()) {
@@ -252,6 +255,7 @@ async function findMetrics(
       .filter((m) => !filter || filter(m))
       .forEach((m) => {
         metrics.push(m);
+        metricIds.add(m.id);
       });
 
     // If metrics are locked down to just a config file, return immediately
@@ -260,15 +264,25 @@ async function findMetrics(
     }
   }
 
-  const docs = await MetricModel.find({
-    ...additionalQuery,
-    organization: context.org.id,
-  });
+  const docs = await getCollection(COLLECTION)
+    .find(
+      {
+        ...additionalQuery,
+        organization: context.org.id,
+      },
+      {
+        // This is never needed when finding multiple metrics
+        // This field can get quite large, so it's best to exclude it
+        projection: { analysis: 0 },
+      }
+    )
+    .toArray();
   docs.forEach((doc) => {
-    if (metrics.some((m) => m.id === doc.id)) {
+    if (metricIds.has(doc.id)) {
       return;
     }
     metrics.push(toInterface(doc));
+    metricIds.add(doc.id);
   });
 
   return metrics.filter((m) =>
@@ -290,13 +304,15 @@ export async function getMetricsByDatasource(
 }
 
 export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
-  const docs = await MetricModel.find({
-    id: /^met_sample/,
-    organization: context.org.id,
-  });
+  const docs = await getCollection(COLLECTION)
+    .find({
+      id: /^met_sample/,
+      organization: context.org.id,
+    })
+    .toArray();
   return docs
-    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects))
-    .map(toInterface);
+    .map(toInterface)
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects));
 }
 
 export async function getMetricById(
@@ -309,7 +325,7 @@ export async function getMetricById(
     const doc = getConfigMetrics(context).filter((m) => m.id === id)[0] || null;
     if (doc) {
       if (includeAnalysis) {
-        const metric = await MetricModel.findOne({
+        const metric = await getCollection(COLLECTION).findOne({
           id,
           organization: context.org.id,
         });
@@ -326,7 +342,7 @@ export async function getMetricById(
     }
   }
 
-  const res = await MetricModel.findOne({
+  const res = await getCollection(COLLECTION).findOne({
     id,
     organization: context.org.id,
   });
@@ -345,8 +361,12 @@ export async function getMetricById(
 export async function getMetricsByIds(
   context: ReqContext | ApiReqContext,
   ids: string[]
-) {
+): Promise<MetricInterface[]> {
   const metrics: MetricInterface[] = [];
+
+  if (!ids.length) {
+    return metrics;
+  }
 
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
@@ -364,10 +384,12 @@ export async function getMetricsByIds(
   const remainingIds = ids.filter((id) => !metrics.some((m) => m.id === id));
 
   if (remainingIds.length > 0) {
-    const docs = await MetricModel.find({
-      id: { $in: remainingIds },
-      organization: context.org.id,
-    });
+    const docs = await getCollection(COLLECTION)
+      .find({
+        id: { $in: remainingIds },
+        organization: context.org.id,
+      })
+      .toArray();
     docs.forEach((doc) => {
       metrics.push(toInterface(doc));
     });
@@ -381,13 +403,15 @@ export async function findRunningMetricsByQueryId(
   orgIds: string[],
   queryIds: string[]
 ) {
-  const docs = await MetricModel.find({
-    // Query ids are globally unique, this filter is just for index performance
-    organization: { $in: orgIds },
-    queries: {
-      $elemMatch: { query: { $in: queryIds }, status: "running" },
-    },
-  });
+  const docs = await getCollection(COLLECTION)
+    .find({
+      // Query ids are globally unique, this filter is just for index performance
+      organization: { $in: orgIds },
+      queries: {
+        $elemMatch: { query: { $in: queryIds }, status: "running" },
+      },
+    })
+    .toArray();
 
   // TODO: some of these might be from config.yml and the docs will be missing fields
   return docs.map((doc) => toInterface(doc));

@@ -1,13 +1,4 @@
-export interface UserInterface {
-  id: string;
-  name?: string;
-  email: string;
-  verified: boolean;
-  passwordHash?: string;
-  superAdmin: boolean;
-  minTokenDate?: Date;
-  dateCreated?: Date;
-}
+export { UserInterface } from "back-end/src/validators/users";
 
 export interface UserRef {
   id: string;

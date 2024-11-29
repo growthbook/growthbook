@@ -3,10 +3,10 @@ import fs from "fs";
 import { Request, RequestHandler } from "express";
 import z, { Schema, ZodNever } from "zod";
 import { orgHasPremiumFeature } from "enterprise";
-import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
-import { ApiPaginationFields } from "../../types/openapi";
-import { UserInterface } from "../../types/user";
-import { OrganizationInterface } from "../../types/organization";
+import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
+import { ApiPaginationFields } from "back-end/types/openapi";
+import { UserInterface } from "back-end/types/user";
+import { OrganizationInterface } from "back-end/types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
 type ApiRequest<
@@ -129,12 +129,13 @@ export function createApiRequestHandler<
   };
 }
 
-let build: { sha: string; date: string };
+let build: { sha: string; date: string; lastVersion: string };
 export function getBuild() {
   if (!build) {
     build = {
       sha: "",
       date: "",
+      lastVersion: "",
     };
     const rootPath = path.join(__dirname, "..", "..", "..", "..", "buildinfo");
     if (fs.existsSync(path.join(rootPath, "SHA"))) {
@@ -145,6 +146,24 @@ export function getBuild() {
         .readFileSync(path.join(rootPath, "DATE"))
         .toString()
         .trim();
+    }
+
+    // Read version from package.json
+    try {
+      const packageJSONPath = path.join(
+        __dirname,
+        "..",
+        "..",
+        "..",
+        "..",
+        "package.json"
+      );
+      if (fs.existsSync(packageJSONPath)) {
+        const json = JSON.parse(fs.readFileSync(packageJSONPath).toString());
+        build.lastVersion = json.version;
+      }
+    } catch (e) {
+      // Ignore errors here, not important
     }
   }
 

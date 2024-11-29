@@ -4,32 +4,29 @@ import {
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
+import { GroupMap } from "shared/src/types";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
-} from "../../types/feature";
-import { FeatureDefinitionWithProject } from "../../types/api";
-import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ExperimentInterface } from "../../types/experiment";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+} from "back-end/types/feature";
+import { FeatureDefinitionWithProject } from "back-end/types/api";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
 
-// eslint-disable-next-line
-type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
-
 function getSavedGroupCondition(
-  group: GroupMapValue,
+  groupId: string,
   groupMap: GroupMap,
   include: boolean
 ): null | ConditionInterface {
-  if (group.type === "condition") {
+  const group = groupMap.get(groupId);
+  if (!group) return null;
+  if (group.type === "condition" && group.condition) {
     try {
-      const cond = JSON.parse(
-        replaceSavedGroupsInCondition(group.condition || "{}", groupMap)
-      );
+      const cond = JSON.parse(group.condition);
       return include ? cond : { $not: cond };
     } catch (e) {
       return null;
@@ -39,7 +36,7 @@ function getSavedGroupCondition(
   if (!group.attributeKey) return null;
 
   return {
-    [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
+    [group.attributeKey]: { [include ? "$inGroup" : "$notInGroup"]: groupId },
   };
 }
 
@@ -51,9 +48,7 @@ export function getParsedCondition(
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
-      const cond = JSON.parse(
-        replaceSavedGroupsInCondition(condition, groupMap)
-      );
+      const cond = JSON.parse(condition);
       if (cond) conditions.push(cond);
     } catch (e) {
       // ignore condition parse errors here
@@ -62,32 +57,31 @@ export function getParsedCondition(
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
-      const groups = ids
-        .map((id) => groupMap.get(id))
+      const groupIds = ids.filter((id) => {
         // Must either have at least 1 value or be a non-empty condition
-        .filter((group) => {
-          if (!group) return false;
-          if (group.type === "condition") {
-            if (!group.condition || group.condition === "{}") return false;
-          } else {
-            if (!group.values?.length) return false;
-          }
-          return true;
-        }) as GroupMapValue[];
-      if (!groups.length) return;
+        const group = groupMap.get(id);
+        if (!group) return false;
+        if (group.type === "condition") {
+          if (!group.condition || group.condition === "{}") return false;
+        } else {
+          if (!group.values?.length) return false;
+        }
+        return true;
+      });
+      if (!groupIds.length) return;
 
       // Add each group as a separate top-level AND
       if (match === "all") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) ors.push(cond);
         });
 
@@ -102,8 +96,8 @@ export function getParsedCondition(
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, false);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, false);
           if (cond) conditions.push(cond);
         });
       }
@@ -139,12 +133,17 @@ export function replaceSavedGroupsInCondition(
   return newString;
 }
 
-export function isRuleEnabled(rule: FeatureRule): boolean {
+export function isRuleEnabled(
+  rule: FeatureRule,
+  date?: Date | number
+): boolean {
   // Manually disabled
   if (!rule.enabled) return false;
 
   // Disabled because of an automatic schedule
-  if (!getCurrentEnabledState(rule.scheduleRules || [], new Date())) {
+  // when used in filter/some array loops, the second parameter will be the index, which is not a date.
+  const enabledDate = date instanceof Date ? date : new Date();
+  if (!getCurrentEnabledState(rule.scheduleRules || [], enabledDate)) {
     return false;
   }
 
@@ -176,7 +175,7 @@ export function getEnabledEnvironments(
         if (!ruleFilter) return true;
         const env = settings[e];
         if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some(isRuleEnabled);
+        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -315,6 +314,7 @@ export function getFeatureDefinition({
   experimentMap,
   revision,
   returnRuleId = false,
+  date,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -322,6 +322,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
+  date?: Date;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -362,7 +363,9 @@ export function getFeatureDefinition({
   const defRules = [
     ...prerequisiteRules,
     ...(rules
-      ?.filter(isRuleEnabled)
+      ?.filter((r) => {
+        return isRuleEnabled(r, date);
+      })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {};
 

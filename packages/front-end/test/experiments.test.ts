@@ -1,7 +1,7 @@
+import { getEqualWeights } from "shared/experiments";
 import {
   decimalToPercent,
   floatRound,
-  getEqualWeights,
   percentToDecimal,
   rebalance,
 } from "@/services/utils";

@@ -1,12 +1,12 @@
 import express from "express";
 import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import { zodNotificationEventNamesEnum } from "../../events/base-types";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import { zodNotificationEventNamesEnum } from "back-end/src/events/base-types";
 import {
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-} from "../../types/EventWebHook";
+} from "back-end/src/validators/event-webhook";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();
@@ -120,6 +120,20 @@ router.put(
       .strict(),
   }),
   eventWebHooksController.putEventWebHook
+);
+
+router.post(
+  "/event-webhooks/test-params",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        name: z.string().trim().min(1),
+        method: z.enum(eventWebHookMethods),
+        url: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.testWebHookParams
 );
 
 router.post(

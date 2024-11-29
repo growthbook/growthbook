@@ -1,8 +1,8 @@
 import { createClient, ResponseJSON } from "@clickhouse/client";
-import { decryptDataSourceParams } from "../services/datasource";
-import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
-import { QueryResponse } from "../types/Integration";
-import { getHost } from "../util/sql";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
+import { QueryResponse } from "back-end/src/types/Integration";
+import { getHost } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
@@ -84,6 +84,10 @@ export default class ClickHouse extends SqlIntegration {
   }
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `if(${condition}, ${ifTrue}, ${ifFalse})`;
+  }
+  castToDate(col: string): string {
+    const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
+    return `CAST(${col} AS ${columType})`;
   }
   castToString(col: string): string {
     return `toString(${col})`;

@@ -43,4 +43,14 @@ export type AppFeatures = {
   "pylon-config": Record<string, unknown>;
   "no-access-role-type": boolean;
   "quantile-metrics": boolean;
+  "new-message": boolean;
+  "show-3.0-release": boolean;
+  "improve-h1-heading-feature-flag": boolean;
+  "apply-saved-group-id-list-size-limit": boolean;
+  "use-new-setup-flow": boolean;
+  bandits: boolean;
+  "gb-ax5-bandit": boolean;
+  "gb-ax10-bandit": boolean;
+  "fact-metric-sql-preview": boolean;
+  "inbuilt-data-warehouse": boolean;
 };

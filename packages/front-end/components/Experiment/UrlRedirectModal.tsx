@@ -18,6 +18,7 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Toggle from "@/components/Forms/Toggle";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import { DocLink } from "@/components/DocLink";
 
 function validateUrl(
   urlString: string
@@ -98,7 +99,8 @@ const UrlRedirectModal: FC<{
   mutate: () => void;
   close: () => void;
   cta?: string;
-}> = ({ mode, experiment, urlRedirect, mutate, close, cta }) => {
+  source?: string;
+}> = ({ mode, experiment, urlRedirect, mutate, close, cta, source }) => {
   const { apiCall } = useAuth();
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -173,6 +175,8 @@ const UrlRedirectModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType="url-redirect-modal"
+      trackingEventModalSource={source}
       autoCloseOnSubmit={false}
       open
       disabledMessage={
@@ -231,15 +235,15 @@ const UrlRedirectModal: FC<{
         <div className="mt-3">
           <h4>Destination URLs</h4>
           {experiment.variations.map((v, i) => {
-            let warning: string | undefined;
+            let warning: string | JSX.Element | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&
               form.watch(`destinationUrls.${i}`) &&
-              (isURLTargeted(form.watch("originUrl"), [
+              (isURLTargeted(form.watch(`destinationUrls.${i}`), [
                 {
                   include: true,
                   type: "simple",
-                  pattern: form.watch(`destinationUrls.${i}`),
+                  pattern: form.watch("originUrl"),
                 },
               ]) ||
                 form.watch("originUrl") === form.watch(`destinationUrls.${i}`));
@@ -247,10 +251,26 @@ const UrlRedirectModal: FC<{
               const originUrl = new URL(form.watch("originUrl"));
               const variantUrl = new URL(form.watch(`destinationUrls.${i}`));
               if (originUrl.protocol !== variantUrl.protocol) {
-                warning = `Destination URL is using "${variantUrl.protocol}" and the origin URL is using "${originUrl.protocol}"`;
+                warning = `Destination URL is using "${variantUrl.protocol}" and the original URL is using "${originUrl.protocol}"`;
               }
               if (originUrl.host !== variantUrl.host) {
-                warning = `Destination URL is "${variantUrl.host}" and the origin URL is "${originUrl.host}"`;
+                warning = `Destination URL is "${variantUrl.host}" and the original URL is "${originUrl.host}"`;
+              }
+              // Check for query parameters in destination that are not in origin when base URLs match
+              if (
+                destinationMatchesOrigin &&
+                Array.from(variantUrl.searchParams.keys()).some(
+                  (k) => !originUrl.searchParams.has(k)
+                )
+              ) {
+                warning = (
+                  <>
+                    Destination URL has query parameters the original URL does
+                    not have. See{" "}
+                    <DocLink docSection="url_redirects">our docs</DocLink> for
+                    more info on how to handle this kind of redirect.
+                  </>
+                );
               }
             } catch (e) {
               //ts-ignore

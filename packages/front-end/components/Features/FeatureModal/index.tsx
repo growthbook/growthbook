@@ -199,6 +199,7 @@ export default function FeatureModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open
       size="lg"
       inline={inline}

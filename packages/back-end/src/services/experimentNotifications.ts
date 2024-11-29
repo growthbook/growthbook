@@ -1,64 +1,63 @@
-import { includeExperimentInPayload } from "shared/util";
-import { Context } from "../models/BaseModel";
-import { createEvent } from "../models/EventModel";
-import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
-import { ExperimentWarningNotificationEvent } from "../events/notification-events";
+import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import { getMetricResultStatus } from "shared/experiments";
+import { StatsEngine } from "back-end/types/stats";
+import { Context } from "back-end/src/models/BaseModel";
+import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { getExperimentWatchers } from "back-end/src/models/WatchModel";
+import { logger } from "back-end/src/util/logger";
+import { ensureAndReturn } from "back-end/src/util/types";
 import {
   ExperimentSnapshotDocument,
   getDefaultAnalysisResults,
-} from "../models/ExperimentSnapshotModel";
+  getLatestSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ExperimentInterface,
   ExperimentNotification,
-} from "../../types/experiment";
-import { ExperimentReportResultDimension } from "../../types/report";
-import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
-import { IfEqual } from "../util/types";
-import { getEnvironmentIdsFromOrg } from "./organizations";
+} from "back-end/types/experiment";
+import { ExperimentReportResultDimension } from "back-end/types/report";
+import { ResourceEvents } from "back-end/src/events/base-types";
+import {
+  getConfidenceLevelsForOrg,
+  getEnvironmentIdsFromOrg,
+  getMetricDefaultsForOrg,
+  getPValueThresholdForOrg,
+} from "./organizations";
+import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
+import { getExperimentMetricById } from "./experiments";
 
 // This ensures that the two types remain equal.
 
-// TODO: extend with experiment info
-type ExperimentNotificationFromCode = ExperimentWarningNotificationPayload["type"];
-
-type ExperimentWarningNotificationData = IfEqual<
-  ExperimentNotificationFromCode,
-  ExperimentNotification,
-  ExperimentWarningNotificationPayload,
-  never
->;
-
-const dispatchEvent = async (
-  context: Context,
-  experiment: ExperimentInterface,
-  data: ExperimentWarningNotificationData
-) => {
+const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
+  context,
+  experiment,
+  event,
+  data,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  event: T;
+  data: CreateEventData<"experiment", T>;
+}) => {
   const changedEnvs = includeExperimentInPayload(experiment)
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentWarningNotificationEvent = {
-    event: "experiment.warning",
+  await createEvent({
+    context,
     object: "experiment",
+    event,
     data,
-    user: {
-      type: "dashboard",
-      id: context.userId,
-      email: context.email,
-      name: context.userName,
-    },
-    projects: [experiment.project || ""],
+    objectId: experiment.id,
+    projects: experiment.project ? [experiment.project] : [],
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-
-  if (!emittedEvent) throw new Error("Error while creating event!");
-
-  new EventNotifier(emittedEvent.id).perform();
+  });
 };
 
 export const memoizeNotification = async ({
@@ -107,17 +106,24 @@ export const notifyAutoUpdate = ({
     type: "auto-update",
     triggered: !success,
     dispatch: () =>
-      dispatchEvent(context, experiment, {
-        type: "auto-update",
-        success,
-        experimentId: experiment.id,
-        experimentName: experiment.name,
+      dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "auto-update",
+            success,
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
       }),
   });
 
 export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
 
-const notifyMultipleExposures = async ({
+export const notifyMultipleExposures = async ({
   context,
   experiment,
   results,
@@ -147,12 +153,19 @@ const notifyMultipleExposures = async ({
     dispatch: async () => {
       if (!triggered) return;
 
-      await dispatchEvent(context, experiment, {
-        type: "multiple-exposures",
-        experimentId: experiment.id,
-        experimentName: experiment.name,
-        usersCount: snapshot.multipleExposures,
-        percent,
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "multiple-exposures",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            usersCount: snapshot.multipleExposures,
+            percent,
+          },
+        },
       });
     },
   });
@@ -160,7 +173,7 @@ const notifyMultipleExposures = async ({
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
-const notifySrm = async ({
+export const notifySrm = async ({
   context,
   experiment,
   results,
@@ -182,14 +195,224 @@ const notifySrm = async ({
     dispatch: async () => {
       if (!triggered) return;
 
-      await dispatchEvent(context, experiment, {
-        type: "srm",
-        experimentId: experiment.id,
-        experimentName: experiment.name,
-        threshold: srmThreshold,
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "srm",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            threshold: srmThreshold,
+          },
+        },
       });
     },
   });
+};
+
+type ExperimentSignificanceChange = {
+  experimentId: string;
+  experimentName: string;
+  variationId: string;
+  variationName: string;
+  metricId: string;
+  metricName: string;
+  statsEngine: StatsEngine;
+  criticalValue: number;
+  winning: boolean;
+};
+
+const sendSignificanceEmail = async (
+  experiment: ExperimentInterface,
+  experimentChanges: ExperimentSignificanceChange[]
+) => {
+  const messages = experimentChanges.map(
+    ({ metricName, variationName, winning, statsEngine, criticalValue }) => {
+      if (statsEngine === "frequentist") {
+        return `The metric ${metricName} for variation ${variationName} is
+         ${winning ? "beating" : "losing to"} the baseline and has
+         reached statistical significance (p-value = ${criticalValue.toFixed(
+           3
+         )}).`;
+      }
+      return `The metric ${metricName} for variation ${variationName} has ${
+        winning ? "reached a" : "dropped to a"
+      } ${(criticalValue * 100).toFixed(1)} chance to beat the baseline.`;
+    }
+  );
+
+  try {
+    // send an email to any subscribers on this test:
+    const watchers = await getExperimentWatchers(
+      experiment.id,
+      experiment.organization
+    );
+
+    await sendExperimentChangesEmail(
+      watchers,
+      experiment.id,
+      experiment.name,
+      messages
+    );
+  } catch (e) {
+    logger.error(e, "Failed to send significance email");
+  }
+};
+
+export const computeExperimentChanges = async ({
+  context,
+  experiment,
+  snapshot: currentSnapshot,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotDocument;
+}): Promise<ExperimentSignificanceChange[]> => {
+  const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
+  const currentVariations = currentAnalysis?.results?.[0]?.variations;
+  if (!currentAnalysis || !currentVariations) {
+    return [];
+  }
+
+  const lastSnapshot = await getLatestSnapshot({
+    experiment: experiment.id,
+    phase: experiment.phases.length - 1,
+    beforeSnapshot: currentSnapshot,
+  });
+  const lastAnalysis = lastSnapshot
+    ? getSnapshotAnalysis(lastSnapshot)
+    : undefined;
+  const lastVariations = lastAnalysis?.results?.[0]?.variations;
+
+  // get the org level settings for significance:
+  const statsEngine = currentAnalysis.settings.statsEngine;
+  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const metricDefaults = getMetricDefaultsForOrg(context);
+  const pValueThreshold = getPValueThresholdForOrg(context);
+
+  const experimentChanges: ExperimentSignificanceChange[] = [];
+
+  const currentBaselineVariation = currentVariations[0];
+  const lastBaselineVariation = lastVariations?.[0];
+  for (let i = 1; i < currentVariations.length; i++) {
+    const curVar = currentVariations[i];
+    const lastVar = lastVariations?.[i];
+
+    for (const m in curVar.metrics) {
+      const lastBaselineMetric = lastBaselineVariation?.metrics?.[m];
+      const curBaselineMetric = currentBaselineVariation?.metrics?.[m];
+      const curMetric = curVar?.metrics?.[m];
+      const lastMetric = lastVar?.metrics?.[m];
+
+      if (!curBaselineMetric || !curMetric) continue;
+
+      const criticalValue =
+        statsEngine === "frequentist"
+          ? curMetric.pValue
+          : curMetric.chanceToWin;
+      if (criticalValue === undefined) continue;
+
+      const metric = ensureAndReturn(await getExperimentMetricById(context, m));
+
+      const { resultsStatus: curResultsStatus } = getMetricResultStatus({
+        metric,
+        metricDefaults,
+        baseline: curBaselineMetric,
+        stats: curMetric,
+        ciLower,
+        ciUpper,
+        pValueThreshold,
+        statsEngine: statsEngine,
+      });
+
+      const { resultsStatus: lastResultsStatus } =
+        lastBaselineMetric && lastMetric && lastAnalysis
+          ? getMetricResultStatus({
+              metric,
+              metricDefaults,
+              baseline: lastBaselineMetric,
+              stats: lastMetric,
+              ciLower,
+              ciUpper,
+              pValueThreshold,
+              statsEngine: lastAnalysis.settings.statsEngine,
+            })
+          : { resultsStatus: "" };
+
+      const winning = (() => {
+        // checks to see if anything changed:
+        if (curResultsStatus === "won" && lastResultsStatus !== "won")
+          return true;
+
+        if (curResultsStatus === "lost" && lastResultsStatus !== "lost")
+          return false;
+
+        return null;
+      })();
+
+      if (winning === null) continue;
+
+      const { id: variationId, name: variationName } = experiment.variations[i];
+
+      experimentChanges.push({
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        variationId,
+        variationName,
+        metricId: m,
+        metricName: metric.name,
+        statsEngine,
+        criticalValue,
+        winning,
+      });
+    }
+  }
+
+  return experimentChanges;
+};
+
+export const notifySignificance = async ({
+  context,
+  experiment,
+  snapshot,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotDocument;
+}) => {
+  const experimentChanges = await computeExperimentChanges({
+    context,
+    experiment,
+    snapshot,
+  });
+
+  if (!experimentChanges.length) return;
+  // no notifications for bandits yet, will add 95% event later
+  if (experiment.type === "multi-armed-bandit") return;
+
+  // send email if enabled and the snapshot is scheduled standard analysis
+  if (
+    isEmailEnabled() &&
+    snapshot.triggeredBy === "schedule" &&
+    snapshot.type === "standard"
+  ) {
+    await sendSignificanceEmail(experiment, experimentChanges);
+  }
+
+  await Promise.all(
+    experimentChanges.map((change) =>
+      dispatchEvent({
+        context,
+        experiment,
+        event: "info.significance",
+        data: {
+          object: change,
+        },
+      })
+    )
+  );
 };
 
 export const notifyExperimentChange = async ({
@@ -202,6 +425,15 @@ export const notifyExperimentChange = async ({
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
 
+  // do not fire significance or error events for exploratory analyses
+  if (snapshot.type === "exploratory") return;
+  // do not fire significance events for old snapshots that have no type
+  if (snapshot.type === undefined) return;
+  // do not fire for snapshots where statistics are manually entered in the UI
+  if (snapshot.manual) return;
+
+  await notifySignificance({ context, experiment, snapshot });
+
   const results = getDefaultAnalysisResults(snapshot);
 
   if (results) {
@@ -211,6 +443,7 @@ export const notifyExperimentChange = async ({
       results,
       snapshot,
     });
+
     await notifySrm({ context, experiment, results });
   }
 };

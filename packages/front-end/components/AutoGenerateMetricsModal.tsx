@@ -3,11 +3,11 @@ import {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
   InformationSchemaInterface,
-} from "@back-end/src/types/Integration";
+} from "back-end/src/types/Integration";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-} from "@back-end/types/datasource";
+} from "back-end/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { FaRedo } from "react-icons/fa";
@@ -275,6 +275,7 @@ export default function AutoGenerateMetricsModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       size="lg"
       open={true}
       header="Discover Metrics"

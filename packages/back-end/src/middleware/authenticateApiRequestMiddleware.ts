@@ -1,26 +1,26 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
 import { licenseInit } from "enterprise";
-import { ApiRequestLocals } from "../../types/api";
-import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { getOrganizationById } from "../services/organizations";
-import { getCustomLogProps } from "../util/logger";
-import { EventAuditUserApiKey } from "../events/event-types";
-import { isApiKeyForUserInOrganization } from "../util/api-key.util";
-import { OrganizationInterface, Permission } from "../../types/organization";
+import { ApiRequestLocals } from "back-end/types/api";
+import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
+import { getOrganizationById } from "back-end/src/services/organizations";
+import { getCustomLogProps } from "back-end/src/util/logger";
+import { EventUserApiKey } from "back-end/src/events/event-types";
+import { isApiKeyForUserInOrganization } from "back-end/src/util/api-key.util";
+import { OrganizationInterface, Permission } from "back-end/types/organization";
 import {
   getUserPermissions,
   roleToPermissionMap,
-} from "../util/organization.util";
-import { ApiKeyInterface } from "../../types/apikey";
-import { getTeamsForOrganization } from "../models/TeamModel";
-import { TeamInterface } from "../../types/team";
-import { getUserById } from "../models/UserModel";
+} from "back-end/src/util/organization.util";
+import { ApiKeyInterface } from "back-end/types/apikey";
+import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
+import { TeamInterface } from "back-end/types/team";
+import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
-} from "../services/licenseData";
-import { ReqContextClass } from "../services/context";
+} from "back-end/src/services/licenseData";
+import { ReqContextClass } from "back-end/src/services/context";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -116,7 +116,7 @@ export default function authenticateApiRequestMiddleware(
 
       const teams = await getTeamsForOrganization(org.id);
 
-      const eventAudit: EventAuditUserApiKey = {
+      const eventAudit: EventUserApiKey = {
         type: "api_key",
         apiKey: id || "unknown",
       };
@@ -137,10 +137,6 @@ export default function authenticateApiRequestMiddleware(
         project?: string | (string | undefined)[] | undefined,
         envs?: string[] | Set<string>
       ) => {
-        // Super admins have full access to every organization
-        if (req.user?.superAdmin) {
-          return;
-        }
         let checkProjects: (string | undefined)[];
         if (Array.isArray(project)) {
           checkProjects = project.length > 0 ? project : [undefined];
@@ -156,6 +152,7 @@ export default function authenticateApiRequestMiddleware(
             project: p,
             environments: envs ? [...envs] : undefined,
             teams,
+            superAdmin: req.user?.superAdmin,
           });
         }
       };
@@ -188,6 +185,7 @@ function doesUserHavePermission(
   permission: Permission,
   apiKeyPartial: Partial<ApiKeyInterface>,
   teams: TeamInterface[],
+  superAdmin: boolean | undefined,
   project?: string,
   envs?: string[]
 ): boolean {
@@ -198,7 +196,11 @@ function doesUserHavePermission(
     }
 
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(userId, org, teams);
+    const userPermissions = getUserPermissions(
+      { id: userId, superAdmin },
+      org,
+      teams
+    );
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);
@@ -214,6 +216,7 @@ type VerifyApiKeyPermissionOptions = {
   project?: string;
   environments?: string[];
   teams: TeamInterface[];
+  superAdmin: boolean | undefined;
 };
 
 /**
@@ -230,6 +233,7 @@ export function verifyApiKeyPermission({
   environments,
   project,
   teams,
+  superAdmin,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
     if (
@@ -238,6 +242,7 @@ export function verifyApiKeyPermission({
         permission,
         apiKey,
         teams,
+        superAdmin,
         project,
         environments
       )

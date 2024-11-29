@@ -1,9 +1,9 @@
 import { ServerResponse, IncomingMessage } from "http";
 import crypto from "crypto";
 import { WebClient } from "@slack/web-api";
-import { SLACK_SIGNING_SECRET } from "../util/secrets";
-import { getUserByEmail } from "../models/UserModel";
-import { OrganizationInterface } from "../../types/organization";
+import { SLACK_SIGNING_SECRET } from "back-end/src/util/secrets";
+import { getUserByEmail } from "back-end/src/models/UserModel";
+import { OrganizationInterface } from "back-end/types/organization";
 
 // Initialize a single instance for the whole app
 const web = new WebClient();

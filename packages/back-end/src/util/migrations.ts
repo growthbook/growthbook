@@ -8,38 +8,40 @@ import {
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
-import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
-import { WebhookInterface } from "@back-end/types/webhook";
-import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
-import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
+import { SavedGroupInterface } from "shared/src/types";
+import {
+  ExperimentReportArgs,
+  LegacyReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
+import { WebhookInterface } from "back-end/types/webhook";
+import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
+import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "../../types/datasource";
-import { decryptDataSourceParams } from "../services/datasource";
+} from "back-end/types/datasource";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { OrganizationInterface } from "../../types/organization";
-import { getConfigOrganizationSettings } from "../init/config";
+} from "back-end/types/feature";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "../../types/experiment";
+} from "back-end/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "../../types/experiment-snapshot";
-import { getEnvironments } from "../services/organizations";
-import {
-  LegacySavedGroupInterface,
-  SavedGroupInterface,
-} from "../../types/saved-group";
+} from "back-end/types/experiment-snapshot";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { LegacySavedGroupInterface } from "back-end/types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -63,7 +65,7 @@ function adjustWeights(weights: number[]): number[] {
 }
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
-  const newDoc = cloneDeep(doc);
+  const newDoc = { ...doc };
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -180,6 +182,8 @@ FROM
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface
 ): DataSourceInterface {
+  datasource.settings = datasource.settings || {};
+
   const settings = datasource.settings;
 
   // Add default randomization units
@@ -509,6 +513,17 @@ export function upgradeExperimentDoc(
     }
   });
 
+  // Convert metric fields to new names
+  if (!experiment.goalMetrics) {
+    experiment.goalMetrics = experiment.metrics || [];
+  }
+  if (!experiment.guardrailMetrics) {
+    experiment.guardrailMetrics = experiment.guardrails || [];
+  }
+  if (!experiment.secondaryMetrics) {
+    experiment.secondaryMetrics = [];
+  }
+
   // Populate phase names and targeting properties
   if (experiment.phases) {
     experiment.phases.forEach((phase) => {
@@ -519,7 +534,7 @@ export function upgradeExperimentDoc(
 
       phase.coverage = phase.coverage ?? 1;
       phase.condition = phase.condition || "";
-      phase.seed = phase.seed || experiment.trackingKey;
+      phase.seed = phase.seed || experiment.trackingKey; //support for old experiments where tracking key was used as seed instead of UUID
       phase.namespace = phase.namespace || {
         enabled: false,
         name: "",
@@ -596,15 +611,30 @@ export function upgradeExperimentDoc(
 export function migrateReport(orig: LegacyReportInterface): ReportInterface {
   const { args, ...report } = orig;
 
-  if ((args?.attributionModel as string) === "allExposures") {
-    args.attributionModel = "experimentDuration";
-  }
+  const {
+    attributionModel,
+    metricRegressionAdjustmentStatuses,
+    metrics,
+    guardrails,
+    ...otherArgs
+  } = args || {};
+
+  const newArgs: ExperimentReportArgs = {
+    secondaryMetrics: [],
+    ...otherArgs,
+    attributionModel:
+      (attributionModel as string) === "allExposures"
+        ? "experimentDuration"
+        : attributionModel,
+    goalMetrics: otherArgs.goalMetrics || metrics || [],
+    guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+  };
 
   if (
-    args?.metricRegressionAdjustmentStatuses &&
-    args?.settingsForSnapshotMetrics === undefined
+    metricRegressionAdjustmentStatuses &&
+    newArgs.settingsForSnapshotMetrics === undefined
   ) {
-    args.settingsForSnapshotMetrics = args.metricRegressionAdjustmentStatuses.map(
+    newArgs.settingsForSnapshotMetrics = metricRegressionAdjustmentStatuses.map(
       (m) => ({
         metric: m.metric,
         properPrior: false,
@@ -618,11 +648,9 @@ export function migrateReport(orig: LegacyReportInterface): ReportInterface {
     );
   }
 
-  delete args?.metricRegressionAdjustmentStatuses;
-
   return {
     ...report,
-    args,
+    args: newArgs,
   };
 }
 
@@ -760,6 +788,7 @@ export function migrateSnapshot(
       // We know the metric ids included, but don't know if they were goals or guardrails
       // Just add them all as goals (doesn't really change much)
       goalMetrics: metricIds.filter((m) => m !== activationMetric),
+      secondaryMetrics: [],
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
       defaultMetricPriorSettings: defaultMetricPriorSettings,
@@ -779,6 +808,11 @@ export function migrateSnapshot(
     // Add new settings field in case it is missing
     if (snapshot.settings.defaultMetricPriorSettings === undefined) {
       snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
+    }
+
+    // This field could be undefined before, make it always an array
+    if (!snapshot.settings.secondaryMetrics) {
+      snapshot.settings.secondaryMetrics = [];
     }
 
     // migrate metric for snapshot to have new fields as old snapshots

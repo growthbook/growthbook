@@ -20,22 +20,32 @@ import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
-
-export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
+// eslint-disable-next-line
+type ErrorHandler = (responseData: any) => void;
+export type ApiCallType<T> = (
+  url: string,
+  options?: RequestInit,
+  errorHandler?: ErrorHandler
+) => Promise<T>;
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
   logout: () => Promise<void>;
-  apiCall: <T>(url: string | null, options?: RequestInit) => Promise<T>;
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit,
+    errorHandler?: ErrorHandler
+  ) => Promise<T>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
-  setOrganizations?: (orgs: UserOrganizations) => void;
+  setOrganizations?: (orgs: UserOrganizations, superAdmin: boolean) => void;
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
@@ -206,6 +216,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
+  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
   async function init() {
     const resp = await refreshToken();
     if ("token" in resp) {
@@ -216,6 +228,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            trackingEventModalType=""
             open={true}
             submit={async () => {
               await redirectWithTimeout(resp.redirectURI);
@@ -256,8 +269,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setAuthComponent(
         <Welcome
           firstTime={resp.newInstallation}
-          onSuccess={(t) => {
+          onSuccess={(t, pid) => {
             setToken(t);
+            if (pid) {
+              setProject(pid);
+            }
             setAuthComponent(null);
           }}
         />
@@ -274,6 +290,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setInitError(e.message);
       console.error(e);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const orgList = [...organizations];
@@ -320,7 +337,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const apiCall = useCallback(
-    async (url: string | null, options: RequestInit = {}) => {
+    async (
+      url: string | null,
+      options: RequestInit = {},
+      errorHandler: ErrorHandler | null = null
+    ) => {
       if (typeof url !== "string") return;
 
       let responseData = await _makeApiCall(url, token, options);
@@ -357,6 +378,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           );
         }
 
+        if (errorHandler) {
+          errorHandler(responseData);
+        }
         throw new Error(responseData.message || "There was an error");
       }
 
@@ -366,7 +390,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const wrappedSetOrganizations = useCallback(
-    (orgs: UserOrganizations) => {
+    (orgs: UserOrganizations, superAdmin: boolean) => {
       setOrganizations(orgs);
       if (orgId && orgs.map((o) => o.id).includes(orgId)) {
         return;
@@ -387,7 +411,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           if (
             pickedOrg &&
             !router.query.org &&
-            orgs.map((o) => o.id).includes(JSON.parse(pickedOrg))
+            (superAdmin ||
+              orgs.map((o) => o.id).includes(JSON.parse(pickedOrg)))
           ) {
             setOrgId(JSON.parse(pickedOrg));
           } else {
@@ -404,6 +429,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   if (initError) {
     return (
       <Modal
+        trackingEventModalType=""
         header="logo"
         open={true}
         cta="Try Again"
@@ -429,6 +455,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   if (sessionError) {
     return (
       <Modal
+        trackingEventModalType=""
         open={true}
         cta="OK"
         submit={async () => {
