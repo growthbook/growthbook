@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { CustomFieldsInterface, CustomField } from "../../types/custom-fields";
+import {
+  CustomFieldsInterface,
+  CustomField,
+} from "back-end/types/custom-fields";
 
 const customFieldsSchema = new mongoose.Schema({
   id: {

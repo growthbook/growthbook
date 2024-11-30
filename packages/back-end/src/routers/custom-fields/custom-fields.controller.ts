@@ -1,19 +1,19 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../../services/audit";
+} from "back-end/src/services/audit";
 import {
   CustomField,
   CustomFieldSection,
   CustomFieldsInterface,
   CustomFieldTypes,
-} from "../../../types/custom-fields";
+} from "back-end/types/custom-fields";
 import {
   createCustomField,
   deleteCustomFieldById,
@@ -21,7 +21,7 @@ import {
   getCustomFields,
   updateCustomField,
   updateCustomFieldById,
-} from "../../models/CustomFieldModel";
+} from "back-end/src/models/CustomFieldModel";
 
 const changeArrayPosition = (
   arr: CustomField[],

@@ -743,7 +743,7 @@ const sidebars = {
               type: "doc",
               id: "kb/metrics/fact-metric-optimization",
               label: "Fact Metric Optimization",
-            }
+            },
           ],
         },
         {
