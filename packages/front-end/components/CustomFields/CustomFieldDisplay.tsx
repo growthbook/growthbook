@@ -93,6 +93,7 @@ const CustomFieldDisplay: FC<{
     <div className="mb-4">
       {editModal && (
         <Modal
+          trackingEventModalType="edit-custom-fields"
           header={"Edit Custom Fields"}
           open={editModal}
           close={() => {

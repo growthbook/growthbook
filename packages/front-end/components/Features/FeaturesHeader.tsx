@@ -30,7 +30,6 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 
 export default function FeaturesHeader({
   feature,
@@ -92,7 +91,6 @@ export default function FeaturesHeader({
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
-  const canManageCustomFields = permissionsUtil.canManageCustomFields();
   const isArchived = feature.archived;
 
   return (
@@ -388,14 +386,6 @@ export default function FeaturesHeader({
                 included in SDK Endpoints or Webhook payloads.
               </div>
             )}
-          </div>
-          <div>
-            <CustomFieldDisplay
-              target={feature}
-              canEdit={canManageCustomFields}
-              mutate={mutate}
-              section={"feature"}
-            />
           </div>
           <div id="feature-page-tabs">
             <TabButtons className="mb-0 pb-0">

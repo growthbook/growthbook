@@ -139,7 +139,6 @@ const experimentRule = baseRule
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
-    customFields: z.record(z.any()).optional(),
   })
   .strict();
 
@@ -252,6 +251,7 @@ export const featureInterface = z
     environmentSettings: z.record(z.string(), featureEnvironment),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
+    customFields: z.record(z.any()).optional(),
 
     /** @deprecated */
     legacyDraft: z.union([featureRevisionInterface, z.null()]).optional(),

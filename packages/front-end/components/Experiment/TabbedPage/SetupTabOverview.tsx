@@ -103,14 +103,15 @@ export default function SetupTabOverview({
             headerClassName="h4"
             containerClassName="mb-1"
           />
-          <CustomFieldDisplay
-            target={experiment}
-            canEdit={canEditExperiment}
-            mutate={mutate}
-            section="experiment"
-          />
         </div>
       )}
+      <CustomFieldDisplay
+        addBox={true}
+        target={experiment}
+        canEdit={canEditExperiment}
+        mutate={mutate}
+        section="experiment"
+      />
     </div>
   );
 }
