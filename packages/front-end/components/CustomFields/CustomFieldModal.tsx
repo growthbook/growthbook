@@ -73,16 +73,20 @@ export default function CustomFieldModal({
     .sort((a, b) => (a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1))
     .map((p) => ({ value: p.id, label: p.name }));
 
+  const showSearchableToggle = false;
   return (
     <Modal
       trackingEventModalType={"custom-field"}
       open={true}
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
+      cta={"Save"}
       submit={form.handleSubmit(async (value) => {
         if (value.type === "boolean") {
           // make sure the default value is a boolean
           value.defaultValue = !!value.defaultValue;
+          // unset any placeholder value, as this is not applicable to boolean fields
+          value.placeholder = "";
         }
 
         if (
@@ -98,6 +102,8 @@ export default function CustomFieldModal({
           if (!possibleValues.includes(defaultValue)) {
             throw new Error("Default value must be one of the options");
           }
+          // unset any placeholder value, as this is not applicable to boolean fields
+          value.placeholder = "";
         }
         if (existing.id) {
           const edit = customFields.filter((e) => e.id === existing.id)[0];
@@ -248,15 +254,19 @@ export default function CustomFieldModal({
           ></Tooltip>
         </label>
       </div>
-      <Toggle
-        id={"index"}
-        label="Index"
-        value={!!form.watch("index")}
-        setValue={(value) => {
-          form.setValue("index", value);
-        }}
-      />{" "}
-      <label htmlFor="index">Make this field searchable</label>
+      {showSearchableToggle && (
+        <>
+          <Toggle
+            id={"index"}
+            label="Index"
+            value={!!form.watch("index")}
+            setValue={(value) => {
+              form.setValue("index", value);
+            }}
+          />{" "}
+          <label htmlFor="index">Make this field searchable</label>
+        </>
+      )}
     </Modal>
   );
 }
