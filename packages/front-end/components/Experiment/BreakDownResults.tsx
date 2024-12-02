@@ -33,6 +33,7 @@ import {
 } from "@/components/Experiment/Results";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import UsersTable from "./UsersTable";
+import {SSRExperimentReportPolyfills} from "@/pages/r/[r]";
 
 export function getMetricResultGroup(
   metricId,
@@ -77,6 +78,7 @@ const BreakDownResults: FC<{
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isBandit?: boolean;
+  ssrPolyfills?: SSRExperimentReportPolyfills;
 }> = ({
   dimensionId,
   results,
@@ -102,6 +104,7 @@ const BreakDownResults: FC<{
   metricFilter,
   setMetricFilter,
   isBandit,
+  ssrPolyfills,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -111,7 +114,9 @@ const BreakDownResults: FC<{
     metricGroups,
     ready,
   } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
+  const _pValueThreshold = usePValueThreshold();
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
@@ -122,24 +127,35 @@ const BreakDownResults: FC<{
     expandedSecondaries,
     expandedGuardrails,
   } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedGoals = expandMetricGroups(
+      goalMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
     const expandedSecondaries = expandMetricGroups(
       secondaryMetrics,
-      metricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
     const expandedGuardrails = expandMetricGroups(
       guardrailMetrics,
-      metricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
 
     return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+  }, [
+    goalMetrics,
+    metricGroups,
+    ssrPolyfills?.metricGroups,
+    secondaryMetrics,
+    guardrailMetrics
+  ]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
     [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
       (metricId) => {
-        const metric = getExperimentMetricById(metricId);
+        const metric =
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId);
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
@@ -150,11 +166,12 @@ const BreakDownResults: FC<{
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
+    ssrPolyfills,
     getExperimentMetricById,
   ]);
 
   const tables = useMemo<TableDef[]>(() => {
-    if (!ready) return [];
+    if (!ready && !ssrPolyfills) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
       setAdjustedPValuesOnResults(results, expandedGoals, pValueCorrection);
@@ -166,7 +183,11 @@ const BreakDownResults: FC<{
       ...expandedSecondaries,
       ...expandedGuardrails,
     ]
-      .map((metricId) => getExperimentMetricById(metricId))
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
@@ -175,7 +196,9 @@ const BreakDownResults: FC<{
 
     return Array.from(new Set(sortedFilteredMetrics))
       .map((metricId) => {
-        const metric = getExperimentMetricById(metricId);
+        const metric =
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId);
         if (!metric) return;
         const ret = sortAndFilterMetricsByTags([metric], metricFilter);
         if (ret.length === 0) return;
@@ -224,6 +247,7 @@ const BreakDownResults: FC<{
     statsEngine,
     pValueThreshold,
     ready,
+    ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
   ]);
@@ -330,6 +354,7 @@ const BreakDownResults: FC<{
               metricFilter={metricFilter}
               isTabActive={true}
               isBandit={isBandit}
+              ssrPolyfills={ssrPolyfills}
             />
             <div className="mb-5" />
           </>

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
+import {ExperimentReportArgs, ExperimentReportInterface, ReportInterface} from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -119,6 +119,11 @@ export default function ReportPage() {
   const report = data.report;
   if (!report) {
     return null;
+  }
+
+  // todo: replace with proper fork
+  if (report.type === "experiment-snapshot") {
+    return (<h1>Snapshot report: {report.tinyid}</h1>);
   }
 
   const variations = report.args.variations;
@@ -356,7 +361,7 @@ export default function ReportPage() {
                             "update",
                             "RefreshData",
                             datasource?.type || null,
-                            res.report
+                            res.report as ExperimentReportInterface
                           );
                           mutate();
                           setRefreshError("");
@@ -369,7 +374,7 @@ export default function ReportPage() {
                         icon="refresh"
                         cta="Refresh Data"
                         mutate={mutate}
-                        model={report}
+                        model={report as ExperimentReportInterface}
                         cancelEndpoint={`/report/${report.id}/cancel`}
                         color="outline-primary"
                       />
@@ -393,7 +398,7 @@ export default function ReportPage() {
                           "update",
                           "ForceRefreshData",
                           datasource?.type || null,
-                          res.report
+                          res.report as ExperimentReportInterface
                         );
                         mutate();
                       } catch (e) {
@@ -524,7 +529,7 @@ export default function ReportPage() {
                     "update",
                     "VariationIdWarning",
                     datasource?.type || null,
-                    res.updatedReport
+                    res.updatedReport as ExperimentReportInterface
                   );
                   mutate();
                 }}

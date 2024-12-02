@@ -63,6 +63,11 @@ export async function postReportFromSnapshot(
   // Create a new report-specific snapshot
   snapshot.id = uniqid("snp_");
   snapshot.type = "report";
+  snapshot.triggeredBy = "manual";
+  if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
+    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
+    snapshot.health.traffic.dimension = {};
+  }
   await createExperimentSnapshotModel({ data: snapshot, context });
 
   // todo: hash dependencies so we can see if settings/inputs are stale

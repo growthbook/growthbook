@@ -118,11 +118,13 @@ const CompactResults: FC<{
 }) => {
   const {
     getExperimentMetricById,
-    // getMetricGroupById,
     metricGroups,
     ready,
   } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
+
+  const _pValueThreshold = usePValueThreshold();
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -191,10 +193,7 @@ const CompactResults: FC<{
       const metric =
         ssrPolyfills?.getExperimentMetricById?.(metricId) ||
         getExperimentMetricById(metricId);
-
-      if (!metric) {
-        return null;
-      }
+      if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
         metricOverrides

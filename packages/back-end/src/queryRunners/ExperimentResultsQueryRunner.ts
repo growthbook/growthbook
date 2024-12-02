@@ -464,7 +464,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         error: healthQuery.error,
         variations: this.model.settings.variations,
       });
-      result.health = { traffic: trafficHealth };
+      result.health = {
+        traffic: trafficHealth,
+      };
     }
 
     return result;

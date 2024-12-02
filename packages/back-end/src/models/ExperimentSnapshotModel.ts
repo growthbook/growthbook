@@ -440,9 +440,7 @@ export async function createExperimentSnapshotModel({
   context: Context;
 }): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
-
   await notifyExperimentChange({ context, snapshot: created });
-
   return toInterface(created);
 }
 

@@ -51,7 +51,7 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
   args: ExperimentReportArgs;
   results?: ExperimentReportResults;
   error?: string;
-  queries?: Queries;
+  queries: Queries;
 }
 
 export interface ExperimentReportVariation {
