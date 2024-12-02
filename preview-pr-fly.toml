@@ -10,7 +10,7 @@ primary_region = 'sjc'
 [env]
   ALLOW_SELF_ORG_CREATION = true
   DISABLE_TELEMETRY = 'debug'
-  IS_CLOUD = true
+  IS_CLOUD = false
   IS_MULTI_ORG = true
 
 [[services]]
