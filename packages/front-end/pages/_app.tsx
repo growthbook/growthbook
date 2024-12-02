@@ -1,17 +1,13 @@
-import Cookies from "js-cookie";
-import { AppProps } from "next/app";
-import "@/styles/global.scss";
-import "@/styles/global-radix-overrides.scss";
+// NB: Order matters
 import "@radix-ui/themes/styles.css";
-import "@/styles/theme-config.css";
+import "@/styles/radix-config.css";
+import "@/styles/global-radix-overrides.scss";
+import "@/styles/global.scss";
+
+import { AppProps } from "next/app";
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
-import {
-  Context,
-  GrowthBook,
-  GrowthBookProvider,
-  BrowserCookieStickyBucketService,
-} from "@growthbook/growthbook-react";
+import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -23,19 +19,17 @@ import {
   DefinitionsGuard,
   DefinitionsProvider,
 } from "@/services/DefinitionsContext";
-import track from "@/services/track";
 import { initEnv, isTelemetryEnabled } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";
-import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
-import { GB_SDK_ID } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
+import { growthbook, gbContext } from "@/services/utils";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -55,22 +49,6 @@ type ModAppProps = AppProps & {
     noLoadingOverlay?: boolean;
   };
 };
-
-const gbContext: Context = {
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: GB_SDK_ID,
-  enableDevMode: true,
-  trackingCallback: (experiment, result) => {
-    track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.variationId,
-    });
-  },
-  stickyBucketService: new BrowserCookieStickyBucketService({
-    jsCookie: Cookies,
-  }),
-};
-export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
 function App({
   Component,
@@ -139,7 +117,6 @@ function App({
         }
       };
     }
-    track("App Load");
   }, [ready]);
 
   useEffect(() => {
@@ -148,14 +125,6 @@ function App({
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    growthbook.setURL(window.location.href);
-    track("page-load", {
-      pathName: router.pathname,
-    });
-  }, [ready, router.pathname]);
 
   const renderPreAuth = () => {
     if (!ready || !progressiveAuth) {

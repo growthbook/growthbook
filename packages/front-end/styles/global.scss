@@ -790,7 +790,8 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report, main.main.r {
+main.main.report,
+main.main.r {
   .experiment-results {
     th {
       &.axis-col {
@@ -3413,10 +3414,4 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
-}
-.text-color-high {
-  color: var(--text-color-high);
-}
-.text-color-mid {
-  color: var(--text-color-mid);
 }
