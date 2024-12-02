@@ -1,3 +1,5 @@
+import { CreateProps } from "back-end/src/models/BaseModel";
+
 export type CustomFieldTypes =
   | "text"
   | "textarea"
@@ -10,25 +12,24 @@ export type CustomFieldTypes =
   | "date"
   | "datetime";
 
-export type CustomFieldValues = Record<string, string>;
-
 export type CustomFieldSection = "experiment" | "feature";
 
 export type CustomField = {
   id: string;
   name: string;
-  description: string;
-  placeholder: string;
+  description?: string;
+  placeholder?: string;
   defaultValue?: boolean | string;
   type: CustomFieldTypes;
   values?: string;
   required: boolean;
   index?: boolean;
-  owner?: string;
+  creator?: string;
   projects?: string[];
   section: CustomFieldSection;
-  dateCreated: string | Date;
-  dateUpdated: string | Date;
+  dateCreated: Date;
+  dateUpdated: Date;
+  active?: boolean;
 };
 
 export type CustomFieldsInterface = {
@@ -36,3 +37,5 @@ export type CustomFieldsInterface = {
   organization: string;
   fields: CustomField[];
 };
+
+export type CreateCustomFieldsProps = CreateProps<CustomFieldsInterface>;

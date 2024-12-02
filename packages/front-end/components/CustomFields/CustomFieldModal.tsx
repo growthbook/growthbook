@@ -4,7 +4,6 @@ import {
   CustomFieldSection,
   CustomFieldTypes,
 } from "back-end/types/custom-fields";
-import uniqid from "uniqid";
 import React from "react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,7 +35,6 @@ export default function CustomFieldModal({
 
   const form = useForm<Partial<CustomField>>({
     defaultValues: {
-      id: existing.id || uniqid("cfl_"),
       name: existing.name || "",
       description: existing.description || "",
       values: existing.values || "",
@@ -50,8 +48,6 @@ export default function CustomFieldModal({
       section: existing.section || section,
       projects: existing.projects || [project] || [],
       required: existing.required ?? false,
-      dateCreated:
-        existing.dateCreated || new Date().toISOString().substr(0, 16),
       index: true,
     },
   });

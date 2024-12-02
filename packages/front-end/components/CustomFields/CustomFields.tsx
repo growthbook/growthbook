@@ -17,7 +17,6 @@ import {
 } from "@dnd-kit/sortable";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { GBEdit } from "@/components/Icons";
 import {
   SortableCustomFieldRow,
   StaticCustomFieldRow,
@@ -25,6 +24,7 @@ import {
 import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 
 const CustomFields: FC<{
   section: CustomFieldSection;
@@ -105,22 +105,17 @@ const CustomFields: FC<{
         <div className="row mb-3 align-items-center">
           <div className="col-auto">
             <h3>{title}</h3>
-            <p className="text-gray"></p>
           </div>
           <div style={{ flex: 1 }} />
           {permissionsUtils.canManageCustomFields() && (
             <div className="col-auto">
-              <button
-                className="btn btn-primary float-right"
+              <Button
                 onClick={() => {
                   setModalOpen({});
                 }}
               >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBEdit />
-                </span>
                 Add Custom Field
-              </button>
+              </Button>
             </div>
           )}
         </div>

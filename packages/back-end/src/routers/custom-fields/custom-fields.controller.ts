@@ -1,7 +1,5 @@
 import type { Response } from "express";
-import uniqid from "uniqid";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   auditDetailsCreate,
@@ -9,28 +7,10 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import {
-  CustomField,
   CustomFieldSection,
   CustomFieldsInterface,
   CustomFieldTypes,
 } from "back-end/types/custom-fields";
-import {
-  createCustomField,
-  deleteCustomFieldById,
-  getCustomFieldById,
-  getCustomFields,
-  updateCustomField,
-  updateCustomFieldById,
-} from "back-end/src/models/CustomFieldModel";
-
-const changeArrayPosition = (
-  arr: CustomField[],
-  old_index: number,
-  new_index: number
-) => {
-  arr.splice(new_index, 0, arr.splice(old_index, 1)[0]);
-  return arr; // for testing
-};
 
 // region POST /custom-fields
 
@@ -67,7 +47,6 @@ export const postCustomField = async (
   req: CreateCustomFieldRequest,
   res: Response<CreateCustomFieldResponse>
 ) => {
-  const { org } = getContextFromReq(req);
   const {
     name,
     description,
@@ -82,8 +61,8 @@ export const postCustomField = async (
   } = req.body;
 
   req.checkPermissions("manageCustomFields");
-
-  const existingFields = await getCustomFields(org.id);
+  const context = getContextFromReq(req);
+  const existingFields = await context.models.customFields.getCustomFields();
 
   // check if this name already exists:
   if (existingFields) {
@@ -91,14 +70,11 @@ export const postCustomField = async (
       (field) => field.name === name && field.section === section
     );
     if (existingCustomField) {
-      return res.status(403).json({
-        status: 404,
-        message: "Custom field name already exists for this section",
-      });
+      throw new Error("Custom field name already exists for this section");
     }
   }
-  const newCustomField: CustomField = {
-    id: uniqid("cfl_"),
+
+  const updated = await context.models.customFields.addCustomField({
     name,
     description,
     placeholder,
@@ -106,51 +82,28 @@ export const postCustomField = async (
     type,
     values,
     required,
-    index,
+    index: !!index,
     projects,
     section,
-    owner: req.userId,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  };
+  });
 
-  let newFields: CustomFieldsInterface = {
-    id: existingFields?.id ?? uniqid("cfd_"),
-    fields: [newCustomField],
-    organization: org.id,
-  };
-  let customField;
-  if (existingFields) {
-    // the org already has some custom fields - so just append this field:
-    newFields = {
-      ...existingFields,
-      fields: [...existingFields.fields, newCustomField],
-    };
-    customField = await updateCustomField(org.id, newFields);
-
-    if (!customField) {
-      return res.status(403).json({
-        status: 404,
-        message: "Custom field not updated",
-      });
-    }
-  } else {
-    customField = await createCustomField(newFields);
+  if (!updated) {
+    throw new Error("Custom field not created");
   }
 
   await req.audit({
     event: "customField.create",
     entity: {
       object: "customField",
-      id: customField.id,
+      id: updated.id,
       name: name,
     },
-    details: auditDetailsCreate(customField),
+    details: auditDetailsCreate(req.body),
   });
 
   return res.status(200).json({
     status: 200,
-    customField,
+    customField: updated,
   });
 };
 
@@ -183,29 +136,26 @@ export const postReorderCustomFields = async (
   req: ReorderCustomFieldsRequest,
   res: Response<ReorderCustomFieldsResponse>
 ) => {
-  const { org } = getContextFromReq(req);
   const { oldId, newId } = req.body;
 
   req.checkPermissions("manageCustomFields");
+  const context = getContextFromReq(req);
 
-  const existingFields = await getCustomFields(org.id);
+  const existingFields = await context.models.customFields.getCustomFields();
 
   // check if this name already exists:
   if (!existingFields || !existingFields.fields) {
     return res.status(403).json({
-      status: 404,
-      message: "Custom field name already exists for this section",
+      status: 403,
+      message: "Could not find the custom fields",
     });
   }
 
-  const items = existingFields.fields;
-  const oldIndex = items?.findIndex((x) => x.id === oldId);
-  const newIndex = items?.findIndex((x) => x.id === newId);
-  const newItems = changeArrayPosition(items, oldIndex, newIndex);
+  const customField = await context.models.customFields.reorderCustomFields(
+    oldId,
+    newId
+  );
 
-  const newCustomField = { ...existingFields, fields: newItems };
-
-  const customField = await updateCustomField(org.id, newCustomField);
   if (!customField) {
     return res.status(403).json({
       status: 404,
@@ -217,7 +167,7 @@ export const postReorderCustomFields = async (
     event: "customField.update",
     entity: {
       object: "customField",
-      id: newCustomField.id,
+      id: customField.id,
     },
     details: auditDetailsCreate(customField),
   });
@@ -260,9 +210,8 @@ type PutCustomFieldResponse = {
  */
 export const putCustomField = async (
   req: PutCustomFieldRequest,
-  res: Response<PutCustomFieldResponse | ApiErrorResponse>
+  res: Response<PutCustomFieldResponse>
 ) => {
-  const { org } = getContextFromReq(req);
   const {
     name,
     description,
@@ -283,34 +232,36 @@ export const putCustomField = async (
 
   req.checkPermissions("manageCustomFields");
 
-  const customField = await getCustomFieldById(id, org.id);
+  const context = getContextFromReq(req);
 
-  if (!customField) {
-    throw new Error("Could not find custom field");
+  const originalCustomFields = await context.models.customFields.getCustomFields();
+  const newCustomFields = await context.models.customFields.updateCustomField(
+    id,
+    {
+      name,
+      description,
+      placeholder,
+      defaultValue,
+      type,
+      values,
+      required,
+      index: !!index,
+      projects,
+      section,
+    }
+  );
+
+  if (!newCustomFields) {
+    throw new Error("Custom field not updated");
   }
-
-  const changes = await updateCustomFieldById(id, org.id, {
-    name,
-    description,
-    placeholder,
-    defaultValue,
-    type,
-    values,
-    required,
-    index,
-    projects,
-    section,
-  });
-
-  const updatedCustomField = { ...customField, ...changes };
 
   await req.audit({
     event: "customField.update",
     entity: {
       object: "customField",
-      id: updatedCustomField.id,
+      id: newCustomFields.id,
     },
-    details: auditDetailsUpdate(customField, updatedCustomField),
+    details: auditDetailsUpdate(originalCustomFields, newCustomFields),
   });
 
   return res.status(200).json({
@@ -328,15 +279,6 @@ type DeleteCustomFieldRequest = AuthRequest<
   Record<string, never>
 >;
 
-type DeleteCustomFieldResponse =
-  | {
-      status: 200;
-    }
-  | {
-      status: number;
-      message: string;
-    };
-
 /**
  * DELETE /custom-fields/:id
  * Delete one custom-field resource by ID
@@ -345,24 +287,18 @@ type DeleteCustomFieldResponse =
  */
 export const deleteCustomField = async (
   req: DeleteCustomFieldRequest,
-  res: Response<DeleteCustomFieldResponse>
+  res: Response<{ status: 200 }>
 ) => {
   req.checkPermissions("manageCustomFields");
 
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const customFields = await getCustomFieldById(id, org.id);
+  const customFields = await context.models.customFields.deleteCustomField(id);
 
   if (!customFields) {
-    res.status(403).json({
-      status: 404,
-      message: "Custom field not found",
-    });
-    return;
+    throw new Error("Custom field not found");
   }
-
-  await deleteCustomFieldById(id, org.id);
 
   await req.audit({
     event: "customField.delete",

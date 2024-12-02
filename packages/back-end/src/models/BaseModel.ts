@@ -508,6 +508,7 @@ export abstract class BaseModel<
     options?: {
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
+      skipChangeCheck?: boolean;
     }
   ) {
     updates = this.updateValidator.parse(updates);
@@ -519,7 +520,7 @@ export abstract class BaseModel<
     updates = pick(updates, updatedFields);
 
     // If no updates are needed, return immediately
-    if (!updatedFields.length) {
+    if (!options?.skipChangeCheck && !updatedFields.length) {
       return doc;
     }
 

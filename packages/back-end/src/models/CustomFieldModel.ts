@@ -1,177 +1,159 @@
-import mongoose from "mongoose";
+import { z } from "zod";
 import uniqid from "uniqid";
-import { omit } from "lodash";
 import {
-  CustomFieldsInterface,
-  CustomField,
-} from "back-end/types/custom-fields";
+  customFieldsPropsValidator,
+  customFieldsValidator,
+} from "back-end/src/routers/custom-fields/custom-fields.validators";
+import { MakeModelClass } from "./BaseModel";
 
-const customFieldsSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
+const BaseClass = MakeModelClass({
+  schema: customFieldsValidator,
+  collectionName: "customfields",
+  idPrefix: "cfd_",
+  auditLog: {
+    entity: "customField",
+    createEvent: "customField.create",
+    updateEvent: "customField.update",
+    deleteEvent: "customField.delete",
   },
-  organization: {
-    type: String,
-    index: true,
-  },
-  fields: [
-    {
-      id: {
-        type: String,
-        unique: true,
-      },
-      name: String,
-      description: String,
-      placeholder: String,
-      defaultValue: {},
-      type: {
-        type: String,
-      },
-      values: String,
-      required: Boolean,
-      index: Boolean,
-      creator: String,
-      projects: [String],
-      section: String,
-      dateCreated: Date,
-      dateUpdated: Date,
-      active: Boolean,
-    },
-  ],
+  globallyUniqueIds: false,
 });
 
-type CustomFieldDocument = mongoose.Document & CustomFieldsInterface;
+export type CustomField = z.infer<typeof customFieldsPropsValidator>;
 
-const CustomFieldModel = mongoose.model<CustomFieldsInterface>(
-  "customField",
-  customFieldsSchema
-);
-
-type CreateCustomFieldProps = Omit<
-  CustomFieldsInterface,
-  "dateCreated" | "dateUpdated" | "id"
->;
-
-type UpdateCustomFieldProps = Omit<
-  CustomField,
-  "dateCreated" | "dateUpdated" | "id" | "organization"
->;
-
-const toInterface = (doc: CustomFieldDocument): CustomFieldsInterface =>
-  omit(
-    doc.toJSON<CustomFieldDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
-
-export async function createCustomField(
-  customField: CreateCustomFieldProps
-): Promise<CustomFieldsInterface> {
-  const fields = await CustomFieldModel.create({
-    ...customField,
-    id: uniqid("cfd_"),
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  });
-  return toInterface(fields);
-}
-
-// export async function getAllCustomFields(
-//   organization: string
-// ): Promise<CustomFieldsInterface[]> {
-//   const customFields: CustomFieldDocument[] = await CustomFieldModel.find({
-//     organization,
-//   });
-//   return customFields.map((value) => value.toJSON()) || [];
-// }
-
-export async function getCustomFields(
-  organization: string
-): Promise<CustomFieldsInterface | null> {
-  const customField = await CustomFieldModel.findOne({
-    organization: organization,
-  });
-
-  return customField ? toInterface(customField) : null;
-}
-export async function getCustomFieldById(
-  customFieldId: string,
-  organization: string
-): Promise<CustomFieldsInterface | null> {
-  const customField = await CustomFieldModel.findOne({
-    "fields.id": customFieldId,
-    organization: organization,
-  });
-
-  return customField ? toInterface(customField) : null;
-}
-
-export async function updateCustomField(
-  organization: string,
-  customFields: CustomFieldsInterface
-): Promise<CustomFieldsInterface | null> {
-  const existing = await getCustomFields(organization);
-  if (!existing) {
-    return null;
+export class CustomFieldModel extends BaseClass {
+  protected canRead(): boolean {
+    return this.context.permissions.canReadSingleProjectResource("");
   }
-  const updated = { ...existing, ...customFields };
-  await CustomFieldModel.updateOne(
-    { id: existing.id, organization: organization },
-    updated
-  );
 
-  return updated;
-}
-export async function updateCustomFieldById(
-  customFieldId: string,
-  organization: string,
-  customFields: UpdateCustomFieldProps
-): Promise<CustomFieldsInterface | null> {
-  const changes = {
-    ...customFields,
-    dateUpdated: new Date(),
-  };
-
-  const existingField = await getCustomFieldById(customFieldId, organization);
-  if (!existingField) {
-    return null;
+  protected canCreate(): boolean {
+    return this.context.permissions.canManageCustomFields();
   }
-  const newFields = existingField.fields.map((field) => {
-    if (field.id === customFieldId) {
-      return {
-        ...field,
-        ...changes,
-      };
+
+  protected canUpdate(): boolean {
+    return this.context.permissions.canManageCustomFields();
+  }
+
+  protected canDelete(): boolean {
+    return this.context.permissions.canManageCustomFields();
+  }
+
+  public async getCustomFields() {
+    const customFieldsArr = await this.getAll();
+    if (customFieldsArr && customFieldsArr.length > 0) {
+      return customFieldsArr[0];
     }
-    return field;
-  });
-
-  await CustomFieldModel.updateOne(
-    {
-      id: existingField.id,
-      organization: organization,
-    },
-    { ...existingField, fields: newFields }
-  );
-
-  return getCustomFieldById(customFieldId, organization);
-}
-
-// Deleting custom fields means deleting the element from an array of custom fields.
-export async function deleteCustomFieldById(id: string, organization: string) {
-  const existingFields = await getCustomFields(organization);
-  if (!existingFields) {
     return null;
   }
-  const newFields = existingFields.fields.filter((field) => field.id !== id);
 
-  await CustomFieldModel.updateOne(
-    {
-      id: existingFields.id,
-      organization: organization,
-    },
-    { ...existingFields, fields: newFields }
-  );
+  public async getCustomFieldByFieldId(customFieldId: string) {
+    const customFields = await this.getCustomFields();
+    if (!customFields) {
+      return null;
+    }
+    customFields.fields.forEach((field) => {
+      if (field.id === customFieldId) {
+        return field;
+      }
+    });
+    return null;
+  }
 
-  return getCustomFieldById(id, organization);
+  /**
+   * Because each organization should only have one set of custom fields,
+   * this method will either create a new set of custom fields or update
+   * the existing set. Also, each custom field has its own unique id, and
+   * this should not be set outside of the model.
+   * @param customField
+   */
+  public async addCustomField(
+    customField: Omit<
+      CustomField,
+      "id" | "dateCreated" | "dateUpdated" | "creator" | "active"
+    >
+  ) {
+    const customFieldId = uniqid("cfl_");
+    const newCustomField = {
+      active: true,
+      ...customField,
+      id: customFieldId,
+      creator: this.context.userId,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+    const existing = await this.getCustomFields();
+    if (existing) {
+      const newFields = [...existing.fields, newCustomField];
+      const updated = await this.update(existing, { fields: newFields });
+      if (!updated) {
+        throw new Error("Failed to add custom field");
+      }
+      return updated;
+    }
+
+    const created = await this.create({ fields: [newCustomField] });
+    if (!created) {
+      throw new Error("Failed to create custom field");
+    }
+    return created;
+  }
+
+  public async updateCustomField(
+    customFieldId: string,
+    customFieldUpdates: Partial<CustomField>
+  ) {
+    const existing = await this.getCustomFields();
+    if (!existing) {
+      return null;
+    }
+    const newFields = existing.fields.map((field) => {
+      if (field.id === customFieldId) {
+        return {
+          field,
+          ...customFieldUpdates,
+          id: customFieldId,
+          dateCreated: field.dateCreated,
+          dateUpdated: new Date(),
+        } as CustomField;
+      }
+      return field;
+    });
+    return await this.update(existing, { fields: newFields });
+  }
+
+  public async deleteCustomField(customFieldId: string) {
+    const existing = await this.getCustomFields();
+    if (!existing) {
+      return null;
+    }
+    const newFields = existing.fields.filter(
+      (field) => field.id !== customFieldId
+    );
+    return await this.update(existing, { fields: newFields });
+  }
+
+  /**
+   * This is required here as the regular update method does not allow for skipping the change check.
+   * And reordering custom fields is not a change that is detected.
+   * @param oldId
+   * @param newId
+   */
+  public async reorderCustomFields(oldId: string, newId: string) {
+    const existing = await this.getCustomFields();
+    if (!existing) {
+      return null;
+    }
+    const oldIndex = existing.fields.findIndex((field) => field.id === oldId);
+    const newIndex = existing.fields.findIndex((field) => field.id === newId);
+    if (oldIndex === -1 || newIndex === -1) {
+      return null;
+    }
+    const newFields = [...existing.fields];
+    newFields.splice(newIndex, 0, newFields.splice(oldIndex, 1)[0]);
+    return await this._updateOne(
+      existing,
+      { fields: newFields },
+      { skipChangeCheck: true }
+    );
+  }
 }

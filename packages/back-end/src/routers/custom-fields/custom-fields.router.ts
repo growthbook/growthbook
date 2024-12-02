@@ -3,6 +3,11 @@ import z from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawCustomFieldController from "./custom-fields.controller";
+import {
+  createCustomFieldsValidator,
+  redorderFieldsValidator,
+  updateCustomFieldsValidator,
+} from "./custom-fields.validators";
 
 const router = express.Router();
 
@@ -11,18 +16,7 @@ const customFieldController = wrapController(rawCustomFieldController);
 router.post(
   "/",
   validateRequestMiddleware({
-    body: z.object({
-      name: z.string(),
-      description: z.string(),
-      placeholder: z.string(),
-      defaultValue: z.any().optional(),
-      type: z.any(),
-      values: z.string().optional(),
-      required: z.boolean(),
-      index: z.boolean().optional(),
-      projects: z.string().array().optional(),
-      section: z.enum(["feature", "experiment"]),
-    }),
+    body: createCustomFieldsValidator,
   }),
   customFieldController.postCustomField
 );
@@ -30,10 +24,7 @@ router.post(
 router.post(
   "/reorder",
   validateRequestMiddleware({
-    body: z.object({
-      oldId: z.string(),
-      newId: z.string(),
-    }),
+    body: redorderFieldsValidator,
   }),
   customFieldController.postReorderCustomFields
 );
@@ -46,18 +37,7 @@ router.put(
         id: z.string(),
       })
       .strict(),
-    body: z.object({
-      name: z.string(),
-      description: z.string(),
-      placeholder: z.string(),
-      defaultValue: z.any().optional(),
-      type: z.any(),
-      values: z.string().optional(),
-      required: z.boolean(),
-      index: z.boolean().optional(),
-      projects: z.string().array().optional(),
-      section: z.enum(["feature", "experiment"]),
-    }),
+    body: updateCustomFieldsValidator,
   }),
   customFieldController.putCustomField
 );
