@@ -121,6 +121,13 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
       try {
         if (updated === "system") {
           localStorage.removeItem(STORAGE_KEY_THEME);
+          const systheme = window.matchMedia("(prefers-color-scheme: dark)")
+            ? "dark"
+            : "light";
+          document.documentElement.classList.add(
+            `theme--${systheme}`,
+            `${systheme}-theme` // This is for the Radix UI theme
+          );
         } else {
           document.documentElement.classList.add(
             `theme--${updated}`,
