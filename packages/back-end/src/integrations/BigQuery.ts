@@ -153,6 +153,16 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
+  hllAggregate(col: string): string {
+    return `HLL_COUNT.INIT(${col})`;
+  }
+  // reaggregates and counts in one method
+  hllReaggregate(col: string): string {
+    return `HLL_COUNT.MERGE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `${col}`;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     const multiplier = 10000;
     const quantileVal = Number(quantile)

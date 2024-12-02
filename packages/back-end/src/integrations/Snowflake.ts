@@ -43,6 +43,15 @@ export default class Snowflake extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  hllAggregate(col: string): string {
+    return `HLL_ACCUMULATE(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `HLL_COMBINE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `HLL_ESTIMATE(${col})`;
+  }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }

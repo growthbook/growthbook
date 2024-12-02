@@ -19,6 +19,9 @@ export default class Vertica extends SqlIntegration {
       encryptedParams
     );
   }
+  hasCountDistinctReaggregation(): boolean {
+    return false;
+  }
   getFormatDialect(): FormatDialect {
     return "postgresql";
   }

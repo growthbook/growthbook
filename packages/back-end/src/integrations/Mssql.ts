@@ -13,6 +13,10 @@ export default class Mssql extends SqlIntegration {
       encryptedParams
     );
   }
+
+  hasCountDistinctReaggregation(): boolean {
+    return false;
+  }
   getFormatDialect(): FormatDialect {
     return "tsql";
   }

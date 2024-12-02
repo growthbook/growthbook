@@ -15,6 +15,7 @@ import {
   FactTableInterface,
   MetricWindowSettings,
   ColumnInterface,
+  ColumnAggregation,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
@@ -238,6 +239,16 @@ function ColumnRefSelector({
     includeCount: aggregationType === "unit",
   });
 
+  // TODO datasource works with count distinct
+  const aggregationOptions: {
+    label: string;
+    value: ColumnAggregation;
+  }[] = [
+    { label: "Sum", value: "sum" },
+    { label: "Max", value: "max" },
+    { label: "Count Distinct", value: "count distinct" },
+  ]
+
   const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
     .filter((col) =>
       canInlineFilterColumn(factTable as FactTableInterface, col)
@@ -412,18 +423,16 @@ function ColumnRefSelector({
           aggregationType === "unit" && (
             <div className="col-auto">
               <SelectField
-                label={
-                  <>
-                    Aggregation{" "}
-                    <Tooltip body="Only SUM is supported today, but more aggregation types may be added in the future." />
-                  </>
+                label={"Aggregation"}
+                value={value.aggregation || "sum"}
+                onChange={(v) => 
+                  setValue({
+                    ...value,
+                    aggregation: v as ColumnAggregation
+                  })
                 }
-                value="sum"
-                onChange={() => {
-                  /*do nothing*/
-                }}
-                disabled
-                options={[{ label: "Sum", value: "sum" }]}
+                sort={false}
+                options={aggregationOptions}
               />
             </div>
           )}
@@ -577,14 +586,18 @@ function getPreviewSQL({
       ? "COUNT(*)"
       : numerator.column === "$$distinctUsers"
       ? "1"
-      : `SUM(${numerator.column})`;
+      : numerator.aggregation === "count distinct"
+      ? `COUNT(DISTINCT ${numerator.column})`
+      : `${(numerator.aggregation ?? "sum").toUpperCase()}(${numerator.column})`;
 
   const denominatorCol =
     denominator?.column === "$$count"
       ? "COUNT(*)"
       : denominator?.column === "$$distinctUsers"
       ? "1"
-      : `SUM(${denominator?.column})`;
+      : numerator.aggregation === "count distinct"
+      ? `COUNT(DISTINCT ${denominator?.column})`
+      : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${denominator?.column})`;
 
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
@@ -651,11 +664,11 @@ SELECT
     type === "quantile"
       ? `-- Final result\n  PERCENTILE(${
           quantileSettings.ignoreZeros
-            ? `m.value`
-            : `\n    -- COALESCE to include NULL in the calculation\n    COALESCE(m.value,0)\n  `
-        }, ${quantileSettings.quantile})`
+            ? `m.value,`
+            : `\n    -- COALESCE to include NULL in the calculation\n    COALESCE(m.value, 0),\n  `
+        }  ${quantileSettings.quantile}${!quantileSettings.ignoreZeros ? "\n  ": ""})`
       : `-- Final result\n  numerator / denominator`
-  } as value
+  } AS value
 FROM
   experiment_users u
   LEFT JOIN ${
@@ -982,7 +995,7 @@ export default function FactMetricModal({
               ? "count"
               : values.numerator.column === "$$distinctUsers"
               ? "distinct_users"
-              : "sum",
+              : values.numerator.aggregation || "sum",
           numerator_filters: values.numerator.filters.length,
           denominator_agg:
             values.denominator?.column === "$$count"
@@ -990,7 +1003,7 @@ export default function FactMetricModal({
               : values.denominator?.column === "$$distinctUsers"
               ? "distinct_users"
               : values.denominator?.column
-              ? "sum"
+              ? values.denominator?.aggregation || "sum"
               : "none",
           denominator_filters: values.denominator?.filters?.length || 0,
           ratio_same_fact_table:

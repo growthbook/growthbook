@@ -95,6 +95,15 @@ export default class ClickHouse extends SqlIntegration {
   ensureFloat(col: string): string {
     return `toFloat64(${col})`;
   }
+  hllAggregate(col: string): string {
+    return `uniqState(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `uniqMerge(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `${col}`;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     return `quantile(${quantile})(${value})`;
     // TODO explore gains to using `quantiles`

@@ -15,6 +15,9 @@ export default class Mysql extends SqlIntegration {
       encryptedParams
     );
   }
+  hasCountDistinctReaggregation(): boolean {
+    return false;
+  }
   getFormatDialect(): FormatDialect {
     return "mysql";
   }

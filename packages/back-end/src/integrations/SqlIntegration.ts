@@ -179,6 +179,7 @@ export default abstract class SqlIntegration
       dropUnitsTable: this.dropUnitsTable(),
       hasQuantileTesting: this.hasQuantileTesting(),
       hasEfficientPercentiles: this.hasEfficientPercentile(),
+      hasCountDistinctReaggregation: this.hasCountDistinctReaggregation(),
     };
   }
 
@@ -307,6 +308,18 @@ export default abstract class SqlIntegration
   }
   hasEfficientPercentile(): boolean {
     return true;
+  }
+  hasCountDistinctReaggregation(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
+  }
+  hllReaggregate(col: string): string {
+    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
+  }
+  hllCardinality(col: string): string {
+    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
   }
 
   private getExposureQuery(
@@ -4779,6 +4792,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         metric.quantileSettings?.ignoreZeros
       ) {
         return `SUM(${valueColumn})`;
+      } else if (columnRef?.aggregation === "count distinct") {
+        return this.hllAggregate(valueColumn);
+      } else if (columnRef?.aggregation === "max") {
+        return `MAX(COALESCE(${valueColumn}, 0))`;
       } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
       }
@@ -4853,8 +4870,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         (metric.metricType === "proportion" || column === "$$distinctUsers")
       ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
-      }
-      {
+      } else if (columnRef?.aggregation === "count distinct") {
+        return this.hllCardinality(this.hllReaggregate(valueColumn));
+      } else if (columnRef?.aggregation === "max") {
+        return `MAX(COALESCE(${valueColumn}, 0))`;
+      } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
       }
     }

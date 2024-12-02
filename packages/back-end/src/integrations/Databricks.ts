@@ -63,6 +63,15 @@ export default class Databricks extends SqlIntegration {
   escapeStringLiteral(value: string): string {
     return value.replace(/(['\\])/g, "\\$1");
   }
+  hllAggregate(col: string): string {
+    return `HLL_SKETCH_AGG(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `HLL_UNION_AGG(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `HLL_SKETCH_ESTIMATE(${col})`;
+  }
 
   getDefaultDatabase(): string {
     return this.params.catalog;

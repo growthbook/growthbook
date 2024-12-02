@@ -14,6 +14,9 @@ export default class Postgres extends SqlIntegration {
       encryptedParams
     );
   }
+  hasCountDistinctReaggregation(): boolean {
+    return false;
+  }
   getFormatDialect(): FormatDialect {
     return "postgresql";
   }
@@ -40,6 +43,9 @@ export default class Postgres extends SqlIntegration {
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
+  }
+  hllAggregate(col: string): string {
+    throw new Error("COUNT DISTINCT fact metrics are not supported in Vertica.");
   }
   approxQuantile(value: string, quantile: string | number): string {
     // no approx in postgres
