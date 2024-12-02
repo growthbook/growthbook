@@ -24,7 +24,7 @@ npm install --save @growthbook/growthbook
 First, create and instantiate a singleton GrowthBook client. You can do this as part of your server startup script.
 
 ```js
-const gbClient = new GrowthBookMultiUser({
+const gbClient = new GrowthBookClient({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123"
 });
@@ -88,7 +88,7 @@ Scoped instances were first introduced in SDK version 1.3.1.
 
 ### GrowthBook class (legacy)
 
-The `GrowthBookMultiUser` class was introduced in SDK version 1.3.0 to improve performance in back-end environments by up to 3x. It does this by re-using the core instance across many different user requests.
+The `GrowthBookClient` class was introduced in SDK version 1.3.0 to improve performance in back-end environments by up to 3x. It does this by re-using the core instance across many different user requests.
 
 For backwards compatibility, we still support the old way of doing things with the `GrowthBook` class, where you would create a new instance for every incoming request.
 
@@ -121,10 +121,10 @@ In order for the GrowthBook SDK to work, it needs to have feature and experiment
 
 ### Built-in Fetching and Caching
 
-If you pass an `apiHost` and `clientKey` into the `GrowthBookMultiUser` constructor, it will handle the network requests, caching, retry logic, etc. for you automatically.
+If you pass an `apiHost` and `clientKey` into the `GrowthBookClient` constructor, it will handle the network requests, caching, retry logic, etc. for you automatically.
 
 ```ts
-const gbClient = new GrowthBookMultiUser({
+const gbClient = new GrowthBookClient({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
 });
@@ -184,7 +184,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ```ts
-const gbClient = new GrowthBookMultiUser().initSync({
+const gbClient = new GrowthBookClient().initSync({
   payload: {
     features: {...}
   }
@@ -211,7 +211,7 @@ setPolyfills({
   EventSource: require("eventsource"),
 });
 
-const gbClient = new GrowthBookMultiUser({
+const gbClient = new GrowthBookClient({
   clientKey: "sdk-abc123"
 });
 
@@ -271,7 +271,7 @@ configureCache({
 
 In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
 
-You can specify this globally in your GrowthBookMultiUser class and/or per-request in your user context.
+You can specify this globally in your GrowthBookClient class and/or per-request in your user context.
 
 We recommend using a global callback if you plan to track events directly from Node and using a user context callback if you plan to send events to the front-end to fire.
 
@@ -279,7 +279,7 @@ When specified globally, the callbacks will receive an additional argument with 
 
 ```js
 // Callback configured globally
-const gbClient = new GrowthBookMultiUser({
+const gbClient = new GrowthBookClient({
   trackingCallback: (experiment, result, userContext) => {
     const userId = userContext.attributes.id;
 
@@ -427,7 +427,7 @@ interface AppFeatures {
 }
 
 // Pass into the GrowthBook instance
-const gbClient = new GrowthBookMultiUser<AppFeatures>({
+const gbClient = new GrowthBookClient<AppFeatures>({
   ...
 });
 ```
@@ -478,10 +478,10 @@ const userContext = {
 
 #### Global Attributes
 
-Sometimes there are global attributes that apply to all users. For example, the ip of your server. These can be specified on the GrowthBookMultiUser instance and will be merged with any attributes in the user context.
+Sometimes there are global attributes that apply to all users. For example, the ip of your server. These can be specified on the GrowthBookClient instance and will be merged with any attributes in the user context.
 
 ```js
-const gbClient = new GrowthBookMultiuser({
+const gbClient = new GrowthBookClient({
   globalAttributes: {
     serverIp: "10.1.1.1"
   }
@@ -529,11 +529,11 @@ const userContext = {
 
 GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
 
-Like with the `trackingCallback`, this can be defined on either the GrowthBookMultiUser instance or as part of the user context. When defined on the GrowthBookMultiUser instance, a 3rd argument with the user context will be sent so you can identify which user evaluated a feature.
+Like with the `trackingCallback`, this can be defined on either the GrowthBookClient instance or as part of the user context. When defined on the GrowthBookClient instance, a 3rd argument with the user context will be sent so you can identify which user evaluated a feature.
 
 ```js
 // Callback configured globally
-const gbClient = new GrowthBookMultiUser({
+const gbClient = new GrowthBookClient({
   onFeatureUsage: (featureKey, result, userContext) => {
     console.log(`${featureKey}=${result.value} for user ${userContext.attributes.id}`);
   }

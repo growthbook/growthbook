@@ -69,7 +69,10 @@ export {
 
 export { GrowthBook, prefetchPayload } from "./GrowthBook";
 
-export { GrowthBookMultiUser } from "./GrowthBookMultiUser";
+export {
+  GrowthBookClient as GrowthBookMultiUser,
+  GrowthBookClient,
+} from "./GrowthBookClient";
 
 export {
   StickyBucketService,

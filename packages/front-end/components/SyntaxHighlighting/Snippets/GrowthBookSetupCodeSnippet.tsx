@@ -190,9 +190,9 @@ export default function MyApp() {
           <Code
             language="javascript"
             code={`
-  const { GrowthBookMultiUser } = require("@growthbook/growthbook");
+  const { GrowthBookClient } = require("@growthbook/growthbook");
   
-  const client = new GrowthBookMultiUser({
+  const client = new GrowthBookClient({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
               encryptionKey

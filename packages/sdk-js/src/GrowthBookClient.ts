@@ -37,7 +37,7 @@ import { StickyBucketService } from "./sticky-bucket-service";
 
 const SDK_VERSION = loadSDKVersion();
 
-export class GrowthBookMultiUser<
+export class GrowthBookClient<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AppFeatures extends Record<string, any> = Record<string, any>
 > {
@@ -83,7 +83,7 @@ export class GrowthBookMultiUser<
     this.ready = true;
   }
 
-  public initSync(options: InitSyncOptions): GrowthBookMultiUser<AppFeatures> {
+  public initSync(options: InitSyncOptions): GrowthBookClient<AppFeatures> {
     const payload = options.payload;
 
     if (payload.encryptedExperiments || payload.encryptedFeatures) {
@@ -328,10 +328,10 @@ export class UserScopedGrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AppFeatures extends Record<string, any> = Record<string, any>
 > {
-  private _gb: GrowthBookMultiUser;
+  private _gb: GrowthBookClient;
   private _userContext: UserContext;
 
-  constructor(gb: GrowthBookMultiUser<AppFeatures>, userContext: UserContext) {
+  constructor(gb: GrowthBookClient<AppFeatures>, userContext: UserContext) {
     this._gb = gb;
     this._userContext = userContext;
   }
