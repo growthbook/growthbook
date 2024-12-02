@@ -24,7 +24,7 @@ import LargeSavedGroupPerformanceWarning, {
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -209,13 +209,13 @@ export default function IdLists({ groups, mutate }: Props) {
                           </td>
                           <td>
                             {(s?.projects?.length || 0) > 0 ? (
-                              <ProjectBadges
+                              <ProjectNames
                                 resourceType="saved group"
                                 projectIds={s.projects}
                                 className="badge-ellipsis short align-middle"
                               />
                             ) : (
-                              <ProjectBadges
+                              <ProjectNames
                                 resourceType="saved group"
                                 className="badge-ellipsis short align-middle"
                               />

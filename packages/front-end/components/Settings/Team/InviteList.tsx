@@ -7,7 +7,7 @@ import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ChangeRoleModal from "./ChangeRoleModal";
@@ -180,7 +180,7 @@ const InviteList: FC<{
                         if (p?.name) {
                           return (
                             <div key={`project-tags-${p.id}`}>
-                              <ProjectBadges
+                              <ProjectNames
                                 resourceType="member"
                                 projectIds={[p.id]}
                                 className="badge-ellipsis short align-middle font-weight-normal"

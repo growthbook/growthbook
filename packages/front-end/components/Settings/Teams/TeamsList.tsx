@@ -6,7 +6,7 @@ import { FaCheck, FaTimes } from "react-icons/fa";
 import { RxIdCard } from "react-icons/rx";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
@@ -73,7 +73,7 @@ const TeamsList: FC = () => {
                           if (p?.name) {
                             return (
                               <div key={`project-tags-${p.id}`}>
-                                <ProjectBadges
+                                <ProjectNames
                                   resourceType="team"
                                   projectIds={[p.id]}
                                   className="badge-ellipsis short align-middle font-weight-normal"

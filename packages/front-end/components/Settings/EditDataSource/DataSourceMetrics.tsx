@@ -9,7 +9,7 @@ import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -164,12 +164,12 @@ export default function DataSourceMetrics({
                             >
                               <strong>Projects: </strong>
                               {!metric?.projects?.length ? (
-                                <ProjectBadges
+                                <ProjectNames
                                   resourceType="metric"
                                   className="badge-ellipsis align-middle"
                                 />
                               ) : (
-                                <ProjectBadges
+                                <ProjectNames
                                   resourceType="metric"
                                   projectIds={metric.projects}
                                   className={clsx(

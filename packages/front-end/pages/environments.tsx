@@ -8,7 +8,7 @@ import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OldButton from "@/components/Button";
@@ -107,13 +107,13 @@ const EnvironmentsPage: FC = () => {
                   <td>{e.description}</td>
                   <td>
                     {(e?.projects?.length || 0) > 0 ? (
-                      <ProjectBadges
+                      <ProjectNames
                         resourceType="environment"
                         projectIds={e.projects}
                         className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges
+                      <ProjectNames
                         resourceType="environment"
                         className="badge-ellipsis short align-middle"
                       />

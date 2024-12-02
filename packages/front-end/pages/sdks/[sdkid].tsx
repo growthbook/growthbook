@@ -27,7 +27,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Radix/Badge";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionStatus from "@/components/Features/SDKConnections/ConnectionStatus";
@@ -190,7 +190,7 @@ export default function SDKConnectionPage() {
                   "small mt-1": showAllEnvironmentProjects,
                 })}
               >
-                <ProjectBadges
+                <ProjectNames
                   projectIds={
                     filteredProjectIdsWithDisallowed.length
                       ? filteredProjectIdsWithDisallowed

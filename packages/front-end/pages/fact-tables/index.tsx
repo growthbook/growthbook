@@ -17,7 +17,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -422,13 +422,13 @@ export default function FactTablesPage() {
                   </td>
                   <td className="col-2">
                     {f.projects.length > 0 ? (
-                      <ProjectBadges
+                      <ProjectNames
                         resourceType="fact table"
                         projectIds={f.projects}
                         className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges
+                      <ProjectNames
                         resourceType="fact table"
                         className="badge-ellipsis short align-middle"
                       />

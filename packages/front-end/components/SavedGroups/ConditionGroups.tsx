@@ -15,7 +15,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -163,13 +163,13 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                         <td>{truncateString(s.description || "", 40)}</td>
                         <td>
                           {(s?.projects?.length || 0) > 0 ? (
-                            <ProjectBadges
+                            <ProjectNames
                               resourceType="saved group"
                               projectIds={s.projects}
                               className="badge-ellipsis short align-middle"
                             />
                           ) : (
-                            <ProjectBadges
+                            <ProjectNames
                               resourceType="saved group"
                               className="badge-ellipsis short align-middle"
                             />

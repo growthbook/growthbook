@@ -25,7 +25,7 @@ import LargeSavedGroupPerformanceWarning, {
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 
 const NUM_PER_PAGE = 10;
 
@@ -285,13 +285,13 @@ export default function EditSavedGroupPage() {
               <div>
                 {(savedGroup.projects?.length || 0) > 0 ? (
                   <div className={"d-flex align-items-center"}>
-                    <ProjectBadges
+                    <ProjectNames
                       projectIds={savedGroup.projects}
                       resourceType="saved group"
                     />
                   </div>
                 ) : (
-                  <ProjectBadges
+                  <ProjectNames
                     resourceType="saved group"
                     className="badge-ellipsis short align-middle"
                   />

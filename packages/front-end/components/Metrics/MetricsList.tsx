@@ -6,7 +6,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
 import SortedTags from "@/components/Tags/SortedTags";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
@@ -518,13 +518,13 @@ const MetricsList = (): React.ReactElement => {
                 </td>
                 <td className="col-2">
                   {metric && (metric.projects || []).length > 0 ? (
-                    <ProjectBadges
+                    <ProjectNames
                       resourceType="metric"
                       projectIds={metric.projects}
                       className="badge-ellipsis short align-middle"
                     />
                   ) : (
-                    <ProjectBadges
+                    <ProjectNames
                       resourceType="metric"
                       className="badge-ellipsis short align-middle"
                     />

@@ -14,7 +14,7 @@ import { useAttributeSchema, useFeaturesList } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -152,7 +152,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           )}
         </td>
         <td className="col-2">
-          <ProjectBadges
+          <ProjectNames
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
             className="badge-ellipsis short align-middle"

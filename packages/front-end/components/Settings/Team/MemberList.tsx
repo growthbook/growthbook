@@ -6,7 +6,7 @@ import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import ProjectNames from "@/components/ProjectNames";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { usingSSO } from "@/services/env";
 import { useEnvironments } from "@/services/features";
@@ -182,7 +182,7 @@ const MemberList: FC<{
                         if (p?.name) {
                           return (
                             <div key={`project-tags-${p.id}`}>
-                              <ProjectBadges
+                              <ProjectNames
                                 resourceType="member"
                                 projectIds={[p.id]}
                                 className="badge-ellipsis short align-middle font-weight-normal"
