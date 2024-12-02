@@ -127,7 +127,7 @@ export default function ExperimentHeader({
   const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
-  const { phase } = useSnapshot();
+  const { phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
   const [showSdkForm, setShowSdkForm] = useState(false);
 
@@ -172,6 +172,10 @@ export default function ExperimentHeader({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
+  const hasResults = !!analysis?.results?.[0];
+  const shouldHideTabs =
+    experiment.status === "draft" && !hasResults && phases.length === 1;
+
   async function startExperiment() {
     if (!experiment.phases?.length) {
       if (newPhase) {
@@ -206,7 +210,11 @@ export default function ExperimentHeader({
 
   return (
     <>
-      <div className="experiment-header bg-white px-3 pt-3">
+      <div
+        className={clsx("experiment-header", "bg-white", "px-3", "pt-3", {
+          border: shouldHideTabs,
+        })}
+      >
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
@@ -541,103 +549,105 @@ export default function ExperimentHeader({
         </div>
       </div>
 
-      <div
-        className={clsx(
-          "experiment-tabs bg-white px-3 border-bottom d-print-none",
-          {
-            pinned: headerPinned,
-          }
-        )}
-      >
-        <div className="container-fluid pagecontents position-relative">
-          <div className="row align-items-center header-tabs">
-            <div
-              className="col-auto pt-2 tab-wrapper"
-              id="experiment-page-tabs"
-            >
-              <TabButtons className="mb-0 pb-0">
-                <TabButton
-                  active={tab === "overview"}
-                  display={
-                    <>
-                      <FaHome /> Overview
-                    </>
-                  }
-                  anchor="overview"
-                  onClick={() => setTab("overview")}
-                  newStyle={false}
-                  activeClassName="active-tab"
-                />
-                <TabButton
-                  active={tab === "results"}
-                  display={
-                    <>
-                      <PiChartBarHorizontalFill /> Results
-                    </>
-                  }
-                  anchor="results"
-                  onClick={() => setTab("results")}
-                  newStyle={false}
-                  activeClassName="active-tab"
-                  last={false}
-                />
-                {isBandit && (
+      {shouldHideTabs ? null : (
+        <div
+          className={clsx(
+            "experiment-tabs bg-white px-3 border-bottom d-print-none",
+            {
+              pinned: headerPinned,
+            }
+          )}
+        >
+          <div className="container-fluid pagecontents position-relative">
+            <div className="row align-items-center header-tabs">
+              <div
+                className="col-auto pt-2 tab-wrapper"
+                id="experiment-page-tabs"
+              >
+                <TabButtons className="mb-0 pb-0">
                   <TabButton
-                    active={tab === "explore"}
+                    active={tab === "overview"}
                     display={
                       <>
-                        <FaMagnifyingGlassChart /> Explore
+                        <FaHome /> Overview
                       </>
                     }
-                    anchor="explore"
-                    onClick={() => setTab("explore")}
+                    anchor="overview"
+                    onClick={() => setTab("overview")}
+                    newStyle={false}
+                    activeClassName="active-tab"
+                  />
+                  <TabButton
+                    active={tab === "results"}
+                    display={
+                      <>
+                        <PiChartBarHorizontalFill /> Results
+                      </>
+                    }
+                    anchor="results"
+                    onClick={() => setTab("results")}
                     newStyle={false}
                     activeClassName="active-tab"
                     last={false}
                   />
-                )}
-                {disableHealthTab ? (
-                  <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                    <span className="nav-item nav-link text-muted">
-                      <FaHeartPulse /> Health
-                    </span>
-                  </DisabledHealthTabTooltip>
-                ) : (
-                  <TabButton
-                    active={tab === "health"}
-                    display={
-                      <>
+                  {isBandit && (
+                    <TabButton
+                      active={tab === "explore"}
+                      display={
+                        <>
+                          <FaMagnifyingGlassChart /> Explore
+                        </>
+                      }
+                      anchor="explore"
+                      onClick={() => setTab("explore")}
+                      newStyle={false}
+                      activeClassName="active-tab"
+                      last={false}
+                    />
+                  )}
+                  {disableHealthTab ? (
+                    <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                      <span className="nav-item nav-link text-muted">
                         <FaHeartPulse /> Health
-                      </>
-                    }
-                    anchor="health"
-                    onClick={() => {
-                      track("Open health tab", { source: "tab-click" });
-                      setTab("health");
-                    }}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                    last={true}
-                    notificationCount={healthNotificationCount}
-                  />
-                )}
-              </TabButtons>
-            </div>
+                      </span>
+                    </DisabledHealthTabTooltip>
+                  ) : (
+                    <TabButton
+                      active={tab === "health"}
+                      display={
+                        <>
+                          <FaHeartPulse /> Health
+                        </>
+                      }
+                      anchor="health"
+                      onClick={() => {
+                        track("Open health tab", { source: "tab-click" });
+                        setTab("health");
+                      }}
+                      newStyle={false}
+                      activeClassName="active-tab"
+                      last={true}
+                      notificationCount={healthNotificationCount}
+                    />
+                  )}
+                </TabButtons>
+              </div>
 
-            <div className="flex-1" />
-            <div className="col-auto experiment-date-range">
-              {startDate && (
-                <>
-                  {startDate} — {endDate}{" "}
-                  <span className="text-muted">
-                    ({daysBetween(startDate, endDate || new Date())} days)
-                  </span>
-                </>
-              )}
+              <div className="flex-1" />
+              <div className="col-auto experiment-date-range">
+                {startDate && (
+                  <>
+                    {startDate} — {endDate}{" "}
+                    <span className="text-muted">
+                      ({daysBetween(startDate, endDate || new Date())} days)
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
