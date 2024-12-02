@@ -46,6 +46,8 @@ jobs:
             APP_ORIGIN=https://pr-${{ github.event.number }}-growthbook.fly.dev
             API_HOST=https://pr-${{ github.event.number }}-growthbook.fly.dev:4433
             MONGODB_URI=${{ secrets.MONGODB_URI_STAGING }}
+            JWT_SECRET=${{ secrets.MONGODB_URI_STAGING }}
+            LICENSE_KEY=${{ secrets.STAGING_LICENSE_KEY }}
 
       - name: Allocate public IP
         run: flyctl ips allocate-v4 --shared -a pr-${{ github.event.number }}-growthbook
