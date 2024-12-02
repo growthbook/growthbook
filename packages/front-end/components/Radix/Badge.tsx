@@ -4,14 +4,17 @@ import { RadixColor } from "@/components/Radix/HelperText";
 
 type Props = {
   label: string;
+  icon?: React.ReactNode;
   title?: string;
   color?: RadixColor;
   variant?: "solid" | "soft";
+  radius?: "none" | "small" | "medium" | "large" | "full";
 } & MarginProps;
 
-export default function Badge({ label, title, ...props }: Props) {
+export default function Badge({ label, title, color, icon, ...props }: Props) {
   return (
-    <RadixBadge title={title} {...props}>
+    <RadixBadge title={title} color={color} {...props}>
+      {icon ? icon : null}
       <Text as="span" weight="medium">
         {label}
       </Text>

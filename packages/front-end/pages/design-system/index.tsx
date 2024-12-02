@@ -28,6 +28,7 @@ import Link from "@/components/Radix/Link";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
 import DatePicker from "@/components/DatePicker";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -650,6 +651,22 @@ export default function DesignSystemPage() {
         <Flex gap="3">
           <Metadata label="Title" value="Data" />
           <Metadata label="Title1" value="Data1" />
+        </Flex>
+      </div>
+      <div className="appbox p-3">
+        <h3>Experiment Status Badge</h3>
+        <Flex gap="2" wrap="wrap">
+          <ExperimentStatusIndicator status="draft" />
+          <ExperimentStatusIndicator status="running" />
+          <ExperimentStatusIndicator status="running" subStatus="exploratory" />
+          <ExperimentStatusIndicator status="stopped" />
+          <ExperimentStatusIndicator status="stopped" subStatus="won" />
+          <ExperimentStatusIndicator status="stopped" subStatus="lost" />
+          <ExperimentStatusIndicator status="stopped" subStatus="dnf" />
+          <ExperimentStatusIndicator
+            status="stopped"
+            subStatus="inconclusive"
+          />
         </Flex>
       </div>
     </div>
