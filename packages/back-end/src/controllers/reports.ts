@@ -46,8 +46,9 @@ import {
   experimentAnalysisSettings,
 } from "back-end/src/validators/experiments";
 import { FactMetricInterface } from "back-end/types/fact-table";
-import { MetricInterface } from "back-end/types/metric";
+import {Condition, LegacyMetricAnalysis, MetricInterface} from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
+import {Queries} from "back-end/types/query";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -264,7 +265,11 @@ export async function getReportPublic(
   );
 
   const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
-    (map, metric) => Object.assign(map, { [metric.id]: metric }),
+    (map, metric) => Object.assign(map, {
+      [metric.id]: omit(metric, [
+        "queries", "runStarted", "analysis", "analysisError", "table", "column", "timestampColumn", "conditions", "queryFormat"
+      ])
+    }),
     {}
   );
 
@@ -308,34 +313,6 @@ export async function getReportPublic(
     factTables: factTableMap,
     settings: orgSettings,
   };
-
-  // todo - metrics:
-  // 3. scrub defs
-
-  // todo - MetricValueColumn, etc (ResultsTable, ResultsTableTooltip):
-  // 1. displayCurrency = useCurrency();
-  // 2. { getFactTableById, getMetricById } = useDefinitions();
-  // 3. ResultsTableTooltip: useCurrency, usePValueThreshold, getFactTableById
-
-  // todo - PercentGraph:
-  // 1. import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-  // 2. import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-  // 3. import usePValueThreshold from "@/hooks/usePValueThreshold";
-
-  // todo - AlignedGraph:
-  // 1. metricDisplayCurrency = useCurrency();
-  // 2. { getFactTableById } = useDefinitions();
-
-  // todo - ChangeColumn:
-  // 1. displayCurrency = useCurrency();
-  // 2. { getFactTableById } = useDefinitions();
-
-  // todo - definitions:
-  // 1. { metricDefaults, getMinSampleSizeForMetric } = useOrganizationMetricDefaults();
-  // 2. { ciUpper, ciLower } = useConfidenceLevels();
-  // 3. pValueThreshold = usePValueThreshold();
-  // 4. displayCurrency = useCurrency(); (user context)
-  // 5. getMaxPercentageChangeForMetric, getMinPercentageChangeForMetric, getMinSampleSizeForMetric
 
   res.status(200).json({
     status: 200,

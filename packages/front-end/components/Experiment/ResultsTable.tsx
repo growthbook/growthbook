@@ -140,10 +140,11 @@ export default function ResultsTable({
 
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
+  const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
   const {
     metricDefaults,
     getMinSampleSizeForMetric,
-  } = useOrganizationMetricDefaults();
+  } = ssrPolyfills?.useOrganizationMetricDefaults?.() || _useOrganizationMetricDefaults;
 
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
@@ -602,6 +603,7 @@ export default function ResultsTable({
                       rowHeight: METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
+                      ssrPolyfills
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -644,6 +646,7 @@ export default function ResultsTable({
                             : ROW_HEIGHT,
                           id,
                           domain,
+                          ssrPolyfills,
                         });
                       } else {
                         return null;
@@ -844,6 +847,7 @@ export default function ResultsTable({
                                   ? rowResults.resultsStatus
                                   : undefined
                               }
+                              ssrPolyfills={ssrPolyfills}
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
@@ -869,6 +873,7 @@ export default function ResultsTable({
                               axisOnly={true}
                               graphWidth={graphCellWidth}
                               height={32}
+                              ssrPolyfills={ssrPolyfills}
                             />
                           )}
                         </td>
@@ -880,6 +885,7 @@ export default function ResultsTable({
                             differenceType={differenceType}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
+                            ssrPolyfills={ssrPolyfills}
                           />
                         ) : (
                           <td></td>
@@ -918,6 +924,7 @@ function drawEmptyRow({
   rowHeight = SPACER_ROW_HEIGHT,
   id,
   domain,
+  ssrPolyfills,
 }: {
   key?: number | string;
   className?: string;
@@ -927,6 +934,7 @@ function drawEmptyRow({
   rowHeight?: number;
   id: string;
   domain: [number, number];
+  ssrPolyfills?: SSRExperimentReportPolyfills;
 }) {
   return (
     <tr key={key} style={style} className={className}>
@@ -940,6 +948,7 @@ function drawEmptyRow({
           axisOnly={true}
           graphWidth={graphCellWidth}
           height={rowHeight}
+          ssrPolyfills={ssrPolyfills}
         />
       </td>
       <td />
