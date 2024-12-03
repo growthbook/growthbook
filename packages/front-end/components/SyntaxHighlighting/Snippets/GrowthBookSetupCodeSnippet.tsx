@@ -190,28 +190,30 @@ export default function MyApp() {
           <Code
             language="javascript"
             code={`
-  const { GrowthBookClient } = require("@growthbook/growthbook");
-  
-  const client = new GrowthBookClient({
-    apiHost: ${JSON.stringify(apiHost)},
-    clientKey: ${JSON.stringify(apiKey)},${
+const { GrowthBookClient } = require("@growthbook/growthbook");
+
+const client = new GrowthBookClient({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
               encryptionKey
                 ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
                 : ""
             }
-    trackingCallback: (experiment, result, userContext) => {
-      // ${trackingComment}
-      console.log("Viewed Experiment", userContext.attributes.id, {
-        experimentId: experiment.key,
-        variationId: result.key
-      });
-    }
-  });
+  trackingCallback: (experiment, result, userContext) => {
+    // ${trackingComment}
+    console.log("Viewed Experiment", userContext.attributes.id, {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
+  }
+});
 
-  await client.init({ timeout: 1000 });
+await client.init({ timeout: 1000 });
           `.trim()}
           />
-          Add a middleware before any routes that will use GrowthBook.
+          Use a middleware to create a GrowthBook instance that is scoped to the
+          current user/request. Store this in the request object for use in
+          other routes.
           <Code
             language="javascript"
             code={`
