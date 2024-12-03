@@ -3,9 +3,7 @@ import {
   ExperimentPhaseStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { FaAngleRight, FaExclamationTriangle, FaHome } from "react-icons/fa";
-import { PiChartBarHorizontalFill } from "react-icons/pi";
-import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
+import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import {
   experimentHasLiveLinkedChanges,
@@ -24,10 +22,9 @@ import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
+import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
@@ -560,77 +557,52 @@ export default function ExperimentHeader({
         >
           <div className="container-fluid pagecontents position-relative">
             <div className="row align-items-center header-tabs">
-              <div
-                className="col-auto pt-2 tab-wrapper"
-                id="experiment-page-tabs"
-              >
-                <TabButtons className="mb-0 pb-0">
-                  <TabButton
-                    active={tab === "overview"}
-                    display={
-                      <>
-                        <FaHome /> Overview
-                      </>
-                    }
-                    anchor="overview"
-                    onClick={() => setTab("overview")}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                  />
-                  <TabButton
-                    active={tab === "results"}
-                    display={
-                      <>
-                        <PiChartBarHorizontalFill /> Results
-                      </>
-                    }
-                    anchor="results"
-                    onClick={() => setTab("results")}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                    last={false}
-                  />
-                  {isBandit && (
-                    <TabButton
-                      active={tab === "explore"}
-                      display={
-                        <>
-                          <FaMagnifyingGlassChart /> Explore
-                        </>
-                      }
-                      anchor="explore"
-                      onClick={() => setTab("explore")}
-                      newStyle={false}
-                      activeClassName="active-tab"
-                      last={false}
-                    />
-                  )}
-                  {disableHealthTab ? (
-                    <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                      <span className="nav-item nav-link text-muted">
-                        <FaHeartPulse /> Health
-                      </span>
-                    </DisabledHealthTabTooltip>
-                  ) : (
-                    <TabButton
-                      active={tab === "health"}
-                      display={
-                        <>
-                          <FaHeartPulse /> Health
-                        </>
-                      }
-                      anchor="health"
-                      onClick={() => {
-                        track("Open health tab", { source: "tab-click" });
-                        setTab("health");
-                      }}
-                      newStyle={false}
-                      activeClassName="active-tab"
-                      last={true}
-                      notificationCount={healthNotificationCount}
-                    />
-                  )}
-                </TabButtons>
+              <div className="col-auto tab-wrapper" id="experiment-page-tabs">
+                <Tabs value={tab} onValueChange={setTab}>
+                  <TabsList>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="results">Results</TabsTrigger>
+                    {isBandit && (
+                      <TabsTrigger value="explore">Explore</TabsTrigger>
+                    )}
+                    {disableHealthTab ? (
+                      <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                        <span className="nav-item nav-link text-muted">
+                          Health
+                        </span>
+                      </DisabledHealthTabTooltip>
+                    ) : (
+                      <TabsTrigger
+                        value="health"
+                        onClick={() => {
+                          track("Open health tab", { source: "tab-click" });
+                        }}
+                      >
+                        Health
+                        {healthNotificationCount > 0 && (
+                          <div
+                            className={`position-absolute badge d-flex justify-content-center align-self-center mr-1`}
+                            style={{
+                              zIndex: 1,
+                              width: 20,
+                              height: 20,
+                              right: 0,
+                              top: 3,
+                              borderRadius: 50,
+                              backgroundColor: "#f00",
+                              color: "#fff",
+                              lineHeight: 0.7,
+                              boxShadow: "0 1px 2px #00000036",
+                              border: "1px solid #fff",
+                            }}
+                          >
+                            {healthNotificationCount}
+                          </div>
+                        )}
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+                </Tabs>
               </div>
 
               <div className="flex-1" />
