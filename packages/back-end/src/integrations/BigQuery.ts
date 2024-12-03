@@ -156,7 +156,6 @@ export default class BigQuery extends SqlIntegration {
   hllAggregate(col: string): string {
     return `HLL_COUNT.INIT(${col})`;
   }
-  // reaggregates and counts in one method
   hllReaggregate(col: string): string {
     return `HLL_COUNT.MERGE_PARTIAL(${col})`;
   }

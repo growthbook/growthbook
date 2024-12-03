@@ -19,8 +19,17 @@ export default class Vertica extends SqlIntegration {
       encryptedParams
     );
   }
-  hasCountDistinctReaggregation(): boolean {
+  hasCountDistinctHLL(): boolean {
     return false;
+  }
+  hllAggregate(): string {
+    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
+  }
+  hllReaggregate(): string {
+    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
+  }
+  hllCardinality(): string {
+    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
   }
   getFormatDialect(): FormatDialect {
     return "postgresql";

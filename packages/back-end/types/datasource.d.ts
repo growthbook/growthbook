@@ -136,7 +136,7 @@ export interface DataSourceProperties {
   dropUnitsTable?: boolean;
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
-  hasCountDistinctReaggregation?: boolean;
+  hasCountDistinctHLL?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {

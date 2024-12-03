@@ -102,7 +102,7 @@ export default class ClickHouse extends SqlIntegration {
     return `uniqMerge(${col})`;
   }
   hllCardinality(col: string): string {
-    return `${col}`;
+    return `finalizeAggregation(${col})`;
   }
   approxQuantile(value: string, quantile: string | number): string {
     return `quantile(${quantile})(${value})`;

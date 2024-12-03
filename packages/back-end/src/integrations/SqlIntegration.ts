@@ -179,7 +179,7 @@ export default abstract class SqlIntegration
       dropUnitsTable: this.dropUnitsTable(),
       hasQuantileTesting: this.hasQuantileTesting(),
       hasEfficientPercentiles: this.hasEfficientPercentile(),
-      hasCountDistinctReaggregation: this.hasCountDistinctReaggregation(),
+      hasCountDistinctHLL: this.hasCountDistinctHLL(),
     };
   }
 
@@ -309,18 +309,12 @@ export default abstract class SqlIntegration
   hasEfficientPercentile(): boolean {
     return true;
   }
-  hasCountDistinctReaggregation(): boolean {
+  hasCountDistinctHLL(): boolean {
     return true;
   }
-  hllAggregate(col: string): string {
-    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
-  }
-  hllReaggregate(col: string): string {
-    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
-  }
-  hllCardinality(col: string): string {
-    throw new Error("COUNT DISTINCT is not supported for fact metrics in this data source.");
-  }
+  abstract hllAggregate(col: string): string;
+  abstract hllReaggregate(col: string): string;
+  abstract hllCardinality(col: string): string;
 
   private getExposureQuery(
     exposureQueryId: string,
@@ -488,7 +482,7 @@ export default abstract class SqlIntegration
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn({
-      metric: params.metric
+      metric: params.metric,
     });
 
     // TODO query is broken if segment has template variables
@@ -731,7 +725,10 @@ export default abstract class SqlIntegration
       columnRef: metric.numerator,
     });
     const finalDailyDenominatorColumn = this.capCoalesceValue({
-      valueCol: this.getValueFromAggregateColumns("denominator", metric.denominator),
+      valueCol: this.getValueFromAggregateColumns(
+        "denominator",
+        metric.denominator
+      ),
       metric,
       capTablePrefix: "cap",
       capValueCol: "denominator_capped",
@@ -786,15 +783,15 @@ export default abstract class SqlIntegration
               useDenominator: false,
               valueColumn: `f.${metricData.alias}_value`,
               willReaggregate: true,
-  })} AS value
+            })} AS value
                   ${
                     metricData.ratioMetric
                       ? `, ${this.getAggregateMetricColumn({
                           metric: metricData.metric,
                           useDenominator: true,
                           valueColumn: `f.${metricData.alias}_denominator`,
-                          willReaggregate: true
-  })} AS denominator`
+                          willReaggregate: true,
+                        })} AS denominator`
                       : ""
                   }
           
@@ -2516,7 +2513,7 @@ export default abstract class SqlIntegration
                         metric: data.metric,
                         useDenominator: true,
                         valueColumn: `umj.${data.alias}_denominator`,
-                        quantileColumn: `qm.${data.alias}_quantile`
+                        quantileColumn: `qm.${data.alias}_quantile`,
                       })} AS ${data.alias}_denominator`
                     : ""
                 }`
@@ -2571,7 +2568,7 @@ export default abstract class SqlIntegration
                       `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                       `${metric.alias}_value`,
                       "NULL"
-                    )
+                    ),
                   })} as ${metric.alias}_value`
               )
               .join(",\n")}
@@ -3059,7 +3056,7 @@ export default abstract class SqlIntegration
           umj.${baseIdType},
           ${this.getAggregateMetricColumn({
             metric,
-            valueColumn: "umj.value"
+            valueColumn: "umj.value",
           })} as value
           ${quantileMetric === "event" ? `, COUNT(umj.value) AS n_events` : ""}
         FROM
@@ -3111,7 +3108,10 @@ export default abstract class SqlIntegration
                 }
                 ${cumulativeDate ? `dr.day AS day,` : ""}
                 d.${baseIdType} AS ${baseIdType},
-                ${this.getAggregateMetricColumn({metric: denominator, useDenominator: true})} as value
+                ${this.getAggregateMetricColumn({
+                  metric: denominator,
+                  useDenominator: true,
+                })} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -3176,7 +3176,7 @@ export default abstract class SqlIntegration
             d.variation AS variation,
             d.dimension AS dimension,
             d.${baseIdType} AS ${baseIdType},
-            ${this.getAggregateMetricColumn({metric})} as value
+            ${this.getAggregateMetricColumn({ metric })} as value
           FROM
             __distinctUsers d
           JOIN __metric m ON (
@@ -4913,7 +4913,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     throw new Error("Non-fact metrics are not supported for reaggregation");
   }
 
-  private getValueFromAggregateColumns(col: string, columnRef?: ColumnRef | null): string {
+  private getValueFromAggregateColumns(
+    col: string,
+    columnRef?: ColumnRef | null
+  ): string {
     if (columnRef?.aggregation === "count distinct") {
       return this.hllCardinality(col);
     }
