@@ -436,8 +436,7 @@ export default function ReportPage() {
                 </div>
               )}
               {!hasData &&
-                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                !report.results.unknownVariations?.length &&
+                !report.results?.unknownVariations?.length &&
                 queryStatusData.status !== "running" &&
                 hasMetrics && (
                   <div className="alert alert-info">
