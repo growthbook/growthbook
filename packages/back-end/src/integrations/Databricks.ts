@@ -64,7 +64,7 @@ export default class Databricks extends SqlIntegration {
     return value.replace(/(['\\])/g, "\\$1");
   }
   hllAggregate(col: string): string {
-    return `HLL_SKETCH_AGG(${col})`;
+    return `HLL_SKETCH_AGG(${this.castToString(col)})`;
   }
   hllReaggregate(col: string): string {
     return `HLL_UNION_AGG(${col})`;
