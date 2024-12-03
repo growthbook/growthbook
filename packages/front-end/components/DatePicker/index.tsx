@@ -2,7 +2,7 @@ import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { format } from "date-fns";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useRef, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -10,6 +10,7 @@ import Field from "@/components/Forms/Field";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
+  id?: string | undefined;
   date: Date | string | undefined;
   setDate: (d: Date | undefined) => void;
   date2?: Date | string | undefined;
@@ -17,7 +18,7 @@ type Props = {
   label?: ReactNode;
   label2?: ReactNode;
   helpText?: ReactNode;
-  inputWidth?: number | string;
+  inputWidth?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
   disableAfter?: Date | string;
@@ -36,6 +37,7 @@ const modifiersClassNames = {
 };
 
 export default function DatePicker({
+  id,
   date,
   setDate,
   date2,
@@ -43,7 +45,7 @@ export default function DatePicker({
   label,
   label2,
   helpText,
-  inputWidth = "100%",
+  inputWidth,
   precision = "datetime",
   disableBefore,
   disableAfter,
@@ -59,8 +61,19 @@ export default function DatePicker({
     date2 = date2 ? getValidDate(date2) : undefined;
   }
 
+  // todo: update calendar's month when interacting with field and month changes
+
   const [originalDate, setOriginalDate] = useState(date);
   const [originalDate2, setOriginalDate2] = useState(date2);
+  const [calendarMonth, setCalendarMonth] = useState(
+    new Date(
+      (date ?? new Date()).getUTCFullYear(),
+      (date ?? new Date()).getUTCMonth()
+    )
+  );
+
+  const [open, setOpen] = useState(false);
+  const fieldClickedTime = useRef(new Date());
 
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
@@ -101,22 +114,32 @@ export default function DatePicker({
   return (
     <div className={containerClassName}>
       <Popover.Root
-        onOpenChange={(open) => {
-          if (!open) {
-            setOriginalDate(date);
-            setOriginalDate2(date2);
+        open={open}
+        onOpenChange={(o) => {
+          if (o) {
+            setOpen(true);
+          }
+          if (!o && +new Date() - +fieldClickedTime.current > 10) {
+            setOpen(false);
+            setOriginalDate(getValidDate(date));
+            setOriginalDate2(getValidDate(date2));
           }
         }}
       >
         <Popover.Trigger asChild>
-          <Flex gap="1rem" display="inline-flex">
-            <div style={{ width: inputWidth, minHeight: 38 }}>
+          <Flex gap="1rem" display={inputWidth ? "inline-flex" : "flex"}>
+            <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
               {label ? <label>{label}</label> : null}
               <div
                 className="form-control p-0"
-                style={{ width: inputWidth, minHeight: 38, overflow: "clip" }}
+                style={{
+                  width: inputWidth || "100%",
+                  minHeight: 38,
+                  overflow: "clip",
+                }}
               >
                 <Field
+                  id={id ?? ""}
                   style={{
                     border: 0,
                     marginRight: -20,
@@ -124,7 +147,7 @@ export default function DatePicker({
                     minHeight: 38,
                     cursor: "pointer",
                   }}
-                  className={clsx({ "text-muted": !date })}
+                  className={clsx("date-picker-field", { "text-muted": !date })}
                   type={precision === "datetime" ? "datetime-local" : "date"}
                   value={
                     date
@@ -137,17 +160,25 @@ export default function DatePicker({
                       : ""
                   }
                   onChange={(e) => {
-                    const d = getValidDate(
-                      e?.target?.value,
-                      getValidDate(date)
-                    );
+                    let d = getValidDate(e?.target?.value, getValidDate(date));
+                    if (disableBefore && d < getValidDate(disableBefore)) {
+                      d = getValidDate(disableBefore);
+                    } else if (disableAfter && d > getValidDate(disableAfter)) {
+                      d = getValidDate(disableAfter);
+                    }
                     setDate(d);
+                    setCalendarMonth(d);
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    fieldClickedTime.current = new Date();
+                    setOpen(true);
                   }}
                 />
               </div>
             </div>
             {isRange && (
-              <div style={{ width: inputWidth, minHeight: 38 }}>
+              <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
                 {label2 ? <label>{label2}</label> : null}
                 <div
                   className="form-control p-0"
@@ -161,7 +192,9 @@ export default function DatePicker({
                       minHeight: 38,
                       cursor: "pointer",
                     }}
-                    className={clsx({ "text-muted": !date2 })}
+                    className={clsx("date-picker-field", {
+                      "text-muted": !date2,
+                    })}
                     type={precision === "datetime" ? "datetime-local" : "date"}
                     value={
                       date2
@@ -174,11 +207,25 @@ export default function DatePicker({
                         : ""
                     }
                     onChange={(e) => {
-                      const d = getValidDate(
+                      let d = getValidDate(
                         e?.target?.value,
                         getValidDate(date2)
                       );
+                      if (disableBefore && d < getValidDate(disableBefore)) {
+                        d = getValidDate(disableBefore);
+                      } else if (
+                        disableAfter &&
+                        d > getValidDate(disableAfter)
+                      ) {
+                        d = getValidDate(disableAfter);
+                      }
                       setDate2?.(d);
+                      setCalendarMonth(d);
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fieldClickedTime.current = new Date();
+                      setOpen(true);
                     }}
                   />
                 </div>
@@ -200,6 +247,10 @@ export default function DatePicker({
                 disabled={disabledMatchers}
                 modifiers={markedDays}
                 modifiersClassNames={modifiersClassNames}
+                fixedWeeks
+                showOutsideDays
+                month={calendarMonth}
+                onMonthChange={(m) => setCalendarMonth(m)}
               />
             ) : (
               <DayPicker
@@ -209,6 +260,10 @@ export default function DatePicker({
                 disabled={disabledMatchers}
                 modifiers={markedDays}
                 modifiersClassNames={modifiersClassNames}
+                fixedWeeks
+                showOutsideDays
+                month={calendarMonth}
+                onMonthChange={(m) => setCalendarMonth(m)}
               />
             )}
             <Popover.Arrow className={styles.Arrow} />

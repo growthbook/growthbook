@@ -577,7 +577,7 @@ function TargetingForm({
               ? "Variation Weights"
               : "Traffic Percentage & Variation Weights"
           }
-          customSplitOn={true}
+          startEditingSplits={true}
         />
       )}
     </div>

@@ -63,8 +63,11 @@ export default function FeaturesStats({
               alignItems: "center",
             }}
           >
-            <PremiumTooltip commercialFeature="code-references">
-              <span className="h2">Enable Code References</span>
+            <PremiumTooltip
+              commercialFeature="code-references"
+              className="mb-2"
+            >
+              <h2 className="m-0 ml-1">Enable Code References</h2>
             </PremiumTooltip>
             <p style={{ width: "32rem" }}>
               Quickly see instances of feature flags being leveraged in your

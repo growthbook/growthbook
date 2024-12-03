@@ -1,6 +1,16 @@
 summary: Deletes a single environment
 parameters:
   - $ref: "../parameters.yaml#/id"
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          removeAssociatedFeatureRules:
+            type: boolean
+            description: "Whether to also remove rules from features for the environment to be deleted"
 tags:
   - environments
 operationId: deleteEnvironment
