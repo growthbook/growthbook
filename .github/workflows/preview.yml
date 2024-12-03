@@ -51,5 +51,6 @@ jobs:
 
       - name: Allocate public IP
         run: flyctl ips allocate-v4 --shared -a pr-${{ github.event.number }}-growthbook
+        if: ${{ github.event.action != 'closed' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
