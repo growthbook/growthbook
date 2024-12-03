@@ -158,10 +158,10 @@ export default class BigQuery extends SqlIntegration {
   }
   // reaggregates and counts in one method
   hllReaggregate(col: string): string {
-    return `HLL_COUNT.MERGE(${col})`;
+    return `HLL_COUNT.MERGE_PARTIAL(${col})`;
   }
   hllCardinality(col: string): string {
-    return `${col}`;
+    return `HLL_COUNT.EXTRACT(${col})`;
   }
   approxQuantile(value: string, quantile: string | number): string {
     const multiplier = 10000;
