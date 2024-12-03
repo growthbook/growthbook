@@ -10,11 +10,11 @@ on:
       - "yarn.lock"
       - "Dockerfile"
       - ".dockerignore"
-    types: [opened, reopened, closed, synchronize, ready_for_review, labeled]
+    types: [opened, reopened, closed, synchronize, ready_for_review]
 
 jobs:
   preview:
-    if: ${{ github.repository == 'growthbook/growthbook' && contains(github.event.pull_request.labels.*.name, 'preview') }}
+    if: ${{ github.repository == 'growthbook/growthbook' }}
     runs-on: ubuntu-latest
     outputs:
       url: ${{ steps.deploy.outputs.url }}
