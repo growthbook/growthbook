@@ -1,6 +1,6 @@
 import React from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { Box, Tabs } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -8,6 +8,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/components/Radix/LinkButton";
 import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/components/Radix/Button";
+import {
+  Tabs,
+  TabsTrigger,
+  TabsList,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, datasources, project } = useDefinitions();
@@ -46,25 +52,25 @@ const MetricsPage = (): React.ReactElement => {
           </div>
         </div>
       ) : (
-        <Tabs.Root defaultValue="metrics">
-          <Tabs.List>
-            <Tabs.Trigger value="metrics">Individual Metrics</Tabs.Trigger>
-            <Tabs.Trigger value="metricgroups">
+        <Tabs defaultValue="metrics">
+          <TabsList>
+            <TabsTrigger value="metrics">Individual Metrics</TabsTrigger>
+            <TabsTrigger value="metricgroups">
               <PremiumTooltip commercialFeature="metric-groups">
                 Metric Groups
               </PremiumTooltip>
-            </Tabs.Trigger>
-          </Tabs.List>
+            </TabsTrigger>
+          </TabsList>
           <Box pt="4">
-            <Tabs.Content value="metrics">
+            <TabsContent value="metrics">
               <MetricsList />
-            </Tabs.Content>
+            </TabsContent>
 
-            <Tabs.Content value="metricgroups">
+            <TabsContent value="metricgroups">
               <MetricGroupsList />
-            </Tabs.Content>
+            </TabsContent>
           </Box>
-        </Tabs.Root>
+        </Tabs>
       )}
     </div>
   );
