@@ -258,3 +258,15 @@
 .rt-TabsContent[data-state="inactive"] {
   display: none;
 }
+
+.rt-BaseTabListTrigger {
+  color: var(--color-text-mid);
+  font-weight: var(--font-weight-medium);
+
+  &:where(:disabled, [data-disabled]) {
+    color: var(--gray-9);
+  }
+  &:where([data-state="active"], [data-active]) {
+    color: var(--color-text-high);
+  }
+}
