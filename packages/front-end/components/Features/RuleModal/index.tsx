@@ -443,12 +443,17 @@ export default function RuleModal({
           );
         }
 
-        track("Create Experiment", {
-          source: "experiment-ref-new-rule-modal",
-          numTags: feature.tags?.length || 0,
-          numMetrics: 0,
-          numVariations: values.values.length || 0,
-        });
+        track(
+          values.experimentType === "multi-armed-bandit"
+            ? "Create Bandit"
+            : "Create Experiment",
+          {
+            source: "experiment-ref-new-rule-modal",
+            numTags: feature.tags?.length || 0,
+            numMetrics: 0,
+            numVariations: values.values.length || 0,
+          }
+        );
 
         // Experiment created, treat it as an experiment ref rule now
         values = {
@@ -723,7 +728,7 @@ export default function RuleModal({
         }
         step={step}
         setStep={setStep}
-        hideNav={ruleType !== "experiment-ref-new"}
+        hideNav={ruleType !== "experiment-ref-new" && ruleType !== "experiment"}
         backButton={true}
         onBackFirstStep={
           isNewRule ? () => setNewRuleOverviewPage(true) : undefined
@@ -790,7 +795,9 @@ export default function RuleModal({
           />
         ) : null}
 
-        {ruleType === "experiment-ref-new" && experimentType === "experiment"
+        {(ruleType === "experiment-ref-new" &&
+          experimentType === "experiment") ||
+        ruleType === "experiment"
           ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields
@@ -844,6 +851,9 @@ export default function RuleModal({
                   setVariations={(variations) =>
                     form.setValue("values", variations)
                   }
+                  variationValuesAsIds={false}
+                  hideVariationIds={true}
+                  startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
                 />
               </Page>

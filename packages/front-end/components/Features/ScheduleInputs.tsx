@@ -1,15 +1,13 @@
 import { ScheduleRule } from "back-end/types/feature";
-import clsx from "clsx";
-import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
-import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Checkbox from "@/components/Radix/Checkbox";
-import styles from "./ScheduleInputs.module.scss";
+import DatePicker from "@/components/DatePicker";
+import Callout from "@/components/Radix/Callout";
 
 interface Props {
   defaultValue: ScheduleRule[];
@@ -20,7 +18,6 @@ interface Props {
 
 export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
-  const [dateErrors, setDateErrors] = useState("");
   const { hasCommercialFeature } = useUser();
 
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
@@ -29,29 +26,28 @@ export default function ScheduleInputs(props: Props) {
     props.onChange(rules);
   }, [props, props.defaultValue, rules]);
 
+  const [date0, setDate0] = useState<Date | undefined>(
+    rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined
+  );
+  const [date1, setDate1] = useState<Date | undefined>(
+    rules?.[1]?.timestamp ? getValidDate(rules[1].timestamp) : undefined
+  );
+
   function dateIsValid(date: Date) {
     return date instanceof Date && !isNaN(date.valueOf());
   }
 
-  const [date0, setDate0] = useState<string>(
-    format(getValidDate(rules?.[0]?.timestamp), "yyyy-MM-dd'T'HH:mm")
-  );
-  const [date1, setDate1] = useState<string>(
-    format(getValidDate(rules?.[1]?.timestamp), "yyyy-MM-dd'T'HH:mm")
-  );
+  const onChange = (value: Date | undefined, property: string, i: number) => {
+    if (i === 0) setDate0(value);
+    if (i === 1) setDate1(value);
+    if (value && !dateIsValid(value)) return;
 
-  const onChange = (value: string | null, property: string, i: number) => {
-    if (value && !dateIsValid(new Date(value))) {
-      return;
-    }
     const newRules = [...rules];
-    newRules[i][property] = value;
+    newRules[i][property] = value ?? null;
     setRules(newRules);
-
-    // update input fields
-    if (i === 0) setDate0(value || "");
-    if (i === 1) setDate1(value || "");
   };
+
+  const dateError = date0 && date1 && date0 > date1;
 
   return (
     <div className="my-3">
@@ -83,124 +79,124 @@ export default function ScheduleInputs(props: Props) {
         disabled={!canScheduleFeatureFlags}
       />
       {rules.length > 0 && props.scheduleToggleEnabled && (
-        <div className={`box mb-3 bg-light pt-2 px-3 ${styles.conditionbox}`}>
-          <ul className={styles.conditionslist}>
-            <li className={styles.listitem}>
-              <div className="row align-items-center">
-                <span className="ml-2 mb-2">Launch rule</span>
-                <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
-                  <SelectField
-                    name="date-operator"
-                    value={rules[0].timestamp === null ? "" : "timestamp"}
-                    options={[
-                      { label: "immediately", value: "" },
-                      {
-                        label: "at a specific date and time",
-                        value: "timestamp",
-                      },
-                    ]}
-                    onChange={(value) => {
-                      if (value) {
-                        onChange(
-                          format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-                          "timestamp",
-                          0
-                        );
-                      } else {
-                        onChange(null, "timestamp", 0);
-                      }
-                    }}
-                  />
+        <div className="box mb-3 bg-light pt-2 px-3">
+          <div className="row align-items-center py-2">
+            <div className="ml-2 mb-2" style={{ width: 100 }}>
+              Launch rule
+            </div>
+            <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
+              <SelectField
+                style={{ width: 250 }}
+                name="date-operator"
+                value={rules[0].timestamp === null ? "" : "timestamp"}
+                options={[
+                  { label: "immediately", value: "" },
+                  {
+                    label: "at a specific date and time",
+                    value: "timestamp",
+                  },
+                ]}
+                onChange={(value) => {
+                  if (value) {
+                    onChange(new Date(), "timestamp", 0);
+                  } else {
+                    onChange(undefined, "timestamp", 0);
+                  }
+                }}
+              />
+            </div>
+            {rules[0].timestamp !== null && (
+              <>
+                <div className="w-auto mb-2 p-2">
+                  <span className="mb-2">ON</span>
                 </div>
-                {rules[0].timestamp !== null && (
-                  <>
-                    <div className="w-auto mb-2 p-2">
-                      <span className="mb-2">ON</span>
-                    </div>
-                    <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
-                      <Field
-                        type="datetime-local"
-                        value={date0}
-                        onChange={(e) => {
-                          onChange(e.target.value, "timestamp", 0);
-                        }}
-                        name="timestamp"
-                      />
-                      <span className="pl-2">
-                        ({formatTimeZone(new Date(), "z")})
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </li>
-            <li className={styles.listitem}>
-              <div className="row align-items-center">
-                <span className="ml-2 mb-2">Disable rule </span>
-                <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
-                  <SelectField
-                    name="date-operator"
-                    value={rules[1].timestamp === null ? "" : "timestamp"}
-                    options={[
-                      { label: "manually", value: "" },
-                      {
-                        label: "at a specific date and time",
-                        value: "timestamp",
-                      },
-                    ]}
-                    onChange={(value) => {
-                      if (value) {
-                        onChange(
-                          format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-                          "timestamp",
-                          1
-                        );
-                      } else {
-                        onChange(null, "timestamp", 1);
-                      }
+                <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
+                  <DatePicker
+                    date={date0}
+                    setDate={(d) => {
+                      onChange(d, "timestamp", 0);
                     }}
+                    disableBefore={new Date()}
+                    scheduleEndDate={
+                      rules[1].timestamp
+                        ? getValidDate(rules[1].timestamp)
+                        : undefined
+                    }
+                    containerClassName=""
                   />
+                  <span className="pl-2">
+                    ({formatTimeZone(new Date(), "z")})
+                  </span>
                 </div>
-                {rules[1].timestamp !== null && (
-                  <>
-                    <div className="w-auto mb-2 p-2">
-                      <span className="mb-2">ON</span>
-                    </div>
-                    <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
-                      <Field
-                        type="datetime-local"
-                        className={clsx(dateErrors && styles.error)}
-                        value={date1}
-                        onChange={(e) => {
-                          setDateErrors("");
-                          if (
-                            rules[0].timestamp &&
-                            getValidDate(e.target.value) <
-                              getValidDate(rules[0].timestamp)
-                          ) {
-                            setDateErrors(
-                              "End date must be greater than the previous rule date."
-                            );
-                            return;
-                          }
-                          onChange(e.target.value, "timestamp", 1);
-                        }}
-                        name="timestamp"
-                      />
-                      <span className="pl-2">
-                        ({formatTimeZone(new Date(), "z")})
-                      </span>
-                    </div>
-                    {dateErrors && (
-                      <div className="ml-2 alert alert-danger mb-0">
-                        {dateErrors}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </li>
-          </ul>
+              </>
+            )}
+          </div>
+          <div className="row align-items-center py-2">
+            <div className="ml-2 mb-2" style={{ width: 100 }}>
+              Disable rule
+            </div>
+            <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
+              <SelectField
+                style={{ width: 250 }}
+                name="date-operator"
+                value={rules[1].timestamp === null ? "" : "timestamp"}
+                options={[
+                  { label: "manually", value: "" },
+                  {
+                    label: "at a specific date and time",
+                    value: "timestamp",
+                  },
+                ]}
+                onChange={(value) => {
+                  if (value) {
+                    onChange(new Date(), "timestamp", 1);
+                  } else {
+                    onChange(undefined, "timestamp", 1);
+                  }
+                }}
+              />
+            </div>
+            {rules[1].timestamp !== null && (
+              <>
+                <div className="w-auto mb-2 p-2">
+                  <span className="mb-2">ON</span>
+                </div>
+                <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
+                  <DatePicker
+                    date={date1}
+                    setDate={(d) => {
+                      if (
+                        rules[0].timestamp &&
+                        getValidDate(d) < getValidDate(rules[0].timestamp)
+                      ) {
+                        return;
+                      }
+                      onChange(d, "timestamp", 1);
+                    }}
+                    disableBefore={
+                      rules[0].timestamp
+                        ? getValidDate(rules[0].timestamp)
+                        : new Date()
+                    }
+                    scheduleStartDate={
+                      rules[0].timestamp
+                        ? getValidDate(rules[0].timestamp)
+                        : undefined
+                    }
+                    containerClassName=""
+                  />
+                  <span className="pl-2">
+                    ({formatTimeZone(new Date(), "z")})
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          {dateError && (
+            <Callout status="error" mb="4">
+              End date must be greater than the previous rule date
+            </Callout>
+          )}
         </div>
       )}
     </div>

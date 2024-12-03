@@ -166,10 +166,10 @@ When used in an experiment, we only consider rows of a Metric where the timestam
 
 There are three window settings one can use to configure the metric date window. Each of them defines the lower and upper date range of the metric to use for each user:
 
-- **None** (default)
+- **None** (default for Fact Metrics)
   - Lower bound: user's first exposure plus the metric delay
   - Upper bound: experiment end date
-- **Conversion Window**
+- **Conversion Window** (default for Legacy Metrics)
   - Lower bound: user's first exposure plus the metric delay
   - Upper bound: the lower bound + the length of the conversion window
 - **Lookback Window**

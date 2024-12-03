@@ -867,6 +867,7 @@ export function evaluateFeature({
   revision,
   scrubPrerequisites = true,
   skipRulesWithPrerequisites = true,
+  date = new Date(),
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -876,6 +877,7 @@ export function evaluateFeature({
   revision: FeatureRevisionInterface;
   scrubPrerequisites?: boolean;
   skipRulesWithPrerequisites?: boolean;
+  date?: Date;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -908,7 +910,9 @@ export function evaluateFeature({
         environment: env.id,
         revision,
         returnRuleId: true,
+        date,
       });
+
       if (definition) {
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];

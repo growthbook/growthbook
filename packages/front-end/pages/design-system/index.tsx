@@ -1,4 +1,4 @@
-import { Flex, Slider } from "@radix-ui/themes";
+import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -24,13 +24,17 @@ import RadioCards from "@/components/Radix/RadioCards";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DataList from "@/components/Radix/DataList";
 import Stepper from "@/components/Stepper/Stepper";
+import Link from "@/components/Radix/Link";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
+import DatePicker from "@/components/DatePicker";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
+  const [date1, setDate1] = useState<Date | undefined>();
+  const [date2, setDate2] = useState<Date | undefined>();
   const [radioSelected, setRadioSelected] = useState("k1");
   const [radioCardSelected, setRadioCardSelected] = useState("");
   const [radioCardColumns, setRadioCardColumns] = useState<
@@ -181,6 +185,90 @@ export default function DesignSystemPage() {
       </div>
 
       <div className="appbox p-3">
+        <h3>Date Picker</h3>
+        <Flex direction="column" gap="3">
+          <DatePicker
+            label="Choose Date"
+            helpText="width: 170"
+            date={date1}
+            setDate={setDate1}
+            precision="datetime"
+            disableBefore={new Date()}
+            inputWidth={170}
+          />
+
+          <DatePicker
+            helpText="width: default (100%)"
+            date={date1}
+            setDate={setDate1}
+            precision="datetime"
+            disableBefore={new Date()}
+          />
+
+          <DatePicker
+            date={date1}
+            date2={date2}
+            setDate={setDate1}
+            setDate2={setDate2}
+            label={"Start"}
+            label2={"End"}
+            precision="date"
+            disableBefore={new Date()}
+            inputWidth={200}
+          />
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Link</h3>
+        <Flex direction="column" gap="3">
+          <Box>
+            Here we have <Link href="#">a link</Link> within a sentence.
+          </Box>
+          <Box>
+            <Link href="#" weight="bold">
+              Bold link
+            </Link>
+          </Box>
+          <Box>
+            <Link href="#" weight="bold" underline="none">
+              Link without underline affordance
+            </Link>
+          </Box>
+          <Box>
+            And you can{" "}
+            <Link color="gray" href="#">
+              override
+            </Link>{" "}
+            the{" "}
+            <Link color="sky" href="#">
+              link color
+            </Link>{" "}
+            with{" "}
+            <Link color="sky" href="#">
+              Radix colors
+            </Link>
+            .
+          </Box>
+          <Box>
+            We also have{" "}
+            <Link href="#" color="dark" weight="bold">
+              a custom dark/white color
+            </Link>
+            .
+          </Box>
+
+          <Box>
+            Here&apos;s the Link without href where it{" "}
+            <Link onClick={() => alert("Hello there")}>
+              automatically adapts to a button
+            </Link>{" "}
+            while keeping the same style.
+          </Box>
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
         <h3>Callout</h3>
         <Flex direction="column" gap="3">
           <Callout status="info">This is an informational callout.</Callout>
@@ -299,24 +387,32 @@ export default function DesignSystemPage() {
 
       <div className="appbox p-3">
         <h3>Dropdown</h3>
-        <DropdownMenu trigger="Dropdown button">
-          <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
-          <DropdownSubMenu trigger="Item 1">
-            <DropdownMenuItem>Item 1.1</DropdownMenuItem>
-          </DropdownSubMenu>
-          <DropdownMenuItem
-            onClick={function (): void {
-              alert("Item 2");
-            }}
-          >
-            Item 2
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Item 3</DropdownMenuItem>
-          <DropdownMenuItem> Item 4</DropdownMenuItem>
-          <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
-        </DropdownMenu>
+        <Flex direction="row" justify="between">
+          <DropdownMenu trigger="Menu">
+            <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
+            <DropdownSubMenu trigger="Item 1">
+              <DropdownMenuItem>Item 1.1</DropdownMenuItem>
+            </DropdownSubMenu>
+            <DropdownMenuItem
+              onClick={function (): void {
+                alert("Item 2");
+              }}
+            >
+              Item 2
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Item 3</DropdownMenuItem>
+            <DropdownMenuItem disabled>Item 4</DropdownMenuItem>
+            <DropdownMenuItem color="red">Item 5</DropdownMenuItem>
+          </DropdownMenu>
+
+          <DropdownMenu trigger="Add Experiment" menuPlacement="end">
+            <DropdownMenuItem>Create New Experiment</DropdownMenuItem>
+            <DropdownMenuItem>Import Existing Experiment</DropdownMenuItem>
+          </DropdownMenu>
+        </Flex>
       </div>
+
       <div className="appbox p-3">
         <h3>Radio Card</h3>
         <div className="mb-2 w-100px">

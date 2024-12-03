@@ -236,14 +236,11 @@ export default function FeaturesSettings() {
             ))}
           </>
         )}
-        <div className="my-3">
+        <div className="my-3 pt-4">
           <PremiumTooltip commercialFeature="code-references">
-            <div
-              className="d-inline-block h4 mt-4 mb-0"
-              id="configure-code-refs"
-            >
+            <h4 className="mb-0" id="configure-code-refs">
               Configure Code References
-            </div>
+            </h4>
           </PremiumTooltip>
           <div>
             <label className="mr-1" htmlFor="toggle-codeReferences">
