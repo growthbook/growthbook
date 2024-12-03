@@ -9,18 +9,13 @@
       "version": "detect"
     },
     "import/parsers": {
-      "@typescript-eslint/parser": [
-        ".ts",
-        ".tsx"
-      ]
+      "@typescript-eslint/parser": [".ts", ".tsx"]
     },
     "import/resolver": {
       "node": true,
       "typescript": {
         "alwaysTryTypes": true,
-        "project": [
-          "packages/*/tsconfig.json"
-        ]
+        "project": ["packages/*/tsconfig.json"]
       }
     }
   },
@@ -55,16 +50,16 @@
     "SharedArrayBuffer": "readonly"
   },
   "rules": {
-    "no-unused-expressions": ["error", {
-      "allowShortCircuit": true,
-      "enforceForJSX": true,
-      "allowTernary": true
-    }],
-    "no-async-foreach/no-async-foreach": 2,
-    "@next/next/no-html-link-for-pages": [
-      "warn",
-      "./packages/front-end/pages"
+    "no-unused-expressions": [
+      "error",
+      {
+        "allowShortCircuit": true,
+        "enforceForJSX": true,
+        "allowTernary": true
+      }
     ],
+    "no-async-foreach/no-async-foreach": 2,
+    "@next/next/no-html-link-for-pages": ["warn", "./packages/front-end/pages"],
     "@next/next/no-img-element": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
@@ -81,9 +76,7 @@
         "argsIgnorePattern": "^_"
       }
     ],
-    "no-console": [
-      "warn"
-    ],
+    "no-console": ["warn"],
     "no-restricted-imports": "off",
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
@@ -92,7 +85,15 @@
     "import/order": [
       "error",
       {
-        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "unknown"]
+        "groups": [
+          "builtin",
+          "external",
+          "internal",
+          "parent",
+          "sibling",
+          "index",
+          "unknown"
+        ]
       }
     ],
     "@typescript-eslint/prefer-ts-expect-error": "error"
@@ -110,11 +111,11 @@
     {
       "files": [
         "./packages/back-end/src/**/*.ts*",
-	"./packages/back-end/types/**/*.ts*",
+        "./packages/back-end/types/**/*.ts*",
         "./packages/front-end/**/*.ts*"
       ],
       "rules": {
-        "no-restricted-imports": ["error", {"patterns": ["..*"]}]
+        "no-restricted-imports": ["error", { "patterns": ["..*"] }]
       }
     },
     {
@@ -139,7 +140,8 @@
                   "Link",
                   "RadioCards",
                   "RadioGroup",
-                  "Select"
+                  "Select",
+                  "Tabs"
                 ]
               }
             ]
