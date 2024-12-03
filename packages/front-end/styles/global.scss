@@ -574,6 +574,9 @@ pre {
 .main.bandit {
   .experiment-header {
     margin: -4px -8px 0;
+    .border {
+      border-bottom: 1px solid var(--border-color-200);
+    }
   }
   .experiment-tabs {
     top: 55px;

@@ -364,13 +364,13 @@ export default function TabbedPage({
             experiment={experiment}
             mutate={mutate}
             safeToEdit={safeToEdit}
-            editVariations={!viewingOldPhase ? editVariations : undefined}
+            editVariations={editVariations}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
             setUrlRedirectModal={setUrlRedirectModal}
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
-            editTargeting={!viewingOldPhase ? editTargeting : undefined}
+            editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
           />
           {experiment.status !== "draft" && (
