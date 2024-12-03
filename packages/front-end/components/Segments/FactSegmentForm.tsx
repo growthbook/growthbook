@@ -70,7 +70,7 @@ export default function FactSegmentForm({
 
   // Projects must be a subset of a data source's projects
   const filteredProjects = projects.filter((project) => {
-    // only filter projects is the data source isn't in All Projects (aka, projects is an empty array)
+    // only filter projects if the data source isn't in All Projects (aka, projects is an empty array)
     if (datasource?.projects && datasource.projects.length) {
       return (
         datasource.projects.includes(project.id) ||
