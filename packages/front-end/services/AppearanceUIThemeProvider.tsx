@@ -74,14 +74,6 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
       }
 
       setSystemTheme(actualTheme);
-
-      const newTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        ? "dark"
-        : "light";
-      document.documentElement.classList.add(
-        `theme--${newTheme}`,
-        `${newTheme}-theme` // This is for the Radix UI theme
-      );
     } catch (e) {
       setSystemTheme(actualTheme);
     }
@@ -127,19 +119,13 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
 
       setPreferredTheme(updated);
       try {
-        const newTheme =
-          updated === "system"
-            ? window.matchMedia("(prefers-color-scheme: dark)")
-              ? "dark"
-              : "light"
-            : updated;
-        document.documentElement.classList.add(
-          `theme--${newTheme}`,
-          `${newTheme}-theme` // This is for the Radix UI theme
-        );
         if (updated === "system") {
           localStorage.removeItem(STORAGE_KEY_THEME);
         } else {
+          document.documentElement.classList.add(
+            `theme--${updated}`,
+            `${updated}-theme` // This is for the Radix UI theme
+          );
           localStorage.setItem(STORAGE_KEY_THEME, updated);
         }
       } catch (e) {

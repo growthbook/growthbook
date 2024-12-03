@@ -119,7 +119,7 @@ export default function ReportPage() {
 
   const report = data?.report;
   const snapshotId =
-    report.type === "experiment-snapshot" ? report.snapshot : undefined;
+    report?.type === "experiment-snapshot" ? report?.snapshot : undefined;
 
   const { data: snapshotData } = useApi<{
     snapshot: ExperimentSnapshotInterface;
