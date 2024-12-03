@@ -80,7 +80,7 @@ export default function FactSegmentForm({
   });
 
   const projectOptions = useProjectOptions(
-    (project) => permissionsUtil.canCreateMetric({ projects: [project] }),
+    (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
     form.watch("projects") || [],
     filteredProjects.length ? filteredProjects : undefined
   );
@@ -101,6 +101,19 @@ export default function FactSegmentForm({
           datasource?.projects &&
           datasource.projects.length > 0 &&
           !value.projects.length
+        ) {
+          throw new Error(
+            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+          );
+        }
+
+        // Block updating an existing Segment with projects to "All Projects" if the connected data source isn't in "All Projects"
+        if (
+          current?.id &&
+          datasource?.projects &&
+          datasource.projects.length > 0 &&
+          !value.projects.length &&
+          current?.projects?.length
         ) {
           throw new Error(
             `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`

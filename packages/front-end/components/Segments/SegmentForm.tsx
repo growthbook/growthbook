@@ -80,7 +80,7 @@ const SegmentForm: FC<{
   });
 
   const projectOptions = useProjectOptions(
-    (project) => permissionsUtil.canCreateMetric({ projects: [project] }), //TODO: Do we need to check here for the create vs update permission?
+    (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
     form.watch("projects"),
     filteredProjects.length ? filteredProjects : undefined
   );
@@ -129,13 +129,25 @@ const SegmentForm: FC<{
             validateSQL(value.sql, [value.userIdType, "date"]);
           }
 
-          // Block creating a new segment if the selected data source has projects, and the segment is in 'All Projects'
-          // If the user is updating an existing segment, we can ignore this
+          // Block creating a new segment if the connected data source has projects and the segment doesn't
           if (
             !current.id &&
             datasource?.projects &&
             datasource.projects.length > 0 &&
             !value.projects.length
+          ) {
+            throw new Error(
+              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+            );
+          }
+
+          // Block updating an existing Segment with projects to "All Projects" if the connected data source isn't in "All Projects"
+          if (
+            current.id &&
+            datasource?.projects &&
+            datasource.projects.length > 0 &&
+            !value.projects.length &&
+            current.projects?.length
           ) {
             throw new Error(
               `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
