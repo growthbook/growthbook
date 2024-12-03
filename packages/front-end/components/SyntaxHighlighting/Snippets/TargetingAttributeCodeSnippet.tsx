@@ -28,7 +28,7 @@ function replaceAttributeValues(
 ) {
   Object.entries(values).forEach(([key, value]) => {
     attributesStr = attributesStr.replace(
-      new RegExp(`"${key}": [^\n]+`, "g"),
+      new RegExp(`"${key}": [^\n,]+`, "g"),
       `"${key}": ${value}`
     );
   });
