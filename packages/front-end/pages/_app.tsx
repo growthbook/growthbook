@@ -133,7 +133,7 @@ function App({
           {preAuthTopNav ? (
             <>
               <TopNavLite />
-              <main className="container mt-5">
+              <main className="container">
                 <Component {...{ ...pageProps, envReady: ready }} />
               </main>
             </>
@@ -181,6 +181,9 @@ function App({
         .radix-themes {
           --default-font-family: ${inter.style.fontFamily};
         }
+        .radix-themes[data-is-root-theme="true"] {
+          min-height: 100%;
+        }
       `}</style>
       <Head>
         <title>GrowthBook</title>
@@ -216,7 +219,7 @@ function App({
                       ) : (
                         <div>
                           <TopNavLite />
-                          <main className="container mt-5">
+                          <main className="container">
                             <Component {...{ ...pageProps, envReady: ready }} />
                           </main>
                         </div>
@@ -229,7 +232,7 @@ function App({
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (
-        <div className="container mt-3">
+        <div className="container">
           <div className="alert alert-danger">
             Error Initializing GrowthBook: {error}
           </div>

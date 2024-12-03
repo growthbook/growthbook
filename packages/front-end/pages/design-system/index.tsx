@@ -45,7 +45,7 @@ export default function DesignSystemPage() {
   const [selectValue, setSelectValue] = useState("carrot");
 
   return (
-    <div className="pagecontents container-fluid">
+    <div className="pagecontents container-fluid pt-4 pb-3">
       <h1>GrowthBook Design System</h1>
       <p>
         This page is a work in progress to document the GrowthBook design

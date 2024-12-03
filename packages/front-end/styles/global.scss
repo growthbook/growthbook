@@ -15,6 +15,9 @@ body,
 main {
   min-height: 100%;
 }
+main {
+  padding-top: 56px;
+}
 
 body {
   -webkit-font-smoothing: antialiased;
@@ -49,7 +52,6 @@ body {
   &.lite {
     padding-left: 0;
   }
-  padding-top: 60px;
 
   &.present {
     padding: 0;
