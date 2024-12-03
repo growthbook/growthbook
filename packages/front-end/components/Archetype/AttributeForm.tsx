@@ -155,7 +155,6 @@ export default function AttributeForm({
                         : undefined
                     }
                     setDate={(v) => {
-                      console.log("set date called", v);
                       attributeForm.setValue(
                         attribute.property,
                         v ? datetime(v) : ""
