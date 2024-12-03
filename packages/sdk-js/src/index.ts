@@ -1,7 +1,8 @@
 export type {
   Options as Context,
   Options,
-  MultiUserOptions,
+  ClientOptions as MultiUserOptions,
+  ClientOptions,
   TrackingCallbackWithUser,
   TrackingDataWithUser,
   FeatureUsageCallback,

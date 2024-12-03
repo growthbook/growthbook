@@ -191,7 +191,16 @@ const gbClient = new GrowthBookClient().initSync({
 });
 ```
 
-## Streaming Updates
+## Refreshing Features
+
+By default, the GrowthBookClient will only fetch features once during initialization. This works great for short-running processes (e.g. serverless functions).
+
+For long-running Node.js processes, there are 2 main approaches to keeping feature defintiions up-to-date.
+
+1. Streaming
+2. Polling
+
+### Streaming Updates
 
 The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enabled, changes to features within GrowthBook will be streamed to the SDK in realtime as they are published. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
 
@@ -222,6 +231,17 @@ await gbClient.init({ streaming: true });
 This will make an initial network request to download the features payload from the GrowthBook API. Then, it will open a streaming connection to listen to updates.
 
 Every call to evaluate feature flags will use the latest available payload.
+
+### Polling Updates
+
+If your environment doesn't support streaming updates or you want a simpler option, you can use a polling approach:
+
+```js
+// Refresh once every 5 minutes
+setInterval(() => gbClient.refreshFeatures(), 5*60*1000);
+```
+
+We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
 
 ## Caching
 
@@ -266,6 +286,10 @@ configureCache({
   disableCache: false,
 })
 ```
+
+### Skip Cache
+
+The cache layers apply to both the `init` and `refreshFeatures` methods. Both of these accept a `skipCache: true` option to bypass the cache layers if desired.
 
 ## Experimentation (A/B Testing)
 
@@ -704,8 +728,6 @@ gbClient.runInlineExperiment({
 }, userContext);
 ```
 
-**Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
-
 #### Holdout Groups
 
 To use global holdout groups, use a nested experiment design:
@@ -793,7 +815,7 @@ console.log(key); // "0" or "1"
 console.log(name); // ""
 
 // If the variation was randomly assigned by hashing
-console.log(hashUsed);
+console.log(hashUsed); // true or false
 
 // The user attribute that was hashed
 console.log(hashAttribute); // "id"

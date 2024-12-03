@@ -13,7 +13,7 @@ import type {
   InitSyncOptions,
   GlobalContext,
   UserContext,
-  MultiUserOptions,
+  ClientOptions,
   FeatureDefinitions,
   AutoExperiment,
   TrackingCallbackWithUser,
@@ -46,14 +46,14 @@ export class GrowthBookClient<
   public version: string;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
-  private _options: MultiUserOptions;
+  private _options: ClientOptions;
 
   private _features: FeatureDefinitions;
   private _experiments: AutoExperiment[];
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
 
-  constructor(options?: MultiUserOptions) {
+  constructor(options?: ClientOptions) {
     options = options || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
