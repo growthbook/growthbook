@@ -99,7 +99,7 @@ export default class ClickHouse extends SqlIntegration {
     return `uniqState(${col})`;
   }
   hllReaggregate(col: string): string {
-    return `uniqMerge(${col})`;
+    return `uniqMergeState(${col})`;
   }
   hllCardinality(col: string): string {
     return `finalizeAggregation(${col})`;
