@@ -1,5 +1,9 @@
 import { useRouter } from "next/router";
-import {ExperimentReportArgs, ExperimentReportInterface, ReportInterface} from "back-end/types/report";
+import {
+  ExperimentReportArgs,
+  ExperimentReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -9,6 +13,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -44,6 +49,7 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
+import ReportResults from "@/components/Report/ReportResults";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -52,9 +58,11 @@ export default function ReportPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const { getDatasourceById } = useDefinitions();
+
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
+
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
@@ -109,22 +117,55 @@ export default function ReportPage() {
     }
   }, [data?.report]);
 
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
-  }
+  const report = data?.report;
+  const snapshotId =
+    report.type === "experiment-snapshot" ? report.snapshot : undefined;
+
+  const { data: snapshotData } = useApi<{
+    snapshot: ExperimentSnapshotInterface;
+  }>(`/snapshot/${snapshotId}`, {
+    shouldRun: () => !!snapshotId,
+  });
+  const snapshot = snapshotData?.snapshot;
+
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const report = data.report;
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
   if (!report) {
     return null;
   }
 
-  // todo: replace with proper fork
   if (report.type === "experiment-snapshot") {
-    return (<h1>Snapshot report: {report.tinyid}</h1>);
+    return (
+      <div className="pagecontents container-fluid">
+        <PageHead
+          breadcrumb={[
+            {
+              display: `Experiments`,
+              href: `/experiments`,
+            },
+            {
+              display: `${experimentData?.experiment.name ?? "Report"}`,
+              href: experimentData?.experiment.id
+                ? `/experiment/${experimentData.experiment.id}`
+                : undefined,
+            },
+            { display: report.title },
+          ]}
+        />
+
+        <h1>{report.title}</h1>
+
+        <ReportResults report={report} snapshot={snapshot} />
+      </div>
+    );
   }
+
+  // legacy reports:
+  // ===============
 
   const variations = report.args.variations;
 

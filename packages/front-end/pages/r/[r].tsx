@@ -1,23 +1,14 @@
 import {
   ExperimentSnapshotReportInterface,
-  MetricSnapshotSettings,
   SSRExperimentReportData,
 } from "back-end/types/report";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { getValidDate } from "shared/dates";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_PROPER_PRIOR_STDDEV, DEFAULT_STATS_ENGINE,
-} from "shared/constants";
+import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 import React, { useCallback, useMemo } from "react";
-import { getSnapshotAnalysis } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
-import CompactResults from "@/components/Experiment/CompactResults";
-import Callout from "@/components/Radix/Callout";
 import PageHead from "@/components/Layout/PageHead";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -28,8 +19,7 @@ import {
   METRIC_DEFAULTS,
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
-import DateResults from "@/components/Experiment/DateResults";
-import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import ReportResults from "@/components/Report/ReportResults";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -165,67 +155,6 @@ export default function ReportPage(props: ReportPageProps) {
     useOrganizationMetricDefaults: useOrganizationMetricDefaultsSSR,
   };
 
-  const phases = report.experimentMetadata.phases;
-  const phase = phases.length - 1;
-  const phaseObj = phases[phase];
-
-  const variations = report.experimentMetadata.variations.map(
-    (variation, i) => ({
-      id: variation.id,
-      name: variation.name,
-      weight:
-        report.experimentMetadata.phases?.[snapshot?.phase || 0]
-          ?.variationWeights?.[i] || 1 / (variations?.length || 2),
-    })
-  );
-  const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
-    : undefined;
-  const queryStatusData = getQueryStatus(
-    snapshot?.queries || [],
-    snapshot?.error
-  );
-
-  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
-    snapshot?.settings?.metricSettings?.map((m) => ({
-      metric: m.id,
-      properPrior: m.computedSettings?.properPrior ?? false,
-      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
-      properPriorStdDev:
-        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
-      regressionAdjustmentReason:
-        m.computedSettings?.regressionAdjustmentReason || "",
-      regressionAdjustmentDays:
-        m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
-    })) || [];
-
-  const pValueCorrection = useOrgSettingsSSR()?.pValueCorrection;
-
-  const hasData =
-    (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
-
-  const showBreakDownResults =
-    hasData &&
-    snapshot?.dimension &&
-    snapshot.dimension.substring(0, 8) !== "pre:date" &&
-    analysis?.settings?.dimensions?.length;
-
-  const showDateResults =
-    hasData &&
-    snapshot?.dimension?.substring(0, 8) === "pre:date" &&
-    analysis?.settings?.dimensions?.length;
-
-
-  const showCompactResults =
-    hasData &&
-    snapshot &&
-    analysis &&
-    !analysis?.settings?.dimensions?.length;
-
   return (
     <div className="pagecontents container-fluid">
       <PageHead
@@ -237,98 +166,11 @@ export default function ReportPage(props: ReportPageProps) {
 
       <h1>{report.title}</h1>
 
-      <div className="bg-white border pt-3">
-        {!snapshot || !analysis ? (
-          <Callout status="error">Missing snapshot!</Callout>
-        ) : (
-          <>
-            {showDateResults ? (
-              <DateResults
-                goalMetrics={report.experimentAnalysisSettings.goalMetrics}
-                secondaryMetrics={
-                  report.experimentAnalysisSettings.secondaryMetrics
-                }
-                guardrailMetrics={
-                  report.experimentAnalysisSettings.guardrailMetrics
-                }
-                results={analysis?.results ?? []}
-                seriestype={snapshot.dimension ?? ""}
-                variations={variations}
-                statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
-                differenceType={analysis.settings?.differenceType}
-                ssrPolyfills={ssrPolyfills}
-              />
-            ) : showBreakDownResults ? (
-              <BreakDownResults
-                key={snapshot.dimension}
-                results={analysis?.results ?? []}
-                queryStatusData={queryStatusData}
-                variations={variations}
-                // variationFilter={variationFilter}
-                // baselineRow={baselineRow}
-                goalMetrics={report.experimentAnalysisSettings.goalMetrics}
-                secondaryMetrics={
-                  report.experimentAnalysisSettings.secondaryMetrics
-                }
-                guardrailMetrics={
-                  report.experimentAnalysisSettings.guardrailMetrics
-                }
-                activationMetric={report.experimentAnalysisSettings.activationMetric}
-                metricOverrides={
-                  report.experimentAnalysisSettings.metricOverrides ?? []
-                }
-                dimensionId={snapshot.dimension ?? ""}
-                startDate={getValidDate(phaseObj.dateStarted).toISOString()}
-                isLatestPhase={phase === phases.length - 1}
-                reportDate={snapshot.dateCreated}
-                status={"stopped"}
-                statsEngine={analysis.settings.statsEngine}
-                pValueCorrection={pValueCorrection}
-                regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-                settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-                sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-                differenceType={analysis.settings?.differenceType}
-                // metricFilter={metricFilter}
-                // setMetricFilter={setMetricFilter}
-                ssrPolyfills={ssrPolyfills}
-              />
-            ) : showCompactResults ? (
-              <CompactResults
-                variations={variations}
-                multipleExposures={snapshot.multipleExposures || 0}
-                results={analysis.results[0]}
-                queryStatusData={queryStatusData}
-                reportDate={snapshot.dateCreated}
-                startDate={getValidDate(phaseObj.dateStarted).toISOString()}
-                isLatestPhase={phase === phases.length - 1}
-                status={"stopped"}
-                goalMetrics={report.experimentAnalysisSettings.goalMetrics}
-                secondaryMetrics={
-                  report.experimentAnalysisSettings.secondaryMetrics
-                }
-                guardrailMetrics={
-                  report.experimentAnalysisSettings.guardrailMetrics
-                }
-                metricOverrides={
-                  report.experimentAnalysisSettings.metricOverrides ?? []
-                }
-                id={report.id}
-                statsEngine={analysis.settings.statsEngine}
-                pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
-                regressionAdjustmentEnabled={
-                  report.experimentAnalysisSettings.regressionAdjustmentEnabled
-                }
-                settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-                sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-                differenceType={analysis.settings?.differenceType}
-                isTabActive={true}
-                experimentType={report.experimentMetadata.type}
-                ssrPolyfills={ssrPolyfills}
-              />
-            ) : null}
-          </>
-        )}
-      </div>
+      <ReportResults
+        report={report}
+        snapshot={snapshot}
+        ssrPolyfills={ssrPolyfills}
+      />
     </div>
   );
 }
