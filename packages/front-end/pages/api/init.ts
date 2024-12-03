@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { stringToBoolean } from "shared/util";
 
 export interface EnvironmentInitValue {
-  telemetry: "debug" | "enable" | "disable";
+  telemetry: "debug" | "enable" | "disable" | "enable-debug";
   cloud: boolean;
   isMultiOrg?: boolean;
   allowSelfOrgCreation: boolean;
@@ -115,6 +115,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     telemetry:
       DISABLE_TELEMETRY === "debug"
         ? "debug"
+        : DISABLE_TELEMETRY === "enable-debug"
+        ? "enable-debug"
         : DISABLE_TELEMETRY
         ? "disable"
         : "enable",
