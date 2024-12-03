@@ -69,7 +69,11 @@ export const updateFactTablePropsValidator = z
   })
   .strict();
 
-export const columnAggregationValidator = z.enum(['sum', 'max', 'count distinct']);
+export const columnAggregationValidator = z.enum([
+  "sum",
+  "max",
+  "count distinct",
+]);
 
 export const columnRefValidator = z
   .object({
