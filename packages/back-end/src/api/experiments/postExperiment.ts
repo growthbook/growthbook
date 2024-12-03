@@ -19,10 +19,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (project) {
-      const projects = await req.context.getProjects();
-      if (!projects.some((p) => p.id === project)) {
-        throw new Error(`Project id ${project} is not a valid project.`);
-      }
+      await req.context.models.projects.ensureProjectsExist([project]);
     }
 
     if (!req.context.permissions.canCreateExperiment(req.body)) {
