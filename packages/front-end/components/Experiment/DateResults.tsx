@@ -25,6 +25,7 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -181,13 +182,17 @@ const DateResults: FC<{
                   }
                   // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
                   else if (i) {
-                    const crA = totalUsers[0]
+                    const crA = totalDenominator[0]
                       ? totalValue[0] / totalDenominator[0]
                       : 0;
-                    const crB = totalUsers[i]
+                    const crB = totalDenominator[i]
                       ? totalValue[i] / totalDenominator[i]
                       : 0;
-                    up = crA ? (crB - crA) / crA : 0;
+                    if (differenceType === "absolute") {
+                      up = crB - crA;
+                    } else {
+                      up = crA ? (crB - crA) / crA : 0;
+                    }
                   }
 
                   const v_formatted = getExperimentMetricFormatter(
@@ -281,6 +286,7 @@ const DateResults: FC<{
     expandedGoals,
     expandedSecondaries,
     pValueThreshold,
+    differenceType,
     statsEngine,
     variations,
   ]);
@@ -299,12 +305,18 @@ const DateResults: FC<{
             <strong>Graph Controls: </strong>
           </div>
           <div>
-            <Toggle
-              label="Cumulative"
-              id="cumulative"
-              value={cumulative}
-              setValue={setCumulative}
-            />
+            <Tooltip
+              body="Cumulative charts disabled for Scaled Impact difference type"
+              shouldDisplay={differenceType === "scaled"}
+            >
+              <Toggle
+                label="Cumulative"
+                id="cumulative"
+                value={cumulative}
+                setValue={setCumulative}
+                disabled={differenceType === "scaled"}
+              />
+            </Tooltip>
             Cumulative
           </div>
         </div>
