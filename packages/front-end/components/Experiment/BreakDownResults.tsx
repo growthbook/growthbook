@@ -15,6 +15,8 @@ import {
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { FaAngleRight, FaUsers } from "react-icons/fa";
+import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -32,8 +34,11 @@ import {
   sortAndFilterMetricsByTags,
 } from "@/components/Experiment/Results";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import UsersTable from "./UsersTable";
-import {SSRExperimentReportPolyfills} from "@/pages/r/[r]";
+
+const numberFormatter = Intl.NumberFormat();
 
 export function getMetricResultGroup(
   metricId,
@@ -114,13 +119,27 @@ const BreakDownResults: FC<{
     metricGroups,
     ready,
   } = useDefinitions();
+
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
-  const dimension = useMemo(() => {
-    return getDimensionById(dimensionId)?.name || "Dimension";
-  }, [getDimensionById, dimensionId]);
+  const _settings = useOrgSettings();
+  const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
+
+  const dimension =
+    ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
+    getDimensionById(dimensionId)?.name ||
+    dimensionId?.split(":")?.[1] ||
+    "Dimension";
+
+  const totalUsers = useMemo(() => {
+    let totalUsers = 0;
+    results?.map((result) =>
+      result?.variations?.map((v) => (totalUsers += v?.users || 0))
+    );
+    return totalUsers;
+  }, [results]);
 
   const {
     expandedGoals,
@@ -146,7 +165,7 @@ const BreakDownResults: FC<{
     metricGroups,
     ssrPolyfills?.metricGroups,
     secondaryMetrics,
-    guardrailMetrics
+    guardrailMetrics,
   ]);
 
   const allMetricTags = useMemo(() => {
@@ -256,23 +275,42 @@ const BreakDownResults: FC<{
     ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
   );
 
+  const activationMetricObj = activationMetric
+    ? ssrPolyfills?.getExperimentMetricById?.(activationMetric) ||
+      getExperimentMetricById(activationMetric)
+    : undefined;
+
   return (
     <div className="mb-3">
-      <div className="mb-4 px-3">
-        {dimensionId === "pre:activation" && activationMetric && (
-          <div className="alert alert-info mt-1">
+      <div className="mb-4">
+        {dimensionId === "pre:activation" && activationMetricObj && (
+          <div className="alert alert-info mt-1 mx-3">
             Your experiment has an Activation Metric (
-            <strong>{getExperimentMetricById(activationMetric)?.name}</strong>
+            <strong>{activationMetricObj?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
           </div>
         )}
         {!isBandit && (
-          <UsersTable
-            dimensionId={dimensionId}
-            results={results}
-            variations={variations}
-          />
+          <div className="users">
+            <Collapsible
+              trigger={
+                <div className="d-inline-flex mx-3 align-items-center">
+                  <FaUsers size={16} className="mr-1" />
+                  {numberFormatter.format(totalUsers)} total users
+                  <FaAngleRight className="chevron ml-1" />
+                </div>
+              }
+              transitionTime={100}
+            >
+              <UsersTable
+                dimension={dimension}
+                results={results}
+                variations={variations}
+                settings={settings}
+              />
+            </Collapsible>
+          </div>
         )}
       </div>
 
@@ -331,7 +369,6 @@ const BreakDownResults: FC<{
               differenceType={differenceType}
               renderLabelColumn={(label) => (
                 <>
-                  {/*<div className="uppercase-title">{dimension}:</div>*/}
                   {label ? (
                     label === "__NULL_DIMENSION" ? (
                       <em>NULL (unset)</em>

@@ -1959,6 +1959,7 @@ main.main.r {
   &.with-variation-label {
     .label {
       display: inline-flex;
+      flex-shrink: 0;
       align-items: center;
       justify-content: center;
       width: 24px;

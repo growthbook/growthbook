@@ -20,6 +20,7 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import ReportResults from "@/components/Report/ReportResults";
+import {DimensionInterface} from "back-end/types/dimension";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -68,6 +69,8 @@ export interface SSRExperimentReportPolyfills {
   usePValueThreshold: typeof usePValueThreshold;
   useConfidenceLevels: typeof useConfidenceLevels;
   useOrganizationMetricDefaults: typeof useOrganizationMetricDefaults;
+  dimensions: DimensionInterface[];
+  getDimensionById: (id: string) => null | DimensionInterface;
 }
 
 export default function ReportPage(props: ReportPageProps) {
@@ -78,6 +81,8 @@ export default function ReportPage(props: ReportPageProps) {
     getMetricGroupById,
     getFactTableById,
     metricGroups,
+    dimensions,
+    getDimensionById,
   } = useDefinitions();
   const hasCsrSettings = !!Object.keys(useOrgSettings() || {})?.length;
 
@@ -143,6 +148,18 @@ export default function ReportPage(props: ReportPageProps) {
     };
   };
 
+  const dimensionsSSR = useMemo(
+    () => [...dimensions, ...(ssrData?.dimensions ?? [])],
+    [dimensions, ssrData?.dimensions]
+  );
+  const getDimensionByIdSSR = useCallback(
+    (id: string) =>
+      getDimensionById(id) ||
+      dimensionsSSR?.[id] ||
+      null,
+    [getDimensionById, dimensionsSSR]
+  );
+
   const ssrPolyfills: SSRExperimentReportPolyfills = {
     getExperimentMetricById: getExperimentMetricByIdSSR,
     metricGroups: metricGroupsSSR,
@@ -153,6 +170,8 @@ export default function ReportPage(props: ReportPageProps) {
     usePValueThreshold: usePValueThresholdSSR,
     useConfidenceLevels: useConfidenceLevelsSSR,
     useOrganizationMetricDefaults: useOrganizationMetricDefaultsSSR,
+    dimensions: dimensionsSSR,
+    getDimensionById: getDimensionByIdSSR,
   };
 
   return (

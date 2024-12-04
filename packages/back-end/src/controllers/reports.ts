@@ -46,9 +46,9 @@ import {
   experimentAnalysisSettings,
 } from "back-end/src/validators/experiments";
 import { FactMetricInterface } from "back-end/types/fact-table";
-import {Condition, LegacyMetricAnalysis, MetricInterface} from "back-end/types/metric";
+import { MetricInterface } from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
-import {Queries} from "back-end/types/query";
+import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -265,11 +265,20 @@ export async function getReportPublic(
   );
 
   const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
-    (map, metric) => Object.assign(map, {
-      [metric.id]: omit(metric, [
-        "queries", "runStarted", "analysis", "analysisError", "table", "column", "timestampColumn", "conditions", "queryFormat"
-      ])
-    }),
+    (map, metric) =>
+      Object.assign(map, {
+        [metric.id]: omit(metric, [
+          "queries",
+          "runStarted",
+          "analysis",
+          "analysisError",
+          "table",
+          "column",
+          "timestampColumn",
+          "conditions",
+          "queryFormat",
+        ]),
+      }),
     {}
   );
 
@@ -285,6 +294,10 @@ export async function getReportPublic(
     (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
     {}
   );
+
+  const allDimensions = await findDimensionsByOrganization(report.organization);
+  const dimension = allDimensions.find((d) => d.id === snapshot?.dimension);
+  const dimensions = dimension ? [dimension] : [];
 
   const settingsKeys = [
     "confidenceLevel",
@@ -312,6 +325,7 @@ export async function getReportPublic(
     metricGroups: metricGroups,
     factTables: factTableMap,
     settings: orgSettings,
+    dimensions,
   };
 
   res.status(200).json({
