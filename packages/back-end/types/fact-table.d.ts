@@ -18,6 +18,7 @@ import {
   factMetricValidator,
   quantileSettingsValidator,
   priorSettingsValidator,
+  columnAggregationValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
@@ -73,6 +74,8 @@ export interface FactTableInterface {
 export type ColumnRef = z.infer<typeof columnRefValidator>;
 
 export type FactMetricType = z.infer<typeof metricTypeValidator>;
+
+export type ColumnAggregation = z.infer<typeof columnAggregationValidator>;
 
 export type MetricQuantileSettings = z.infer<typeof quantileSettingsValidator>;
 

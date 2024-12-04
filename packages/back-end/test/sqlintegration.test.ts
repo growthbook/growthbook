@@ -102,14 +102,16 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      bqIntegration["getAggregateMetricColumn"](customNumberAggMetric)
+      bqIntegration["getAggregateMetricColumn"]({
+        metric: customNumberAggMetric,
+      })
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
-    expect(bqIntegration["getAggregateMetricColumn"](customCountAgg)).toEqual(
-      "COUNT(value) / (5 + COUNT(value))"
-    );
-    expect(bqIntegration["getAggregateMetricColumn"](normalSqlMetric)).toEqual(
-      "SUM(COALESCE(value, 0))"
-    );
+    expect(
+      bqIntegration["getAggregateMetricColumn"]({ metric: customCountAgg })
+    ).toEqual("COUNT(value) / (5 + COUNT(value))");
+    expect(
+      bqIntegration["getAggregateMetricColumn"]({ metric: normalSqlMetric })
+    ).toEqual("SUM(COALESCE(value, 0))");
   });
   it("correctly picks date windows", () => {
     const bqIntegration = new BigQuery("", {});
