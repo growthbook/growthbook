@@ -72,7 +72,8 @@ const DateResults: FC<{
 
   const [cumulativeState, setCumulative] = useState(false);
   let cumulative = cumulativeState;
-  if (seriestype != "pre:date") {
+  const disabledCumulative = differenceType === "scaled";
+  if (seriestype != "pre:date" || disabledCumulative) {
     cumulative = false;
   }
   // Get data for users graph
