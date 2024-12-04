@@ -93,7 +93,7 @@ export const MembersTabView: FC = () => {
   };
 
   return (
-    <div className="container-fluid pagecontents">
+    <div className="pagecontents">
       <VerifyingEmailModal />
       {justSubscribedForPro && !isCloud() && !license?.emailVerified && (
         <PleaseVerifyEmailModal
