@@ -1,7 +1,8 @@
 export type {
   Options as Context,
   Options,
-  MultiUserOptions,
+  ClientOptions as MultiUserOptions,
+  ClientOptions,
   TrackingCallbackWithUser,
   TrackingDataWithUser,
   FeatureUsageCallback,
@@ -69,7 +70,10 @@ export {
 
 export { GrowthBook, prefetchPayload } from "./GrowthBook";
 
-export { GrowthBookMultiUser } from "./GrowthBookMultiUser";
+export {
+  GrowthBookClient as GrowthBookMultiUser,
+  GrowthBookClient,
+} from "./GrowthBookClient";
 
 export {
   StickyBucketService,

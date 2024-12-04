@@ -400,6 +400,7 @@ export default function CodeSnippetModal({
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
                     secureAttributeSalt={secureAttributeSalt}
+                    version={version}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
