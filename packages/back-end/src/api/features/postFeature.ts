@@ -77,6 +77,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
+    if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+      throw new Error(
+        "Feature keys can only include letters, numbers, hyphens, and underscores."
+      );
+    }
+
     const orgEnvs = getEnvironments(req.context.org);
 
     // ensure environment keys are valid
