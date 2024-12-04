@@ -72,6 +72,9 @@ const DateResults: FC<{
 
   const [cumulativeState, setCumulative] = useState(false);
   let cumulative = cumulativeState;
+  // eventually we could store or back out the scaling factor
+  // to allow cumulative for scaled impact, but it is low
+  // value at the moment
   const disabledCumulative = differenceType === "scaled";
   if (seriestype != "pre:date" || disabledCumulative) {
     cumulative = false;
