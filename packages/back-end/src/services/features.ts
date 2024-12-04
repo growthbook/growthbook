@@ -1006,6 +1006,15 @@ export async function evaluateAllFeatures({
       };
     });
   }
+
+  // get all features definitions
+  const experimentMap = await getAllPayloadExperiments(context);
+  // I could loop through the feature's defined environments, but if environments change in the org,
+  // the values in the feature will be wrong.
+  if (!environments || environments.length === 0) {
+    return;
+  }
+
   // change the NODE ENV so that we can get the debug log information:
   let switchEnv = false;
   if (process.env.NODE_ENV === "production") {
@@ -1016,13 +1025,6 @@ export async function evaluateAllFeatures({
     switchEnv = true;
   }
 
-  // get all features definitions
-  const experimentMap = await getAllPayloadExperiments(context);
-  // I could loop through the feature's defined environments, but if environments change in the org,
-  // the values in the feature will be wrong.
-  if (!environments || environments.length === 0) {
-    return;
-  }
   for (const env of environments) {
     if (!env) {
       continue;
@@ -1052,6 +1054,13 @@ export async function evaluateAllFeatures({
         parseInt(feature.version.toString())
       );
       if (!revision) {
+        if (switchEnv) {
+          // change the NODE ENV back
+          process.env = {
+            ...process.env,
+            NODE_ENV: "production",
+          };
+        }
         throw new Error("Could not find feature revision");
       }
       const thisFeatureEnvResult: FeatureTestResult = {
