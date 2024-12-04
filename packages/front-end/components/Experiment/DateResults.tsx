@@ -9,6 +9,7 @@ import {
   ExperimentMetricInterface,
   isExpectedDirection,
   isStatSig,
+  quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
@@ -24,6 +25,7 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -70,7 +72,11 @@ const DateResults: FC<{
 
   const [cumulativeState, setCumulative] = useState(false);
   let cumulative = cumulativeState;
-  if (seriestype != "pre:date") {
+  // eventually we could store or back out the scaling factor
+  // to allow cumulative for scaled impact, but it is low
+  // value at the moment
+  const disabledCumulative = differenceType === "scaled";
+  if (seriestype != "pre:date" || disabledCumulative) {
     cumulative = false;
   }
   // Get data for users graph
@@ -141,6 +147,7 @@ const DateResults: FC<{
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
           const totalValue: number[] = [];
+          const totalDenominator: number[] = [];
 
           const datapoints: ExperimentDateGraphDataPoint[] = sortedResults.map(
             (d) => {
@@ -154,9 +161,12 @@ const DateResults: FC<{
 
                   totalUsers[i] = totalUsers[i] || 0;
                   totalValue[i] = totalValue[i] || 0;
+                  totalDenominator[i] = totalDenominator[i] || 0;
 
                   totalUsers[i] += stats?.users || 0;
                   totalValue[i] += value || 0;
+                  totalDenominator[i] +=
+                    stats?.denominator || stats?.users || 0;
 
                   const v = value || 0;
                   let ci: [number, number] | undefined = undefined;
@@ -176,13 +186,17 @@ const DateResults: FC<{
                   }
                   // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
                   else if (i) {
-                    const crA = totalUsers[0]
-                      ? totalValue[0] / totalUsers[0]
+                    const crA = totalDenominator[0]
+                      ? totalValue[0] / totalDenominator[0]
                       : 0;
-                    const crB = totalUsers[i]
-                      ? totalValue[i] / totalUsers[i]
+                    const crB = totalDenominator[i]
+                      ? totalValue[i] / totalDenominator[i]
                       : 0;
-                    up = crA ? (crB - crA) / crA : 0;
+                    if (differenceType === "absolute") {
+                      up = crB - crA;
+                    } else {
+                      up = crA ? (crB - crA) / crA : 0;
+                    }
                   }
 
                   const v_formatted = getExperimentMetricFormatter(
@@ -190,8 +204,8 @@ const DateResults: FC<{
                     getFactTableById
                   )(
                     cumulative
-                      ? totalUsers[i]
-                        ? totalValue[i] / totalUsers[i]
+                      ? totalDenominator[i]
+                        ? totalValue[i] / totalDenominator[i]
                         : 0
                       : stats?.cr || 0,
                     { currency: displayCurrency }
@@ -276,6 +290,7 @@ const DateResults: FC<{
     expandedGoals,
     expandedSecondaries,
     pValueThreshold,
+    differenceType,
     statsEngine,
     variations,
   ]);
@@ -294,12 +309,18 @@ const DateResults: FC<{
             <strong>Graph Controls: </strong>
           </div>
           <div>
-            <Toggle
-              label="Cumulative"
-              id="cumulative"
-              value={cumulative}
-              setValue={setCumulative}
-            />
+            <Tooltip
+              body="Cumulative charts disabled for Scaled Impact difference type"
+              shouldDisplay={differenceType === "scaled"}
+            >
+              <Toggle
+                label="Cumulative"
+                id="cumulative"
+                value={cumulative}
+                setValue={setCumulative}
+                disabled={differenceType === "scaled"}
+              />
+            </Tooltip>
             Cumulative
           </div>
         </div>
@@ -318,16 +339,14 @@ const DateResults: FC<{
       {metricSections && (
         <>
           <h2>Metrics</h2>
-          <div className="mb-5">
+          <div className="mb-4">
             <small>
               The following results are cohort effects. In other words, units
               are first grouped by the first date they are exposed to the
               experiment (x-axis) and then the total uplift for all of those
-              users is computed (y-axis).
-              <br></br>
-              This is not the same as a standard time series, because the impact
-              on units first exposed on day X could include conversions on
-              future days.
+              users is computed (y-axis). This is not the same as a standard
+              time series, because the impact on units first exposed on day X
+              could include conversions on future days.
             </small>
           </div>
         </>
@@ -341,20 +360,24 @@ const DateResults: FC<{
               <small className="badge badge-secondary">{resultGroup}</small>
             )}
           </h3>
-          <ExperimentDateGraph
-            yaxis="effect"
-            datapoints={datapoints}
-            label={getEffectLabel(differenceType ?? "relative")}
-            formatter={
-              differenceType === "relative"
-                ? formatPercent
-                : getExperimentMetricFormatter(metric, getFactTableById, true)
-            }
-            formatterOptions={metricFormatterOptions}
-            variationNames={variations.map((v) => v.name)}
-            statsEngine={statsEngine}
-            hasStats={!cumulative}
-          />
+          {!quantileMetricType(metric) || !cumulative ? (
+            <ExperimentDateGraph
+              yaxis="effect"
+              datapoints={datapoints}
+              label={getEffectLabel(differenceType ?? "relative")}
+              formatter={
+                differenceType === "relative"
+                  ? formatPercent
+                  : getExperimentMetricFormatter(metric, getFactTableById, true)
+              }
+              formatterOptions={metricFormatterOptions}
+              variationNames={variations.map((v) => v.name)}
+              statsEngine={statsEngine}
+              hasStats={!cumulative}
+            />
+          ) : (
+            <>No cumulative graph available for quantile metrics</>
+          )}
         </div>
       ))}
     </div>

@@ -285,7 +285,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         }
       }
     }
-
     return filledDates;
   }, [_datapoints, cumulative, maxGapHours]);
 
