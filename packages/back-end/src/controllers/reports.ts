@@ -1,18 +1,30 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import { ReportInterface } from "back-end/types/report";
+import { pick, omit } from "lodash";
+import uniqid from "uniqid";
+import uniq from "lodash/uniq";
+import { expandMetricGroups } from "shared/experiments";
+import {
+  ExperimentReportInterface,
+  ReportInterface,
+  SSRExperimentReportData,
+} from "back-end/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  createExperimentSnapshotModel,
+  findSnapshotById,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap, getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
   createReport,
   deleteReportById,
   getReportById,
+  getReportByTinyid,
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
@@ -20,10 +32,23 @@ import {
 import { ReportQueryRunner } from "back-end/src/queryRunners/ReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { generateReportNotebook } from "back-end/src/services/notebook";
-import { getContextFromReq } from "back-end/src/services/organizations";
-import { reportArgsFromSnapshot } from "back-end/src/services/reports";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  getFactTableMap,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
+import {
+  ExperimentAnalysisSettings,
+  experimentAnalysisSettings,
+} from "back-end/src/validators/experiments";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { MetricInterface } from "back-end/types/metric";
+import { OrganizationSettings } from "back-end/types/organization";
+import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -33,10 +58,20 @@ export async function postReportFromSnapshot(
   const { org } = context;
 
   const snapshot = await findSnapshotById(org.id, req.params.snapshot);
-
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
+  // Create a new report-specific snapshot
+  snapshot.id = uniqid("snp_");
+  snapshot.type = "report";
+  snapshot.triggeredBy = "manual";
+  if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
+    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
+    snapshot.health.traffic.dimension = {};
+  }
+  await createExperimentSnapshotModel({ data: snapshot, context });
+
+  // todo: hash dependencies so we can see if settings/inputs are stale
 
   const experiment = await getExperimentById(context, snapshot.experiment);
 
@@ -48,7 +83,7 @@ export async function postReportFromSnapshot(
     context.permissions.throwPermissionError();
   }
 
-  const phase = experiment.phases[snapshot.phase];
+  const phase = experiment.phases?.[snapshot.phase];
   if (!phase) {
     throw new Error("Unknown experiment phase");
   }
@@ -63,18 +98,27 @@ export async function postReportFromSnapshot(
     userId: req.userId,
     title: `New Report - ${experiment.name}`,
     description: ``,
-    type: "experiment",
-    args: reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
-    results: analysis.results
-      ? {
-          dimensions: analysis.results,
-          unknownVariations: snapshot.unknownVariations || [],
-          multipleExposures: snapshot.multipleExposures || 0,
-        }
-      : undefined,
-    queries: snapshot.queries,
-    runStarted: snapshot.runStarted,
-    error: snapshot.error,
+    type: "experiment-snapshot",
+    snapshot: snapshot.id,
+    experimentMetadata: {
+      type: experiment.type || "standard",
+      phases: experiment.phases.map((phase) =>
+        pick(phase, [
+          "dateStarted",
+          "dateEnded",
+          "name",
+          "variationWeights",
+          "banditEvents",
+        ])
+      ),
+      variations: experiment.variations.map((variation) =>
+        omit(variation, ["description", "screenshots"])
+      ),
+    },
+    experimentAnalysisSettings: pick(
+      experiment,
+      Object.keys(experimentAnalysisSettings.shape)
+    ) as ExperimentAnalysisSettings,
   });
 
   await req.audit({
@@ -166,6 +210,132 @@ export async function getReport(
   });
 }
 
+export async function getReportPublic(
+  req: Request<{ tinyid: string }>,
+  res: Response
+) {
+  const { tinyid } = req.params;
+  const report = await getReportByTinyid(tinyid);
+  if (!report) {
+    throw new Error("Unknown report id");
+  }
+  const context = await getContextForAgendaJobByOrgId(report.organization);
+
+  // todo: share permissions
+
+  const snapshot =
+    report.type === "experiment-snapshot"
+      ? await findSnapshotById(report.organization, report.snapshot)
+      : undefined;
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const experimentMetricIds = expandMetricGroups(
+    uniq([
+      ...(snapshot?.settings?.goalMetrics ?? []),
+      ...(snapshot?.settings?.secondaryMetrics ?? []),
+      ...(snapshot?.settings?.guardrailMetrics ?? []),
+    ]),
+    metricGroups
+  );
+
+  const metricIds = uniq([
+    ...experimentMetricIds,
+    ...(snapshot?.settings?.activationMetric
+      ? [snapshot?.settings?.activationMetric]
+      : []),
+  ]);
+
+  const metrics: MetricInterface[] = await getMetricsByIds(
+    context,
+    metricIds.filter((m) => m.startsWith("met_"))
+  );
+  const factMetrics: FactMetricInterface[] = await context.models.factMetrics.getByIds(
+    metricIds.filter((m) => m.startsWith("fact__"))
+  );
+
+  const denominatorMetricIds = uniq(
+    metrics
+      .filter((m) => !!m.denominator)
+      .map((m) => m.denominator)
+      .filter((id) => id && !metricIds.includes(id)) as string[]
+  );
+  const denominatorMetrics = await getMetricsByIds(
+    context,
+    denominatorMetricIds
+  );
+
+  const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
+    (map, metric) =>
+      Object.assign(map, {
+        [metric.id]: omit(metric, [
+          "queries",
+          "runStarted",
+          "analysis",
+          "analysisError",
+          "table",
+          "column",
+          "timestampColumn",
+          "conditions",
+          "queryFormat",
+        ]),
+      }),
+    {}
+  );
+
+  let factTableIds: string[] = [];
+  factMetrics.forEach((m) => {
+    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    if (m?.denominator?.factTableId)
+      factTableIds.push(m.denominator.factTableId);
+  });
+  factTableIds = uniq(factTableIds);
+  const factTables = await getFactTablesByIds(context, factTableIds);
+  const factTableMap = factTables.reduce(
+    (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
+    {}
+  );
+
+  const allDimensions = await findDimensionsByOrganization(report.organization);
+  const dimension = allDimensions.find((d) => d.id === snapshot?.dimension);
+  const dimensions = dimension ? [dimension] : [];
+
+  const settingsKeys = [
+    "confidenceLevel",
+    "metricDefaults",
+    "multipleExposureMinPercent",
+    "statsEngine",
+    "pValueThreshold",
+    "pValueCorrection",
+    "regressionAdjustmentEnabled",
+    "regressionAdjustmentDays",
+    "srmThreshold",
+    "attributionModel",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
+    "displayCurrency",
+  ];
+  const orgSettings: OrganizationSettings = pick(
+    context.org.settings,
+    settingsKeys
+  );
+  // todo: consider including experiment's project settings in future? likely not...
+
+  const ssrData: SSRExperimentReportData = {
+    metrics: metricMap,
+    metricGroups: metricGroups,
+    factTables: factTableMap,
+    settings: orgSettings,
+    dimensions,
+  };
+
+  res.status(200).json({
+    status: 200,
+    report,
+    snapshot,
+    ssrData,
+  });
+}
+
 export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -212,6 +382,9 @@ export async function refreshReport(
   if (!report) {
     throw new Error("Unknown report id");
   }
+  if (report.type !== "experiment") {
+    throw new Error("Invalid report type");
+  }
 
   const useCache = !req.query["force"];
 
@@ -255,9 +428,11 @@ export async function putReport(
   const { org } = context;
 
   const report = await getReportById(org.id, req.params.id);
-
   if (!report) {
     throw new Error("Unknown report id");
+  }
+  if (report.type !== "experiment") {
+    throw new Error("Invalid report type");
   }
 
   const experiment = await getExperimentById(
@@ -270,7 +445,7 @@ export async function putReport(
     context.permissions.throwPermissionError();
   }
 
-  const updates: Partial<ReportInterface> = {};
+  const updates: Partial<ExperimentReportInterface> = {};
   let needsRun = false;
   if ("args" in req.body) {
     updates.args = {
@@ -300,7 +475,7 @@ export async function putReport(
 
   await updateReport(org.id, req.params.id, updates);
 
-  const updatedReport: ReportInterface = {
+  const updatedReport: ExperimentReportInterface = {
     ...report,
     ...updates,
   };
@@ -342,6 +517,9 @@ export async function cancelReport(
   const report = await getReportById(org.id, id);
   if (!report) {
     throw new Error("Could not cancel query");
+  }
+  if (report.type !== "experiment") {
+    throw new Error("Invalid report type");
   }
 
   const integration = await getIntegrationFromDatasourceId(

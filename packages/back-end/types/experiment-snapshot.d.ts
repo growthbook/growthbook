@@ -114,8 +114,8 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
 }
 
-export type SnapshotType = "standard" | "exploratory";
-export type SnapshotTriggeredBy = "schedule" | "manual"; // todo: add "report" type?
+export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotTriggeredBy = "schedule" | "manual";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
