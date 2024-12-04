@@ -1,6 +1,6 @@
 # Changelog
 
-## **1.3.1** - Nov 25, 2024
+## **1.3.1** - Dec 3, 2024
 
 - Renamed `GrowthBookMultiUser` to `GrowthBookClient`
 - New `GrowthBookClient.getScopedInstance()` method to make it easier to use in express-like back-end frameworks and client-side environments.
