@@ -158,13 +158,13 @@ app.get("/", (req, res) => {
 
 ### Singleton
 
-In this mode, you create a singleton GrowthBookMultiUser instance that is shared between all requests and you pass in user attributes when calling feature methods like `isOn`.
+In this mode, you create a singleton GrowthBookClient instance that is shared between all requests and you pass in user attributes when calling feature methods like `isOn`.
 
 This method is more efficient, but does require you to pass around a `userContext` throughout your code.
 
 ```js
 // Create a multi-user GrowthBook instance without user-specific attributes
-const gb = new GrowthBookMultiUser({
+const gb = new GrowthBookClient({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
 });
@@ -190,7 +190,7 @@ app.get("/hello", (req, res) => {
 With the singleton approach, you can either define a `trackingCallback` on the global instance:
 
 ```js
-const gb = new GrowthBookMultiUser({
+const gb = new GrowthBookClient({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
   // Tracking callback gets the user context as the 3rd argument

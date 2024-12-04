@@ -5,12 +5,12 @@ import {
   LocalStorageStickyBucketService,
   UserContext,
 } from "../src";
-import { GrowthBookMultiUser } from "../src/GrowthBookMultiUser";
+import { GrowthBookClient } from "../src/GrowthBookClient";
 require("jest-localstorage-mock");
 
-describe("GrowthBookMultiUser", () => {
+describe("GrowthBookClient", () => {
   it("Supports basic feature evaluation", async () => {
-    const gb = new GrowthBookMultiUser();
+    const gb = new GrowthBookClient();
     await gb.init({
       payload: {
         features: {
@@ -48,7 +48,7 @@ describe("GrowthBookMultiUser", () => {
 
   it("Fires tracking callback with user", async () => {
     const track = jest.fn();
-    const gb = new GrowthBookMultiUser({
+    const gb = new GrowthBookClient({
       trackingCallback: track,
     });
 
@@ -76,7 +76,7 @@ describe("GrowthBookMultiUser", () => {
 
   it("Fires feature usage callback with user", async () => {
     const track = jest.fn();
-    const gb = new GrowthBookMultiUser({
+    const gb = new GrowthBookClient({
       onFeatureUsage: track,
     });
 
@@ -114,7 +114,7 @@ describe("GrowthBookMultiUser", () => {
       meta: [{ key: "control" }, { key: "variation1" }],
     };
 
-    const gb = new GrowthBookMultiUser();
+    const gb = new GrowthBookClient();
     gb.initSync({
       payload: {
         features: {
@@ -207,8 +207,8 @@ describe("GrowthBookMultiUser", () => {
     };
 
     it("Merges enabled flag", () => {
-      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
-      const gbDisabled = new GrowthBookMultiUser({
+      const gb = new GrowthBookClient().initSync({ payload: {} });
+      const gbDisabled = new GrowthBookClient({
         enabled: false,
       }).initSync({ payload: {} });
 
@@ -229,8 +229,8 @@ describe("GrowthBookMultiUser", () => {
     });
 
     it("Merges qaMode flag", () => {
-      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
-      const gbQA = new GrowthBookMultiUser({
+      const gb = new GrowthBookClient().initSync({ payload: {} });
+      const gbQA = new GrowthBookClient({
         qaMode: true,
       }).initSync({ payload: {} });
 
@@ -248,8 +248,8 @@ describe("GrowthBookMultiUser", () => {
     });
 
     it("Merges forcedVariations", () => {
-      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
-      const gbForced = new GrowthBookMultiUser({
+      const gb = new GrowthBookClient().initSync({ payload: {} });
+      const gbForced = new GrowthBookClient({
         forcedVariations: { "my-experiment": 1 },
       }).initSync({ payload: {} });
 
@@ -300,8 +300,8 @@ describe("GrowthBookMultiUser", () => {
       const forceOff = new Map([["feature", false]]);
       const otherForce = new Map([["other-feature", true]]);
 
-      const gb = new GrowthBookMultiUser().initSync({ payload });
-      const gbForced = new GrowthBookMultiUser({
+      const gb = new GrowthBookClient().initSync({ payload });
+      const gbForced = new GrowthBookClient({
         forcedFeatureValues: force,
       }).initSync({ payload });
 
@@ -347,7 +347,7 @@ describe("GrowthBookMultiUser", () => {
       const track4 = jest.fn();
 
       // Only user trackingCallback
-      const gb = new GrowthBookMultiUser().initSync({ payload: {} });
+      const gb = new GrowthBookClient().initSync({ payload: {} });
       gb.runInlineExperiment(exp, {
         ...user,
         trackingCallback: track,
@@ -355,14 +355,14 @@ describe("GrowthBookMultiUser", () => {
       expect(track).toHaveBeenCalled();
 
       // Only global trackingCallback
-      const gb2 = new GrowthBookMultiUser({
+      const gb2 = new GrowthBookClient({
         trackingCallback: track2,
       }).initSync({ payload: {} });
       gb2.runInlineExperiment(exp, user);
       expect(track2).toHaveBeenCalled();
 
       // Both
-      const gb3 = new GrowthBookMultiUser({
+      const gb3 = new GrowthBookClient({
         trackingCallback: track3,
       }).initSync({ payload: {} });
       gb3.runInlineExperiment(exp, {
@@ -392,7 +392,7 @@ describe("GrowthBookMultiUser", () => {
       };
 
       // Only user onFeatureUsage
-      const gb = new GrowthBookMultiUser().initSync({ payload });
+      const gb = new GrowthBookClient().initSync({ payload });
       gb.evalFeature("feature", {
         ...user,
         onFeatureUsage: track,
@@ -400,14 +400,14 @@ describe("GrowthBookMultiUser", () => {
       expect(track).toHaveBeenCalled();
 
       // Only global onFeatureUsage
-      const gb2 = new GrowthBookMultiUser({
+      const gb2 = new GrowthBookClient({
         onFeatureUsage: track2,
       }).initSync({ payload });
       gb2.evalFeature("feature", user);
       expect(track2).toHaveBeenCalled();
 
       // Both
-      const gb3 = new GrowthBookMultiUser({
+      const gb3 = new GrowthBookClient({
         onFeatureUsage: track3,
       }).initSync({ payload });
       gb3.evalFeature("feature", {
@@ -422,7 +422,7 @@ describe("GrowthBookMultiUser", () => {
       gb3.destroy();
     });
     it("Merges globalAttributes and attributes", () => {
-      const gb = new GrowthBookMultiUser().initSync({
+      const gb = new GrowthBookClient().initSync({
         payload: {
           features: {
             feature: {
@@ -477,5 +477,61 @@ describe("GrowthBookMultiUser", () => {
 
       gb.destroy();
     });
+  });
+});
+
+describe("UserScopedGrowthBook", () => {
+  it("Supports basic feature evaluation with scoped instance", () => {
+    const gb = new GrowthBookClient();
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+            rules: [
+              {
+                condition: { country: "US" },
+                force: true,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const experiment: Experiment<boolean> = {
+      key: "exp",
+      variations: [false, true],
+      condition: { country: "US" },
+      weights: [0, 1],
+    };
+
+    const scoped = gb.createScopedInstance({
+      attributes: {
+        id: "1",
+        country: "US",
+      },
+    });
+
+    expect(scoped.isOn("feature")).toEqual(true);
+    expect(scoped.isOff("feature")).toEqual(false);
+    expect(scoped.getFeatureValue("feature", false)).toEqual(true);
+    expect(scoped.evalFeature("feature").value).toEqual(true);
+    expect(scoped.runInlineExperiment(experiment).variationId).toEqual(1);
+
+    const scoped2 = gb.createScopedInstance({
+      attributes: {
+        id: "1",
+        country: "GB",
+      },
+    });
+
+    expect(scoped2.isOn("feature")).toEqual(false);
+    expect(scoped2.isOff("feature")).toEqual(true);
+    expect(scoped2.getFeatureValue("feature", true)).toEqual(false);
+    expect(scoped2.evalFeature("feature").value).toEqual(false);
+    expect(scoped2.runInlineExperiment(experiment).variationId).toEqual(0);
+
+    gb.destroy();
   });
 });
