@@ -11,6 +11,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
+import { useUser } from "@/services/UserContext";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -23,6 +24,7 @@ export const ArchetypeList: FC<{
   ] = useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
+  const { getUserDisplay } = useUser();
 
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
     projects: [project],
@@ -67,6 +69,7 @@ export const ArchetypeList: FC<{
               <tr>
                 <th>Archetype</th>
                 <th>Projects</th>
+                <th>Owner</th>
                 <th>Public</th>
                 <th style={{ width: "40px" }}></th>
               </tr>
@@ -142,6 +145,7 @@ export const ArchetypeList: FC<{
                         <></>
                       )}
                     </td>
+                    <td>{getUserDisplay(archetype.owner)}</td>
                     <td>
                       {archetype.isPublic ? (
                         <span className="text-muted">Yes</span>

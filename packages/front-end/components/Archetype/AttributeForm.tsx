@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
-import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { datetime } from "shared/dates";
 import { useAttributeSchema } from "@/services/features";
@@ -15,16 +14,24 @@ import styles from "./AttributeForm.module.scss";
 
 export interface Props {
   onChange: (attributes: ArchetypeAttributeValues) => void;
-  initialValues?: ArchetypeAttributeValues;
-  archetypeId?: string;
+  initialValues: ArchetypeAttributeValues;
   jsonCTA?: string;
   useJSONButton?: boolean;
 }
 
+const deepEqual = (x, y) => {
+  const ok = Object.keys,
+    tx = typeof x,
+    ty = typeof y;
+  return x && y && tx === "object" && tx === ty
+    ? ok(x).length === ok(y).length &&
+        ok(x).every((key) => deepEqual(x[key], y[key]))
+    : x === y;
+};
+
 export default function AttributeForm({
   onChange,
   initialValues = {},
-  archetypeId,
   jsonCTA = "Test Attributes",
   useJSONButton = true,
 }: Props) {
@@ -44,55 +51,102 @@ export default function AttributeForm({
     ],
     [attributeSchema]
   );
-  const attributesMap = new Map();
-  const defaultValues = orderedAttributes
-    .filter((o) => !o.archived)
-    .reduce((list, attr) => {
-      attributesMap.set(attr.property, attr);
-      const defaultValue = initialValues[attr.property]
-        ? initialValues[attr.property]
-        : attr.datatype === "boolean"
-        ? false
-        : undefined;
-      return { ...list, [attr.property]: defaultValue };
-    }, {});
-  // eslint-disable-next-line
-  const attributeForm = useForm<any>({
-    defaultValues: defaultValues,
-  });
-  useEffect(() => {
-    // when the archetypeId changes, we want to clear any user added values and
-    // set to the values from the archetype
-    // reset the form to blank values
-    attributeForm.reset();
-    // then set the initial values
-    attributeForm.reset(initialValues);
-  }, [attributeForm, archetypeId, initialValues]);
 
-  // filter out empty values (for strings, at least)
-  const updateFormValues = (skipJsonUpdate = false) => {
-    const filteredValues = Object.entries(attributeForm.getValues())
-      .filter(([key, value]) => {
-        if (
-          attributesMap.get(key)?.datatype === "string" ||
-          attributesMap.get(key)?.datatype === "number"
-        ) {
-          return value !== "";
-        } else {
-          return true;
-        }
+  const attributesMap = useMemo(() => {
+    return new Map(
+      orderedAttributes.map((attr) => {
+        const defaultValue = initialValues[attr.property]
+          ? initialValues[attr.property]
+          : attr.datatype === "boolean"
+          ? false
+          : attr.datatype === "string[]" || attr.datatype === "number[]"
+          ? []
+          : undefined;
+        return [
+          attr.property,
+          {
+            ...attr,
+            defaultValue,
+            value: initialValues[attr.property] ?? defaultValue,
+          },
+        ];
       })
-      .reduce((obj, [key, value]) => {
-        return { ...obj, [key]: value };
-      }, {});
-    setFormValues(filteredValues ?? {});
-    if (!skipJsonUpdate)
-      setJsonAttributes(JSON.stringify(filteredValues, null, 2));
-    onChange(filteredValues);
-  };
+    );
+  }, [orderedAttributes, initialValues]);
+
+  const attributeFormValues = useMemo(() => {
+    return new Map(
+      orderedAttributes.map((attr) => [
+        attr.property,
+        initialValues[attr.property] ??
+          attributesMap.get(attr.property)?.defaultValue ??
+          "",
+      ])
+    );
+  }, [orderedAttributes, initialValues, attributesMap]);
+
+  // filter out empty values (for some types at least)
+  const updateFormValues = useCallback(
+    (skipJsonUpdate = false) => {
+      const filteredValues = Array.from(attributeFormValues.entries())
+        .filter(([key, value]) => {
+          if (
+            attributesMap.get(key)?.datatype === "string" ||
+            attributesMap.get(key)?.datatype === "number"
+          ) {
+            return value !== "";
+          } else if (
+            attributesMap.get(key)?.datatype === "string[]" ||
+            attributesMap.get(key)?.datatype === "number[]"
+          ) {
+            return !(Array.isArray(value) && value.length === 0);
+          } else if (attributesMap.get(key)?.datatype === "enum") {
+            return value !== "";
+          } else {
+            return true;
+          }
+        })
+        .reduce((obj, [key, value]) => {
+          return { ...obj, [key]: value };
+        }, {});
+      const newValues = filteredValues ?? {};
+      if (!deepEqual(newValues, formValues)) {
+        setFormValues(newValues);
+        if (!skipJsonUpdate)
+          setJsonAttributes(JSON.stringify(filteredValues, null, 2));
+        onChange(filteredValues);
+      }
+    },
+    [attributeFormValues, attributesMap, formValues, onChange]
+  );
+
+  useEffect(() => {
+    // when the archetypeId changes, we want to clear any user added values,
+    // which will happen with the initial values, and then update the formValues
+    updateFormValues();
+  }, [initialValues, updateFormValues]);
 
   const attributeInput = (attribute: SDKAttribute, i: number) => {
     if (attribute.archived) return null;
+    let value = attributeFormValues.get(attribute.property);
+    let dateValue = "";
+    let options: { value: string; label: string }[] = [];
+    if (
+      attribute.datatype === "string[]" ||
+      attribute.datatype === "number[]"
+    ) {
+      // prep for use in MultiSelectField
+      if (Array.isArray(value)) {
+        options = value.map((v: string) => ({ value: v, label: v }));
+      } else if (typeof value === "string") {
+        options = [{ value: value, label: value }];
+        value = [value];
+      }
+    } else if (attribute.datatype === "string") {
+      if (attribute.format === "date") {
+        dateValue = typeof value === "string" ? value : "";
+      }
+    }
     return (
       <div className="" key={"formInput" + i}>
         <div
@@ -103,18 +157,18 @@ export default function AttributeForm({
             {attribute.datatype === "boolean" ? (
               <Toggle
                 id={"form-toggle" + attribute.property}
-                value={!!attributeForm.watch(attribute.property)}
+                value={!!attributeFormValues.get(attribute.property)}
                 setValue={(value) => {
-                  attributeForm.setValue(attribute.property, value);
+                  attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
               />
             ) : attribute.datatype === "enum" ? (
               <SelectField
-                value={attributeForm.watch(attribute.property)}
+                value={value as string}
                 onChange={(v) => {
                   // on change here does not trigger the form to change
-                  attributeForm.setValue(attribute.property, v);
+                  attributeFormValues.set(attribute.property, v);
                   updateFormValues();
                 }}
                 placeholder="Select..."
@@ -128,34 +182,22 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "string[]" ? (
               <MultiSelectField
-                options={
-                  (attribute.enum
-                    ? attribute.enum
-                        .split(",")
-                        .map((v) => ({ value: v.trim(), label: v.trim() }))
-                    : attributeForm
-                        .watch(attribute.property)
-                        ?.map((v: string) => ({ value: v, label: v }))) || []
-                }
-                value={attributeForm.watch(attribute.property) || []}
+                options={options}
+                value={Array.isArray(value) ? value : []}
                 onChange={(value) => {
-                  attributeForm.setValue(attribute.property, value);
+                  attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
-                creatable={!attribute.enum}
+                creatable={true}
               />
             ) : attribute.datatype === "string" ? (
               <>
                 {attribute.format === "date" ? (
                   <DatePicker
                     precision="date"
-                    date={
-                      attributeForm.watch(attribute.property)
-                        ? new Date(attributeForm.watch(attribute.property))
-                        : undefined
-                    }
+                    date={dateValue ? new Date(dateValue) : undefined}
                     setDate={(v) => {
-                      attributeForm.setValue(
+                      attributeFormValues.set(
                         attribute.property,
                         v ? datetime(v) : ""
                       );
@@ -165,9 +207,9 @@ export default function AttributeForm({
                 ) : (
                   <Field
                     className=""
-                    {...attributeForm.register(attribute.property)}
+                    value={value as string}
                     onChange={(e) => {
-                      attributeForm.setValue(
+                      attributeFormValues.set(
                         attribute.property,
                         e.target.value
                       );
@@ -179,10 +221,9 @@ export default function AttributeForm({
             ) : (
               <Field
                 className=""
-                {...attributeForm.register(attribute.property)}
+                value={value as string}
                 onChange={(e) => {
-                  attributeForm.setValue(attribute.property, e.target.value);
-                  updateFormValues();
+                  attributeFormValues.set(attribute.property, e.target.value);
                 }}
               />
             )}

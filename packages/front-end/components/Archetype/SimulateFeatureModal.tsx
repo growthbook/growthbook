@@ -89,7 +89,7 @@ const SimulateFeatureModal: FC<{
             <div className="col-12">
               <AttributeForm
                 initialValues={simulateForm.watch("attributes")}
-                archetypeId={simulateForm.watch("archetype")}
+                useJSONButton={false}
                 onChange={(attrs) => {
                   simulateForm.setValue("attributes", attrs);
                   simulateForm.setValue("archetype", "");
