@@ -88,7 +88,6 @@ export type Team = Omit<TeamInterface, "members"> & {
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
-  createSegments: false,
   createMetricGroups: false,
   manageApiKeys: false,
   manageBilling: false,
