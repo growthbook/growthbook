@@ -1,8 +1,8 @@
 import { Box, Flex, Slider } from "@radix-ui/themes";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
-import { PiInfoFill } from "react-icons/pi";
+import { PiHourglassMedium, PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";
@@ -27,7 +27,14 @@ import Stepper from "@/components/Stepper/Stepper";
 import Link from "@/components/Radix/Link";
 import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Metadata from "@/components/Radix/Metadata";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
+import useURLHash from "@/hooks/useURLHash";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -43,6 +50,8 @@ export default function DesignSystemPage() {
   const [sliderVal, setSliderVal] = useState(10);
   const [stepperStep, setStepperStep] = useState(0);
   const [selectValue, setSelectValue] = useState("carrot");
+  const [activeTab, setActiveTab] = useState("tab1");
+  const [tabInUrlHash, setUrlHash] = useURLHash(["tab1", "tab2"]);
 
   return (
     <div className="pagecontents container-fluid">
@@ -652,8 +661,69 @@ export default function DesignSystemPage() {
           <Metadata label="Title1" value="Data1" />
         </Flex>
       </div>
+
+      <div className="appbox p-3">
+        <h3>Tabs</h3>
+        <Flex direction="column" gap="3">
+          <Box>
+            Uncontrolled tabs with persistance in the URL
+            <Tabs
+              value={tabInUrlHash ?? "tab1"}
+              onValueChange={(tab) => {
+                if (tab === "tab1" || tab === "tab2") {
+                  setUrlHash(tab);
+                }
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="tab1">
+                  <PiHourglassMedium style={{ color: "var(--accent-10)" }} />{" "}
+                  Tab 1
+                </TabsTrigger>
+                <TabsTrigger value="tab2">Tab 2</TabsTrigger>
+              </TabsList>
+
+              <Box p="4">
+                <TabsContent value="tab1">Tab 1 content</TabsContent>
+                <TabsContent value="tab2">Tab 2 content</TabsContent>
+              </Box>
+            </Tabs>
+          </Box>
+
+          <Box>
+            Tabs are lazy loaded by default, but you can use forceMount to
+            disable this behavior (see console for output).
+            <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
+              <TabsList>
+                <TabsTrigger value="tab1">Tab 1</TabsTrigger>
+                <TabsTrigger value="tab2">Tab 2</TabsTrigger>
+                <TabsTrigger value="tab3">Tab 3 (forcibly mounted)</TabsTrigger>
+              </TabsList>
+              <Box p="4">
+                <TabsContent value="tab1">
+                  <TabContentExample number={1} />
+                </TabsContent>
+                <TabsContent value="tab2">
+                  <TabContentExample number={2} />
+                </TabsContent>
+                <TabsContent value="tab3" forceMount>
+                  <TabContentExample number={3} />
+                </TabsContent>
+              </Box>
+            </Tabs>
+          </Box>
+        </Flex>
+      </div>
     </div>
   );
 }
 DesignSystemPage.preAuth = true;
 DesignSystemPage.preAuthTopNav = true;
+
+function TabContentExample({ number }: { number: number }) {
+  useEffect(() => console.log(`Tab number ${number} content mounted`), [
+    number,
+  ]);
+
+  return <>Tab number {number} content</>;
+}

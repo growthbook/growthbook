@@ -20,6 +20,7 @@ import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { ArchetypeInterface } from "back-end/types/archetype";
+import { SegmentInterface } from "back-end/types/segment";
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
@@ -109,18 +110,6 @@ export class Permissions {
     return this.checkGlobalPermission("manageTeam");
   };
 
-  public canCreateSegment = (): boolean => {
-    return this.checkGlobalPermission("createSegments");
-  };
-
-  public canUpdateSegment = (): boolean => {
-    return this.checkGlobalPermission("createSegments");
-  };
-
-  public canDeleteSegment = (): boolean => {
-    return this.checkGlobalPermission("createSegments");
-  };
-
   public canCreateMetricGroup = (): boolean => {
     return this.checkGlobalPermission("createMetricGroups");
   };
@@ -171,6 +160,29 @@ export class Permissions {
   };
 
   //Project Permissions
+  public canCreateSegment = (
+    segment: Pick<SegmentInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(segment, "createSegments");
+  };
+
+  public canUpdateSegment = (
+    existing: Pick<SegmentInterface, "projects">,
+    updates: Pick<SegmentInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "createSegments"
+    );
+  };
+
+  public canDeleteSegment = (
+    segment: Pick<SegmentInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(segment, "createSegments");
+  };
+
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">
   ): boolean => {

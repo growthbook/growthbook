@@ -2111,7 +2111,29 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
+  });
+
+  it("User with global readonly role, but project level analyst role can not create segment in All Projects, but can create a segment in the project where they have analyst permissions", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: ["ABC123"] })).toEqual(
+      true
+    );
   });
 
   it("User with global collaborator role can create segment", async () => {
@@ -2124,7 +2146,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can create segment", async () => {
@@ -2137,7 +2159,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(true);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(true);
   });
 });
 
@@ -2179,7 +2201,40 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
+  });
+
+  it("User with global readonly role, but project level analyst role can not update segment in All Projects, but can update a segment in the project where they have analyst permissions", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        DEF456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
+    expect(
+      permissions.canUpdateSegment({ projects: ["ABC123"] }, { projects: [] })
+    ).toEqual(false);
+    expect(
+      permissions.canUpdateSegment(
+        { projects: ["ABC123"] },
+        { projects: ["ABC123", "DEF456"] }
+      )
+    ).toEqual(true);
   });
 
   it("User with global collaborator role can update segment", async () => {
@@ -2192,7 +2247,7 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
   });
 
   it("User with global analyst role can update segment", async () => {
@@ -2205,7 +2260,7 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateSegment()).toEqual(true);
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(true);
   });
 });
 
@@ -2247,7 +2302,34 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+  });
+
+  it("User with global readonly role, but project level analyst role can not delete segment in All Projects, but can delete a segment in the project where they have analyst permissions", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        DEF456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+    expect(permissions.canDeleteSegment({ projects: ["ABC123"] })).toEqual(
+      true
+    );
   });
 
   it("User with global collaborator role can delete segment", async () => {
@@ -2260,7 +2342,7 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can delete segment", async () => {
@@ -2273,7 +2355,7 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteSegment()).toEqual(true);
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(true);
   });
 });
 
@@ -2724,7 +2806,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global collaborator role can create segment", async () => {
@@ -2737,7 +2819,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can create segment", async () => {
@@ -2750,145 +2832,145 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(true);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(true);
   });
 });
 
-describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development", description: "" },
-        { id: "staging", description: "" },
-        { id: "production", description: "" },
-      ],
-    },
-  };
+// describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
+//   const testOrg: OrganizationInterface = {
+//     id: "org_sktwi1id9l7z9xkjb",
+//     name: "Test Org",
+//     ownerEmail: "test@test.com",
+//     url: "https://test.com",
+//     dateCreated: new Date(),
+//     invites: [],
+//     members: [
+//       {
+//         id: "base_user_123",
+//         role: "readonly",
+//         dateCreated: new Date(),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//         projectRoles: [],
+//         teams: [],
+//       },
+//     ],
+//     settings: {
+//       environments: [
+//         { id: "development", description: "" },
+//         { id: "staging", description: "" },
+//         { id: "production", description: "" },
+//       ],
+//     },
+//   };
 
-  it("User with global readonly role can not update segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("readonly", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global readonly role can not update segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("readonly", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
-  });
+//     expect(permissions.canUpdateSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global collaborator role can update segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("collaborator", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global collaborator role can update segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("collaborator", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
-  });
+//     expect(permissions.canUpdateSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global analyst role can update segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global analyst role can update segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("analyst", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canUpdateSegment()).toEqual(true);
-  });
-});
+//     expect(permissions.canUpdateSegment({ projects: [] })).toEqual(true);
+//   });
+// });
 
-describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development", description: "" },
-        { id: "staging", description: "" },
-        { id: "production", description: "" },
-      ],
-    },
-  };
+// describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
+//   const testOrg: OrganizationInterface = {
+//     id: "org_sktwi1id9l7z9xkjb",
+//     name: "Test Org",
+//     ownerEmail: "test@test.com",
+//     url: "https://test.com",
+//     dateCreated: new Date(),
+//     invites: [],
+//     members: [
+//       {
+//         id: "base_user_123",
+//         role: "readonly",
+//         dateCreated: new Date(),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//         projectRoles: [],
+//         teams: [],
+//       },
+//     ],
+//     settings: {
+//       environments: [
+//         { id: "development", description: "" },
+//         { id: "staging", description: "" },
+//         { id: "production", description: "" },
+//       ],
+//     },
+//   };
 
-  it("User with global readonly role can not delete segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("readonly", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global readonly role can not delete segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("readonly", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
-  });
+//     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global collaborator role can delete segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("collaborator", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global collaborator role can delete segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("collaborator", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
-  });
+//     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global analyst role can delete segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global analyst role can delete segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("analyst", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canDeleteSegment()).toEqual(true);
-  });
-});
+//     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(true);
+//   });
+// });
 
 // permissionsClass Project Permissions Test
 describe("PermissionsUtilClass.canCreateIdea check", () => {
