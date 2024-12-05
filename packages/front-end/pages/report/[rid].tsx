@@ -3,6 +3,7 @@ import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -18,8 +19,6 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import DateResults from "@/components/Experiment/DateResults";
 import { useAuth } from "@/services/auth";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
 import {
   GBCircleArrowLeft,
   GBCuped,
@@ -44,6 +43,12 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -65,7 +70,7 @@ export default function ReportPage() {
 
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const [active, setActive] = useState<string | null>("Results");
+  const [tab, setTab] = useState<string>("results");
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
@@ -269,289 +274,236 @@ export default function ReportPage() {
           )}
         </div>
 
-        <ControlledTabs
-          active={active}
-          setActive={setActive}
-          newStyle={true}
-          navClassName={canUpdateReport ? "" : "d-none"}
-        >
-          <Tab key="results" anchor="results" display="Results" padding={false}>
-            <div className="pt-3 px-3">
-              <div className="row align-items-center mb-2">
-                <div className="col">
-                  <h2>Results</h2>
-                </div>
-                <div className="flex-1"></div>
-                <div className="col-auto d-flex align-items-end mr-3">
-                  <DimensionChooser
-                    value={report.args.dimension ?? ""}
-                    activationMetric={!!report.args.activationMetric}
-                    datasourceId={report.args.datasource}
-                    exposureQueryId={report.args.exposureQueryId}
-                    userIdType={report.args.userIdType}
-                    labelClassName="mr-2"
-                    disabled={true}
-                  />
-                </div>
-                <div className="col-auto d-flex align-items-end mr-3">
-                  <DifferenceTypeChooser
-                    differenceType={report.args.differenceType ?? "relative"}
-                    // ensure disabled is true to style correctly
-                    // and callbacks are not needed
-                    disabled={true}
-                    phase={0}
-                    setDifferenceType={() => {}}
-                    setAnalysisSettings={() => {}}
-                    mutate={() => {}}
-                  />
-                </div>
-                <div className="col-auto d-flex align-items-end mr-3">
-                  <div>
-                    <div className="uppercase-title text-muted">Date range</div>
-                    <div className="relative">
-                      <span className="date-label">
-                        {date(report.args.startDate)} —{" "}
-                        {report.args.endDate
-                          ? date(report.args.endDate)
-                          : "now"}
-                      </span>
+        <Tabs value={tab} onValueChange={setTab}>
+          {canUpdateReport && (
+            <TabsList>
+              <TabsTrigger value="results">Results</TabsTrigger>
+              <TabsTrigger value="configuration">Configuration</TabsTrigger>
+            </TabsList>
+          )}
+
+          <div className="tab-content p-0">
+            <TabsContent value="results">
+              <div className="pt-3 px-3">
+                <div className="row align-items-center mb-2">
+                  <div className="col">
+                    <h2>Results</h2>
+                  </div>
+                  <div className="flex-1"></div>
+                  <div className="col-auto d-flex align-items-end mr-3">
+                    <DimensionChooser
+                      value={report.args.dimension ?? ""}
+                      activationMetric={!!report.args.activationMetric}
+                      datasourceId={report.args.datasource}
+                      exposureQueryId={report.args.exposureQueryId}
+                      userIdType={report.args.userIdType}
+                      labelClassName="mr-2"
+                      disabled={true}
+                    />
+                  </div>
+                  <div className="col-auto d-flex align-items-end mr-3">
+                    <DifferenceTypeChooser
+                      differenceType={report.args.differenceType ?? "relative"}
+                      // ensure disabled is true to style correctly
+                      // and callbacks are not needed
+                      disabled={true}
+                      phase={0}
+                      setDifferenceType={() => {}}
+                      setAnalysisSettings={() => {}}
+                      mutate={() => {}}
+                    />
+                  </div>
+                  <div className="col-auto d-flex align-items-end mr-3">
+                    <div>
+                      <div className="uppercase-title text-muted">
+                        Date range
+                      </div>
+                      <div className="relative">
+                        <span className="date-label">
+                          {date(report.args.startDate)} —{" "}
+                          {report.args.endDate
+                            ? date(report.args.endDate)
+                            : "now"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="col-auto">
-                  {hasData &&
-                  report.runStarted &&
-                  queryStatusData.status !== "running" ? (
-                    <div
-                      className="text-muted text-right"
-                      style={{ width: 100, fontSize: "0.8em" }}
-                      title={datetime(report.runStarted)}
-                    >
+                  <div className="col-auto">
+                    {hasData &&
+                    report.runStarted &&
+                    queryStatusData.status !== "running" ? (
                       <div
-                        className="font-weight-bold"
-                        style={{ lineHeight: 1.2 }}
+                        className="text-muted text-right"
+                        style={{ width: 100, fontSize: "0.8em" }}
+                        title={datetime(report.runStarted)}
                       >
-                        updated
+                        <div
+                          className="font-weight-bold"
+                          style={{ lineHeight: 1.2 }}
+                        >
+                          updated
+                        </div>
+                        <div
+                          className="d-inline-block"
+                          style={{ lineHeight: 1 }}
+                        >
+                          {ago(report.runStarted)}
+                        </div>
                       </div>
-                      <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                        {ago(report.runStarted)}
-                      </div>
-                    </div>
-                  ) : (
-                    ""
-                  )}
-                </div>
-                <div className="col-auto">
-                  {canUpdateReport && (
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
+                    ) : (
+                      ""
+                    )}
+                  </div>
+                  <div className="col-auto">
+                    {canUpdateReport && (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          try {
+                            const res = await apiCall<{
+                              report: ReportInterface;
+                            }>(`/report/${report.id}/refresh`, {
+                              method: "POST",
+                            });
+                            trackReport(
+                              "update",
+                              "RefreshData",
+                              datasource?.type || null,
+                              res.report
+                            );
+                            mutate();
+                            setRefreshError("");
+                          } catch (e) {
+                            setRefreshError(e.message);
+                          }
+                        }}
+                      >
+                        <RunQueriesButton
+                          icon="refresh"
+                          cta="Refresh Data"
+                          mutate={mutate}
+                          model={report}
+                          cancelEndpoint={`/report/${report.id}/cancel`}
+                          color="outline-primary"
+                        />
+                      </form>
+                    )}
+                  </div>
+                  <div className="col-auto">
+                    <ResultMoreMenu
+                      id={report.id}
+                      datasource={datasource}
+                      hasData={hasData}
+                      forceRefresh={async () => {
                         try {
                           const res = await apiCall<{
                             report: ReportInterface;
-                          }>(`/report/${report.id}/refresh`, {
+                          }>(`/report/${report.id}/refresh?force=true`, {
                             method: "POST",
                           });
                           trackReport(
                             "update",
-                            "RefreshData",
+                            "ForceRefreshData",
                             datasource?.type || null,
                             res.report
                           );
                           mutate();
-                          setRefreshError("");
                         } catch (e) {
-                          setRefreshError(e.message);
+                          console.error(e);
                         }
                       }}
-                    >
-                      <RunQueriesButton
-                        icon="refresh"
-                        cta="Refresh Data"
-                        mutate={mutate}
-                        model={report}
-                        cancelEndpoint={`/report/${report.id}/cancel`}
-                        color="outline-primary"
-                      />
-                    </form>
-                  )}
-                </div>
-                <div className="col-auto">
-                  <ResultMoreMenu
-                    id={report.id}
-                    datasource={datasource}
-                    hasData={hasData}
-                    forceRefresh={async () => {
-                      try {
-                        const res = await apiCall<{ report: ReportInterface }>(
-                          `/report/${report.id}/refresh?force=true`,
-                          {
-                            method: "POST",
-                          }
-                        );
-                        trackReport(
-                          "update",
-                          "ForceRefreshData",
-                          datasource?.type || null,
-                          res.report
-                        );
-                        mutate();
-                      } catch (e) {
-                        console.error(e);
+                      supportsNotebooks={
+                        !!datasource?.settings?.notebookRunQuery
                       }
-                    }}
-                    supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                    editMetrics={
-                      canUpdateReport
-                        ? () => setActive("Configuration")
-                        : undefined
-                    }
-                    generateReport={false}
-                    notebookUrl={`/report/${report.id}/notebook`}
-                    notebookFilename={report.title}
-                    queries={report.queries}
-                    queryError={report.error}
-                    results={report.results?.dimensions}
-                    variations={variations}
-                    metrics={getAllMetricIdsFromExperiment(report.args, false)}
-                    trackingKey={report.title}
-                    dimension={report.args.dimension ?? undefined}
-                    project={experimentData?.experiment.project || ""}
-                  />
+                      editMetrics={
+                        canUpdateReport
+                          ? () => setTab("configuration")
+                          : undefined
+                      }
+                      generateReport={false}
+                      notebookUrl={`/report/${report.id}/notebook`}
+                      notebookFilename={report.title}
+                      queries={report.queries}
+                      queryError={report.error}
+                      results={report.results?.dimensions}
+                      variations={variations}
+                      metrics={getAllMetricIdsFromExperiment(
+                        report.args,
+                        false
+                      )}
+                      trackingKey={report.title}
+                      dimension={report.args.dimension ?? undefined}
+                      project={experimentData?.experiment.project || ""}
+                    />
+                  </div>
                 </div>
-              </div>
-              {report.error ? (
-                <div className="alert alert-danger">
-                  <strong>Error generating the report: </strong> {report.error}
-                </div>
-              ) : null}
-              {refreshError && (
-                <div className="alert alert-danger">
-                  <strong>Error refreshing data: </strong> {refreshError}
-                </div>
-              )}
-              {!hasMetrics && (
-                <div className="alert alert-info">
-                  Add at least 1 metric to view results.
-                </div>
-              )}
-              {!hasData &&
-                !report.results?.unknownVariations?.length &&
-                queryStatusData.status !== "running" &&
-                hasMetrics && (
-                  <div className="alert alert-info">
-                    No data yet.{" "}
-                    {report.results &&
-                      phaseAgeMinutes >= 120 &&
-                      "Make sure your experiment is tracking properly."}
-                    {report.results &&
-                      phaseAgeMinutes < 120 &&
-                      "It was just started " +
-                        ago(report.args.startDate) +
-                        ". Give it a little longer and click the 'Refresh' button to check again."}
-                    {!report.results &&
-                      canUpdateReport &&
-                      `Click the "Refresh" button.`}
+                {report.error ? (
+                  <div className="alert alert-danger">
+                    <strong>Error generating the report: </strong>{" "}
+                    {report.error}
+                  </div>
+                ) : null}
+                {refreshError && (
+                  <div className="alert alert-danger">
+                    <strong>Error refreshing data: </strong> {refreshError}
                   </div>
                 )}
-            </div>
-            {hasData &&
-              report.args.dimension &&
-              (report.args.dimension.substring(0, 8) === "pre:date" ? (
-                <DateResults
-                  goalMetrics={report.args.goalMetrics}
-                  secondaryMetrics={report.args.secondaryMetrics}
-                  guardrailMetrics={report.args.guardrailMetrics}
-                  results={report.results?.dimensions || []}
-                  seriestype={report.args.dimension}
-                  variations={variations}
-                  statsEngine={report.args.statsEngine}
-                  differenceType={differenceType}
-                />
-              ) : (
-                <BreakDownResults
-                  isLatestPhase={true}
-                  goalMetrics={report.args.goalMetrics}
-                  secondaryMetrics={report.args.secondaryMetrics}
-                  guardrailMetrics={report.args.guardrailMetrics}
-                  metricOverrides={report.args.metricOverrides || []}
-                  reportDate={report.dateCreated}
-                  results={report.results?.dimensions || []}
-                  queryStatusData={queryStatusData}
-                  status={"stopped"}
-                  startDate={getValidDate(report.args.startDate).toISOString()}
-                  dimensionId={report.args.dimension}
-                  activationMetric={report.args.activationMetric}
-                  variations={variations}
-                  key={report.args.dimension}
-                  statsEngine={report.args.statsEngine || DEFAULT_STATS_ENGINE}
-                  pValueCorrection={pValueCorrection}
-                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  settingsForSnapshotMetrics={
-                    report.args.settingsForSnapshotMetrics
-                  }
-                  sequentialTestingEnabled={sequentialTestingEnabled}
-                  differenceType={differenceType}
-                />
-              ))}
-            {report.results && !report.args.dimension && (
-              <VariationIdWarning
-                datasource={datasource}
-                unknownVariations={report.results?.unknownVariations || []}
-                isUpdating={status === "running"}
-                setVariationIds={async (ids) => {
-                  const args: ExperimentReportArgs = {
-                    ...report.args,
-                    variations: report.args.variations.map((v, i) => {
-                      return {
-                        ...v,
-                        id: ids[i] ?? v.id,
-                      };
-                    }),
-                  };
-
-                  const res = await apiCall<{ updatedReport: ReportInterface }>(
-                    `/report/${report.id}`,
-                    {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        args,
-                      }),
-                    }
-                  );
-                  trackReport(
-                    "update",
-                    "VariationIdWarning",
-                    datasource?.type || null,
-                    res.updatedReport
-                  );
-                  mutate();
-                }}
-                variations={variations}
-                results={report.results?.dimensions?.[0]}
-                project={experimentData?.experiment.project}
-              />
-            )}
-            {hasData &&
-              !report.args.dimension &&
-              report.results?.dimensions?.[0] !== undefined && (
-                <div className="mt-0 mb-3">
-                  <CompactResults
-                    variations={variations}
-                    multipleExposures={report.results?.multipleExposures || 0}
-                    results={report.results?.dimensions?.[0]}
-                    queryStatusData={queryStatusData}
-                    reportDate={report.dateCreated}
-                    startDate={getValidDate(
-                      report.args.startDate
-                    ).toISOString()}
-                    isLatestPhase={true}
-                    status={"stopped"}
+                {!hasMetrics && (
+                  <div className="alert alert-info">
+                    Add at least 1 metric to view results.
+                  </div>
+                )}
+                {!hasData &&
+                  !report.results?.unknownVariations?.length &&
+                  queryStatusData.status !== "running" &&
+                  hasMetrics && (
+                    <div className="alert alert-info">
+                      No data yet.{" "}
+                      {report.results &&
+                        phaseAgeMinutes >= 120 &&
+                        "Make sure your experiment is tracking properly."}
+                      {report.results &&
+                        phaseAgeMinutes < 120 &&
+                        "It was just started " +
+                          ago(report.args.startDate) +
+                          ". Give it a little longer and click the 'Refresh' button to check again."}
+                      {!report.results &&
+                        canUpdateReport &&
+                        `Click the "Refresh" button.`}
+                    </div>
+                  )}
+              </div>
+              {hasData &&
+                report.args.dimension &&
+                (report.args.dimension.substring(0, 8) === "pre:date" ? (
+                  <DateResults
                     goalMetrics={report.args.goalMetrics}
                     secondaryMetrics={report.args.secondaryMetrics}
                     guardrailMetrics={report.args.guardrailMetrics}
-                    metricOverrides={report.args.metricOverrides ?? []}
-                    id={report.id}
+                    results={report.results?.dimensions || []}
+                    seriestype={report.args.dimension}
+                    variations={variations}
+                    statsEngine={report.args.statsEngine}
+                    differenceType={differenceType}
+                  />
+                ) : (
+                  <BreakDownResults
+                    isLatestPhase={true}
+                    goalMetrics={report.args.goalMetrics}
+                    secondaryMetrics={report.args.secondaryMetrics}
+                    guardrailMetrics={report.args.guardrailMetrics}
+                    metricOverrides={report.args.metricOverrides || []}
+                    reportDate={report.dateCreated}
+                    results={report.results?.dimensions || []}
+                    queryStatusData={queryStatusData}
+                    status={"stopped"}
+                    startDate={getValidDate(
+                      report.args.startDate
+                    ).toISOString()}
+                    dimensionId={report.args.dimension}
+                    activationMetric={report.args.activationMetric}
+                    variations={variations}
+                    key={report.args.dimension}
                     statsEngine={
                       report.args.statsEngine || DEFAULT_STATS_ENGINE
                     }
@@ -562,79 +514,146 @@ export default function ReportPage() {
                     }
                     sequentialTestingEnabled={sequentialTestingEnabled}
                     differenceType={differenceType}
-                    isTabActive={true}
                   />
-                </div>
-              )}
-            {hasData && (
-              <div className="row align-items-center mx-2 my-3">
-                <div className="col-auto small" style={{ lineHeight: 1.2 }}>
-                  <div className="text-muted mb-1">
-                    The above results were computed with:
-                  </div>
-                  <div>
-                    <span className="text-muted">Engine:</span>{" "}
-                    <span>
-                      {report.args?.statsEngine === "frequentist"
-                        ? "Frequentist"
-                        : "Bayesian"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted">
-                      <GBCuped size={13} /> CUPED:
-                    </span>{" "}
-                    <span>
-                      {report.args?.regressionAdjustmentEnabled
-                        ? "Enabled"
-                        : "Disabled"}
-                    </span>
-                  </div>
+                ))}
+              {report.results && !report.args.dimension && (
+                <VariationIdWarning
+                  datasource={datasource}
+                  unknownVariations={report.results?.unknownVariations || []}
+                  isUpdating={status === "running"}
+                  setVariationIds={async (ids) => {
+                    const args: ExperimentReportArgs = {
+                      ...report.args,
+                      variations: report.args.variations.map((v, i) => {
+                        return {
+                          ...v,
+                          id: ids[i] ?? v.id,
+                        };
+                      }),
+                    };
 
-                  {report.args?.statsEngine === "frequentist" && (
+                    const res = await apiCall<{
+                      updatedReport: ReportInterface;
+                    }>(`/report/${report.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        args,
+                      }),
+                    });
+                    trackReport(
+                      "update",
+                      "VariationIdWarning",
+                      datasource?.type || null,
+                      res.updatedReport
+                    );
+                    mutate();
+                  }}
+                  variations={variations}
+                  results={report.results?.dimensions?.[0]}
+                  project={experimentData?.experiment.project}
+                />
+              )}
+              {hasData &&
+                !report.args.dimension &&
+                report.results?.dimensions?.[0] !== undefined && (
+                  <div className="mt-0 mb-3">
+                    <CompactResults
+                      variations={variations}
+                      multipleExposures={report.results?.multipleExposures || 0}
+                      results={report.results?.dimensions?.[0]}
+                      queryStatusData={queryStatusData}
+                      reportDate={report.dateCreated}
+                      startDate={getValidDate(
+                        report.args.startDate
+                      ).toISOString()}
+                      isLatestPhase={true}
+                      status={"stopped"}
+                      goalMetrics={report.args.goalMetrics}
+                      secondaryMetrics={report.args.secondaryMetrics}
+                      guardrailMetrics={report.args.guardrailMetrics}
+                      metricOverrides={report.args.metricOverrides ?? []}
+                      id={report.id}
+                      statsEngine={
+                        report.args.statsEngine || DEFAULT_STATS_ENGINE
+                      }
+                      pValueCorrection={pValueCorrection}
+                      regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                      settingsForSnapshotMetrics={
+                        report.args.settingsForSnapshotMetrics
+                      }
+                      sequentialTestingEnabled={sequentialTestingEnabled}
+                      differenceType={differenceType}
+                      isTabActive={true}
+                    />
+                  </div>
+                )}
+              {hasData && (
+                <div className="row align-items-center mx-2 my-3">
+                  <div className="col-auto small" style={{ lineHeight: 1.2 }}>
+                    <div className="text-muted mb-1">
+                      The above results were computed with:
+                    </div>
+                    <div>
+                      <span className="text-muted">Engine:</span>{" "}
+                      <span>
+                        {report.args?.statsEngine === "frequentist"
+                          ? "Frequentist"
+                          : "Bayesian"}
+                      </span>
+                    </div>
                     <div>
                       <span className="text-muted">
-                        <GBSequential size={13} /> Sequential:
+                        <GBCuped size={13} /> CUPED:
                       </span>{" "}
                       <span>
-                        {report.args?.sequentialTestingEnabled
+                        {report.args?.regressionAdjustmentEnabled
                           ? "Enabled"
                           : "Disabled"}
                       </span>
                     </div>
-                  )}
-                  <div>
-                    <span className="text-muted">Run date:</span>{" "}
-                    <span>
-                      {getValidDate(report.runStarted).toLocaleString([], {
-                        year: "numeric",
-                        month: "numeric",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </span>
+
+                    {report.args?.statsEngine === "frequentist" && (
+                      <div>
+                        <span className="text-muted">
+                          <GBSequential size={13} /> Sequential:
+                        </span>{" "}
+                        <span>
+                          {report.args?.sequentialTestingEnabled
+                            ? "Enabled"
+                            : "Disabled"}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-muted">Run date:</span>{" "}
+                      <span>
+                        {getValidDate(report.runStarted).toLocaleString([], {
+                          year: "numeric",
+                          month: "numeric",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+            </TabsContent>
+            {canUpdateReport && (
+              <TabsContent value="configuration">
+                <Box p="4">
+                  <h2>Configuration</h2>
+                  <ConfigureReport
+                    mutate={mutate}
+                    report={report}
+                    viewResults={() => setTab("results")}
+                  />
+                </Box>
+              </TabsContent>
             )}
-          </Tab>
-          {canUpdateReport && (
-            <Tab
-              key="configuration"
-              anchor="configuration"
-              display="Configuration"
-              forceRenderOnFocus={true}
-            >
-              <h2>Configuration</h2>
-              <ConfigureReport
-                mutate={mutate}
-                report={report}
-                viewResults={() => setActive("Results")}
-              />
-            </Tab>
-          )}
-        </ControlledTabs>
+          </div>
+        </Tabs>
       </div>
     </>
   );

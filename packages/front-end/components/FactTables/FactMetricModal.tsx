@@ -24,6 +24,7 @@ import {
   getColumnRefWhereClause,
 } from "shared/experiments";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { Box } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getDefaultFactMetricProps } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -41,8 +42,12 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
@@ -1408,8 +1413,10 @@ export default function FactMetricModal({
                 </a>
               )}
               {advancedOpen && (
-                <Tabs
-                  navExtra={
+                <Tabs defaultValue="query">
+                  <TabsList>
+                    <TabsTrigger value="query">Query Settings</TabsTrigger>
+                    <TabsTrigger value="display">Display Settings</TabsTrigger>
                     <div className="ml-auto">
                       <a
                         href="#"
@@ -1423,230 +1430,236 @@ export default function FactMetricModal({
                         <FaTimes /> Hide
                       </a>
                     </div>
-                  }
-                >
-                  <Tab id="query" display="Query Settings">
-                    <MetricDelayHours form={form} />
-                    {type !== "quantile" && type !== "proportion" ? (
-                      <MetricCappingSettingsForm
-                        form={form}
-                        datasourceType={selectedDataSource.type}
-                        metricType={type}
+                  </TabsList>
+
+                  <Box py="3">
+                    <TabsContent value="query">
+                      <MetricDelayHours form={form} />
+                      {type !== "quantile" && type !== "proportion" ? (
+                        <MetricCappingSettingsForm
+                          form={form}
+                          datasourceType={selectedDataSource.type}
+                          metricType={type}
+                        />
+                      ) : null}
+
+                      <MetricPriorSettingsForm
+                        priorSettings={form.watch("priorSettings")}
+                        setPriorSettings={(priorSettings) =>
+                          form.setValue("priorSettings", priorSettings)
+                        }
+                        metricDefaults={metricDefaults}
                       />
-                    ) : null}
 
-                    <MetricPriorSettingsForm
-                      priorSettings={form.watch("priorSettings")}
-                      setPriorSettings={(priorSettings) =>
-                        form.setValue("priorSettings", priorSettings)
-                      }
-                      metricDefaults={metricDefaults}
-                    />
-
-                    <PremiumTooltip commercialFeature="regression-adjustment">
-                      <label className="mb-1">
-                        <GBCuped /> Regression Adjustment (CUPED)
-                      </label>
-                    </PremiumTooltip>
-                    <div className="px-3 py-2 pb-0 mb-2 border rounded">
-                      {regressionAdjustmentAvailableForMetric ? (
-                        <>
-                          <Checkbox
-                            label="Override organization-level settings"
-                            value={form.watch("regressionAdjustmentOverride")}
-                            setValue={(v) =>
-                              form.setValue(
-                                "regressionAdjustmentOverride",
-                                v === true
-                              )
-                            }
-                            disabled={!hasRegressionAdjustmentFeature}
-                          />
-                          <div
-                            style={{
-                              display: form.watch(
-                                "regressionAdjustmentOverride"
-                              )
-                                ? "block"
-                                : "none",
-                            }}
-                          >
-                            <div className="d-flex my-2 border-bottom"></div>
-                            <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                              <label
-                                className="mr-1"
-                                htmlFor="toggle-regressionAdjustmentEnabled"
-                              >
-                                Apply regression adjustment for this metric
-                              </label>
-                              <Toggle
-                                id={"toggle-regressionAdjustmentEnabled"}
-                                value={
-                                  !!form.watch("regressionAdjustmentEnabled")
-                                }
-                                setValue={(value) => {
-                                  form.setValue(
-                                    "regressionAdjustmentEnabled",
-                                    value
-                                  );
-                                }}
-                                disabled={!hasRegressionAdjustmentFeature}
-                              />
-                              <small className="form-text text-muted">
-                                (organization default:{" "}
-                                {settings.regressionAdjustmentEnabled
-                                  ? "On"
-                                  : "Off"}
+                      <PremiumTooltip commercialFeature="regression-adjustment">
+                        <label className="mb-1">
+                          <GBCuped /> Regression Adjustment (CUPED)
+                        </label>
+                      </PremiumTooltip>
+                      <div className="px-3 py-2 pb-0 mb-2 border rounded">
+                        {regressionAdjustmentAvailableForMetric ? (
+                          <>
+                            <Checkbox
+                              label="Override organization-level settings"
+                              value={form.watch("regressionAdjustmentOverride")}
+                              setValue={(v) =>
+                                form.setValue(
+                                  "regressionAdjustmentOverride",
+                                  v === true
                                 )
-                              </small>
-                            </div>
+                              }
+                              disabled={!hasRegressionAdjustmentFeature}
+                            />
                             <div
-                              className="form-group mt-3 mb-1 mr-2"
                               style={{
-                                opacity: form.watch(
-                                  "regressionAdjustmentEnabled"
+                                display: form.watch(
+                                  "regressionAdjustmentOverride"
                                 )
-                                  ? "1"
-                                  : "0.5",
+                                  ? "block"
+                                  : "none",
                               }}
                             >
-                              <Field
-                                label="Pre-exposure lookback period (days)"
-                                type="number"
-                                style={{
-                                  borderColor: regressionAdjustmentDaysHighlightColor,
-                                  backgroundColor: regressionAdjustmentDaysHighlightColor
-                                    ? regressionAdjustmentDaysHighlightColor +
-                                      "15"
-                                    : "",
-                                }}
-                                className="ml-2"
-                                containerClassName="mb-0 form-inline"
-                                inputGroupClassName="d-inline-flex w-150px"
-                                append="days"
-                                min="0"
-                                max="100"
-                                disabled={!hasRegressionAdjustmentFeature}
-                                helpText={
-                                  <>
-                                    <span className="ml-2">
-                                      (organization default:{" "}
-                                      {settings.regressionAdjustmentDays ??
-                                        DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
-                                      )
-                                    </span>
-                                  </>
-                                }
-                                {...form.register("regressionAdjustmentDays", {
-                                  valueAsNumber: true,
-                                  validate: (v) => {
-                                    v = v || 0;
-                                    return !(v <= 0 || v > 100);
-                                  },
-                                })}
-                              />
-                              {regressionAdjustmentDaysWarningMsg && (
-                                <small
-                                  style={{
-                                    color: regressionAdjustmentDaysHighlightColor,
-                                  }}
+                              <div className="d-flex my-2 border-bottom"></div>
+                              <div className="form-group mt-3 mb-0 mr-2 form-inline">
+                                <label
+                                  className="mr-1"
+                                  htmlFor="toggle-regressionAdjustmentEnabled"
                                 >
-                                  {regressionAdjustmentDaysWarningMsg}
+                                  Apply regression adjustment for this metric
+                                </label>
+                                <Toggle
+                                  id={"toggle-regressionAdjustmentEnabled"}
+                                  value={
+                                    !!form.watch("regressionAdjustmentEnabled")
+                                  }
+                                  setValue={(value) => {
+                                    form.setValue(
+                                      "regressionAdjustmentEnabled",
+                                      value
+                                    );
+                                  }}
+                                  disabled={!hasRegressionAdjustmentFeature}
+                                />
+                                <small className="form-text text-muted">
+                                  (organization default:{" "}
+                                  {settings.regressionAdjustmentEnabled
+                                    ? "On"
+                                    : "Off"}
+                                  )
                                 </small>
-                              )}
+                              </div>
+                              <div
+                                className="form-group mt-3 mb-1 mr-2"
+                                style={{
+                                  opacity: form.watch(
+                                    "regressionAdjustmentEnabled"
+                                  )
+                                    ? "1"
+                                    : "0.5",
+                                }}
+                              >
+                                <Field
+                                  label="Pre-exposure lookback period (days)"
+                                  type="number"
+                                  style={{
+                                    borderColor: regressionAdjustmentDaysHighlightColor,
+                                    backgroundColor: regressionAdjustmentDaysHighlightColor
+                                      ? regressionAdjustmentDaysHighlightColor +
+                                        "15"
+                                      : "",
+                                  }}
+                                  className="ml-2"
+                                  containerClassName="mb-0 form-inline"
+                                  inputGroupClassName="d-inline-flex w-150px"
+                                  append="days"
+                                  min="0"
+                                  max="100"
+                                  disabled={!hasRegressionAdjustmentFeature}
+                                  helpText={
+                                    <>
+                                      <span className="ml-2">
+                                        (organization default:{" "}
+                                        {settings.regressionAdjustmentDays ??
+                                          DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
+                                        )
+                                      </span>
+                                    </>
+                                  }
+                                  {...form.register(
+                                    "regressionAdjustmentDays",
+                                    {
+                                      valueAsNumber: true,
+                                      validate: (v) => {
+                                        v = v || 0;
+                                        return !(v <= 0 || v > 100);
+                                      },
+                                    }
+                                  )}
+                                />
+                                {regressionAdjustmentDaysWarningMsg && (
+                                  <small
+                                    style={{
+                                      color: regressionAdjustmentDaysHighlightColor,
+                                    }}
+                                  >
+                                    {regressionAdjustmentDaysWarningMsg}
+                                  </small>
+                                )}
+                              </div>
                             </div>
+                          </>
+                        ) : (
+                          <div className="text-muted">
+                            <FaTimes className="text-danger" />{" "}
+                            {regressionAdjustmentAvailableForMetricReason}
                           </div>
-                        </>
-                      ) : (
-                        <div className="text-muted">
-                          <FaTimes className="text-danger" />{" "}
-                          {regressionAdjustmentAvailableForMetricReason}
-                        </div>
-                      )}
-                    </div>
-                  </Tab>
-                  <Tab id="display" display="Display Settings">
-                    <SelectField
-                      label="What is the goal?"
-                      value={form.watch("inverse") ? "1" : "0"}
-                      onChange={(v) => {
-                        form.setValue("inverse", v === "1");
-                      }}
-                      options={[
-                        {
-                          value: "0",
-                          label: `Increase the metric value`,
-                        },
-                        {
-                          value: "1",
-                          label: `Decrease the metric value`,
-                        },
-                      ]}
-                      helpText="Some metrics like 'page load time' you actually want to decrease instead of increase"
-                    />
-                    <div className="form-group">
-                      <label>Minimum Sample Size</label>
-                      <input
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="display">
+                      <SelectField
+                        label="What is the goal?"
+                        value={form.watch("inverse") ? "1" : "0"}
+                        onChange={(v) => {
+                          form.setValue("inverse", v === "1");
+                        }}
+                        options={[
+                          {
+                            value: "0",
+                            label: `Increase the metric value`,
+                          },
+                          {
+                            value: "1",
+                            label: `Decrease the metric value`,
+                          },
+                        ]}
+                        helpText="Some metrics like 'page load time' you actually want to decrease instead of increase"
+                      />
+                      <div className="form-group">
+                        <label>Minimum Sample Size</label>
+                        <input
+                          type="number"
+                          className="form-control"
+                          {...form.register("minSampleSize", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                        <small className="text-muted">
+                          The{" "}
+                          {type === "proportion"
+                            ? "number of conversions"
+                            : type === "quantile"
+                            ? `number of ${
+                                quantileSettings.type === "unit"
+                                  ? "users"
+                                  : "events"
+                              }`
+                            : `total value`}{" "}
+                          required in an experiment variation before showing
+                          results (default{" "}
+                          {type === "proportion"
+                            ? metricDefaults.minimumSampleSize
+                            : formatNumber(metricDefaults.minimumSampleSize)}
+                          )
+                        </small>
+                      </div>
+                      <Field
+                        label="Max Percent Change"
                         type="number"
-                        className="form-control"
-                        {...form.register("minSampleSize", {
+                        step="any"
+                        append="%"
+                        {...form.register("maxPercentChange", {
                           valueAsNumber: true,
                         })}
-                      />
-                      <small className="text-muted">
-                        The{" "}
-                        {type === "proportion"
-                          ? "number of conversions"
-                          : type === "quantile"
-                          ? `number of ${
-                              quantileSettings.type === "unit"
-                                ? "users"
-                                : "events"
-                            }`
-                          : `total value`}{" "}
-                        required in an experiment variation before showing
-                        results (default{" "}
-                        {type === "proportion"
-                          ? metricDefaults.minimumSampleSize
-                          : formatNumber(metricDefaults.minimumSampleSize)}
-                        )
-                      </small>
-                    </div>
-                    <Field
-                      label="Max Percent Change"
-                      type="number"
-                      step="any"
-                      append="%"
-                      {...form.register("maxPercentChange", {
-                        valueAsNumber: true,
-                      })}
-                      helpText={`An experiment that changes the metric by more than this percent will
+                        helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               metricDefaults.maxPercentageChange * 100
             })`}
-                    />
-                    <Field
-                      label="Min Percent Change"
-                      type="number"
-                      step="any"
-                      append="%"
-                      {...form.register("minPercentChange", {
-                        valueAsNumber: true,
-                      })}
-                      helpText={`An experiment that changes the metric by less than this percent will be
+                      />
+                      <Field
+                        label="Min Percent Change"
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("minPercentChange", {
+                          valueAsNumber: true,
+                        })}
+                        helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
             })`}
-                    />
+                      />
 
-                    <RiskThresholds
-                      winRisk={form.watch("winRisk")}
-                      loseRisk={form.watch("loseRisk")}
-                      winRiskRegisterField={form.register("winRisk")}
-                      loseRiskRegisterField={form.register("loseRisk")}
-                      riskError={riskError}
-                    />
-                  </Tab>
+                      <RiskThresholds
+                        winRisk={form.watch("winRisk")}
+                        loseRisk={form.watch("loseRisk")}
+                        winRiskRegisterField={form.register("winRisk")}
+                        loseRiskRegisterField={form.register("loseRisk")}
+                        riskError={riskError}
+                      />
+                    </TabsContent>
+                  </Box>
                 </Tabs>
               )}
             </>

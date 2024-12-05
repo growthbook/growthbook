@@ -35,8 +35,12 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-import Tab from "@/components/Tabs/Tab";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
@@ -804,70 +808,45 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-      <div className="row align-items-center">
-        <ControlledTabs
-          orientation="horizontal"
-          className="col"
-          buttonsClassName="mb-0 d-flex align-items-center"
-          buttonsWrapperClassName="border-bottom-0 large shiftdown-1"
-          defaultTab="analysis"
-          newStyle={false}
-          showActiveCount={false}
-          active={tab}
-          setActive={setTab}
-        >
-          <Tab
-            display={
-              <>
-                <FaChartLine className="mr-1" size={16} />
-                Metric Analysis
-              </>
-            }
-            id="analysis"
-            anchor="analysis"
-            padding={false}
-            lazy={true}
-          >
-            {datasource ? (
-              <MetricAnalysis
-                factMetric={factMetric}
-                datasource={datasource}
-                className="tabbed-content"
-              />
-            ) : null}
-          </Tab>
-          <Tab
-            display={
-              <>
-                <GBExperiment className="mr-1" />
-                Experiments
-              </>
-            }
-            id="experiments"
-            anchor="experiments"
-            padding={false}
-            lazy={true}
-          >
-            <MetricExperiments metric={factMetric} />
-          </Tab>
-          {growthbook.isOn("bandits") ? (
-            <Tab
-              display={
-                <>
-                  <GBBandit className="mr-1" />
-                  Bandits
-                </>
-              }
-              id="bandits"
-              anchor="bandits"
-              padding={false}
-              lazy={true}
-            >
-              <MetricExperiments metric={factMetric} bandits={true} />
-            </Tab>
+
+      <Tabs value={tab ?? undefined} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="analysis">
+            <FaChartLine className="mr-1" size={16} />
+            Metric Analysis
+          </TabsTrigger>
+          <TabsTrigger value="experiments">
+            <GBExperiment className="mr-1" />
+            Experiments
+          </TabsTrigger>
+          {growthbook.isOn("bandits") && (
+            <TabsTrigger value="bandits">
+              <GBBandit className="mr-1" />
+              Bandits
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="analysis">
+          {datasource ? (
+            <MetricAnalysis
+              factMetric={factMetric}
+              datasource={datasource}
+              className="tabbed-content"
+            />
           ) : null}
-        </ControlledTabs>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="experiments">
+          <MetricExperiments metric={factMetric} />
+        </TabsContent>
+
+        {growthbook.isOn("bandits") && (
+          <TabsContent value="bandits">
+            <MetricExperiments metric={factMetric} bandits={true} />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }
