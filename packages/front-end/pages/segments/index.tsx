@@ -17,6 +17,7 @@ import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import ProjectBadges from "@/components/ProjectBadges";
 
 const SegmentPage: FC = () => {
   const {
@@ -26,11 +27,14 @@ const SegmentPage: FC = () => {
     datasources,
     error: segmentsError,
     mutateDefinitions: mutate,
+    project,
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
-  const hasCreatePermission = permissionsUtil.canCreateSegment();
+  const hasCreatePermission = permissionsUtil.canCreateSegment({
+    projects: [project],
+  });
   let canStoreSegmentsInMongo = false;
 
   if (!hasFileConfig() || (hasFileConfig() && storeSegmentsInMongo())) {
@@ -241,6 +245,7 @@ const SegmentPage: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th>Owner</th>
+                  <th>Projects</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
@@ -264,6 +269,20 @@ const SegmentPage: FC = () => {
                         </>
                       </td>
                       <td>{s.owner}</td>
+                      <td className="col-2">
+                        {s && (s.projects || []).length > 0 ? (
+                          <ProjectBadges
+                            resourceType="segment"
+                            projectIds={s.projects}
+                            className="badge-ellipsis short align-middle"
+                          />
+                        ) : (
+                          <ProjectBadges
+                            resourceType="segment"
+                            className="badge-ellipsis short align-middle"
+                          />
+                        )}
+                      </td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
@@ -289,7 +308,7 @@ const SegmentPage: FC = () => {
                       ) : null}
                       <td>
                         <MoreMenu>
-                          {permissionsUtil.canUpdateSegment() &&
+                          {permissionsUtil.canUpdateSegment(s, {}) &&
                           canStoreSegmentsInMongo ? (
                             <button
                               className="dropdown-item"
@@ -301,7 +320,7 @@ const SegmentPage: FC = () => {
                               <FaPencilAlt /> Edit
                             </button>
                           ) : null}
-                          {permissionsUtil.canDeleteSegment() &&
+                          {permissionsUtil.canDeleteSegment(s) &&
                           canStoreSegmentsInMongo ? (
                             <DeleteButton
                               className="dropdown-item"
