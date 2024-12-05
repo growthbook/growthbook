@@ -78,8 +78,8 @@ const client = new GrowthBookClient({
 });
 
 // Initialize it
-client.init().then(() => {
-  console.log("GrowthBook initialized");
+client.init().then((status) => {
+  console.log("GrowthBook initialized", status);
 });
 ```
 
@@ -102,7 +102,7 @@ app.use((req, res, next) => {
 });
 ```
 
-Lets re-start the Node process and make sure you see the "GrowthBook initialized" message in the console. Since we are using a `.env` file, we need to modify the command to tell Node.js to load it.
+Lets re-start the Node process and make sure you see the "GrowthBook initialized" message in the console and the status is successful. Since we are using a `.env` file, we need to modify the command to tell Node.js to load it.
 
 ```bash
 node --env-file=.env index.js
