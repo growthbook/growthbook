@@ -3,7 +3,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { getAggregateFilters, quantileMetricType } from "shared/experiments";
+import {
+  getAggregateFilters,
+  isRatioMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -25,7 +29,11 @@ import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getPercentileLabel } from "@/services/metrics";
+import {
+  formatNumber,
+  getExperimentMetricFormatter,
+  getPercentileLabel,
+} from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -44,6 +52,7 @@ import {
 import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
+import { useCurrency } from "@/hooks/useCurrency";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -144,6 +153,8 @@ export default function FactMetricPage() {
   const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
+
+  const displayCurrency = useCurrency();
 
   const {
     metricDefaults,
@@ -675,12 +686,28 @@ export default function FactMetricPage() {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Thresholds</span>
+                    <span className="uppercase-title lg">
+                      Display Thresholds
+                    </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Minimum sample size:</span>{" "}
+                    <span className="text-gray">{`Minimum ${
+                      quantileMetricType(factMetric)
+                        ? `${quantileMetricType(factMetric)} count`
+                        : `${
+                            isRatioMetric(factMetric) ? "numerator" : "metric"
+                          } total`
+                    }:`}</span>{" "}
                     <span className="font-weight-bold">
-                      {getMinSampleSizeForMetric(factMetric)}
+                      {quantileMetricType(factMetric)
+                        ? formatNumber(getMinSampleSizeForMetric(factMetric))
+                        : getExperimentMetricFormatter(
+                            factMetric,
+                            getFactTableById,
+                            true
+                          )(getMinSampleSizeForMetric(factMetric), {
+                            currency: displayCurrency,
+                          })}
                     </span>
                   </li>
                   <li className="mb-2">
