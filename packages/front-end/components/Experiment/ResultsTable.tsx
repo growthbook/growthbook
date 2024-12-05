@@ -141,10 +141,9 @@ export default function ResultsTable({
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
-  const {
-    metricDefaults,
-    getMinSampleSizeForMetric,
-  } = ssrPolyfills?.useOrganizationMetricDefaults?.() || _useOrganizationMetricDefaults;
+  const { metricDefaults, getMinSampleSizeForMetric } =
+    ssrPolyfills?.useOrganizationMetricDefaults?.() ||
+    _useOrganizationMetricDefaults;
 
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
@@ -603,7 +602,7 @@ export default function ResultsTable({
                       rowHeight: METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
-                      ssrPolyfills
+                      ssrPolyfills,
                     })}
 
                   {orderedVariations.map((v, j) => {

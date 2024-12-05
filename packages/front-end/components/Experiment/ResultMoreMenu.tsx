@@ -5,6 +5,7 @@ import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
+  ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -16,8 +17,6 @@ import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
@@ -27,7 +26,7 @@ export default function ResultMoreMenu({
   queryError,
   hasData,
   supportsNotebooks,
-  id,
+  snapshotId,
   generateReport,
   notebookUrl,
   notebookFilename,
@@ -39,6 +38,7 @@ export default function ResultMoreMenu({
   dimension,
   datasource,
   project,
+  reportArgs,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
@@ -46,7 +46,7 @@ export default function ResultMoreMenu({
   queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
-  id: string;
+  snapshotId: string;
   generateReport?: boolean;
   notebookUrl: string;
   notebookFilename: string;
@@ -58,11 +58,11 @@ export default function ResultMoreMenu({
   dimension?: string;
   datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
+  reportArgs?: ExperimentSnapshotReportArgs;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
@@ -93,35 +93,34 @@ export default function ResultMoreMenu({
             <BsArrowRepeat className="mr-2" /> Re-run All Queries
           </button>
         )}
-      {hasData && queries && generateReport && canEdit && (
-        <Button
-          className="dropdown-item py-2"
-          color="outline-info"
-          onClick={async () => {
-            const res = await apiCall<{ report: ReportInterface }>(
-              `/experiments/report/${id}`,
-              {
-                method: "POST",
+      {snapshotId &&
+        !isBandit &&
+        hasData &&
+        queries &&
+        generateReport &&
+        canEdit && (
+          <Button
+            className="dropdown-item py-2"
+            color="outline-info"
+            onClick={async () => {
+              const res = await apiCall<{ report: ReportInterface }>(
+                `/experiments/report/${snapshotId}`,
+                {
+                  method: "POST",
+                  body: reportArgs ? JSON.stringify(reportArgs) : undefined,
+                }
+              );
+
+              if (!res.report) {
+                throw new Error("Failed to create report");
               }
-            );
-
-            if (!res.report) {
-              throw new Error("Failed to create report");
-            }
-            trackReport(
-              "create",
-              "AdhocReportButton",
-              getDatasourceById(res.report.args.datasource)?.type || null,
-              res.report
-            );
-
-            await router.push(`/report/${res.report.id}`);
-          }}
-        >
-          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
-          Report
-        </Button>
-      )}
+              await router.push(`/report/${res.report.id}`);
+            }}
+          >
+            <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
+            Report
+          </Button>
+        )}
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."

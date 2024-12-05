@@ -24,11 +24,10 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
-import {SSRExperimentReportPolyfills} from "@/pages/r/[r]";
-import useOrgSettings from "@/hooks/useOrgSettings";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -72,7 +71,7 @@ const DateResults: FC<{
   const _displayCurrency = useCurrency();
 
   const { ciUpper, ciLower } =
-  ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
@@ -134,7 +133,7 @@ const DateResults: FC<{
     metricGroups,
     ssrPolyfills?.metricGroups,
     secondaryMetrics,
-    guardrailMetrics
+    guardrailMetrics,
   ]);
 
   // Data for the metric graphs

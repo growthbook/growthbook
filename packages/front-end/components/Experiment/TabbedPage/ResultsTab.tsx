@@ -4,7 +4,10 @@ import {
 } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import React, { useMemo, useState } from "react";
-import { ReportInterface } from "back-end/types/report";
+import {
+  ExperimentSnapshotReportArgs,
+  ReportInterface,
+} from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -176,6 +179,18 @@ export default function ResultsTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType,
+    differenceType,
+  };
+
   return (
     <div className="mt-3">
       {isBandit && hasResults ? (
@@ -209,6 +224,7 @@ export default function ResultsTab({
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
             setDifferenceType={setDifferenceType}
+            reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
@@ -314,6 +330,9 @@ export default function ResultsTab({
                       `/experiments/report/${snapshot.id}`,
                       {
                         method: "POST",
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
                       }
                     );
                     if (!res.report) {

@@ -1,6 +1,7 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { DimensionInterface } from "back-end/types/dimension";
 import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,
@@ -13,7 +14,6 @@ import {
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
-import {DimensionInterface} from "back-end/types/dimension";
 
 export interface ReportInterfaceBase {
   id: string;
@@ -33,8 +33,14 @@ export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
   tinyid: string;
   snapshot: string;
   experimentMetadata: ExperimentReportMetadata;
-  experimentAnalysisSettings: ExperimentAnalysisSettings;
+  experimentAnalysisSettings: ExperimentAnalysisSettings &
+    ExperimentSnapshotReportArgs;
 }
+
+export type ExperimentSnapshotReportArgs = {
+  userIdType?: "user" | "anonymous";
+  differenceType?: DifferenceType;
+};
 
 export interface ExperimentReportMetadata {
   type: ExperimentType;

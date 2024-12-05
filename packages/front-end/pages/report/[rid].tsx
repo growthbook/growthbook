@@ -50,6 +50,7 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import ReportResults from "@/components/Report/ReportResults";
+import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -138,6 +139,9 @@ export default function ReportPage() {
     return null;
   }
 
+  const canEdit =
+    canUpdateReport && (userId === report?.userId || !report?.userId);
+
   if (report.type === "experiment-snapshot") {
     return (
       <div className="pagecontents container-fluid">
@@ -159,6 +163,11 @@ export default function ReportPage() {
 
         <h1>{report.title}</h1>
 
+        <ReportAnalysisSettingsBar
+          report={report}
+          snapshot={snapshot}
+          readonly={!canEdit}
+        />
         <ReportResults report={report} snapshot={snapshot} />
       </div>
     );
@@ -424,7 +433,7 @@ export default function ReportPage() {
                 </div>
                 <div className="col-auto">
                   <ResultMoreMenu
-                    id={report.id}
+                    snapshotId={""}
                     datasource={datasource}
                     hasData={hasData}
                     forceRefresh={async () => {

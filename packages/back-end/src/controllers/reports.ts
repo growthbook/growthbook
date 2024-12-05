@@ -8,6 +8,7 @@ import uniq from "lodash/uniq";
 import { expandMetricGroups } from "shared/experiments";
 import {
   ExperimentReportInterface,
+  ExperimentSnapshotReportArgs,
   ReportInterface,
   SSRExperimentReportData,
 } from "back-end/types/report";
@@ -51,11 +52,13 @@ import { OrganizationSettings } from "back-end/types/organization";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 
 export async function postReportFromSnapshot(
-  req: AuthRequest<null, { snapshot: string }>,
+  req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
+
+  const reportArgs = req.body || {};
 
   const snapshot = await findSnapshotById(org.id, req.params.snapshot);
   if (!snapshot) {
@@ -93,6 +96,12 @@ export async function postReportFromSnapshot(
     throw new Error("Missing analysis settings");
   }
 
+  const _experimentAnalysisSettings = pick(
+    experiment,
+    Object.keys(experimentAnalysisSettings.shape)
+  ) as ExperimentAnalysisSettings;
+  const _reportArgs = pick(reportArgs, ["userIdType", "differenceType"]);
+
   const doc = await createReport(org.id, {
     experimentId: experiment.id,
     userId: req.userId,
@@ -115,10 +124,10 @@ export async function postReportFromSnapshot(
         omit(variation, ["description", "screenshots"])
       ),
     },
-    experimentAnalysisSettings: pick(
-      experiment,
-      Object.keys(experimentAnalysisSettings.shape)
-    ) as ExperimentAnalysisSettings,
+    experimentAnalysisSettings: {
+      ..._experimentAnalysisSettings,
+      ..._reportArgs,
+    },
   });
 
   await req.audit({

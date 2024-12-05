@@ -8,8 +8,8 @@ import {
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import AlignedGraph from "./AlignedGraph";
-import {SSRExperimentReportPolyfills} from "@/pages/r/[r]";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -59,9 +59,13 @@ export default function PercentGraph({
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
 
-  const metricDefaults = ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults || _metricDefaults;
-  const { ciUpper, ciLower } = ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
-  const pValueThreshold = ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+  const metricDefaults =
+    ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
+    _metricDefaults;
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
 

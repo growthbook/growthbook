@@ -107,7 +107,9 @@ export default function ReportResults({
               statsEngine={
                 analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
               }
-              differenceType={analysis.settings?.differenceType}
+              differenceType={
+                report?.experimentAnalysisSettings?.differenceType || "relative"
+              }
               ssrPolyfills={ssrPolyfills}
             />
           ) : showBreakDownResults ? (
@@ -143,7 +145,9 @@ export default function ReportResults({
               }
               settingsForSnapshotMetrics={settingsForSnapshotMetrics}
               sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-              differenceType={analysis.settings?.differenceType}
+              differenceType={
+                report?.experimentAnalysisSettings?.differenceType || "relative"
+              }
               // metricFilter={metricFilter}
               // setMetricFilter={setMetricFilter}
               ssrPolyfills={ssrPolyfills}
@@ -176,7 +180,9 @@ export default function ReportResults({
               }
               settingsForSnapshotMetrics={settingsForSnapshotMetrics}
               sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-              differenceType={analysis.settings?.differenceType}
+              differenceType={
+                report?.experimentAnalysisSettings?.differenceType || "relative"
+              }
               isTabActive={true}
               experimentType={report.experimentMetadata.type}
               ssrPolyfills={ssrPolyfills}

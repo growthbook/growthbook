@@ -335,6 +335,9 @@ export async function getLatestSnapshot({
   };
   if (type) {
     query.type = type;
+  } else {
+    // never include report types unless specifically looking for them
+    query.type = { $ne: "report" };
   }
 
   // First try getting new snapshots that have a `status` field

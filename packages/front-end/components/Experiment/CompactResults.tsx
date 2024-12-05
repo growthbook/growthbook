@@ -116,11 +116,7 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
 }) => {
-  const {
-    getExperimentMetricById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =

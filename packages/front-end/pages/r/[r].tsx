@@ -8,6 +8,7 @@ import React, { useCallback, useMemo } from "react";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
+import { DimensionInterface } from "back-end/types/dimension";
 import PageHead from "@/components/Layout/PageHead";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -20,7 +21,7 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import ReportResults from "@/components/Report/ReportResults";
-import {DimensionInterface} from "back-end/types/dimension";
+import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -153,10 +154,7 @@ export default function ReportPage(props: ReportPageProps) {
     [dimensions, ssrData?.dimensions]
   );
   const getDimensionByIdSSR = useCallback(
-    (id: string) =>
-      getDimensionById(id) ||
-      dimensionsSSR?.[id] ||
-      null,
+    (id: string) => getDimensionById(id) || dimensionsSSR?.[id] || null,
     [getDimensionById, dimensionsSSR]
   );
 
@@ -185,6 +183,11 @@ export default function ReportPage(props: ReportPageProps) {
 
       <h1>{report.title}</h1>
 
+      <ReportAnalysisSettingsBar
+        report={report}
+        snapshot={snapshot}
+        ssrPolyfills={ssrPolyfills}
+      />
       <ReportResults
         report={report}
         snapshot={snapshot}

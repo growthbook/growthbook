@@ -11,7 +11,7 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {SSRExperimentReportPolyfills} from "@/pages/r/[r]";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 
 interface Props
   extends DetailedHTMLProps<

@@ -11,7 +11,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
-import {SSRExperimentReportPolyfills} from "@/pages/r/[r]";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -84,7 +84,8 @@ const AlignedGraph: FC<Props> = ({
   const { getFactTableById: _getFactTableById } = useDefinitions();
 
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
-  const metricDisplayCurrency = ssrPolyfills?.useCurrency() || _metricDisplayCurrency;
+  const metricDisplayCurrency =
+    ssrPolyfills?.useCurrency() || _metricDisplayCurrency;
 
   const metricFormatterOptions = { currency: metricDisplayCurrency };
 
