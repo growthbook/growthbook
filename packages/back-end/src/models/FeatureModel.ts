@@ -2,7 +2,11 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
+import {
+  MergeResultChanges,
+  autoMerge,
+  getApiFeatureEnabledEnvs,
+} from "shared/util";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -22,6 +26,7 @@ import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
   getAffectedSDKPayloadKeys,
+  getDraftRevision,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import { EventUser } from "back-end/src/events/event-types";
@@ -53,6 +58,7 @@ import {
   markRevisionAsPublished,
   updateRevision,
 } from "./FeatureRevisionModel";
+import { findOrganizationById } from "./OrganizationModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -682,12 +688,51 @@ export async function syncEnvironmentSettings(
   sourceEnvironment: string,
   destinationEnvironment: string
 ) {
-  return await updateFeature(context, feature, {
-    environmentSettings: {
-      ...feature.environmentSettings,
-      [destinationEnvironment]: feature.environmentSettings[sourceEnvironment],
+  if (!feature.environmentSettings[sourceEnvironment]) return;
+  const live = await getRevision(context.org.id, feature.id, feature.version);
+  if (!live) {
+    throw new Error(
+      `Could not lookup feature history for feature ${feature.id}`
+    );
+  }
+
+  const revision = await getDraftRevision(context, feature, feature.version);
+
+  const changes = {
+    rules: revision.rules || {},
+    status: revision.status,
+  };
+  changes.rules[destinationEnvironment] = revision.rules[sourceEnvironment];
+
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user: context.auditUser,
+      action: "fork environment",
+      subject: `new environment ${destinationEnvironment} from base ${sourceEnvironment}`,
+      value: JSON.stringify(changes.rules[sourceEnvironment]),
     },
-  });
+    false
+  );
+
+  const mergeResult = autoMerge(
+    live,
+    live,
+    revision,
+    [sourceEnvironment, destinationEnvironment],
+    {}
+  );
+
+  // This shouldn't happen due to the changes being made programmatically, but it's possible that
+  // a separate change made at exactly the right time causes a conflict
+  if (!mergeResult.success) {
+    throw new Error(
+      `There was a conflict applying the changes for feature ${feature.id}`
+    );
+  }
+
+  publishRevision(context, feature, revision, mergeResult.result);
 }
 
 function setEnvironmentSettings(
@@ -912,7 +957,11 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  const environments = getEnvironmentIdsFromOrg(context.org);
+  // Re-fetch the org as its environments may have changed since the request started,
+  // such as in the case of forking environments
+  const environments = (
+    (await findOrganizationById(context.org.id))?.settings?.environments || []
+  ).map((env) => env.id);
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];

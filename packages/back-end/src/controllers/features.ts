@@ -26,7 +26,6 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
-  getEnvironmentIdsFromOrg,
   getEnvironments,
 } from "back-end/src/services/organizations";
 import {
@@ -78,7 +77,10 @@ import {
   submitReviewAndComments,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getDraftRevision,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
@@ -105,9 +107,7 @@ import {
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
 } from "back-end/src/models/ExperimentModel";
-import { ReqContext } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 
 class UnrecoverableApiError extends Error {
@@ -1313,48 +1313,6 @@ export async function postFeatureExperimentRefRule(
     status: 200,
     version: revision.version,
   });
-}
-
-async function getDraftRevision(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  version: number
-): Promise<FeatureRevisionInterface> {
-  // This is the published version, create a new draft revision
-  const { org } = context;
-  if (version === feature.version) {
-    const newRevision = await createRevision({
-      feature,
-      user: context.auditUser,
-      environments: getEnvironmentIdsFromOrg(context.org),
-      baseVersion: version,
-      org,
-    });
-
-    await updateFeature(context, feature, {
-      hasDrafts: true,
-    });
-
-    return newRevision;
-  }
-
-  // If this is already a draft, return it
-  const revision = await getRevision(feature.organization, feature.id, version);
-  if (!revision) {
-    throw new Error("Cannot find revision");
-  }
-  if (
-    !(
-      revision.status === "draft" ||
-      revision.status === "pending-review" ||
-      revision.status === "changes-requested" ||
-      revision.status === "approved"
-    )
-  ) {
-    throw new Error("Can only make changes to draft revisions");
-  }
-
-  return revision;
 }
 
 export async function putRevisionComment(

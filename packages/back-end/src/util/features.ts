@@ -11,10 +11,20 @@ import {
   FeatureValueType,
   SavedGroupTargeting,
 } from "back-end/types/feature";
-import { FeatureDefinitionWithProject } from "back-end/types/api";
+import {
+  ApiReqContext,
+  FeatureDefinitionWithProject,
+} from "back-end/types/api";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { ReqContext } from "back-end/types/organization";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { updateFeature } from "back-end/src/models/FeatureModel";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -554,4 +564,46 @@ export function getFeatureDefinition({
   }
 
   return def;
+}
+
+export async function getDraftRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  version: number
+): Promise<FeatureRevisionInterface> {
+  // This is the published version, create a new draft revision
+  const { org } = context;
+  if (version === feature.version) {
+    const newRevision = await createRevision({
+      feature,
+      user: context.auditUser,
+      environments: getEnvironmentIdsFromOrg(context.org),
+      baseVersion: version,
+      org,
+    });
+
+    await updateFeature(context, feature, {
+      hasDrafts: true,
+    });
+
+    return newRevision;
+  }
+
+  // If this is already a draft, return it
+  const revision = await getRevision(feature.organization, feature.id, version);
+  if (!revision) {
+    throw new Error("Cannot find revision");
+  }
+  if (
+    !(
+      revision.status === "draft" ||
+      revision.status === "pending-review" ||
+      revision.status === "changes-requested" ||
+      revision.status === "approved"
+    )
+  ) {
+    throw new Error("Can only make changes to draft revisions");
+  }
+
+  return revision;
 }
