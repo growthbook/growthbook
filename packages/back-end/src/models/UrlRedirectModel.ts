@@ -53,7 +53,10 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   private canWrite(doc: URLRedirectInterface): boolean {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) throw new Error("Could not find experiment");
-    const envs = getAffectedEnvsForExperiment({ experiment });
+    const envs = getAffectedEnvsForExperiment({
+      experiment,
+      orgEnvironments: this.context.org.settings?.environments || [],
+    });
     return this.context.permissions.canRunExperiment(experiment, envs);
   }
   protected canCreate(doc: URLRedirectInterface): boolean {
