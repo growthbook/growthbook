@@ -137,7 +137,7 @@ const ArchetypeAttributesModal: FC<{
           </div>
           <div>
             <AttributeForm
-              initialValues={
+              attributeValues={
                 form.watch("attributes")
                   ? JSON.parse(form.watch("attributes"))
                   : {}

@@ -19,14 +19,16 @@ import styles from "./AttributeForm.module.scss";
 
 export interface Props {
   onChange: (attributes: ArchetypeAttributeValues) => void;
-  initialValues: ArchetypeAttributeValues;
+  attributeValues: ArchetypeAttributeValues;
+  archetypeId?: string;
   jsonCTA?: string;
   useJSONButton?: boolean;
 }
 
 export default function AttributeForm({
   onChange,
-  initialValues = {},
+  attributeValues = {},
+  archetypeId,
   jsonCTA = "Test Attributes",
   useJSONButton = true,
 }: Props) {
@@ -50,8 +52,8 @@ export default function AttributeForm({
   const attributesMap = useMemo(() => {
     return new Map(
       orderedAttributes.map((attr) => {
-        const defaultValue = initialValues[attr.property]
-          ? initialValues[attr.property]
+        const defaultValue = attributeValues[attr.property]
+          ? attributeValues[attr.property]
           : attr.datatype === "boolean"
           ? false
           : attr.datatype === "string[]" || attr.datatype === "number[]"
@@ -62,23 +64,23 @@ export default function AttributeForm({
           {
             ...attr,
             defaultValue,
-            value: initialValues[attr.property] ?? defaultValue,
+            value: attributeValues[attr.property] ?? defaultValue,
           },
         ];
       })
     );
-  }, [orderedAttributes, initialValues]);
+  }, [orderedAttributes, attributeValues]);
 
   const attributeFormValues = useMemo(() => {
     return new Map(
       orderedAttributes.map((attr) => [
         attr.property,
-        initialValues[attr.property] ??
+        attributeValues[attr.property] ??
           attributesMap.get(attr.property)?.defaultValue ??
           "",
       ])
     );
-  }, [orderedAttributes, initialValues, attributesMap]);
+  }, [orderedAttributes, attributeValues, attributesMap]);
 
   // filter out empty values (for some types at least)
   const updateFormValues = useCallback(
@@ -116,10 +118,9 @@ export default function AttributeForm({
   );
 
   useEffect(() => {
-    // when the archetypeId changes, we want to clear any user added values,
-    // which will happen with the initial values, and then update the formValues
+    // When the archetype changes, update the form values (this makes sure the JSON tab works correctly)
     updateFormValues();
-  }, [initialValues, updateFormValues]);
+  }, [archetypeId, updateFormValues]);
 
   const attributeInput = (attribute: SDKAttribute, i: number) => {
     if (attribute.archived) return null;
