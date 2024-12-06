@@ -15,6 +15,7 @@ import { useUser } from "@/services/UserContext";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LinkButton from "@/components/Radix/LinkButton";
+import Button from "@/components/Button";
 
 const metricToCreateValidator = z.object({
   metricType: metricTypeValidator,
@@ -28,7 +29,7 @@ const metricToCreateValidator = z.object({
 });
 
 export default function CreateMetricFromTemplate() {
-  const { datasources, project, factTables } = useDefinitions();
+  const { datasources, project, factTables, factMetrics } = useDefinitions();
   const router = useRouter();
 
   const hasDatasource = datasources.some((d) =>
@@ -79,6 +80,19 @@ export default function CreateMetricFromTemplate() {
           };
         }
 
+        if (factMetrics.some((f) => f.name === data.name)) {
+          return {
+            callout: (
+              <Callout status="warning">
+                A metric with the name &quot;{data.name}&quot; already exists.{" "}
+                <Button onClick={() => setMetricToCreate({ data })}>
+                  Create Anyway
+                </Button>
+              </Callout>
+            ),
+          };
+        }
+
         return {
           data,
         };
@@ -92,7 +106,7 @@ export default function CreateMetricFromTemplate() {
         };
       }
     }
-    return { data: null };
+    return {};
   });
 
   return (
