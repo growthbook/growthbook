@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
+import { paddedVersionString } from "@growthbook/growthbook";
 import { useAttributeSchema } from "@/services/features";
 import Code from "@/components/SyntaxHighlighting/Code";
 
@@ -21,6 +22,19 @@ function indentLines(code: string, indent: number | string = 2) {
   return code.split("\n").join("\n" + spaces);
 }
 
+function replaceAttributeValues(
+  attributesStr: string,
+  values: Record<string, string>
+) {
+  Object.entries(values).forEach(([key, value]) => {
+    attributesStr = attributesStr.replace(
+      new RegExp(`"${key}": [^\n,]+`, "g"),
+      `"${key}": ${value}`
+    );
+  });
+  return attributesStr;
+}
+
 function getExampleAttributes({
   attributeSchema,
   hashSecureAttributes = false,
@@ -36,15 +50,14 @@ function getExampleAttributes({
   const exampleAttributes: any = {};
   attributeSchema.forEach(({ property, datatype, enum: enumList }) => {
     const parts = property.split(".");
-    const last = parts.pop();
+    const last = parts.pop() || "";
     let current = exampleAttributes;
     for (let i = 0; i < parts.length; i++) {
       current[parts[i]] = current[parts[i]] || {};
       current = current[parts[i]];
     }
 
-    // eslint-disable-next-line
-    let value: any = null;
+    let value: unknown = null;
     if (datatype === "boolean") {
       value = true;
     } else if (datatype === "number") {
@@ -65,7 +78,6 @@ function getExampleAttributes({
       value = enumList?.split(",").map((v) => v.trim())[0] ?? null;
     }
 
-    // @ts-expect-error TS(2538) If you come across this, please fix it!: Type 'undefined' cannot be used as an index type.
     current[last] = value;
   });
 
@@ -76,10 +88,12 @@ export default function TargetingAttributeCodeSnippet({
   language,
   hashSecureAttributes = false,
   secureAttributeSalt = "",
+  version,
 }: {
   language: SDKLanguage;
   hashSecureAttributes?: boolean;
   secureAttributeSalt?: string;
+  version?: string;
 }) {
   const introText = (
     <span>
@@ -170,6 +184,38 @@ window.growthbook_config.attributes = ${stringify(
     );
   }
   if (language === "nodejs") {
+    const useMultiUser =
+      paddedVersionString(version) >= paddedVersionString("1.3.1");
+
+    const attributes = replaceAttributeValues(stringify(exampleAttributes), {
+      id: "req.user.id",
+      email: "req.user.email",
+      url: "req.originalUrl",
+      path: "req.path",
+      host: "req.hostname",
+      query: "req.query",
+    });
+
+    if (useMultiUser) {
+      return (
+        <>
+          {introText}
+          <Code
+            language="javascript"
+            code={`
+app.use((req, res, next) => {
+  const userContext = {
+    attributes: ${indentLines(attributes, 4)}
+  }
+  
+  req.growthbook = client.getScopedInstance(userContext);
+});
+          `.trim()}
+          />
+        </>
+      );
+    }
+
     return (
       <>
         {introText}

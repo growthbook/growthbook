@@ -3,7 +3,6 @@ import { createHash } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import { orgHasPremiumFeature } from "enterprise";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
@@ -731,10 +730,11 @@ export async function getFeatureDefinitions({
         context.org.id
       );
       if (hashSecureAttributes) {
-        if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
-          secureAttributeSalt = context.org.settings?.secureAttributeSalt;
-          attributes = context.org.settings?.attributeSchema;
-        }
+        // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
+        // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
+        // which would expose private data publicly.
+        secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+        attributes = context.org.settings?.attributeSchema;
       }
 
       return await getFeatureDefinitionsResponse({
@@ -762,20 +762,13 @@ export async function getFeatureDefinitions({
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
-    if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
-      secureAttributeSalt = context.org.settings?.secureAttributeSalt;
-      attributes = context.org.settings?.attributeSchema;
-    }
-  }
-  const savedGroups = await getAllSavedGroups(context.org.id);
-
-  if (
-    hashSecureAttributes &&
-    orgHasPremiumFeature(context.org, "hash-secure-attributes")
-  ) {
-    secureAttributeSalt = context.org?.settings?.secureAttributeSalt;
+    // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
+    // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
+    // which would expose private data publicly.
+    secureAttributeSalt = context.org.settings?.secureAttributeSalt;
     attributes = context.org.settings?.attributeSchema;
   }
+  const savedGroups = await getAllSavedGroups(context.org.id);
 
   // Generate the feature definitions
   const features = await getAllFeatures(context);

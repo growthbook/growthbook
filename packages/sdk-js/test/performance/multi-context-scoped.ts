@@ -7,20 +7,21 @@ console.log("Running...");
 const start = Date.now();
 
 // Singleton instance
-const gb = new GrowthBookClient().initSync({
+const globalGB = new GrowthBookClient().initSync({
   payload,
 });
 
 for (let i = 0; i < NUM_ITERATIONS; i++) {
-  const userContext = {
+  // Scoped instance
+  const gb = globalGB.createScopedInstance({
     attributes: getAttributes(i),
-  };
+  });
   FEATURES_TO_EVAL.forEach((feature) => {
-    gb.isOn(feature, userContext);
+    gb.isOn(feature);
   });
 }
 
-gb.destroy();
+globalGB.destroy();
 
 const end = Date.now();
 console.log("Total Time:", end - start, "ms");

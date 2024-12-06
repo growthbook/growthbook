@@ -247,7 +247,7 @@ export const editSDKConnectionValidator = z
     proxyHost: z.string().optional(),
     environment: z.string().optional(),
     projects: z.array(z.string()).optional(),
-    encryptPayload: z.boolean(),
+    encryptPayload: z.boolean().optional(),
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),

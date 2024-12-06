@@ -7,6 +7,7 @@ type Props = {
   title?: string;
   color?: RadixColor;
   variant?: "solid" | "soft";
+  radius?: "none" | "small" | "medium" | "large" | "full";
 } & MarginProps;
 
 export default function Badge({ label, title, ...props }: Props) {
