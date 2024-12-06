@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
+import React, { useState } from "react";
 import { GBEdit } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -11,17 +12,24 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
+  canEditOwner?: boolean;
+  updateOwner?: (owner: string) => Promise<void>;
+  mutate?: () => void;
 }
 
 export default function ProjectTagBar({
   experiment,
   editProject,
   editTags,
+  canEditOwner,
+  updateOwner,
+  mutate,
 }: Props) {
   const {
     projects,
@@ -31,6 +39,7 @@ export default function ProjectTagBar({
 
   const { getUserDisplay } = useUser();
 
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
@@ -47,12 +56,37 @@ export default function ProjectTagBar({
       return "None";
     }
     return (
-      <span>
-        <UserAvatar name={ownerName} size="sm" variant="soft" />{" "}
-        <Text weight="regular" className={metaDataStyles.valueColor}>
-          {ownerName}
-        </Text>
-      </span>
+      <>
+        <span>
+          <UserAvatar name={ownerName} size="sm" variant="soft" />{" "}
+          <Text weight="regular" className={metaDataStyles.valueColor}>
+            {ownerName}
+          </Text>
+          {canEditOwner && updateOwner && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </span>
+        {editOwnerModal && (
+          <EditOwnerModal
+            cancel={() => setEditOwnerModal(false)}
+            owner={ownerName}
+            save={
+              updateOwner ??
+              (async (ownerName) => {
+                throw new Error(
+                  "save method not defined. Not updated to: " + ownerName
+                );
+              })
+            }
+            mutate={mutate ?? (() => {})}
+          />
+        )}
+      </>
     );
   };
 
