@@ -42,7 +42,7 @@ export default function EditHypothesisModal({
       cta="Save"
       ctaEnabled={initialValue !== form.watch("hypothesis")}
     >
-      <div style={{ paddingBottom: "36px" }}>
+      <div style={{ paddingBottom: "4px" }}>
         <Field
           label="Hypothesis"
           textarea
