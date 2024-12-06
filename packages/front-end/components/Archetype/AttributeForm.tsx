@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { datetime } from "shared/dates";
+import isEqual from "lodash/isEqual";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import TabButton from "@/components/Tabs/TabButton";
@@ -18,16 +19,6 @@ export interface Props {
   jsonCTA?: string;
   useJSONButton?: boolean;
 }
-
-const deepEqual = (x, y) => {
-  const ok = Object.keys,
-    tx = typeof x,
-    ty = typeof y;
-  return x && y && tx === "object" && tx === ty
-    ? ok(x).length === ok(y).length &&
-        ok(x).every((key) => deepEqual(x[key], y[key]))
-    : x === y;
-};
 
 export default function AttributeForm({
   onChange,
@@ -110,7 +101,7 @@ export default function AttributeForm({
           return { ...obj, [key]: value };
         }, {});
       const newValues = filteredValues ?? {};
-      if (!deepEqual(newValues, formValues)) {
+      if (!isEqual(newValues, formValues)) {
         setFormValues(newValues);
         if (!skipJsonUpdate)
           setJsonAttributes(JSON.stringify(filteredValues, null, 2));
