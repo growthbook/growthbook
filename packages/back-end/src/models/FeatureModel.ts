@@ -53,6 +53,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  FeatureRevisionModel,
   getRevision,
   hasDraft,
   markRevisionAsPublished,
@@ -399,13 +400,22 @@ export async function removeEnvironmentFromFeatureRules(
   envId: string
 ) {
   const environmentKey = `environmentSettings.${envId}`;
-  const query = {
+  const featureQuery = {
     organization: context.org.id,
     [environmentKey]: { $exists: true },
   };
 
-  await FeatureModel.updateMany(query, {
+  await FeatureModel.updateMany(featureQuery, {
     $unset: { [environmentKey]: "" },
+  });
+
+  const featureRevisionQuery = {
+    organization: context.org.id,
+    [`rules.${envId}`]: { $exists: true, $not: { $size: 0 } },
+  };
+
+  await FeatureRevisionModel.updateMany(featureRevisionQuery, {
+    $set: { [`rules.${envId}`]: [] },
   });
 }
 
@@ -688,13 +698,16 @@ export async function syncEnvironmentSettings(
   sourceEnvironment: string,
   destinationEnvironment: string
 ) {
-  if (!feature.environmentSettings[sourceEnvironment]) return;
   const live = await getRevision(context.org.id, feature.id, feature.version);
   if (!live) {
     throw new Error(
       `Could not lookup feature history for feature ${feature.id}`
     );
   }
+  if (
+    isEqual(live.rules[sourceEnvironment], live.rules[destinationEnvironment])
+  )
+    return;
 
   const revision = await getDraftRevision(context, feature, feature.version);
 
