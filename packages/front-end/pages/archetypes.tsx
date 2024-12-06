@@ -1,7 +1,13 @@
 import { ArchetypeInterface } from "back-end/types/archetype";
+import React from "react";
+import { Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
-import Tab from "@/components/Tabs/Tab";
-import Tabs from "@/components/Tabs/Tabs";
+import {
+  Tabs,
+  TabsTrigger,
+  TabsList,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import { SimulateFeatureValues } from "@/components/Archetype/SimulateFeatureValues";
 import { ArchetypeList } from "@/components/Archetype/ArchetypeList";
 
@@ -16,28 +22,23 @@ const ArchetypesPage = (): React.ReactElement => {
   return (
     <>
       <div className="container-fluid pagecontents pt-4">
-        <Tabs defaultTab="members" newStyle={true}>
-          <Tab
-            anchor="archetypes"
-            id="archetypes"
-            display="Archetypes"
-            padding={false}
-          >
-            <ArchetypeList
-              archetypes={archetypes}
-              archetypeErrors={archErrors}
-              mutate={mutate}
-            />
-          </Tab>
-          <Tab
-            anchor="simulate"
-            id="simulate"
-            display="Simulate"
-            padding={false}
-            lazy
-          >
-            <SimulateFeatureValues archetypes={archetypes} />
-          </Tab>
+        <Tabs defaultValue="archetypes">
+          <TabsList>
+            <TabsTrigger value="archetypes">Archetypes</TabsTrigger>
+            <TabsTrigger value="simulate">Simulate</TabsTrigger>
+          </TabsList>
+          <Box pt="4">
+            <TabsContent value="archetypes">
+              <ArchetypeList
+                archetypes={archetypes}
+                archetypeErrors={archErrors}
+                mutate={mutate}
+              />
+            </TabsContent>
+            <TabsContent value="simulate">
+              <SimulateFeatureValues archetypes={archetypes} />
+            </TabsContent>
+          </Box>
         </Tabs>
       </div>
     </>
