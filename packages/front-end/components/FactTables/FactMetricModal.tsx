@@ -65,7 +65,7 @@ import HelperText from "@/components/Radix/HelperText";
 export interface Props {
   close?: () => void;
   initialFactTable?: string;
-  existing?: FactMetricInterface;
+  existing?: Partial<FactMetricInterface>;
   duplicate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
