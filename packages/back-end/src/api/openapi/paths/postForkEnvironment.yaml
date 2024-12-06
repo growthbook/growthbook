@@ -8,7 +8,6 @@ requestBody:
         required:
           - id
           - forkBase
-          - synchronous
         properties:
           id:
             type: string
@@ -16,9 +15,6 @@ requestBody:
           forkBase:
             type: string
             description: The ID of the environment to fork from
-          synchronous:
-            type: boolean
-            description: Whether this fork should be run synchronously. If true, the server may take a long time to respond, particularly if there are many features with rules in the forkBase environment.
           description:
             type: string
             description: The description of the new environment

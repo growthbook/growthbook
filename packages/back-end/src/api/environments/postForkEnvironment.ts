@@ -15,7 +15,7 @@ export const postForkEnvironment = createApiRequestHandler(
 )(
   async (req): Promise<PostEnvironmentResponse> => {
     const environment = await validatePayload(req.context, req.body);
-    const { forkBase, synchronous } = req.body;
+    const { forkBase } = req.body;
     const org = req.context.org;
 
     if (org.settings?.environments?.some((env) => env.id === environment.id)) {
@@ -34,33 +34,21 @@ export const postForkEnvironment = createApiRequestHandler(
 
     await updateOrganization(org.id, updates);
 
-    if (synchronous) {
-      const features = await getAllFeaturesWithRulesForEnvironment(
-        req.context,
-        forkBase
-      );
+    const features = await getAllFeaturesWithRulesForEnvironment(
+      req.context,
+      forkBase
+    );
 
-      await Promise.all(
-        features.map(async (f) => {
-          return syncEnvironmentSettings(
-            req.context,
-            f,
-            forkBase,
-            environment.id
-          );
-        })
-      );
-    } else {
-      process.nextTick(() => {
-        getAllFeaturesWithRulesForEnvironment(req.context, forkBase).then(
-          (features) => {
-            features.forEach((f) => {
-              syncEnvironmentSettings(req.context, f, forkBase, environment.id);
-            });
-          }
+    await Promise.all(
+      features.map(async (f) => {
+        return syncEnvironmentSettings(
+          req.context,
+          f,
+          forkBase,
+          environment.id
         );
-      });
-    }
+      })
+    );
 
     await req.audit({
       event: "environment.create",
