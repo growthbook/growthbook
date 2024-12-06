@@ -32,6 +32,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import { capitalizeFirstLetter } from "@/services/utils";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField, {
@@ -886,6 +887,8 @@ export default function FactMetricModal({
   // For user-level quantiles, there is the option to count rows so it's always available
   const canUseEventQuantile = getNumericColumns(numeratorFactTable).length > 0;
 
+  const quantileMetricType = type !== "quantile" ? "" : quantileSettings.type;
+
   const { sql, experimentSQL, denominatorSQL } = getPreviewSQL({
     type,
     quantileSettings,
@@ -1597,7 +1600,15 @@ export default function FactMetricModal({
                         helpText="Some metrics like 'page load time' you actually want to decrease instead of increase"
                       />
                       <div className="form-group">
-                        <label>Minimum Sample Size</label>
+                        <label>{`Minimum ${
+                          quantileMetricType
+                            ? `${capitalizeFirstLetter(
+                                quantileMetricType
+                              )} Count`
+                            : `${
+                                type === "ratio" ? "Numerator" : "Metric"
+                              } Total`
+                        }`}</label>
                         <input
                           type="number"
                           className="form-control"
@@ -1609,13 +1620,11 @@ export default function FactMetricModal({
                           The{" "}
                           {type === "proportion"
                             ? "number of conversions"
-                            : type === "quantile"
-                            ? `number of ${
-                                quantileSettings.type === "unit"
-                                  ? "users"
-                                  : "events"
-                              }`
-                            : `total value`}{" "}
+                            : type === "ratio"
+                            ? "total numerator sum"
+                            : quantileMetricType
+                            ? `number of ${quantileMetricType}s`
+                            : "total metric sum"}{" "}
                           required in an experiment variation before showing
                           results (default{" "}
                           {type === "proportion"

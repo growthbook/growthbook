@@ -119,6 +119,7 @@ export default function ExperimentHeader({
   const growthbook = useGrowthBook<AppFeatures>();
 
   const { apiCall } = useAuth();
+  const { users } = useUser();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -175,6 +176,16 @@ export default function ExperimentHeader({
   const hasResults = !!analysis?.results?.[0];
   const shouldHideTabs =
     experiment.status === "draft" && !hasResults && phases.length === 1;
+
+  const getMemberIdFromName = (owner) => {
+    let ownerId: string | null = null;
+    Array.from(users.entries()).forEach((info) => {
+      if (info[1].name === owner) {
+        ownerId = info[1].id;
+      }
+    });
+    return ownerId;
+  };
 
   async function startExperiment() {
     if (!experiment.phases?.length) {
@@ -545,6 +556,19 @@ export default function ExperimentHeader({
             experiment={experiment}
             editProject={!viewingOldPhase ? editProject : undefined}
             editTags={!viewingOldPhase ? editTags : undefined}
+            canEditOwner={canEditExperiment}
+            updateOwner={async (owner) => {
+              const ownerId = getMemberIdFromName(owner);
+              if (ownerId) {
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({ owner: ownerId }),
+                });
+              } else {
+                throw new Error("Could not find this user");
+              }
+            }}
+            mutate={mutate}
           />
         </div>
       </div>
