@@ -16,6 +16,7 @@ import {
   MetricWindowSettings,
   ColumnInterface,
   ColumnAggregation,
+  FactTableColumnType,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
@@ -160,20 +161,22 @@ function getNumericColumns(
   );
 }
 
-function getNumericColumnOptions({
+function getColumnOptions({
   factTable,
   includeCount = true,
   includeCountDistinct = false,
+  includeStringColumns = false,
   showColumnsAsSums = false,
   groupPrefix = "",
 }: {
   factTable: FactTableInterface | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
+  includeStringColumns?: boolean;
   showColumnsAsSums?: boolean;
   groupPrefix?: string;
 }): SingleValue[] | GroupedValue[] {
-  const columnOptions: SingleValue[] = getNumericColumns(factTable).map(
+  const numericColumnOptions: SingleValue[] = getNumericColumns(factTable).map(
     (col) => ({
       label: showColumnsAsSums ? `SUM(${col.name})` : col.name,
       value: col.column,
@@ -194,18 +197,78 @@ function getNumericColumnOptions({
     });
   }
 
-  return specialColumnOptions.length > 0
-    ? [
-        {
-          label: `${groupPrefix}Special`,
-          options: specialColumnOptions,
-        },
-        {
-          label: `${groupPrefix}Columns`,
-          options: columnOptions,
-        },
-      ]
-    : columnOptions;
+  const stringColumnOptions: SingleValue[] = [];
+
+  if (includeStringColumns) {
+    const stringColumns = factTable?.columns.filter(
+      (col) => col.datatype === "string"
+    );
+    if (stringColumns) {
+      stringColumnOptions.push(
+        ...stringColumns.map((col) => ({
+          label: col.name,
+          value: col.column,
+        }))
+      );
+    }
+  }
+
+  return [
+    ...(specialColumnOptions.length > 0
+      ? [
+          {
+            label: `${groupPrefix}Special`,
+            options: specialColumnOptions,
+          },
+        ]
+      : []),
+    {
+      label: `${groupPrefix} Numeric Columns`,
+      options: numericColumnOptions,
+    },
+
+    ...(stringColumnOptions.length > 0
+      ? [
+          {
+            label: `${groupPrefix} String Columns`,
+            options: stringColumnOptions,
+          },
+        ]
+      : []),
+  ];
+}
+
+function getAggregationOptions(
+  selectedColumnDatatype: FactTableColumnType | undefined
+): {
+  label: string;
+  value: ColumnAggregation;
+}[] {
+  if (selectedColumnDatatype === "string") {
+    return [
+      {
+        label: "Count Distinct",
+        value: "count distinct",
+      },
+    ];
+  }
+
+  return [
+    { label: "Sum", value: "sum" },
+    { label: "Max", value: "max" },
+  ];
+}
+
+function getSelectedColumnDatatype({
+  factTable,
+  column,
+}: {
+  factTable: FactTableInterface | null;
+  column: string;
+}): FactTableColumnType | undefined {
+  if (!factTable) return undefined;
+  const col = factTable.columns.find((c) => c.column === column);
+  return col?.datatype;
 }
 
 function ColumnRefSelector({
@@ -234,25 +297,20 @@ function ColumnRefSelector({
   let factTable = getFactTableById(value.factTableId);
   if (factTable?.datasource !== datasource.id) factTable = null;
 
-  const columnOptions = getNumericColumnOptions({
+  const columnOptions = getColumnOptions({
     factTable,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
     includeCount: aggregationType === "unit",
+    includeStringColumns:
+      datasource.properties?.hasCountDistinctHLL && aggregationType === "unit",
   });
 
-  const aggregationOptions: {
-    label: string;
-    value: ColumnAggregation;
-  }[] = [
-    { label: "Sum", value: "sum" },
-    { label: "Max", value: "max" },
-  ];
-  if (datasource.properties?.hasCountDistinctHLL) {
-    aggregationOptions.push({
-      label: "Count Distinct",
-      value: "count distinct",
-    });
-  }
+  const selectedColumnDatatype = getSelectedColumnDatatype({
+    factTable,
+    column: value.column,
+  });
+
+  const aggregationOptions = getAggregationOptions(selectedColumnDatatype);
 
   const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
     .filter((col) =>
@@ -412,7 +470,22 @@ function ColumnRefSelector({
             <SelectField
               label="Value"
               value={value.column}
-              onChange={(column) => setValue({ ...value, column })}
+              onChange={(column) => {
+                const newDatatype = getSelectedColumnDatatype({
+                  factTable,
+                  column,
+                });
+
+                let aggregation = value.aggregation;
+
+                if (newDatatype === "string") {
+                  aggregation = "count distinct";
+                } else if (aggregation === "count distinct") {
+                  aggregation = "sum";
+                }
+
+                setValue({ ...value, column, aggregation });
+              }}
               sort={false}
               formatGroupLabel={({ label }) => (
                 <div className="pt-2 pb-1 border-bottom">{label}</div>
@@ -466,10 +539,11 @@ function ColumnRefSelector({
                     aggregateFilterColumn: v,
                   })
                 }
-                options={getNumericColumnOptions({
+                options={getColumnOptions({
                   factTable: factTable,
                   includeCount: true,
                   includeCountDistinct: false,
+                  includeStringColumns: false,
                   showColumnsAsSums: true,
                   groupPrefix: "Filter by ",
                 })}
