@@ -57,6 +57,9 @@ export default class Athena extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS double)`;
   }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
   hllAggregate(col: string): string {
     return `APPROX_SET(${col})`;
   }

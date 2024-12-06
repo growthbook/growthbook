@@ -95,6 +95,9 @@ export default class ClickHouse extends SqlIntegration {
   ensureFloat(col: string): string {
     return `toFloat64(${col})`;
   }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
   hllAggregate(col: string): string {
     return `uniqState(${col})`;
   }

@@ -310,11 +310,23 @@ export default abstract class SqlIntegration
     return true;
   }
   hasCountDistinctHLL(): boolean {
-    return true;
+    return false;
   }
-  abstract hllAggregate(col: string): string;
-  abstract hllReaggregate(col: string): string;
-  abstract hllCardinality(col: string): string;
+  hllAggregate(_: string): string {
+    throw new Error(
+      "COUNT DISTINCT is not supported for fact metrics in this data source."
+    );
+  }
+  hllReaggregate(_: string): string {
+    throw new Error(
+      "COUNT DISTINCT is not supported for fact metrics in this data source."
+    );
+  }
+  hllCardinality(_: string): string {
+    throw new Error(
+      "COUNT DISTINCT is not supported for fact metrics in this data source."
+    );
+  }
 
   private getExposureQuery(
     exposureQueryId: string,
@@ -4800,7 +4812,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         !hasAggregateFilter &&
         (metric.metricType === "proportion" || column === "$$distinctUsers")
       ) {
-        return `MAX(COALESCE(${valueColumn}, 0))`;
+        return `COALESCE(MAX(${valueColumn}), 0)`;
       } else if (column === "$$count") {
         return `COUNT(${valueColumn})`;
       } else if (

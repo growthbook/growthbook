@@ -666,7 +666,7 @@ function getPreviewSQL({
       : numerator.column === "$$distinctUsers"
       ? "1"
       : numerator.aggregation === "count distinct"
-      ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${numerator.column})`
+      ? `COUNT(DISTINCT ${numerator.column})`
       : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
           numerator.column
         })`;

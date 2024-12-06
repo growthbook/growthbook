@@ -153,6 +153,9 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
   hllAggregate(col: string): string {
     return `HLL_COUNT.INIT(${col})`;
   }
