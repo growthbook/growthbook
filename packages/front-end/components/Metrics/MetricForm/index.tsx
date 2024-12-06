@@ -1280,7 +1280,7 @@ const MetricForm: FC<MetricFormProps> = ({
               />
 
               <div className="form-group">
-                <label>Minimum Sample Size</label>
+                <label>Minimum Metric Total</label>
                 <input
                   type="number"
                   className="form-control"
@@ -1296,7 +1296,10 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type === "binomial"
                     ? metricDefaults.minimumSampleSize
                     : getMetricFormatter(value.type)(
-                        metricDefaults.minimumSampleSize
+                        metricDefaults.minimumSampleSize,
+                        {
+                          currency: displayCurrency,
+                        }
                       )}
                   )
                 </small>

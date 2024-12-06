@@ -2,6 +2,7 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
+import { Box } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
@@ -44,8 +45,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import Tab from "@/components/Tabs/Tab";
-import Tabs from "@/components/Tabs/Tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
@@ -583,17 +588,25 @@ export default function FeaturesPage() {
           </div>
         </>
       ) : (
-        <Tabs newStyle={true} defaultTab="all-features">
-          <Tab id="all-features" display="All Features" padding={false}>
+        <Tabs defaultValue="all-features">
+          <Box mb="3">
+            <TabsList>
+              <TabsTrigger value="all-features">All Features</TabsTrigger>
+              <TabsTrigger value="drafts">Drafts</TabsTrigger>
+            </TabsList>
+          </Box>
+
+          <TabsContent value="all-features">
             {renderFeaturesTable()}
             <Callout status="info" mt="5" mb="3">
               Test what values these features will return for your users from
               the <Link href="/archetypes#simulate">Simulate</Link> page.
             </Callout>
-          </Tab>
-          <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+          </TabsContent>
+
+          <TabsContent value="drafts">
             <FeaturesDraftTable features={allFeatures} />
-          </Tab>
+          </TabsContent>
         </Tabs>
       )}
     </div>
