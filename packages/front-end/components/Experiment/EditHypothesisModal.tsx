@@ -7,7 +7,7 @@ interface Props {
   source: string;
   close: () => void;
   experimentId: string;
-  hypothesis?: string;
+  initialValue?: string;
   mutate: () => void;
 }
 
@@ -15,13 +15,13 @@ export default function EditHypothesisModal({
   source,
   close,
   experimentId,
-  hypothesis,
+  initialValue,
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
   const form = useForm<{ hypothesis: string }>({
     defaultValues: {
-      hypothesis: hypothesis || "",
+      hypothesis: initialValue || "",
     },
   });
 
@@ -30,7 +30,6 @@ export default function EditHypothesisModal({
       trackingEventModalType="edit-hypothesis-modal"
       trackingEventModalSource={source}
       header={"Edit Hypothesis"}
-      size="lg"
       open={true}
       close={close}
       submit={form.handleSubmit(async (data) => {
@@ -41,16 +40,18 @@ export default function EditHypothesisModal({
         mutate();
       })}
       cta="Save"
-      ctaEnabled={hypothesis !== form.watch("hypothesis")}
+      ctaEnabled={initialValue !== form.watch("hypothesis")}
     >
-      <Field
-        label="Hypothesis"
-        textarea
-        minRows={1}
-        placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
-        {...form.register("hypothesis")}
-        name="hypothesis"
-      />
+      <div style={{ paddingBottom: "36px" }}>
+        <Field
+          label="Hypothesis"
+          textarea
+          minRows={1}
+          placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
+          {...form.register("hypothesis")}
+          name="hypothesis"
+        />
+      </div>
     </Modal>
   );
 }
