@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 /**
- * Hook to sync a component's state with the URL hash
+ * Hook to sync a component's state with the URL hash.
+ * If validIds is provided, this hook will only update the URL hash if the new value is in the list of validIds.
  *
  * @param validIds - Array of valid hash values that this component can handle
  * @returns [currentHash, setHash] - Current hash value and function to update it
@@ -22,15 +23,21 @@ import { useEffect, useState } from "react";
  * );
  * ```
  */
-export default function useURLHash<Id extends string>(validIds: Id[]) {
+export default function useURLHash<Id extends string>(
+  validIds: Id[] | undefined = undefined
+) {
   const [hash, setHashState] = useState(() => {
-    // Get initial hash from URL, defaulting to first valid slug
+    // Get initial hash from URL
     const urlHash = window.location.hash.slice(1);
-    return validIds.includes(urlHash as Id) ? urlHash : undefined;
+    if (validIds === undefined) {
+      return urlHash === "" ? undefined : urlHash;
+    } else {
+      return validIds.includes(urlHash as Id) ? urlHash : undefined;
+    }
   });
 
   const setHashAndURL = (newHash: Id) => {
-    if (validIds.includes(newHash)) {
+    if (validIds === undefined || validIds.includes(newHash)) {
       window.location.hash = newHash;
     }
   };
@@ -39,8 +46,8 @@ export default function useURLHash<Id extends string>(validIds: Id[]) {
   useEffect(() => {
     const handler = () => {
       const newHash = window.location.hash.slice(1);
-      if (validIds.includes(newHash as Id)) {
-        setHashState(newHash);
+      if (validIds === undefined || validIds.includes(newHash as Id)) {
+        setHashState(newHash === "" ? undefined : newHash);
       }
     };
 
