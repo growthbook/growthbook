@@ -67,6 +67,7 @@ export interface Props {
   initialFactTable?: string;
   existing?: Partial<FactMetricInterface>;
   duplicate?: boolean;
+  fromTemplate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
   switchToLegacy?: () => void;
@@ -759,6 +760,7 @@ export default function FactMetricModal({
   initialFactTable,
   existing,
   duplicate = false,
+  fromTemplate = false,
   showAdvancedSettings,
   onSave,
   switchToLegacy,
@@ -854,7 +856,7 @@ export default function FactMetricModal({
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
-  const isNew = !existing || duplicate;
+  const isNew = !existing || duplicate || fromTemplate;
   const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
@@ -903,9 +905,7 @@ export default function FactMetricModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      header={
-        existing && !duplicate ? "Edit Metric" : "Create Fact Table Metric"
-      }
+      header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
       bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(async (values) => {
@@ -1006,7 +1006,7 @@ export default function FactMetricModal({
             values.numerator.factTableId === values.denominator?.factTableId,
         };
 
-        if (existing && !duplicate) {
+        if (!isNew) {
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
