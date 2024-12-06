@@ -303,7 +303,6 @@ export async function getAllFeaturesWithRulesForEnvironment(
   const features = (await FeatureModel.find(query)).map((m) =>
     upgradeFeatureInterface(toInterface(m))
   );
-  // TODO: do we want this permission check given that we probably need to update every instance
   return features.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project)
   );

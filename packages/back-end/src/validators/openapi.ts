@@ -415,7 +415,7 @@ export const deleteEnvironmentValidator = {
 };
 
 export const postForkEnvironmentValidator = {
-  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "forkBase": z.string().describe("The ID of the environment to fork from"), "synchronous": z.boolean().describe("Whether this fork should be run synchronously. If true, the server may take a long time to respond, particularly if there are many features with rules in the forkBase environment."), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "forkBase": z.string().describe("The ID of the environment to fork from"), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };

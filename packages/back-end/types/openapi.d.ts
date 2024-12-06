@@ -6101,8 +6101,6 @@ export interface operations {
           id: string;
           /** @description The ID of the environment to fork from */
           forkBase: string;
-          /** @description Whether this fork should be run synchronously. If true, the server may take a long time to respond, particularly if there are many features with rules in the forkBase environment. */
-          synchronous: boolean;
           /** @description The description of the new environment */
           description?: string;
           /** @description Show toggle on feature list */
