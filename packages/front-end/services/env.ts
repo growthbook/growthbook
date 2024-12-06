@@ -64,10 +64,10 @@ export function showMultiOrgSelfSelector(): boolean {
   return env.showMultiOrgSelfSelector;
 }
 export function isTelemetryEnabled(): boolean {
-  return env.telemetry === "enable" || env.telemetry === "enable-debug";
+  return env.telemetry === "enable" || env.telemetry === "enable-with-debug";
 }
 export function inTelemetryDebugMode(): boolean {
-  return env.telemetry === "debug" || env.telemetry === "enable-debug";
+  return env.telemetry === "debug" || env.telemetry === "enable-with-debug";
 }
 export function hasFileConfig() {
   return env.config === "file";

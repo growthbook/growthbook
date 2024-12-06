@@ -86,33 +86,28 @@ const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
   }
   if (!isTelemetryEnabled()) return;
 
+  let result;
   try {
-    const result = await fetch(
-      `${getIngestorHost()}/track?client_key=${GB_SDK_ID}`,
-      {
-        method: "POST",
-        body: JSON.stringify(event),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "text/plain",
-        },
-        credentials: "omit",
-      }
-    );
-    if (inTelemetryDebugMode()) {
-      if (!result.ok) {
-        console.error(
-          `Telemetry - Ingestor returned a ${result.status}`,
-          await result.json()
-        );
-      } else {
-        console.log("Telemetry - Successfully recorded event");
-      }
+    result = await fetch(`${getIngestorHost()}/track?client_key=${GB_SDK_ID}`, {
+      method: "POST",
+      body: JSON.stringify(event),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "text/plain",
+      },
+      credentials: "omit",
+    });
+    if (!result.ok) {
+      throw new Error(`Telemetry - Ingestor returned a ${result.status}`);
     }
   } catch (e) {
     if (inTelemetryDebugMode()) {
-      console.error("Failed to fire tracking event");
-      console.error(e);
+      const body = await result?.json();
+      if (body) {
+        console.error(e.message, body);
+      } else {
+        console.error("Telemety - Failed to fire tracking event", e);
+      }
     }
   }
 };
