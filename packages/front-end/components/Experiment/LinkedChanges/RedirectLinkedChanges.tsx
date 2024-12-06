@@ -2,11 +2,12 @@ import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
 import styles from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges.module.scss";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal: (boolean) => void;
@@ -33,7 +34,13 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
 
     if (parsedUrl1.hostname === parsedUrl2.hostname) {
       return (
-        <a className={styles.redirectUrl} href={url2}>
+        //MKTODO: Can I revise this to reduce repetition?
+        <a
+          className={`${styles.redirectUrl} text-dark d-flex align-items-center`}
+          href={url2}
+          target="_blank"
+          rel="noreferrer"
+        >
           {filtered.map((part, index) => {
             if (part.added) {
               return <b key={index}>{part.value}</b>;
@@ -41,12 +48,19 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
               return <span key={index}>{part.value}</span>;
             }
           })}
+          <FaExternalLinkAlt className="ml-1" />
         </a>
       );
     } else
       return (
-        <a className={styles.redirectUrl} href={url2}>
+        <a
+          className="d-flex align-items-center text-dark"
+          href={url2}
+          target="_blank"
+          rel="noreferrer"
+        >
           {url2}
+          <FaExternalLinkAlt className="ml-1" />
         </a>
       );
   } catch {
@@ -79,36 +93,45 @@ const Redirect = ({
       ) : null}
       <div className="appbox p-3 mb-0">
         <div className="d-flex justify-content-between">
-          <h5 className="mt-2">Original URL</h5>
+          <a
+            href={originUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-link link-purple pl-0 d-flex align-items-center"
+          >
+            {originUrl}
+            <FaExternalLinkAlt className="ml-1" />
+          </a>
           {canEdit && (
             <div>
               <button
-                className="btn btn-link"
-                onClick={() => {
-                  setEditingRedirect(true);
-                }}
-              >
-                Edit{" "}
-              </button>
-              <DeleteButton
-                className="btn-sm ml-4"
+                className="btn btn-link text-danger"
                 onClick={async () => {
                   await apiCall(`/url-redirects/${urlRedirect.id}`, {
                     method: "DELETE",
                   });
                   mutate();
                 }}
-                displayName="URL Redirect"
-              />
+              >
+                Remove
+              </button>
+              <button
+                className="btn btn-link link-purple"
+                onClick={() => {
+                  setEditingRedirect(true);
+                }}
+              >
+                Edit
+              </button>
             </div>
           )}
         </div>
-
-        <a className={styles.redirectUrl} href={originUrl}>
-          {originUrl}
-        </a>
+        <div className="text-muted">Original URL</div>
         <hr />
-        <h5>Redirects</h5>
+        <h5>
+          Redirects
+          <Tooltip body="Test" className="pl-1" />
+        </h5>
         {experiment.variations.map((v, i) => (
           <div
             className={
