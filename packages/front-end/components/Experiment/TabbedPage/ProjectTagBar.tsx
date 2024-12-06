@@ -52,15 +52,14 @@ export default function ProjectTagBar({
   const ownerName = getUserDisplay(experiment.owner, false) || "";
 
   const renderOwner = () => {
-    if (ownerName === "") {
-      return "None";
-    }
     return (
       <>
         <span>
-          <UserAvatar name={ownerName} size="sm" variant="soft" />{" "}
+          {ownerName !== "" && (
+            <UserAvatar name={ownerName} size="sm" variant="soft" />
+          )}{" "}
           <Text weight="regular" className={metaDataStyles.valueColor}>
-            {ownerName}
+            {ownerName === "" ? "None" : ownerName}
           </Text>
           {canEditOwner && updateOwner && (
             <a
