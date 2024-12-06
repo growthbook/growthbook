@@ -1245,12 +1245,19 @@ const MetricPage: FC = () => {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Thresholds</span>
+                    <span className="uppercase-title lg">
+                      Display Thresholds
+                    </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Minimum sample size:</span>{" "}
+                    <span className="text-gray">Minimum metric total:</span>{" "}
                     <span className="font-weight-bold">
-                      {getMinSampleSizeForMetric(metric)}
+                      {getMetricFormatter(metric.type)(
+                        getMinSampleSizeForMetric(metric),
+                        {
+                          currency: displayCurrency,
+                        }
+                      )}
                     </span>
                   </li>
                   <li className="mb-2">

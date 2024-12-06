@@ -1,4 +1,4 @@
-import { GrowthBookMultiUser } from "../../src";
+import { GrowthBookClient } from "../../src";
 import { getAttributes, NUM_ITERATIONS, payload } from "./common";
 
 const FEATURES_TO_EVAL = Object.keys(payload.features);
@@ -7,7 +7,7 @@ console.log("Running...");
 const start = Date.now();
 
 // Singleton instance
-const gb = new GrowthBookMultiUser().initSync({
+const gb = new GrowthBookClient().initSync({
   payload,
 });
 

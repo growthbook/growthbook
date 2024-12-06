@@ -143,10 +143,11 @@ export const postSegment = async (
     factTableId,
     filters,
     type,
+    projects,
   } = req.body;
 
   const context = getContextFromReq(req);
-  if (!context.permissions.canCreateSegment()) {
+  if (!context.permissions.canCreateSegment({ projects })) {
     context.permissions.throwPermissionError();
   }
 
@@ -165,6 +166,7 @@ export const postSegment = async (
     name,
     description,
     type,
+    projects,
   };
 
   if (type === "SQL") {
@@ -212,9 +214,6 @@ export const putSegment = async (
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  if (!context.permissions.canUpdateSegment()) {
-    context.permissions.throwPermissionError();
-  }
   const { org } = context;
 
   const segment = await context.models.segments.getById(id);
@@ -236,7 +235,12 @@ export const putSegment = async (
     factTableId,
     filters,
     type,
+    projects,
   } = req.body;
+
+  if (!context.permissions.canUpdateSegment(segment, { projects })) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
@@ -253,6 +257,7 @@ export const putSegment = async (
     type,
     factTableId,
     filters,
+    projects,
   });
 
   res.status(200).json({
@@ -283,15 +288,14 @@ export const deleteSegment = async (
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteSegment()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { org } = context;
   const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
+  }
+  if (!context.permissions.canDeleteSegment(segment)) {
+    context.permissions.throwPermissionError();
   }
 
   await context.models.segments.delete(segment);

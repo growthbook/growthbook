@@ -646,6 +646,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "guide/express-js",
+          label: "Express.js",
+        },
+        {
+          type: "doc",
           id: "guide/nextjs-and-vercel-feature-flags",
           label: "Next.js + Vercel Feature Flags",
         },
@@ -731,6 +736,18 @@ const sidebars = {
               type: "doc",
               id: "kb/experiments/holdouts",
               label: "Holdouts in GrowthBook",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Metrics",
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "kb/metrics/fact-metric-optimization",
+              label: "Fact Metric Optimization",
             },
           ],
         },
