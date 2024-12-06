@@ -39,7 +39,11 @@ declare global {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
     rudderanalytics?: {
-      track?: (name: string, props?: Record<string, unknown>) => void;
+      track?: (
+        name: string,
+        props?: Record<string, unknown>,
+        cb?: () => Promise<void>
+      ) => void;
     };
     // eslint-disable-next-line
     gtag?: (...args: any) => void;
@@ -337,11 +341,16 @@ const gb = new GrowthBook({
     }
     // Rudderstack - rudderanalytics.js
     if (window.rudderanalytics && window.rudderanalytics.track) {
-      window.rudderanalytics.track("Experiment Viewed", eventParams);
-      const segmentPromise = new Promise((resolve) =>
-        window.setTimeout(resolve, 300)
+      let rudderResolve;
+      const ruddersPromise = new Promise((resolve) => {
+        rudderResolve = resolve;
+      });
+      promises.push(ruddersPromise);
+      window.rudderanalytics.track(
+        "Experiment Viewed",
+        eventParams,
+        rudderResolve
       );
-      promises.push(segmentPromise);
     }
 
     await Promise.all(promises);
