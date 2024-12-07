@@ -12,6 +12,8 @@ import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributes
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
+import LinkButton from "@/components/Radix/LinkButton";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -24,8 +26,10 @@ export const ArchetypeList: FC<{
   ] = useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const { getUserDisplay } = useUser();
+  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  const hasArchetypeFeature = hasCommercialFeature("archetypes");
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
     projects: [project],
   });
@@ -36,6 +40,45 @@ export const ArchetypeList: FC<{
     return (
       <div className="alert alert-danger">
         An error occurred fetching the lists of archetypes.
+      </div>
+    );
+  }
+
+  if (!hasArchetypeFeature) {
+    return (
+      <div className="mb-3">
+        <div className="appbox p-5 text-center">
+          <div className="py-2">
+            <h2>Create Reusable Archetypes</h2>
+            <p>
+              Archetypes are named sets of attributes that help you test your
+              features. Archetypes are a premium feature.
+            </p>
+            <div className="mt-3">
+              <LinkButton
+                href="https://docs.growthbook.io/features/rules#archetype"
+                variant="outline"
+                mr="3"
+              >
+                View docs
+              </LinkButton>
+              <Button
+                onClick={() => {
+                  setShowUpgradeModal(true);
+                }}
+              >
+                Upgrade Plan
+              </Button>
+            </div>
+          </div>
+        </div>
+        {showUpgradeModal && (
+          <UpgradeModal
+            close={() => setShowUpgradeModal(false)}
+            source="archetypes"
+            reason="Create reusable archetypes"
+          />
+        )}
       </div>
     );
   }
