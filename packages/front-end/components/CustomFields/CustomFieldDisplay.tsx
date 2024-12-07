@@ -127,7 +127,6 @@ const CustomFieldDisplay: FC<{
     });
   });
 
-  console.log(displayFieldsObj);
   return (
     <div className="mb-4">
       {editModal && (
