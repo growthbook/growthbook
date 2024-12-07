@@ -17,15 +17,25 @@ import Callout from "@/components/Radix/Callout";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
+import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function ReportResults({
   report,
   snapshot,
+  snapshotError,
+  mutate,
   ssrPolyfills,
+  readonly = true,
+  showSettingsBar = true,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
+  snapshotError?: Error;
+  mutate?: () => void;
   ssrPolyfills?: SSRExperimentReportPolyfills;
+  readonly?: boolean;
+  showSettingsBar?: boolean;
 }) {
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
@@ -87,9 +97,23 @@ export default function ReportResults({
     hasData && snapshot && analysis && !analysis?.settings?.dimensions?.length;
 
   return (
-    <div className="bg-white border pt-3">
-      {!snapshot || !analysis ? (
+    <div className="bg-white border pt-2">
+      {showSettingsBar && (
+        <ReportAnalysisSettingsBar
+          report={report}
+          snapshot={snapshot}
+          mutate={mutate}
+          ssrPolyfills={ssrPolyfills}
+          canUpdateReport={!readonly}
+        />
+      )}
+
+      {snapshotError || (snapshot && !analysis) ? (
         <Callout status="error">Missing snapshot!</Callout>
+      ) : !snapshot ? (
+        <div className="d-flex justify-content-center my-4">
+          <LoadingSpinner />
+        </div>
       ) : (
         <>
           {showDateResults ? (

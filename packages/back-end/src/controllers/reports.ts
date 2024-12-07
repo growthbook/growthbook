@@ -1,3 +1,4 @@
+import { snapshot } from "node:test";
 import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
@@ -7,6 +8,7 @@ import uniqid from "uniqid";
 import uniq from "lodash/uniq";
 import { expandMetricGroups } from "shared/experiments";
 import {
+  ExperimentReportAnalysisSettings,
   ExperimentReportInterface,
   ExperimentSnapshotReportArgs,
   ReportInterface,
@@ -30,7 +32,7 @@ import {
   getReportsByOrg,
   updateReport,
 } from "back-end/src/models/ReportModel";
-import { ReportQueryRunner } from "back-end/src/queryRunners/ReportQueryRunner";
+import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { generateReportNotebook } from "back-end/src/services/notebook";
 import {
@@ -50,6 +52,9 @@ import { FactMetricInterface } from "back-end/types/fact-table";
 import { MetricInterface } from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
+import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
+import { createReportSnapshot } from "back-end/src/services/reports";
+import { getDefaultExperimentAnalysisSettings } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -64,7 +69,7 @@ export async function postReportFromSnapshot(
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
-  // Create a new report-specific snapshot
+  // Prepare a new report-specific snapshot
   snapshot.id = uniqid("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
@@ -72,7 +77,6 @@ export async function postReportFromSnapshot(
     // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
     snapshot.health.traffic.dimension = {};
   }
-  await createExperimentSnapshotModel({ data: snapshot, context });
 
   // todo: hash dependencies so we can see if settings/inputs are stale
 
@@ -96,11 +100,22 @@ export async function postReportFromSnapshot(
     throw new Error("Missing analysis settings");
   }
 
-  const _experimentAnalysisSettings = pick(
-    experiment,
-    Object.keys(experimentAnalysisSettings.shape)
-  ) as ExperimentAnalysisSettings;
-  const _reportArgs = pick(reportArgs, ["userIdType", "differenceType"]);
+  const phaseIndex = snapshot.phase ?? (experiment.phases?.length || 1) - 1;
+  const _experimentAnalysisSettings: ExperimentReportAnalysisSettings = {
+    ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
+    trackingKey: experiment.trackingKey || experiment.id,
+    ...pick(reportArgs, [
+      "userIdType",
+      "differenceType",
+      "dimension",
+      "dateStarted",
+      "dateEnded",
+    ]),
+  };
+  if (!_experimentAnalysisSettings.dateStarted) {
+    _experimentAnalysisSettings.dateStarted =
+      experiment.phases?.[phaseIndex]?.dateStarted ?? new Date();
+  }
 
   const doc = await createReport(org.id, {
     experimentId: experiment.id,
@@ -118,17 +133,19 @@ export async function postReportFromSnapshot(
           "name",
           "variationWeights",
           "banditEvents",
+          "coverage",
         ])
       ),
       variations: experiment.variations.map((variation) =>
         omit(variation, ["description", "screenshots"])
       ),
     },
-    experimentAnalysisSettings: {
-      ..._experimentAnalysisSettings,
-      ..._reportArgs,
-    },
+    experimentAnalysisSettings: _experimentAnalysisSettings,
   });
+
+  // Save the snapshot
+  snapshot.report = doc.id;
+  await createExperimentSnapshotModel({ data: snapshot, context });
 
   await req.audit({
     event: "experiment.analysis",
@@ -234,7 +251,8 @@ export async function getReportPublic(
 
   const snapshot =
     report.type === "experiment-snapshot"
-      ? await findSnapshotById(report.organization, report.snapshot)
+      ? (await findSnapshotById(report.organization, report.snapshot)) ||
+        undefined
       : undefined;
 
   const metricGroups = await context.models.metricGroups.getAll();
@@ -387,46 +405,69 @@ export async function refreshReport(
   const context = getContextFromReq(req);
   const { org } = context;
   const report = await getReportById(org.id, req.params.id);
-
-  if (!report) {
-    throw new Error("Unknown report id");
-  }
-  if (report.type !== "experiment") {
-    throw new Error("Invalid report type");
-  }
-
-  const useCache = !req.query["force"];
-
-  const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
-
-  report.args.statsEngine = statsEngine;
-  report.args.regressionAdjustmentEnabled = !!report.args
-    ?.regressionAdjustmentEnabled;
+  if (!report) throw new Error("Unknown report id");
 
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
+  const useCache = !req.query["force"];
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    report.args.datasource,
-    true
-  );
-  const queryRunner = new ReportQueryRunner(
-    context,
-    report,
-    integration,
-    useCache
-  );
+  if (report.type === "experiment-snapshot") {
+    const snapshot =
+      report.type === "experiment-snapshot"
+        ? (await findSnapshotById(report.organization, report.snapshot)) ||
+          undefined
+        : undefined;
 
-  const updatedReport = await queryRunner.startAnalysis({
-    metricMap,
-    factTableMap,
-  });
+    try {
+      const updatedReport = await createReportSnapshot({
+        report,
+        previousSnapshot: snapshot,
+        context,
+        metricMap,
+        factTableMap,
+      });
 
-  return res.status(200).json({
-    status: 200,
-    updatedReport,
-  });
+      return res.status(200).json({
+        status: 200,
+        updatedReport,
+      });
+    } catch (e) {
+      req.log.error(e, "Failed to create report snapshot");
+      res.status(400).json({
+        status: 400,
+        message: e.message,
+      });
+    }
+
+  } else if (report.type === "experiment") {
+    report.args.statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
+    report.args.regressionAdjustmentEnabled = !!report.args
+      ?.regressionAdjustmentEnabled;
+
+    const integration = await getIntegrationFromDatasourceId(
+      context,
+      report.args.datasource,
+      true
+    );
+    const queryRunner = new ExperimentReportQueryRunner(
+      context,
+      report,
+      integration,
+      useCache
+    );
+
+    const updatedReport = await queryRunner.startAnalysis({
+      metricMap,
+      factTableMap,
+    });
+
+    return res.status(200).json({
+      status: 200,
+      updatedReport,
+    });
+  }
+
+  throw new Error("Invalid report type");
 }
 
 export async function putReport(
@@ -498,7 +539,7 @@ export async function putReport(
       true
     );
 
-    const queryRunner = new ReportQueryRunner(
+    const queryRunner = new ExperimentReportQueryRunner(
       context,
       updatedReport,
       integration
@@ -536,7 +577,11 @@ export async function cancelReport(
     report.args.datasource
   );
 
-  const queryRunner = new ReportQueryRunner(context, report, integration);
+  const queryRunner = new ExperimentReportQueryRunner(
+    context,
+    report,
+    integration
+  );
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });

@@ -183,14 +183,10 @@ export default function ReportPage(props: ReportPageProps) {
 
       <h1>{report.title}</h1>
 
-      <ReportAnalysisSettingsBar
-        report={report}
-        snapshot={snapshot}
-        ssrPolyfills={ssrPolyfills}
-      />
       <ReportResults
         report={report}
         snapshot={snapshot}
+        snapshotError={!snapshot ? new Error("Missing snapshot") : undefined}
         ssrPolyfills={ssrPolyfills}
       />
     </div>

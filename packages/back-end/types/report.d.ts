@@ -33,13 +33,18 @@ export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
   tinyid: string;
   snapshot: string;
   experimentMetadata: ExperimentReportMetadata;
-  experimentAnalysisSettings: ExperimentAnalysisSettings &
-    ExperimentSnapshotReportArgs;
+  experimentAnalysisSettings: ExperimentReportAnalysisSettings;
 }
+
+export type ExperimentReportAnalysisSettings = ExperimentAnalysisSettings &
+  ExperimentSnapshotReportArgs;
 
 export type ExperimentSnapshotReportArgs = {
   userIdType?: "user" | "anonymous";
   differenceType?: DifferenceType;
+  dimension?: string;
+  dateStarted?: Date;
+  dateEnded?: Date;
 };
 
 export interface ExperimentReportMetadata {
@@ -49,7 +54,12 @@ export interface ExperimentReportMetadata {
 }
 export type ExperimentReportPhase = Pick<
   ExperimentPhase,
-  "dateStarted" | "dateEnded" | "name" | "variationWeights" | "banditEvents"
+  | "dateStarted"
+  | "dateEnded"
+  | "name"
+  | "variationWeights"
+  | "banditEvents"
+  | "coverage"
 >;
 
 /** @deprecated */

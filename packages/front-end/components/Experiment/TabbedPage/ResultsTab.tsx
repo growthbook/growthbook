@@ -92,7 +92,7 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot, analysis } = useSnapshot();
+  const { snapshot, analysis, dimension } = useSnapshot();
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -187,8 +187,9 @@ export default function ResultsTab({
   )?.userIdType;
 
   const reportArgs: ExperimentSnapshotReportArgs = {
-    userIdType,
+    userIdType: userIdType as "user" | "anonymous" | undefined,
     differenceType,
+    dimension,
   };
 
   return (

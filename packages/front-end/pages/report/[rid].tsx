@@ -122,7 +122,7 @@ export default function ReportPage() {
   const snapshotId =
     report?.type === "experiment-snapshot" ? report?.snapshot : undefined;
 
-  const { data: snapshotData } = useApi<{
+  const { data: snapshotData, error: snapshotError } = useApi<{
     snapshot: ExperimentSnapshotInterface;
   }>(`/snapshot/${snapshotId}`, {
     shouldRun: () => !!snapshotId,
@@ -163,12 +163,13 @@ export default function ReportPage() {
 
         <h1>{report.title}</h1>
 
-        <ReportAnalysisSettingsBar
+        <ReportResults
           report={report}
           snapshot={snapshot}
+          snapshotError={snapshotError}
+          mutate={mutate}
           readonly={!canEdit}
         />
-        <ReportResults report={report} snapshot={snapshot} />
       </div>
     );
   }

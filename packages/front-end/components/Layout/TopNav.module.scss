@@ -16,6 +16,15 @@ $sidebarwidth: 240px;
   @media (max-width: 520px) {
     padding: 0 8px;
   }
+  @media (max-width: 1180px) {
+    left: 0;
+    .pagetitle {
+      padding-left: 10px;
+    }
+    .mobilemenu {
+      display: block;
+    }
+  }
 }
 .topbarlite {
   display: flex;
@@ -106,18 +115,6 @@ $sidebarwidth: 240px;
 
   a {
     padding: 0.25rem 1.5rem 0.25rem 0rem;
-  }
-}
-
-@media (max-width: 1180px) {
-  .pagetitle {
-    padding-left: 10px;
-  }
-  .mobilemenu {
-    display: block;
-  }
-  .topbar {
-    left: 0;
   }
 }
 

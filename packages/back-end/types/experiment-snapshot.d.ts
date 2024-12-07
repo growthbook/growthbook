@@ -81,6 +81,7 @@ export interface MetricForSnapshot {
     | "type"
   >;
   // Computed settings that take into account overrides
+  // see MetricSnapshotSettings
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentAvailable: boolean;
@@ -186,6 +187,7 @@ export interface ExperimentSnapshotInterface {
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
+  report?: string;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
