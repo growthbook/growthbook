@@ -137,6 +137,7 @@ const SelectField: FC<SelectFieldProps> = ({
   value,
   options,
   onChange,
+  onBlur,
   initialOption,
   placeholder = "Select...",
   sort = true,
@@ -183,6 +184,7 @@ const SelectField: FC<SelectFieldProps> = ({
         autoFocus={autoFocus}
         required={required}
         className={className}
+        onBlur={onBlur}
       />
     );
   }
@@ -223,9 +225,10 @@ const SelectField: FC<SelectFieldProps> = ({
                     setInputValue(selected?.value || "");
                   }
                 }}
-                onBlur={() => {
+                onBlur={(e) => {
                   if (!inputValue) return;
                   onChange(inputValue);
+                  onBlur && onBlur(e);
                 }}
                 onInputChange={(val) => {
                   setInputValue(val);
@@ -267,6 +270,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");
                 }}
+                onBlur={onBlur}
                 autoFocus={autoFocus}
                 value={selected}
                 placeholder={initialOption ?? placeholder}

@@ -23,11 +23,15 @@ import {
   getAggregateFilters,
   getColumnRefWhereClause,
 } from "shared/experiments";
-import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatNumber, getDefaultFactMetricProps } from "@/services/metrics";
+import {
+  formatNumber,
+  getDefaultFactMetricProps,
+  getInitialInlineFilters,
+} from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -77,13 +81,6 @@ export interface Props {
   source: string;
   datasource?: string;
 }
-
-type InlineFilterField = {
-  label: string;
-  key: string;
-  options: string[];
-  error?: string;
-};
 
 function QuantileSelector({
   value,
@@ -248,33 +245,15 @@ function ColumnRefSelector({
     includeCount: aggregationType === "unit",
   });
 
-  const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
-    .filter(
-      (col) =>
-        canInlineFilterColumn(factTable as FactTableInterface, col) &&
-        col.alwaysInlineFilter
-    )
-    .map((col) => {
-      const options = new Set(col.topValues || []);
-
-      // Add any custom values that have been entered
-      if (value.inlineFilters?.[col.column]) {
-        value.inlineFilters[col.column].forEach((v) => options.add(v));
-      }
-
-      return {
-        label: col.name || col.column,
-        key: col.column,
-        options: [...options],
-      };
-    });
-
   const [addRowFilter, setAddRowFilter] = useState(false);
+  const [addUserFilter, setAddUserFilter] = useState(false);
 
   const addFilterOptions: GroupedValue[] = [];
 
-  const unusedFilters =
-    factTable?.filters?.filter((f) => !value.filters.includes(f.id)) || [];
+  const eligibleFilters = factTable?.filters || [];
+  const unusedFilters = eligibleFilters.filter(
+    (f) => !value.filters.includes(f.id)
+  );
   if (unusedFilters.length > 0) {
     addFilterOptions.push({
       label: "Saved Filters",
@@ -285,15 +264,12 @@ function ColumnRefSelector({
     });
   }
 
-  const unfilteredStringColumns =
-    factTable?.columns?.filter((c) => {
-      if (c.deleted) return false;
-      if (c.alwaysInlineFilter) return false;
-      if (c.datatype !== "string") return false;
-      if (value.inlineFilters?.[c.column]?.length) return false;
-      if (factTable.userIdTypes.includes(c.column)) return false;
-      return true;
-    }) || [];
+  const eligibleColumns =
+    factTable?.columns?.filter((c) => canInlineFilterColumn(factTable, c)) ||
+    [];
+  const unfilteredStringColumns = eligibleColumns.filter(
+    (c) => !value.inlineFilters?.[c.column]?.length
+  );
   if (unfilteredStringColumns.length > 0) {
     addFilterOptions.push({
       label: "Filter by Column",
@@ -304,6 +280,9 @@ function ColumnRefSelector({
     });
   }
 
+  const canFilterRows =
+    eligibleFilters.length > 0 || eligibleColumns.length > 0;
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-top">
@@ -312,13 +291,43 @@ function ColumnRefSelector({
             label={"Fact Table"}
             disabled={disableFactTableSelector}
             value={value.factTableId}
-            onChange={(factTableId) =>
-              setValue({
-                factTableId,
-                column: value.column?.match(/^\$\$/) ? value.column : "$$count",
-                filters: [],
-              })
-            }
+            onChange={(factTableId) => {
+              const newFactTable = getFactTableById(factTableId);
+              if (!newFactTable) return;
+
+              const inlineFilters = getInitialInlineFilters(
+                newFactTable,
+                value.inlineFilters
+              );
+
+              // If switching between fact tables, wipe out inline and aggregate filters
+              if (value.factTableId) {
+                // If the column is not valid for the new fact table, reset it
+                let newColumn = value.column;
+                if (
+                  !value.column?.match(/^\$\$/) &&
+                  !newFactTable?.columns.find((c) => c.column === newColumn)
+                ) {
+                  newColumn = "$$count";
+                }
+
+                setValue({
+                  factTableId,
+                  column: newColumn,
+                  inlineFilters,
+                  filters: [],
+                });
+              }
+              // If selecting a fact table for the first time, keep the existing inline/aggregate filters
+              else {
+                setValue({
+                  ...value,
+                  factTableId,
+                  inlineFilters,
+                  filters: [],
+                });
+              }
+            }}
             options={factTables
               .filter((t) => t.datasource === datasource)
               .map((t) => ({
@@ -344,42 +353,7 @@ function ColumnRefSelector({
             required
           />
         </div>
-        {inlineFilterFields.map(({ label, key, options, error }) => (
-          <div key={key} className="col-auto">
-            <MultiSelectField
-              label={
-                <>
-                  {label}{" "}
-                  {error ? (
-                    <Tooltip body={error}>
-                      <FaTriangleExclamation className="text-danger" />
-                    </Tooltip>
-                  ) : (
-                    <Tooltip body="If selecting multiple values, only one needs to match for a row to be included." />
-                  )}
-                </>
-              }
-              value={value.inlineFilters?.[key] || []}
-              onChange={(v) =>
-                setValue({
-                  ...value,
-                  inlineFilters: { ...value.inlineFilters, [key]: v },
-                })
-              }
-              options={options.map((o) => ({
-                label: o,
-                value: o,
-              }))}
-              initialOption="Any"
-              formatOptionLabel={({ value, label }) =>
-                value ? label : <em className="text-muted">{label}</em>
-              }
-              creatable
-              sort={false}
-            />
-          </div>
-        ))}
-        {factTable && factTable.filters.length > 0 ? (
+        {factTable && canFilterRows ? (
           <div className="col-auto">
             <div className="form-group">
               <label>
@@ -421,30 +395,101 @@ function ColumnRefSelector({
                 })}
                 {Object.entries(value.inlineFilters || {}).map(([k, v]) => {
                   if (!v.length) return null;
+                  v = v.filter((v) => !!v);
                   const col = factTable.columns.find((c) => c.column === k);
-                  if (col?.alwaysInlineFilter) return null;
+
+                  const onValuesChange = (v: string[]) => {
+                    v = [...new Set(v.filter((v) => !!v))];
+
+                    setValue({
+                      ...value,
+                      inlineFilters: { ...value.inlineFilters, [k]: v },
+                    });
+                  };
+
+                  const colAlert =
+                    !col || !canInlineFilterColumn(factTable, col) ? (
+                      <Tooltip
+                        body={`This column ${
+                          col
+                            ? "cannot be filtered on"
+                            : "does not exist in this fact table"
+                        }`}
+                      >
+                        <FaTriangleExclamation className="text-danger ml-1" />
+                      </Tooltip>
+                    ) : null;
+
                   return (
                     <div
-                      className="border rounded py-0 pl-2 mr-1 d-flex align-items-center bg-white"
+                      className="border rounded mr-1 d-flex align-items-center bg-white"
                       key={k}
                     >
-                      {col?.name || k}
-
-                      <small className="text-muted mx-2">one of</small>
-
-                      <StringArrayField
-                        value={v}
-                        onChange={(v) => {
-                          v = [...new Set(v.filter((v) => !!v))];
-
-                          setValue({
-                            ...value,
-                            inlineFilters: { ...value.inlineFilters, [k]: v },
-                          });
-                        }}
-                        placeholder="Values..."
-                        autoFocus
-                      />
+                      {unfilteredStringColumns.length > 0 ? (
+                        <SelectField
+                          value={k}
+                          options={[
+                            { label: col?.name || k, value: k },
+                            ...unfilteredStringColumns.map((c) => ({
+                              label: c.name || c.column,
+                              value: c.column,
+                            })),
+                          ]}
+                          onChange={(newKey) => {
+                            if (k === newKey || !value.inlineFilters) return;
+                            setValue({
+                              ...value,
+                              inlineFilters: {
+                                ...omit(value.inlineFilters || {}, k),
+                                [newKey]: value.inlineFilters[k],
+                              },
+                            });
+                          }}
+                          formatOptionLabel={({ value, label }) => {
+                            return value === k ? (
+                              <>
+                                {label}
+                                {colAlert}
+                              </>
+                            ) : (
+                              label
+                            );
+                          }}
+                        />
+                      ) : (
+                        <span className="pl-2">
+                          {col?.name || k}
+                          {colAlert}
+                        </span>
+                      )}
+                      {col?.topValues?.length ? (
+                        <MultiSelectField
+                          value={v}
+                          onChange={onValuesChange}
+                          options={col.topValues.map((o) => ({
+                            label: o,
+                            value: o,
+                          }))}
+                          initialOption="Any"
+                          formatOptionLabel={({ value, label }) =>
+                            value ? (
+                              label
+                            ) : (
+                              <em className="text-muted">{label}</em>
+                            )
+                          }
+                          autoFocus
+                          creatable
+                          sort={false}
+                        />
+                      ) : (
+                        <StringArrayField
+                          value={v}
+                          onChange={onValuesChange}
+                          placeholder="Any"
+                          autoFocus
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -474,6 +519,7 @@ function ColumnRefSelector({
                           setAddRowFilter(false);
                         }}
                         options={addFilterOptions}
+                        onBlur={() => setAddRowFilter(false)}
                         sort={false}
                         autoFocus
                       />
@@ -487,7 +533,12 @@ function ColumnRefSelector({
                       }}
                       className="py-2"
                     >
-                      <PiPlus /> Add
+                      <PiPlus />{" "}
+                      {Object.values(value.inlineFilters || {}).some(
+                        (v) => v.length > 0
+                      ) || value.filters.length > 0
+                        ? "Row Filter"
+                        : "Add"}
                     </a>
                   )
                 ) : null}
@@ -533,38 +584,52 @@ function ColumnRefSelector({
           )}
         {supportsAggregatedFilter && factTable && (
           <div className="col-auto d-flex align-items-top">
-            <div>
-              <SelectField
-                label={
-                  <>
-                    User Filter{" "}
-                    <Tooltip
-                      body={
-                        <>
-                          Filter after grouping by user id. Simple comparison
-                          operators only. For example, <code>&gt;= 3</code> or{" "}
-                          <code>&lt; 10</code>
-                        </>
-                      }
-                    />
-                  </>
-                }
-                value={value.aggregateFilterColumn || ""}
-                onChange={(v) =>
-                  setValue({
-                    ...value,
-                    aggregateFilterColumn: v,
-                  })
-                }
-                options={getNumericColumnOptions({
-                  factTable: factTable,
-                  includeCount: true,
-                  includeCountDistinct: false,
-                  showColumnsAsSums: true,
-                  groupPrefix: "Filter by ",
-                })}
-                initialOption="Any User"
-              />
+            <div className="form-group">
+              <label>
+                User Filter{" "}
+                <Tooltip
+                  body={
+                    <>
+                      Filter after grouping by user id. Simple comparison
+                      operators only. For example, <code>&gt;= 3</code> or{" "}
+                      <code>&lt; 10</code>
+                    </>
+                  }
+                />
+              </label>
+              {value.aggregateFilterColumn || addUserFilter ? (
+                <SelectField
+                  value={value.aggregateFilterColumn || ""}
+                  onChange={(v) =>
+                    setValue({
+                      ...value,
+                      aggregateFilterColumn: v,
+                    })
+                  }
+                  options={getNumericColumnOptions({
+                    factTable: factTable,
+                    includeCount: true,
+                    includeCountDistinct: false,
+                    showColumnsAsSums: true,
+                    groupPrefix: "Filter by ",
+                  })}
+                  initialOption="Any User"
+                  autoFocus
+                  onBlur={() => setAddUserFilter(false)}
+                />
+              ) : (
+                <div className="py-2">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAddUserFilter(true);
+                    }}
+                  >
+                    <PiPlus /> Add
+                  </a>
+                </div>
+              )}
             </div>
             {value.aggregateFilterColumn && (
               <div className="ml-1">
