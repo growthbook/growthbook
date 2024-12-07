@@ -14,7 +14,7 @@ import {
   StickyAssignmentsDocument,
   FeatureApiResponse,
   Options,
-  MultiUserOptions,
+  ClientOptions,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -1114,7 +1114,7 @@ export async function decryptPayload(
 }
 
 export function getApiHosts(
-  options: Options | MultiUserOptions
+  options: Options | ClientOptions
 ): {
   apiHost: string;
   streamingHost: string;

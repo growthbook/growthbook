@@ -120,7 +120,11 @@ export default function Welcome({
 
   return (
     <>
-      <WelcomeFrame leftside={leftside} loading={loading}>
+      <WelcomeFrame
+        leftside={leftside}
+        loading={loading}
+        pathName={`/${state}`}
+      >
         <form
           onSubmit={async (e) => {
             e.preventDefault();

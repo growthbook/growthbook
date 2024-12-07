@@ -290,7 +290,11 @@ const CreateOrJoinOrganization: FC<{
   if (showFrame) {
     return (
       <>
-        <WelcomeFrame leftside={leftside} loading={loading}>
+        <WelcomeFrame
+          leftside={leftside}
+          loading={loading}
+          pathName="/create-org"
+        >
           <a
             className="logout-link"
             href="#"

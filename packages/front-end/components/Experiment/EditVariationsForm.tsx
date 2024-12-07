@@ -47,7 +47,10 @@ const EditVariationsForm: FC<{
       size="lg"
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
-        data.variations = [...data.variations];
+        data.variations = [...data.variations].map((variation, i) => {
+          if (!variation.key) variation.key = i + "";
+          return variation;
+        });
 
         // fix some common bugs
         if (!isBandit) {
@@ -111,14 +114,15 @@ const EditVariationsForm: FC<{
         setVariations={(v) => {
           form.setValue(
             "variations",
-            v.map((data, i) => {
+            v.map((data) => {
+              const { value, ...newData } = data;
               return {
                 // default values
                 name: "",
                 description: "",
                 screenshots: [],
-                ...data,
-                key: data.value || `${i}` || "",
+                ...newData,
+                key: value,
               };
             })
           );
