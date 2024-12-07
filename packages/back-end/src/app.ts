@@ -640,6 +640,7 @@ app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule
 );
+app.post("/features/eval", featuresController.postFeaturesEvaluate);
 app.post("/feature/:id/:version/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 app.post(

@@ -3,12 +3,15 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box } from "@radix-ui/themes";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  ComputedFeatureInterface,
+  FeatureInterface,
+  FeatureRule,
+} from "back-end/types/feature";
 import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
   filterEnvironmentsByFeature,
-  getMatchingRules,
   isFeatureStale,
   StaleFeatureReason,
 } from "shared/util";
@@ -18,7 +21,6 @@ import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
-import { useAddComputedFields, useSearch } from "@/services/search";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
@@ -27,6 +29,7 @@ import {
   useFeaturesList,
   useRealtimeData,
   useEnvironments,
+  useFeatureSearch,
 } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -49,7 +52,6 @@ import {
   TabsContent,
 } from "@/components/Radix/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
@@ -73,10 +75,8 @@ export default function FeaturesPage() {
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
-  const { getUserDisplay } = useUser();
-
   const permissionsUtil = usePermissionsUtil();
-  const { project, getProjectById } = useDefinitions();
+  const { project } = useDefinitions();
   const environments = useEnvironments();
   const {
     features: allFeatures,
@@ -114,34 +114,10 @@ export default function FeaturesPage() {
     return staleFeatures;
   }, [allFeatures, experiments, environments]);
 
-  const features = useAddComputedFields(
-    allFeatures,
-    (f) => {
-      const projectId = f.project;
-      const projectName = projectId ? getProjectById(projectId)?.name : "";
-      const projectIsDeReferenced = projectId && !projectName;
-
-      const { stale, reason: staleReason } = staleFeatures?.[f.id] || {
-        stale: false,
-      };
-
-      return {
-        ...f,
-        projectId,
-        projectName,
-        projectIsDeReferenced,
-        stale,
-        staleReason,
-        ownerName: getUserDisplay(f.owner, false) || "",
-      };
-    },
-    [staleFeatures, getProjectById]
-  );
-
   // Searching
   const tagsFilter = useTagsFilter("features");
   const filterResults = useCallback(
-    (items: typeof features) => {
+    (items: typeof allFeatures) => {
       if (!showArchived) {
         items = items.filter((f) => !f.archived);
       }
@@ -154,7 +130,7 @@ export default function FeaturesPage() {
 
   const renderFeaturesTable = () => {
     return (
-      features.length > 0 && (
+      allFeatures.length > 0 && (
         <div>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
@@ -222,7 +198,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {featureItems.map((feature) => {
+              {featureItems.map((feature: ComputedFeatureInterface) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
@@ -427,6 +403,12 @@ export default function FeaturesPage() {
     );
   };
 
+  const { searchInputProps, items, SortableTH } = useFeatureSearch({
+    allFeatures,
+    filterResults,
+    environments,
+  });
+
   const searchTermFilterExplainations = (
     <>
       <p>This search field supports advanced syntax search, including:</p>
@@ -471,97 +453,6 @@ export default function FeaturesPage() {
     </>
   );
 
-  const { searchInputProps, items, SortableTH } = useSearch({
-    items: features,
-    defaultSortField: "id",
-    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
-    filterResults,
-    updateSearchQueryOnChange: true,
-    localStorageKey: "features",
-    searchTermFilters: {
-      is: (item) => {
-        const is: string[] = [item.valueType];
-        if (item.archived) is.push("archived");
-        if (item.hasDrafts) is.push("draft");
-        if (item.stale) is.push("stale");
-        return is;
-      },
-      has: (item) => {
-        const has: string[] = [];
-        if (item.project) has.push("project");
-        if (item.hasDrafts) has.push("draft", "drafts");
-        if (item.prerequisites?.length) has.push("prerequisites", "prereqs");
-
-        if (item.valueType === "json" && item.jsonSchema?.enabled) {
-          has.push("validation", "schema", "jsonSchema");
-        }
-
-        const rules = getMatchingRules(
-          item,
-          () => true,
-          environments.map((e) => e.id)
-        );
-
-        if (rules.length) has.push("rule", "rules");
-        if (
-          rules.some((r) =>
-            ["experiment", "experiment-ref"].includes(r.rule.type)
-          )
-        ) {
-          has.push("experiment", "experiments");
-        }
-        if (rules.some((r) => r.rule.type === "rollout")) {
-          has.push("rollout", "percent");
-        }
-        if (rules.some((r) => r.rule.type === "force")) {
-          has.push("force", "targeting");
-        }
-
-        return has;
-      },
-      key: (item) => item.id,
-      project: (item) => [item.project, item.projectName],
-      created: (item) => new Date(item.dateCreated),
-      updated: (item) => new Date(item.dateUpdated),
-      experiment: (item) => item.linkedExperiments || [],
-      version: (item) => item.version,
-      revision: (item) => item.version,
-      owner: (item) => item.owner,
-      tag: (item) => item.tags,
-      rules: (item) => {
-        const rules = getMatchingRules(
-          item,
-          () => true,
-          environments.map((e) => e.id)
-        );
-        return rules.length;
-      },
-      on: (item) => {
-        const on: string[] = [];
-        environments.forEach((e) => {
-          if (
-            featureHasEnvironment(item, e) &&
-            item.environmentSettings?.[e.id]?.enabled
-          ) {
-            on.push(e.id);
-          }
-        });
-        return on;
-      },
-      off: (item) => {
-        const off: string[] = [];
-        environments.forEach((e) => {
-          if (
-            featureHasEnvironment(item, e) &&
-            !item.environmentSettings?.[e.id]?.enabled
-          ) {
-            off.push(e.id);
-          }
-        });
-        return off;
-      },
-    },
-  });
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const featureItems = items.slice(start, end);
@@ -589,10 +480,10 @@ export default function FeaturesPage() {
   }
 
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && features.some((f) => f.project);
+  const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
   // Ignore the demo datasource
-  const hasFeatures = features.length > 0;
+  const hasFeatures = allFeatures.length > 0;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = hasArchived;
@@ -611,7 +502,7 @@ export default function FeaturesPage() {
             const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
             router.push(url);
             mutate({
-              features: [...features, feature],
+              features: [...allFeatures, feature],
               linkedExperiments: experiments,
               hasArchived,
             });
@@ -630,7 +521,7 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {features.length > 0 &&
+        {allFeatures.length > 0 &&
           permissionsUtil.canViewFeatureModal(project) &&
           canCreateFeatures && (
             <div className="col-auto">
@@ -708,15 +599,13 @@ export default function FeaturesPage() {
           <TabsContent value="all-features">
             {renderFeaturesTable()}
             <Callout status="info" mt="5" mb="3">
-              Looking for <strong>Attributes</strong>,{" "}
-              <strong>Namespaces</strong>, <strong>Environments</strong>, or{" "}
-              <strong>Saved Groups</strong>? They have moved to the{" "}
-              <Link href="/sdks">SDK Configuration</Link> tab.
+              Test what values these features will return for your users from
+              the <Link href="/archetypes#simulate">Simulate</Link> page.
             </Callout>
           </TabsContent>
 
           <TabsContent value="drafts">
-            <FeaturesDraftTable features={features} />
+            <FeaturesDraftTable features={allFeatures} />
           </TabsContent>
         </Tabs>
       )}

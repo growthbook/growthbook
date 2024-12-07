@@ -52,6 +52,7 @@ import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
+  evaluateAllFeatures,
   evaluateFeature,
   generateRuleId,
   getFeatureDefinitions,
@@ -1894,6 +1895,56 @@ export async function postFeatureEvaluate(
   res.status(200).json({
     status: 200,
     results: results,
+  });
+}
+
+export async function postFeaturesEvaluate(
+  req: AuthRequest<{
+    attributes: Record<string, boolean | string | number | object>;
+    featureIds: string[];
+    environment: string;
+  }>,
+  res: Response<
+    {
+      status: 200;
+      results: { [key: string]: FeatureTestResult }[] | undefined;
+    },
+    EventUserForResponseLocals
+  >
+) {
+  const context = getContextFromReq(req);
+  const {
+    attributes,
+    featureIds, // Array of feature ids to evaluate
+    environment,
+  } = req.body;
+
+  const features: FeatureInterface[] = [];
+  await Promise.all(
+    featureIds.map(async (featureId) => {
+      const feature = await getFeature(context, featureId);
+      if (feature) {
+        features.push(feature);
+      }
+    })
+  );
+
+  // now evaluate all features:
+  const allEnvironments = getEnvironments(context.org);
+  const environments =
+    environment !== ""
+      ? [allEnvironments.find((obj) => obj.id === environment)]
+      : getEnvironments(context.org);
+  const featureResults = await evaluateAllFeatures({
+    features,
+    context,
+    attributeValues: attributes,
+    groupMap: await getSavedGroupMap(context.org),
+    environments: environments,
+  });
+  res.status(200).json({
+    status: 200,
+    results: featureResults,
   });
 }
 
