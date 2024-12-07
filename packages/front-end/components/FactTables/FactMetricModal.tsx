@@ -24,6 +24,7 @@ import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnRefWhereClause,
+  getSelectedColumnDatatype,
 } from "shared/experiments";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
@@ -257,18 +258,6 @@ function getAggregationOptions(
     { label: "Sum", value: "sum" },
     { label: "Max", value: "max" },
   ];
-}
-
-function getSelectedColumnDatatype({
-  factTable,
-  column,
-}: {
-  factTable: FactTableInterface | null;
-  column: string;
-}): FactTableColumnType | undefined {
-  if (!factTable) return undefined;
-  const col = factTable.columns.find((c) => c.column === column);
-  return col?.datatype;
 }
 
 function ColumnRefSelector({

@@ -312,17 +312,20 @@ export default abstract class SqlIntegration
   hasCountDistinctHLL(): boolean {
     return false;
   }
-  hllAggregate(_: string): string {
+  // eslint-disable-next-line
+  hllAggregate(col: string): string {
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source."
     );
   }
-  hllReaggregate(_: string): string {
+  // eslint-disable-next-line
+  hllReaggregate(col: string): string {
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source."
     );
   }
-  hllCardinality(_: string): string {
+  // eslint-disable-next-line
+  hllCardinality(col: string): string {
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source."
     );

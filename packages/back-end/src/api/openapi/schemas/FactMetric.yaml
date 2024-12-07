@@ -59,6 +59,12 @@ properties:
         type: string
       column:
         type: string
+      aggregation:
+        type: string
+        enum:
+          - sum
+          - max
+          - count distinct
       filters:
         type: array
         description: Array of Fact Table Filter Ids

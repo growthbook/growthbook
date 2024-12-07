@@ -251,7 +251,7 @@ export default function FactMetricPage() {
       ? [
           {
             label: "Per-User Aggregation",
-            value: "SUM",
+            value: (factMetric.numerator.aggregation || "SUM").toUpperCase(),
           },
         ]
       : userFilters.length > 0
@@ -327,7 +327,7 @@ export default function FactMetricPage() {
             ? [
                 {
                   label: "Per-User Aggregation",
-                  value: "SUM",
+                  value: (factMetric.denominator.aggregation || "SUM").toUpperCase(),
                 },
               ]
             : []),
