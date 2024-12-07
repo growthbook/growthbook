@@ -324,8 +324,9 @@ export default function FactTablePage() {
         <div className="col d-flex flex-column">
           <h3>Row Filters</h3>
           <div className="mb-1">
-            Row Filters are re-usable SQL snippets that let you limit the rows
-            that are included in a Metric.
+            Row Filters let you write SQL to limit the rows that are included in
+            a metric. Save commonly used filters here and resue them across
+            multiple metrics.
           </div>
           <div className="appbox p-3 flex-1">
             <FactFilterList factTable={factTable} />
