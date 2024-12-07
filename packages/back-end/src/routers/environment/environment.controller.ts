@@ -19,6 +19,7 @@ import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { Environment } from "back-end/types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { removeEnvironmentFromFeatureRules } from "back-end/src/models/FeatureModel";
 import {
   createEnvValidator,
   deleteEnvValidator,
@@ -309,11 +310,15 @@ export const postEnvironment = async (
 // endregion POST /environment
 
 export const deleteEnvironment = async (
-  req: AuthRequest<null, DeleteEnvironmentProps>,
+  req: AuthRequest<
+    { removeAssociatedFeatureRules: boolean },
+    DeleteEnvironmentProps
+  >,
   res: Response
 ) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const context = getContextFromReq(req);
+  const { removeAssociatedFeatureRules } = req.body;
   const { org } = context;
 
   const existingEnvs = org.settings?.environments || [];
@@ -352,6 +357,11 @@ export const deleteEnvironment = async (
       organizationId: org.id,
       envId: id,
     });
+
+    if (removeAssociatedFeatureRules) {
+      // Asynchronously removes all feature rules that would be orphaned by deleting this environment
+      removeEnvironmentFromFeatureRules(context, id);
+    }
 
     res.status(200).json({
       status: 200,

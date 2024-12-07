@@ -4,6 +4,7 @@ import {
   OrganizationInterface,
 } from "back-end/types/organization";
 import clsx from "clsx";
+import { Box } from "@radix-ui/themes";
 import {
   FaAngleDown,
   FaAngleRight,
@@ -29,8 +30,12 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -542,7 +547,6 @@ function MemberRow({
 }
 
 const Admin: FC = () => {
-  const [activeTab, setActiveTab] = useState("organizations");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
 
@@ -670,17 +674,15 @@ const Admin: FC = () => {
           <div className="divider border-bottom mb-3 mt-3" />
         </>
       )}
-      <ControlledTabs
-        newStyle={true}
-        className="mb-3"
-        active={activeTab}
-        setActive={(tab) => {
-          if (tab) {
-            setActiveTab(tab);
-          }
-        }}
-      >
-        <Tab display="Organizations" id="organizations" padding={false}>
+      <Tabs defaultValue="organizations">
+        <Box mb="3">
+          <TabsList>
+            <TabsTrigger value="organizations">Organizations</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+          </TabsList>
+        </Box>
+
+        <TabsContent value="organizations">
           <button
             className="btn btn-primary float-right"
             onClick={(e) => {
@@ -797,8 +799,9 @@ const Admin: FC = () => {
               />
             </div>
           )}
-        </Tab>
-        <Tab display="Members" id="members" padding={false}>
+        </TabsContent>
+
+        <TabsContent value="members">
           <div className="mb-2 row align-items-center">
             <div className="col-auto">
               <form
@@ -873,8 +876,8 @@ const Admin: FC = () => {
               }}
             />
           </div>
-        </Tab>
-      </ControlledTabs>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
