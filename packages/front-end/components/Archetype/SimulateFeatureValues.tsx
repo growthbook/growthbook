@@ -465,6 +465,7 @@ export const SimulateFeatureValues: FC<{
                 href="https://docs.growthbook.io/features/rules#simulation"
                 variant="outline"
                 mr="3"
+                external={true}
               >
                 View docs
               </LinkButton>

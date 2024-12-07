@@ -59,6 +59,7 @@ export const ArchetypeList: FC<{
                 href="https://docs.growthbook.io/features/rules#archetype"
                 variant="outline"
                 mr="3"
+                external={true}
               >
                 View docs
               </LinkButton>
