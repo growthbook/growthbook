@@ -425,15 +425,14 @@ export async function createReportSnapshot({
     queryParentId: snapshot.id,
     factTableMap,
   });
-  await queryRunner.waitForResults();
 
-  await updateReport(organization.id, report.id, {
+  const updates: Partial<ExperimentSnapshotReportInterface> = {
     snapshot: snapshot.id,
     dateUpdated: new Date(),
-  });
+  };
+  await updateReport(organization.id, report.id, updates);
 
-  const newReport = await getReportById(organization.id, report.id);
-  return newReport;
+  return Object.assign(report, updates);
 }
 
 export function getReportSnapshotSettings({

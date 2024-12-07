@@ -85,9 +85,12 @@ export default function ReportAnalysisSettingsBar({
             // and callbacks are not needed
             disabled={true}
             phase={0}
-            setDifferenceType={() => {}}
-            setAnalysisSettings={() => {}}
-            mutate={() => {}}
+            setDifferenceType={() => {
+            }}
+            setAnalysisSettings={() => {
+            }}
+            mutate={() => {
+            }}
           />
         </div>
         <div className="col-auto d-flex align-items-end mr-3">
@@ -103,21 +106,19 @@ export default function ReportAnalysisSettingsBar({
             </div>
           </div>
         </div>
-        <div className="flex-1" />
+        <div className="flex-1"/>
         <div className="col-auto">
-          {hasData &&
-          report.runStarted &&
-          queryStatusData.status !== "running" ? (
+          {hasData && snapshot.runStarted ? (
             <div
               className="text-muted text-right"
-              style={{ width: 100, fontSize: "0.8em" }}
-              title={datetime(report.runStarted)}
+              style={{width: 100, fontSize: "0.8em"}}
+              title={datetime(snapshot.runStarted)}
             >
-              <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
+              <div className="font-weight-bold" style={{lineHeight: 1.2}}>
                 updated
               </div>
-              <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                {ago(report.runStarted)}
+              <div className="d-inline-block" style={{lineHeight: 1}}>
+                {ago(snapshot.runStarted)}
               </div>
             </div>
           ) : (
@@ -192,24 +193,6 @@ export default function ReportAnalysisSettingsBar({
             />
           </div>
         ) : null}
-        <div className="col-auto">
-          {hasData && snapshot.runStarted ? (
-            <div
-              className="text-muted text-right"
-              style={{ width: 100, fontSize: "0.8em" }}
-              title={datetime(snapshot.runStarted)}
-            >
-              <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                updated
-              </div>
-              <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                {ago(snapshot.runStarted)}
-              </div>
-            </div>
-          ) : (
-            ""
-          )}
-        </div>
       </div>
       {/*{report.error ? (*/}
       {/*  <div className="alert alert-danger">*/}
