@@ -156,7 +156,11 @@ export default function CustomFieldModal({
         placeholder=""
         required={true}
       />
-      <Field label="Description" {...form.register("description")} />
+      <Field
+        label="Description"
+        {...form.register("description")}
+        helpText="Shown as a tool tip to users entering this field value"
+      />
       <div className="mb-3">
         <SelectField
           label="Type"

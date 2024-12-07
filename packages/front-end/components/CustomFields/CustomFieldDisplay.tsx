@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
@@ -11,8 +11,8 @@ import {
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
+import DataList from "@/components/Radix/DataList";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
@@ -89,6 +89,45 @@ const CustomFieldDisplay: FC<{
     return <></>;
   }
 
+  const displayFieldsObj: {
+    label: string;
+    value: string | boolean | ReactNode | [];
+    tooltip?: string;
+  }[] = [];
+  Array.from(customFieldsMap.values()).forEach((v: CustomField) => {
+    // these two loops are used to make sure the order is correct with the stored order of custom fields.
+    return Object.keys(currentCustomFields ?? {}).forEach((fid) => {
+      if (v.id === fid) {
+        const cValue = currentCustomFields?.[fid] ?? "";
+        const displayValue =
+          v.type === "multiselect" ? (
+            JSON.parse(cValue).join(", ")
+          ) : v.type === "markdown" ? (
+            <Markdown className="card-text">{cValue ?? ""}</Markdown>
+          ) : v.type === "textarea" ? (
+            <div style={{ whiteSpace: "pre" }}>{cValue ?? ""}</div>
+          ) : v.type === "url" && cValue !== "" ? (
+            <a href={cValue} target="_blank" rel="noreferrer">
+              {cValue ?? ""}
+            </a>
+          ) : v.type === "boolean" ? (
+            <>{cValue ? "yes" : "no"}</>
+          ) : cValue ? (
+            cValue
+          ) : (
+            <em className="text-muted">none</em>
+          );
+
+        displayFieldsObj.push({
+          label: v.name,
+          value: displayValue ?? "",
+          tooltip: v.description,
+        });
+      }
+    });
+  });
+
+  console.log(displayFieldsObj);
   return (
     <div className="mb-4">
       {editModal && (
@@ -121,62 +160,27 @@ const CustomFieldDisplay: FC<{
           )}
         </Modal>
       )}
-      {label && (
-        <HeaderWithEdit
-          edit={
-            canEdit && hasCustomFieldAccess
-              ? () => {
-                  setEditModal(true);
-                }
-              : undefined
-          }
-          containerClassName="mb-2"
-        >
-          {label}
-        </HeaderWithEdit>
-      )}
-      {currentCustomFields && Object.keys(currentCustomFields).length > 0 && (
-        <div className={`${addBox ? "appbox p-3" : ""} ${className}`}>
-          {Array.from(customFieldsMap.values()).map((v: CustomField) => {
-            // these two loops are used to make sure the order is correct with the stored order of custom fields.
-            return Object.keys(currentCustomFields ?? {}).map((fid, i) => {
-              if (v.id === fid) {
-                const f = currentCustomFields?.[fid] ?? "";
-                const displayValue =
-                  v.type === "multiselect" ? JSON.parse(f).join(", ") : f;
-                if (displayValue) {
-                  return (
-                    <div className="mb-3 row" key={i}>
-                      <div className="text-muted col-sm-2 col-md-2 col-lg-2 col-3">
-                        {v.name}
-                      </div>
-                      <div className="col">
-                        {v.type === "markdown" ? (
-                          <Markdown className="card-text">
-                            {displayValue || ""}
-                          </Markdown>
-                        ) : v.type === "textarea" ? (
-                          <div style={{ whiteSpace: "pre" }}>
-                            {displayValue}
-                          </div>
-                        ) : v.type === "url" ? (
-                          <a
-                            href={displayValue}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {displayValue}
-                          </a>
-                        ) : (
-                          <> {displayValue}</>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-              }
-            });
-          })}
+      {displayFieldsObj && (
+        <div className={`${addBox ? "appbox px-4 py-3" : ""} ${className}`}>
+          <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
+            <h4 className="m-0">{label ? label : ""}</h4>
+            <div className="flex-1" />
+            {canEdit && hasCustomFieldAccess ? (
+              <>
+                <button
+                  className="btn p-0 link-purple"
+                  onClick={() => {
+                    setEditModal(true);
+                  }}
+                >
+                  <span className="text-purple">Edit</span>
+                </button>
+              </>
+            ) : (
+              <></>
+            )}
+          </div>
+          <DataList data={displayFieldsObj} maxColumns={3} />
         </div>
       )}
     </div>
