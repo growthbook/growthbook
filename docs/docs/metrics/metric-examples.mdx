@@ -77,9 +77,10 @@ WHERE
 2. Choose `form_submit` as the event type
 
 <AddMetricButton data={{
+  name: "Form Submissions",
   metricType:"proportion",
   numerator: {
-   inlineFilters: {event_name:"form_submit"}
+    inlineFilters: {event_name:["form_submit"]}
   }
 }}/>
 
@@ -90,9 +91,10 @@ WHERE
 3. Add a “Row Filter” and select `page_path = '/checkout'`
 
 <AddMetricButton data={{
+  name: "Checkout Page Views",
   metricType:"proportion",
   numerator: {
-   inlineFilters: {event_name:"page_view", page_path:"/checkout"}
+    inlineFilters: {event_name:["page_view"], page_path:["/checkout"]}
   }
 }}/>
 
@@ -103,11 +105,12 @@ WHERE
 3. Select `Count of Rows` as the value
 
 <AddMetricButton data={{
-   metricType:"mean",
-   numerator: {
-      column:"$$count",
-      inlineFilters: {event_name:"page_view"}
-   }
+  name: "Page Views per User",
+  metricType:"mean",
+  numerator: {
+    column:"$$count",
+    inlineFilters: {event_name:["page_view"]}
+  }
 }}/>
 
 #### Checkout completion rate
@@ -123,15 +126,16 @@ WHERE
    3. Select `Unique Users` as the value
 
 <AddMetricButton data={{
-   metricType:"ratio",
-   numerator: {
-      column: "$$distinctUsers",
-      inlineFilters: {event_name:"page_view", page_path:"/confirmation"}
-   },
-   denominator: {
-      column: "$$distinctUsers",
-      inlineFilters: {event_name:"page_view", page_path:"/checkout"}
-   }
+  name: "Checkout Completion Rate",
+  metricType:"ratio",
+  numerator: {
+    column: "$$distinctUsers",
+    inlineFilters: {event_name:["page_view"], page_path:["/confirmation"]}
+  },
+  denominator: {
+    column: "$$distinctUsers",
+    inlineFilters: {event_name:["page_view"], page_path:["/checkout"]}
+  }
 }}/>
 
 ## Modeled Tables
@@ -174,6 +178,7 @@ WHERE
 1. Select `Proportion` as the metric type and that’s it!
 
 <AddMetricButton data={{
+  name: "Users who Purchased",
   metricType:"proportion",
   numerator: {}
 }}/>
@@ -185,10 +190,11 @@ WHERE
 3. Enter `>= 2` as the User Filter value
 
 <AddMetricButton data={{
+  name: "Users who Purchased Multiple Times",
   metricType:"proportion",
   numerator: {
-   aggregateFilterColumn: "$$count",
-   aggregateFilter: ">= 2"
+    aggregateFilterColumn: "$$count",
+    aggregateFilter: ">= 2"
   }
 }}/>
 
@@ -198,10 +204,11 @@ WHERE
 2. Select `Count of Rows` as the metric value
 
 <AddMetricButton data={{
-   metricType:"mean",
-   numerator: {
-      column:"$$count"
-   }
+  name: "Orders per User",
+  metricType:"mean",
+  numerator: {
+    column:"$$count"
+  }
 }}/>
 
 #### Revenue per User
@@ -210,10 +217,11 @@ WHERE
 2. Select `SUM(grand_total)` as the metric value
 
 <AddMetricButton data={{
-   metricType:"mean",
-   numerator: {
-      column:"grand_total"
-   }
+  name: "Revenue per User",
+  metricType:"mean",
+  numerator: {
+    column:"grand_total"
+  }
 }}/>
 
 #### Average Items per Order
@@ -223,13 +231,14 @@ WHERE
 3. For the denominator, select `Count of Rows`
 
 <AddMetricButton data={{
-   metricType:"ratio",
-   numerator: {
-      column:"num_items"
-   },
-   denominator: {
-      column:"$$count"
-   }
+  name: "Average Items per Order",
+  metricType:"ratio",
+  numerator: {
+    column:"num_items"
+  },
+  denominator: {
+    column:"$$count"
+  }
 }}/>
 
 #### Percent of Orders with Free Shipping
@@ -239,14 +248,15 @@ WHERE
 3. Select `Count of Rows` for both the numerator and denominator
 
 <AddMetricButton data={{
-   metricType:"ratio",
-   numerator: {
-      inlineFilters: {shipping_type:"free"},
-      column:"$$count"
-   },
-   denominator: {
-      column:"$$count"
-   }
+  name: "Percent of Orders with Free Shipping",
+  metricType:"ratio",
+  numerator: {
+    inlineFilters: {shipping_type:["free"]},
+    column:"$$count"
+  },
+  denominator: {
+    column:"$$count"
+  }
 }}/>
 
 ## Pre-Aggregated Tables
@@ -299,10 +309,11 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 3.  Add some threshold as the User Filter value. Something like `> 100`
 
 <AddMetricButton data={{
+  name: "High Engagement Users",
   metricType:"proportion",
   numerator: {
-   aggregateFilterColumn: "interactions",
-   aggregateFilter: "> 100"
+    aggregateFilterColumn: "interactions",
+    aggregateFilter: "> 100"
   }
 }}/>
 
@@ -312,10 +323,11 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 2.  Select `SUM(interactions)` as the value
 
 <AddMetricButton data={{
-   metricType:"mean",
-   numerator: {
-      column:"interactions"
-   }
+  name: "Interactions per User",
+  metricType:"mean",
+  numerator: {
+    column:"interactions"
+  }
 }}/>
 
 #### P90 Likes per User
@@ -326,15 +338,16 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 4.  Select `P90` as the quantile level
 
 <AddMetricButton data={{
-   metricType:"quantile",
-   numerator: {
-      column:"likes"
-   },
-   quantileSettings: {
-      quantile: 0.9,
-      type: "unit",
-      ignoreZeros: false
-   }
+  name: "P90 Likes per User",
+  metricType:"quantile",
+  numerator: {
+    column:"likes"
+  },
+  quantileSettings: {
+    quantile: 0.9,
+    type: "unit",
+    ignoreZeros: false
+  }
 }}/>
 
 #### Comment-to-Like Ratio
@@ -344,11 +357,12 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 3.  Select `SUM(likes)` as the denominator value
 
 <AddMetricButton data={{
-   metricType:"ratio",
-   numerator: {
-      column:"comments"
-   },
-   denominator: {
-      column:"likes"
-   }
+  name: "Comment-to-Like Ratio",
+  metricType:"ratio",
+  numerator: {
+    column:"comments"
+  },
+  denominator: {
+    column:"likes"
+  }
 }}/>
