@@ -118,7 +118,7 @@ export default function CreateMetricFromTemplate() {
       } catch (e) {
         return {
           callout: (
-            <Callout status="error">
+            <Callout status="error" mb="3">
               Failed to parse metric template: {e.message}
             </Callout>
           ),
@@ -141,11 +141,11 @@ export default function CreateMetricFromTemplate() {
         metricToCreate.callout
       ) : metricToCreate.data ? (
         !hasDatasource ? (
-          <Callout status="info">
+          <Callout status="info" mb="3">
             You must connect a SQL data source first before adding a metric.
           </Callout>
         ) : !hasFactTables ? (
-          <Callout status="info">
+          <Callout status="info" mb="3">
             You must create a fact table first before adding a metric.{" "}
             <LinkButton href="/fact-tables">Manage Fact Tables</LinkButton>
           </Callout>

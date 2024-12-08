@@ -64,7 +64,8 @@ export default function AddMetricButton({ data }: { data: MetricData }) {
         WebkitAppearance: "button",
       }}
     >
-      Add to GrowthBook <ExternalLink />
+      <span style={{ marginRight: "5px" }}>Add to GrowthBook</span>{" "}
+      <ExternalLink />
     </a>
   );
 }
