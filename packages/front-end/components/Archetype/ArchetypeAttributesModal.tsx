@@ -16,7 +16,8 @@ const ArchetypeAttributesModal: FC<{
   close: () => void;
   header: string;
   initialValues?: Partial<ArchetypeInterface>;
-}> = ({ close, header, initialValues }) => {
+  source?: string;
+}> = ({ close, header, initialValues, source }) => {
   const form = useForm<{
     name: string;
     description: string;
@@ -62,7 +63,8 @@ const ArchetypeAttributesModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="add-edit-archetype"
+      trackingEventModalSource={source}
       open={true}
       autoCloseOnSubmit={false}
       close={close}
@@ -135,7 +137,7 @@ const ArchetypeAttributesModal: FC<{
           </div>
           <div>
             <AttributeForm
-              initialValues={
+              attributeValues={
                 form.watch("attributes")
                   ? JSON.parse(form.watch("attributes"))
                   : {}
