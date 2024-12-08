@@ -64,10 +64,17 @@ export default function CreateMetricFromTemplate() {
         if (json.numerator) {
           json.numerator.factTableId = "";
           json.numerator.filters = json.numerator.filters || [];
+
+          if (json.metricType === "proportion") {
+            json.numerator.column = "$$distinctUsers";
+          } else {
+            json.numerator.column = json.numerator.column || "";
+          }
         }
         if (json.denominator) {
           json.denominator.factTableId = "";
           json.denominator.filters = json.denominator.filters || [];
+          json.denominator.column = json.denominator.column || "";
         }
 
         const data = metricToCreateValidator.parse(json);
