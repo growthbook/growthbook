@@ -1,5 +1,4 @@
-import { FaDesktop, FaRegFlag } from "react-icons/fa";
-import { PiShuffle } from "react-icons/pi";
+import { FaDesktop, FaLink, FaRegFlag } from "react-icons/fa";
 
 export const ICON_PROPERTIES = {
   "feature-flag": {
@@ -12,7 +11,7 @@ export const ICON_PROPERTIES = {
   },
   redirects: {
     color: "#11B081",
-    component: PiShuffle,
+    component: FaLink,
   },
 };
 

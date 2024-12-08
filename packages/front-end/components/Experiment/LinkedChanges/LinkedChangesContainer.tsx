@@ -38,7 +38,7 @@ export default function LinkedChangesContainer({
 
   return (
     <div className="appbox px-4 py-3 mb-4">
-      <div className="d-flex mb-2 align-items-center">
+      <div className="d-flex mb-3 align-items-center">
         <span
           className="mr-3"
           style={{
