@@ -8,6 +8,7 @@ import {
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { z } from "zod";
 import { ReactNode, useState } from "react";
+import dJSON from "dirty-json";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import Callout from "@/components/Radix/Callout";
@@ -47,18 +48,29 @@ export default function CreateMetricFromTemplate() {
     reason: string;
   }>(null);
 
+  const QUERY_KEY = "addMetric";
+
   const [metricToCreate, setMetricToCreate] = useState<{
     data?: null | z.infer<typeof metricToCreateValidator>;
     callout?: ReactNode;
   }>(() => {
     if (
-      "addMetric" in router.query &&
-      typeof router.query.metric === "string"
+      QUERY_KEY in router.query &&
+      typeof router.query[QUERY_KEY] === "string"
     ) {
       try {
-        const data = metricToCreateValidator.parse(
-          JSON.parse(router.query.metric)
-        );
+        const json = dJSON.parse(router.query[QUERY_KEY]);
+
+        if (json.numerator) {
+          json.numerator.factTableId = "";
+          json.numerator.filters = json.numerator.filters || [];
+        }
+        if (json.denominator) {
+          json.denominator.factTableId = "";
+          json.denominator.filters = json.denominator.filters || [];
+        }
+
+        const data = metricToCreateValidator.parse(json);
 
         if (
           data.metricType === "quantile" &&
@@ -83,7 +95,7 @@ export default function CreateMetricFromTemplate() {
         if (factMetrics.some((f) => f.name === data.name)) {
           return {
             callout: (
-              <Callout status="warning">
+              <Callout status="warning" mb="3">
                 A metric with the name &quot;{data.name}&quot; already exists.{" "}
                 <Button onClick={() => setMetricToCreate({ data })}>
                   Create Anyway

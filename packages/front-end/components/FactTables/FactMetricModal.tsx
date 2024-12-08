@@ -216,6 +216,7 @@ function getNumericColumnOptions({
 function ColumnRefSelector({
   value,
   setValue,
+  setDatasource,
   includeCountDistinct,
   aggregationType = "unit",
   includeColumn,
@@ -223,8 +224,10 @@ function ColumnRefSelector({
   disableFactTableSelector,
   extraField,
   supportsAggregatedFilter,
+  allowChangingDatasource,
 }: {
   setValue: (ref: ColumnRef) => void;
+  setDatasource: (datasource: string) => void;
   value: ColumnRef;
   includeCountDistinct?: boolean;
   includeColumn?: boolean;
@@ -233,6 +236,7 @@ function ColumnRefSelector({
   disableFactTableSelector?: boolean;
   extraField?: ReactElement;
   supportsAggregatedFilter?: boolean;
+  allowChangingDatasource?: boolean;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
@@ -327,9 +331,13 @@ function ColumnRefSelector({
                   filters: [],
                 });
               }
+
+              setDatasource(newFactTable.datasource);
             }}
             options={factTables
-              .filter((t) => t.datasource === datasource)
+              .filter(
+                (t) => allowChangingDatasource || t.datasource === datasource
+              )
               .map((t) => ({
                 label: t.name,
                 value: t.id,
@@ -420,6 +428,9 @@ function ColumnRefSelector({
                       </Tooltip>
                     ) : null;
 
+                  const options = new Set(col?.topValues || []);
+                  v.forEach((v) => options.add(v));
+
                   return (
                     <div
                       className="border rounded mr-1 d-flex align-items-center bg-white"
@@ -466,7 +477,7 @@ function ColumnRefSelector({
                         <MultiSelectField
                           value={v}
                           onChange={onValuesChange}
-                          options={col.topValues.map((o) => ({
+                          options={[...options].map((o) => ({
                             label: o,
                             value: o,
                           }))}
@@ -917,6 +928,220 @@ FROM
   }
 }
 
+function FieldMappingModal({
+  factMetric,
+  onSave,
+  close,
+}: {
+  factMetric: Partial<FactMetricInterface>;
+  onSave: (metric: Partial<FactMetricInterface>) => void;
+  close?: () => void;
+}) {
+  const { factTables, getFactTableById } = useDefinitions();
+
+  const [data, setData] = useState(factMetric);
+
+  const numerator = data.numerator as ColumnRef;
+  const denominator = data.denominator;
+
+  const numericColumns = new Set<string>();
+  const stringColumns = new Set<string>();
+
+  if (numerator.column) {
+    numericColumns.add(numerator.column);
+  }
+  if (denominator?.column) {
+    numericColumns.add(denominator.column);
+  }
+  if (numerator.aggregateFilterColumn) {
+    numericColumns.add(numerator.aggregateFilterColumn);
+  }
+  if (numerator.inlineFilters) {
+    Object.keys(numerator.inlineFilters).forEach((k) => {
+      stringColumns.add(k);
+    });
+  }
+  if (denominator?.inlineFilters) {
+    Object.keys(denominator.inlineFilters).forEach((k) => {
+      stringColumns.add(k);
+    });
+  }
+
+  const [numericColumnMap, setNumericColumnMap] = useState<
+    Record<string, string>
+  >(Object.fromEntries([...numericColumns].map((c) => [c, ""])));
+  const [stringColumnMap, setStringColumnMap] = useState<
+    Record<string, string>
+  >(Object.fromEntries([...stringColumns].map((c) => [c, ""])));
+
+  const factTable = getFactTableById(numerator.factTableId);
+
+  const numericColumnOptions = getNumericColumnOptions({
+    factTable,
+  });
+
+  const stringColumnOptions =
+    factTable?.columns
+      ?.filter((c) => canInlineFilterColumn(factTable, c))
+      .map((c) => ({
+        label: c.name || c.column,
+        value: c.column,
+      })) || [];
+
+  return (
+    <Modal
+      close={close}
+      header="Create Fact Metric"
+      trackingEventModalType=""
+      open={true}
+      cta="Preview Metric"
+      autoCloseOnSubmit={false}
+      submit={() => {
+        // Replace columns throughout metric definition
+        if (numerator.column && numerator.column in numericColumnMap) {
+          (data.numerator as ColumnRef).column =
+            numericColumnMap[numerator.column];
+        }
+        if (
+          numerator.aggregateFilterColumn &&
+          numerator.aggregateFilterColumn in numericColumnMap
+        ) {
+          (data.numerator as ColumnRef).aggregateFilterColumn =
+            numericColumnMap[numerator.aggregateFilterColumn];
+        }
+        if (numerator.inlineFilters) {
+          const newInlineFilters: Record<string, string[]> = {};
+          Object.entries(numerator.inlineFilters).forEach(([k, v]) => {
+            if (k in stringColumnMap) {
+              newInlineFilters[stringColumnMap[k]] = v;
+            } else {
+              newInlineFilters[k] = v;
+            }
+          });
+          (data.numerator as ColumnRef).inlineFilters = newInlineFilters;
+        }
+
+        if (denominator) {
+          if (denominator.column in numericColumnMap) {
+            (data.denominator as ColumnRef).column =
+              numericColumnMap[denominator.column];
+          }
+          if (denominator.inlineFilters) {
+            const newInlineFilters: Record<string, string[]> = {};
+            Object.entries(denominator.inlineFilters).forEach(([k, v]) => {
+              if (k in stringColumnMap) {
+                newInlineFilters[stringColumnMap[k]] = v;
+              } else {
+                newInlineFilters[k] = v;
+              }
+            });
+            (data.denominator as ColumnRef).inlineFilters = newInlineFilters;
+          }
+        }
+
+        data.datasource = factTable?.datasource || "";
+
+        onSave(data);
+      }}
+    >
+      <h3>Create Metric From Template</h3>
+      <p>This template requires the following configuration:</p>
+      <SelectField
+        label={"Fact Table"}
+        value={numerator?.factTableId || ""}
+        onChange={(factTableId) => {
+          setData({
+            ...data,
+            numerator: { ...numerator, factTableId },
+            denominator: data.denominator
+              ? { ...data.denominator, factTableId }
+              : undefined,
+          });
+        }}
+        options={factTables.map((t) => ({
+          label: t.name,
+          value: t.id,
+        }))}
+        formatOptionLabel={({ value, label }) => {
+          const factTable = getFactTableById(value);
+          if (factTable) {
+            return (
+              <>
+                {factTable.name}
+                <OfficialBadge
+                  managedBy={factTable.managedBy}
+                  type="fact table"
+                />
+              </>
+            );
+          }
+          return label;
+        }}
+        placeholder="Select..."
+        required
+      />
+      {factTable && (
+        <>
+          {numericColumns.size > 0 && !numericColumnOptions.length ? (
+            <Callout status="error">
+              <p>
+                This fact table does not have any numeric columns. Please select
+                a different fact table.
+              </p>
+            </Callout>
+          ) : null}
+          {stringColumns.size > 0 && !stringColumnOptions.length ? (
+            <Callout status="error">
+              <p>
+                This fact table does not have any string columns to filter on.
+                Please select a different fact table.
+              </p>
+            </Callout>
+          ) : null}
+        </>
+      )}
+      {[...numericColumns]
+        .filter((c) => !c.startsWith("$$"))
+        .map((k) => {
+          if (!numericColumnOptions.length) return null;
+          return (
+            <SelectField
+              key={k}
+              label={`Column: ${k}`}
+              value={numericColumnMap[k] || ""}
+              onChange={(column) => {
+                setNumericColumnMap({ ...numericColumnMap, [k]: column });
+              }}
+              options={numericColumnOptions}
+              disabled={!factTable}
+              required
+              placeholder="Select..."
+            />
+          );
+        })}
+      {[...stringColumns]
+        .filter((c) => !c.startsWith("$$"))
+        .map((k) => {
+          if (!stringColumnOptions.length) return null;
+          return (
+            <SelectField
+              key={k}
+              label={`Column: ${k}`}
+              value={stringColumnMap[k] || ""}
+              onChange={(column) => {
+                setStringColumnMap({ ...stringColumnMap, [k]: column });
+              }}
+              options={stringColumnOptions}
+              disabled={!factTable}
+              required
+              placeholder="Select..."
+            />
+          );
+        })}
+    </Modal>
+  );
+}
+
 export default function FactMetricModal({
   close,
   initialFactTable,
@@ -1062,6 +1287,22 @@ export default function FactMetricModal({
     numeratorFactTable,
     denominatorFactTable: getFactTableById(denominator?.factTableId || ""),
   });
+
+  const setDatasource = (datasource: string) => {
+    form.setValue("datasource", datasource);
+  };
+
+  if (fromTemplate && !form.watch("numerator").factTableId) {
+    return (
+      <FieldMappingModal
+        factMetric={defaultValues}
+        onSave={(metric) => {
+          form.reset(metric);
+        }}
+        close={close}
+      />
+    );
+  }
 
   return (
     <Modal
@@ -1379,8 +1620,10 @@ export default function FactMetricModal({
                       form.setValue("numerator", numerator)
                     }
                     datasource={selectedDataSource.id}
+                    setDatasource={setDatasource}
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={true}
+                    allowChangingDatasource={!datasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1398,7 +1641,9 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     datasource={selectedDataSource.id}
+                    setDatasource={setDatasource}
                     disableFactTableSelector={!!initialFactTable}
+                    allowChangingDatasource={!datasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1456,7 +1701,9 @@ export default function FactMetricModal({
                     includeColumn={true}
                     aggregationType={quantileSettings.type}
                     datasource={selectedDataSource.id}
+                    setDatasource={setDatasource}
                     disableFactTableSelector={!!initialFactTable}
+                    allowChangingDatasource={!datasource}
                     key={selectedDataSource.id}
                     extraField={
                       <>
@@ -1524,10 +1771,12 @@ export default function FactMetricModal({
                       includeColumn={true}
                       includeCountDistinct={true}
                       datasource={selectedDataSource.id}
+                      setDatasource={setDatasource}
                       disableFactTableSelector={!!initialFactTable}
                       supportsAggregatedFilter={
                         numerator.column === "$$distinctUsers"
                       }
+                      allowChangingDatasource={!datasource}
                       key={selectedDataSource.id}
                     />
                   </div>
@@ -1547,6 +1796,8 @@ export default function FactMetricModal({
                       includeColumn={true}
                       includeCountDistinct={true}
                       datasource={selectedDataSource.id}
+                      setDatasource={setDatasource}
+                      allowChangingDatasource={false}
                       key={selectedDataSource.id}
                     />
                   </div>
