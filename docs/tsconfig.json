@@ -9,5 +9,9 @@
     "compilerOptions": {
       "module": "commonjs"
     }
+  },
+  "mdx": {
+    // Enable strict type checking in MDX files.
+    "checkMdx": true
   }
 }

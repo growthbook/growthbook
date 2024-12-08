@@ -14,6 +14,7 @@ import {
   TabsList,
   TabsContent,
 } from "@/components/Radix/Tabs";
+import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, datasources, project } = useDefinitions();
@@ -35,6 +36,7 @@ const MetricsPage = (): React.ReactElement => {
           source={"metrics-empty-state"}
         />
       )}
+      <CreateMetricFromTemplate />
       <h1 className="mb-4">Metrics</h1>
       {!hasMetrics ? (
         <div className="appbox p-5 text-center">
