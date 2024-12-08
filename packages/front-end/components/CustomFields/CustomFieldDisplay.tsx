@@ -53,14 +53,6 @@ const CustomFieldDisplay: FC<{
   }
 
   const currentCustomFields = target?.customFields || {};
-  // try {
-  //   const customFieldStrings = target?.customFields ?? "{}";
-  //   currentCustomFields = customFieldStrings
-  //     ? JSON.parse(customFieldStrings)
-  //     : {};
-  // } catch (e) {
-  //   console.error(e);
-  // }
   const { hasCommercialFeature } = useUser();
   const hasCustomFieldAccess = hasCommercialFeature("custom-exp-metadata");
   const form = useForm<
