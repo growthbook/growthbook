@@ -338,7 +338,7 @@ export default function FeatureModal({
           valueType={valueType}
         />
       )}
-      {hasCommercialFeature("custom-exp-metadata") &&
+      {hasCommercialFeature("custom-metadata") &&
         customFields &&
         customFields?.length > 0 && (
           <div>

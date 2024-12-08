@@ -31,7 +31,7 @@ import {
   useEnvironments,
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -185,7 +185,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       | ExperimentInterfaceStringDates
       | undefined,
   });
-  const permissions = usePermissions();
+  const permissionsUtils = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -409,10 +409,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const availableProjects: (SingleValue | GroupedValue)[] = projects
     .slice()
     .sort((a, b) => (a.name > b.name ? 1 : -1))
-    .filter((p) => permissions.check("createAnalyses", p.id))
+    .filter((p) => permissionsUtils.canViewExperimentModal(p.id))
     .map((p) => ({ value: p.id, label: p.name }));
 
-  const allowAllProjects = permissions.check("createAnalyses", "");
+  const allowAllProjects = permissionsUtils.canViewExperimentModal();
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
@@ -598,7 +598,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-exp-metadata") &&
+            {hasCommercialFeature("custom-metadata") &&
               customFields?.length && (
                 <CustomFieldInput
                   customFields={customFields}

@@ -60,6 +60,17 @@ const CustomFieldInput: FC<{
     form.setValue("customFields", currentCustomFields);
   };
 
+  const getMultiSelectValue = (value) => {
+    if (value) {
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return [];
+      }
+    }
+    return value;
+  };
+
   return (
     <>
       <div className={className}>
@@ -94,7 +105,14 @@ const CustomFieldInput: FC<{
                     </div>
                   ) : v.type === "enum" ? (
                     <SelectField
-                      label={v.name}
+                      label={
+                        <>
+                          {v.name}
+                          {v.required && (
+                            <span className="text-danger ml-1">*</span>
+                          )}
+                        </>
+                      }
                       value={
                         currentCustomFields?.[v.id] ?? v?.defaultValue ?? ""
                       }
@@ -113,10 +131,17 @@ const CustomFieldInput: FC<{
                     />
                   ) : v.type === "multiselect" ? (
                     <MultiSelectField
-                      label={v.name}
+                      label={
+                        <>
+                          {v.name}
+                          {v.required && (
+                            <span className="text-danger ml-1">*</span>
+                          )}
+                        </>
+                      }
                       value={
                         currentCustomFields?.[v.id]
-                          ? JSON.parse(currentCustomFields[v.id])
+                          ? getMultiSelectValue(currentCustomFields[v.id])
                           : []
                       }
                       options={
@@ -138,7 +163,14 @@ const CustomFieldInput: FC<{
                       minRows={2}
                       maxRows={6}
                       value={currentCustomFields?.[v.id] ?? ""}
-                      label={v.name}
+                      label={
+                        <>
+                          {v.name}
+                          {v.required && (
+                            <span className="text-danger ml-1">*</span>
+                          )}
+                        </>
+                      }
                       type={v.type}
                       required={v.required}
                       onChange={(e) => {
@@ -149,7 +181,14 @@ const CustomFieldInput: FC<{
                   ) : (
                     <Field
                       value={currentCustomFields?.[v.id] ?? ""}
-                      label={v.name}
+                      label={
+                        <>
+                          {v.name}
+                          {v.required && (
+                            <span className="text-danger ml-1">*</span>
+                          )}
+                        </>
+                      }
                       type={v.type}
                       required={v.required}
                       placeholder={v?.placeholder ?? ""}

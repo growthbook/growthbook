@@ -2,30 +2,15 @@ import type { Response } from "express";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "back-end/src/services/audit";
-import {
   CustomFieldSection,
   CustomFieldsInterface,
   CustomFieldTypes,
+  CreateCustomFieldProps,
 } from "back-end/types/custom-fields";
 
 // region POST /custom-fields
 
-type CreateCustomFieldRequest = AuthRequest<{
-  name: string;
-  description: string;
-  placeholder: string;
-  defaultValue?: boolean | string;
-  type: CustomFieldTypes;
-  values?: string;
-  required: boolean;
-  index?: boolean;
-  projects?: string[];
-  section: CustomFieldSection;
-}>;
+type CreateCustomFieldRequest = AuthRequest<CreateCustomFieldProps>;
 
 type CreateCustomFieldResponse =
   | {
@@ -60,8 +45,10 @@ export const postCustomField = async (
     section,
   } = req.body;
 
-  req.checkPermissions("manageCustomFields");
   const context = getContextFromReq(req);
+  if (!context.permissions.canManageCustomFields()) {
+    context.permissions.throwPermissionError();
+  }
   const existingFields = await context.models.customFields.getCustomFields();
 
   // check if this name already exists:
@@ -90,16 +77,6 @@ export const postCustomField = async (
   if (!updated) {
     throw new Error("Custom field not created");
   }
-
-  await req.audit({
-    event: "customField.create",
-    entity: {
-      object: "customField",
-      id: updated.id,
-      name: name,
-    },
-    details: auditDetailsCreate(req.body),
-  });
 
   return res.status(200).json({
     status: 200,
@@ -163,15 +140,6 @@ export const postReorderCustomFields = async (
     });
   }
 
-  await req.audit({
-    event: "customField.update",
-    entity: {
-      object: "customField",
-      id: customField.id,
-    },
-    details: auditDetailsCreate(customField),
-  });
-
   return res.status(200).json({
     status: 200,
     customField,
@@ -234,7 +202,6 @@ export const putCustomField = async (
 
   const context = getContextFromReq(req);
 
-  const originalCustomFields = await context.models.customFields.getCustomFields();
   const newCustomFields = await context.models.customFields.updateCustomField(
     id,
     {
@@ -254,15 +221,6 @@ export const putCustomField = async (
   if (!newCustomFields) {
     throw new Error("Custom field not updated");
   }
-
-  await req.audit({
-    event: "customField.update",
-    entity: {
-      object: "customField",
-      id: newCustomFields.id,
-    },
-    details: auditDetailsUpdate(originalCustomFields, newCustomFields),
-  });
 
   return res.status(200).json({
     status: 200,
@@ -299,15 +257,6 @@ export const deleteCustomField = async (
   if (!customFields) {
     throw new Error("Custom field not found");
   }
-
-  await req.audit({
-    event: "customField.delete",
-    entity: {
-      object: "customField",
-      id: id,
-    },
-    details: auditDetailsDelete(customFields),
-  });
 
   res.status(200).json({
     status: 200,

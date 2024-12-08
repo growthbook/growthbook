@@ -23,7 +23,7 @@ export type CustomField = z.infer<typeof customFieldsPropsValidator>;
 
 export class CustomFieldModel extends BaseClass {
   protected canRead(): boolean {
-    return this.context.permissions.canReadSingleProjectResource("");
+    return true;
   }
 
   protected canCreate(): boolean {

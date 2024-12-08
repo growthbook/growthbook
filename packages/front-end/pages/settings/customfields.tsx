@@ -8,7 +8,7 @@ import Button from "@/components/Radix/Button";
 const CustomFieldsPage = (): React.ReactElement => {
   const { hasCommercialFeature } = useUser();
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const hasCustomFieldAccess = hasCommercialFeature("custom-exp-metadata");
+  const hasCustomFieldAccess = hasCommercialFeature("custom-metadata");
 
   if (!hasCustomFieldAccess) {
     return (

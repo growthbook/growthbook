@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useState } from "react";
+import React, { FC, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
@@ -12,7 +12,7 @@ import {
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
-import DataList from "@/components/Radix/DataList";
+import DataList, { DataListItem } from "@/components/Radix/DataList";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
@@ -54,7 +54,7 @@ const CustomFieldDisplay: FC<{
 
   const currentCustomFields = target?.customFields || {};
   const { hasCommercialFeature } = useUser();
-  const hasCustomFieldAccess = hasCommercialFeature("custom-exp-metadata");
+  const hasCustomFieldAccess = hasCommercialFeature("custom-metadata");
   const form = useForm<
     Partial<ExperimentInterfaceStringDates | FeatureInterface>
   >({
@@ -81,41 +81,45 @@ const CustomFieldDisplay: FC<{
     return <></>;
   }
 
-  const displayFieldsObj: {
-    label: string;
-    value: string | boolean | ReactNode | [];
-    tooltip?: string;
-  }[] = [];
-  Array.from(customFieldsMap.values()).forEach((v: CustomField) => {
-    // these two loops are used to make sure the order is correct with the stored order of custom fields.
-    return Object.keys(currentCustomFields ?? {}).forEach((fid) => {
-      if (v.id === fid) {
-        const cValue = currentCustomFields?.[fid] ?? "";
-        const displayValue =
-          v.type === "multiselect" ? (
-            JSON.parse(cValue).join(", ")
-          ) : v.type === "markdown" ? (
-            <Markdown className="card-text">{cValue ?? ""}</Markdown>
-          ) : v.type === "textarea" ? (
-            <div style={{ whiteSpace: "pre" }}>{cValue ?? ""}</div>
-          ) : v.type === "url" && cValue !== "" ? (
-            <a href={cValue} target="_blank" rel="noreferrer">
-              {cValue ?? ""}
-            </a>
-          ) : v.type === "boolean" ? (
-            <>{cValue ? "yes" : "no"}</>
-          ) : cValue ? (
-            cValue
-          ) : (
-            <em className="text-muted">none</em>
-          );
+  const displayFieldsObj: DataListItem[] = [];
+  const currentValueMap = new Map(
+    Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
+      fid,
+      cValue ?? "",
+    ])
+  );
+  const getMultiSelectValue = (value: string) => {
+    try {
+      return JSON.parse(value).join(", ");
+    } catch (e) {
+      return value;
+    }
+  };
+  const getDisplayValue = (v: CustomField, cValue: string) => {
+    return v.type === "multiselect" ? (
+      getMultiSelectValue(cValue)
+    ) : v.type === "markdown" ? (
+      <Markdown className="card-text">{cValue ?? ""}</Markdown>
+    ) : v.type === "textarea" ? (
+      <div style={{ whiteSpace: "pre" }}>{cValue ?? ""}</div>
+    ) : v.type === "url" && cValue !== "" ? (
+      <a href={cValue} target="_blank" rel="noreferrer">
+        {cValue ?? ""}
+      </a>
+    ) : v.type === "boolean" ? (
+      <>{cValue ? "yes" : "no"}</>
+    ) : cValue ? (
+      cValue
+    ) : (
+      <em className="text-muted">none</em>
+    );
+  };
 
-        displayFieldsObj.push({
-          label: v.name,
-          value: displayValue ?? "",
-          tooltip: v.description,
-        });
-      }
+  Array.from(customFieldsMap.values()).forEach((v: CustomField) => {
+    displayFieldsObj.push({
+      label: v.name,
+      value: getDisplayValue(v, currentValueMap.get(v.id) ?? ""),
+      tooltip: v.description,
     });
   });
 
@@ -144,7 +148,7 @@ const CustomFieldDisplay: FC<{
             />
           ) : (
             <div className="text-center">
-              <PremiumTooltip commercialFeature={"custom-exp-metadata"}>
+              <PremiumTooltip commercialFeature={"custom-metadata"}>
                 Custom fields are available as part of the enterprise plan
               </PremiumTooltip>
             </div>
