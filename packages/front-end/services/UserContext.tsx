@@ -102,6 +102,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   viewAuditLog: false,
   readData: false,
   manageCustomRoles: false,
+  manageCustomFields: false,
 };
 
 export interface UserContextValue {

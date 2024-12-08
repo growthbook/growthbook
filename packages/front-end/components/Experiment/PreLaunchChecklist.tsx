@@ -83,7 +83,8 @@ export function PreLaunchChecklist({
     function isChecklistItemComplete(
       // Some items we check completion for automatically, others require users to manually check an item as complete
       type: "auto" | "manual",
-      key: string
+      key: string,
+      customFieldId?: string
     ): boolean {
       if (type === "auto") {
         if (!key) return false;
@@ -98,6 +99,12 @@ export function PreLaunchChecklist({
             return !!experiment.project;
           case "tag":
             return experiment.tags?.length > 0;
+          case "customField":
+            if (customFieldId) {
+              const expField = experiment?.customFields?.[customFieldId];
+              return !!expField;
+            }
+            return false;
         }
       }
 
@@ -308,7 +315,11 @@ export function PreLaunchChecklist({
         if (item.completionType === "auto" && item.propertyKey) {
           items.push({
             display: <>{item.task}</>,
-            status: isChecklistItemComplete("auto", item.propertyKey)
+            status: isChecklistItemComplete(
+              "auto",
+              item.propertyKey,
+              item.customFieldId
+            )
               ? "complete"
               : "incomplete",
             type: "auto",

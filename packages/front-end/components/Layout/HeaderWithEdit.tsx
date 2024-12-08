@@ -9,6 +9,7 @@ export interface Props {
   containerClassName?: string;
   children: string | ReactElement;
   edit?: () => void;
+  additionalActions?: ReactElement;
   editClassName?: string;
   stopPropagation?: boolean;
   disabledMessage?: false | null | undefined | string | ReactElement;
@@ -17,6 +18,7 @@ export interface Props {
 export default function HeaderWithEdit({
   children,
   edit,
+  additionalActions,
   editClassName = "a",
   className = "h3",
   containerClassName = "mb-2",
@@ -48,6 +50,7 @@ export default function HeaderWithEdit({
             </Tooltip>
           </span>
         ) : null}
+        {additionalActions && <div className="ml-1">{additionalActions}</div>}
       </div>
     </div>
   );

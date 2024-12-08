@@ -103,6 +103,7 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
+import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -411,6 +412,8 @@ app.use("/saved-groups", savedGroupRouter);
 app.use("/archetype", ArchetypeRouter);
 
 app.use("/attribute", AttributeRouter);
+
+app.use("/custom-fields", customFieldsRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

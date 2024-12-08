@@ -20,6 +20,7 @@ import {
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { CustomField } from "back-end/types/custom-fields";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -34,6 +35,7 @@ type Definitions = {
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
   metricGroups: MetricGroupInterface[];
+  customFields: CustomField[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
   _factTablesIncludingArchived: FactTableInterface[];
@@ -81,6 +83,7 @@ const defaultValue: DefinitionContextValue = {
   tags: [],
   savedGroups: [],
   metricGroups: [],
+  customFields: [],
   projects: [],
   factTables: [],
   _factTablesIncludingArchived: [],
@@ -245,7 +248,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
-    //console.log("data is", data);
     const filteredProject =
       data.projects && data.projects.map((p) => p.id).includes(project)
         ? project
@@ -260,6 +262,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       tags: allTags,
       savedGroups: data.savedGroups,
       metricGroups: metricGroups,
+      customFields: data.customFields,
       projects: data.projects,
       project: filteredProject,
       factTables: activeFactTables,

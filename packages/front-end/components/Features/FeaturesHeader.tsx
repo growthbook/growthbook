@@ -242,7 +242,7 @@ export default function FeaturesHeader({
                         await apiCall(`/feature/${feature.id}`, {
                           method: "DELETE",
                         });
-                        router.push("/features");
+                        await router.push("/features");
                       }}
                       className="dropdown-item text-danger"
                       text="Delete"
@@ -435,7 +435,7 @@ export default function FeaturesHeader({
           close={() => setDuplicateModal(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}`;
-            router.push(url);
+            await router.push(url);
           }}
           featureToDuplicate={feature}
         />

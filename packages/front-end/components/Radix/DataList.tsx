@@ -12,18 +12,24 @@ export interface DataListItem {
 
 export type Props = {
   data: DataListItem[];
-  columns?: 1 | 2 | 3 | 4;
+  columns?: 1 | 2 | 3 | 4 | 5;
+  maxColumns?: 1 | 2 | 3 | 4 | 5;
   header?: string;
 } & MarginProps;
 
 export default function DataList({
   data,
   columns,
+  maxColumns = 4,
   header,
   ...componentProps
 }: Props) {
   const defaultColumns =
-    data.length === 1 ? 1 : data.length === 2 ? 2 : data.length === 3 ? 3 : 4;
+    data.length === 0
+      ? 1
+      : maxColumns && data.length < maxColumns
+      ? (data.length as 1 | 2 | 3 | 4 | 5)
+      : maxColumns;
 
   columns = columns || defaultColumns;
 

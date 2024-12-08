@@ -4,6 +4,7 @@ import type pino from "pino";
 import type { Request } from "express";
 import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
@@ -42,6 +43,7 @@ export type ForeignRefTypes = {
 export class ReqContextClass {
   // Models
   public models!: {
+    customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
@@ -51,6 +53,7 @@ export class ReqContextClass {
   };
   private initModels() {
     this.models = {
+      customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),

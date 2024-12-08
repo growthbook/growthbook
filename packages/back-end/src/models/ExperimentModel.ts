@@ -247,6 +247,7 @@ const experimentSchema = new mongoose.Schema({
   banditScheduleUnit: String,
   banditBurnInValue: Number,
   banditBurnInUnit: String,
+  customFields: {},
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

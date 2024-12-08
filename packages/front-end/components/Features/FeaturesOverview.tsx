@@ -75,6 +75,7 @@ import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -261,6 +262,7 @@ export default function FeaturesOverview({
     !!mergeResult && mergeResultHasChanges(mergeResult);
 
   const hasJsonValidator = hasCommercialFeature("json-validation");
+  const canManageCustomFields = permissionsUtil.canManageCustomFields();
 
   const projectId = feature.project;
 
@@ -375,7 +377,15 @@ export default function FeaturesOverview({
             />
           </div>
         </div>
-
+        <div>
+          <CustomFieldDisplay
+            target={feature}
+            addBox={true}
+            canEdit={canManageCustomFields}
+            mutate={mutate}
+            section={"feature"}
+          />
+        </div>
         <div className="mt-3">
           <CustomMarkdown page={"feature"} variables={variables} />
         </div>

@@ -651,6 +651,7 @@ export async function postExperiments(
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
+    customFields: data.customFields || undefined,
   };
 
   const { settings } = getScopedSettings({
@@ -934,6 +935,7 @@ export async function postExperiment(
     "banditScheduleUnit",
     "banditBurnInValue",
     "banditBurnInUnit",
+    "customFields",
   ];
   let changes: Changeset = {};
 
@@ -949,7 +951,8 @@ export async function postExperiment(
       key === "secondaryMetrics" ||
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
-      key === "variations"
+      key === "variations" ||
+      key === "customFields"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
