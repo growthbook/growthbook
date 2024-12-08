@@ -150,10 +150,6 @@ export class CustomFieldModel extends BaseClass {
     }
     const newFields = [...existing.fields];
     newFields.splice(newIndex, 0, newFields.splice(oldIndex, 1)[0]);
-    return await this._updateOne(
-      existing,
-      { fields: newFields },
-      { skipChangeCheck: true }
-    );
+    return await this._updateOne(existing, { fields: newFields });
   }
 }
