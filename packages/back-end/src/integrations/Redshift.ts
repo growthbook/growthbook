@@ -36,6 +36,9 @@ export default class Redshift extends SqlIntegration {
   ensureFloat(col: string): string {
     return `${col}::float`;
   }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
   hllAggregate(col: string): string {
     return `HLL_CREATE_SKETCH(${col})`;
   }

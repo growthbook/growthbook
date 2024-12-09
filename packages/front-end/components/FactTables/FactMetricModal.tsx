@@ -299,6 +299,8 @@ function ColumnRefSelector({
     includeStringColumns:
       datasource.properties?.hasCountDistinctHLL && aggregationType === "unit",
   });
+  console.log(datasource.properties?.hasCountDistinctHLL);
+  console.log(aggregationType);
 
   const selectedColumnDatatype = getSelectedColumnDatatype({
     factTable,

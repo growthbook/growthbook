@@ -43,6 +43,9 @@ export default class Snowflake extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  hasCountDistinctHLL(): boolean {
+    return false;
+  }
   hllAggregate(col: string): string {
     return `HLL_ACCUMULATE(${col})`;
   }
