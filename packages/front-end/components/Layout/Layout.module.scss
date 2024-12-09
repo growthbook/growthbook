@@ -5,7 +5,7 @@ $collapsedSidebarwidth: 70px;
 $topbarheight: 60px;
 
 .sidebar {
-  background-color: $dark-blue;
+  background-color: #1f2d5c;
   width: $sidebarwidth;
   flex-direction: column;
   display: flex;
@@ -18,29 +18,25 @@ $topbarheight: 60px;
   z-index: 1000;
 }
 .sidebarlogo {
-  padding: 8px 20px 8px;
+  padding: 16px 20px;
   width: $sidebarwidth;
   height: 56px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 .logo {
-  width: 32px;
+  width: 24px;
 }
 .logotext {
-  width: 125px;
-  margin-left: 4px;
+  width: 123px;
   transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
+  margin-top: -2px;
 }
 .userlogo {
   max-width: 225px;
   max-height: 46px;
 }
-.closebutton {
-  display: none !important;
-}
 .mainmenu {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 10px 10px;
+  padding: 10px;
   font-size: 14px;
   font-weight: 400;
   line-height: 32px;
@@ -67,22 +63,5 @@ $topbarheight: 60px;
   }
   .sidebaropen {
     left: 0;
-  }
-  .closebutton {
-    position: absolute;
-    top: $topbarheight;
-    right: 0;
-    width: 40px !important;
-    height: 40px !important;
-    min-height: auto !important;
-    padding: 0 !important;
-    display: block !important;
-
-    svg {
-      display: inline-block;
-      width: 36px;
-      height: 36px;
-      color: #fff;
-    }
   }
 }

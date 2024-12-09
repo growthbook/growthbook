@@ -95,7 +95,7 @@ export default function FeaturesHeader({
 
   return (
     <>
-      <div className="features-header bg-white pt-3 px-4 border-bottom">
+      <div className="features-header pt-3 px-4 border-bottom">
         <div className="pagecontents mx-auto px-3">
           {projectId ===
             getDemoDatasourceProjectIdForOrganization(organization.id) && (

@@ -222,7 +222,7 @@ export default function ExperimentHeader({
   return (
     <>
       <div
-        className={clsx("experiment-header", "bg-white", "px-3", "pt-3", {
+        className={clsx("experiment-header", "px-3", "pt-3", {
           border: shouldHideTabs,
         })}
       >
@@ -575,12 +575,9 @@ export default function ExperimentHeader({
 
       {shouldHideTabs ? null : (
         <div
-          className={clsx(
-            "experiment-tabs bg-white px-3 border-bottom d-print-none",
-            {
-              pinned: headerPinned,
-            }
-          )}
+          className={clsx("experiment-tabs px-3 border-bottom d-print-none", {
+            pinned: headerPinned,
+          })}
         >
           <div className="container-fluid pagecontents position-relative">
             <div className="row align-items-center header-tabs">

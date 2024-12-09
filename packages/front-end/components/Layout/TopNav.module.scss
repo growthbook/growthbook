@@ -10,8 +10,7 @@ $sidebarwidth: 240px;
   right: 0;
   height: 56px;
   z-index: 1010;
-  background-color: var(--surface-background-color);
-  border-bottom: 1px solid var(--border-color-300);
+  background-color: var(--color-panel-solid);
   padding: 0 16px;
   @media (max-width: 520px) {
     padding: 0 8px;
@@ -53,6 +52,9 @@ $sidebarwidth: 240px;
   display: none;
   font-size: 24px;
   line-height: 24px;
+}
+.mobilemenuopen {
+  display: block;
 }
 .userinfo {
   &:hover {
