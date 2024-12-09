@@ -21,6 +21,11 @@ export const updateExperiment = createApiRequestHandler(
       throw new Error("Could not find the experiment to update");
     }
 
+    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+    if (req.body.project) {
+      await req.context.models.projects.ensureProjectsExist([req.body.project]);
+    }
+
     if (!req.context.permissions.canUpdateExperiment(experiment, req.body)) {
       req.context.permissions.throwPermissionError();
     }

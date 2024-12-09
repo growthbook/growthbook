@@ -1,5 +1,9 @@
 import request from "supertest";
-import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+import {
+  getLatestSDKVersion,
+  getSDKCapabilities,
+  getSDKVersions,
+} from "shared/sdk-versioning";
 import {
   toApiSDKConnectionInterface,
   findSDKConnectionsByOrganization,
@@ -8,17 +12,25 @@ import {
   editSDKConnection,
   deleteSDKConnectionById,
 } from "back-end/src/models/SdkConnectionModel";
-import { validatePayload } from "back-end/src/api/sdk-connections/validations";
+import {
+  validatePutPayload,
+  validatePostPayload,
+} from "back-end/src/api/sdk-connections/validations";
 import { sdkConnectionFactory } from "back-end/test/factories/SdkConnection.factory";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/api/sdk-connections/validations", () => ({
-  validatePayload: jest.fn(),
+  validatePutPayload: jest.fn(),
+  validatePostPayload: jest.fn(),
 }));
 
-const originalValidatePayload = jest.requireActual(
+const originalValidatePutPayload = jest.requireActual(
   "back-end/src/api/sdk-connections/validations"
-).validatePayload;
+).validatePutPayload;
+
+const originalValidatePostPayload = jest.requireActual(
+  "back-end/src/api/sdk-connections/validations"
+).validatePostPayload;
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   toApiSDKConnectionInterface: jest.fn(),
@@ -32,6 +44,7 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
 jest.mock("shared/sdk-versioning", () => ({
   getLatestSDKVersion: jest.fn(),
   getSDKCapabilities: jest.fn(),
+  getSDKVersions: jest.fn(),
 }));
 
 describe("sdk-connections API", () => {
@@ -39,7 +52,9 @@ describe("sdk-connections API", () => {
   const mockApiSDKConnectionInterface = ({ id }) => `mock-${id}`;
 
   beforeEach(() => {
-    validatePayload.mockImplementation(originalValidatePayload);
+    validatePutPayload.mockImplementation(originalValidatePutPayload);
+    validatePostPayload.mockImplementation(originalValidatePostPayload);
+    getSDKVersions.mockReturnValue(["old-version", "latest-version"]);
     toApiSDKConnectionInterface.mockImplementation(
       mockApiSDKConnectionInterface
     );
@@ -121,6 +136,7 @@ describe("sdk-connections API", () => {
       name: "my-connection",
       environment: org.environments[0].id,
       language: "javascript",
+      sdkVersion: "latest-version",
     };
 
     const response = await request(app)
@@ -137,7 +153,7 @@ describe("sdk-connections API", () => {
         created.id
       }","name":"my-connection","organization":"org","dateCreated":"${created.dateCreated.toISOString()}","dateUpdated":"${created.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         created.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
       entity: { id: created.id, object: "sdk-connection" },
       event: "sdk-connection.create",
     });
@@ -158,6 +174,7 @@ describe("sdk-connections API", () => {
       name: "my-connection",
       environment: org.environments[0].id,
       language: "javascript",
+      sdkVersion: "latest-version",
     };
 
     const response = await request(app)
@@ -289,7 +306,7 @@ describe("sdk-connections API", () => {
       "latest-version"
     );
     expect(response.body).toEqual({
-      message: "SDK version latest-version doesn not support remoteEval",
+      message: "SDK version latest-version does not support remoteEval",
     });
   });
 
@@ -387,6 +404,7 @@ describe("sdk-connections API", () => {
       name: "my-connection",
       environment: org.environments[0].id,
       language: "javascript",
+      sdkVersion: "latest-version",
     });
 
     findSDKConnectionById.mockReturnValue(existing);
@@ -411,15 +429,12 @@ describe("sdk-connections API", () => {
 
     expect(response.status).toBe(200);
     // This validates all exception handling tested in create mode.
-    expect(validatePayload).toHaveBeenCalledWith(context, {
-      ...existing,
-      ...update,
-    });
+    expect(validatePutPayload).toHaveBeenCalledWith(context, update, existing);
     expect(findSDKConnectionById).toHaveBeenCalledWith(context, existing.id);
     expect(editSDKConnection).toHaveBeenCalledWith(
       context,
       existing,
-      await originalValidatePayload(context, { ...existing, ...update })
+      await originalValidatePutPayload(context, update, existing)
     );
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(updated),
@@ -429,11 +444,11 @@ describe("sdk-connections API", () => {
         existing.id
       }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         existing.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript"},"post":{"id":"${
-        existing.id
-      }","name":"my-new-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
-        existing.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript","sdkVersion":"latest-version"},"post":{"id":"${
+        updated.id
+      }","name":"my-new-connection","dateCreated":"${updated.dateCreated.toISOString()}","dateUpdated":"${updated.dateUpdated.toISOString()}","languages":["ruby"],"environment":"production","projects":[],"encryptionKey":"","key":"${
+        updated.key
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version"},"context":{}}`,
       entity: { id: updated.id, object: "sdk-connection" },
       event: "sdk-connection.update",
     });

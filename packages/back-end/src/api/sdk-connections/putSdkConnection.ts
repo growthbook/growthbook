@@ -7,7 +7,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { putSdkConnectionValidator } from "back-end/src/validators/openapi";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { validatePayload } from "./validations";
+import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
   putSdkConnectionValidator
@@ -21,10 +21,11 @@ export const putSdkConnection = createApiRequestHandler(
       throw new Error("Could not find sdkConnection with that id");
     }
 
-    const params = await validatePayload(req.context, {
-      ...sdkConnection,
-      ...req.body,
-    });
+    const params = await validatePutPayload(
+      req.context,
+      req.body,
+      sdkConnection
+    );
 
     if (!req.context.permissions.canUpdateSDKConnection(sdkConnection, params))
       req.context.permissions.throwPermissionError();

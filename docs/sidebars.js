@@ -646,6 +646,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "guide/express-js",
+          label: "Express.js",
+        },
+        {
+          type: "doc",
           id: "guide/nextjs-and-vercel-feature-flags",
           label: "Next.js + Vercel Feature Flags",
         },
