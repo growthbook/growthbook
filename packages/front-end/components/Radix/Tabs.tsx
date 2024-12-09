@@ -1,4 +1,5 @@
 import { Tabs as RadixTabs } from "@radix-ui/themes";
+import useURLHash from "@/hooks/useURLHash";
 
 /**
  * See more examples in design-system/index.tsx
@@ -16,11 +17,51 @@ import { Tabs as RadixTabs } from "@radix-ui/themes";
  * ```
  */
 
+type ControlledTabsProps = {
+  defaultValue?: never;
+  value?: string;
+};
+
+type UncontrolledTabsProps = {
+  defaultValue?: string;
+  value?: never;
+};
+
+type TabsProps = (ControlledTabsProps | UncontrolledTabsProps) &
+  Omit<React.ComponentProps<typeof RadixTabs.Root>, "defaultValue" | "value">;
+
 export function Tabs({
   children,
+  defaultValue,
+  value,
+  onValueChange,
   ...props
-}: React.ComponentProps<typeof RadixTabs.Root>) {
-  return <RadixTabs.Root {...props}>{children}</RadixTabs.Root>;
+}: TabsProps) {
+  let innerValue: string | undefined;
+  let innerOnValueChange: ((value: string) => void) | undefined;
+
+  // For uncontrolled tabs always set the value in URL
+  const [urlHash, setUrlHash] = useURLHash();
+  if (defaultValue) {
+    innerValue = urlHash ?? defaultValue;
+    innerOnValueChange = (value) => {
+      setUrlHash(value as string);
+      onValueChange?.(value);
+    };
+  } else {
+    innerValue = value;
+    innerOnValueChange = onValueChange;
+  }
+
+  return (
+    <RadixTabs.Root
+      value={innerValue}
+      onValueChange={innerOnValueChange}
+      {...props}
+    >
+      {children}
+    </RadixTabs.Root>
+  );
 }
 
 export function TabsList({

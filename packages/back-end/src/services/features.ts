@@ -95,6 +95,7 @@ import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -962,6 +963,123 @@ export function evaluateFeature({
     }
     results.push(thisEnvResult);
   });
+  if (switchEnv) {
+    // change the NODE ENV back
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+    };
+  }
+  return results;
+}
+
+export async function evaluateAllFeatures({
+  features,
+  context,
+  attributeValues,
+  environments,
+  groupMap,
+}: {
+  features: FeatureInterface[];
+  context: ReqContext | ApiReqContext;
+  attributeValues: ArchetypeAttributeValues;
+  groupMap: GroupMap;
+  environments?: (Environment | undefined)[];
+}) {
+  const results: { [key: string]: FeatureTestResult }[] = [];
+  const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
+
+  const allFeaturesRaw = await getAllFeatures(context);
+  const allFeatures: Record<string, FeatureDefinitionWithProject> = {};
+  if (allFeaturesRaw.length) {
+    allFeaturesRaw.map((f) => {
+      allFeatures[f.id] = {
+        ...f,
+        project: f.project,
+      };
+    });
+  }
+
+  // get all features definitions
+  const experimentMap = await getAllPayloadExperiments(context);
+  // I could loop through the feature's defined environments, but if environments change in the org,
+  // the values in the feature will be wrong.
+  if (!environments || environments.length === 0) {
+    return;
+  }
+
+  // change the NODE ENV so that we can get the debug log information:
+  let switchEnv = false;
+  if (process.env.NODE_ENV === "production") {
+    process.env = {
+      ...process.env,
+      NODE_ENV: "development",
+    };
+    switchEnv = true;
+  }
+
+  for (const env of environments) {
+    if (!env) {
+      continue;
+    }
+
+    const featurePayload = generateFeaturesPayload({
+      features: allFeaturesRaw,
+      environment: env.id,
+      experimentMap,
+      groupMap,
+      prereqStateCache: {},
+    });
+
+    // now we have all the definitions, lets evaluate them
+    const gb = new GrowthBook({
+      features: featurePayload,
+      savedGroups: savedGroups,
+      attributes: attributeValues,
+    });
+    gb.debug = true;
+
+    // now loop through all features to eval them:
+    for (const feature of features) {
+      const revision = await getRevision(
+        context.org.id,
+        feature.id,
+        parseInt(feature.version.toString())
+      );
+      if (!revision) {
+        if (switchEnv) {
+          // change the NODE ENV back
+          process.env = {
+            ...process.env,
+            NODE_ENV: "production",
+          };
+        }
+        throw new Error("Could not find feature revision");
+      }
+      const thisFeatureEnvResult: FeatureTestResult = {
+        env: env.id,
+        result: null,
+        enabled: false,
+        defaultValue: revision.defaultValue,
+      };
+      if (featurePayload[feature.id]) {
+        const settings = feature.environmentSettings[env.id] ?? null;
+        if (settings) {
+          thisFeatureEnvResult.enabled = settings.enabled;
+        }
+        const log: [string, Record<string, unknown>][] = [];
+        // set the log for this feature so to avoid overwriting the log from other features
+        gb.log = (msg, ctx) => {
+          log.push([msg, ctx]);
+        };
+        // eval the feature
+        thisFeatureEnvResult.result = gb.evalFeature(feature.id);
+        thisFeatureEnvResult.log = log;
+      }
+      results.push({ [feature.id]: thisFeatureEnvResult });
+    }
+    gb.destroy();
+  }
   if (switchEnv) {
     // change the NODE ENV back
     process.env = {

@@ -2,12 +2,13 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
+import React, { useState } from "react";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { useState } from "react";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EditHypothesisModal from "../EditHypothesisModal";
 
@@ -122,6 +123,13 @@ export default function SetupTabOverview({
             </div>
           </div>
         )}
+        <CustomFieldDisplay
+          addBox={true}
+          target={experiment}
+          canEdit={canEditExperiment}
+          mutate={mutate}
+          section="experiment"
+        />
       </div>
     </>
   );
