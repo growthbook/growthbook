@@ -3,16 +3,19 @@ import React, { useEffect, useState } from "react";
 let currentHost = "cloud";
 let currentCustomDomain = "";
 
+const HOST_KEY = "gbHost";
+const CUSTOM_DOMAIN_KEY = "gbCustomDomain";
+
 function initializeHost() {
   try {
-    const host = localStorage.getItem("gbHost");
+    const host = localStorage.getItem(HOST_KEY);
     if (host) currentHost = host;
   } catch (e) {
     // Ignore localStorage errors
   }
 
   try {
-    const domain = localStorage.getItem("gbCustomDomain");
+    const domain = localStorage.getItem(CUSTOM_DOMAIN_KEY);
     if (domain) currentCustomDomain = domain;
   } catch (e) {
     // Ignore localStorage errors
@@ -46,7 +49,7 @@ export default function HostSelector() {
   const [host, setRawHost] = useState(currentHost);
   const setHost = (host: string) => {
     try {
-      localStorage.setItem("gbHost", host);
+      localStorage.setItem(HOST_KEY, host);
     } catch (e) {
       // Ignore localStorage errors
     }
@@ -58,7 +61,7 @@ export default function HostSelector() {
   const [customDomain, setRawCustomDomain] = useState(currentCustomDomain);
   const setCustomDomain = (domain: string) => {
     try {
-      localStorage.setItem("gbCustomDomain", domain);
+      localStorage.setItem(CUSTOM_DOMAIN_KEY, domain);
     } catch (e) {
       // Ignore localStorage errors
     }

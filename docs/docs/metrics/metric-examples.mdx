@@ -241,6 +241,22 @@ WHERE
   }
 }}/>
 
+#### Users Without Orders
+
+1. Select `Proportion` as the metric type
+2. Add a “User Filter” for `Count of Rows = 0`
+3. Under Advanced Settings -> Display Settings, change the goal to `Decrease the Metric Value`
+
+<AddMetricButton data={{
+  name: "Users Without Orders",
+  metricType:"proportion",
+  numerator: {
+    aggregateFilterColumn: "$$count",
+    aggregateFilter: "= 0"
+  },
+  inverse: true
+}}/>
+
 #### Percent of Orders with Free Shipping
 
 1. Select `Ratio` as the metric type

@@ -368,7 +368,7 @@ function ColumnRefSelector({
                 Row Filter{" "}
                 <Tooltip body="Filter individual rows.  Only rows that satisfy ALL selected filters will be included" />
               </label>
-              <div className="d-flex align-items-top">
+              <div className="d-flex flex-wrap align-items-top">
                 {value.filters.map((f) => {
                   const filter = factTable.filters.find((ff) => ff.id === f);
                   if (!filter) return null;
@@ -947,13 +947,16 @@ function FieldMappingModal({
   const numericColumns = new Set<string>();
   const stringColumns = new Set<string>();
 
-  if (numerator.column) {
+  if (numerator.column && !numerator.column.startsWith("$$")) {
     numericColumns.add(numerator.column);
   }
-  if (denominator?.column) {
+  if (denominator?.column && !denominator.column.startsWith("$$")) {
     numericColumns.add(denominator.column);
   }
-  if (numerator.aggregateFilterColumn) {
+  if (
+    numerator.aggregateFilterColumn &&
+    !numerator.aggregateFilterColumn.startsWith("$$")
+  ) {
     numericColumns.add(numerator.aggregateFilterColumn);
   }
   if (numerator.inlineFilters) {
@@ -1057,6 +1060,36 @@ function FieldMappingModal({
               ? { ...data.denominator, factTableId }
               : undefined,
           });
+
+          const factTable = getFactTableById(factTableId);
+          if (factTable) {
+            // Fill out any column mappings with matching column names
+            const newNumericColumnMap = { ...numericColumnMap };
+            const newStringColumnMap = { ...stringColumnMap };
+
+            Object.keys(numericColumnMap).forEach((k) => {
+              if (
+                factTable.columns.find(
+                  (c) => c.column === k && !c.deleted && c.datatype === "number"
+                )
+              ) {
+                newNumericColumnMap[k] = k;
+              }
+            });
+
+            Object.keys(stringColumnMap).forEach((k) => {
+              if (
+                factTable.columns.find(
+                  (c) => c.column === k && canInlineFilterColumn(factTable, c)
+                )
+              ) {
+                newStringColumnMap[k] = k;
+              }
+            });
+
+            setNumericColumnMap(newNumericColumnMap);
+            setStringColumnMap(newStringColumnMap);
+          }
         }}
         options={factTables.map((t) => ({
           label: t.name,
