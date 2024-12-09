@@ -438,7 +438,6 @@ export async function refreshReport(
         message: e.message,
       });
     }
-
   } else if (report.type === "experiment") {
     report.args.statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
     report.args.regressionAdjustmentEnabled = !!report.args

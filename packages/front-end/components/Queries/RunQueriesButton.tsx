@@ -7,6 +7,7 @@ import { getValidDate } from "shared/dates";
 import { FaXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Button from "@/components/Radix/Button";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {
@@ -68,6 +69,7 @@ const RunQueriesButton: FC<{
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
   onSubmit?: () => void | Promise<void>;
+  useRadixButton?: boolean;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -79,6 +81,7 @@ const RunQueriesButton: FC<{
   position = "right",
   resetFilters,
   onSubmit,
+  useRadixButton,
 }) => {
   const { apiCall } = useAuth();
 
@@ -168,24 +171,42 @@ const RunQueriesButton: FC<{
           </div>
         )}
         <div className="position-relative">
-          <button
-            className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
-              disabled: status === "running",
-            })}
-            disabled={status === "running"}
-            type="submit"
-            onClick={async () => {
-              await resetFilters?.();
-              await onSubmit?.();
-            }}
-          >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              {buttonIcon}
-            </span>
-            {status === "running"
-              ? `${loadingText} (${getTimeDisplay(elapsed)})...`
-              : cta}
-          </button>
+          {useRadixButton ? (
+            <Button
+              variant={"outline"}
+              size="sm"
+              disabled={status === "running"}
+              type="button"
+              onClick={async () => {
+                await resetFilters?.();
+                await onSubmit?.();
+              }}
+              icon={buttonIcon}
+            >
+              {status === "running"
+                ? `${loadingText} (${getTimeDisplay(elapsed)})...`
+                : cta}
+            </Button>
+          ) : (
+            <button
+              className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
+                disabled: status === "running",
+              })}
+              disabled={status === "running"}
+              type="submit"
+              onClick={async () => {
+                await resetFilters?.();
+                await onSubmit?.();
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                {buttonIcon}
+              </span>
+              {status === "running"
+                ? `${loadingText} (${getTimeDisplay(elapsed)})...`
+                : cta}
+            </button>
+          )}
           {status === "running" && numQueries > 0 && (
             <div
               className="position-absolute bg-info"

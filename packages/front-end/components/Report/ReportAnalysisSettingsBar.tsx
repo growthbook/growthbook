@@ -5,6 +5,7 @@ import { ago, date, datetime } from "shared/dates";
 import React, { useState } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { FaGear } from "react-icons/fa6";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import RunQueriesButton, {
   getQueryStatus,
@@ -14,6 +15,7 @@ import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { useAuth } from "@/services/auth";
 import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -22,6 +24,8 @@ export default function ReportAnalysisSettingsBar({
   ssrPolyfills,
   canUpdateReport = false,
   datasource,
+  settingsOpen = false,
+  setSettingsOpen,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
@@ -29,11 +33,12 @@ export default function ReportAnalysisSettingsBar({
   ssrPolyfills?: SSRExperimentReportPolyfills;
   canUpdateReport?: boolean;
   datasource?: DataSourceInterfaceWithParams;
+  settingsOpen?: boolean;
+  setSettingsOpen?: (o: boolean) => void;
 }) {
   const { apiCall } = useAuth();
 
   const [refreshError, setRefreshError] = useState("");
-
   // const { metrics: _metrics } = useDefinitions();
 
   // const phases = report.experimentMetadata.phases;
@@ -62,8 +67,8 @@ export default function ReportAnalysisSettingsBar({
   if (!snapshot) return null;
 
   return (
-    <div className="px-3 py-2 mb-2">
-      <div className="row align-items-center">
+    <div className="py-2 mb-2">
+      <div className="row align-items-center px-3">
         <div className="col-auto d-flex align-items-end mr-3">
           <DimensionChooser
             value={snapshot.dimension ?? ""}
@@ -85,12 +90,9 @@ export default function ReportAnalysisSettingsBar({
             // and callbacks are not needed
             disabled={true}
             phase={0}
-            setDifferenceType={() => {
-            }}
-            setAnalysisSettings={() => {
-            }}
-            mutate={() => {
-            }}
+            setDifferenceType={() => {}}
+            setAnalysisSettings={() => {}}
+            mutate={() => {}}
           />
         </div>
         <div className="col-auto d-flex align-items-end mr-3">
@@ -106,18 +108,18 @@ export default function ReportAnalysisSettingsBar({
             </div>
           </div>
         </div>
-        <div className="flex-1"/>
+        <div className="flex-1" />
         <div className="col-auto">
           {hasData && snapshot.runStarted ? (
             <div
               className="text-muted text-right"
-              style={{width: 100, fontSize: "0.8em"}}
+              style={{ width: 110, fontSize: "0.8em" }}
               title={datetime(snapshot.runStarted)}
             >
-              <div className="font-weight-bold" style={{lineHeight: 1.2}}>
+              <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                 updated
               </div>
-              <div className="d-inline-block" style={{lineHeight: 1}}>
+              <div className="d-inline-block" style={{ lineHeight: 1 }}>
                 {ago(snapshot.runStarted)}
               </div>
             </div>
@@ -127,11 +129,17 @@ export default function ReportAnalysisSettingsBar({
         </div>
         {canUpdateReport && mutate ? (
           <div className="col-auto">
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
+            <RunQueriesButton
+              icon="refresh"
+              cta="Refresh"
+              mutate={mutate}
+              model={snapshot}
+              cancelEndpoint={`/report/${report.id}/cancel`}
+              color="outline-primary"
+              useRadixButton={true}
+              onSubmit={async () => {
                 try {
-                  const res = await apiCall<{
+                  await apiCall<{
                     report: ExperimentSnapshotReportInterface;
                   }>(`/report/${report.id}/refresh`, {
                     method: "POST",
@@ -142,16 +150,19 @@ export default function ReportAnalysisSettingsBar({
                   setRefreshError(e.message);
                 }
               }}
+            />
+          </div>
+        ) : null}
+        {canUpdateReport && setSettingsOpen ? (
+          <div className="col-auto">
+            <Button
+              type="button"
+              variant={settingsOpen ? "solid" : "outline"}
+              size="sm"
+              onClick={() => setSettingsOpen(!settingsOpen)}
             >
-              <RunQueriesButton
-                icon="refresh"
-                cta="Refresh Data"
-                mutate={mutate}
-                model={snapshot}
-                cancelEndpoint={`/report/${report.id}/cancel`}
-                color="outline-primary"
-              />
-            </form>
+              <FaGear size={14} />
+            </Button>
           </div>
         ) : null}
         {canUpdateReport && datasource && mutate ? (
@@ -200,7 +211,7 @@ export default function ReportAnalysisSettingsBar({
       {/*  </div>*/}
       {/*) : null}*/}
       {refreshError && (
-        <Callout status="error" size="sm" mt="2">
+        <Callout status="error" size="sm" mt="2" mx="4">
           <strong>Error refreshing data:</strong> {refreshError}
         </Callout>
       )}

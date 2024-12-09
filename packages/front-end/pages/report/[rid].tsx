@@ -31,7 +31,7 @@ import {
   GBEdit,
   GBSequential,
 } from "@/components/Icons";
-import ConfigureReport from "@/components/Report/ConfigureReport";
+import ConfigureLegacyReport from "@/components/Report/ConfigureLegacyReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
@@ -51,6 +51,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import ReportResults from "@/components/Report/ReportResults";
 import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
+import ConfigureReport from "@/components/Report/ConfigureReport";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -74,8 +75,10 @@ export default function ReportPage() {
 
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -163,12 +166,21 @@ export default function ReportPage() {
 
         <h1>{report.title}</h1>
 
+        <ConfigureReport
+          report={report}
+          mutate={mutate}
+          open={settingsOpen}
+          setOpen={setSettingsOpen}
+        />
+
         <ReportResults
           report={report}
           snapshot={snapshot}
           snapshotError={snapshotError}
           mutate={mutate}
           readonly={!canEdit}
+          settingsOpen={settingsOpen}
+          setSettingsOpen={setSettingsOpen}
         />
       </div>
     );
@@ -684,7 +696,7 @@ export default function ReportPage() {
               forceRenderOnFocus={true}
             >
               <h2>Configuration</h2>
-              <ConfigureReport
+              <ConfigureLegacyReport
                 mutate={mutate}
                 report={report}
                 viewResults={() => setActive("Results")}

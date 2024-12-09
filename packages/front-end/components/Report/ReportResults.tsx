@@ -28,6 +28,8 @@ export default function ReportResults({
   ssrPolyfills,
   readonly = true,
   showSettingsBar = true,
+  settingsOpen = false,
+  setSettingsOpen,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
@@ -36,6 +38,8 @@ export default function ReportResults({
   ssrPolyfills?: SSRExperimentReportPolyfills;
   readonly?: boolean;
   showSettingsBar?: boolean;
+  settingsOpen?: boolean;
+  setSettingsOpen?: (o: boolean) => void;
 }) {
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
@@ -105,6 +109,8 @@ export default function ReportResults({
           mutate={mutate}
           ssrPolyfills={ssrPolyfills}
           canUpdateReport={!readonly}
+          settingsOpen={settingsOpen}
+          setSettingsOpen={setSettingsOpen}
         />
       )}
 
