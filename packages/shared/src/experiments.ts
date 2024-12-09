@@ -228,7 +228,6 @@ export function getSelectedColumnDatatype({
   return col?.datatype;
 }
 
-
 export function getUserIdTypes(
   metric: ExperimentMetricInterface,
   factTableMap: FactTableMap,

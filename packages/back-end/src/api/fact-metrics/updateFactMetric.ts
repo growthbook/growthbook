@@ -14,7 +14,6 @@ export async function getUpdateFactMetricPropsFromBody(
   factMetric: FactMetricInterface,
   getFactTable: (id: string) => Promise<FactTableInterface | null>
 ): UpdateFactMetricProps {
-
   const {
     numerator,
     denominator,
@@ -47,9 +46,9 @@ export async function getUpdateFactMetricPropsFromBody(
       throw new Error("Could not find numerator fact table");
     }
     validateAggregationSpecification({
-      errorPrefix: "Numerator misspecified. ", 
+      errorPrefix: "Numerator misspecified. ",
       column: updates.numerator,
-      factTable: factTable
+      factTable: factTable,
     });
   }
   if (denominator) {
@@ -63,9 +62,9 @@ export async function getUpdateFactMetricPropsFromBody(
       throw new Error("Could not find denominator fact table");
     }
     validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ", 
+      errorPrefix: "Denominator misspecified. ",
       column: updates.denominator,
-      factTable: factTable
+      factTable: factTable,
     });
   }
   if (cappingSettings) {
@@ -113,7 +112,11 @@ export const updateFactMetric = createApiRequestHandler(
       throw new Error("Could not find factMetric with that id");
     }
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
-    const updates = await getUpdateFactMetricPropsFromBody(req.body, factMetric, lookupFactTable);
+    const updates = await getUpdateFactMetricPropsFromBody(
+      req.body,
+      factMetric,
+      lookupFactTable
+    );
 
     const newFactMetric = await req.context.models.factMetrics.update(
       factMetric,
