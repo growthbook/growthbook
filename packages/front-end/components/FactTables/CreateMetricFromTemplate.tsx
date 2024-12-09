@@ -15,8 +15,7 @@ import Callout from "@/components/Radix/Callout";
 import { useUser } from "@/services/UserContext";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import LinkButton from "@/components/Radix/LinkButton";
-import Button from "@/components/Button";
+import Link from "@/components/Radix/Link";
 
 const metricToCreateValidator = z.object({
   metricType: metricTypeValidator,
@@ -104,9 +103,15 @@ export default function CreateMetricFromTemplate() {
             callout: (
               <Callout status="warning" mb="3">
                 A metric with the name &quot;{data.name}&quot; already exists.{" "}
-                <Button onClick={() => setMetricToCreate({ data })}>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMetricToCreate({ data });
+                  }}
+                >
                   Create Anyway
-                </Button>
+                </a>
               </Callout>
             ),
           };
@@ -147,7 +152,7 @@ export default function CreateMetricFromTemplate() {
         ) : !hasFactTables ? (
           <Callout status="info" mb="3">
             You must create a fact table first before adding a metric.{" "}
-            <LinkButton href="/fact-tables">Manage Fact Tables</LinkButton>
+            <Link href="/fact-tables">Manage Fact Tables</Link>
           </Callout>
         ) : metricToCreate.data ? (
           <FactMetricModal
