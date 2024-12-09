@@ -32,32 +32,29 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
     const parsedUrl1 = new URL(url1);
     const parsedUrl2 = new URL(url2);
 
-    if (parsedUrl1.hostname === parsedUrl2.hostname) {
-      return (
-        //MKTODO: Can I revise this to reduce repetition?
-        <a
-          className={`${styles.redirectUrl}`}
-          href={url2}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {filtered.map((part, index) => {
-            if (part.added) {
-              return <b key={index}>{part.value}</b>;
-            } else {
-              return <span key={index}>{part.value}</span>;
-            }
-          })}
-          <FaExternalLinkAlt className="ml-2" />
-        </a>
-      );
-    } else
-      return (
-        <a href={url2} target="_blank" rel="noreferrer">
-          {url2}
-          <FaExternalLinkAlt className="ml-1" />
-        </a>
-      );
+    return (
+      <a
+        className={`${styles.redirectUrl}`}
+        href={url2}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {parsedUrl1.hostname === parsedUrl2.hostname ? (
+          <>
+            {filtered.map((part, index) => {
+              if (part.added) {
+                return <b key={index}>{part.value}</b>;
+              } else {
+                return <span key={index}>{part.value}</span>;
+              }
+            })}
+          </>
+        ) : (
+          <>{url2}</>
+        )}
+        <FaExternalLinkAlt className="ml-2" />
+      </a>
+    );
   } catch {
     console.error("Failed to parse URL to for redirect diff");
     return <span>{url2}</span>;
@@ -152,12 +149,10 @@ const Redirect = ({
               <div className="col pl-0">
                 <h5 className="mb-0">{v.name}</h5>
                 {urlRedirect.destinationURLs[i]?.url ? (
-                  <div className="text-dark text-break">
-                    <UrlDifferenceRenderer
-                      url1={urlRedirect.urlPattern}
-                      url2={urlRedirect.destinationURLs[i].url}
-                    />
-                  </div>
+                  <UrlDifferenceRenderer
+                    url1={urlRedirect.urlPattern}
+                    url2={urlRedirect.destinationURLs[i].url}
+                  />
                 ) : (
                   <i className="text-muted">No redirect</i>
                 )}

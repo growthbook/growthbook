@@ -96,7 +96,8 @@ const UrlRedirectModal: FC<{
     defaultValues: {
       originUrl: urlRedirect?.urlPattern ?? "",
       destinationUrls: urlRedirect?.destinationURLs?.map((r) => r.url) ?? [""],
-      persistQueryString: urlRedirect?.persistQueryString ? true : false,
+      persistQueryString:
+        mode === "add" ? true : !!urlRedirect?.persistQueryString,
       circularDependencyCheck: true,
     },
   });
