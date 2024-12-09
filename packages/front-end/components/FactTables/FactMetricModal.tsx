@@ -436,7 +436,7 @@ function ColumnRefSelector({
                       className="border rounded mr-1 d-flex align-items-center bg-white"
                       key={k}
                     >
-                      {unfilteredStringColumns.length > 0 ? (
+                      {colAlert && unfilteredStringColumns.length > 0 ? (
                         <SelectField
                           value={k}
                           options={[
@@ -468,7 +468,7 @@ function ColumnRefSelector({
                           }}
                         />
                       ) : (
-                        <span className="pl-2">
+                        <span className="px-2">
                           {col?.name || k}
                           {colAlert}
                         </span>

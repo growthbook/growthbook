@@ -17,7 +17,9 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
-import FactMetricList from "@/components/FactTables/FactMetricList";
+import FactMetricList, {
+  getMetricsForFactTable,
+} from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
@@ -30,6 +32,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
+import Badge from "@/components/Radix/Badge";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -52,6 +55,7 @@ export default function FactTablePage() {
     mutateDefinitions,
     getProjectById,
     projects,
+    factMetrics,
     getDatasourceById,
   } = useDefinitions();
   const factTable = getFactTableById(ftid as string);
@@ -70,6 +74,9 @@ export default function FactTablePage() {
   const canEdit =
     !factTable.managedBy &&
     permissionsUtil.canViewEditFactTableModal(factTable);
+
+  const numMetrics = getMetricsForFactTable(factMetrics, factTable.id).length;
+  const numFilters = factTable.filters.length;
 
   return (
     <div className="pagecontents container-fluid">
@@ -329,8 +336,24 @@ export default function FactTablePage() {
 
       <Tabs defaultValue="metrics">
         <TabsList>
-          <TabsTrigger value="metrics">Metrics</TabsTrigger>
-          <TabsTrigger value="filters">Saved Filters</TabsTrigger>
+          <TabsTrigger value="metrics">
+            Metrics{" "}
+            <Badge
+              label={numMetrics + ""}
+              color="violet"
+              ml="1"
+              radius="full"
+            />
+          </TabsTrigger>
+          <TabsTrigger value="filters">
+            Saved Filters{" "}
+            <Badge
+              label={numFilters + ""}
+              color="violet"
+              ml="1"
+              radius="full"
+            />
+          </TabsTrigger>
         </TabsList>
 
         <Box p="4">
