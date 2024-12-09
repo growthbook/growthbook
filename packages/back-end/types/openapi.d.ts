@@ -1421,6 +1421,8 @@ export interface components {
       numerator: {
         factTableId: string;
         column: string;
+        /** @enum {string} */
+        aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
       };
@@ -6555,6 +6557,8 @@ export interface operations {
                 numerator: {
                   factTableId: string;
                   column: string;
+                  /** @enum {string} */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
                 };
@@ -6649,6 +6653,11 @@ export interface operations {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -6657,6 +6666,11 @@ export interface operations {
             factTableId: string;
             /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -6747,6 +6761,8 @@ export interface operations {
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
@@ -6843,6 +6859,8 @@ export interface operations {
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
@@ -6936,14 +6954,24 @@ export interface operations {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -7023,6 +7051,8 @@ export interface operations {
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
@@ -7179,6 +7209,11 @@ export interface operations {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column?: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
                 };
@@ -7187,6 +7222,11 @@ export interface operations {
                   factTableId: string;
                   /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
                 };

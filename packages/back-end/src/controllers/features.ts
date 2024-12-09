@@ -1770,6 +1770,7 @@ export async function putFeature(
     "description",
     "project",
     "owner",
+    "customFields",
   ];
 
   if (
