@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -23,6 +24,12 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -320,32 +327,40 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      <div className="row mb-4">
-        <div className="col d-flex flex-column">
-          <h3>Row Filters</h3>
-          <div className="mb-1">
-            Row Filters let you write SQL to limit the rows that are included in
-            a metric. Save commonly used filters here and resue them across
-            multiple metrics.
-          </div>
-          <div className="appbox p-3 flex-1">
-            <FactFilterList factTable={factTable} />
-          </div>
-        </div>
-      </div>
+      <Tabs defaultValue="metrics">
+        <TabsList>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="filters">Saved Filters</TabsTrigger>
+        </TabsList>
 
-      <h3>Metrics</h3>
-      <div className="mb-5">
-        <div className="mb-1">
-          Metrics are built on top of Columns and Filters. These are what you
-          use as Goals and Guardrails in experiments. This page only shows
-          metrics tied to this Fact Table.{" "}
-          <Link href="/metrics">View all Metrics</Link>
-        </div>
-        <div className="appbox p-3">
-          <FactMetricList factTable={factTable} />
-        </div>
-      </div>
+        <Box p="4">
+          <TabsContent value="metrics">
+            <h3>Metrics</h3>
+            <div className="mb-5">
+              <div className="mb-1">
+                Metrics are built on top of Columns and Filters. These are what
+                you use as Goals and Guardrails in experiments. This page only
+                shows metrics tied to this Fact Table.{" "}
+                <Link href="/metrics">View all Metrics</Link>
+              </div>
+              <div className="appbox p-3">
+                <FactMetricList factTable={factTable} />
+              </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="filters">
+            <h3>Row Filters</h3>
+            <div className="mb-1">
+              Row Filters let you write SQL to limit the rows that are included
+              in a metric. Save commonly used filters here and resue them across
+              multiple metrics.
+            </div>
+            <div className="appbox p-3 flex-1">
+              <FactFilterList factTable={factTable} />
+            </div>
+          </TabsContent>
+        </Box>
+      </Tabs>
     </div>
   );
 }
