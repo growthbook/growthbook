@@ -8,6 +8,7 @@ import Tooltip from "./Tooltip/Tooltip";
 export interface Props {
   resourceType:
     | "metric"
+    | "segment"
     | "data source"
     | "environment"
     | "member"
