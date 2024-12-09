@@ -117,7 +117,7 @@ export default class Presto extends SqlIntegration {
     return `CAST(${col} AS DOUBLE)`;
   }
   hasCountDistinctHLL(): boolean {
-    return false;
+    return true;
   }
   hllAggregate(col: string): string {
     return `APPROX_SET(${col})`;

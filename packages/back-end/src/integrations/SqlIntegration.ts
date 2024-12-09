@@ -4837,10 +4837,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         if (willReaggregate) {
           return this.hllAggregate(valueColumn);
         }
-        // TODO test null
         return this.hllCardinality(this.hllAggregate(valueColumn));
       } else if (columnRef?.aggregation === "max") {
-        return `MAX(COALESCE(${valueColumn}, 0))`;
+        return `COALESCE(MAX(${valueColumn}), 0)`;
       } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
       }

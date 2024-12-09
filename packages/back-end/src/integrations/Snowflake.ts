@@ -44,7 +44,7 @@ export default class Snowflake extends SqlIntegration {
     return `CAST(${col} AS DOUBLE)`;
   }
   hasCountDistinctHLL(): boolean {
-    return false;
+    return true;
   }
   hllAggregate(col: string): string {
     return `HLL_ACCUMULATE(${col})`;
