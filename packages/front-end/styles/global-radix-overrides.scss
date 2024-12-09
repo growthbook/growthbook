@@ -270,3 +270,15 @@
     color: var(--color-text-high);
   }
 }
+
+// Custom larger size
+.rt-BaseTabList:where(.rt-r-size-3) {
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-2);
+  letter-spacing: var(--letter-spacing-3);
+  --tab-height: var(--space-7);
+  --tab-padding-x: var(--space-2);
+  --tab-inner-padding-x: var(--space-2);
+  --tab-inner-padding-y: var(--space-1);
+  --tab-inner-border-radius: var(--radius-2);
+}

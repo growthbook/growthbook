@@ -5,7 +5,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { FaHome, FaExclamationTriangle, FaCode } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { ImBlocked } from "react-icons/im";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -19,8 +19,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -30,6 +28,7 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 
 export default function FeaturesHeader({
   feature,
@@ -95,8 +94,8 @@ export default function FeaturesHeader({
 
   return (
     <>
-      <div className="features-header bg-white pt-3 px-4 border-bottom">
-        <div className="pagecontents mx-auto px-3">
+      <div className="features-header pt-3 px-4">
+        <div className="pagecontents mx-auto">
           {projectId ===
             getDemoDatasourceProjectIdForOrganization(organization.id) && (
             <div className="alert alert-info mb-3 d-flex align-items-center">
@@ -387,34 +386,12 @@ export default function FeaturesHeader({
               </div>
             )}
           </div>
-          <div id="feature-page-tabs">
-            <TabButtons className="mb-0 pb-0">
-              <TabButton
-                active={tab === "overview"}
-                display={
-                  <>
-                    <FaHome /> Overview
-                  </>
-                }
-                anchor="overview"
-                onClick={() => setTab("overview")}
-                newStyle={false}
-                activeClassName="active-tab"
-              />
-              <TabButton
-                active={tab === "stats"}
-                display={
-                  <>
-                    <FaCode /> Code Refs
-                  </>
-                }
-                anchor="stats"
-                onClick={() => setTab("stats")}
-                newStyle={false}
-                activeClassName="active-tab"
-              />
-            </TabButtons>
-          </div>
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList size="3">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="stats">Code Refs</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
       {auditModal && (
