@@ -34,7 +34,6 @@ import {
   TabsContent,
 } from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
-import useURLHash from "@/hooks/useURLHash";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -50,8 +49,7 @@ export default function DesignSystemPage() {
   const [sliderVal, setSliderVal] = useState(10);
   const [stepperStep, setStepperStep] = useState(0);
   const [selectValue, setSelectValue] = useState("carrot");
-  const [activeTab, setActiveTab] = useState("tab1");
-  const [tabInUrlHash, setUrlHash] = useURLHash(["tab1", "tab2"]);
+  const [activeControlledTab, setActiveControlledTab] = useState("tab1");
 
   return (
     <div className="pagecontents container-fluid">
@@ -667,14 +665,7 @@ export default function DesignSystemPage() {
         <Flex direction="column" gap="3">
           <Box>
             Uncontrolled tabs with persistance in the URL
-            <Tabs
-              value={tabInUrlHash ?? "tab1"}
-              onValueChange={(tab) => {
-                if (tab === "tab1" || tab === "tab2") {
-                  setUrlHash(tab);
-                }
-              }}
-            >
+            <Tabs defaultValue="tab1">
               <TabsList>
                 <TabsTrigger value="tab1">
                   <PiHourglassMedium style={{ color: "var(--accent-10)" }} />{" "}
@@ -693,7 +684,10 @@ export default function DesignSystemPage() {
           <Box>
             Tabs are lazy loaded by default, but you can use forceMount to
             disable this behavior (see console for output).
-            <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
+            <Tabs
+              value={activeControlledTab}
+              onValueChange={(tab) => setActiveControlledTab(tab)}
+            >
               <TabsList>
                 <TabsTrigger value="tab1">Tab 1</TabsTrigger>
                 <TabsTrigger value="tab2">Tab 2</TabsTrigger>
