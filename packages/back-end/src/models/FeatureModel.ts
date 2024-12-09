@@ -133,6 +133,7 @@ const featureSchema = new mongoose.Schema({
   linkedExperiments: [String],
   jsonSchema: {},
   neverStale: Boolean,
+  customFields: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });

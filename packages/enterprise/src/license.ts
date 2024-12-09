@@ -35,6 +35,7 @@ export type CommercialFeature =
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
+  | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
   | "sequential-testing"
@@ -205,6 +206,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "audit-logging",
     "encrypt-features-endpoint",
     "schedule-feature-flag",
+    "custom-metadata",
     "override-metrics",
     "regression-adjustment",
     "sequential-testing",
