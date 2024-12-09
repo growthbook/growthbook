@@ -36,7 +36,7 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
       return (
         //MKTODO: Can I revise this to reduce repetition?
         <a
-          className={`${styles.redirectUrl} text-dark d-flex align-items-center`}
+          className={`${styles.redirectUrl}`}
           href={url2}
           target="_blank"
           rel="noreferrer"
@@ -48,17 +48,12 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
               return <span key={index}>{part.value}</span>;
             }
           })}
-          <FaExternalLinkAlt className="ml-1" />
+          <FaExternalLinkAlt className="ml-2" />
         </a>
       );
     } else
       return (
-        <a
-          className="d-flex align-items-center text-dark"
-          href={url2}
-          target="_blank"
-          rel="noreferrer"
-        >
+        <a href={url2} target="_blank" rel="noreferrer">
           {url2}
           <FaExternalLinkAlt className="ml-1" />
         </a>
@@ -97,10 +92,10 @@ const Redirect = ({
             href={originUrl}
             target="_blank"
             rel="noreferrer"
-            className="btn btn-link link-purple pl-0 d-flex align-items-center"
+            className="btn btn-link link-purple pl-0 text-left text-break"
           >
             {originUrl}
-            <FaExternalLinkAlt className="ml-1" />
+            <FaExternalLinkAlt className="ml-2" />
           </a>
           {canEdit && (
             <div>
@@ -130,7 +125,10 @@ const Redirect = ({
         <hr />
         <h5>
           Redirects
-          <Tooltip body="Test" className="pl-1" />
+          <Tooltip
+            body="Some links may be gated and can not be previewed"
+            className="pl-1"
+          />
         </h5>
         {experiment.variations.map((v, i) => (
           <div
@@ -154,10 +152,12 @@ const Redirect = ({
               <div className="col pl-0">
                 <h5 className="mb-0">{v.name}</h5>
                 {urlRedirect.destinationURLs[i]?.url ? (
-                  <UrlDifferenceRenderer
-                    url1={urlRedirect.urlPattern}
-                    url2={urlRedirect.destinationURLs[i].url}
-                  />
+                  <div className="text-dark text-break">
+                    <UrlDifferenceRenderer
+                      url1={urlRedirect.urlPattern}
+                      url2={urlRedirect.destinationURLs[i].url}
+                    />
+                  </div>
                 ) : (
                   <i className="text-muted">No redirect</i>
                 )}
