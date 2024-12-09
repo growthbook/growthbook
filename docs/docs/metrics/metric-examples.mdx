@@ -78,6 +78,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Form Submissions",
+  description: "Percent of users who submit a form",
   metricType:"proportion",
   numerator: {
     inlineFilters: {event_name:["form_submit"]}
@@ -92,6 +93,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Checkout Page Views",
+  description: "Percent of users who visit the checkout page",
   metricType:"proportion",
   numerator: {
     inlineFilters: {event_name:["page_view"], page_path:["/checkout"]}
@@ -106,6 +108,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Page Views per User",
+  description: "Average number of page views per user",
   metricType:"mean",
   numerator: {
     column:"$$count",
@@ -127,6 +130,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Checkout Completion Rate",
+  description: "Of users who start checkout, what percent complete it",
   metricType:"ratio",
   numerator: {
     column: "$$distinctUsers",
@@ -179,6 +183,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Users who Purchased",
+  description: "Percent of users who made a purchase",
   metricType:"proportion",
   numerator: {}
 }}/>
@@ -191,6 +196,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Users who Purchased Multiple Times",
+  description: "Percent of users who made more than one purchase",
   metricType:"proportion",
   numerator: {
     aggregateFilterColumn: "$$count",
@@ -205,6 +211,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Orders per User",
+  description: "Average number of orders per user",
   metricType:"mean",
   numerator: {
     column:"$$count"
@@ -218,6 +225,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Revenue per User",
+  description: "Average revenue per user",
   metricType:"mean",
   numerator: {
     column:"grand_total"
@@ -232,6 +240,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Average Items per Order",
+  description: "Average number of items per order",
   metricType:"ratio",
   numerator: {
     column:"num_items"
@@ -249,6 +258,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Users Without Orders",
+  description: "Percent of users who have not made a purchase",
   metricType:"proportion",
   numerator: {
     aggregateFilterColumn: "$$count",
@@ -265,6 +275,7 @@ WHERE
 
 <AddMetricButton data={{
   name: "Percent of Orders with Free Shipping",
+  description: "Percent of orders that have free shipping",
   metricType:"ratio",
   numerator: {
     inlineFilters: {shipping_type:["free"]},
@@ -326,6 +337,7 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 
 <AddMetricButton data={{
   name: "High Engagement Users",
+  description: "Percent of users with more than 100 interactions",
   metricType:"proportion",
   numerator: {
     aggregateFilterColumn: "interactions",
@@ -340,6 +352,7 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 
 <AddMetricButton data={{
   name: "Interactions per User",
+  description: "Average number of interactions per user",
   metricType:"mean",
   numerator: {
     column:"interactions"
@@ -355,6 +368,7 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 
 <AddMetricButton data={{
   name: "P90 Likes per User",
+  description: "90th percentile of likes per user",
   metricType:"quantile",
   numerator: {
     column:"likes"
@@ -374,6 +388,7 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 
 <AddMetricButton data={{
   name: "Comment-to-Like Ratio",
+  description: "Ratio of comments to likes",
   metricType:"ratio",
   numerator: {
     column:"comments"

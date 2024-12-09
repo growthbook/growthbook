@@ -994,7 +994,7 @@ function FieldMappingModal({
   return (
     <Modal
       close={close}
-      header="Create Fact Metric"
+      header="Create Fact Metric From Template"
       trackingEventModalType=""
       open={true}
       cta="Preview Metric"
@@ -1047,8 +1047,17 @@ function FieldMappingModal({
         onSave(data);
       }}
     >
-      <h3>Create Metric From Template</h3>
-      <p>This template requires the following configuration:</p>
+      <div className="appbox bg-light p-3">
+        <div>
+          <strong>Metric Name:</strong> {factMetric.name}
+        </div>
+        {factMetric.description ? (
+          <div className="mt-2">
+            <strong>Description:</strong> {factMetric.description}
+          </div>
+        ) : null}
+      </div>
+      <p>Which fact table do you want to add this metric to?</p>
       <SelectField
         label={"Fact Table"}
         value={numerator?.factTableId || ""}
@@ -1115,6 +1124,15 @@ function FieldMappingModal({
       />
       {factTable && (
         <>
+          {numericColumns.size > 0 || stringColumns.size > 0 ? (
+            <>
+              <hr />
+              <p>
+                The following columns are referenced in this metric. Select how
+                to map them to columns in your fact table.
+              </p>
+            </>
+          ) : null}
           {numericColumns.size > 0 && !numericColumnOptions.length ? (
             <Callout status="error">
               <p>
