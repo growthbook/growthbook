@@ -16,9 +16,8 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
-import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { DocLink } from "@/components/DocLink";
+import Checkbox from "../Radix/Checkbox";
 
 function validateUrl(
   urlString: string
@@ -58,35 +57,20 @@ const UrlRedirectSdkAlert = ({
         hasSDKWithRedirects ? "alert-warning" : "alert-danger"
       }`}
     >
-      <div>
-        <FaExclamationTriangle className="mr-1" />
-        {hasSDKWithRedirects ? (
-          <>
-            Some of your{" "}
-            <a href="/sdks" target="_blank">
-              SDK Connections <FaExternalLinkAlt />
-            </a>{" "}
-            in this project may not support URL redirects.
-          </>
-        ) : (
-          <>
-            None of your{" "}
-            <a href="/sdks" className="text-normal" target="_blank">
-              SDK Connections <FaExternalLinkAlt />
-            </a>{" "}
-            in this project support URL redirects. Either upgrade your SDKs or
-            add a supported SDK.
-          </>
-        )}{" "}
-        <Tooltip
-          body={
-            <>
-              URL Redirects are only supported in the following SDKs and
-              versions:
-              <MinSDKVersionsList capability="redirects" />
-            </>
-          }
-        />
+      <div className="d-flex align-items-center">
+        <FaExclamationTriangle className="mr-2" />
+        {hasSDKWithRedirects
+          ? "Some of your SDK Connections in this Project may not support URL Redirects."
+          : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
+        <a
+          href="/sdks"
+          className="text-dark pl-1 d-flex align-items-center text-decoration-none"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="underline font-weight-bold">View SDKs</span>
+          <FaExternalLinkAlt className="ml-1" />
+        </a>
       </div>
     </div>
   );
@@ -98,9 +82,8 @@ const UrlRedirectModal: FC<{
   urlRedirect?: URLRedirectInterface;
   mutate: () => void;
   close: () => void;
-  cta?: string;
   source?: string;
-}> = ({ mode, experiment, urlRedirect, mutate, close, cta, source }) => {
+}> = ({ mode, experiment, urlRedirect, mutate, close, source }) => {
   const { apiCall } = useAuth();
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -113,7 +96,7 @@ const UrlRedirectModal: FC<{
     defaultValues: {
       originUrl: urlRedirect?.urlPattern ?? "",
       destinationUrls: urlRedirect?.destinationURLs?.map((r) => r.url) ?? [""],
-      persistQueryString: urlRedirect?.persistQueryString || true,
+      persistQueryString: urlRedirect?.persistQueryString ? true : false,
       circularDependencyCheck: true,
     },
   });
@@ -186,16 +169,9 @@ const UrlRedirectModal: FC<{
       }
       close={close}
       size="lg"
-      header={
-        <div className="mx-3">
-          <h3>{mode === "add" ? "Add" : "Modify"} URL Redirects</h3>
-          <p className="mb-0" style={{ fontWeight: 400 }}>
-            Send visitors to any URL when landing on another URL.
-          </p>
-        </div>
-      }
+      header={`
+       ${mode === "add" ? "Add" : "Edit"} URL Redirects`}
       submit={onSubmit}
-      cta={cta}
       ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3">
@@ -292,23 +268,18 @@ const UrlRedirectModal: FC<{
                     {i}
                   </span>{" "}
                   <h5>{v.name}</h5>
-                  <div className="ml-auto">
-                    <Toggle
-                      id={`${v.name}_toggle_create`}
-                      label={"Redirect"}
-                      className="mr-3"
+                  <div className="ml-auto d-flex align-items-center">
+                    <Checkbox
+                      label="Redirect"
+                      disabled={i === 0}
+                      disabledMessage={
+                        i === 0 ? "You can not edit the control" : ""
+                      }
                       value={redirectToggle[i]}
-                      setValue={(enabled) => handleRedirectToggle(i, enabled)}
-                      type="toggle"
+                      setValue={() =>
+                        handleRedirectToggle(i, !redirectToggle[i])
+                      }
                     />
-                    <label
-                      htmlFor={`${v.name}_toggle_redirect`}
-                      className={clsx("mr-2", {
-                        "text-dark": redirectToggle[i],
-                      })}
-                    >
-                      Redirect
-                    </label>
                   </div>
                 </div>
 
@@ -365,36 +336,34 @@ const UrlRedirectModal: FC<{
         </div>
         <hr className="mt-4" />
         <div className="d-flex align-items-baseline my-1">
-          <input
-            type="checkbox"
-            {...form.register("persistQueryString")}
-            id={"toggle-persistQueryString"}
+          <Checkbox
+            label={
+              <>
+                <label>Persist Query String</label>
+                <p className="text-muted">
+                  Keep this enabled to allow users’ queries, such as search
+                  terms, to carry over when redirecting.
+                </p>
+              </>
+            }
+            value={form.watch("persistQueryString")}
+            setValue={(v) => form.setValue("persistQueryString", v === true)}
           />
-          <label
-            htmlFor="toggle-persistQueryString"
-            className="text-muted ml-2"
-          >
-            <b>Persist Query String</b>
-            <p>
-              Keep this enabled to allow users’ queries, such as search terms,
-              to carry over when redirecting.
-            </p>
-          </label>
-          <input
-            type="checkbox"
-            {...form.register("circularDependencyCheck")}
-            id={"toggle-circularDependencyCheck"}
+          <Checkbox
+            label={
+              <>
+                <label>Circular Dependency Check</label>
+                <p className="text-muted">
+                  Keep this enabled to make sure your redirect does not conflict
+                  with any existing redirects.
+                </p>
+              </>
+            }
+            value={form.watch("circularDependencyCheck")}
+            setValue={(v) =>
+              form.setValue("circularDependencyCheck", v === true)
+            }
           />
-          <label
-            htmlFor="toggle-circularDependencyCheck"
-            className="text-muted ml-2"
-          >
-            <b>Circular Dependency Check</b>
-            <p>
-              Keep this enabled to make sure your redirect does not conflict
-              with any existing redirects
-            </p>
-          </label>
         </div>
       </div>
     </Modal>
