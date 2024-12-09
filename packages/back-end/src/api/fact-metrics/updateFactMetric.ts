@@ -1,6 +1,7 @@
 import z from "zod";
 import {
   FactMetricInterface,
+  FactTableInterface,
   UpdateFactMetricProps,
 } from "back-end/types/fact-table";
 import { UpdateFactMetricResponse } from "back-end/types/openapi";
@@ -13,7 +14,7 @@ export async function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>,
   factMetric: FactMetricInterface,
   getFactTable: (id: string) => Promise<FactTableInterface | null>
-): UpdateFactMetricProps {
+): Promise<UpdateFactMetricProps> {
   const {
     numerator,
     denominator,
