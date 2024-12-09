@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -64,11 +65,31 @@ export function Tabs({
   );
 }
 
+type TabsListProps = Omit<
+  React.ComponentProps<typeof RadixTabs.List>,
+  "size"
+> & {
+  size?: "1" | "2" | "3";
+};
+
 export function TabsList({
   children,
+  size = "2",
+  className,
   ...props
-}: React.ComponentProps<typeof RadixTabs.List>) {
-  return <RadixTabs.List {...props}>{children}</RadixTabs.List>;
+}: TabsListProps) {
+  const sizeValue = size === "3" ? "2" : size;
+  const classNameValue = size === "3" ? "rt-r-size-3" : "";
+
+  return (
+    <RadixTabs.List
+      className={clsx(classNameValue, className)}
+      size={sizeValue}
+      {...props}
+    >
+      {children}
+    </RadixTabs.List>
+  );
 }
 
 export function TabsTrigger({
