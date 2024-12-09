@@ -17,6 +17,7 @@ export const segmentValidator = z
     sql: z.string().optional(),
     factTableId: z.string().optional(),
     filters: z.array(z.string()).optional(),
+    projects: z.array(z.string()).optional(),
   })
   .strict();
 

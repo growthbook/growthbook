@@ -136,6 +136,7 @@ export default function ReportAnalysisSettingsBar({
               model={snapshot}
               cancelEndpoint={`/report/${report.id}/cancel`}
               color="outline-primary"
+              disabled={settingsOpen}
               useRadixButton={true}
               onSubmit={async () => {
                 try {

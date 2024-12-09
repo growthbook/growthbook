@@ -103,6 +103,7 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
+import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -422,6 +423,8 @@ app.use("/archetype", ArchetypeRouter);
 
 app.use("/attribute", AttributeRouter);
 
+app.use("/custom-fields", customFieldsRouter);
+
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
 app.post("/ideas", ideasController.postIdeas);
@@ -651,6 +654,7 @@ app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule
 );
+app.post("/features/eval", featuresController.postFeaturesEvaluate);
 app.post("/feature/:id/:version/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 app.post(

@@ -69,6 +69,7 @@ const RunQueriesButton: FC<{
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
   onSubmit?: () => void | Promise<void>;
+  disabled?: boolean;
   useRadixButton?: boolean;
 }> = ({
   cta = "Run Queries",
@@ -81,6 +82,7 @@ const RunQueriesButton: FC<{
   position = "right",
   resetFilters,
   onSubmit,
+  disabled,
   useRadixButton,
 }) => {
   const { apiCall } = useAuth();
@@ -175,7 +177,7 @@ const RunQueriesButton: FC<{
             <Button
               variant={"outline"}
               size="sm"
-              disabled={status === "running"}
+              disabled={status === "running" || disabled}
               type="button"
               onClick={async () => {
                 await resetFilters?.();
@@ -192,7 +194,7 @@ const RunQueriesButton: FC<{
               className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
                 disabled: status === "running",
               })}
-              disabled={status === "running"}
+              disabled={status === "running" || disabled}
               type="submit"
               onClick={async () => {
                 await resetFilters?.();

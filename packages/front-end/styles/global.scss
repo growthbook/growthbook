@@ -579,6 +579,9 @@ pre {
 .main.bandit {
   .experiment-header {
     margin: -4px -8px 0;
+    .border {
+      border-bottom: 1px solid var(--border-color-200);
+    }
   }
   .experiment-tabs {
     top: 55px;
@@ -1226,7 +1229,7 @@ main.main.r {
     padding: 0 40px;
   }
 }
-.modal {
+.modal, .drawer {
   label:not(.rt-Text) {
     color: var(--text-color-main);
     font-weight: 600;

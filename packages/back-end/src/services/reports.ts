@@ -55,7 +55,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
-import {getReportById, updateReport} from "back-end/src/models/ReportModel";
+import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -320,7 +320,8 @@ export async function createReportSnapshot({
     project: project ?? undefined,
     experiment: experiment ?? undefined,
   });
-  const statsEngine = report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
+  const statsEngine =
+    report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
 
   const metricGroups = await context.models.metricGroups.getAll();
   const metricIds = getAllMetricIdsFromExperiment(
@@ -408,7 +409,10 @@ export async function createReportSnapshot({
     snapshotData.health.traffic.dimension = {};
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data: snapshotData, context });
+  const snapshot = await createExperimentSnapshotModel({
+    data: snapshotData,
+    context,
+  });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 

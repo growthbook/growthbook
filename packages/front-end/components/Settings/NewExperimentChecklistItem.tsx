@@ -1,12 +1,20 @@
 import CreatableSelect from "react-select/creatable";
 import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
 
 type AutoChecklistOption = {
   value: string;
   label: string;
-  propertyKey: "hypothesis" | "screenshots" | "description" | "project" | "tag";
+  customFieldId?: string;
+  propertyKey?:
+    | "hypothesis"
+    | "screenshots"
+    | "description"
+    | "project"
+    | "tag"
+    | "customField";
 };
 
 export default function NewExperimentChecklistItem({
@@ -20,6 +28,7 @@ export default function NewExperimentChecklistItem({
   newTaskInput: ChecklistTask;
   setNewTaskInput: (task: ChecklistTask | undefined) => void;
 }) {
+  const { customFields } = useDefinitions();
   const autoChecklistOptions: AutoChecklistOption[] = [
     {
       value: "Add a descriptive hypothesis for this experiment",
@@ -53,6 +62,29 @@ export default function NewExperimentChecklistItem({
     setNewTaskInput(undefined);
   }
 
+  const customChecklistOptions: AutoChecklistOption[] = customFields.map(
+    (field) => ({
+      value: `Add a value for "${field.name}"`,
+      label: `Add a value for "${field.name}"`,
+      customFieldId: field.id,
+      propertyKey: "customField",
+    })
+  );
+
+  const combinedChecklistOptions = [
+    ...autoChecklistOptions,
+    ...customChecklistOptions,
+  ];
+
+  const newTaskValues: AutoChecklistOption | undefined = newTaskInput.task
+    ? {
+        label: newTaskInput.task,
+        value: newTaskInput.task,
+        customFieldId: newTaskInput?.customFieldId ?? "",
+        propertyKey: newTaskInput.propertyKey ?? undefined,
+      }
+    : undefined;
+
   return (
     <div className="pt-5 pb-2">
       <h4>New Task</h4>
@@ -60,7 +92,7 @@ export default function NewExperimentChecklistItem({
         <label>Task</label>
         <CreatableSelect
           className="pb-3"
-          options={autoChecklistOptions.filter((option) => {
+          options={combinedChecklistOptions.filter((option) => {
             return !experimentLaunchChecklist.some(
               (index) => index.task === option.value
             );
@@ -70,6 +102,7 @@ export default function NewExperimentChecklistItem({
             setNewTaskInput({
               task: option.value,
               completionType: "auto",
+              customFieldId: option?.customFieldId ?? "",
               propertyKey: option.propertyKey,
             });
           }}
@@ -82,15 +115,7 @@ export default function NewExperimentChecklistItem({
           noOptionsMessage={() =>
             "No more pre-defined tasks available. Start typing to create a new task"
           }
-          value={
-            newTaskInput.task
-              ? {
-                  label: newTaskInput.task,
-                  value: newTaskInput.task,
-                  propertyKey: newTaskInput.propertyKey,
-                }
-              : null
-          }
+          value={newTaskValues}
           {...ReactSelectProps}
         />
         {newTaskInput.task && newTaskInput.completionType === "manual" ? (

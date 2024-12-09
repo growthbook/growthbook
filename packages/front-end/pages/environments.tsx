@@ -17,6 +17,7 @@ import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
+import Checkbox from "@/components/Radix/Checkbox";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -39,6 +40,7 @@ const EnvironmentsPage: FC = () => {
   }, [sdkConnectionData]);
 
   const [showConnections, setShowConnections] = useState<number | null>(null);
+  const [deleteAssociatedRules, setDeleteAssociatedRules] = useState(false);
 
   const { refreshOrganization } = useUser();
   // const permissions = usePermissions();
@@ -268,7 +270,25 @@ const EnvironmentsPage: FC = () => {
                           }
                         >
                           <DeleteButton
-                            deleteMessage="Are you you want to delete this environment?"
+                            deleteMessage={
+                              <>
+                                <p>
+                                  Are you sure you want to delete this
+                                  environment?
+                                </p>
+                                <div>
+                                  <Checkbox
+                                    value={deleteAssociatedRules}
+                                    weight="regular"
+                                    setValue={(v) =>
+                                      setDeleteAssociatedRules(v === true)
+                                    }
+                                    label="Also delete feature rules associated with this
+                                  environment"
+                                  />
+                                </div>
+                              </>
+                            }
                             displayName={e.id}
                             className="dropdown-item text-danger"
                             text="Delete"
@@ -282,8 +302,10 @@ const EnvironmentsPage: FC = () => {
                                       (env) => env.id !== e.id
                                     ),
                                   },
+                                  removeAssociatedFeatureRules: deleteAssociatedRules,
                                 }),
                               });
+                              setDeleteAssociatedRules(false);
                               refreshOrganization();
                             }}
                             disabled={numConnections > 0}

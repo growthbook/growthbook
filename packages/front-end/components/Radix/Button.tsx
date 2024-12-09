@@ -3,7 +3,7 @@ import { ForwardedRef, forwardRef, ReactNode, useState } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 
-export type Color = "violet" | "red";
+export type Color = "violet" | "red" | "gray";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 

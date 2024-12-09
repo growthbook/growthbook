@@ -120,6 +120,11 @@ all the meta-information around a feature or experiment that might help contextu
 and help capture the institutional knowledge that your program generates. This is also very helpful when
 new members join your team, so they don’t just suggest ideas you’ve run many times already.
 
+By default, GrowthBook has fields for a description, hypothesis, and tags. The description is a free-form
+text field, and meant to capture the broader context of the feature or experiment. The hypothesis is a
+structured field that is meant to capture the specific hypothesis you are testing with the experiment.
+The tags are a way to categorize the feature or experiment. You can add multiple tags to each item.
+
 For experiments, you should capture the original idea, any screenshots of similar products, and, most
 importantly, capture images/screenshots of the control and variants for the experiment. Quite often,
 someone will suggest an idea you’ve run previously. In these cases, it is vital to be able to find
@@ -134,9 +139,22 @@ The first is to make it super easy to add documentation directly in the platform
 for the experiment. Secondly, we added launch checklists, which can require that certain files be filled
 before your team is able to start an experiment.
 
+### Custom Fields
+
+Enterprise users can add custom fields to features and experiments. For example, these custom fields can be
+used to require links to Jira tickets, or to capture additional information that is important to your process
+or organization. Custom fields can be added from the Settings → Custom Fields page. Custom fields can be set to
+required or optional, and scoped to specific projects. Currently, custom fields has support for URL, text,
+textarea (larger text), markdown, number, enum, multiselect, date, and boolean types.
+
+![Custom Fields Page](/images/using/custom-fields-page.png)
+
 ### Custom Markdown
 
-Enterprise users can inject custom markdown content into key pages of the GrowthBook app. This feature allows you to provide organization-specific guidance on processes for setting up experiments and features. Additionally, we've made certain Handlebars variables available on each page. This enables you to use [Handlebars templates](https://handlebarsjs.com/guide/#simple-expressions) to dynamically customize your messaging based on context.
+Enterprise users can inject custom markdown content into key pages of the GrowthBook app. This feature
+allows you to provide organization-specific guidance on processes for setting up experiments and features.
+Additionally, we've made certain Handlebars variables available on each page. This enables you to use
+[Handlebars templates](https://handlebarsjs.com/guide/#simple-expressions) to dynamically customize your messaging based on context.
 
 For example, writing
 

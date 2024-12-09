@@ -11,7 +11,7 @@ import type {
   GrowthBook,
   InitOptions,
   InitSyncOptions,
-  GrowthBookMultiUser,
+  GrowthBookClient,
 } from ".";
 
 type CacheEntry = {
@@ -108,7 +108,7 @@ try {
 // Global state
 const subscribedInstances: Map<
   string,
-  Set<GrowthBook | GrowthBookMultiUser>
+  Set<GrowthBook | GrowthBookClient>
 > = new Map();
 let cacheInitialized = false;
 const cache: Map<string, CacheEntry> = new Map();
@@ -143,7 +143,7 @@ export async function refreshFeatures({
   allowStale,
   backgroundSync,
 }: {
-  instance: GrowthBook | GrowthBookMultiUser;
+  instance: GrowthBook | GrowthBookClient;
   timeout?: number;
   skipCache?: boolean;
   allowStale?: boolean;
@@ -162,13 +162,13 @@ export async function refreshFeatures({
 }
 
 // Subscribe a GrowthBook instance to feature changes
-function subscribe(instance: GrowthBook | GrowthBookMultiUser): void {
+function subscribe(instance: GrowthBook | GrowthBookClient): void {
   const key = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
 }
-export function unsubscribe(instance: GrowthBook | GrowthBookMultiUser): void {
+export function unsubscribe(instance: GrowthBook | GrowthBookClient): void {
   subscribedInstances.forEach((s) => s.delete(instance));
 }
 
@@ -209,7 +209,7 @@ async function fetchFeaturesWithCache({
   timeout,
   skipCache,
 }: {
-  instance: GrowthBook | GrowthBookMultiUser;
+  instance: GrowthBook | GrowthBookClient;
   allowStale?: boolean;
   timeout?: number;
   skipCache?: boolean;
@@ -255,12 +255,12 @@ async function fetchFeaturesWithCache({
   }
 }
 
-function getKey(instance: GrowthBook | GrowthBookMultiUser): string {
+function getKey(instance: GrowthBook | GrowthBookClient): string {
   const [apiHost, clientKey] = instance.getApiInfo();
   return `${apiHost}||${clientKey}`;
 }
 
-function getCacheKey(instance: GrowthBook | GrowthBookMultiUser): string {
+function getCacheKey(instance: GrowthBook | GrowthBookClient): string {
   const baseKey = getKey(instance);
   if (!("isRemoteEval" in instance) || !instance.isRemoteEval()) return baseKey;
 
@@ -371,7 +371,7 @@ function onNewFeatureData(
 }
 
 async function refreshInstance(
-  instance: GrowthBook | GrowthBookMultiUser,
+  instance: GrowthBook | GrowthBookClient,
   data: FeatureApiResponse | null
 ): Promise<void> {
   await instance.setPayload(data || instance.getPayload());
@@ -379,7 +379,7 @@ async function refreshInstance(
 
 // Fetch the features payload from helper function or from in-mem injected payload
 async function fetchFeatures(
-  instance: GrowthBook | GrowthBookMultiUser
+  instance: GrowthBook | GrowthBookClient
 ): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
@@ -447,7 +447,7 @@ async function fetchFeatures(
 
 // Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
 function startAutoRefresh(
-  instance: GrowthBook | GrowthBookMultiUser,
+  instance: GrowthBook | GrowthBookClient,
   forceSSE: boolean = false
 ): void {
   const key = getKey(instance);
@@ -563,7 +563,7 @@ function clearAutoRefresh() {
 }
 
 export function startStreaming(
-  instance: GrowthBook | GrowthBookMultiUser,
+  instance: GrowthBook | GrowthBookClient,
   options: InitOptions | InitSyncOptions
 ) {
   if (options.streaming) {

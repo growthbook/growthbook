@@ -48,7 +48,7 @@ export default function ExperimentMetricsSelector({
   return (
     <>
       {setGoalMetrics !== undefined && (
-        <div className="form-group">
+        <div className="form-group flex-1">
           <label className="font-weight-bold mb-1">
             {!forceSingleGoalMetric ? "Goal Metrics" : "Decision Metric"}
           </label>
@@ -80,7 +80,7 @@ export default function ExperimentMetricsSelector({
       )}
 
       {setSecondaryMetrics !== undefined && (
-        <div className="form-group">
+        <div className="form-group flex-1">
           {secondaryCollapsed ? (
             <a
               role="button"
@@ -116,7 +116,7 @@ export default function ExperimentMetricsSelector({
       )}
 
       {setGuardrailMetrics !== undefined && (
-        <div className="form-group">
+        <div className="form-group flex-1">
           {guardrailCollapsed ? (
             <a
               role="button"
