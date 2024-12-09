@@ -23,6 +23,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
+import Avatar from "@/components/Radix/Avatar";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
@@ -43,7 +44,6 @@ import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ProjectTagBar from "./ProjectTagBar";
 import { ExperimentTab } from ".";
-import Avatar from "@/components/Radix/Avatar";
 
 export interface Props {
   tab: ExperimentTab;
