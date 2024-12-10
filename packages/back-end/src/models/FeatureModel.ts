@@ -2,11 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import {
-  MergeResultChanges,
-  autoMerge,
-  getApiFeatureEnabledEnvs,
-} from "shared/util";
+import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -26,7 +22,6 @@ import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
   getAffectedSDKPayloadKeys,
-  getDraftRevision,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import { EventUser } from "back-end/src/events/event-types";
@@ -59,7 +54,6 @@ import {
   markRevisionAsPublished,
   updateRevision,
 } from "./FeatureRevisionModel";
-import { findOrganizationById } from "./OrganizationModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -293,12 +287,23 @@ export async function getFeaturesByIds(
 
 export async function getAllFeaturesWithRulesForEnvironment(
   context: ReqContext | ApiReqContext,
-  environment: string
+  environment: string,
+  projectsFilter: string[]
 ) {
-  const query = {
-    organization: context.org.id,
-    [`environmentSettings.${environment}`]: { $exists: true },
-  };
+  let query;
+  if (projectsFilter.length === 0) {
+    query = {
+      organization: context.org.id,
+      [`environmentSettings.${environment}`]: { $exists: true },
+    };
+  } else {
+    projectsFilter.push("");
+    query = {
+      organization: context.org.id,
+      project: { $in: projectsFilter },
+      [`environmentSettings.${environment}`]: { $exists: true },
+    };
+  }
 
   const features = (await FeatureModel.find(query)).map((m) =>
     upgradeFeatureInterface(toInterface(m))
@@ -703,48 +708,40 @@ export async function syncEnvironmentSettings(
       `Could not lookup feature history for feature ${feature.id}`
     );
   }
-  if (
-    isEqual(live.rules[sourceEnvironment], live.rules[destinationEnvironment])
-  )
-    return;
-
-  const revision = await getDraftRevision(context, feature, feature.version);
-
-  const changes = {
-    rules: revision.rules || {},
-    status: revision.status,
-  };
-  changes.rules[destinationEnvironment] = revision.rules[sourceEnvironment];
-
-  await updateRevision(
-    revision,
-    changes,
-    {
-      user: context.auditUser,
-      action: "fork environment",
-      subject: `new environment ${destinationEnvironment} from base ${sourceEnvironment}`,
-      value: JSON.stringify(changes.rules[sourceEnvironment]),
-    },
-    false
-  );
-
-  const mergeResult = autoMerge(
-    live,
-    live,
-    revision,
-    [sourceEnvironment, destinationEnvironment],
-    {}
-  );
-
-  // This shouldn't happen due to the changes being made programmatically, but it's possible that
-  // a separate change made at exactly the right time causes a conflict
-  if (!mergeResult.success) {
-    throw new Error(
-      `There was a conflict applying the changes for feature ${feature.id}`
-    );
+  // Find all revisions based on this one to propagate the forked environment
+  let featureRevisionVersions = [live.version];
+  let checkingIndex = 0;
+  while (checkingIndex < featureRevisionVersions.length) {
+    const dependentVersions = (
+      await FeatureRevisionModel.find({
+        organization: live.organization,
+        featureId: live.featureId,
+        baseVersion: featureRevisionVersions[checkingIndex],
+      })
+    ).map((r) => r.version);
+    featureRevisionVersions = featureRevisionVersions.concat(dependentVersions);
+    checkingIndex += 1;
   }
+  await FeatureRevisionModel.updateMany(
+    {
+      organization: live.organization,
+      featureId: live.featureId,
+      version: { $in: featureRevisionVersions },
+    },
+    // Copy only the live version's rules to all dependent revisions so the fork is a snapshot of
+    // the current version and isn't affected by drafts being merged in the future
+    {
+      [`rules.${destinationEnvironment}`]: live.rules[sourceEnvironment],
+    }
+  );
 
-  publishRevision(context, feature, revision, mergeResult.result);
+  await FeatureModel.updateOne(
+    { organization: feature.organization, id: feature.id },
+    {
+      [`environmentSettings.${destinationEnvironment}`]: feature
+        .environmentSettings[sourceEnvironment],
+    }
+  );
 }
 
 function setEnvironmentSettings(
@@ -969,11 +966,7 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  // Re-fetch the org as its environments may have changed since the request started,
-  // such as in the case of forking environments
-  const environments = (
-    (await findOrganizationById(context.org.id))?.settings?.environments || []
-  ).map((env) => env.id);
+  const environments = getEnvironmentIdsFromOrg(context.org);
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];

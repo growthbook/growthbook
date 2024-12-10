@@ -1,3 +1,4 @@
+import { projectListIntersection } from "shared/util";
 import { PostEnvironmentResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -8,6 +9,7 @@ import {
   getAllFeaturesWithRulesForEnvironment,
   syncEnvironmentSettings,
 } from "back-end/src/models/FeatureModel";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import { validatePayload } from "./validations";
 
 export const postForkEnvironment = createApiRequestHandler(
@@ -25,6 +27,12 @@ export const postForkEnvironment = createApiRequestHandler(
     if (!req.context.permissions.canCreateEnvironment(environment))
       req.context.permissions.throwPermissionError();
 
+    const baseEnvironment = org.settings?.environments?.find(
+      (env) => env.id === forkBase
+    );
+    if (!baseEnvironment)
+      throw new Error(`Cannot find environment ${forkBase}`);
+
     const updates: Partial<OrganizationInterface> = {
       settings: {
         ...org.settings,
@@ -34,21 +42,31 @@ export const postForkEnvironment = createApiRequestHandler(
 
     await updateOrganization(org.id, updates);
 
-    const features = await getAllFeaturesWithRulesForEnvironment(
-      req.context,
-      forkBase
+    const sharedProjects = projectListIntersection(
+      baseEnvironment.projects || [],
+      environment.projects || []
     );
 
-    await Promise.all(
-      features.map(async (f) => {
-        return syncEnvironmentSettings(
-          req.context,
-          f,
-          forkBase,
-          environment.id
-        );
-      })
-    );
+    // We only need to copy feature rules if there are projects shared between both environments
+    if (sharedProjects) {
+      const features = await getAllFeaturesWithRulesForEnvironment(
+        req.context,
+        forkBase,
+        sharedProjects
+      );
+
+      await promiseAllChunks(
+        features.map((f) => () => {
+          return syncEnvironmentSettings(
+            req.context,
+            f,
+            forkBase,
+            environment.id
+          );
+        }),
+        10
+      );
+    }
 
     await req.audit({
       event: "environment.create",
