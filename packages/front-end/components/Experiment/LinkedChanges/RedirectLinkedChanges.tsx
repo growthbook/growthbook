@@ -3,11 +3,12 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
-import styles from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Link from "@/components/Radix/Link";
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal: (boolean) => void;
@@ -33,27 +34,24 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
     const parsedUrl2 = new URL(url2);
 
     return (
-      <a
-        className={`${styles.redirectUrl}`}
-        href={url2}
-        target="_blank"
-        rel="noreferrer"
-      >
-        {parsedUrl1.hostname === parsedUrl2.hostname ? (
-          <>
-            {filtered.map((part, index) => {
-              if (part.added) {
-                return <b key={index}>{part.value}</b>;
-              } else {
-                return <span key={index}>{part.value}</span>;
-              }
-            })}
-          </>
-        ) : (
-          <>{url2}</>
-        )}
-        <FaExternalLinkAlt className="ml-2" />
-      </a>
+      <Link href={url2} color="dark" underline="none">
+        <Flex align="center" py="2">
+          {parsedUrl1.hostname === parsedUrl2.hostname ? (
+            <>
+              {filtered.map((part, index) => {
+                if (part.added) {
+                  return <b key={index}>{part.value}</b>;
+                } else {
+                  return <span key={index}>{part.value}</span>;
+                }
+              })}
+            </>
+          ) : (
+            <>{url2}</>
+          )}
+          <FaExternalLinkAlt className="ml-2" />
+        </Flex>
+      </Link>
     );
   } catch {
     console.error("Failed to parse URL to for redirect diff");
@@ -84,16 +82,18 @@ const Redirect = ({
         />
       ) : null}
       <div className="appbox p-3 mb-0">
-        <div className="d-flex justify-content-between">
-          <a
-            href={originUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-link link-purple pl-0 text-left text-break"
-          >
-            {originUrl}
-            <FaExternalLinkAlt className="ml-2" />
-          </a>
+        <Flex justify="between" align="start">
+          <Box as="div">
+            <Link href={originUrl} underline="none" weight="bold">
+              <Flex align="center" py="2">
+                {originUrl}
+                <FaExternalLinkAlt className="ml-2" />
+              </Flex>
+            </Link>
+            <Text as="span" color="gray">
+              Original URL
+            </Text>
+          </Box>
           {canEdit && (
             <div>
               <button
@@ -117,8 +117,7 @@ const Redirect = ({
               </button>
             </div>
           )}
-        </div>
-        <div className="text-muted">Original URL</div>
+        </Flex>
         <hr />
         <h5>
           Redirects

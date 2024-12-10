@@ -77,10 +77,14 @@ export default function Checkbox({
             size={getRadixSize(size)}
           />
           <Flex direction="column" gap="1">
-            <Text weight={weight} className="main-text">
+            <Text weight={weight} style={{ color: "var(--color-text-mid)" }}>
               {label}
             </Text>
-            {description && <Text>{description}</Text>}
+            {description && (
+              <Text style={{ color: "var(--color-text-mid)" }} weight="bold">
+                {description}
+              </Text>
+            )}
             {error && <HelperText status={errorLevel}>{error}</HelperText>}
           </Flex>
         </Flex>

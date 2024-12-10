@@ -7,6 +7,7 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
@@ -145,17 +146,15 @@ const UrlRedirectModal: FC<{
     >
       <div className="mx-3">
         <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
-          <div className="d-flex align-items-center">
+          <Box as="span" pr="1">
             {hasSDKWithRedirects
               ? "Some of your SDK Connections in this Project may not support URL Redirects."
               : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
-            <Link href={"/sdks"} className="pl-1">
-              <div className="font-weight-bold d-flex align-items-center">
-                View SDKs
-                <FaExternalLinkAlt className="ml-1" />
-              </div>
+            <Link href={"/sdks"} weight="bold" className="pl-2">
+              View SDKs
+              <FaExternalLinkAlt className="ml-1" />
             </Link>
-          </div>
+          </Box>
         </Callout>
 
         <div className="d-flex align-items-baseline mt-3">
@@ -317,36 +316,24 @@ const UrlRedirectModal: FC<{
           })}
         </div>
         <hr className="mt-4" />
-        <div className="d-flex align-items-baseline my-1">
+        <Flex align="baseline" my="1">
           <Checkbox
-            label={
-              <div className="pr-2">
-                <label>Persist Query String</label>
-                <p style={{ color: "var(--color-text-mid)" }}>
-                  Allow user&apos;s queries, such as search terms, to carry over
-                  when redirecting
-                </p>
-              </div>
-            }
+            label="Persist Query String"
+            description="Allow user's queries, such as search terms, to carry over
+                  when redirecting"
             value={form.watch("persistQueryString")}
             setValue={(v) => form.setValue("persistQueryString", v === true)}
           />
           <Checkbox
-            label={
-              <>
-                <label>Circular Dependency Check</label>
-                <p style={{ color: "var(--color-text-mid)" }}>
-                  Make sure redirects don&apos;t conflict with any existing
-                  redirects
-                </p>
-              </>
-            }
+            label="Circular Dependency Check"
+            description="Make sure redirects don't conflict with any existing
+                  redirects"
             value={form.watch("circularDependencyCheck")}
             setValue={(v) =>
               form.setValue("circularDependencyCheck", v === true)
             }
           />
-        </div>
+        </Flex>
       </div>
     </Modal>
   );
