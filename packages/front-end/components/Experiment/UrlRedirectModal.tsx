@@ -2,11 +2,7 @@ import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isURLTargeted } from "@growthbook/growthbook";
-import {
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-} from "react-icons/fa";
+import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import clsx from "clsx";
@@ -18,6 +14,8 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "../Radix/Checkbox";
+import Callout from "../Radix/Callout";
+import Link from "../Radix/Link";
 
 function validateUrl(
   urlString: string
@@ -45,36 +43,6 @@ function validateUrl(
     return { isValid: false, message: "Invalid URL" };
   }
 }
-
-const UrlRedirectSdkAlert = ({
-  hasSDKWithRedirects,
-}: {
-  hasSDKWithRedirects: boolean;
-}) => {
-  return (
-    <div
-      className={`mb-3 mt-2 alert ${
-        hasSDKWithRedirects ? "alert-warning" : "alert-danger"
-      }`}
-    >
-      <div className="d-flex align-items-center">
-        <FaExclamationTriangle className="mr-2" />
-        {hasSDKWithRedirects
-          ? "Some of your SDK Connections in this Project may not support URL Redirects."
-          : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
-        <a
-          href="/sdks"
-          className="text-dark pl-1 d-flex align-items-center text-decoration-none"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <span className="underline font-weight-bold">View SDKs</span>
-          <FaExternalLinkAlt className="ml-1" />
-        </a>
-      </div>
-    </div>
-  );
-};
 
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
@@ -176,7 +144,20 @@ const UrlRedirectModal: FC<{
       ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3">
-        <UrlRedirectSdkAlert hasSDKWithRedirects={hasSDKWithRedirects} />
+        <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
+          <div className="d-flex align-items-center">
+            {hasSDKWithRedirects
+              ? "Some of your SDK Connections in this Project may not support URL Redirects."
+              : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
+            <Link href={"/sdks"} className="pl-1">
+              <div className="font-weight-bold d-flex align-items-center">
+                View SDKs
+                <FaExternalLinkAlt className="ml-1" />
+              </div>
+            </Link>
+          </div>
+        </Callout>
+
         <div className="d-flex align-items-baseline mt-3">
           <h4>Original URL</h4>
           <Tooltip
@@ -339,13 +320,13 @@ const UrlRedirectModal: FC<{
         <div className="d-flex align-items-baseline my-1">
           <Checkbox
             label={
-              <>
+              <div className="pr-2">
                 <label>Persist Query String</label>
-                <p className="text-muted">
-                  Keep this enabled to allow users’ queries, such as search
-                  terms, to carry over when redirecting.
+                <p style={{ color: "var(--color-text-mid)" }}>
+                  Allow user&apos;s queries, such as search terms, to carry over
+                  when redirecting
                 </p>
-              </>
+              </div>
             }
             value={form.watch("persistQueryString")}
             setValue={(v) => form.setValue("persistQueryString", v === true)}
@@ -354,9 +335,9 @@ const UrlRedirectModal: FC<{
             label={
               <>
                 <label>Circular Dependency Check</label>
-                <p className="text-muted">
-                  Keep this enabled to make sure your redirect does not conflict
-                  with any existing redirects.
+                <p style={{ color: "var(--color-text-mid)" }}>
+                  Make sure redirects don&apos;t conflict with any existing
+                  redirects
                 </p>
               </>
             }
