@@ -2,8 +2,8 @@ import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
@@ -49,7 +49,7 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
           ) : (
             <>{url2}</>
           )}
-          <FaExternalLinkAlt className="ml-2" />
+          <PiArrowSquareOutFill className="ml-1" />
         </Flex>
       </Link>
     );
@@ -87,7 +87,7 @@ const Redirect = ({
             <Link href={originUrl} underline="none" weight="bold">
               <Flex align="center" py="2">
                 {originUrl}
-                <FaExternalLinkAlt className="ml-2" />
+                <PiArrowSquareOutFill className="ml-1" />
               </Flex>
             </Link>
             <Text as="span" color="gray">

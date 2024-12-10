@@ -2,12 +2,13 @@ import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
@@ -152,7 +153,7 @@ const UrlRedirectModal: FC<{
               : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
             <Link href={"/sdks"} weight="bold" className="pl-2">
               View SDKs
-              <FaExternalLinkAlt className="ml-1" />
+              <PiArrowSquareOutFill className="ml-1" />
             </Link>
           </Box>
         </Callout>

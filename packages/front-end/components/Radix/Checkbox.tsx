@@ -81,7 +81,7 @@ export default function Checkbox({
               {label}
             </Text>
             {description && (
-              <Text style={{ color: "var(--color-text-mid)" }} weight="bold">
+              <Text style={{ color: "var(--color-text-mid)" }}>
                 {description}
               </Text>
             )}
