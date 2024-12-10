@@ -5,7 +5,7 @@ import { useGrowthBookHost } from "./HostSelector";
 export interface MetricData {
   name: string;
   description?: string;
-  metricType: "proportion" | "mean" | "quantile" | "ratio";
+  metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
   numerator: {
     column?: string;
     inlineFilters?: Record<string, string[]>;

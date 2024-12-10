@@ -74,6 +74,7 @@ function MetricAnalysisOverview({
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
 
+  // TODO metric analysis won't work with retention?
   let numeratorText = "Metric Total: ";
   let numeratorValue: string =
     metricType === "proportion"

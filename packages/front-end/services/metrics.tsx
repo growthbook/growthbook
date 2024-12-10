@@ -295,6 +295,7 @@ export function getExperimentMetricFormatter(
   // Fact metric
   switch (metric.metricType) {
     case "proportion":
+    case "retention":
       if (formatProportionAsNumber) {
         return formatNumber;
       }

@@ -14,6 +14,7 @@ import {
   quantileMetricType,
   getColumnRefWhereClause,
   getAggregateFilters,
+  isBinomialMetric,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -4813,7 +4814,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       if (
         !hasAggregateFilter &&
-        (metric.metricType === "proportion" || column === "$$distinctUsers")
+        (isBinomialMetric(metric) || column === "$$distinctUsers")
       ) {
         return `COALESCE(MAX(${valueColumn}), 0)`;
       } else if (column === "$$count") {
@@ -4911,7 +4912,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       if (
         !hasAggregateFilter &&
-        (metric.metricType === "proportion" || column === "$$distinctUsers")
+        (isBinomialMetric(metric) || column === "$$distinctUsers")
       ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
       } else if (columnRef?.aggregation === "count distinct") {
