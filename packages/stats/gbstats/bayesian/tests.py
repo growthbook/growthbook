@@ -252,6 +252,13 @@ class MidExperimentPowerResult:
 
 
 @dataclass
+class ScalingFactorResult:
+    scaling_factor: Optional[float]
+    converged: bool = False
+    error: Optional[str] = None
+
+
+@dataclass
 class MidExperimentPowerConfig:
     power: float = 0.8
     m_prime: float = 1
@@ -294,22 +301,25 @@ class CalculateRequiredSampleSize:
                 power=self.power,
             )
         else:
-            self.scaling_factor, self.converged = self.find_scaling_factor()
-            if self.converged:
-                self.additional_n = self.pairwise_sample_size * self.scaling_factor
+            scaling_factor_result = self.find_scaling_factor()
+            if scaling_factor_result.converged and scaling_factor_result.scaling_factor:
+                self.additional_n = (
+                    self.pairwise_sample_size * scaling_factor_result.scaling_factor
+                )
                 daily_traffic = self.pairwise_sample_size / self.phase_length_days
                 self.additional_days = self.additional_n / daily_traffic
                 return MidExperimentPowerResult(
                     error=None,
                     update_message="successful",
-                    v_prime=self.sigmahat_2_delta / self.scaling_factor,
+                    v_prime=self.sigmahat_2_delta
+                    / scaling_factor_result.scaling_factor,
                     additional_n=self.additional_n,
                     additional_days=self.additional_days,
                     power=self.power,
                 )
             else:
                 return MidExperimentPowerResult(
-                    error="did not converge",
+                    error=scaling_factor_result.error,
                     update_message="unsuccessful",
                     v_prime=0,
                     additional_n=0,
@@ -332,9 +342,15 @@ class CalculateRequiredSampleSize:
     def z_star(self) -> float:
         return float(norm.ppf(1 - self.config.alpha / 2))
 
+    # maximum number of iterations for bisection search for power estimation
     @property
     def max_iters(self) -> int:
-        return 1000
+        return 100
+
+    # maximum number of iterations for finding the scaling factor
+    @property
+    def max_iters_scaling_factor(self) -> int:
+        return 25
 
     @property
     def delta_posterior(self) -> float:
@@ -387,7 +403,7 @@ class CalculateRequiredSampleSize:
         while (
             current_power < self.power
             if upper
-            else current_power > self.power and iters < 20
+            else current_power > self.power and iters < self.max_iters_scaling_factor
         ):
             scaling_factor *= multiplier
             current_power = self.calculate_power(
@@ -403,7 +419,7 @@ class CalculateRequiredSampleSize:
                 self.n_current,
             )
             iters += 1
-        if iters < 20:
+        if iters < self.max_iters_scaling_factor:
             converged = True
         return scaling_factor, converged
 
@@ -463,7 +479,7 @@ class CalculateRequiredSampleSize:
         power_neg = float(norm.cdf(num_neg / den))
         return power_pos + power_neg
 
-    def find_scaling_factor(self):
+    def find_scaling_factor(self) -> ScalingFactorResult:
         scaling_factor = 1
         current_power = self.calculate_power(
             scaling_factor,
@@ -480,15 +496,25 @@ class CalculateRequiredSampleSize:
         scaling_factor_lower, converged_lower = self.find_scaling_factor_bound(
             upper=False
         )
+        if not converged_lower:
+            return ScalingFactorResult(
+                converged=False,
+                error="could not find lower bound for scaling factor",
+                scaling_factor=None,
+            )
         scaling_factor_upper, converged_upper = self.find_scaling_factor_bound(
             upper=True
         )
-        if not converged_lower or not converged_upper:
-            return 1, False
+        if not converged_upper:
+            return ScalingFactorResult(
+                converged=False,
+                error="upper bound for scaling factor is greater than "
+                + str(2**self.max_iters),
+                scaling_factor=None,
+            )
         diff = current_power - 0.8
         n_iters = 0
-        max_iters = 10000
-        while abs(diff) > 1e-3 and n_iters < max_iters:
+        while abs(diff) > 1e-3 and n_iters < self.max_iters:
             if diff < 0:
                 scaling_factor_lower = scaling_factor
             else:
@@ -508,8 +534,11 @@ class CalculateRequiredSampleSize:
             )
             diff = current_power - 0.8
             n_iters += 1
-        converged = n_iters < max_iters
-        return scaling_factor, converged
+        converged = n_iters < self.max_iters
+        error = "" if converged else "bisection search did not converge"
+        return ScalingFactorResult(
+            converged=converged, error=error, scaling_factor=scaling_factor
+        )
 
     @staticmethod
     def marginal_variance_delta_hat_prime(
