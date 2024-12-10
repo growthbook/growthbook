@@ -115,6 +115,7 @@ ${eventUser} has logged-in.
 
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:user.login", `eventId:${eventId}`],
   };
 }
@@ -132,6 +133,7 @@ ${eventUser} has created the feature *${featureId}*.
 ${getFeatureUrlFormatted(featureId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:feature.created", `eventId:${eventId}`],
   };
 }
@@ -149,6 +151,7 @@ ${eventUser} has updated the feature *${featureId}*.
 ${getFeatureUrlFormatted(featureId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:feature.updated", `eventId:${eventId}`],
   };
 }
@@ -165,6 +168,7 @@ ${eventUser} has deleted the feature *${featureId}*.
 
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:feature.deleted", `eventId:${eventId}`],
   };
 }
@@ -186,6 +190,7 @@ ${eventUser} has created the experiment ${getExperimentUrlAndNameFormatted(
 ${getExperimentUrlFormatted(experimentId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:experiment.created", `eventId:${eventId}`],
   };
 }
@@ -207,6 +212,7 @@ ${eventUser} has updated the experiment ${getExperimentUrlAndNameFormatted(
 ${getExperimentUrlFormatted(experimentId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:experiment.updated", `eventId:${eventId}`],
   };
 }
@@ -231,6 +237,7 @@ Automatic snapshot creation for ${data.experimentName} ${
 ${getExperimentUrlFormatted(data.experimentId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+        sourceTypeName: "growthbook",
         tags: ["growthbookEvent:experiment.warning", `eventId:${eventId}`],
       };
     }
@@ -251,6 +258,7 @@ Multiple Exposures Warning for experiment ${
 ${getExperimentUrlFormatted(data.experimentId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+        sourceTypeName: "growthbook",
         tags: ["growthbookEvent:experiment.warning", `eventId:${eventId}`],
       };
     }
@@ -266,6 +274,7 @@ Traffic imbalance detected for experiment ${
 ${getExperimentUrlFormatted(data.experimentId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+        sourceTypeName: "growthbook",
         tags: ["growthbookEvent:experiment.warning", `eventId:${eventId}`],
       };
     }
@@ -319,6 +328,7 @@ ${text}
 ${getExperimentUrlFormatted(experimentId)}
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: [
       "growthbookEvent:experiment.info.significance",
       `eventId:${eventId}`,
@@ -338,6 +348,7 @@ ${eventUser} has deleted the experiment *${experimentName}*.
 
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:experiment.deleted", `eventId:${eventId}`],
   };
 }
@@ -354,6 +365,7 @@ This is a webhook test event for ${webhookId} triggered by ${eventUser}.
 
 ${getEventUrlFormatted(eventId)}
 \n %%%`,
+    sourceTypeName: "growthbook",
     tags: ["growthbookEvent:webhook.test", `eventId:${eventId}`],
   };
 }
