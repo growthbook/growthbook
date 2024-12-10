@@ -6,7 +6,10 @@ import {
   CreateFactMetricProps,
   FactMetricInterface,
 } from "back-end/types/fact-table";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -26,6 +29,21 @@ import {
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+
+export function getInitialInlineFilters(
+  factTable: FactTableInterface,
+  existingInlineFilters?: Record<string, string[]>
+) {
+  const inlineFilters = { ...existingInlineFilters };
+  factTable.columns
+    .filter((c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c))
+    .forEach((c) => {
+      if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
+        inlineFilters[c.column] = [""];
+      }
+    });
+  return inlineFilters;
+}
 
 export function getDefaultFactMetricProps({
   metricDefaults,
@@ -52,6 +70,9 @@ export function getDefaultFactMetricProps({
       factTableId: initialFactTable?.id || "",
       column: "$$count",
       filters: [],
+      inlineFilters: initialFactTable
+        ? getInitialInlineFilters(initialFactTable)
+        : {},
     },
     projects: existing?.projects || [],
     denominator: existing?.denominator || null,
