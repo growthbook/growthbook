@@ -51,6 +51,7 @@ const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
   json: "JSON",
   slack: "Slack",
   discord: "Discord",
+  datadogEvent: "DataDog Events",
 } as const;
 
 type Form = UseFormReturn<EventWebHookEditParams>;
@@ -232,7 +233,11 @@ const EventWebHookAddEditSettings = ({
       <div className="mt-4">
         <Field
           label={<b>Endpoint URL</b>}
-          placeholder="https://example.com/growthbook-webhook"
+          placeholder={
+            selectedPayloadType === "datadogEvent"
+              ? "https://api.datadoghq.com/api/v1/events"
+              : "https://example.com/growthbook-webhook"
+          }
           {...form.register("url")}
           helpText={
             isDetailedWebhook && (
@@ -247,6 +252,25 @@ const EventWebHookAddEditSettings = ({
           }}
         />
       </div>
+
+      {selectedPayloadType === "datadogEvent" ? (
+        <div className="mt-4">
+          <Field
+            label={<b>API Key</b>}
+            type="password"
+            placeholder="********"
+            required
+            value={JSON.parse(form.watch("headers"))["DD-API-KEY"]}
+            onChange={(evt) => {
+              form.setValue(
+                "headers",
+                `{ "DD-API-KEY": "${evt.target.value}" }`
+              );
+              handleFormValidation();
+            }}
+          />
+        </div>
+      ) : null}
 
       {isDetailedWebhook && (
         <div className="mt-4">
@@ -469,9 +493,21 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const [validHeaders, setValidHeaders] = useState(true);
   const [step, setStep] = useState<Step>(mode.mode);
 
-  const validateHeaders = (headers: string) => {
+  const validateHeaders = (
+    payloadType: EventWebHookPayloadType,
+    headers: string
+  ) => {
     try {
-      JSON.parse(headers);
+      const parsedHeaders = JSON.parse(headers);
+
+      if (
+        payloadType === "datadogEvent" &&
+        (parsedHeaders["DD-API-KEY"] === "" ||
+          parsedHeaders["DD-API-KEY"] === undefined)
+      ) {
+        throw new Error("Api Key is required for DataDog Events");
+      }
+
       setValidHeaders(true);
       return true;
     } catch (error) {
@@ -520,7 +556,9 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
-    if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
+    if (!validateHeaders(formValues.payloadType, formValues.headers)) {
+      return setSubmitEnabled(false);
+    }
 
     const schema = z.object({
       url: z.string().url(),
