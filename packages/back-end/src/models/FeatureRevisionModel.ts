@@ -47,7 +47,7 @@ featureRevisionSchema.index({ organization: 1, status: 1 });
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
-const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
+export const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   "FeatureRevision",
   featureRevisionSchema
 );
