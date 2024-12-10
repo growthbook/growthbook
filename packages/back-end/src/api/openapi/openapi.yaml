@@ -122,6 +122,8 @@ paths:
       $ref: "./paths/getFeature.yaml"
     post:
       $ref: "./paths/updateFeature.yaml"
+    delete:
+      $ref: "./paths/deleteFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
   /feature-keys:

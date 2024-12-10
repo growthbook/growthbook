@@ -90,6 +90,12 @@ export const updateFeatureValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const deleteFeatureValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const toggleFeatureValidator = {
   bodySchema: z.object({ "reason": z.string().optional(), "environments": z.record(z.union([z.literal(true), z.literal(false), z.literal("true"), z.literal("false"), z.literal("1"), z.literal("0"), z.literal(1), z.literal(0), z.literal("")])) }).strict(),
   querySchema: z.never(),
