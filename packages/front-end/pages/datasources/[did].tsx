@@ -85,22 +85,9 @@ const DataSourcePage: FC = () => {
         method: "PUT",
         body: JSON.stringify(updates),
       });
-      const queriesUpdated =
-        d &&
-        JSON.stringify(d.settings?.queries) !==
-          JSON.stringify(dataSource.settings?.queries);
-      if (queriesUpdated) {
-        apiCall<{ id: string }>("/experiments/import", {
-          method: "POST",
-          body: JSON.stringify({
-            datasource: dataSource.id,
-            force: true,
-          }),
-        });
-      }
       await mutateDefinitions({});
     },
-    [mutateDefinitions, apiCall, d]
+    [mutateDefinitions, apiCall]
   );
 
   if (error) {
@@ -402,19 +389,27 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         <Modal
           trackingEventModalType=""
           open={true}
+          size={"lg"}
           close={() => setViewSchema(false)}
           closeCta="Close"
           header="Schema Browser"
+          overflowAuto={false}
         >
-          <>
+          <div className="d-flex row">
             <p>
               Explore the schemas, tables, and table metadata of your connected
               datasource.
             </p>
-            <div className="border rounded">
+            <div
+              className="border rounded w-100"
+              style={{
+                maxHeight: "calc(91vh - 196px)",
+                overflowY: "scroll",
+              }}
+            >
               <SchemaBrowser datasource={d} />
             </div>
-          </>
+          </div>
         </Modal>
       )}
     </div>

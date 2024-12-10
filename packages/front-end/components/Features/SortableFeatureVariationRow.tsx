@@ -26,18 +26,24 @@ import styles from "./VariationsInput.module.scss";
 
 export type SortableVariation = ExperimentValue & {
   id: string;
+  description?: string;
 };
 
 interface SortableProps {
   i: number;
   variation: SortableVariation;
   variations: SortableVariation[];
-  valueType: FeatureValueType;
+  valueType?: FeatureValueType;
+  hideVariationIds?: boolean;
+  hideValueField?: boolean;
   setVariations?: (value: ExperimentValue[]) => void;
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
+  hideSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
+  showDescription?: boolean;
+  dragging?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -55,9 +61,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueAsId,
       setVariations,
       valueType,
+      hideVariationIds,
+      hideValueField,
       customSplit,
+      hideSplit,
       setWeight,
       feature,
+      showDescription,
+      dragging,
       ...props
     },
     ref
@@ -88,11 +99,16 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     };
 
     return (
-      <tr ref={ref} {...props} key={`${variation.id}__${i}`}>
-        {!valueAsId && (
+      <tr
+        ref={ref}
+        {...props}
+        key={`${variation.id}__${i}`}
+        className={`bg-white ${styles.tr} ${dragging && styles.dragging}`}
+      >
+        {!hideVariationIds && (
           <td
             style={{ width: 45 }}
-            className="position-relative pl-3"
+            className="position-relative pl-3 pr-0"
             key={`${variation.id}__${i}__0`}
           >
             <div
@@ -104,34 +120,37 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {i}
           </td>
         )}
-        <td key={`${variation.id}__${i}__1`}>
-          {setVariations ? (
-            <FeatureValueField
-              id={`value_${i}`}
-              value={variation.value}
-              placeholder={valueAsId ? i + "" : ""}
-              setValue={(value) => {
-                const newVariations = [...variations];
-                newVariations[i] = {
-                  ...variation,
-                  value,
-                };
-                setVariations(newVariations);
-              }}
-              label=""
-              valueType={valueType}
-              feature={feature}
-              renderJSONInline={false}
-            />
-          ) : (
-            <>{variation.value}</>
-          )}
-        </td>
+        {!hideValueField && (
+          <td key={`${variation.id}__${i}__1`}>
+            {setVariations ? (
+              <FeatureValueField
+                id={`value_${i}`}
+                value={variation.value}
+                placeholder={valueAsId ? i + "" : ""}
+                setValue={(value) => {
+                  const newVariations = [...variations];
+                  newVariations[i] = {
+                    ...variation,
+                    value,
+                  };
+                  setVariations(newVariations);
+                }}
+                valueType={valueType}
+                feature={feature}
+                renderJSONInline={false}
+              />
+            ) : (
+              <>{variation.value}</>
+            )}
+          </td>
+        )}
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
-              label=""
-              placeholder={`${getVariationDefaultName(variation, valueType)}`}
+              placeholder={`${getVariationDefaultName(
+                variation,
+                valueType ?? "string"
+              )}`}
               value={variation.name || ""}
               onChange={(e) => {
                 const newVariations = [...variations];
@@ -146,36 +165,66 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <strong>{variation.name || ""}</strong>
           )}
         </td>
-        <td key={`${variation.id}__${i}__3`} style={{ width: 210 }}>
-          <div className="row align-items-center">
-            {customSplit ? (
-              <div className="col d-flex flex-row">
-                <div className={`position-relative ${styles.percentInputWrap}`}>
-                  <Field
-                    id={`${variation.id}__${i}__3__input`}
-                    style={{ width: 95 }}
-                    value={val}
-                    onChange={(e) => {
-                      setVal(parseFloat(e.target.value));
-                    }}
-                    onBlur={() => {
-                      const decimal = (val >= 0 ? val : 0) / 100;
-                      rebalanceAndUpdate(i, decimal);
-                    }}
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="any"
-                    className={styles.percentInput}
-                    disabled={!setWeight}
-                  />
-                  <span>%</span>
-                </div>
-              </div>
+        {showDescription && (
+          <td key={`${variation.id}__${i}__3`}>
+            {setVariations ? (
+              <Field
+                value={variation.description || ""}
+                onChange={(e) => {
+                  const newVariations = [...variations];
+                  newVariations[i] = {
+                    ...variation,
+                    description: e.target.value,
+                  };
+                  setVariations(newVariations);
+                }}
+                textarea
+                minRows={1}
+              />
             ) : (
-              <div className="col d-flex flex-row">
-                {decimalToPercent(weights[i])}%
-              </div>
+              <span>{variation.description || ""}</span>
+            )}
+          </td>
+        )}
+        <td
+          key={`${variation.id}__${i}__4`}
+          style={{ width: !hideSplit ? 180 : 60 }}
+        >
+          <div className="row align-items-center">
+            {!hideSplit && (
+              <>
+                {customSplit ? (
+                  <div className="col d-flex flex-row">
+                    <div
+                      className={`position-relative ${styles.percentInputWrap}`}
+                    >
+                      <Field
+                        id={`${variation.id}__${i}__3__input`}
+                        style={{ width: 95 }}
+                        value={val}
+                        onChange={(e) => {
+                          setVal(parseFloat(e.target.value));
+                        }}
+                        onBlur={() => {
+                          const decimal = (val >= 0 ? val : 0) / 100;
+                          rebalanceAndUpdate(i, decimal);
+                        }}
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="any"
+                        className={styles.percentInput}
+                        disabled={!setWeight}
+                      />
+                      <span>%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="col d-flex flex-row">
+                    {decimalToPercent(weights[i])}%
+                  </div>
+                )}
+              </>
             )}
             {variations.length > 1 && setVariations && (
               <div {...handle} title="Drag and drop to re-order rules">
@@ -213,7 +262,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       }}
                       type="button"
                     >
-                      remove
+                      Remove
                     </button>
                   </Tooltip>
                 </MoreMenu>
@@ -235,11 +284,13 @@ export function SortableFeatureVariationRow(props: SortableProps) {
     setNodeRef,
     transform,
     transition,
+    active,
   } = useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    border: "1px solid red !important",
   };
 
   return (
@@ -247,6 +298,7 @@ export function SortableFeatureVariationRow(props: SortableProps) {
       {...props}
       ref={setNodeRef}
       style={style}
+      dragging={active?.id === props?.variation?.id}
       handle={{ ...attributes, ...listeners }}
     />
   );

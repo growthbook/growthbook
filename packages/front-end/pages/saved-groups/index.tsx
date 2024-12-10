@@ -12,8 +12,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
@@ -64,7 +68,6 @@ export default function SavedGroupsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
-  const [tab, setTab] = useState<string | null>("conditionGroups");
   const [idLists, conditionGroups] = useMemo(() => {
     const idLists: SavedGroupInterface[] = [];
     const conditionGroups: SavedGroupInterface[] = [];
@@ -156,49 +159,33 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <ControlledTabs
-            orientation="horizontal"
-            defaultTab="conditionGroups"
-            tabContentsClassName="tab-content-full"
-            active={tab}
-            setActive={(tab) => {
-              setTab(tab);
-            }}
-          >
-            <Tab
-              id="conditionGroups"
-              padding={false}
-              anchor="conditionGroups"
-              display={
-                <>
-                  Condition Groups{" "}
-                  <span className="round-text-background text-main">
-                    {conditionGroups.length}
-                  </span>
-                </>
-              }
-            >
+          <Tabs defaultValue="conditionGroups">
+            <TabsList>
+              <TabsTrigger value="conditionGroups">
+                Condition Groups
+                <span className="ml-2 round-text-background text-main">
+                  {conditionGroups.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="idLists">
+                ID Lists
+                <span className="ml-2 round-text-background text-main">
+                  {idLists.length}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="conditionGroups">
               <ConditionGroups
                 groups={savedGroups}
                 mutate={mutateDefinitions}
               />
-            </Tab>
-            <Tab
-              id="idLists"
-              padding={false}
-              anchor="idLists"
-              display={
-                <>
-                  ID Lists{" "}
-                  <span className="round-text-background text-main">
-                    {idLists.length}
-                  </span>
-                </>
-              }
-            >
+            </TabsContent>
+
+            <TabsContent value="idLists">
               <IdLists groups={savedGroups} mutate={mutateDefinitions} />
-            </Tab>
-          </ControlledTabs>
+            </TabsContent>
+          </Tabs>
         </>
       )}
 

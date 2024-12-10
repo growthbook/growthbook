@@ -1,14 +1,15 @@
 import clsx from "clsx";
 import { ReactElement } from "react";
-import { Link } from "@radix-ui/themes";
 import { GBEdit } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Link from "@/components/Radix/Link";
 
 export interface Props {
   className?: string;
   containerClassName?: string;
   children: string | ReactElement;
   edit?: () => void;
+  additionalActions?: ReactElement;
   editClassName?: string;
   stopPropagation?: boolean;
   disabledMessage?: false | null | undefined | string | ReactElement;
@@ -17,6 +18,7 @@ export interface Props {
 export default function HeaderWithEdit({
   children,
   edit,
+  additionalActions,
   editClassName = "a",
   className = "h3",
   containerClassName = "mb-2",
@@ -38,7 +40,7 @@ export default function HeaderWithEdit({
                 edit();
               }}
             >
-              <GBEdit className="cursor-pointer" />
+              <GBEdit />
             </Link>
           </span>
         ) : disabledMessage ? (
@@ -48,6 +50,7 @@ export default function HeaderWithEdit({
             </Tooltip>
           </span>
         ) : null}
+        {additionalActions && <div className="ml-1">{additionalActions}</div>}
       </div>
     </div>
   );

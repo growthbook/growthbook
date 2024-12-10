@@ -213,6 +213,7 @@ export const experimentInterface = z
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
+    customFields: z.record(z.any()).optional(),
   })
   .strict();
 export type ExperimentInterface = z.infer<typeof experimentInterface>;

@@ -152,12 +152,11 @@ export default function SchemaBrowser({
   if (!data) return <LoadingSpinner />;
 
   return (
-    <div className="d-flex flex-column h-100">
+    <div className="d-flex flex-column">
       <SchemaBrowserWrapper
         datasourceName={datasource.name}
         datasourceId={datasource.id}
         canRunQueries={canRunQueries}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'InformationSchemaInterface | undefined' is n... Remove this comment to see the full error message
         informationSchema={informationSchema}
         setFetching={setFetching}
         fetching={fetching}
@@ -216,6 +215,12 @@ export default function SchemaBrowser({
                                   <FaAngleRight />
                                   {`${database.databaseName}.${schema.schemaName}`}
                                 </>
+                              ) : datasource.type ===
+                                "growthbook_clickhouse" ? (
+                                <>
+                                  <FaAngleRight />
+                                  Tables
+                                </>
                               ) : (
                                 <>
                                   <FaAngleRight />
@@ -230,6 +235,12 @@ export default function SchemaBrowser({
                                 <>
                                   <FaAngleDown />
                                   {`${database.databaseName}.${schema.schemaName}`}
+                                </>
+                              ) : datasource.type ===
+                                "growthbook_clickhouse" ? (
+                                <>
+                                  <FaAngleRight />
+                                  Tables
                                 </>
                               ) : (
                                 <>
@@ -299,12 +310,15 @@ export default function SchemaBrowser({
         </>
       </SchemaBrowserWrapper>
       {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
-      <DatasourceTableData
-        canRunQueries={canRunQueries}
-        tableId={currentTable}
-        datasourceId={datasource.id}
-        setError={setError}
-      />
+      {currentTable ? (
+        <DatasourceTableData
+          datasource={datasource}
+          canRunQueries={canRunQueries}
+          tableId={currentTable}
+          datasourceId={datasource.id}
+          setError={setError}
+        />
+      ) : null}
     </div>
   );
 }

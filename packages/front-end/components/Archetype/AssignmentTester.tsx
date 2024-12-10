@@ -374,6 +374,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
             <div className="row">
               <div className="col-6">
                 <AttributeForm
+                  attributeValues={formValues}
                   onChange={(attrs) => {
                     setFormValues(attrs);
                   }}

@@ -6,14 +6,14 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postSdkConnectionValidator } from "back-end/src/validators/openapi";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { validatePayload } from "./validations";
+import { validatePostPayload } from "./validations";
 
 export const postSdkConnection = createApiRequestHandler(
   postSdkConnectionValidator
 )(
   async (req): Promise<PostSdkConnectionResponse> => {
     const params = {
-      ...(await validatePayload(req.context, req.body)),
+      ...(await validatePostPayload(req.context, req.body)),
       organization: req.context.org.id,
     };
 
