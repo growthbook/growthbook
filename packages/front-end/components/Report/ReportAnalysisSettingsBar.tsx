@@ -1,8 +1,8 @@
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
-import { ago, date, datetime } from "shared/dates";
-import React, {RefObject, useState} from "react";
+import { ago, date, datetime, getValidDate } from "shared/dates";
+import React, { RefObject, useEffect, useState } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { FaGear } from "react-icons/fa6";
@@ -18,7 +18,7 @@ import Button from "@/components/Radix/Button";
 
 export default function ReportAnalysisSettingsBar({
   report,
-  snapshot,
+  snapshot: _snapshot,
   mutateReport,
   mutateSnapshot,
   ssrPolyfills,
@@ -42,11 +42,17 @@ export default function ReportAnalysisSettingsBar({
   const { apiCall } = useAuth();
 
   const [refreshError, setRefreshError] = useState("");
-  // const { metrics: _metrics } = useDefinitions();
-
-  // const phases = report.experimentMetadata.phases;
-  // const phase = phases.length - 1;
-  // const phaseObj = phases[phase];
+  const [snapshot, setSnapshot] = useState<
+    ExperimentSnapshotInterface | undefined
+  >(_snapshot);
+  useEffect(() => {
+    if (
+      _snapshot &&
+      getValidDate(_snapshot?.runStarted) > getValidDate(snapshot?.runStarted)
+    ) {
+      setSnapshot(_snapshot);
+    }
+  }, [_snapshot, snapshot]);
 
   const variations = report.experimentMetadata.variations.map(
     (variation, i) => ({
@@ -138,7 +144,10 @@ export default function ReportAnalysisSettingsBar({
               ref={runQueriesButtonRef}
               icon="refresh"
               cta="Refresh"
-              mutate={mutateSnapshot}
+              mutate={async () => {
+                await mutateReport();
+                await mutateSnapshot();
+              }}
               model={snapshot}
               cancelEndpoint={`/report/${report.id}/cancel`}
               color="outline-primary"
@@ -146,12 +155,14 @@ export default function ReportAnalysisSettingsBar({
               useRadixButton={true}
               onSubmit={async () => {
                 try {
-                  await apiCall<{
-                    report: ExperimentSnapshotReportInterface;
+                  const res = await apiCall<{
+                    snapshot: ExperimentSnapshotInterface;
                   }>(`/report/${report.id}/refresh`, {
                     method: "POST",
                   });
-                  mutateReport();
+                  if (res.snapshot) {
+                    setSnapshot(res.snapshot);
+                  }
                   setRefreshError("");
                 } catch (e) {
                   setRefreshError(e.message);

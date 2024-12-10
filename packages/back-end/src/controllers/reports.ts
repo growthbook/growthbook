@@ -50,6 +50,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { createReportSnapshot } from "back-end/src/services/reports";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -408,13 +409,11 @@ export async function refreshReport(
 
   if (report.type === "experiment-snapshot") {
     const snapshot =
-      report.type === "experiment-snapshot"
-        ? (await findSnapshotById(report.organization, report.snapshot)) ||
-          undefined
-        : undefined;
+      (await findSnapshotById(report.organization, report.snapshot)) ||
+      undefined;
 
     try {
-      const updatedReport = await createReportSnapshot({
+      const newSnapshot = await createReportSnapshot({
         report,
         previousSnapshot: snapshot,
         context,
@@ -424,11 +423,11 @@ export async function refreshReport(
 
       return res.status(200).json({
         status: 200,
-        updatedReport,
+        snapshot: newSnapshot,
       });
     } catch (e) {
       req.log.error(e, "Failed to create report snapshot");
-      res.status(400).json({
+      return res.status(400).json({
         status: 400,
         message: e.message,
       });
@@ -621,23 +620,52 @@ export async function cancelReport(
   if (!report) {
     throw new Error("Could not cancel query");
   }
-  if (report.type !== "experiment") {
-    throw new Error("Invalid report type");
+
+  if (report.type === "experiment-snapshot") {
+    const snapshot =
+      (await findSnapshotById(report.organization, report.snapshot)) ||
+      undefined;
+
+    const datasourceId = snapshot?.settings?.datasourceId;
+    if (!datasourceId) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid datasource: " + datasourceId,
+      });
+      return;
+    }
+
+    const integration = await getIntegrationFromDatasourceId(
+      context,
+      datasourceId,
+      true
+    );
+
+    const queryRunner = new ExperimentResultsQueryRunner(
+      context,
+      snapshot,
+      integration
+    );
+    await queryRunner.cancelQueries();
+
+    return res.status(200).json({ status: 200 });
+  } else if (report.type === "experiment") {
+    const integration = await getIntegrationFromDatasourceId(
+      context,
+      report.args.datasource
+    );
+
+    const queryRunner = new ExperimentReportQueryRunner(
+      context,
+      report,
+      integration
+    );
+    await queryRunner.cancelQueries();
+
+    return res.status(200).json({ status: 200 });
   }
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    report.args.datasource
-  );
-
-  const queryRunner = new ExperimentReportQueryRunner(
-    context,
-    report,
-    integration
-  );
-  await queryRunner.cancelQueries();
-
-  res.status(200).json({ status: 200 });
+  throw new Error("Invalid report type");
 }
 
 export async function postNotebook(

@@ -9,7 +9,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import React, {RefObject} from "react";
+import React, { RefObject } from "react";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";

@@ -54,7 +54,6 @@ import { MetricInterface } from "back-end/types/metric";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
-import { updateReport } from "back-end/src/models/ReportModel";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -278,7 +277,7 @@ export async function createReportSnapshot({
   useCache?: boolean;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-}): Promise<ExperimentSnapshotReportInterface> {
+}): Promise<ExperimentSnapshotInterface> {
   // todo: new query runner
   const { org: organization } = context;
   const experiment = report.experimentId
@@ -429,13 +428,7 @@ export async function createReportSnapshot({
     factTableMap,
   });
 
-  const updates: Partial<ExperimentSnapshotReportInterface> = {
-    snapshot: snapshot.id,
-    dateUpdated: new Date(),
-  };
-  await updateReport(organization.id, report.id, updates);
-
-  return Object.assign(report, updates);
+  return snapshot;
 }
 
 export function getReportSnapshotSettings({

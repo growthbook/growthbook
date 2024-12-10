@@ -1,6 +1,6 @@
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import Collapsible from "react-collapsible";
-import React, {RefObject, useState} from "react";
+import React, { RefObject, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   AttributionModel,
@@ -9,7 +9,7 @@ import {
 import { Flex, Grid } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import { FaGear } from "react-icons/fa6";
-import {date, getValidDate} from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DifferenceType } from "back-end/types/stats";
@@ -290,9 +290,11 @@ export default function ConfigureReport({
                               d
                             )
                           }
-                          disableAfter={form.watch(
-                            "experimentAnalysisSettings.dateEnded"
-                          ) ?? undefined}
+                          disableAfter={
+                            form.watch(
+                              "experimentAnalysisSettings.dateEnded"
+                            ) ?? undefined
+                          }
                           inputWidth={180}
                         />
                         <Button
@@ -323,7 +325,10 @@ export default function ConfigureReport({
                             onClick={() =>
                               form.setValue(
                                 "experimentAnalysisSettings.dateStarted",
-                                getValidDate(experiment?.phases?.[latestPhaseIndex]?.dateStarted)
+                                getValidDate(
+                                  experiment?.phases?.[latestPhaseIndex]
+                                    ?.dateStarted
+                                )
                               )
                             }
                           >
@@ -332,7 +337,8 @@ export default function ConfigureReport({
                               <br />
                               <small>
                                 {date(
-                                  experiment?.phases?.[latestPhaseIndex]?.dateStarted || ""
+                                  experiment?.phases?.[latestPhaseIndex]
+                                    ?.dateStarted || ""
                                 )}
                               </small>
                             </div>
@@ -352,9 +358,11 @@ export default function ConfigureReport({
                           <DatePicker
                             label="End (UTC)"
                             containerClassName="mb-2"
-                            date={form.watch(
-                              "experimentAnalysisSettings.dateEnded"
-                            ) ?? undefined}
+                            date={
+                              form.watch(
+                                "experimentAnalysisSettings.dateEnded"
+                              ) ?? undefined
+                            }
                             setDate={(d) =>
                               form.setValue(
                                 "experimentAnalysisSettings.dateEnded",
