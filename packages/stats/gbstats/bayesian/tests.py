@@ -509,7 +509,7 @@ class CalculateRequiredSampleSize:
             return ScalingFactorResult(
                 converged=False,
                 error="upper bound for scaling factor is greater than "
-                + str(2**self.max_iters),
+                + str(2**self.max_iters_scaling_factor),
                 scaling_factor=None,
             )
         diff = current_power - 0.8
