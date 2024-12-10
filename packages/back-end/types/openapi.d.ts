@@ -6072,14 +6072,6 @@ export interface operations {
         id: string;
       };
     };
-    requestBody?: {
-      content: {
-        "application/json": {
-          /** @description Whether to also remove rules from features for the environment to be deleted */
-          removeAssociatedFeatureRules?: boolean;
-        };
-      };
-    };
     responses: {
       200: {
         content: {
