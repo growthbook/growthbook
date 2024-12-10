@@ -46,7 +46,7 @@ export default function ResultMoreMenu({
   queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
-  snapshotId: string;
+  snapshotId?: string;
   generateReport?: boolean;
   notebookUrl: string;
   notebookFilename: string;

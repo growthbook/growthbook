@@ -2,14 +2,13 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime } from "shared/dates";
-import React, { useState } from "react";
+import React, {RefObject, useState} from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { FaGear } from "react-icons/fa6";
+import { FaChartBar } from "react-icons/fa";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
-import RunQueriesButton, {
-  getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
+import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
@@ -20,21 +19,25 @@ import Button from "@/components/Radix/Button";
 export default function ReportAnalysisSettingsBar({
   report,
   snapshot,
-  mutate,
+  mutateReport,
+  mutateSnapshot,
   ssrPolyfills,
   canUpdateReport = false,
   datasource,
   settingsOpen = false,
   setSettingsOpen,
+  runQueriesButtonRef,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
-  mutate?: () => void;
+  mutateReport?: () => Promise<unknown> | unknown;
+  mutateSnapshot?: () => Promise<unknown> | unknown;
   ssrPolyfills?: SSRExperimentReportPolyfills;
   canUpdateReport?: boolean;
   datasource?: DataSourceInterfaceWithParams;
   settingsOpen?: boolean;
   setSettingsOpen?: (o: boolean) => void;
+  runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
   const { apiCall } = useAuth();
 
@@ -57,18 +60,20 @@ export default function ReportAnalysisSettingsBar({
   const analysis = snapshot
     ? getSnapshotAnalysis(snapshot) ?? undefined
     : undefined;
-  const queryStatusData = getQueryStatus(
-    snapshot?.queries || [],
-    snapshot?.error
-  );
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   if (!snapshot) return null;
 
   return (
-    <div className="py-2 mb-2">
+    <div className="pt-1 pb-2 mb-3 border-bottom">
       <div className="row align-items-center px-3">
+        <div className="col-auto d-flex align-items-center mr-3">
+          <div className="h5 my-0 mr-4">
+            <FaChartBar className="mr-2" />
+            Results
+          </div>
+        </div>
         <div className="col-auto d-flex align-items-end mr-3">
           <DimensionChooser
             value={snapshot.dimension ?? ""}
@@ -127,12 +132,13 @@ export default function ReportAnalysisSettingsBar({
             ""
           )}
         </div>
-        {canUpdateReport && mutate ? (
+        {canUpdateReport && mutateReport && mutateSnapshot ? (
           <div className="col-auto">
             <RunQueriesButton
+              ref={runQueriesButtonRef}
               icon="refresh"
               cta="Refresh"
-              mutate={mutate}
+              mutate={mutateSnapshot}
               model={snapshot}
               cancelEndpoint={`/report/${report.id}/cancel`}
               color="outline-primary"
@@ -145,7 +151,7 @@ export default function ReportAnalysisSettingsBar({
                   }>(`/report/${report.id}/refresh`, {
                     method: "POST",
                   });
-                  mutate();
+                  mutateReport();
                   setRefreshError("");
                 } catch (e) {
                   setRefreshError(e.message);
@@ -166,7 +172,7 @@ export default function ReportAnalysisSettingsBar({
             </Button>
           </div>
         ) : null}
-        {canUpdateReport && datasource && mutate ? (
+        {canUpdateReport && datasource && mutateReport ? (
           <div className="col-auto">
             <ResultMoreMenu
               snapshotId={snapshot?.id || ""}

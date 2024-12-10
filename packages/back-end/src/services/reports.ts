@@ -18,7 +18,6 @@ import { isDefined } from "shared/util";
 import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
-import omit from "lodash/omit";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
@@ -55,7 +54,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
-import { getReportById, updateReport } from "back-end/src/models/ReportModel";
+import { updateReport } from "back-end/src/models/ReportModel";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -397,7 +396,7 @@ export async function createReportSnapshot({
       status: "running",
       settings: {
         ...analysis.settings,
-        ...omit(analysisSettings, ["dimensions", "differenceType"]),
+        ...analysisSettings,
       },
     })),
   };

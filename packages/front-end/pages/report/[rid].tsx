@@ -4,7 +4,7 @@ import {
   ExperimentReportInterface,
   ReportInterface,
 } from "back-end/types/report";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
@@ -113,6 +113,8 @@ export default function ReportPage() {
     },
   });
 
+  const runQueriesButtonRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     if (data?.report) {
       const newVal = {
@@ -129,7 +131,11 @@ export default function ReportPage() {
   const snapshotId =
     report?.type === "experiment-snapshot" ? report?.snapshot : undefined;
 
-  const { data: snapshotData, error: snapshotError } = useApi<{
+  const {
+    data: snapshotData,
+    error: snapshotError,
+    mutate: mutateSnapshot,
+  } = useApi<{
     snapshot: ExperimentSnapshotInterface;
   }>(`/snapshot/${snapshotId}`, {
     shouldRun: () => !!snapshotId,
@@ -175,16 +181,19 @@ export default function ReportPage() {
           mutate={mutate}
           open={settingsOpen}
           setOpen={setSettingsOpen}
+          runQueriesButtonRef={runQueriesButtonRef}
         />
 
         <ReportResults
           report={report}
           snapshot={snapshot}
           snapshotError={snapshotError}
-          mutate={mutate}
+          mutateReport={mutate}
+          mutateSnapshot={mutateSnapshot}
           readonly={!canEdit}
           settingsOpen={settingsOpen}
           setSettingsOpen={setSettingsOpen}
+          runQueriesButtonRef={runQueriesButtonRef}
         />
       </div>
     );
@@ -458,7 +467,7 @@ export default function ReportPage() {
                   </div>
                   <div className="col-auto">
                     <ResultMoreMenu
-                      id={report.id}
+                      snapshotId={snapshotId}
                       datasource={datasource}
                       hasData={hasData}
                       forceRefresh={async () => {

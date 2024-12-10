@@ -21,7 +21,6 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import ReportResults from "@/components/Report/ReportResults";
-import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;

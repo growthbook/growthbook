@@ -9,7 +9,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import React from "react";
+import React, {RefObject} from "react";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -24,22 +24,26 @@ export default function ReportResults({
   report,
   snapshot,
   snapshotError,
-  mutate,
+  mutateReport,
+  mutateSnapshot,
   ssrPolyfills,
   readonly = true,
   showSettingsBar = true,
   settingsOpen = false,
   setSettingsOpen,
+  runQueriesButtonRef,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
   snapshotError?: Error;
-  mutate?: () => void;
+  mutateReport?: () => Promise<unknown> | unknown;
+  mutateSnapshot?: () => Promise<unknown> | unknown;
   ssrPolyfills?: SSRExperimentReportPolyfills;
   readonly?: boolean;
   showSettingsBar?: boolean;
   settingsOpen?: boolean;
   setSettingsOpen?: (o: boolean) => void;
+  runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
@@ -88,17 +92,20 @@ export default function ReportResults({
 
   const showBreakDownResults =
     hasData &&
-    snapshot?.dimension &&
+    !!snapshot?.dimension &&
     snapshot.dimension.substring(0, 8) !== "pre:date" &&
-    analysis?.settings?.dimensions?.length;
+    !!analysis?.settings?.dimensions?.length;
 
   const showDateResults =
     hasData &&
     snapshot?.dimension?.substring(0, 8) === "pre:date" &&
-    analysis?.settings?.dimensions?.length;
+    !!analysis?.settings?.dimensions?.length;
 
   const showCompactResults =
-    hasData && snapshot && analysis && !analysis?.settings?.dimensions?.length;
+    hasData &&
+    !!snapshot &&
+    !!analysis &&
+    !analysis?.settings?.dimensions?.length;
 
   return (
     <div className="bg-white border pt-2">
@@ -106,11 +113,13 @@ export default function ReportResults({
         <ReportAnalysisSettingsBar
           report={report}
           snapshot={snapshot}
-          mutate={mutate}
+          mutateReport={mutateReport}
+          mutateSnapshot={mutateSnapshot}
           ssrPolyfills={ssrPolyfills}
           canUpdateReport={!readonly}
           settingsOpen={settingsOpen}
           setSettingsOpen={setSettingsOpen}
+          runQueriesButtonRef={runQueriesButtonRef}
         />
       )}
 

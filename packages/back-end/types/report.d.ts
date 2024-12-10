@@ -44,7 +44,7 @@ export type ExperimentSnapshotReportArgs = {
   differenceType?: DifferenceType;
   dimension?: string;
   dateStarted?: Date;
-  dateEnded?: Date;
+  dateEnded?: Date | null;
 };
 
 export interface ExperimentReportMetadata {

@@ -39,10 +39,7 @@ import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import {
-  BanditResult,
-  ExperimentAnalysisSettings,
-} from "back-end/src/validators/experiments";
+import { BanditResult } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -107,7 +104,6 @@ import {
 } from "back-end/types/openapi";
 import {
   ExperimentReportAnalysisSettings,
-  ExperimentSnapshotReportArgs,
   MetricSnapshotSettings,
 } from "back-end/types/report";
 import {

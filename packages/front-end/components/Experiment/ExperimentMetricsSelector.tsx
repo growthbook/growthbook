@@ -52,17 +52,6 @@ export default function ExperimentMetricsSelector({
           <label className="font-weight-bold mb-1">
             {!forceSingleGoalMetric ? "Goal Metrics" : "Decision Metric"}
           </label>
-          <div className="mb-1">
-            <span className="font-italic">
-              {!forceSingleGoalMetric
-                ? "The primary metrics you are trying to improve with this experiment. "
-                : "Choose the goal metric that will be used to update variation weights. "}
-            </span>
-            <MetricsSelectorTooltip
-              isSingular={true}
-              noPercentileGoalMetrics={noPercentileGoalMetrics}
-            />
-          </div>
           <MetricsSelector
             selected={goalMetrics}
             onChange={setGoalMetrics}
@@ -75,6 +64,19 @@ export default function ExperimentMetricsSelector({
             includeGroups={!forceSingleGoalMetric}
             noPercentile={noPercentileGoalMetrics}
             disabled={disabled || goalDisabled}
+            helpText={
+              <>
+                <span>
+                  {!forceSingleGoalMetric
+                    ? "The primary metrics you are trying to improve with this experiment. "
+                    : "Choose the goal metric that will be used to update variation weights. "}
+                </span>
+                <MetricsSelectorTooltip
+                  isSingular={true}
+                  noPercentileGoalMetrics={noPercentileGoalMetrics}
+                />
+              </>
+            }
           />
         </div>
       )}
@@ -93,14 +95,6 @@ export default function ExperimentMetricsSelector({
           ) : (
             <>
               <label className="font-weight-bold mb-1">Secondary Metrics</label>
-              <div className="mb-1">
-                <span className="font-italic">
-                  {!forceSingleGoalMetric
-                    ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
-                    : "Additional metrics to learn about experiment impacts. "}
-                </span>
-                <MetricsSelectorTooltip />
-              </div>
               <MetricsSelector
                 selected={secondaryMetrics}
                 onChange={setSecondaryMetrics}
@@ -109,6 +103,16 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 disabled={disabled}
+                helpText={
+                  <>
+                    <span>
+                      {!forceSingleGoalMetric
+                        ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
+                        : "Additional metrics to learn about experiment impacts. "}
+                    </span>
+                    <MetricsSelectorTooltip />
+                  </>
+                }
               />
             </>
           )}
@@ -129,13 +133,6 @@ export default function ExperimentMetricsSelector({
           ) : (
             <>
               <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-              <div className="mb-1">
-                <span className="font-italic">
-                  Metrics you want to monitor, but are NOT specifically trying
-                  to improve.{" "}
-                </span>
-                <MetricsSelectorTooltip />
-              </div>
               <MetricsSelector
                 selected={guardrailMetrics}
                 onChange={setGuardrailMetrics}
@@ -144,6 +141,15 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 disabled={disabled}
+                helpText={
+                  <>
+                    <span>
+                      Metrics you want to monitor, but are NOT specifically
+                      trying to improve.{" "}
+                    </span>
+                    <MetricsSelectorTooltip />
+                  </>
+                }
               />
             </>
           )}

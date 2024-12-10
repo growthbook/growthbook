@@ -67,7 +67,7 @@ export default function ExperimentReportsList({
                   }}
                 >
                   <div className="d-flex align-items-center">
-                    {report.error ? (
+                    {report.type === "experiment" && report.error ? (
                       <Tooltip
                         body={report.error}
                         className="d-flex align-items-center"

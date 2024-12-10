@@ -1,6 +1,9 @@
 import React, { useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { MetricSnapshotSettings, ReportInterface } from "back-end/types/report";
+import {
+  ExperimentReportInterface,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   AttributionModel,
@@ -48,7 +51,7 @@ export default function ConfigureLegacyReport({
   mutate,
   viewResults,
 }: {
-  report: ReportInterface;
+  report: ExperimentReportInterface;
   mutate: () => void;
   viewResults: () => void;
 }) {
@@ -194,7 +197,7 @@ export default function ConfigureLegacyReport({
 
         args.settingsForSnapshotMetrics = settingsForSnapshotMetrics;
 
-        const res = await apiCall<{ updatedReport: ReportInterface }>(
+        const res = await apiCall<{ updatedReport: ExperimentReportInterface }>(
           `/report/${report.id}`,
           {
             method: "PUT",
