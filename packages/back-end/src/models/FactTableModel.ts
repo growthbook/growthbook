@@ -170,6 +170,29 @@ export async function getFactTable(
   return factTable;
 }
 
+export async function getFactTablesByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[]
+) {
+  const factTables: FactTableInterface[] = [];
+
+  if (!ids.length) {
+    return factTables;
+  }
+
+  const docs = await FactTableModel.find({
+    id: { $in: ids },
+    organization: context.org.id,
+  });
+  docs.forEach((doc) => {
+    factTables.push(toInterface(doc));
+  });
+
+  return factTables.filter((factTable) =>
+    context.permissions.canReadMultiProjectResource(factTable.projects)
+  );
+}
+
 export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps

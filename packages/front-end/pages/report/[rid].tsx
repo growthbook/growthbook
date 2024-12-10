@@ -1,6 +1,10 @@
 import { useRouter } from "next/router";
-import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
-import React, { useEffect, useState } from "react";
+import {
+  ExperimentReportArgs,
+  ExperimentReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
@@ -10,6 +14,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -25,7 +30,7 @@ import {
   GBEdit,
   GBSequential,
 } from "@/components/Icons";
-import ConfigureReport from "@/components/Report/ConfigureReport";
+import ConfigureLegacyReport from "@/components/Report/ConfigureLegacyReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
@@ -43,6 +48,8 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
+import ReportResults from "@/components/Report/ReportResults";
+import ConfigureReport from "@/components/Report/ConfigureReport";
 import {
   Tabs,
   TabsContent,
@@ -57,9 +64,11 @@ export default function ReportPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const { getDatasourceById } = useDefinitions();
+
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
+
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
@@ -70,8 +79,10 @@ export default function ReportPage() {
 
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+
   const [tab, setTab] = useState<string>("results");
   const [refreshError, setRefreshError] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -102,6 +113,8 @@ export default function ReportPage() {
     },
   });
 
+  const runQueriesButtonRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     if (data?.report) {
       const newVal = {
@@ -114,17 +127,80 @@ export default function ReportPage() {
     }
   }, [data?.report]);
 
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
-  }
+  const report = data?.report;
+  const snapshotId =
+    report?.type === "experiment-snapshot" ? report?.snapshot : undefined;
+
+  const {
+    data: snapshotData,
+    error: snapshotError,
+    mutate: mutateSnapshot,
+  } = useApi<{
+    snapshot: ExperimentSnapshotInterface;
+  }>(`/snapshot/${snapshotId}`, {
+    shouldRun: () => !!snapshotId,
+  });
+  const snapshot = snapshotData?.snapshot;
+
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const report = data.report;
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
   if (!report) {
     return null;
   }
+
+  const canEdit =
+    canUpdateReport && (userId === report?.userId || !report?.userId);
+
+  if (report.type === "experiment-snapshot") {
+    return (
+      <div className="pagecontents container-fluid">
+        <PageHead
+          breadcrumb={[
+            {
+              display: `Experiments`,
+              href: `/experiments`,
+            },
+            {
+              display: `${experimentData?.experiment.name ?? "Report"}`,
+              href: experimentData?.experiment.id
+                ? `/experiment/${experimentData.experiment.id}`
+                : undefined,
+            },
+            { display: report.title },
+          ]}
+        />
+
+        <h1>{report.title}</h1>
+
+        <ConfigureReport
+          report={report}
+          mutate={mutate}
+          open={settingsOpen}
+          setOpen={setSettingsOpen}
+          runQueriesButtonRef={runQueriesButtonRef}
+        />
+
+        <ReportResults
+          report={report}
+          snapshot={snapshot}
+          snapshotError={snapshotError}
+          mutateReport={mutate}
+          mutateSnapshot={mutateSnapshot}
+          readonly={!canEdit}
+          settingsOpen={settingsOpen}
+          setSettingsOpen={setSettingsOpen}
+          runQueriesButtonRef={runQueriesButtonRef}
+        />
+      </div>
+    );
+  }
+
+  // legacy reports:
+  // ===============
 
   const variations = report.args.variations;
 
@@ -369,7 +445,7 @@ export default function ReportPage() {
                               "update",
                               "RefreshData",
                               datasource?.type || null,
-                              res.report
+                              res.report as ExperimentReportInterface
                             );
                             mutate();
                             setRefreshError("");
@@ -391,7 +467,7 @@ export default function ReportPage() {
                   </div>
                   <div className="col-auto">
                     <ResultMoreMenu
-                      id={report.id}
+                      snapshotId={snapshotId}
                       datasource={datasource}
                       hasData={hasData}
                       forceRefresh={async () => {
@@ -405,7 +481,7 @@ export default function ReportPage() {
                             "update",
                             "ForceRefreshData",
                             datasource?.type || null,
-                            res.report
+                            res.report as ExperimentReportInterface
                           );
                           mutate();
                         } catch (e) {
@@ -544,7 +620,7 @@ export default function ReportPage() {
                       "update",
                       "VariationIdWarning",
                       datasource?.type || null,
-                      res.updatedReport
+                      res.updatedReport as ExperimentReportInterface
                     );
                     mutate();
                   }}
@@ -644,9 +720,9 @@ export default function ReportPage() {
               <TabsContent value="configuration">
                 <Box p="4">
                   <h2>Configuration</h2>
-                  <ConfigureReport
+                  <ConfigureLegacyReport
                     mutate={mutate}
-                    report={report}
+                    report={report as ExperimentReportInterface}
                     viewResults={() => setTab("results")}
                   />
                 </Box>

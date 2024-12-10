@@ -7,6 +7,7 @@ import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";
+import { RadixTheme } from "@/services/RadixTheme";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -235,39 +236,41 @@ export default function DatePicker({
         </Popover.Trigger>
 
         <Popover.Portal>
-          <Popover.Content
-            className={styles.Content}
-            onOpenAutoFocus={(e) => e.preventDefault()}
-          >
-            {isRange ? (
-              <DayPicker
-                mode="range"
-                selected={{ from: date, to: date2 }}
-                onSelect={handleDateRangeSelect}
-                disabled={disabledMatchers}
-                modifiers={markedDays}
-                modifiersClassNames={modifiersClassNames}
-                fixedWeeks
-                showOutsideDays
-                month={calendarMonth}
-                onMonthChange={(m) => setCalendarMonth(m)}
-              />
-            ) : (
-              <DayPicker
-                mode="single"
-                selected={date}
-                onSelect={handleDateSelect}
-                disabled={disabledMatchers}
-                modifiers={markedDays}
-                modifiersClassNames={modifiersClassNames}
-                fixedWeeks
-                showOutsideDays
-                month={calendarMonth}
-                onMonthChange={(m) => setCalendarMonth(m)}
-              />
-            )}
-            <Popover.Arrow className={styles.Arrow} />
-          </Popover.Content>
+          <RadixTheme>
+            <Popover.Content
+              className={styles.Content}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              {isRange ? (
+                <DayPicker
+                  mode="range"
+                  selected={{ from: date, to: date2 }}
+                  onSelect={handleDateRangeSelect}
+                  disabled={disabledMatchers}
+                  modifiers={markedDays}
+                  modifiersClassNames={modifiersClassNames}
+                  fixedWeeks
+                  showOutsideDays
+                  month={calendarMonth}
+                  onMonthChange={(m) => setCalendarMonth(m)}
+                />
+              ) : (
+                <DayPicker
+                  mode="single"
+                  selected={date}
+                  onSelect={handleDateSelect}
+                  disabled={disabledMatchers}
+                  modifiers={markedDays}
+                  modifiersClassNames={modifiersClassNames}
+                  fixedWeeks
+                  showOutsideDays
+                  month={calendarMonth}
+                  onMonthChange={(m) => setCalendarMonth(m)}
+                />
+              )}
+              <Popover.Arrow className={styles.Arrow} />
+            </Popover.Content>
+          </RadixTheme>
         </Popover.Portal>
       </Popover.Root>
       {helpText && <small className="form-text text-muted">{helpText}</small>}

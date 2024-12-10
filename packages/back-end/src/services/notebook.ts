@@ -52,6 +52,10 @@ export async function generateReportNotebook(
   if (!report) {
     throw new Error("Could not find report");
   }
+  if (report.type !== "experiment") {
+    // todo: support notebook for snapshot reports
+    throw new Error("Invalid report type");
+  }
 
   return generateNotebook(
     context,

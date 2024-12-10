@@ -13,7 +13,10 @@ html,
 body,
 #__next,
 main {
-  height: 100%;
+  min-height: 100%;
+}
+main {
+  padding-top: 56px;
 }
 
 body {
@@ -46,7 +49,9 @@ body {
 
 .main {
   padding-left: 240px;
-  padding-top: 60px;
+  &.lite {
+    padding-left: 0;
+  }
 
   &.present {
     padding: 0;
@@ -790,7 +795,8 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report {
+main.main.report,
+main.main.r {
   .experiment-results {
     th {
       &.axis-col {
@@ -1223,7 +1229,7 @@ main.main.report {
     padding: 0 40px;
   }
 }
-.modal {
+.modal, .drawer {
   label:not(.rt-Text) {
     color: var(--text-color-main);
     font-weight: 600;
@@ -1956,6 +1962,7 @@ main.main.report {
   &.with-variation-label {
     .label {
       display: inline-flex;
+      flex-shrink: 0;
       align-items: center;
       justify-content: center;
       width: 24px;
