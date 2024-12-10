@@ -50,6 +50,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import ReportResults from "@/components/Report/ReportResults";
 import ConfigureReport from "@/components/Report/ConfigureReport";
+import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import {
   Tabs,
   TabsContent,
@@ -77,7 +78,7 @@ export default function ReportPage() {
     shouldRun: () => !!data?.report?.experimentId,
   });
 
-  const { userId, getUserDisplay, hasCommercialFeature } = useUser();
+  const { userId, permissions, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const [tab, setTab] = useState<string>("results");
@@ -152,10 +153,14 @@ export default function ReportPage() {
     return null;
   }
 
-  const canEdit =
-    canUpdateReport && (userId === report?.userId || !report?.userId);
-
   if (report.type === "experiment-snapshot") {
+    const editLevel = report.editLevel || "organization";
+
+    const isOwner = userId === report?.userId || !report?.userId;
+    const isAdmin = !!permissions.superDeleteReport;
+    const canEdit = isOwner || isAdmin ||
+      (editLevel === "organization" && canUpdateReport);
+
     return (
       <div className="pagecontents container-fluid">
         <PageHead
@@ -174,7 +179,10 @@ export default function ReportPage() {
           ]}
         />
 
-        <h1>{report.title}</h1>
+        <ReportMetaInfo
+          report={report}
+          canEdit={canEdit}
+        />
 
         <ConfigureReport
           report={report}

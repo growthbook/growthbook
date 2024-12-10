@@ -12,6 +12,7 @@ type DropdownProps = {
   menuPlacement?: "start" | "center" | "end";
   menuWidth?: "full" | number;
   children: AllowedChildren;
+  color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
 } & MarginProps;
 
@@ -21,6 +22,7 @@ export function DropdownMenu({
   menuPlacement = "start",
   menuWidth,
   children,
+  color,
   variant,
   ...props
 }: DropdownProps) {
@@ -40,6 +42,7 @@ export function DropdownMenu({
       </RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content
         align={menuPlacement}
+        color={color}
         variant={variant}
         side="bottom"
         className={
@@ -81,7 +84,7 @@ type DropdownItemProps = {
   children: AllowedChildren;
   className?: string;
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: (event: Event) => void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
 } & MarginProps;

@@ -48,7 +48,7 @@ export default function ReportAnalysisSettingsBar({
   useEffect(() => {
     if (
       _snapshot &&
-      getValidDate(_snapshot?.runStarted) > getValidDate(snapshot?.runStarted)
+      (!snapshot || getValidDate(_snapshot?.runStarted) > getValidDate(snapshot?.runStarted))
     ) {
       setSnapshot(_snapshot);
     }
@@ -68,10 +68,15 @@ export default function ReportAnalysisSettingsBar({
     : undefined;
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasMetrics =
+    report.experimentAnalysisSettings.goalMetrics.length > 0 ||
+    report.experimentAnalysisSettings.secondaryMetrics.length > 0 ||
+    report.experimentAnalysisSettings.guardrailMetrics.length > 0;
 
   if (!snapshot) return null;
 
   return (
+    <>
     <div className="pt-1 pb-2 mb-3 border-bottom">
       <div className="row align-items-center px-3">
         <div className="col-auto d-flex align-items-center mr-3">
@@ -223,41 +228,18 @@ export default function ReportAnalysisSettingsBar({
           </div>
         ) : null}
       </div>
-      {/*{report.error ? (*/}
-      {/*  <div className="alert alert-danger">*/}
-      {/*    <strong>Error generating the report: </strong> {report.error}*/}
-      {/*  </div>*/}
-      {/*) : null}*/}
-      {refreshError && (
-        <Callout status="error" size="sm" mt="2" mx="4">
-          <strong>Error refreshing data:</strong> {refreshError}
-        </Callout>
-      )}
-      {/*{!hasMetrics && (*/}
-      {/*  <div className="alert alert-info">*/}
-      {/*    Add at least 1 metric to view results.*/}
-      {/*  </div>*/}
-      {/*)}*/}
-      {/*{!hasData &&*/}
-      {/*  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.*/}
-      {/*  !report.results.unknownVariations?.length &&*/}
-      {/*  queryStatusData.status !== "running" &&*/}
-      {/*  hasMetrics && (*/}
-      {/*    <div className="alert alert-info">*/}
-      {/*      No data yet.{" "}*/}
-      {/*      {report.results &&*/}
-      {/*        phaseAgeMinutes >= 120 &&*/}
-      {/*        "Make sure your experiment is tracking properly."}*/}
-      {/*      {report.results &&*/}
-      {/*        phaseAgeMinutes < 120 &&*/}
-      {/*        "It was just started " +*/}
-      {/*        ago(report.args.startDate) +*/}
-      {/*        ". Give it a little longer and click the 'Refresh' button to check again."}*/}
-      {/*      {!report.results &&*/}
-      {/*        canUpdateReport &&*/}
-      {/*        `Click the "Refresh" button.`}*/}
-      {/*    </div>*/}
-      {/*  )}*/}
     </div>
+
+  {refreshError && (
+    <Callout status="error" size="sm" my="2" mx="4">
+      <strong>Error refreshing data:</strong> {refreshError}
+    </Callout>
+  )}
+  {!hasMetrics && (
+    <Callout status="info" size="sm" my="2" mx="4">
+      Add at least 1 metric to view results.
+    </Callout>
+  )}
+  </>
   );
 }

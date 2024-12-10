@@ -21,6 +21,7 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import ReportResults from "@/components/Report/ReportResults";
+import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -180,7 +181,7 @@ export default function ReportPage(props: ReportPageProps) {
         ]}
       />
 
-      <h1>{report.title}</h1>
+      <ReportMetaInfo report={report} />
 
       <ReportResults
         report={report}
