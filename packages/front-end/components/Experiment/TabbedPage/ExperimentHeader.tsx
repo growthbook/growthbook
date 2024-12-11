@@ -135,9 +135,10 @@ export default function ExperimentHeader({
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
   useEffect(() => {
+    if (!tabsRef.current) return;
+
     const isHeaderSticky =
-      (tabsRef.current?.getBoundingClientRect().top ?? 0) <=
-      TABS_HEADER_HEIGHT_PX;
+      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
 
     setHeaderPinned(isHeaderSticky);
   }, [scrollY]);
