@@ -247,7 +247,6 @@ export default function TabbedPage({
           experiment={experiment}
           mutate={mutate}
           close={() => setUrlRedirectModal(false)}
-          cta="Add Redirect"
           source={trackSource}
         />
       )}
