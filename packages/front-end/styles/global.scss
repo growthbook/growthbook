@@ -617,7 +617,7 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 830;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--shadow-3);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }
