@@ -1200,3 +1200,51 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     return "";
   }
 }
+
+export function getNewDraftExperimentsToPublish({
+  environments,
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: Environment[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const environmentIds = environments.map((e) => e.id);
+
+  const liveExperimentIds = new Set(
+    getMatchingRules(
+      feature,
+      (rule) => rule.type === "experiment-ref",
+      environmentIds
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId)
+  );
+
+  function isExp(
+    exp: ExperimentInterfaceStringDates | undefined
+  ): exp is ExperimentInterfaceStringDates {
+    return !!exp;
+  }
+
+  const draftExperiments = getMatchingRules(
+    feature,
+    (rule) =>
+      // New experiment rule that hasn't been published yet and is in a draft state
+      rule.enabled !== false &&
+      rule.type === "experiment-ref" &&
+      !liveExperimentIds.has(rule.experimentId) &&
+      experimentsMap.get(rule.experimentId)?.status === "draft" &&
+      // Skip experiments with visual changesets. Those need to be started from the experiment page
+      !experimentsMap.get(rule.experimentId)?.hasVisualChangesets,
+    environmentIds,
+    revision
+  )
+    .map((result) =>
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId)
+    )
+    .filter(isExp);
+
+  return [...new Set(draftExperiments)];
+}
