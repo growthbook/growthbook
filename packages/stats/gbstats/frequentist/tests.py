@@ -231,6 +231,7 @@ class OneSidedTreatmentLesserTTest(TTest):
 
 
 def sequential_rho(alpha, sequential_tuning_parameter) -> float:
+    # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
     return np.sqrt(
         (-2 * np.log(alpha) + np.log(-2 * np.log(alpha) + 1))
         / sequential_tuning_parameter
