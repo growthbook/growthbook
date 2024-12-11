@@ -392,6 +392,22 @@ export function getFeatureDefinition({
             rule.condition = condition;
           }
 
+          if (phase?.prerequisites?.length) {
+            rule.parentConditions = phase.prerequisites
+              .map((prerequisite) => {
+                try {
+                  return {
+                    id: prerequisite.id,
+                    condition: JSON.parse(prerequisite.condition),
+                  };
+                } catch (e) {
+                  // do nothing
+                }
+                return null;
+              })
+              .filter(Boolean);
+          }
+
           rule.coverage = phase.coverage;
 
           if (exp.hashAttribute) {
