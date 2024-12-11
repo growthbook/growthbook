@@ -67,6 +67,10 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
+  // new input
+  // Org level settings for now, maybe we'll make this per experiment/metric later?
+  min_duration_days: number;
+  max_duration_days: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -87,6 +91,10 @@ export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
   inverse: boolean;
+  // new input
+  // for a given experiment, we can add the same metric to multiple business types
+  // so we can have a single metric that is a goal, guardrail and secondary
+  business_metric_type: Array<"guardrail" | "goal" | "secondary">;
   statistic_type:
     | "mean"
     | "ratio"
