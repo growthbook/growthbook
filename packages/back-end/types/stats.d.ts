@@ -57,6 +57,18 @@ export type ExperimentMetricAnalysis = {
   analyses: {
     unknownVariations: string[];
     multipleExposures: number;
+    // new output somewhere in here
+    // not sure if here or inside DimensionResponse
+    powerResult: {
+      dailyTraffic: number;
+      variationId: string;
+      effectSize: number;
+      power: string; // or number?
+      // Do we want to have this in the response? or should we have a low/high power threshold in the FE/BE and use the power property?
+      isLowPowered: boolean;
+      // Should likely be in days to provide better flexibility
+      timeRemainingDays: number;
+    };
     dimensions: StatsEngineDimensionResponse[];
   }[];
 }[];
