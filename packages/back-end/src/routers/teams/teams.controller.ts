@@ -51,9 +51,7 @@ export const postTeam = async (
   const { name, description, permissions } = req.body;
 
   if (!orgHasPremiumFeature(org, "teams")) {
-    throw new Error(
-      "Must have a commercial License Key to restrict permissions by environment."
-    );
+    throw new Error("Must have a commercial License Key to create a team.");
   }
 
   if (!context.permissions.canManageTeam()) {
