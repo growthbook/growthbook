@@ -3,7 +3,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { getAggregateFilters, quantileMetricType } from "shared/experiments";
+import {
+  getAggregateFilters,
+  isRatioMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -25,7 +29,11 @@ import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getPercentileLabel } from "@/services/metrics";
+import {
+  formatNumber,
+  getExperimentMetricFormatter,
+  getPercentileLabel,
+} from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -35,11 +43,16 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-import Tab from "@/components/Tabs/Tab";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
+import { useCurrency } from "@/hooks/useCurrency";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -140,6 +153,8 @@ export default function FactMetricPage() {
   const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
+
+  const displayCurrency = useCurrency();
 
   const {
     metricDefaults,
@@ -251,7 +266,7 @@ export default function FactMetricPage() {
       ? [
           {
             label: "Per-User Aggregation",
-            value: "SUM",
+            value: (factMetric.numerator.aggregation || "SUM").toUpperCase(),
           },
         ]
       : userFilters.length > 0
@@ -327,7 +342,9 @@ export default function FactMetricPage() {
             ? [
                 {
                   label: "Per-User Aggregation",
-                  value: "SUM",
+                  value: (
+                    factMetric.denominator.aggregation || "SUM"
+                  ).toUpperCase(),
                 },
               ]
             : []),
@@ -671,12 +688,28 @@ export default function FactMetricPage() {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Thresholds</span>
+                    <span className="uppercase-title lg">
+                      Display Thresholds
+                    </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Minimum sample size:</span>{" "}
+                    <span className="text-gray">{`Minimum ${
+                      quantileMetricType(factMetric)
+                        ? `${quantileMetricType(factMetric)} count`
+                        : `${
+                            isRatioMetric(factMetric) ? "numerator" : "metric"
+                          } total`
+                    }:`}</span>{" "}
                     <span className="font-weight-bold">
-                      {getMinSampleSizeForMetric(factMetric)}
+                      {quantileMetricType(factMetric)
+                        ? formatNumber(getMinSampleSizeForMetric(factMetric))
+                        : getExperimentMetricFormatter(
+                            factMetric,
+                            getFactTableById,
+                            true
+                          )(getMinSampleSizeForMetric(factMetric), {
+                            currency: displayCurrency,
+                          })}
                     </span>
                   </li>
                   <li className="mb-2">
@@ -804,70 +837,45 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-      <div className="row align-items-center">
-        <ControlledTabs
-          orientation="horizontal"
-          className="col"
-          buttonsClassName="mb-0 d-flex align-items-center"
-          buttonsWrapperClassName="border-bottom-0 large shiftdown-1"
-          defaultTab="analysis"
-          newStyle={false}
-          showActiveCount={false}
-          active={tab}
-          setActive={setTab}
-        >
-          <Tab
-            display={
-              <>
-                <FaChartLine className="mr-1" size={16} />
-                Metric Analysis
-              </>
-            }
-            id="analysis"
-            anchor="analysis"
-            padding={false}
-            lazy={true}
-          >
-            {datasource ? (
-              <MetricAnalysis
-                factMetric={factMetric}
-                datasource={datasource}
-                className="tabbed-content"
-              />
-            ) : null}
-          </Tab>
-          <Tab
-            display={
-              <>
-                <GBExperiment className="mr-1" />
-                Experiments
-              </>
-            }
-            id="experiments"
-            anchor="experiments"
-            padding={false}
-            lazy={true}
-          >
-            <MetricExperiments metric={factMetric} />
-          </Tab>
-          {growthbook.isOn("bandits") ? (
-            <Tab
-              display={
-                <>
-                  <GBBandit className="mr-1" />
-                  Bandits
-                </>
-              }
-              id="bandits"
-              anchor="bandits"
-              padding={false}
-              lazy={true}
-            >
-              <MetricExperiments metric={factMetric} bandits={true} />
-            </Tab>
+
+      <Tabs value={tab ?? undefined} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="analysis">
+            <FaChartLine className="mr-1" size={16} />
+            Metric Analysis
+          </TabsTrigger>
+          <TabsTrigger value="experiments">
+            <GBExperiment className="mr-1" />
+            Experiments
+          </TabsTrigger>
+          {growthbook.isOn("bandits") && (
+            <TabsTrigger value="bandits">
+              <GBBandit className="mr-1" />
+              Bandits
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="analysis">
+          {datasource ? (
+            <MetricAnalysis
+              factMetric={factMetric}
+              datasource={datasource}
+              className="tabbed-content"
+            />
           ) : null}
-        </ControlledTabs>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="experiments">
+          <MetricExperiments metric={factMetric} />
+        </TabsContent>
+
+        {growthbook.isOn("bandits") && (
+          <TabsContent value="bandits">
+            <MetricExperiments metric={factMetric} bandits={true} />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

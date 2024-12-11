@@ -1,10 +1,17 @@
 ---
-title: Deno, Hono, and GrowthBook
+title: Feature Flags and A/B Tests with Deno, Hono, and GrowthBook
 description: This guide shows you how to integrate GrowthBook with Deno and Hono to manage server-side feature flags and experiments.
 slug: deno-hono
 ---
 
 # Feature Flags and A/B Tests with Deno, Hono, and GrowthBook
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/QBvo-j02ors?si=vgpvRPs3rbmAQFYl" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style={{
+  width: '100%',
+  height: 'auto',
+  aspectRatio: '16 / 9',
+  marginBottom: '1rem'
+}}></iframe>
 
 :::note
 The only requirement for this tutorial is to [install Deno](https://docs.deno.com/runtime/getting_started/installation/). The installation process is straightforward, and you'll be ready to follow along easily.
@@ -67,7 +74,7 @@ The GrowthBook JS SDK is now available on the JSR. Learn more in our [announceme
 Generate a Tailwind config:
 
 ```bash
-deno run -A npm:tailwincss init -p
+deno run -A npm:tailwindcss init -p
 ```
 
 This creates `postcss.config.js` and `tailwind.config.js`. Update the Tailwind config to target the right files:

@@ -255,7 +255,7 @@ export type Options = {
   savedGroups?: SavedGroupsValues;
 };
 
-export type MultiUserOptions = {
+export type ClientOptions = {
   enabled?: boolean;
   debug?: boolean;
   globalAttributes?: Attributes;

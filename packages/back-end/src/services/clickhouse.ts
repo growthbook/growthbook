@@ -164,6 +164,14 @@ WHERE organization = '${orgId}';`,
   logger.info(`Granting select permissions on ${viewName} to ${user}`);
   await client.command({ query: `GRANT SELECT ON ${viewName} TO ${user}` });
 
+  logger.info(
+    `Granting select permissions on information_schema.columns to ${user}`
+  );
+  // For schema browser.  They can only see info on tables that they have select permissions on.
+  await client.command({
+    query: `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`,
+  });
+
   logger.info(`Clickhouse user ${user} created`);
 
   const url = new URL(CLICKHOUSE_HOST);

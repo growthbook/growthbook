@@ -48,11 +48,11 @@ export default function MetricsSettings() {
             per-metric basis.
           </p>
 
-          {/* region Minimum Sample Size */}
+          {/* region Minimum Metric Total */}
           <div>
             <div className="form-inline">
               <Field
-                label="Minimum Sample Size"
+                label="Minimum Metric Total"
                 type="number"
                 min={0}
                 className="ml-2"
@@ -66,12 +66,12 @@ export default function MetricsSettings() {
             </div>
             <p>
               <small className="text-muted mb-3">
-                The total count required in an experiment variation before
-                showing results
+                The total metric value required in an experiment variation
+                before showing results
               </small>
             </p>
           </div>
-          {/* endregion Minimum Sample Size */}
+          {/* endregion Minimum Metric Total */}
 
           {/* region Maximum Percentage Change */}
           <div>

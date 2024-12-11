@@ -179,6 +179,7 @@ export default abstract class SqlIntegration
       dropUnitsTable: this.dropUnitsTable(),
       hasQuantileTesting: this.hasQuantileTesting(),
       hasEfficientPercentiles: this.hasEfficientPercentile(),
+      hasCountDistinctHLL: this.hasCountDistinctHLL(),
     };
   }
 
@@ -307,6 +308,27 @@ export default abstract class SqlIntegration
   }
   hasEfficientPercentile(): boolean {
     return true;
+  }
+  hasCountDistinctHLL(): boolean {
+    return false;
+  }
+  // eslint-disable-next-line
+  hllAggregate(col: string): string {
+    throw new Error(
+      "COUNT DISTINCT is not supported for fact metrics in this data source."
+    );
+  }
+  // eslint-disable-next-line
+  hllReaggregate(col: string): string {
+    throw new Error(
+      "COUNT DISTINCT is not supported for fact metrics in this data source."
+    );
+  }
+  // eslint-disable-next-line
+  hllCardinality(col: string): string {
+    throw new Error(
+      "COUNT DISTINCT is not supported for fact metrics in this data source."
+    );
   }
 
   private getExposureQuery(
@@ -474,7 +496,9 @@ export default abstract class SqlIntegration
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn(params.metric);
+    const aggregate = this.getAggregateMetricColumn({
+      metric: params.metric,
+    });
 
     // TODO query is broken if segment has template variables
     return format(
@@ -707,14 +731,33 @@ export default abstract class SqlIntegration
     );
 
     const createHistogram = metric.metricType === "mean";
-    const finalValueColumn = this.capCoalesceValue({
+
+    const finalDailyValueColumn = this.capCoalesceValue({
+      valueCol: this.getValueFromAggregateColumns("value", metric.numerator),
+      metric,
+      capTablePrefix: "cap",
+      capValueCol: "value_capped",
+      columnRef: metric.numerator,
+    });
+    const finalDailyDenominatorColumn = this.capCoalesceValue({
+      valueCol: this.getValueFromAggregateColumns(
+        "denominator",
+        metric.denominator
+      ),
+      metric,
+      capTablePrefix: "cap",
+      capValueCol: "denominator_capped",
+      columnRef: metric.denominator,
+    });
+
+    const finalOverallValueColumn = this.capCoalesceValue({
       valueCol: "value",
       metric,
       capTablePrefix: "cap",
       capValueCol: "value_capped",
       columnRef: metric.numerator,
     });
-    const finalDenominatorColumn = this.capCoalesceValue({
+    const finalOverallDenominatorColumn = this.capCoalesceValue({
       valueCol: "denominator",
       metric,
       capTablePrefix: "cap",
@@ -750,18 +793,20 @@ export default abstract class SqlIntegration
           SELECT
           ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
             , ${this.dateTrunc("timestamp")} AS date
-            , ${this.getAggregateMetricColumn(
-              metricData.metric,
-              false,
-              `f.${metricData.alias}_value`
-            )} AS value
+            , ${this.getAggregateMetricColumn({
+              metric: metricData.metric,
+              useDenominator: false,
+              valueColumn: `f.${metricData.alias}_value`,
+              willReaggregate: true,
+            })} AS value
                   ${
                     metricData.ratioMetric
-                      ? `, ${this.getAggregateMetricColumn(
-                          metricData.metric,
-                          true,
-                          `f.${metricData.alias}_denominator`
-                        )} AS denominator`
+                      ? `, ${this.getAggregateMetricColumn({
+                          metric: metricData.metric,
+                          useDenominator: true,
+                          valueColumn: `f.${metricData.alias}_denominator`,
+                          willReaggregate: true,
+                        })} AS denominator`
                       : ""
                   }
           
@@ -777,21 +822,21 @@ export default abstract class SqlIntegration
             ${this.dateTrunc("f.timestamp")}
             , ${populationSQL ? "p" : "f"}.${baseIdType}
         )
-        , __userMetricOverall as (
+        , __userMetricOverall AS (
           SELECT
             ${baseIdType}
             , ${this.getReaggregateMetricColumn(
               metric,
               false,
               "value"
-            )} as value
+            )} AS value
              ${
                metricData.ratioMetric
                  ? `, ${this.getReaggregateMetricColumn(
                      metric,
                      true,
                      "denominator"
-                   )} as denominator`
+                   )} AS denominator`
                  : ""
              }
           FROM
@@ -838,15 +883,15 @@ export default abstract class SqlIntegration
             , MAX(${this.castToString("'date'")}) AS data_type
             , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
             ${this.getMetricAnalysisStatisticClauses(
-              finalValueColumn,
-              finalDenominatorColumn,
+              finalDailyValueColumn,
+              finalDailyDenominatorColumn,
               metricData.ratioMetric
             )}
             ${
               createHistogram
                 ? `
-            , MIN(${finalValueColumn}) as value_min
-            , MAX(${finalValueColumn}) as value_max
+            , MIN(${finalDailyValueColumn}) as value_min
+            , MAX(${finalDailyValueColumn}) as value_max
             , ${this.ensureFloat("NULL")} AS bin_width
             ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()]
               .map((i) => `, ${this.ensureFloat("NULL")} AS units_bin_${i}`)
@@ -863,16 +908,16 @@ export default abstract class SqlIntegration
             , MAX(${this.castToString("'overall'")}) AS data_type
             , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
             ${this.getMetricAnalysisStatisticClauses(
-              finalValueColumn,
-              finalDenominatorColumn,
+              finalOverallValueColumn,
+              finalOverallDenominatorColumn,
               metricData.ratioMetric
             )}
             ${
               createHistogram
                 ? `
-            , MIN(${finalValueColumn}) as value_min
-            , MAX(${finalValueColumn}) as value_max
-            , (MAX(${finalValueColumn}) - MIN(${finalValueColumn})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as bin_width
+            , MIN(${finalOverallValueColumn}) as value_min
+            , MAX(${finalOverallValueColumn}) as value_max
+            , (MAX(${finalOverallValueColumn}) - MIN(${finalOverallValueColumn})) / ${DEFAULT_METRIC_HISTOGRAM_BINS}.0 as bin_width
             `
                 : ""
             }
@@ -2471,20 +2516,20 @@ export default abstract class SqlIntegration
           ${metricData
             .map(
               (data) =>
-                `${this.getAggregateMetricColumn(
-                  data.metric,
-                  false,
-                  `umj.${data.alias}_value`,
-                  `qm.${data.alias}_quantile`
-                )} AS ${data.alias}_value
+                `${this.getAggregateMetricColumn({
+                  metric: data.metric,
+                  useDenominator: false,
+                  valueColumn: `umj.${data.alias}_value`,
+                  quantileColumn: `qm.${data.alias}_quantile`,
+                })} AS ${data.alias}_value
                 ${
                   data.ratioMetric
-                    ? `, ${this.getAggregateMetricColumn(
-                        data.metric,
-                        true,
-                        `umj.${data.alias}_denominator`,
-                        `qm.${data.alias}_quantile`
-                      )} AS ${data.alias}_denominator`
+                    ? `, ${this.getAggregateMetricColumn({
+                        metric: data.metric,
+                        useDenominator: true,
+                        valueColumn: `umj.${data.alias}_denominator`,
+                        quantileColumn: `qm.${data.alias}_quantile`,
+                      })} AS ${data.alias}_denominator`
                     : ""
                 }`
             )
@@ -2531,15 +2576,15 @@ export default abstract class SqlIntegration
             ${regressionAdjustedMetrics
               .map(
                 (metric) =>
-                  `${this.getAggregateMetricColumn(
-                    metric.metric,
-                    false,
-                    this.ifElse(
+                  `${this.getAggregateMetricColumn({
+                    metric: metric.metric,
+                    useDenominator: false,
+                    valueColumn: this.ifElse(
                       `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                       `${metric.alias}_value`,
                       "NULL"
-                    )
-                  )} as ${metric.alias}_value`
+                    ),
+                  })} as ${metric.alias}_value`
               )
               .join(",\n")}
           FROM
@@ -3024,11 +3069,10 @@ export default abstract class SqlIntegration
           ${banditDates?.length ? `umj.bandit_period AS bandit_period,` : ""}
           ${cumulativeDate ? "umj.day AS day," : ""}
           umj.${baseIdType},
-          ${this.getAggregateMetricColumn(
+          ${this.getAggregateMetricColumn({
             metric,
-            undefined,
-            "umj.value"
-          )} as value
+            valueColumn: "umj.value",
+          })} as value
           ${quantileMetric === "event" ? `, COUNT(umj.value) AS n_events` : ""}
         FROM
           __userMetricJoin umj
@@ -3079,7 +3123,10 @@ export default abstract class SqlIntegration
                 }
                 ${cumulativeDate ? `dr.day AS day,` : ""}
                 d.${baseIdType} AS ${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, true)} as value
+                ${this.getAggregateMetricColumn({
+                  metric: denominator,
+                  useDenominator: true,
+                })} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -3144,7 +3191,7 @@ export default abstract class SqlIntegration
             d.variation AS variation,
             d.dimension AS dimension,
             d.${baseIdType} AS ${baseIdType},
-            ${this.getAggregateMetricColumn(metric)} as value
+            ${this.getAggregateMetricColumn({ metric })} as value
           FROM
             __distinctUsers d
           JOIN __metric m ON (
@@ -4736,12 +4783,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     )}`;
   }
 
-  private getAggregateMetricColumn(
-    metric: ExperimentMetricInterface,
-    useDenominator?: boolean,
-    valueColumn: string = "value",
-    quantileColumn: string = "qm.quantile"
-  ) {
+  private getAggregateMetricColumn({
+    metric,
+    useDenominator,
+    valueColumn = "value",
+    quantileColumn = "qm.quantile",
+    willReaggregate,
+  }: {
+    metric: ExperimentMetricInterface;
+    useDenominator?: boolean;
+    valueColumn?: string;
+    quantileColumn?: string;
+    willReaggregate?: boolean;
+  }) {
     // Fact Metrics
     if (isFactMetric(metric)) {
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
@@ -4761,7 +4815,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         !hasAggregateFilter &&
         (metric.metricType === "proportion" || column === "$$distinctUsers")
       ) {
-        return `MAX(COALESCE(${valueColumn}, 0))`;
+        return `COALESCE(MAX(${valueColumn}), 0)`;
       } else if (column === "$$count") {
         return `COUNT(${valueColumn})`;
       } else if (
@@ -4779,6 +4833,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         metric.quantileSettings?.ignoreZeros
       ) {
         return `SUM(${valueColumn})`;
+      } else if (columnRef?.aggregation === "count distinct") {
+        if (willReaggregate) {
+          return this.hllAggregate(valueColumn);
+        }
+        return this.hllCardinality(this.hllAggregate(valueColumn));
+      } else if (columnRef?.aggregation === "max") {
+        return `COALESCE(MAX(${valueColumn}), 0)`;
       } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
       }
@@ -4853,14 +4914,28 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         (metric.metricType === "proportion" || column === "$$distinctUsers")
       ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
-      }
-      {
+      } else if (columnRef?.aggregation === "count distinct") {
+        return this.hllCardinality(this.hllReaggregate(valueColumn));
+      } else if (columnRef?.aggregation === "max") {
+        return `MAX(COALESCE(${valueColumn}, 0))`;
+      } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
       }
     }
 
     // Non-fact Metrics
     throw new Error("Non-fact metrics are not supported for reaggregation");
+  }
+
+  private getValueFromAggregateColumns(
+    col: string,
+    columnRef?: ColumnRef | null
+  ): string {
+    if (columnRef?.aggregation === "count distinct") {
+      return this.hllCardinality(col);
+    }
+
+    return col;
   }
 
   private getMetricColumns(

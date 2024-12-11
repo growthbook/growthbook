@@ -11,6 +11,8 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type Props = {
   goBack: () => void;
@@ -32,7 +34,9 @@ export default function FactSegmentForm({
     factTables,
     getFactTableById,
     mutateDefinitions,
+    projects,
   } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
 
   // Build a list of unique data source ids that have atleast 1 fact table built on it
   const uniqueDatasourcesWithFactTables = Array.from(
@@ -55,11 +59,31 @@ export default function FactSegmentForm({
       factTableId: current?.factTableId || "",
       filters: current?.filters || [],
       type: "FACT",
+      projects: current?.id
+        ? current.projects || []
+        : filteredDatasources[0]?.projects || [],
     },
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
   const factTable = getFactTableById(form.watch("factTableId"));
+
+  // Projects must be a subset of a data source's projects
+  const filteredProjects = projects.filter((project) => {
+    // only filter projects if the data source isn't in All Projects (aka, projects is an empty array)
+    if (datasource?.projects && datasource.projects.length) {
+      return (
+        datasource.projects.includes(project.id) ||
+        form.watch("projects").includes(project.id)
+      );
+    }
+  });
+
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
+    form.watch("projects") || [],
+    filteredProjects.length ? filteredProjects : undefined
+  );
 
   return (
     <Modal
@@ -70,6 +94,32 @@ export default function FactSegmentForm({
       cta={current?.factTableId ? "Update Segment" : "Create Segment"}
       header={current?.factTableId ? "Edit Segment" : "Create Segment"}
       submit={form.handleSubmit(async (value) => {
+        // Block creating a new segment if the selected data source has projects, and the segment is in 'All Projects'
+        // If the user is updating an existing segment, we can ignore this
+        if (
+          !current?.id &&
+          datasource?.projects &&
+          datasource.projects.length > 0 &&
+          !value.projects.length
+        ) {
+          throw new Error(
+            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+          );
+        }
+
+        // Block updating an existing Segment with projects to "All Projects" if the connected data source isn't in "All Projects"
+        if (
+          current?.id &&
+          datasource?.projects &&
+          datasource.projects.length > 0 &&
+          !value.projects.length &&
+          current?.projects?.length
+        ) {
+          throw new Error(
+            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+          );
+        }
+
         if (current?.id) {
           await apiCall(`/segments/${current.id}`, {
             method: "PUT",
@@ -110,15 +160,43 @@ export default function FactSegmentForm({
           label="Data Source"
           required
           value={form.watch("datasource")}
-          onChange={(v) => form.setValue("datasource", v)}
+          onChange={(v) => {
+            form.setValue("datasource", v);
+            // When a new data source is selected, update the projects so they equal the data source's project list
+            const newDataSourceObj = getDatasourceById(v);
+            form.setValue("projects", newDataSourceObj?.projects || []);
+          }}
           placeholder="Choose one..."
           options={datasourceOptions.map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
           className="portal-overflow-ellipsis"
+          disabled={!!current?.id}
           helpText="This list has been filtered to only show data sources that have at least one Fact Table built on top of it"
         />
+        {projects?.length > 0 && (
+          <div className="form-group">
+            <MultiSelectField
+              label={
+                <>
+                  Projects{" "}
+                  <Tooltip
+                    body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                      current?.factTableId ? "update" : "create"
+                    } Segments.`}
+                  />
+                </>
+              }
+              placeholder="All projects"
+              value={form.watch("projects")}
+              options={projectOptions}
+              onChange={(v) => form.setValue("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this segment to specific projects"
+            />
+          </div>
+        )}
         <div className="appbox px-3 pt-3 bg-light">
           <div className="row align-items-center">
             <div className="col-auto">
