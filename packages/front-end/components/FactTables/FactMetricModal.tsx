@@ -267,6 +267,80 @@ function getAggregationOptions(
   ];
 }
 
+function RetentionTimestampSelector({form}: {form}) {
+
+  const [addRetentionTimestamp, setAddRetentionTimestamp] = useState(false);
+
+  return (
+    <div className="appbox px-3 pt-3 bg-light">
+      <div className="row align-items-top">
+        {addRetentionTimestamp ? (
+          <></>
+        ) : (
+          <>
+          <div className="col-auto">Retention is a matching event at least</div>
+            <div className="col-auto">
+              <Field
+                {...form?.register("windowSettings.windowValue", {
+                  valueAsNumber: true,
+                })}
+                type="number"
+                min={1}
+                max={999}
+                step={1}
+                style={{ width: 70 }}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="col-auto">
+              <SelectField
+                value={form?.watch("windowSettings.windowUnit")}
+                onChange={(value) => {
+                  form.setValue(
+                    "windowSettings.windowUnit",
+                    value as "days" | "hours" | "weeks"
+                  );
+                }}
+                sort={false}
+                options={[
+                  {
+                    label: "Hours",
+                    value: "hours",
+                  },
+                  {
+                    label: "Days",
+                    value: "days",
+                  },
+                  {
+                    label: "Weeks",
+                    value: "weeks",
+                  },
+                ]}
+              />
+            </div>
+                <div className="col-auto">
+                  after the first experiment exposure
+                </div>
+          <div className="col-auto">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setAddRetentionTimestamp(true);
+              }}
+              className="py-2"
+            >
+              Customize baseline timestamp
+            </a>
+          </div>
+        </>
+      )}
+      </div>
+    </div>
+  )
+}
+
 function ColumnRefSelector({
   value,
   setValue,
@@ -922,6 +996,7 @@ GROUP BY variation`.trim();
 
   switch (type) {
     case "proportion":
+    case "retention": // TODO
       return {
         sql: `
 SELECT${identifierComment}
@@ -1635,8 +1710,19 @@ export default function FactMetricModal({
                             your experiment who are in a specific fact table.
                           </div>
                           <div className="mb-2">
+                            <strong>Retention</strong> metrics calculate a
+                            proportion of users who are in a table at least X
+                            days or hours after experiment exposure or some other 
+                            event timestamp.
+                          </div>
+                          <div className="mb-2">
                             <strong>Mean</strong> metrics calculate the average
                             value of a numeric column in a fact table.
+                          </div>
+                          <div>
+                            <strong>Ratio</strong> metrics allow you to
+                            calculate a complex value by dividing two different
+                            numeric columns in your fact tables.
                           </div>
                           <div className="mb-2">
                             <strong>Quantile</strong> metrics calculate the
@@ -1645,11 +1731,6 @@ export default function FactMetricModal({
                             {!quantileMetricsAvailableForDatasource
                               ? " Quantile metrics are not available for MySQL data sources."
                               : ""}
-                          </div>
-                          <div>
-                            <strong>Ratio</strong> metrics allow you to
-                            calculate a complex value by dividing two different
-                            numeric columns in your fact tables.
                           </div>
                         </div>
                       }
@@ -1712,8 +1793,16 @@ export default function FactMetricModal({
                     label: "Proportion",
                   },
                   {
+                    value: "retention",
+                    label: "Retention",
+                  },
+                  {
                     value: "mean",
                     label: "Mean",
+                  },
+                  {
+                    value: "ratio",
+                    label: "Ratio",
                   },
                   {
                     value: "quantile",
@@ -1731,10 +1820,6 @@ export default function FactMetricModal({
                         </PremiumTooltip>
                       </>
                     ),
-                  },
-                  {
-                    value: "ratio",
-                    label: "Ratio",
                   },
                 ]}
               />
@@ -1755,6 +1840,32 @@ export default function FactMetricModal({
                   <HelperText status="info">
                     The final metric value will be the percent of users in the
                     experiment that match the above criteria.
+                  </HelperText>
+                </div>
+              ) : type === "retention" ? (
+                <div>
+                  <div className="form-group">
+                  <label>Retention event</label>
+                  <ColumnRefSelector
+                    value={numerator}
+                    setValue={(numerator) =>
+                      form.setValue("numerator", numerator)
+                    }
+                    setDatasource={setDatasource}
+                    datasource={selectedDataSource}
+                    disableFactTableSelector={!!initialFactTable}
+                    supportsAggregatedFilter={true}
+                    allowChangingDatasource={!datasource}
+                    key={selectedDataSource.id}
+                  />
+                  </div>
+                  <div className="form-group">
+                    <RetentionTimestampSelector />
+                  </div>
+                  <HelperText status="info"> 
+                    The final metric value will be the percent of users in the
+                    experiment that match the above criteria at least X hours
+                    after experiment exposure.
                   </HelperText>
                 </div>
               ) : type === "mean" ? (
