@@ -40,6 +40,7 @@ export function PreLaunchChecklist({
   setChecklistItemsRemaining,
   editTargeting,
   openSetupTab,
+  envs,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -48,6 +49,7 @@ export function PreLaunchChecklist({
   mutateExperiment: () => unknown | Promise<unknown>;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  envs: string[];
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
   className?: string;
@@ -411,6 +413,7 @@ export function PreLaunchChecklist({
           editVariationIds={false}
           editMetrics={true}
           source={"pre-launch-checklist"}
+          envs={envs}
         />
       )}
 

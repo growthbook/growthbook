@@ -15,22 +15,68 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { Environment } from "back-end/types/organization";
 
 export * from "./features";
 export * from "./saved-groups";
 
 export function getAffectedEnvsForExperiment({
   experiment,
+  orgEnvironments,
+  linkedFeatures,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
+  orgEnvironments: Environment[];
+  linkedFeatures?: FeatureInterface[];
 }): string[] {
+  if (!orgEnvironments.length) {
+    return [];
+  }
   // Visual changesets are not environment-scoped, so it affects all of them
-  if (experiment.hasVisualChangesets || experiment.hasURLRedirects)
+  // Also fallback to all envs if linkedFeatures is undefined, but the experiment does actually have linked features
+  if (
+    experiment.hasVisualChangesets ||
+    experiment.hasURLRedirects ||
+    (!linkedFeatures && !!experiment.linkedFeatures?.length)
+  )
     return ["__ALL__"];
 
-  // TODO: get actual environments for linked feature flags. We are being overly conservative here
-  if (experiment.linkedFeatures && experiment.linkedFeatures.length > 0) {
-    return ["__ALL__"];
+  if (linkedFeatures?.length) {
+    const envs = new Set<string>();
+    const orgEnvIds = orgEnvironments.map((e) => e.id);
+    linkedFeatures.forEach((linkedFeature) => {
+      const matches = getMatchingRules(
+        linkedFeature,
+        (rule) =>
+          (rule.type === "experiment-ref" &&
+            rule.enabled &&
+            rule.experimentId === experiment.id) ||
+          false,
+        orgEnvIds,
+        undefined,
+        // the boolean below skips environments if they are disabled on the feature
+        true
+      );
+      if (matches.length) {
+        const featureProject = linkedFeature.project || "";
+        matches.forEach((matchRule) => {
+          const environmentProjects =
+            orgEnvironments.find((env) => env.id === matchRule.environmentId)
+              ?.projects || [];
+
+          // if the linkedFeature is in all projects, or if a rule's environment is in all projects, add the environment as it'll be affected
+          if (!featureProject.length || !environmentProjects.length) {
+            envs.add(matchRule.environmentId);
+          }
+
+          // otherwise only add the environment if the feature's project overlaps with the environments projects - if there is no overlap, this rule won't affect
+          if (environmentProjects.includes(featureProject)) {
+            envs.add(matchRule.environmentId);
+          }
+        });
+      }
+    });
+    return Array.from(envs);
   }
 
   return [];
@@ -182,7 +228,8 @@ export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
   environments: string[],
-  revision?: FeatureRevisionInterface
+  revision?: FeatureRevisionInterface,
+  omitDisabledEnvironments: boolean = false
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
@@ -190,6 +237,8 @@ export function getMatchingRules(
     Object.entries(feature.environmentSettings).forEach(
       ([environmentId, settings]) => {
         if (!isValidEnvironment(environmentId, environments)) return;
+
+        if (omitDisabledEnvironments && !settings.enabled) return;
 
         const rules = revision ? revision.rules[environmentId] : settings.rules;
 
