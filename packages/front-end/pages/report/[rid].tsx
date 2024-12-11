@@ -78,7 +78,12 @@ export default function ReportPage() {
     shouldRun: () => !!data?.report?.experimentId,
   });
 
-  const { userId, permissions, getUserDisplay, hasCommercialFeature } = useUser();
+  const {
+    userId,
+    permissions,
+    getUserDisplay,
+    hasCommercialFeature,
+  } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const [tab, setTab] = useState<string>("results");
@@ -179,10 +184,7 @@ export default function ReportPage() {
           ]}
         />
 
-        <ReportMetaInfo
-          report={report}
-          canEdit={canEdit}
-        />
+        <ReportMetaInfo report={report} mutate={mutate} canEdit={canEdit} />
 
         <ConfigureReport
           report={report}

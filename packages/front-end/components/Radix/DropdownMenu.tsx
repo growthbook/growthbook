@@ -14,6 +14,9 @@ type DropdownProps = {
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
+  disabled?: boolean;
 } & MarginProps;
 
 export function DropdownMenu({
@@ -24,11 +27,12 @@ export function DropdownMenu({
   children,
   color,
   variant,
+  disabled,
   ...props
 }: DropdownProps) {
   const triggerComponent =
     typeof trigger === "string" ? (
-      <Button icon={<PiCaretDown />} iconPosition="right">
+      <Button icon={disabled ? undefined : <PiCaretDown />} iconPosition="right">
         {trigger}
       </Button>
     ) : (
@@ -37,7 +41,7 @@ export function DropdownMenu({
 
   return (
     <RadixDropdownMenu.Root {...props}>
-      <RadixDropdownMenu.Trigger className={triggerClassName}>
+      <RadixDropdownMenu.Trigger className={triggerClassName} disabled={disabled}>
         {triggerComponent}
       </RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content

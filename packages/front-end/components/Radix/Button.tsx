@@ -3,13 +3,12 @@ import { ForwardedRef, forwardRef, ReactNode, useState } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 
-export type Color = "violet" | "red" | "gray" | "cyan";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 
 export type Props = {
   onClick?: (() => Promise<void>) | (() => void);
-  color?: Color;
+  color?: ButtonProps["color"];
   variant?: Variant;
   size?: Size;
   disabled?: boolean;

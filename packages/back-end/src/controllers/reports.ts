@@ -480,7 +480,14 @@ export async function putReport(
       throw new Error("Malformed data");
     }
     const updates: Partial<ExperimentSnapshotReportInterface> = {
-      ...pick(data, ["title", "description", "status", "snapshot"]),
+      ...pick(data, [
+        "title",
+        "description",
+        "shareLevel",
+        "editLevel",
+        "status",
+        "snapshot",
+      ]),
     };
     if (data?.experimentMetadata?.phases) {
       updates.experimentMetadata = {
