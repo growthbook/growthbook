@@ -59,7 +59,8 @@ export type ExperimentMetricAnalysis = {
     multipleExposures: number;
     // new output somewhere in here
     // not sure if here or inside DimensionResponse
-    powerResult: {
+    // not every metric will have powerResult
+    powerResult?: {
       dailyTraffic: number;
       variationId: string;
       effectSize: number;
