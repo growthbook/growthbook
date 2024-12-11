@@ -29,6 +29,7 @@ export default function ReportMetaInfo({
   mutate,
   canView = true,
   canEdit,
+  canDelete,
   simpleShareButton,
   showPrivateLink,
 }: {
@@ -36,6 +37,7 @@ export default function ReportMetaInfo({
   mutate?: () => Promise<unknown> | unknown;
   canView?: boolean;
   canEdit?: boolean;
+  canDelete?: boolean;
   simpleShareButton?: boolean;
   showPrivateLink?: boolean;
 }) {
@@ -213,7 +215,7 @@ export default function ReportMetaInfo({
                         icon={<PiLink />}
                         onClick={() => performCopy(shareableLink)}
                       >
-                        Copy Shareable Link
+                        Copy Link
                       </Button>
                     )}
                   </>
