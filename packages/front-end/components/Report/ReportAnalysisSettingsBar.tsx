@@ -39,6 +39,7 @@ export default function ReportAnalysisSettingsBar({
   setSettingsOpen?: (o: boolean) => void;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
+  console.log({ canUpdateReport });
   const { apiCall } = useAuth();
 
   const [refreshError, setRefreshError] = useState("");

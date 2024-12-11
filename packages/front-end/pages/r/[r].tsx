@@ -4,7 +4,7 @@ import {
 } from "back-end/types/report";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
@@ -22,6 +22,9 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 import ReportResults from "@/components/Report/ReportResults";
 import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
+import { useUser } from "@/services/UserContext";
+import Callout from "@/components/Radix/Callout";
+import Link from "@/components/Radix/Link";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -75,7 +78,29 @@ export interface SSRExperimentReportPolyfills {
 }
 
 export default function ReportPage(props: ReportPageProps) {
+  const {
+    userId,
+    organization: userOrganization,
+    superAdmin,
+    ready: userReady,
+  } = useUser();
   const { report, snapshot, ssrData } = props;
+
+  const [isSsr, setIsSsr] = useState(true);
+  useEffect(() => setIsSsr(false), []);
+  const hasCsrSettings = !!Object.keys(useOrgSettings() || {})?.length;
+
+  const isOrgMember =
+    (!!userId && report.organization === userOrganization.id) || !!superAdmin;
+  let canView = report.shareLevel === "public";
+  if (report.shareLevel === "organization") {
+    // must be an org member or superAdmin
+    canView = isOrgMember;
+  }
+  if (isSsr) {
+    // initial SSR can render (for openGraph)
+    canView = true;
+  }
 
   const {
     getExperimentMetricById,
@@ -85,7 +110,6 @@ export default function ReportPage(props: ReportPageProps) {
     dimensions,
     getDimensionById,
   } = useDefinitions();
-  const hasCsrSettings = !!Object.keys(useOrgSettings() || {})?.length;
 
   // ssr polyfills
   const getExperimentMetricByIdSSR = useCallback(
@@ -181,14 +205,30 @@ export default function ReportPage(props: ReportPageProps) {
         ]}
       />
 
-      <ReportMetaInfo report={report} />
-
-      <ReportResults
+      <ReportMetaInfo
         report={report}
-        snapshot={snapshot}
-        snapshotError={!snapshot ? new Error("Missing snapshot") : undefined}
-        ssrPolyfills={ssrPolyfills}
+        canView={canView}
+        showPrivateLink={isOrgMember}
       />
+
+      {canView ? (
+        <ReportResults
+          report={report}
+          snapshot={snapshot}
+          snapshotError={!snapshot ? new Error("Missing snapshot") : undefined}
+          ssrPolyfills={ssrPolyfills}
+        />
+      ) : (
+        <Callout status="error">
+          This report is not shared publicly.
+          {!userReady && (
+            <>
+              {" "}
+              <Link href="/">Log in</Link> to view this link.
+            </>
+          )}
+        </Callout>
+      )}
     </div>
   );
 }

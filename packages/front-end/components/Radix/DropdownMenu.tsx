@@ -32,7 +32,10 @@ export function DropdownMenu({
 }: DropdownProps) {
   const triggerComponent =
     typeof trigger === "string" ? (
-      <Button icon={disabled ? undefined : <PiCaretDown />} iconPosition="right">
+      <Button
+        icon={disabled ? undefined : <PiCaretDown />}
+        iconPosition="right"
+      >
         {trigger}
       </Button>
     ) : (
@@ -41,7 +44,10 @@ export function DropdownMenu({
 
   return (
     <RadixDropdownMenu.Root {...props}>
-      <RadixDropdownMenu.Trigger className={triggerClassName} disabled={disabled}>
+      <RadixDropdownMenu.Trigger
+        className={triggerClassName}
+        disabled={disabled}
+      >
         {triggerComponent}
       </RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content

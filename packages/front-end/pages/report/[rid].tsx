@@ -163,8 +163,8 @@ export default function ReportPage() {
 
     const isOwner = userId === report?.userId || !report?.userId;
     const isAdmin = !!permissions.superDeleteReport;
-    const canEdit = isOwner || isAdmin ||
-      (editLevel === "organization" && canUpdateReport);
+    const canEdit =
+      isOwner || isAdmin || (editLevel === "organization" && canUpdateReport);
 
     return (
       <div className="pagecontents container-fluid">
@@ -192,6 +192,7 @@ export default function ReportPage() {
           open={settingsOpen}
           setOpen={setSettingsOpen}
           runQueriesButtonRef={runQueriesButtonRef}
+          canEdit={canEdit}
         />
 
         <ReportResults

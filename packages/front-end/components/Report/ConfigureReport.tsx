@@ -52,12 +52,14 @@ export default function ConfigureReport({
   mutate,
   open,
   setOpen,
+  canEdit,
   runQueriesButtonRef,
 }: {
   report: ExperimentSnapshotReportInterface;
   mutate: () => void;
   open: boolean;
   setOpen: (o: boolean) => void;
+  canEdit?: boolean;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
   const { getDatasourceById, segments } = useDefinitions();
@@ -69,6 +71,8 @@ export default function ConfigureReport({
     defaultValues: report,
   });
   const submit = form.handleSubmit(async (value) => {
+    if (!canEdit) return;
+
     if (useToday) {
       value.experimentAnalysisSettings.dateEnded = null;
     }

@@ -9,17 +9,17 @@ import {
   PiCheck,
 } from "react-icons/pi";
 import { Text } from "@radix-ui/themes";
+import { FaGear } from "react-icons/fa6";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@/components/Radix/DropdownMenu";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import HelperText from "@/components/Radix/HelperText";
 import Modal from "@/components/Modal";
 import Avatar from "@/components/Radix/Avatar";
 import { useAuth } from "@/services/auth";
-import {FaGear} from "react-icons/fa6";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const APP_ORIGIN =
   (process.env.APP_ORIGIN ?? "").replace(/\/$/, "") || "http://localhost:3000";
@@ -27,19 +27,23 @@ const APP_ORIGIN =
 export default function ReportMetaInfo({
   report,
   mutate,
+  canView = true,
   canEdit,
+  showPrivateLink,
 }: {
   report: ExperimentSnapshotReportInterface;
-  mutate: () => Promise<unknown> | unknown;
+  mutate?: () => Promise<unknown> | unknown;
+  canView?: boolean;
   canEdit?: boolean;
+  showPrivateLink?: boolean;
 }) {
   const { apiCall } = useAuth();
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareDropdownOpen, setShareDropdownOpen] = useState(false);
 
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 700,
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 600,
   });
 
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function ReportMetaInfo({
     ? `${APP_ORIGIN}/r/${report.tinyid}`
     : `${APP_ORIGIN}/report/${report.id}`;
 
-  const shareLevel = report.shareLevel || "private";
+  const shareLevel = report.shareLevel || "organization";
   const editLevel = report.editLevel || "organization";
 
   const shareIcon =
@@ -70,7 +74,7 @@ export default function ReportMetaInfo({
       ? "Viewable by anybody with the link"
       : shareLevel === "organization"
       ? "Viewable by members of my organization"
-      : "Private to me and administrators";
+      : "Shareable link disabled";
   const shareColor =
     shareLevel === "public"
       ? "green"
@@ -78,9 +82,10 @@ export default function ReportMetaInfo({
       ? "gold"
       : "tomato";
 
-  const editLevelText = editLevel === "organization" ?
-    "Editable by members of my organization" :
-    "Editable by me and administrators";
+  const editLevelText =
+    editLevel === "organization"
+      ? "Editable by members of my organization"
+      : "Editable by me and administrators";
 
   const setShareLevel = async (shareLevel) => {
     await apiCall<{
@@ -89,7 +94,7 @@ export default function ReportMetaInfo({
       method: "PUT",
       body: JSON.stringify({ shareLevel }),
     });
-    await mutate();
+    await mutate?.();
   };
 
   const setEditLevel = async (editLevel) => {
@@ -99,7 +104,7 @@ export default function ReportMetaInfo({
       method: "PUT",
       body: JSON.stringify({ editLevel }),
     });
-    await mutate();
+    await mutate?.();
   };
 
   return (
@@ -109,73 +114,99 @@ export default function ReportMetaInfo({
           <div className="flex-1">
             <h1 className="mb-1">{report.title}</h1>
           </div>
-          <div className="flex-shrink-0">
-            <div className="d-flex">
-              <Button
-                color="cyan"
-                icon={shareIcon}
-                style={{
-                  borderTopRightRadius: 0,
-                  borderBottomRightRadius: 0,
-                  marginRight: 1,
-                }}
-                onClick={() => setShareModalOpen(true)}
-              >
-                Share
-              </Button>
-              <DropdownMenu
-                menuPlacement="end"
-                color="cyan"
-                variant="soft"
-                open={shareDropdownOpen}
-                onOpenChange={(o) => setShareDropdownOpen(o)}
-                trigger={
-                  <Button
-                    color="cyan"
-                    style={{
-                      borderTopLeftRadius: 0,
-                      borderBottomLeftRadius: 0,
-                      paddingLeft: 10,
-                      paddingRight: 10,
-                    }}
-                  >
-                    <PiCaretDown />
-                  </Button>
-                }
-              >
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.preventDefault();
-                    performCopy(shareableLink);
+          {canView ? (
+            <div className="flex-shrink-0">
+              <div className="d-flex">
+                <Button
+                  color="cyan"
+                  icon={shareIcon}
+                  style={{
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    marginRight: 1,
                   }}
+                  onClick={() => setShareModalOpen(true)}
                 >
-                  {copySuccess ? (
-                    <Text color="green" weight="medium">
-                      <PiCheck className="mr-2" />
-                      Link copied
-                    </Text>
-                  ) : (
-                    <Text>
-                      <PiLink className="mr-2" />
-                      Copy Shareable Link
-                    </Text>
+                  Share
+                </Button>
+                <DropdownMenu
+                  menuPlacement="end"
+                  color="cyan"
+                  variant="soft"
+                  open={shareDropdownOpen}
+                  onOpenChange={(o) => setShareDropdownOpen(o)}
+                  trigger={
+                    <Button
+                      color="cyan"
+                      style={{
+                        borderTopLeftRadius: 0,
+                        borderBottomLeftRadius: 0,
+                        paddingLeft: 10,
+                        paddingRight: 10,
+                      }}
+                    >
+                      <PiCaretDown />
+                    </Button>
+                  }
+                >
+                  <DropdownMenuItem
+                    onClick={
+                      shareLevel !== "private"
+                        ? (e) => {
+                            e.preventDefault();
+                            performCopy(shareableLink);
+                          }
+                        : undefined
+                    }
+                    disabled={shareLevel === "private"}
+                  >
+                    {copySuccess ? (
+                      <Text color="green" weight="medium">
+                        <PiCheck className="mr-2" />
+                        Link copied
+                      </Text>
+                    ) : shareLevel !== "private" ? (
+                      <Text>
+                        <PiLink className="mr-2" />
+                        Copy Shareable Link
+                      </Text>
+                    ) : (
+                      <Text color="tomato">
+                        <PiLockBold className="mr-2" />
+                        Shareable link disabled
+                      </Text>
+                    )}
+                  </DropdownMenuItem>
+                  {shareLevel !== "private" && (
+                    <div className="mt-2 px-2 pt-2 mb-1 border-top">
+                      <Text size="1" color="gray" wrap="nowrap">
+                        {shareableLink}
+                      </Text>
+                      <div className="mt-1">
+                        <Text size="1" color={shareColor}>
+                          {shareIcon}
+                          <span className="ml-1">{shareText}</span>
+                        </Text>
+                      </div>
+                    </div>
                   )}
-                </DropdownMenuItem>
-                <div className="mt-2 px-2 pt-2 mb-1 border-top">
-                  <Text size="1" color="gray" wrap="nowrap">
-                    {shareableLink}
-                  </Text>
-                  <div className="mt-1">
-                    <Text size="1" color={shareColor}>
-                      {shareIcon}
-                      <span className="ml-1">{shareText}</span>
-                    </Text>
-                  </div>
-                </div>
-              </DropdownMenu>
+                </DropdownMenu>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
+        {showPrivateLink && (
+          <div>
+            <LinkButton
+              size="sm"
+              variant="ghost"
+              href={`/report/${report.id}`}
+              icon={<FaGear />}
+            >
+              Manage this report
+            </LinkButton>
+          </div>
+        )}
       </div>
 
       {shareModalOpen && (
@@ -189,26 +220,28 @@ export default function ReportMetaInfo({
           submit={() => setShareModalOpen(false)}
           useRadixButton={true}
           secondaryCTA={
-            <>
-              {copySuccess ? (
-                <div className="pl-2 ml-2">
-                  <Text color="green" weight="medium">
-                    <PiCheck className="mr-2"/>
-                    Link copied
-                  </Text>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  color="cyan"
-                  icon={<PiLink/>}
-                  onClick={() => performCopy(shareableLink)}
-                >
-                  Copy Shareable Link
-                </Button>
-              )}
-              <div className="flex-1"/>
-            </>
+            shareLevel !== "private" ? (
+              <>
+                {copySuccess ? (
+                  <div className="pl-2 ml-2">
+                    <Text color="green" weight="medium">
+                      <PiCheck className="mr-2" />
+                      Link copied
+                    </Text>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    color="cyan"
+                    icon={<PiLink />}
+                    onClick={() => performCopy(shareableLink)}
+                  >
+                    Copy Shareable Link
+                  </Button>
+                )}
+                <div className="flex-1" />
+              </>
+            ) : null
           }
         >
           <label>Shareable link access</label>
@@ -226,26 +259,28 @@ export default function ReportMetaInfo({
                   variant="ghost"
                   size="sm"
                   iconPosition="right"
-                  icon={canEdit ? <PiCaretDown/> : undefined}
+                  icon={canEdit ? <PiCaretDown /> : undefined}
                 >
-                  <span className={!canEdit ? "text-muted" : undefined}>{shareText}</span>
+                  <span className={!canEdit ? "text-muted" : undefined}>
+                    {shareText}
+                  </span>
                 </Button>
               }
             >
               <DropdownMenuItem onClick={() => setShareLevel("public")}>
-                <PiShareFat/> Public
+                <PiShareFat /> Public
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShareLevel("organization")}>
-                <PiBuildingFill/> Organization
+                <PiBuildingFill /> Organization
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShareLevel("private")}>
-                <PiLockBold/> Private
+                <PiLockBold /> Disabled
               </DropdownMenuItem>
             </DropdownMenu>
           </div>
 
           <label>Report write access</label>
-          <div className="d-flex align-items-center mb-4">
+          <div className="d-flex align-items-center mb-3">
             <Avatar mr="1">
               <FaGear />
             </Avatar>
@@ -258,17 +293,19 @@ export default function ReportMetaInfo({
                   variant="ghost"
                   size="sm"
                   iconPosition="right"
-                  icon={canEdit ? <PiCaretDown/> : undefined}
+                  icon={canEdit ? <PiCaretDown /> : undefined}
                 >
-                  <span className={!canEdit ? "text-muted" : undefined}>{editLevelText}</span>
+                  <span className={!canEdit ? "text-muted" : undefined}>
+                    {editLevelText}
+                  </span>
                 </Button>
               }
             >
               <DropdownMenuItem onClick={() => setEditLevel("organization")}>
-                <PiBuildingFill/> Organization
+                <PiBuildingFill /> Organization
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEditLevel("private")}>
-                <PiLockBold/> Private
+                <PiLockBold /> Private
               </DropdownMenuItem>
             </DropdownMenu>
           </div>

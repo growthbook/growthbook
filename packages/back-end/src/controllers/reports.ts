@@ -241,9 +241,17 @@ export async function getReportPublic(
   if (!report) {
     throw new Error("Unknown report id");
   }
+  if (report.type !== "experiment-snapshot") {
+    throw new Error("Invalid report");
+  }
   const context = await getContextForAgendaJobByOrgId(report.organization);
 
-  // todo: share permissions
+  if (report.shareLevel === "private") {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+  // "public" and "organization" share levels are handled on the page
 
   const snapshot =
     report.type === "experiment-snapshot"
