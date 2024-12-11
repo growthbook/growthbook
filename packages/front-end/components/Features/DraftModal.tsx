@@ -1,19 +1,35 @@
 import { FeatureInterface } from "back-end/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
   mergeResultHasChanges,
 } from "shared/util";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import {
+  getAffectedRevisionEnvs,
+  getNewDraftExperimentsToPublish,
+  useEnvironments,
+} from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/components/Radix/Checkbox";
+import {
+  CheckListItem,
+  getChecklistItems,
+  PreLaunchChecklistFeatureExpRule,
+} from "@/components/Experiment/PreLaunchChecklist";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 export interface Props {
   feature: FeatureInterface;
@@ -23,6 +39,7 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   onDiscard?: () => void;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }
 
 export function ExpandableDiff({
@@ -74,6 +91,7 @@ export default function DraftModal({
   mutate,
   onPublish,
   onDiscard,
+  experimentsMap,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -99,6 +117,71 @@ export default function DraftModal({
   }, [revision, baseRevision, liveRevision]);
 
   const [comment, setComment] = useState(revision?.comment || "");
+
+  const { data: checklistData } = useApi<{
+    checklist: ExperimentLaunchChecklistInterface;
+  }>("/experiments/launch-checklist");
+
+  const settings = useOrgSettings();
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const connections = sdkConnectionsData?.connections || [];
+
+  const experimentData = useMemo(() => {
+    const experimentsAvailableToPublish = revision
+      ? getNewDraftExperimentsToPublish({
+          feature,
+          revision,
+          environments: allEnvironments,
+          experimentsMap,
+        })
+      : [];
+
+    const experimentData: {
+      checklist: CheckListItem[];
+      experiment: ExperimentInterfaceStringDates;
+      failedRequired: boolean;
+    }[] = [];
+    experimentsAvailableToPublish.forEach((exp) => {
+      if (!selectedExperiments.has(exp.id)) return;
+
+      const projectConnections = connections.filter(
+        (connection) =>
+          !connection.projects.length ||
+          connection.projects.includes(exp.project || "")
+      );
+
+      const checklist = getChecklistItems({
+        experiment: exp,
+        linkedFeatures: [],
+        visualChangesets: [],
+        checklist: checklistData?.checklist,
+        usingStickyBucketing: orgStickyBucketing && !exp.disableStickyBucketing,
+        checkLinkedChanges: false,
+        connections: projectConnections,
+      });
+
+      const failedRequired = checklist.some(
+        (item) => item.status === "incomplete" && item.required
+      );
+
+      experimentData.push({ checklist, experiment: exp, failedRequired });
+    });
+
+    return experimentData;
+  }, [
+    connections,
+    allEnvironments,
+    orgStickyBucketing,
+    checklistData,
+    revision,
+  ]);
+
+  const [selectedExperiments, setSelectedExperiments] = useState(
+    new Set(experimentData.map((e) => e.experiment.id))
+  );
+  const [experimentsStep, setExperimentsStep] = useState(false);
 
   const resultDiffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
@@ -140,6 +223,18 @@ export default function DraftModal({
 
   const hasChanges = mergeResultHasChanges(mergeResult);
 
+  let submitEnabled = !!mergeResult.success && hasChanges;
+  if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
+    submitEnabled = false;
+  }
+
+  // If we're publishing experiments, next step is to review pre-launch checklists
+  const hasNextStep =
+    !!mergeResult.success &&
+    hasChanges &&
+    selectedExperiments.size > 0 &&
+    !experimentsStep;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -148,6 +243,11 @@ export default function DraftModal({
       submit={
         hasPermission
           ? async () => {
+              if (hasNextStep) {
+                setExperimentsStep(true);
+                return;
+              }
+
               try {
                 await apiCall(
                   `/feature/${feature.id}/${revision.version}/publish`,
@@ -155,6 +255,7 @@ export default function DraftModal({
                     method: "POST",
                     body: JSON.stringify({
                       mergeResultSerialized: JSON.stringify(mergeResult),
+                      publishExperimentIds: Array.from(selectedExperiments),
                       comment,
                     }),
                   }
@@ -165,16 +266,26 @@ export default function DraftModal({
               }
               await mutate();
               onPublish && onPublish();
+              close();
             }
           : undefined
       }
-      cta="Publish"
-      ctaEnabled={!!mergeResult.success && hasChanges}
+      cta={
+        hasNextStep ? (
+          <>
+            Next <FaAngleRight />
+          </>
+        ) : (
+          "Publish"
+        )
+      }
+      ctaEnabled={submitEnabled}
       close={close}
       closeCta="Cancel"
       size="max"
+      autoCloseOnSubmit={false}
       secondaryCTA={
-        permissionsUtil.canManageFeatureDrafts(feature) ? (
+        !experimentsStep && permissionsUtil.canManageFeatureDrafts(feature) ? (
           <Button
             color="outline-danger"
             onClick={async () => {
@@ -198,50 +309,117 @@ export default function DraftModal({
           </Button>
         ) : undefined
       }
+      backCTA={
+        experimentsStep ? (
+          <Button
+            color="link"
+            onClick={() => {
+              setExperimentsStep(false);
+            }}
+          >
+            <FaArrowLeft /> Back
+          </Button>
+        ) : undefined
+      }
     >
       {mergeResult.conflicts.length > 0 && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           <strong>Conflicts Detected</strong>. Please fix conflicts before
           publishing this draft.
-        </div>
+        </Callout>
       )}
 
       {!hasChanges && !mergeResult.conflicts.length && (
-        <div className="alert alert-info">
+        <Callout status="info">
           There are no changes to publish. Either discard the draft or add
           changes first before publishing.
-        </div>
+        </Callout>
       )}
 
-      {mergeResult.success && hasChanges && (
-        <div>
-          <h3>Review Final Changes</h3>
-          <p>
-            The changes below will go live when this draft revision is
-            published. You will be able to revert later if needed.
-          </p>
-          <div className="list-group mb-4">
-            {resultDiffs.map((diff) => (
-              <ExpandableDiff {...diff} key={diff.title} />
-            ))}
+      {mergeResult.success &&
+        hasChanges &&
+        (experimentsStep ? (
+          <div>
+            <h3>Review &amp; Publish</h3>
+            <p>
+              Please review the <strong>Pre-Launch Checklists</strong> for the
+              experiments that will be published along with this draft.
+            </p>
+            {experimentData.map(({ experiment, checklist, failedRequired }) => {
+              if (!selectedExperiments.has(experiment.id)) return null;
+
+              return (
+                <div key={experiment.id}>
+                  <h4>{experiment.name}</h4>
+                  {failedRequired && (
+                    <Callout status="error">
+                      Required checklist items are incomplete. Please complete
+                      them before publishing.
+                    </Callout>
+                  )}
+                  <PreLaunchChecklistFeatureExpRule
+                    experiment={experiment}
+                    mutateExperiment={mutate}
+                    checklist={checklist}
+                  />
+                </div>
+              );
+            })}
           </div>
-          {hasPermission ? (
-            <Field
-              label="Add a Comment (optional)"
-              textarea
-              placeholder="Summary of changes..."
-              value={comment}
-              onChange={(e) => {
-                setComment(e.target.value);
-              }}
-            />
-          ) : (
-            <div className="alert alert-info">
-              You do not have permission to publish this draft.
+        ) : (
+          <div>
+            <h3>Review &amp; Publish</h3>
+            <p>
+              The changes below will go live when this draft revision is
+              published. You will be able to revert later if needed.
+            </p>
+
+            {experimentData.length > 0 ? (
+              <div>
+                <h4>Start running experiments upon publishing:</h4>
+                {experimentData.map(({ experiment }) => (
+                  <div key={experiment.id}>
+                    <Checkbox
+                      value={selectedExperiments.has(experiment.id)}
+                      setValue={(e) => {
+                        const newValue = new Set(selectedExperiments);
+                        if (e === true) {
+                          newValue.add(experiment.id);
+                        } else {
+                          newValue.delete(experiment.id);
+                        }
+                        setSelectedExperiments(newValue);
+                      }}
+                      label={experiment.name}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <h4>Review Diff</h4>
+            <div className="list-group mb-4">
+              {resultDiffs.map((diff) => (
+                <ExpandableDiff {...diff} key={diff.title} />
+              ))}
             </div>
-          )}
-        </div>
-      )}
+            {hasPermission ? (
+              <Field
+                label="Add a Comment (optional)"
+                textarea
+                placeholder="Summary of changes..."
+                value={comment}
+                onChange={(e) => {
+                  setComment(e.target.value);
+                }}
+              />
+            ) : (
+              <Callout status="info">
+                You do not have permission to publish this draft.
+              </Callout>
+            )}
+          </div>
+        ))}
     </Modal>
   );
 }
