@@ -5,12 +5,15 @@ import {
 import React, { useState } from "react";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import { useAuth } from "@/services/auth";
+import Collapsible from "react-collapsible";
+import { FaAngleRight } from "react-icons/fa";
+import { Box, Flex } from "@radix-ui/themes";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Markdown from "@/components/Markdown/Markdown";
 import EditHypothesisModal from "../EditHypothesisModal";
+import EditDescriptionModal from "../EditDescriptionModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -35,8 +38,8 @@ export default function SetupTabOverview({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
 }: Props) {
-  const { apiCall } = useAuth();
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -58,6 +61,15 @@ export default function SetupTabOverview({
           close={() => setShowHypothesisModal(false)}
         />
       ) : null}
+      {showDescriptionModal ? (
+        <EditDescriptionModal
+          source="experiment-setup-tab"
+          mutate={mutate}
+          experimentId={experiment.id}
+          initialValue={experiment.description}
+          close={() => setShowDescriptionModal(false)}
+        />
+      ) : null}
       <div>
         <h2>Overview</h2>
         {experiment.status === "draft" ? (
@@ -72,30 +84,47 @@ export default function SetupTabOverview({
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         ) : null}
-
-        <div className="box">
-          <div
-            className="mh-350px fade-mask-vertical-1rem px-4 py-3"
-            style={{ overflowY: "auto" }}
+        <Box className="box" py="4">
+          <Collapsible
+            open={true}
+            transitionTime={100}
+            trigger={
+              <Flex
+                align="center"
+                justify="between"
+                px="5"
+                className="text-dark"
+              >
+                <h4 className="m-0">Description</h4>
+                <Flex align="center">
+                  {canEditExperiment ? (
+                    <button
+                      className="btn p-0 link-purple mr-3"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDescriptionModal(true);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                  <FaAngleRight className="chevron" />
+                </Flex>
+              </Flex>
+            }
           >
-            <MarkdownInlineEdit
-              value={experiment.description ?? ""}
-              save={async (description) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ description }),
-                });
-                mutate();
-              }}
-              canCreate={canEditExperiment}
-              canEdit={canEditExperiment}
-              label="description"
-              header="Description"
-              headerClassName="h4"
-              containerClassName="mb-1"
-            />
-          </div>
-        </div>
+            <Box as="div" px="5" pt="4">
+              {!experiment.description ? (
+                <Box as="span" className="font-italic text-muted">
+                  Add a description to keep your team informed about the purpose
+                  and parameters of your experiment
+                </Box>
+              ) : (
+                <Markdown>{experiment.description}</Markdown>
+              )}
+            </Box>
+          </Collapsible>
+        </Box>
 
         {!isBandit && (
           <div className="box px-4 py-3">
