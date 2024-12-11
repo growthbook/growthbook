@@ -230,6 +230,24 @@ class OneSidedTreatmentLesserTTest(TTest):
         return [-np.inf, self.point_estimate - width]
 
 
+def sequential_rho(alpha, sequential_tuning_parameter) -> float:
+    # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
+    return np.sqrt(
+        (-2 * np.log(alpha) + np.log(-2 * np.log(alpha) + 1))
+        / sequential_tuning_parameter
+    )
+
+
+def sequential_interval_halfwidth(s2, N, rho, alpha) -> float:
+    return np.sqrt(s2) * np.sqrt(
+        (
+            (2 * (N * np.power(rho, 2) + 1))
+            * np.log(np.sqrt(N * np.power(rho, 2) + 1) / alpha)
+            / (np.power(N * rho, 2))
+        )
+    )
+
+
 class SequentialTwoSidedTTest(TTest):
     def __init__(
         self,
@@ -249,23 +267,13 @@ class SequentialTwoSidedTTest(TTest):
         N = self.stat_a.n + self.stat_b.n
         rho = self.rho
         s2 = self.variance * N
-
-        width: float = np.sqrt(s2) * np.sqrt(
-            (
-                (2 * (N * np.power(rho, 2) + 1))
-                * np.log(np.sqrt(N * np.power(rho, 2) + 1) / self.alpha)
-                / (np.power(N * rho, 2))
-            )
-        )
-        return [self.point_estimate - width, self.point_estimate + width]
+        halfwidth: float = sequential_interval_halfwidth(s2, N, rho, self.alpha)
+        return [self.point_estimate - halfwidth, self.point_estimate + halfwidth]
 
     @property
     def rho(self) -> float:
         # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
-        return np.sqrt(
-            (-2 * np.log(self.alpha) + np.log(-2 * np.log(self.alpha) + 1))
-            / self.sequential_tuning_parameter
-        )
+        return sequential_rho(self.alpha, self.sequential_tuning_parameter)
 
     @property
     def p_value(self) -> float:

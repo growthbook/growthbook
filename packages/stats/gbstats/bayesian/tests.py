@@ -19,7 +19,10 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     RegressionAdjustedStatistic,
 )
-from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
+from gbstats.frequentist.tests import (
+    frequentist_diff,
+    frequentist_variance,
+)
 from gbstats.utils import (
     truncated_normal_mean,
     gaussian_credible_interval,
@@ -37,7 +40,6 @@ class GaussianPrior:
 @dataclass
 class BayesianConfig(BaseConfig):
     inverse: bool = False
-    alpha: float = 0.05
     prior_type: Literal["relative", "absolute"] = "relative"
 
 
@@ -113,17 +115,17 @@ class BayesianABTest(BaseABTest):
             (ProportionStatistic, SampleMeanStatistic, RegressionAdjustedStatistic),
         ):
             if self.total_users:
-                adjustment = self.total_users / (
+                daily_traffic = self.total_users / (
                     self.traffic_percentage * self.phase_length_days
                 )
                 return BayesianTestResult(
                     chance_to_win=result.chance_to_win,
-                    expected=result.expected * adjustment,
-                    ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+                    expected=result.expected * daily_traffic,
+                    ci=[result.ci[0] * daily_traffic, result.ci[1] * daily_traffic],
                     uplift=Uplift(
                         dist=result.uplift.dist,
-                        mean=result.uplift.mean * adjustment,
-                        stddev=result.uplift.stddev * adjustment,
+                        mean=result.uplift.mean * daily_traffic,
+                        stddev=result.uplift.stddev * daily_traffic,
                     ),
                     risk=result.risk,
                     risk_type=result.risk_type,
