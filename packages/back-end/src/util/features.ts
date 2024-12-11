@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
+  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
@@ -405,7 +406,7 @@ export function getFeatureDefinition({
                 }
                 return null;
               })
-              .filter(Boolean);
+              .filter(Boolean) as ParentConditionInterface[];
           }
 
           rule.coverage = phase.coverage;
