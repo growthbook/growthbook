@@ -208,6 +208,7 @@ export default function ReportPage(props: ReportPageProps) {
       <ReportMetaInfo
         report={report}
         canView={canView}
+        simpleShareButton={true}
         showPrivateLink={isOrgMember}
       />
 

@@ -29,12 +29,14 @@ export default function ReportMetaInfo({
   mutate,
   canView = true,
   canEdit,
+  simpleShareButton,
   showPrivateLink,
 }: {
   report: ExperimentSnapshotReportInterface;
   mutate?: () => Promise<unknown> | unknown;
   canView?: boolean;
   canEdit?: boolean;
+  simpleShareButton?: boolean;
   showPrivateLink?: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -117,80 +119,105 @@ export default function ReportMetaInfo({
           {canView ? (
             <div className="flex-shrink-0">
               <div className="d-flex">
-                <Button
-                  color="cyan"
-                  icon={shareIcon}
-                  style={{
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
-                    marginRight: 1,
-                  }}
-                  onClick={() => setShareModalOpen(true)}
-                >
-                  Share
-                </Button>
-                <DropdownMenu
-                  menuPlacement="end"
-                  color="cyan"
-                  variant="soft"
-                  open={shareDropdownOpen}
-                  onOpenChange={(o) => setShareDropdownOpen(o)}
-                  trigger={
+                {!simpleShareButton ? (
+                  <>
                     <Button
                       color="cyan"
+                      icon={shareIcon}
                       style={{
-                        borderTopLeftRadius: 0,
-                        borderBottomLeftRadius: 0,
-                        paddingLeft: 10,
-                        paddingRight: 10,
+                        borderTopRightRadius: 0,
+                        borderBottomRightRadius: 0,
+                        marginRight: 1,
                       }}
+                      onClick={() => setShareModalOpen(true)}
                     >
-                      <PiCaretDown />
+                      Share
                     </Button>
-                  }
-                >
-                  <DropdownMenuItem
-                    onClick={
-                      shareLevel !== "private"
-                        ? (e) => {
-                            e.preventDefault();
-                            performCopy(shareableLink);
-                          }
-                        : undefined
-                    }
-                    disabled={shareLevel === "private"}
-                  >
+                    <DropdownMenu
+                      menuPlacement="end"
+                      color="cyan"
+                      variant="soft"
+                      open={shareDropdownOpen}
+                      onOpenChange={(o) => setShareDropdownOpen(o)}
+                      trigger={
+                        <Button
+                          color="cyan"
+                          style={{
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                            paddingLeft: 10,
+                            paddingRight: 10,
+                          }}
+                        >
+                          <PiCaretDown />
+                        </Button>
+                      }
+                    >
+                      <DropdownMenuItem
+                        onClick={
+                          shareLevel !== "private"
+                            ? (e) => {
+                                e.preventDefault();
+                                performCopy(shareableLink);
+                              }
+                            : undefined
+                        }
+                        disabled={shareLevel === "private"}
+                      >
+                        {copySuccess ? (
+                          <Text color="green" weight="medium">
+                            <PiCheck className="mr-2" />
+                            Link copied
+                          </Text>
+                        ) : shareLevel !== "private" ? (
+                          <Text>
+                            <PiLink className="mr-2" />
+                            Copy Shareable Link
+                          </Text>
+                        ) : (
+                          <Text color="tomato">
+                            <PiLockBold className="mr-2" />
+                            Shareable link disabled
+                          </Text>
+                        )}
+                      </DropdownMenuItem>
+                      {shareLevel !== "private" && (
+                        <div className="mt-2 px-2 pt-2 mb-1 border-top">
+                          <Text size="1" color="gray" wrap="nowrap">
+                            {shareableLink}
+                          </Text>
+                          <div className="mt-1">
+                            <Text size="1" color={shareColor}>
+                              {shareIcon}
+                              <span className="ml-1">{shareText}</span>
+                            </Text>
+                          </div>
+                        </div>
+                      )}
+                    </DropdownMenu>
+                  </>
+                ) : (
+                  <>
                     {copySuccess ? (
-                      <Text color="green" weight="medium">
-                        <PiCheck className="mr-2" />
-                        Link copied
-                      </Text>
-                    ) : shareLevel !== "private" ? (
-                      <Text>
-                        <PiLink className="mr-2" />
-                        Copy Shareable Link
-                      </Text>
-                    ) : (
-                      <Text color="tomato">
-                        <PiLockBold className="mr-2" />
-                        Shareable link disabled
-                      </Text>
-                    )}
-                  </DropdownMenuItem>
-                  {shareLevel !== "private" && (
-                    <div className="mt-2 px-2 pt-2 mb-1 border-top">
-                      <Text size="1" color="gray" wrap="nowrap">
-                        {shareableLink}
-                      </Text>
-                      <div className="mt-1">
-                        <Text size="1" color={shareColor}>
-                          {shareIcon}
-                          <span className="ml-1">{shareText}</span>
+                      <div className="pr-2 mr-2 mb-1">
+                        <Text color="green" weight="medium">
+                          <PiCheck className="mr-2" />
+                          Link copied
                         </Text>
                       </div>
-                    </div>
-                  )}
-                </DropdownMenu>
+                    ) : (
+                      <Button
+                        size="sm"
+                        color="cyan"
+                        variant="soft"
+                        icon={<PiLink />}
+                        onClick={() => performCopy(shareableLink)}
+                      >
+                        Copy Shareable Link
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           ) : null}
