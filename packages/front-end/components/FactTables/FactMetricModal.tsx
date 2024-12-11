@@ -28,9 +28,14 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatNumber, getDefaultFactMetricProps } from "@/services/metrics";
+import {
+  formatNumber,
+  getDefaultFactMetricProps,
+  getInitialInlineFilters,
+} from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -65,25 +70,21 @@ import Checkbox from "@/components/Radix/Checkbox";
 import Callout from "@/components/Radix/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/components/Radix/HelperText";
+import StringArrayField from "@/components/Forms/StringArrayField";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 export interface Props {
   close?: () => void;
   initialFactTable?: string;
-  existing?: FactMetricInterface;
+  existing?: Partial<FactMetricInterface>;
   duplicate?: boolean;
+  fromTemplate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
   switchToLegacy?: () => void;
   source: string;
   datasource?: string;
 }
-
-type InlineFilterField = {
-  label: string;
-  key: string;
-  options: string[];
-  error?: string;
-};
 
 function QuantileSelector({
   value,
@@ -269,6 +270,7 @@ function getAggregationOptions(
 function ColumnRefSelector({
   value,
   setValue,
+  setDatasource,
   includeCountDistinct,
   aggregationType = "unit",
   includeColumn,
@@ -276,8 +278,10 @@ function ColumnRefSelector({
   disableFactTableSelector,
   extraField,
   supportsAggregatedFilter,
+  allowChangingDatasource,
 }: {
   setValue: (ref: ColumnRef) => void;
+  setDatasource: (datasource: string) => void;
   value: ColumnRef;
   includeCountDistinct?: boolean;
   includeColumn?: boolean;
@@ -286,6 +290,7 @@ function ColumnRefSelector({
   disableFactTableSelector?: boolean;
   extraField?: ReactElement;
   supportsAggregatedFilter?: boolean;
+  allowChangingDatasource?: boolean;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
@@ -309,66 +314,95 @@ function ColumnRefSelector({
 
   const aggregationOptions = getAggregationOptions(selectedColumnDatatype);
 
-  const inlineFilterFields: InlineFilterField[] = (factTable?.columns || [])
-    .filter((col) =>
-      canInlineFilterColumn(factTable as FactTableInterface, col)
-    )
-    .filter((col) => {
-      // Always show fields for certain columns
-      if (col.alwaysInlineFilter) return true;
+  const [addRowFilter, setAddRowFilter] = useState(false);
+  const [addUserFilter, setAddUserFilter] = useState(false);
 
-      // If there is an existing inline filter, show the field
-      // This could happen if the column was previously inline filtered
-      if (value.inlineFilters?.[col.column]?.some((v) => !!v)) return true;
+  const addFilterOptions: GroupedValue[] = [];
 
-      // Otherwise, don't prompt for this column
-      return false;
-    })
-    .map((col) => {
-      const options = new Set(col.topValues || []);
-
-      // Add any custom values that have been entered
-      if (value.inlineFilters?.[col.column]) {
-        value.inlineFilters[col.column].forEach((v) => options.add(v));
-      }
-
-      return {
-        label: col.name || col.column,
-        key: col.column,
-        options: [...options],
-      };
+  const eligibleFilters = factTable?.filters || [];
+  const unusedFilters = eligibleFilters.filter(
+    (f) => !value.filters.includes(f.id)
+  );
+  if (unusedFilters.length > 0) {
+    addFilterOptions.push({
+      label: "Saved Filters",
+      options: unusedFilters.map((f) => ({
+        label: f.name,
+        value: f.id,
+      })),
     });
+  }
 
-  // Additional prompt fields referencing columns that are not eligible for prompting
-  Object.entries(value.inlineFilters || {}).forEach(([k, v]) => {
-    if (!v.some((v) => !!v)) return;
-    if (!inlineFilterFields.some((f) => f.key === k)) {
-      inlineFilterFields.push({
-        label: k,
-        key: k,
-        options: v,
-        error: "This column is no longer available for filtering",
-      });
-    }
-  });
+  const eligibleColumns =
+    factTable?.columns?.filter((c) => canInlineFilterColumn(factTable, c)) ||
+    [];
+  const unfilteredStringColumns = eligibleColumns.filter(
+    (c) => !value.inlineFilters?.[c.column]?.length
+  );
+  if (unfilteredStringColumns.length > 0) {
+    addFilterOptions.push({
+      label: "Filter by Column",
+      options: unfilteredStringColumns.map((c) => ({
+        label: c.name || c.column,
+        value: `col::${c.column}`,
+      })),
+    });
+  }
+
+  const canFilterRows =
+    eligibleFilters.length > 0 || eligibleColumns.length > 0;
 
   return (
     <div className="appbox px-3 pt-3 bg-light">
-      <div className="row align-items-center">
+      <div className="row align-items-top">
         <div className="col-auto">
           <SelectField
             label={"Fact Table"}
             disabled={disableFactTableSelector}
             value={value.factTableId}
-            onChange={(factTableId) =>
-              setValue({
-                factTableId,
-                column: value.column?.match(/^\$\$/) ? value.column : "$$count",
-                filters: [],
-              })
-            }
+            onChange={(factTableId) => {
+              const newFactTable = getFactTableById(factTableId);
+              if (!newFactTable) return;
+
+              const inlineFilters = getInitialInlineFilters(
+                newFactTable,
+                value.inlineFilters
+              );
+
+              // If switching between fact tables, wipe out inline and aggregate filters
+              if (value.factTableId) {
+                // If the column is not valid for the new fact table, reset it
+                let newColumn = value.column;
+                if (
+                  !value.column?.match(/^\$\$/) &&
+                  !newFactTable?.columns.find((c) => c.column === newColumn)
+                ) {
+                  newColumn = "$$count";
+                }
+
+                setValue({
+                  factTableId,
+                  column: newColumn,
+                  inlineFilters,
+                  filters: [],
+                });
+              }
+              // If selecting a fact table for the first time, keep the existing inline/aggregate filters
+              else {
+                setValue({
+                  ...value,
+                  factTableId,
+                  inlineFilters,
+                  filters: [],
+                });
+              }
+
+              setDatasource(newFactTable.datasource);
+            }}
             options={factTables
-              .filter((t) => t.datasource === datasource.id)
+              .filter(
+                (t) => allowChangingDatasource || t.datasource === datasource.id
+              )
               .map((t) => ({
                 label: t.name,
                 value: t.id,
@@ -392,74 +426,200 @@ function ColumnRefSelector({
             required
           />
         </div>
-        {inlineFilterFields.map(({ label, key, options, error }) => (
-          <div key={key} className="col-auto">
-            <MultiSelectField
-              label={
-                <>
-                  {label}{" "}
-                  {error ? (
-                    <Tooltip body={error}>
-                      <FaTriangleExclamation className="text-danger" />
-                    </Tooltip>
-                  ) : (
-                    <Tooltip body="If selecting multiple values, only one needs to match for a row to be included." />
-                  )}
-                </>
-              }
-              value={value.inlineFilters?.[key] || []}
-              onChange={(v) =>
-                setValue({
-                  ...value,
-                  inlineFilters: { ...value.inlineFilters, [key]: v },
-                })
-              }
-              options={options.map((o) => ({
-                label: o,
-                value: o,
-              }))}
-              initialOption="Any"
-              formatOptionLabel={({ value, label }) =>
-                value ? label : <em className="text-muted">{label}</em>
-              }
-              creatable
-              sort={false}
-            />
-          </div>
-        ))}
-        {factTable && factTable.filters.length > 0 ? (
+        {factTable && canFilterRows ? (
           <div className="col-auto">
-            <MultiSelectField
-              label={
-                <>
-                  Row Filter{" "}
-                  <Tooltip body="Filter individual rows.  Only rows that satisfy ALL selected filters will be included" />
-                </>
-              }
-              value={value.filters}
-              onChange={(filters) => setValue({ ...value, filters })}
-              options={factTable.filters.map((f) => ({
-                label: f.name,
-                value: f.id,
-              }))}
-              placeholder={"Any Row"}
-              closeMenuOnSelect={true}
-              formatOptionLabel={({ value, label }) => {
-                const filter = factTable?.filters.find((f) => f.id === value);
-                if (filter) {
+            <div className="form-group">
+              <label>
+                Row Filter{" "}
+                <Tooltip body="Filter individual rows.  Only rows that satisfy ALL selected filters will be included" />
+              </label>
+              <div className="d-flex flex-wrap align-items-top">
+                {value.filters.map((f) => {
+                  const filter = factTable.filters.find((ff) => ff.id === f);
+                  if (!filter) return null;
                   return (
-                    <>
-                      {filter.name}
+                    <div
+                      className="border rounded py-2 px-2 mr-1 d-flex align-items-center bg-white"
+                      key={f}
+                    >
+                      <Tooltip
+                        body={<InlineCode language="sql" code={filter.value} />}
+                      >
+                        <span className="cursor-default">{filter.name}</span>
+                      </Tooltip>
                       <OfficialBadge
                         managedBy={filter.managedBy}
                         type="filter"
                       />
-                    </>
+                      <button
+                        type="button"
+                        className="btn btn-link p-0 ml-1 text-muted"
+                        onClick={() =>
+                          setValue({
+                            ...value,
+                            filters: value.filters.filter((ff) => ff !== f),
+                          })
+                        }
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
                   );
-                }
-                return label;
-              }}
-            />
+                })}
+                {Object.entries(value.inlineFilters || {}).map(([k, v]) => {
+                  if (!v.length) return null;
+                  v = v.filter((v) => !!v);
+                  const col = factTable.columns.find((c) => c.column === k);
+
+                  const onValuesChange = (v: string[]) => {
+                    v = [...new Set(v.filter((v) => !!v))];
+
+                    setValue({
+                      ...value,
+                      inlineFilters: { ...value.inlineFilters, [k]: v },
+                    });
+                  };
+
+                  const colAlert =
+                    !col || !canInlineFilterColumn(factTable, col) ? (
+                      <Tooltip
+                        body={`This column ${
+                          col
+                            ? "cannot be filtered on"
+                            : "does not exist in this fact table"
+                        }`}
+                      >
+                        <FaTriangleExclamation className="text-danger ml-1" />
+                      </Tooltip>
+                    ) : null;
+
+                  const options = new Set(col?.topValues || []);
+                  v.forEach((v) => options.add(v));
+
+                  return (
+                    <div
+                      className="border rounded mr-1 d-flex align-items-center bg-white"
+                      key={k}
+                    >
+                      {colAlert && unfilteredStringColumns.length > 0 ? (
+                        <SelectField
+                          value={k}
+                          options={[
+                            { label: col?.name || k, value: k },
+                            ...unfilteredStringColumns.map((c) => ({
+                              label: c.name || c.column,
+                              value: c.column,
+                            })),
+                          ]}
+                          onChange={(newKey) => {
+                            if (k === newKey || !value.inlineFilters) return;
+                            setValue({
+                              ...value,
+                              inlineFilters: {
+                                ...omit(value.inlineFilters || {}, k),
+                                [newKey]: value.inlineFilters[k],
+                              },
+                            });
+                          }}
+                          formatOptionLabel={({ value, label }) => {
+                            return value === k ? (
+                              <>
+                                {label}
+                                {colAlert}
+                              </>
+                            ) : (
+                              label
+                            );
+                          }}
+                        />
+                      ) : (
+                        <span className="px-2">
+                          {col?.name || k}
+                          {colAlert}
+                        </span>
+                      )}
+                      {col?.topValues?.length ? (
+                        <MultiSelectField
+                          value={v}
+                          onChange={onValuesChange}
+                          options={[...options].map((o) => ({
+                            label: o,
+                            value: o,
+                          }))}
+                          initialOption="Any"
+                          formatOptionLabel={({ value, label }) =>
+                            value ? (
+                              label
+                            ) : (
+                              <em className="text-muted">{label}</em>
+                            )
+                          }
+                          autoFocus
+                          creatable
+                          sort={false}
+                        />
+                      ) : (
+                        <StringArrayField
+                          value={v}
+                          onChange={onValuesChange}
+                          placeholder="Any"
+                          autoFocus
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+
+                {addFilterOptions.length > 0 ? (
+                  addRowFilter ? (
+                    <>
+                      <SelectField
+                        value=""
+                        onChange={(v) => {
+                          if (v) {
+                            if (v.startsWith("col::")) {
+                              setValue({
+                                ...value,
+                                inlineFilters: {
+                                  ...value.inlineFilters,
+                                  [v.replace("col::", "")]: [""],
+                                },
+                              });
+                            } else {
+                              setValue({
+                                ...value,
+                                filters: [...value.filters, v],
+                              });
+                            }
+                          }
+                          setAddRowFilter(false);
+                        }}
+                        options={addFilterOptions}
+                        onBlur={() => setAddRowFilter(false)}
+                        sort={false}
+                        autoFocus
+                      />
+                    </>
+                  ) : (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setAddRowFilter(true);
+                      }}
+                      className="py-2"
+                    >
+                      <PiPlus />{" "}
+                      {Object.values(value.inlineFilters || {}).some(
+                        (v) => v.length > 0
+                      ) || value.filters.length > 0
+                        ? "Row Filter"
+                        : "Add"}
+                    </a>
+                  )
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
         {includeColumn && (
@@ -512,58 +672,55 @@ function ColumnRefSelector({
             </div>
           )}
         {supportsAggregatedFilter && factTable && (
-          <div className="d-flex align-items-center">
-            <div>
-              <SelectField
-                label={
-                  <>
-                    User Filter{" "}
-                    <Tooltip
-                      body={
-                        <>
-                          Filter after grouping by user id. Simple comparison
-                          operators only. For example, <code>&gt;= 3</code> or{" "}
-                          <code>&lt; 10</code>
-                        </>
-                      }
-                    />
-                  </>
-                }
-                value={value.aggregateFilterColumn || ""}
-                onChange={(v) =>
-                  setValue({
-                    ...value,
-                    aggregateFilterColumn: v,
-                  })
-                }
-                options={getColumnOptions({
-                  factTable: factTable,
-                  includeCount: true,
-                  includeCountDistinct: false,
-                  includeStringColumns: false,
-                  showColumnsAsSums: true,
-                  groupPrefix: "Filter by ",
-                })}
-                initialOption="Any User"
-              />
-            </div>
-            {value.aggregateFilterColumn && (
-              <div className="ml-1">
-                <Field
-                  label={<>&nbsp;</>}
-                  value={value.aggregateFilter || ""}
+          <div className="col-auto d-flex align-items-top">
+            <div className="form-group">
+              <label>
+                User Filter{" "}
+                <Tooltip
+                  body={
+                    <>
+                      Filter after grouping by user id. Simple comparison
+                      operators only. For example, <code>&gt;= 3</code> or{" "}
+                      <code>&lt; 10</code>
+                    </>
+                  }
+                />
+              </label>
+              {value.aggregateFilterColumn || addUserFilter ? (
+                <SelectField
+                  value={value.aggregateFilterColumn || ""}
                   onChange={(v) =>
                     setValue({
                       ...value,
-                      aggregateFilter: v.target.value,
+                      aggregateFilterColumn: v,
                     })
                   }
-                  placeholder=">= 10"
-                  style={{ maxWidth: 120 }}
-                  required
+                  options={getColumnOptions({
+                    factTable: factTable,
+                    includeCount: true,
+                    includeCountDistinct: false,
+                    includeStringColumns: false,
+                    showColumnsAsSums: true,
+                    groupPrefix: "Filter by ",
+                  })}
+                  initialOption="Any User"
+                  autoFocus
+                  onBlur={() => setAddUserFilter(false)}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="py-2">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAddUserFilter(true);
+                    }}
+                  >
+                    <PiPlus /> Add
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         )}
         {extraField && <>{extraField}</>}
@@ -843,11 +1000,280 @@ FROM
   }
 }
 
+function FieldMappingModal({
+  factMetric,
+  onSave,
+  close,
+}: {
+  factMetric: Partial<FactMetricInterface>;
+  onSave: (metric: Partial<FactMetricInterface>) => void;
+  close?: () => void;
+}) {
+  const { factTables, getFactTableById } = useDefinitions();
+
+  const [data, setData] = useState(factMetric);
+
+  const numerator = data.numerator as ColumnRef;
+  const denominator = data.denominator;
+
+  const numericColumns = new Set<string>();
+  const stringColumns = new Set<string>();
+
+  if (numerator.column && !numerator.column.startsWith("$$")) {
+    numericColumns.add(numerator.column);
+  }
+  if (denominator?.column && !denominator.column.startsWith("$$")) {
+    numericColumns.add(denominator.column);
+  }
+  if (
+    numerator.aggregateFilterColumn &&
+    !numerator.aggregateFilterColumn.startsWith("$$")
+  ) {
+    numericColumns.add(numerator.aggregateFilterColumn);
+  }
+  if (numerator.inlineFilters) {
+    Object.keys(numerator.inlineFilters).forEach((k) => {
+      stringColumns.add(k);
+    });
+  }
+  if (denominator?.inlineFilters) {
+    Object.keys(denominator.inlineFilters).forEach((k) => {
+      stringColumns.add(k);
+    });
+  }
+
+  const [numericColumnMap, setNumericColumnMap] = useState<
+    Record<string, string>
+  >(Object.fromEntries([...numericColumns].map((c) => [c, ""])));
+  const [stringColumnMap, setStringColumnMap] = useState<
+    Record<string, string>
+  >(Object.fromEntries([...stringColumns].map((c) => [c, ""])));
+
+  const factTable = getFactTableById(numerator.factTableId);
+
+  const numericColumnOptions = getColumnOptions({
+    factTable,
+    includeCount: false,
+    includeCountDistinct: false,
+    includeStringColumns: false,
+  });
+
+  const stringColumnOptions =
+    factTable?.columns
+      ?.filter((c) => canInlineFilterColumn(factTable, c))
+      .map((c) => ({
+        label: c.name || c.column,
+        value: c.column,
+      })) || [];
+
+  return (
+    <Modal
+      close={close}
+      header="Create Fact Metric From Template"
+      trackingEventModalType=""
+      open={true}
+      cta="Preview Metric"
+      autoCloseOnSubmit={false}
+      submit={() => {
+        // Replace columns throughout metric definition
+        if (numerator.column && numerator.column in numericColumnMap) {
+          (data.numerator as ColumnRef).column =
+            numericColumnMap[numerator.column];
+        }
+        if (
+          numerator.aggregateFilterColumn &&
+          numerator.aggregateFilterColumn in numericColumnMap
+        ) {
+          (data.numerator as ColumnRef).aggregateFilterColumn =
+            numericColumnMap[numerator.aggregateFilterColumn];
+        }
+        if (numerator.inlineFilters) {
+          const newInlineFilters: Record<string, string[]> = {};
+          Object.entries(numerator.inlineFilters).forEach(([k, v]) => {
+            if (k in stringColumnMap) {
+              newInlineFilters[stringColumnMap[k]] = v;
+            } else {
+              newInlineFilters[k] = v;
+            }
+          });
+          (data.numerator as ColumnRef).inlineFilters = newInlineFilters;
+        }
+
+        if (denominator) {
+          if (denominator.column in numericColumnMap) {
+            (data.denominator as ColumnRef).column =
+              numericColumnMap[denominator.column];
+          }
+          if (denominator.inlineFilters) {
+            const newInlineFilters: Record<string, string[]> = {};
+            Object.entries(denominator.inlineFilters).forEach(([k, v]) => {
+              if (k in stringColumnMap) {
+                newInlineFilters[stringColumnMap[k]] = v;
+              } else {
+                newInlineFilters[k] = v;
+              }
+            });
+            (data.denominator as ColumnRef).inlineFilters = newInlineFilters;
+          }
+        }
+
+        data.datasource = factTable?.datasource || "";
+
+        onSave(data);
+      }}
+    >
+      <div className="appbox bg-light p-3">
+        <div>
+          <strong>Metric Name:</strong> {factMetric.name}
+        </div>
+        {factMetric.description ? (
+          <div className="mt-2">
+            <strong>Description:</strong> {factMetric.description}
+          </div>
+        ) : null}
+      </div>
+      <p>Which fact table do you want to add this metric to?</p>
+      <SelectField
+        label={"Fact Table"}
+        value={numerator?.factTableId || ""}
+        onChange={(factTableId) => {
+          setData({
+            ...data,
+            numerator: { ...numerator, factTableId },
+            denominator: data.denominator
+              ? { ...data.denominator, factTableId }
+              : undefined,
+          });
+
+          const factTable = getFactTableById(factTableId);
+          if (factTable) {
+            // Fill out any column mappings with matching column names
+            const newNumericColumnMap = { ...numericColumnMap };
+            const newStringColumnMap = { ...stringColumnMap };
+
+            Object.keys(numericColumnMap).forEach((k) => {
+              if (
+                factTable.columns.find(
+                  (c) => c.column === k && !c.deleted && c.datatype === "number"
+                )
+              ) {
+                newNumericColumnMap[k] = k;
+              }
+            });
+
+            Object.keys(stringColumnMap).forEach((k) => {
+              if (
+                factTable.columns.find(
+                  (c) => c.column === k && canInlineFilterColumn(factTable, c)
+                )
+              ) {
+                newStringColumnMap[k] = k;
+              }
+            });
+
+            setNumericColumnMap(newNumericColumnMap);
+            setStringColumnMap(newStringColumnMap);
+          }
+        }}
+        options={factTables.map((t) => ({
+          label: t.name,
+          value: t.id,
+        }))}
+        formatOptionLabel={({ value, label }) => {
+          const factTable = getFactTableById(value);
+          if (factTable) {
+            return (
+              <>
+                {factTable.name}
+                <OfficialBadge
+                  managedBy={factTable.managedBy}
+                  type="fact table"
+                />
+              </>
+            );
+          }
+          return label;
+        }}
+        placeholder="Select..."
+        required
+      />
+      {factTable && (
+        <>
+          {numericColumns.size > 0 || stringColumns.size > 0 ? (
+            <>
+              <hr />
+              <p>
+                The following columns are referenced in this metric. Select how
+                to map them to columns in your fact table.
+              </p>
+            </>
+          ) : null}
+          {numericColumns.size > 0 && !numericColumnOptions.length ? (
+            <Callout status="error">
+              <p>
+                This fact table does not have any numeric columns. Please select
+                a different fact table.
+              </p>
+            </Callout>
+          ) : null}
+          {stringColumns.size > 0 && !stringColumnOptions.length ? (
+            <Callout status="error">
+              <p>
+                This fact table does not have any string columns to filter on.
+                Please select a different fact table.
+              </p>
+            </Callout>
+          ) : null}
+        </>
+      )}
+      {[...numericColumns]
+        .filter((c) => !c.startsWith("$$"))
+        .map((k) => {
+          if (!numericColumnOptions.length) return null;
+          return (
+            <SelectField
+              key={k}
+              label={`Column: ${k}`}
+              value={numericColumnMap[k] || ""}
+              onChange={(column) => {
+                setNumericColumnMap({ ...numericColumnMap, [k]: column });
+              }}
+              options={numericColumnOptions}
+              disabled={!factTable}
+              required
+              placeholder="Select..."
+            />
+          );
+        })}
+      {[...stringColumns]
+        .filter((c) => !c.startsWith("$$"))
+        .map((k) => {
+          if (!stringColumnOptions.length) return null;
+          return (
+            <SelectField
+              key={k}
+              label={`Column: ${k}`}
+              value={stringColumnMap[k] || ""}
+              onChange={(column) => {
+                setStringColumnMap({ ...stringColumnMap, [k]: column });
+              }}
+              options={stringColumnOptions}
+              disabled={!factTable}
+              required
+              placeholder="Select..."
+            />
+          );
+        })}
+    </Modal>
+  );
+}
+
 export default function FactMetricModal({
   close,
   initialFactTable,
   existing,
   duplicate = false,
+  fromTemplate = false,
   showAdvancedSettings,
   onSave,
   switchToLegacy,
@@ -943,7 +1369,7 @@ export default function FactMetricModal({
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
-  const isNew = !existing || duplicate;
+  const isNew = !existing || duplicate || fromTemplate;
   const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
@@ -988,13 +1414,27 @@ export default function FactMetricModal({
     denominatorFactTable: getFactTableById(denominator?.factTableId || ""),
   });
 
+  const setDatasource = (datasource: string) => {
+    form.setValue("datasource", datasource);
+  };
+
+  if (fromTemplate && !form.watch("numerator").factTableId) {
+    return (
+      <FieldMappingModal
+        factMetric={defaultValues}
+        onSave={(metric) => {
+          form.reset(metric);
+        }}
+        close={close}
+      />
+    );
+  }
+
   return (
     <Modal
       trackingEventModalType=""
       open={true}
-      header={
-        existing && !duplicate ? "Edit Metric" : "Create Fact Table Metric"
-      }
+      header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
       bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(async (values) => {
@@ -1095,7 +1535,7 @@ export default function FactMetricModal({
             values.numerator.factTableId === values.denominator?.factTableId,
         };
 
-        if (existing && !duplicate) {
+        if (!isNew) {
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
@@ -1305,9 +1745,11 @@ export default function FactMetricModal({
                     setValue={(numerator) =>
                       form.setValue("numerator", numerator)
                     }
+                    setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={true}
+                    allowChangingDatasource={!datasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1324,8 +1766,10 @@ export default function FactMetricModal({
                       form.setValue("numerator", numerator)
                     }
                     includeColumn={true}
+                    setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
+                    allowChangingDatasource={!datasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1382,8 +1826,10 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     aggregationType={quantileSettings.type}
+                    setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
+                    allowChangingDatasource={!datasource}
                     key={selectedDataSource.id}
                     extraField={
                       <>
@@ -1450,11 +1896,13 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      setDatasource={setDatasource}
                       datasource={selectedDataSource}
                       disableFactTableSelector={!!initialFactTable}
                       supportsAggregatedFilter={
                         numerator.column === "$$distinctUsers"
                       }
+                      allowChangingDatasource={!datasource}
                       key={selectedDataSource.id}
                     />
                   </div>
@@ -1473,6 +1921,8 @@ export default function FactMetricModal({
                       }
                       includeColumn={true}
                       includeCountDistinct={true}
+                      setDatasource={setDatasource}
+                      allowChangingDatasource={false}
                       datasource={selectedDataSource}
                       key={selectedDataSource.id}
                     />
