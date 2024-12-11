@@ -3,6 +3,7 @@ import {
   ColumnInterface,
   ColumnRef,
   FactMetricInterface,
+  FactTableColumnType,
   FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
@@ -213,6 +214,18 @@ export function getConversionWindowHours(
 
   // TODO
   return 72;
+}
+
+export function getSelectedColumnDatatype({
+  factTable,
+  column,
+}: {
+  factTable: FactTableInterface | null;
+  column: string;
+}): FactTableColumnType | undefined {
+  if (!factTable) return undefined;
+  const col = factTable.columns.find((c) => c.column === column);
+  return col?.datatype;
 }
 
 export function getUserIdTypes(
