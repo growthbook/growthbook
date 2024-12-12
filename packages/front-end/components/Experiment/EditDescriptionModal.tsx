@@ -4,7 +4,6 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import Tooltip from "../Tooltip/Tooltip";
 import Link from "../Radix/Link";
 
 interface Props {
@@ -45,13 +44,7 @@ export default function EditDescriptionModal({
         mutate();
       })}
     >
-      <label>
-        Description {/* //MKTODO: Reach out to Kari and get copy for this */}
-        <Tooltip
-          body="Add a description to keep your team informed about the purpose
-                  and parameters of your experiment"
-        />
-      </label>
+      <label>Description</label>
       <Flex align="center" wrap="wrap" width="auto" mb="2">
         <Box as="div">
           <Text className="pr-1" as="span">
