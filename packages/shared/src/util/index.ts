@@ -232,7 +232,7 @@ export function projectListIntersection(
   projectsA: string[],
   projectsB: string[]
 ) {
-  let intersectionToReturn = undefined;
+  let intersectionToReturn: string[] | undefined = undefined;
   if (projectsA.length === 0) {
     intersectionToReturn = projectsB;
   } else if (projectsB.length === 0) {
