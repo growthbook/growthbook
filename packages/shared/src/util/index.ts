@@ -16,6 +16,7 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
+import { featureHasEnvironment } from "./features";
 
 export * from "./features";
 export * from "./saved-groups";
@@ -57,28 +58,24 @@ export function getAffectedEnvsForExperiment({
         // the boolean below skips environments if they are disabled on the feature
         true
       );
+
+      // if we find any matching rules get the environments that are affected
       if (matches.length) {
-        const featureProject = linkedFeature.project || "";
-        matches.forEach((matchRule) => {
-          const environmentProjects =
-            orgEnvironments.find((env) => env.id === matchRule.environmentId)
-              ?.projects || [];
+        matches.forEach((match) => {
+          const env = orgEnvironments.find(
+            (env) => env.id === match.environmentId
+          );
 
-          // if the linkedFeature is in all projects, or if a rule's environment is in all projects, add the environment as it'll be affected
-          if (!featureProject.length || !environmentProjects.length) {
-            envs.add(matchRule.environmentId);
-          }
-
-          // otherwise only add the environment if the feature's project overlaps with the environments projects - if there is no overlap, this rule won't affect
-          if (environmentProjects.includes(featureProject)) {
-            envs.add(matchRule.environmentId);
+          if (env) {
+            if (featureHasEnvironment(linkedFeature, env)) {
+              envs.add(match.environmentId);
+            }
           }
         });
       }
     });
     return Array.from(envs);
   }
-
   return [];
 }
 
