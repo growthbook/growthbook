@@ -9,7 +9,8 @@ import {
   PiKey,
   PiListChecks,
   PiMoon,
-  PiSunDim, PiBuildingFill,
+  PiSunDim,
+  PiBuildingFill,
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
