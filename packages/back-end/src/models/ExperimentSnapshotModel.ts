@@ -50,6 +50,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   phase: Number,
   type: { type: String },
   triggeredBy: String,
+  report: String,
   dateCreated: Date,
   runStarted: Date,
   manual: Boolean,
@@ -335,6 +336,9 @@ export async function getLatestSnapshot({
   };
   if (type) {
     query.type = type;
+  } else {
+    // never include report types unless specifically looking for them
+    query.type = { $ne: "report" };
   }
 
   // First try getting new snapshots that have a `status` field
@@ -440,9 +444,7 @@ export async function createExperimentSnapshotModel({
   context: Context;
 }): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
-
   await notifyExperimentChange({ context, snapshot: created });
-
   return toInterface(created);
 }
 

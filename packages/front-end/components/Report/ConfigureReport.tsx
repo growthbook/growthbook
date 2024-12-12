@@ -1,82 +1,118 @@
-import React, { useMemo } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
-import { MetricSnapshotSettings, ReportInterface } from "back-end/types/report";
-import { FaQuestionCircle } from "react-icons/fa";
+import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import Collapsible from "react-collapsible";
+import React, { RefObject, useState } from "react";
+import { useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
-import uniq from "lodash/uniq";
-import {
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "shared/constants";
-import { datetime, getValidDate } from "shared/dates";
-import { getScopedSettings } from "shared/settings";
-import { MetricInterface } from "back-end/types/metric";
+import { Flex, Grid } from "@radix-ui/themes";
+import { FaGear } from "react-icons/fa6";
+import { date, getValidDate } from "shared/dates";
+import Link from "next/link";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { DifferenceType } from "back-end/types/stats";
+import { MdInfoOutline } from "react-icons/md";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { BsArrowRepeat } from "react-icons/bs";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import Button from "@/components/Radix/Button";
+import DatePicker from "@/components/DatePicker";
+import useApi from "@/hooks/useApi";
+import Field from "@/components/Forms/Field";
 import {
-  getAllMetricIdsFromExperiment,
-  getMetricSnapshotSettings,
-} from "shared/experiments";
-import { isDefined } from "shared/util";
-import { useAuth } from "@/services/auth";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import SelectField from "@/components/Forms/SelectField";
+import Checkbox from "@/components/Radix/Checkbox";
+import MetricSelector from "@/components/Experiment/MetricSelector";
+import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
+import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBCuped, GBSequential } from "@/components/Icons";
+import { hasFileConfig } from "@/services/env";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { hasFileConfig } from "@/services/env";
-import { GBCuped, GBSequential } from "@/components/Icons";
-import useApi from "@/hooks/useApi";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import { trackReport } from "@/services/track";
-import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
-import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
-import SelectField from "@/components/Forms/SelectField";
-import DimensionChooser from "@/components/Dimensions/DimensionChooser";
-import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
-import MetricSelector from "@/components/Experiment/MetricSelector";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
-import DatePicker from "@/components/DatePicker";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import { useAuth } from "@/services/auth";
+import HelperText from "@/components/Radix/HelperText";
 
+type TabOptions = "overview" | "metrics" | "analysis" | "variations";
 export default function ConfigureReport({
   report,
   mutate,
-  viewResults,
+  open,
+  setOpen,
+  canEdit,
+  runQueriesButtonRef,
 }: {
-  report: ReportInterface;
-  mutate: () => void;
-  viewResults: () => void;
+  report: ExperimentSnapshotReportInterface;
+  mutate: () => Promise<unknown> | unknown;
+  open: boolean;
+  setOpen: (o: boolean) => void;
+  canEdit?: boolean;
+  runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
+  const { getDatasourceById, segments } = useDefinitions();
   const orgSettings = useOrgSettings();
+  const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
-  const { organization, hasCommercialFeature } = useUser();
-  const {
-    segments,
-    getProjectById,
-    getDatasourceById,
-    getMetricById,
-    getExperimentMetricById,
-  } = useDefinitions();
-  const datasource = getDatasourceById(report.args.datasource);
 
-  const eid = report.experimentId;
+  const form = useForm({
+    defaultValues: report,
+  });
+  const submit = form.handleSubmit(async (value) => {
+    if (!canEdit) return;
+
+    if (useToday) {
+      value.experimentAnalysisSettings.dateEnded = null;
+    }
+    await apiCall<{
+      updatedReport: ExperimentSnapshotReportInterface;
+    }>(`/report/${report.id}`, {
+      method: "PUT",
+      body: JSON.stringify(value),
+    });
+    await mutate();
+    setOpen(false);
+    setTimeout(() => {
+      runQueriesButtonRef?.current?.click();
+    }, 150);
+  });
+
+  const [tab, setTab] = useState<TabOptions>("overview");
+  const [useToday, setUseToday] = useState(
+    !form.watch("experimentAnalysisSettings.dateEnded")
+  );
+  const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
-  }>(`/experiment/${eid}`);
+  }>(`/experiment/${report.experimentId}`);
   const experiment = experimentData?.experiment;
-  const pid = experiment?.project;
-  const project = pid ? getProjectById(pid) : null;
 
-  const { settings: parentSettings } = getScopedSettings({
-    organization,
-    project: project ?? undefined,
-    experiment: experiment ?? undefined,
-  });
+  const latestPhaseIndex = (experiment?.phases?.length ?? 1) - 1;
+  const datasource = experiment?.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+  const filteredSegments = segments.filter(
+    (s) => s.datasource === experiment?.datasource
+  );
+  const datasourceProperties = datasource?.properties;
+  const exposureQueries = datasource?.settings?.queries?.exposure;
+  const exposureQueryId = form.watch(
+    "experimentAnalysisSettings.exposureQueryId"
+  );
+  const exposureQuery = exposureQueries?.find((e) => e.id === exposureQueryId);
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -85,553 +121,743 @@ export default function ConfigureReport({
     "sequential-testing"
   );
 
-  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
-    report.args,
-    false
-  );
-  const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
-  );
-  const denominatorMetricIds = uniq(
-    allExperimentMetrics
-      .map((m) => m?.denominator)
-      .filter((m) => m && typeof m === "string") as string[]
-  );
-  const denominatorMetrics: MetricInterface[] = useMemo(() => {
-    return denominatorMetricIds
-      .map((m) => getMetricById(m as string))
-      .filter(isDefined);
-  }, [denominatorMetricIds, getMetricById]);
-
-  // todo: type this form
-  const form = useForm({
-    defaultValues: {
-      ...report.args,
-      differenceType: report.args.differenceType ?? "relative",
-      exposureQueryId:
-        getExposureQuery(
-          datasource?.settings,
-          report.args.exposureQueryId,
-          report.args.userIdType
-        )?.id || "",
-      attributionModel:
-        report.args.attributionModel ||
-        orgSettings.attributionModel ||
-        "firstExposure",
-      startDate: getValidDate(report.args.startDate)
-        .toISOString()
-        .substr(0, 16),
-      endDate: report.args.endDate
-        ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
-        : undefined,
-      statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
-      useLatestPriorSettings: report.args.useLatestPriorSettings || false,
-      regressionAdjustmentEnabled:
-        (hasRegressionAdjustmentFeature &&
-          report.args.regressionAdjustmentEnabled) ??
-        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      settingsForSnapshotMetrics: report.args.settingsForSnapshotMetrics || [],
-      sequentialTestingEnabled:
-        hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
-      sequentialTestingTuningParameter:
-        report.args.sequentialTestingTuningParameter,
-    },
-  });
-
-  // CUPED adjustments
-  const settingsForSnapshotMetrics = useMemo(() => {
-    const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
-    for (const metric of allExperimentMetrics) {
-      if (!metric) continue;
-      const { metricSnapshotSettings } = getMetricSnapshotSettings({
-        metric: metric,
-        denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled: !!form.watch(
-          `regressionAdjustmentEnabled`
-        ),
-        organizationSettings: orgSettings,
-        metricOverrides: report.args.metricOverrides,
-      });
-      settingsForSnapshotMetrics.push(metricSnapshotSettings);
-    }
-    return settingsForSnapshotMetrics;
-  }, [
-    allExperimentMetrics,
-    denominatorMetrics,
-    orgSettings,
-    form,
-    report.args.metricOverrides,
-  ]);
-
-  const filteredSegments = segments.filter(
-    (s) => s.datasource === report.args.datasource
-  );
-
-  const datasourceProperties = datasource?.properties;
-
-  const variations = useFieldArray({
-    control: form.control,
-    name: "variations",
-  });
-
-  const exposureQueries = datasource?.settings?.queries?.exposure || [];
-  const exposureQueryId = form.watch("exposureQueryId");
-  const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
-
   return (
-    <Modal
-      trackingEventModalType=""
-      inline={true}
-      header=""
-      size="fill"
-      open={true}
-      className="border-0"
-      submit={form.handleSubmit(async (value) => {
-        const args = {
-          ...value,
-          skipPartialData: !!value.skipPartialData,
-        };
-
-        args.settingsForSnapshotMetrics = settingsForSnapshotMetrics;
-
-        const res = await apiCall<{ updatedReport: ReportInterface }>(
-          `/report/${report.id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              args,
-            }),
-          }
-        );
-        trackReport(
-          "update",
-          "SaveAndRunButton",
-          datasource?.type || null,
-          res.updatedReport
-        );
-        mutate();
-        viewResults();
-      })}
-      cta="Save and Run"
-    >
-      <Field
-        label="Tracking Key"
-        labelClassName="font-weight-bold"
-        {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your experiment assignment table"
-      />
-      <div className="form-group">
-        <label className="font-weight-bold">Variation Ids</label>
-        <div className="row align-items-top">
-          {variations.fields.map((v, i) => (
-            <div
-              className={`col-${Math.max(
-                Math.round(12 / variations.fields.length),
-                3
-              )} mb-2`}
-              key={i}
-            >
-              <Field
-                label={v.name}
-                labelClassName="mb-0"
-                containerClassName="mb-1"
-                {...form.register(`variations.${i}.id`)}
-                placeholder={i + ""}
-              />
-            </div>
-          ))}
-        </div>
-        <small className="form-text text-muted">
-          Will match against the variation_id column in your data source
-        </small>
-      </div>
-      <div className="form-group">
-        <label className="font-weight-bold">Variation Weights</label>
-        <div className="row align-items-top">
-          {variations.fields.map((v, i) => (
-            <div
-              className={`col-${Math.max(
-                Math.round(12 / variations.fields.length),
-                3
-              )} mb-2`}
-              key={i}
-            >
-              <Field
-                label={v.name}
-                labelClassName="mb-0"
-                containerClassName="mb-1"
-                {...form.register(`variations.${i}.weight`, {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
-          ))}
-        </div>
-        <small className="form-text text-muted">
-          Will use this to check for a Sample Ratio Mismatch (SRM) in the
-          results
-        </small>
-      </div>
-      {datasource?.properties?.userIds && (
-        <SelectField
-          label={
-            <>
-              Experiment Assignment Table{" "}
-              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-            </>
-          }
-          labelClassName="font-weight-bold"
-          value={form.watch("exposureQueryId") ?? ""}
-          onChange={(v) => form.setValue("exposureQueryId", v)}
-          required
-          options={exposureQueries?.map((q) => {
-            return {
-              label: q.name,
-              value: q.id,
-            };
-          })}
-          formatOptionLabel={({ label, value }) => {
-            const userIdType = exposureQueries?.find((e) => e.id === value)
-              ?.userIdType;
-            return (
-              <>
-                {label}
-                {userIdType ? (
-                  <span
-                    className="text-muted small float-right position-relative"
-                    style={{ top: 3 }}
+    <div className="bg-white mb-2">
+      <Collapsible
+        // @ts-expect-error - state managed by external button
+        trigger={null}
+        open={open}
+        transitionTime={100}
+      >
+        <div
+          className="drawer border-bottom pt-0 pb-3 px-3"
+          style={{
+            backgroundColor: "var(--iris-a3)",
+            boxShadow: "0 6px 8px -4px #00000008 inset",
+          }}
+        >
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (loading) return;
+              setSaveError("");
+              setLoading(true);
+              try {
+                await submit();
+              } catch (e) {
+                setSaveError(e.message);
+              }
+              setLoading(false);
+            }}
+          >
+            <Tabs value={tab} onValueChange={(v) => setTab(v as TabOptions)}>
+              <div className="d-flex align-items-start w-100 pt-2 mb-3">
+                <TabsList style={{ width: "100%" }}>
+                  <div
+                    className="h5 my-0 mr-4 d-flex align-items-center position-relative"
+                    style={{ top: 1 }}
                   >
-                    Identifier Type: <code>{userIdType}</code>
-                  </span>
-                ) : null}
-              </>
-            );
-          }}
-        />
-      )}
+                    <FaGear className="mr-2" />
+                    Configure Report
+                  </div>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
 
-      <div className="row">
-        <div className="col">
-          <DatePicker
-            label="Start Date (UTC)"
-            date={form.watch("startDate")}
-            setDate={(v) => {
-              form.setValue("startDate", v ? datetime(v) : "");
-            }}
-            scheduleEndDate={form.watch("endDate")}
-            disableAfter={form.watch("endDate") || undefined}
-          />
-        </div>
-        <div className="col">
-          <DatePicker
-            label="End Date (UTC)"
-            date={form.watch("endDate")}
-            setDate={(v) => {
-              form.setValue("endDate", v ? datetime(v) : "");
-            }}
-            scheduleStartDate={form.watch("startDate")}
-            disableBefore={form.watch("startDate") || undefined}
-            containerClassName=""
-          />
-          <div className="mb-3 mt-1 small">
-            Leave blank to use latest data whenever report is run.{" "}
-            <a
-              role="button"
-              className="a"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("endDate", "");
-              }}
-            >
-              Clear Input
-            </a>
-          </div>
-        </div>
-      </div>
+                  <TabsTrigger value="metrics">Metrics</TabsTrigger>
+                  <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                  <TabsTrigger value="variations">
+                    Variations & Traffic
+                  </TabsTrigger>
+                  {/*<div className="flex-1" />*/}
+                </TabsList>
+              </div>
 
-      <ExperimentMetricsSelector
-        datasource={report.args.datasource}
-        exposureQueryId={exposureQueryId}
-        project={project?.id}
-        goalMetrics={form.watch("goalMetrics")}
-        secondaryMetrics={form.watch("secondaryMetrics")}
-        guardrailMetrics={form.watch("guardrailMetrics")}
-        setGoalMetrics={(goalMetrics) =>
-          form.setValue("goalMetrics", goalMetrics)
-        }
-        setSecondaryMetrics={(secondaryMetrics) =>
-          form.setValue("secondaryMetrics", secondaryMetrics)
-        }
-        setGuardrailMetrics={(guardrailMetrics) =>
-          form.setValue("guardrailMetrics", guardrailMetrics)
-        }
-      />
-      <DimensionChooser
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null | undefined' is not assignable... Remove this comment to see the full error message
-        value={form.watch("dimension")}
-        setValue={(value) => form.setValue("dimension", value || "")}
-        activationMetric={!!form.watch("activationMetric")}
-        exposureQueryId={form.watch("exposureQueryId")}
-        datasourceId={report.args.datasource}
-        userIdType={report.args.userIdType}
-        labelClassName="font-weight-bold"
-        showHelp={true}
-        newUi={false}
-      />
-      <SelectField
-        label="Difference Type"
-        labelClassName="font-weight-bold"
-        value={form.watch("differenceType")}
-        onChange={(v) => form.setValue("differenceType", v as DifferenceType)}
-        sort={false}
-        options={[
-          {
-            label: "Relative",
-            value: "relative",
-          },
-          {
-            label: "Absolute",
-            value: "absolute",
-          },
-          {
-            label: "Scaled Impact",
-            value: "scaled",
-          },
-        ]}
-        helpText="Choose the units to display lifts in"
-      />
-      <MetricSelector
-        datasource={form.watch("datasource")}
-        exposureQueryId={exposureQueryId}
-        includeFacts={true}
-        label={
-          <>
-            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
-          </>
-        }
-        labelClassName="font-weight-bold"
-        initialOption="None"
-        onlyBinomial
-        value={form.watch("activationMetric") || ""}
-        onChange={(value) => form.setValue("activationMetric", value || "")}
-        helpText="Users must convert on this metric before being included"
-      />
-      {datasourceProperties?.experimentSegments && (
-        <SelectField
-          label="Segment"
-          labelClassName="font-weight-bold"
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          value={form.watch("segment")}
-          onChange={(value) => form.setValue("segment", value || "")}
-          initialOption="None (All Users)"
-          options={filteredSegments.map((s) => {
-            return {
-              label: s.name,
-              value: s.id,
-            };
-          })}
-          helpText="Only users in this segment will be included"
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
-          label="Handling In-Progress Conversions"
-          labelClassName="font-weight-bold"
-          value={form.watch("skipPartialData") ? "strict" : "loose"}
-          onChange={(v) => {
-            form.setValue("skipPartialData", v === "strict");
-          }}
-          options={[
-            {
-              label: "Include In-Progress Conversions",
-              value: "loose",
-            },
-            {
-              label: "Exclude In-Progress Conversions",
-              value: "strict",
-            },
-          ]}
-          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
-          label={
-            <AttributionModelTooltip>
-              <strong>Conversion Window Override</strong> <FaQuestionCircle />
-            </AttributionModelTooltip>
-          }
-          value={form.watch("attributionModel")}
-          onChange={(value) => {
-            const model = value as AttributionModel;
-            form.setValue("attributionModel", model);
-          }}
-          options={[
-            {
-              label: "Respect Conversion Windows",
-              value: "firstExposure",
-            },
-            {
-              label: "Ignore Conversion Windows",
-              value: "experimentDuration",
-            },
-          ]}
-        />
-      )}
-
-      <StatsEngineSelect
-        value={form.watch("statsEngine")}
-        onChange={(v) => {
-          form.setValue("statsEngine", v);
-        }}
-        parentSettings={parentSettings}
-        allowUndefined={false}
-      />
-
-      {form.watch("statsEngine") === "frequentist" && (
-        <div className="d-flex flex-row no-gutters align-items-top ml-1">
-          <div className="col-3">
-            <SelectField
-              label={
-                <PremiumTooltip commercialFeature="sequential-testing">
-                  <GBSequential /> Use Sequential Testing
-                </PremiumTooltip>
-              }
-              labelClassName="font-weight-bold"
-              value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
-              onChange={(v) => {
-                form.setValue("sequentialTestingEnabled", v === "on");
-              }}
-              options={[
-                {
-                  label: "On",
-                  value: "on",
-                },
-                {
-                  label: "Off",
-                  value: "off",
-                },
-              ]}
-              helpText="Only applicable to frequentist analyses"
-              disabled={!hasSequentialTestingFeature}
-            />
-          </div>
-          <div
-            className="col-2 px-4"
-            style={{
-              opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
-            }}
-          >
-            <Field
-              label="Tuning parameter"
-              type="number"
-              containerClassName="mb-0"
-              min="0"
-              disabled={!hasSequentialTestingFeature || hasFileConfig()}
-              helpText={
-                <>
-                  <span className="ml-2">
-                    (
-                    {orgSettings.sequentialTestingTuningParameter ??
-                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                    is organization default)
-                  </span>
-                </>
-              }
-              {...form.register("sequentialTestingTuningParameter", {
-                valueAsNumber: true,
-                validate: (v) => {
-                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  return !(v <= 0);
-                },
-              })}
-            />
-          </div>
-        </div>
-      )}
-      {form.watch("statsEngine") === "bayesian" && (
-        <div className="align-items-center">
-          <label
-            className="ml-1 mr-1 mb-3 font-weight-bold"
-            htmlFor="useLatestPriorSettings"
-          >
-            Use latest metric prior settings{" "}
-            <Tooltip
-              body={
-                "Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
-              }
-            >
-              <FaQuestionCircle />
-            </Tooltip>
-          </label>
-          <Toggle
-            id="useLatestPriorSettings"
-            value={form.watch("useLatestPriorSettings")}
-            setValue={(v) => form.setValue("useLatestPriorSettings", v)}
-          />
-        </div>
-      )}
-      <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
-        <div className="col-3">
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
-              </PremiumTooltip>
-            }
-            labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            disabled={!hasRegressionAdjustmentFeature}
-          />
-        </div>
-      </div>
-
-      {datasourceProperties?.queryLanguage === "sql" && (
-        <div className="row">
-          <div className="col">
-            <Field
-              label="Custom SQL Filter"
-              labelClassName="font-weight-bold"
-              {...form.register("queryFilter")}
-              textarea
-              placeholder="e.g. user_id NOT IN ('123', '456')"
-              helpText="WHERE clause to add to the default experiment query"
-            />
-          </div>
-          <div className="pt-2 border-left col-sm-4 col-lg-6">
-            Available columns:
-            <div className="mb-2 d-flex flex-wrap">
-              {["timestamp", "variation_id"]
-                .concat(exposureQuery ? [exposureQuery.userIdType] : [])
-                .concat(exposureQuery?.dimensions || [])
-                .map((d) => {
-                  return (
-                    <div className="mr-2 mb-2 border px-1" key={d}>
-                      <code>{d}</code>
+              <TabsContent value="overview">
+                <Grid columns="2" gap="6" mb="4">
+                  <div>
+                    <label>
+                      Report based on{" "}
+                      {experiment?.type === "multi-armed-bandit"
+                        ? "Bandit"
+                        : "Experiment"}
+                      :
+                    </label>
+                    <div className="box rounded bg-light py-2 px-3">
+                      {experiment ? (
+                        <>
+                          <div>
+                            <>
+                              <span className="mr-2">{experiment?.name}</span>
+                              <Link
+                                href={`/${
+                                  experiment?.type === "multi-armed-bandit"
+                                    ? "bandit"
+                                    : "experiment"
+                                }/${experiment?.id}`}
+                              >
+                                <FaExternalLinkAlt size={12} />
+                              </Link>
+                            </>
+                          </div>
+                          <div className="small d-flex flex-wrap mt-1">
+                            <div className="text-muted">
+                              Created: {date(experiment?.dateCreated)}
+                            </div>
+                            <div className="ml-3 d-flex align-items-center">
+                              <StatusIndicator
+                                archived={experiment?.archived}
+                                status={experiment?.status}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-muted">No experiment found</div>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                </Grid>
+                <Flex wrap="wrap" gap="6">
+                  <div className="flex-1" style={{ minWidth: 200 }}>
+                    <DimensionChooser
+                      value={
+                        form.watch("experimentAnalysisSettings.dimension") || ""
+                      }
+                      setValue={(v) =>
+                        form.setValue("experimentAnalysisSettings.dimension", v)
+                      }
+                      datasourceId={experiment?.datasource}
+                      exposureQueryId={form.watch(
+                        "experimentAnalysisSettings.exposureQueryId"
+                      )}
+                      userIdType={form.watch(
+                        "experimentAnalysisSettings.userIdType"
+                      )}
+                      newUi={false}
+                    />
+                  </div>
+                  <div className="flex-1" style={{ minWidth: 200 }}>
+                    <SelectField
+                      label="Difference Type"
+                      value={
+                        form.watch(
+                          "experimentAnalysisSettings.differenceType"
+                        ) || "relative"
+                      }
+                      onChange={(v) =>
+                        form.setValue(
+                          "experimentAnalysisSettings.differenceType",
+                          v as DifferenceType
+                        )
+                      }
+                      sort={false}
+                      options={[
+                        {
+                          label: "Relative",
+                          value: "relative",
+                        },
+                        {
+                          label: "Absolute",
+                          value: "absolute",
+                        },
+                        {
+                          label: "Scaled Impact",
+                          value: "scaled",
+                        },
+                      ]}
+                      helpText="Choose the units to display lifts in"
+                    />
+                  </div>
+                  <div className="flex-1" style={{ minWidth: 380 }}>
+                    <div className="d-flex" style={{ gap: "1rem" }}>
+                      <div>
+                        <DatePicker
+                          label="Analysis Start (UTC)"
+                          containerClassName="mb-2"
+                          date={form.watch(
+                            "experimentAnalysisSettings.dateStarted"
+                          )}
+                          setDate={(d) =>
+                            form.setValue(
+                              "experimentAnalysisSettings.dateStarted",
+                              d
+                            )
+                          }
+                          disableAfter={
+                            form.watch(
+                              "experimentAnalysisSettings.dateEnded"
+                            ) ?? undefined
+                          }
+                          inputWidth={180}
+                        />
+                        <Button
+                          variant="soft"
+                          size="xs"
+                          style={{ height: "auto", textAlign: "left" }}
+                          onClick={() =>
+                            form.setValue(
+                              "experimentAnalysisSettings.dateStarted",
+                              getValidDate(experiment?.phases?.[0]?.dateStarted)
+                            )
+                          }
+                        >
+                          <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
+                            Experiment start
+                            <br />
+                            <small>
+                              {date(experiment?.phases?.[0]?.dateStarted || "")}
+                            </small>
+                          </div>
+                        </Button>
+                        {(experiment?.phases?.length ?? 1) > 1 ? (
+                          <Button
+                            variant="soft"
+                            size="xs"
+                            mt="2"
+                            style={{ height: "auto", textAlign: "left" }}
+                            onClick={() =>
+                              form.setValue(
+                                "experimentAnalysisSettings.dateStarted",
+                                getValidDate(
+                                  experiment?.phases?.[latestPhaseIndex]
+                                    ?.dateStarted
+                                )
+                              )
+                            }
+                          >
+                            <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
+                              Latest phase ({latestPhaseIndex + 1}) start
+                              <br />
+                              <small>
+                                {date(
+                                  experiment?.phases?.[latestPhaseIndex]
+                                    ?.dateStarted || ""
+                                )}
+                              </small>
+                            </div>
+                          </Button>
+                        ) : null}
+                      </div>
+                      <div>
+                        {useToday ? (
+                          <Field
+                            label="End (UTC)"
+                            containerClassName="mb-2"
+                            readOnly
+                            value="today"
+                            style={{ width: 180, height: 38 }}
+                          />
+                        ) : (
+                          <DatePicker
+                            label="End (UTC)"
+                            containerClassName="mb-2"
+                            date={
+                              form.watch(
+                                "experimentAnalysisSettings.dateEnded"
+                              ) ?? undefined
+                            }
+                            setDate={(d) =>
+                              form.setValue(
+                                "experimentAnalysisSettings.dateEnded",
+                                d
+                              )
+                            }
+                            disableBefore={form.watch(
+                              "experimentAnalysisSettings.dateStarted"
+                            )}
+                            inputWidth={180}
+                          />
+                        )}
+                        <Checkbox
+                          label="Today"
+                          value={useToday}
+                          setValue={(v) => setUseToday(v as boolean)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Flex>
+              </TabsContent>
+
+              <TabsContent value="metrics">
+                <Flex wrap="wrap" gap="6">
+                  <ExperimentMetricsSelector
+                    datasource={form.watch(
+                      "experimentAnalysisSettings.datasource"
+                    )}
+                    exposureQueryId={form.watch(
+                      "experimentAnalysisSettings.exposureQueryId"
+                    )}
+                    project={experiment?.project}
+                    forceSingleGoalMetric={
+                      experiment?.type === "multi-armed-bandit"
+                    }
+                    noPercentileGoalMetrics={
+                      experiment?.type === "multi-armed-bandit"
+                    }
+                    goalMetrics={
+                      form.watch("experimentAnalysisSettings.goalMetrics") ?? []
+                    }
+                    secondaryMetrics={
+                      form.watch(
+                        "experimentAnalysisSettings.secondaryMetrics"
+                      ) ?? []
+                    }
+                    guardrailMetrics={
+                      form.watch(
+                        "experimentAnalysisSettings.guardrailMetrics"
+                      ) ?? []
+                    }
+                    setGoalMetrics={(goalMetrics) =>
+                      form.setValue(
+                        "experimentAnalysisSettings.goalMetrics",
+                        goalMetrics
+                      )
+                    }
+                    setSecondaryMetrics={(secondaryMetrics) =>
+                      form.setValue(
+                        "experimentAnalysisSettings.secondaryMetrics",
+                        secondaryMetrics
+                      )
+                    }
+                    setGuardrailMetrics={(guardrailMetrics) =>
+                      form.setValue(
+                        "experimentAnalysisSettings.guardrailMetrics",
+                        guardrailMetrics
+                      )
+                    }
+                  />
+                </Flex>
+                <Flex wrap="wrap" gap="6">
+                  <div className="flex-1">
+                    <MetricSelector
+                      datasource={form.watch(
+                        "experimentAnalysisSettings.datasource"
+                      )}
+                      exposureQueryId={form.watch(
+                        "experimentAnalysisSettings.exposureQueryId"
+                      )}
+                      project={experiment?.project}
+                      includeFacts={true}
+                      label={
+                        <>
+                          Activation Metric{" "}
+                          <MetricsSelectorTooltip onlyBinomial={true} />
+                        </>
+                      }
+                      initialOption="None"
+                      onlyBinomial
+                      value={
+                        form.watch(
+                          "experimentAnalysisSettings.activationMetric"
+                        ) || ""
+                      }
+                      onChange={(value) =>
+                        form.setValue(
+                          "experimentAnalysisSettings.activationMetric",
+                          value || ""
+                        )
+                      }
+                      helpText="Users must convert on this metric before being included"
+                    />
+                  </div>
+                  {datasourceProperties?.separateExperimentResultQueries && (
+                    <div className="flex-1">
+                      <SelectField
+                        label={
+                          <AttributionModelTooltip>
+                            Conversion Window Override{" "}
+                            <MdInfoOutline style={{ color: "#029dd1" }} />
+                          </AttributionModelTooltip>
+                        }
+                        value={
+                          form.watch(
+                            "experimentAnalysisSettings.attributionModel"
+                          ) || "firstExposure"
+                        }
+                        onChange={(value) => {
+                          const model = value as AttributionModel;
+                          form.setValue(
+                            "experimentAnalysisSettings.attributionModel",
+                            model
+                          );
+                        }}
+                        options={[
+                          {
+                            label: "Respect Conversion Windows",
+                            value: "firstExposure",
+                          },
+                          {
+                            label: "Ignore Conversion Windows",
+                            value: "experimentDuration",
+                          },
+                        ]}
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1" />
+                </Flex>
+              </TabsContent>
+
+              <TabsContent value="analysis">
+                <Flex wrap="wrap" gap="6">
+                  <div className="flex-1">
+                    <Field
+                      label="Tracking Key"
+                      {...form.register(
+                        `experimentAnalysisSettings.trackingKey`
+                      )}
+                      helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
+                    />
+                  </div>
+                  {exposureQueries ? (
+                    <div className="flex-1">
+                      <SelectField
+                        label={
+                          <>
+                            Experiment Assignment Table{" "}
+                            <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                          </>
+                        }
+                        value={
+                          form.watch(
+                            "experimentAnalysisSettings.exposureQueryId"
+                          ) ?? ""
+                        }
+                        onChange={(v) =>
+                          form.setValue(
+                            "experimentAnalysisSettings.exposureQueryId",
+                            v
+                          )
+                        }
+                        required
+                        options={exposureQueries?.map((q) => {
+                          return {
+                            label: q.name,
+                            value: q.id,
+                          };
+                        })}
+                        formatOptionLabel={({ label, value }) => {
+                          const userIdType = exposureQueries?.find(
+                            (e) => e.id === value
+                          )?.userIdType;
+                          return (
+                            <>
+                              {label}
+                              {userIdType ? (
+                                <span
+                                  className="text-muted small float-right position-relative"
+                                  style={{ top: 3 }}
+                                >
+                                  Identifier Type: <code>{userIdType}</code>
+                                </span>
+                              ) : null}
+                            </>
+                          );
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </Flex>
+                <Flex wrap="wrap" gap="6">
+                  {datasourceProperties?.experimentSegments && (
+                    <div className="flex-1">
+                      <SelectField
+                        label="Segment"
+                        value={
+                          form.watch("experimentAnalysisSettings.segment") || ""
+                        }
+                        onChange={(value) =>
+                          form.setValue(
+                            "experimentAnalysisSettings.segment",
+                            value || ""
+                          )
+                        }
+                        initialOption="None (All Users)"
+                        options={filteredSegments.map((s) => {
+                          return {
+                            label: s.name,
+                            value: s.id,
+                          };
+                        })}
+                        helpText="Only users in this segment will be included"
+                      />
+                    </div>
+                  )}
+                  {datasourceProperties?.separateExperimentResultQueries && (
+                    <div className="flex-1">
+                      <SelectField
+                        label="Handling In-Progress Conversions"
+                        value={
+                          form.watch(
+                            "experimentAnalysisSettings.skipPartialData"
+                          )
+                            ? "strict"
+                            : "loose"
+                        }
+                        onChange={(v) => {
+                          form.setValue(
+                            "experimentAnalysisSettings.skipPartialData",
+                            v === "strict"
+                          );
+                        }}
+                        options={[
+                          {
+                            label: "Include In-Progress Conversions",
+                            value: "loose",
+                          },
+                          {
+                            label: "Exclude In-Progress Conversions",
+                            value: "strict",
+                          },
+                        ]}
+                        helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                      />
+                    </div>
+                  )}
+                </Flex>
+                {datasourceProperties?.queryLanguage === "sql" && (
+                  <div className="row">
+                    <div className="col pr-3">
+                      <Field
+                        label="Custom SQL Filter"
+                        labelClassName="font-weight-bold"
+                        {...form.register(
+                          "experimentAnalysisSettings.queryFilter"
+                        )}
+                        textarea
+                        placeholder="e.g. user_id NOT IN ('123', '456')"
+                        helpText="WHERE clause to add to the default experiment query"
+                      />
+                    </div>
+                    <div className="pt-2 pl-3 border-left col-sm-4 col-lg-6">
+                      Available columns:
+                      <div className="mb-2 d-flex flex-wrap">
+                        {["timestamp", "variation_id"]
+                          .concat(
+                            exposureQuery ? [exposureQuery.userIdType] : []
+                          )
+                          .concat(exposureQuery?.dimensions || [])
+                          .map((d) => {
+                            return (
+                              <div className="mr-2 mb-2 border px-1" key={d}>
+                                <code>{d}</code>
+                              </div>
+                            );
+                          })}
+                      </div>
+                      <div>
+                        <strong>Tip:</strong> Use a subquery inside an{" "}
+                        <code>IN</code> or <code>NOT IN</code> clause for more
+                        advanced filtering.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <hr />
+
+                <Flex wrap="wrap" gap="6">
+                  <div className="flex-1">
+                    <StatsEngineSelect
+                      value={form.watch(
+                        "experimentAnalysisSettings.statsEngine"
+                      )}
+                      onChange={(v) => {
+                        form.setValue(
+                          "experimentAnalysisSettings.statsEngine",
+                          v
+                        );
+                      }}
+                      allowUndefined={false}
+                      className=""
+                    />
+                  </div>
+                  {form.watch("experimentAnalysisSettings.statsEngine") ===
+                    "frequentist" && (
+                    <div className="flex-1">
+                      <div className="d-flex" style={{ gap: "1rem" }}>
+                        <div className="flex-1">
+                          <SelectField
+                            label={
+                              <PremiumTooltip commercialFeature="sequential-testing">
+                                <GBSequential /> Use Sequential Testing
+                              </PremiumTooltip>
+                            }
+                            value={
+                              form.watch(
+                                "experimentAnalysisSettings.sequentialTestingEnabled"
+                              )
+                                ? "on"
+                                : "off"
+                            }
+                            onChange={(v) => {
+                              form.setValue(
+                                "experimentAnalysisSettings.sequentialTestingEnabled",
+                                v === "on"
+                              );
+                            }}
+                            options={[
+                              {
+                                label: "On",
+                                value: "on",
+                              },
+                              {
+                                label: "Off",
+                                value: "off",
+                              },
+                            ]}
+                            helpText="Only applicable to Frequentist analyses"
+                            disabled={!hasSequentialTestingFeature}
+                          />
+                        </div>
+                        {form.watch(
+                          "experimentAnalysisSettings.sequentialTestingEnabled"
+                        ) ? (
+                          <div>
+                            <Field
+                              label="Tuning parameter"
+                              type="number"
+                              min="0"
+                              disabled={
+                                !hasSequentialTestingFeature || hasFileConfig()
+                              }
+                              helpText={
+                                <>
+                                  <span className="ml-2">
+                                    (
+                                    {orgSettings.sequentialTestingTuningParameter ??
+                                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                                    is organization default)
+                                  </span>
+                                </>
+                              }
+                              {...form.register(
+                                "experimentAnalysisSettings.sequentialTestingTuningParameter",
+                                {
+                                  valueAsNumber: true,
+                                  validate: (v) => {
+                                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                                    return !(v <= 0);
+                                  },
+                                }
+                              )}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <SelectField
+                      label={
+                        <PremiumTooltip commercialFeature="regression-adjustment">
+                          <GBCuped /> Use Regression Adjustment (CUPED)
+                        </PremiumTooltip>
+                      }
+                      value={
+                        form.watch(
+                          "experimentAnalysisSettings.regressionAdjustmentEnabled"
+                        )
+                          ? "on"
+                          : "off"
+                      }
+                      onChange={(v) => {
+                        form.setValue(
+                          "experimentAnalysisSettings.regressionAdjustmentEnabled",
+                          v === "on"
+                        );
+                      }}
+                      options={[
+                        {
+                          label: "On",
+                          value: "on",
+                        },
+                        {
+                          label: "Off",
+                          value: "off",
+                        },
+                      ]}
+                      disabled={!hasRegressionAdjustmentFeature}
+                    />
+                  </div>
+                </Flex>
+              </TabsContent>
+
+              <TabsContent value="variations">
+                <Flex wrap="wrap" gap="6">
+                  <div style={{ width: 600 }}>
+                    <FeatureVariationsInput
+                      label={null}
+                      coverageTooltip="Used to compute scaled impact (Difference type: scaled)"
+                      setWeight={(i, weight) => {
+                        form.setValue(
+                          `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,
+                          weight
+                        );
+                      }}
+                      variations={
+                        form
+                          .watch("experimentMetadata.variations")
+                          ?.map((v, i) => {
+                            return {
+                              value: v.key || "",
+                              name: v.name,
+                              weight: form.watch(
+                                `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`
+                              ),
+                              id: v.id,
+                            };
+                          }) ?? []
+                      }
+                      setVariations={(v) => {
+                        form.setValue(
+                          "experimentMetadata.variations",
+                          v.map((data) => {
+                            const { value, ...newData } = data;
+                            return {
+                              // default values
+                              name: "",
+                              description: "",
+                              screenshots: [],
+                              ...newData,
+                              key: value,
+                            };
+                          })
+                        );
+                        form.setValue(
+                          `experimentMetadata.phases.${latestPhaseIndex}.variationWeights`,
+                          v.map((v) => v.weight)
+                        );
+                      }}
+                      coverage={form.watch(
+                        `experimentMetadata.phases.${latestPhaseIndex}.coverage`
+                      )}
+                      setCoverage={(c) =>
+                        form.setValue(
+                          `experimentMetadata.phases.${latestPhaseIndex}.coverage`,
+                          c
+                        )
+                      }
+                      showPreview={false}
+                      showDescriptions={false}
+                      sortableClassName="bg-highlight border"
+                    />
+                  </div>
+                </Flex>
+              </TabsContent>
+            </Tabs>
+
+            <div className="d-flex border-top pt-3 mt-2 align-items-center justify-content-end">
+              {!!saveError && (
+                <HelperText status="error">{saveError}</HelperText>
+              )}
+              <Button icon={<BsArrowRepeat />} type="submit" ml="4">
+                Save and refresh
+              </Button>
             </div>
-            <div>
-              <strong>Tip:</strong> Use a subquery inside an <code>IN</code> or{" "}
-              <code>NOT IN</code> clause for more advanced filtering.
-            </div>
-          </div>
+          </form>
         </div>
-      )}
-    </Modal>
+      </Collapsible>
+    </div>
   );
 }

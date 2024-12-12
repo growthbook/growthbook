@@ -63,6 +63,7 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
   const reports = await findReportsByQueryId([...queryIds]);
   for (let i = 0; i < reports.length; i++) {
     const report = reports[i];
+    if (report.type !== "experiment") continue;
     logger.info("Updating status of report " + report.id);
     updateQueryStatus(report.queries, queryIds);
     await updateReport(report.organization, report.id, {

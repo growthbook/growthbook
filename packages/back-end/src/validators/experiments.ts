@@ -132,24 +132,41 @@ export const experimentType = ["standard", "multi-armed-bandit"] as const;
 export type ExperimentType = typeof experimentType[number];
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
-export type banditStageType = typeof banditStageType[number];
+export type BanditStageType = typeof banditStageType[number];
+
+export const experimentAnalysisSettings = z
+  .object({
+    trackingKey: z.string(),
+    datasource: z.string(),
+    exposureQueryId: z.string(),
+    goalMetrics: z.array(z.string()),
+    secondaryMetrics: z.array(z.string()),
+    guardrailMetrics: z.array(z.string()),
+    activationMetric: z.string().optional(),
+    metricOverrides: z.array(metricOverride).optional(),
+    segment: z.string().optional(),
+    queryFilter: z.string().optional(),
+    skipPartialData: z.boolean().optional(),
+    attributionModel: z.enum(attributionModel).optional(),
+    regressionAdjustmentEnabled: z.boolean().optional(),
+    sequentialTestingEnabled: z.boolean().optional(),
+    sequentialTestingTuningParameter: z.number().optional(),
+    statsEngine: z.enum(statsEngines).optional(),
+  })
+  .strict();
+export type ExperimentAnalysisSettings = z.infer<
+  typeof experimentAnalysisSettings
+>;
 
 export const experimentInterface = z
   .object({
     id: z.string(),
-    trackingKey: z.string(),
     organization: z.string(),
     project: z.string().optional(),
     owner: z.string(),
-    datasource: z.string(),
-    exposureQueryId: z.string(),
-    /**
-     * @deprecated Always set to 'code'
-     */
+    /** @deprecated Always set to 'code' */
     implementation: z.enum(implementationType),
-    /**
-     * @deprecated
-     */
+    /** @deprecated */
     userIdType: z.enum(["anonymous", "user"]).optional(),
     hashAttribute: z.string(),
     fallbackAttribute: z.string().optional(),
@@ -164,15 +181,7 @@ export const experimentInterface = z
     tags: z.array(z.string()),
     description: z.string().optional(),
     hypothesis: z.string().optional(),
-    goalMetrics: z.array(z.string()),
-    secondaryMetrics: z.array(z.string()),
-    guardrailMetrics: z.array(z.string()),
-    activationMetric: z.string().optional(),
-    metricOverrides: z.array(metricOverride).optional(),
-    segment: z.string().optional(),
-    queryFilter: z.string().optional(),
-    skipPartialData: z.boolean().optional(),
-    attributionModel: z.enum(attributionModel).optional(),
+    /** @deprecated related to HypGen */
     autoAssign: z.boolean(),
     previewURL: z.string(),
     targetURLRegex: z.string(),
@@ -192,10 +201,6 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
-    regressionAdjustmentEnabled: z.boolean().optional(),
-    sequentialTestingEnabled: z.boolean().optional(),
-    sequentialTestingTuningParameter: z.number().optional(),
-    statsEngine: z.enum(statsEngines).optional(),
     manualLaunchChecklist: z
       .array(
         z
@@ -215,5 +220,6 @@ export const experimentInterface = z
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
     customFields: z.record(z.any()).optional(),
   })
-  .strict();
+  .strict()
+  .merge(experimentAnalysisSettings);
 export type ExperimentInterface = z.infer<typeof experimentInterface>;

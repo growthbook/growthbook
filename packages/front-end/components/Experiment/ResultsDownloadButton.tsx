@@ -42,6 +42,7 @@ export default function ResultsDownloadButton({
   trackingKey?: string;
   dimension?: string;
 }) {
+  console.log({ results, metrics, variations, trackingKey, dimension });
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
 

@@ -2,8 +2,8 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
 import { Queries, QueryStatus } from "back-end/types/query";
 import {
+  ExperimentReportInterface,
   ExperimentReportResults,
-  ReportInterface,
 } from "back-end/types/report";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
@@ -26,8 +26,8 @@ export type ReportQueryParams = {
   factTableMap: FactTableMap;
 };
 
-export class ReportQueryRunner extends QueryRunner<
-  ReportInterface,
+export class ExperimentReportQueryRunner extends QueryRunner<
+  ExperimentReportInterface,
   ReportQueryParams,
   ExperimentReportResults
 > {
@@ -82,10 +82,10 @@ export class ReportQueryRunner extends QueryRunner<
 
     throw new Error("Unsupported report type");
   }
-  async getLatestModel(): Promise<ReportInterface> {
+  async getLatestModel(): Promise<ExperimentReportInterface> {
     const obj = await getReportById(this.model.organization, this.model.id);
     if (!obj) throw new Error("Could not load report model");
-    return obj;
+    return obj as ExperimentReportInterface;
   }
   async updateModel({
     queries,
@@ -98,8 +98,8 @@ export class ReportQueryRunner extends QueryRunner<
     runStarted?: Date | undefined;
     result?: ExperimentReportResults | undefined;
     error?: string | undefined;
-  }): Promise<ReportInterface> {
-    const updates: Partial<ReportInterface> = {
+  }): Promise<ExperimentReportInterface> {
+    const updates: Partial<ExperimentReportInterface> = {
       queries,
       runStarted,
       error: error || "",

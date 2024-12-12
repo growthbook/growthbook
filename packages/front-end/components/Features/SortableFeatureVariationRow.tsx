@@ -44,6 +44,7 @@ interface SortableProps {
   feature?: FeatureInterface;
   showDescription?: boolean;
   dragging?: boolean;
+  className?: string;
 }
 
 type VariationProps = SortableProps &
@@ -69,6 +70,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       feature,
       showDescription,
       dragging,
+      className = "bg-white",
       ...props
     },
     ref
@@ -103,7 +105,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         ref={ref}
         {...props}
         key={`${variation.id}__${i}`}
-        className={`bg-white ${styles.tr} ${dragging && styles.dragging}`}
+        className={`${className} ${styles.tr} ${dragging && styles.dragging}`}
       >
         {!hideVariationIds && (
           <td

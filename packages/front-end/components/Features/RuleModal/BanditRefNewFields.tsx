@@ -106,7 +106,6 @@ export default function BanditRefNewFields({
 
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
-  console.log({ exposureQueryId });
 
   useEffect(() => {
     if (!exposureQueries?.find((q) => q.id === exposureQueryId)) {

@@ -427,6 +427,8 @@ export const notifyExperimentChange = async ({
 
   // do not fire significance or error events for exploratory analyses
   if (snapshot.type === "exploratory") return;
+  // do not fire significance or error events for reports
+  if (snapshot.type === "report") return;
   // do not fire significance events for old snapshots that have no type
   if (snapshot.type === undefined) return;
   // do not fire for snapshots where statistics are manually entered in the UI

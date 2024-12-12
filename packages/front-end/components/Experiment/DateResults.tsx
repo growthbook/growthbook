@@ -26,6 +26,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -48,6 +49,7 @@ const DateResults: FC<{
   guardrailMetrics: string[];
   statsEngine?: StatsEngine;
   differenceType?: DifferenceType;
+  ssrPolyfills?: SSRExperimentReportPolyfills;
 }> = ({
   results,
   variations,
@@ -57,6 +59,7 @@ const DateResults: FC<{
   guardrailMetrics,
   statsEngine,
   differenceType,
+  ssrPolyfills,
 }) => {
   const {
     getExperimentMetricById,
@@ -65,10 +68,15 @@ const DateResults: FC<{
     ready,
   } = useDefinitions();
 
-  const pValueThreshold = usePValueThreshold();
-  const { ciUpper, ciLower } = useConfidenceLevels();
+  const _confidenceLevels = useConfidenceLevels();
+  const _pValueThreshold = usePValueThreshold();
+  const _displayCurrency = useCurrency();
 
-  const displayCurrency = useCurrency();
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const [cumulativeState, setCumulative] = useState(false);
   let cumulative = cumulativeState;
@@ -112,22 +120,31 @@ const DateResults: FC<{
     expandedSecondaries,
     expandedGuardrails,
   } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedGoals = expandMetricGroups(
+      goalMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
     const expandedSecondaries = expandMetricGroups(
       secondaryMetrics,
-      metricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
     const expandedGuardrails = expandMetricGroups(
       guardrailMetrics,
-      metricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
 
     return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+  }, [
+    goalMetrics,
+    metricGroups,
+    ssrPolyfills?.metricGroups,
+    secondaryMetrics,
+    guardrailMetrics,
+  ]);
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
-    if (!ready) return [];
+    if (!ready && !ssrPolyfills) return [];
 
     const sortedResults = [...results];
     sortedResults.sort((a, b) => {
@@ -142,7 +159,10 @@ const DateResults: FC<{
         )
       )
         .map((metricId) => {
-          const metric = getExperimentMetricById(metricId);
+          const metric =
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId);
+
           if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
@@ -201,7 +221,7 @@ const DateResults: FC<{
 
                   const v_formatted = getExperimentMetricFormatter(
                     metric,
-                    getFactTableById
+                    ssrPolyfills?.getFactTableById || getFactTableById
                   )(
                     cumulative
                       ? totalDenominator[i]
@@ -293,6 +313,7 @@ const DateResults: FC<{
     differenceType,
     statsEngine,
     variations,
+    ssrPolyfills,
   ]);
 
   const metricFormatterOptions: Intl.NumberFormatOptions = {

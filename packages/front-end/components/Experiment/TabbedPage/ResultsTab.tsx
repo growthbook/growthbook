@@ -4,7 +4,10 @@ import {
 } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import React, { useMemo, useState } from "react";
-import { ReportInterface } from "back-end/types/report";
+import {
+  ExperimentSnapshotReportArgs,
+  ReportInterface,
+} from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -28,7 +31,6 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { trackReport } from "@/services/track";
 import Callout from "@/components/Radix/Callout";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
@@ -90,7 +92,7 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot, analysis } = useSnapshot();
+  const { snapshot, analysis, dimension } = useSnapshot();
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -177,6 +179,19 @@ export default function ResultsTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType: userIdType as "user" | "anonymous" | undefined,
+    differenceType,
+    dimension,
+  };
+
   return (
     <div className="mt-3">
       {isBandit && hasResults ? (
@@ -210,6 +225,7 @@ export default function ResultsTab({
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
             setDifferenceType={setDifferenceType}
+            reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
@@ -315,18 +331,14 @@ export default function ResultsTab({
                       `/experiments/report/${snapshot.id}`,
                       {
                         method: "POST",
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
                       }
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
-                    trackReport(
-                      "create",
-                      "ResultsTab",
-                      getDatasourceById(res.report.args.datasource)?.type ||
-                        null,
-                      res.report
-                    );
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >

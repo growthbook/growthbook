@@ -1,11 +1,12 @@
 import clsx from "clsx";
-import { ChangeEvent, FC } from "react";
+import { ChangeEvent, CSSProperties, FC } from "react";
 import Field from "./Field";
 
 const EditableH1: FC<{
   editing: boolean;
   value: string;
   className?: string;
+  style?: CSSProperties;
   autoFocus?: boolean;
   label?: string;
   cancel?: () => void;
@@ -15,6 +16,7 @@ const EditableH1: FC<{
   editing,
   value,
   className,
+  style,
   save,
   cancel,
   autoFocus,
@@ -28,6 +30,7 @@ const EditableH1: FC<{
     <Field
       label={label}
       className={clsx(className, "form-control-lg")}
+      style={style}
       value={value}
       onChange={onChange}
       autoFocus={autoFocus}
