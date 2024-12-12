@@ -20,6 +20,12 @@ import {
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
+import { useUser } from "@/services/UserContext";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeatureKeyField from "./FeatureKeyField";
@@ -144,6 +150,7 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
+  const { hasCommercialFeature } = useUser();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -153,6 +160,12 @@ export default function FeatureModal({
   });
 
   const form = useForm({ defaultValues });
+
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "feature",
+    project
+  );
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
@@ -317,22 +330,32 @@ export default function FeatureModal({
           modal is not deterministic.
       */}
       {!featureToDuplicate && valueType && (
-        <>
-          <FeatureValueField
-            label={"Default Value when Enabled"}
-            id="defaultValue"
-            value={form.watch("defaultValue")}
-            setValue={(v) => form.setValue("defaultValue", v)}
-            valueType={valueType}
-          />
-
-          <div className="alert alert-info">
-            After creating your feature, you will be able to add targeted rules
-            such as <strong>A/B Tests</strong> and{" "}
-            <strong>Percentage Rollouts</strong> to control exactly how it gets
-            released to users.
+        <FeatureValueField
+          label={"Default Value when Enabled"}
+          id="defaultValue"
+          value={form.watch("defaultValue")}
+          setValue={(v) => form.setValue("defaultValue", v)}
+          valueType={valueType}
+        />
+      )}
+      {hasCommercialFeature("custom-metadata") &&
+        customFields &&
+        customFields?.length > 0 && (
+          <div>
+            <CustomFieldInput
+              customFields={customFields}
+              form={form}
+              section={"feature"}
+            />
           </div>
-        </>
+        )}
+      {!featureToDuplicate && valueType && (
+        <div className="alert alert-info">
+          After creating your feature, you will be able to add targeted rules
+          such as <strong>A/B Tests</strong> and{" "}
+          <strong>Percentage Rollouts</strong> to control exactly how it gets
+          released to users.
+        </div>
       )}
     </Modal>
   );

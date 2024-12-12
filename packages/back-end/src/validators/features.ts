@@ -251,6 +251,7 @@ export const featureInterface = z
     environmentSettings: z.record(z.string(), featureEnvironment),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
+    customFields: z.record(z.any()).optional(),
 
     /** @deprecated */
     legacyDraft: z.union([featureRevisionInterface, z.null()]).optional(),
@@ -262,3 +263,16 @@ export const featureInterface = z
   .strict();
 
 export type FeatureInterface = z.infer<typeof featureInterface>;
+
+const computedFeatureInterface = featureInterface
+  .extend({
+    projectId: z.string(),
+    projectName: z.string(),
+    projectIsDeReferenced: z.boolean(),
+    stale: z.boolean(),
+    staleReason: z.string(),
+    ownerName: z.string(),
+  })
+  .strict();
+
+export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;

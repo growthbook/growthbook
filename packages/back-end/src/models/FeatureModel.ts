@@ -134,6 +134,7 @@ const featureSchema = new mongoose.Schema({
   linkedExperiments: [String],
   jsonSchema: {},
   neverStale: Boolean,
+  customFields: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -394,33 +395,6 @@ export async function deleteAllFeaturesForAProject({
   for (const feature of featuresToDelete) {
     await deleteFeature(context, feature);
   }
-}
-
-/**
- * Deletes rules for a given environment from all features
- */
-export async function removeEnvironmentFromFeatureRules(
-  context: ReqContext | ApiReqContext,
-  envId: string
-) {
-  const environmentKey = `environmentSettings.${envId}`;
-  const featureQuery = {
-    organization: context.org.id,
-    [environmentKey]: { $exists: true },
-  };
-
-  await FeatureModel.updateMany(featureQuery, {
-    $unset: { [environmentKey]: "" },
-  });
-
-  const featureRevisionQuery = {
-    organization: context.org.id,
-    [`rules.${envId}`]: { $exists: true, $not: { $size: 0 } },
-  };
-
-  await FeatureRevisionModel.updateMany(featureRevisionQuery, {
-    $set: { [`rules.${envId}`]: [] },
-  });
 }
 
 export const createFeatureEvent = async <
