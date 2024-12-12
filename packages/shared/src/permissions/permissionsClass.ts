@@ -15,7 +15,11 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
-import { ExperimentInterface } from "back-end/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentTemplateInterface,
+  UpdateTemplateProps,
+} from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -317,6 +321,29 @@ export class Permissions {
       { projects: experiment.project ? [experiment.project] : [] },
       "createAnalyses"
     );
+  };
+
+  public canCreateExperimentTemplate = (
+    template: Pick<ExperimentTemplateInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(template, "createAnalyses");
+  };
+
+  public canUpdateExperimentTemplate = (
+    existing: Pick<ExperimentTemplateInterface, "projects">,
+    updated: UpdateTemplateProps
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updated,
+      "createAnalyses"
+    );
+  };
+
+  public canDeleteExperimentTemplate = (
+    template: Pick<ExperimentTemplateInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(template, "createAnalyses");
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements

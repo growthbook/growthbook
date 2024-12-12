@@ -4,9 +4,10 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiShuffle } from "react-icons/pi";
+import { PiCaretDown, PiPlusBold, PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Box, Text } from "@radix-ui/themes";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -36,7 +37,15 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import Button from "@/components/Radix/Button";
 
 const NUM_PER_PAGE = 20;
 
@@ -310,10 +319,23 @@ const ExperimentsPage = (): React.ReactElement => {
   }
 
   const addExperimentDropdownButton = (
-    <DropdownMenu trigger="Add Experiment" menuPlacement="end">
+    <DropdownMenu
+      trigger={
+        <Button icon={<PiCaretDown />} iconPosition="right">
+          <PiPlusBold />
+        </Button>
+      }
+      menuPlacement="end"
+      tooltipContent="Add new..."
+    >
       <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
         Create New Experiment
       </DropdownMenuItem>
+      {/* TODO: Replace click handler with new callback to open template creation modal */}
+      <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
+        Create Template
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuItem onClick={() => setOpenImportExperimentModal(true)}>
         Import Existing Experiment
       </DropdownMenuItem>
@@ -340,264 +362,326 @@ const ExperimentsPage = (): React.ReactElement => {
               <div className="col-auto">{addExperimentDropdownButton}</div>
             )}
           </div>
-          <CustomMarkdown page={"experimentList"} />
-          {!hasExperiments ? (
-            <div className="box py-4 text-center">
-              <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Test Variations with Targeted Users</h1>
-                <p style={{ fontSize: "17px" }}>
-                  Run unlimited tests with linked feature flags, URL redirects
-                  or the Visual Editor. You can also easily import existing
-                  experiments from other platforms.
-                </p>
-              </div>
-              <div
-                className="d-flex justify-content-center"
-                style={{ gap: "1rem" }}
-              >
-                <LinkButton
-                  href="/getstarted/experiment-guide"
-                  variant="outline"
-                >
-                  Setup Instructions
-                </LinkButton>
-                {canAdd && addExperimentDropdownButton}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="row align-items-center mb-3">
-                <div className="col-auto d-flex">
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tab, i) => {
-                      const active = tabs.includes(tab);
+          <Tabs defaultValue="experiments">
+            <Box mb="5">
+              <TabsList>
+                <TabsTrigger value="experiments">Experiments</TabsTrigger>
+                <TabsTrigger value="templates">Templates</TabsTrigger>
+              </TabsList>
+            </Box>
 
-                      if (tab === "archived" && !hasArchived) return null;
-
-                      return (
-                        <button
-                          key={tab}
-                          className={clsx("border mb-0", {
-                            "badge-purple font-weight-bold": active,
-                            "bg-white text-secondary": !active,
-                            "rounded-left": i === 0,
-                            "rounded-right":
-                              tab === "archived" ||
-                              (tab === "stopped" && !hasArchived),
-                          })}
-                          style={{
-                            fontSize: "1em",
-                            opacity: active ? 1 : 0.8,
-                            padding: "6px 12px",
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            onToggleTab(tab)();
-                          }}
-                          title={
-                            active && tabs.length > 1
-                              ? `Hide ${tab} experiments`
-                              : active
-                              ? `Remove filter`
-                              : tabs.length === 0
-                              ? `View only ${tab} experiments`
-                              : `Include ${tab} experiments`
-                          }
-                        >
-                          <span className="mr-1 ml-2">
-                            {tab.slice(0, 1).toUpperCase()}
-                            {tab.slice(1)}
-                          </span>
-                          {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2 mb-0">
-                              {tabCounts[tab] || 0}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    }
-                  )}
-                </div>
-                <div className="col-auto">
-                  <Field
-                    placeholder="Search..."
-                    type="search"
-                    {...searchInputProps}
-                  />
-                </div>
-                <div className="col-auto">
-                  <TagsFilter filter={tagsFilter} items={items} />
-                </div>
-                <div className="col-auto">
-                  <Link
-                    href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
-                    target="_blank"
+            <TabsContent value="experiments">
+              <CustomMarkdown page={"experimentList"} />
+              {!hasExperiments ? (
+                <div className="box py-4 text-center">
+                  <div className="mx-auto mb-3" style={{ maxWidth: 650 }}>
+                    <h1>Test Variations with Targeted Users</h1>
+                    <Text size="3">
+                      Run unlimited tests with linked feature flags, URL
+                      redirects or the Visual Editor. You can also easily import
+                      existing experiments from other platforms.
+                    </Text>
+                  </div>
+                  <div
+                    className="d-flex justify-content-center"
+                    style={{ gap: "1rem" }}
                   >
-                    <Tooltip body={searchTermFilterExplainations}></Tooltip>
-                  </Link>
+                    <LinkButton
+                      href="/getstarted/experiment-guide"
+                      variant="outline"
+                    >
+                      Setup Instructions
+                    </LinkButton>
+                    {canAdd && addExperimentDropdownButton}
+                  </div>
                 </div>
-                <div className="col-auto ml-auto">
-                  <Toggle
-                    id="my-experiments-toggle"
-                    type="toggle"
-                    value={showMineOnly}
-                    setValue={(value) => {
-                      setShowMineOnly(value);
-                    }}
-                  />{" "}
-                  My Experiments Only
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="row align-items-center mb-3">
+                    <div className="col-auto d-flex">
+                      {["running", "drafts", "stopped", "archived"].map(
+                        (tab, i) => {
+                          const active = tabs.includes(tab);
 
-              <table className="appbox table experiment-table gbtable responsive-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <SortableTH field="name" className="w-100">
-                      Experiment
-                    </SortableTH>
-                    {showProjectColumn && (
-                      <SortableTH field="projectName">Project</SortableTH>
-                    )}
-                    <SortableTH field="tags">Tags</SortableTH>
-                    <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="status">Status</SortableTH>
-                    <SortableTH field="date">Date</SortableTH>
-                    <th>Summary</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.slice(start, end).map((e) => {
-                    const phase = e.phases?.[e.phases.length - 1];
-                    return (
-                      <tr key={e.id} className="hover-highlight">
-                        <td data-title="Watching status:" className="watching">
-                          <WatchButton
-                            item={e.id}
-                            itemType="experiment"
-                            type="icon"
-                          />
-                        </td>
-                        <td data-title="Experiment name:" className="p-0">
-                          <Link
-                            href={`/experiment/${e.id}`}
-                            className="d-block p-2"
-                          >
-                            <div className="d-flex flex-column">
-                              <div className="d-flex">
-                                <span className="testname">{e.name}</span>
-                                {e.hasVisualChangesets ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Visual experiment"
-                                  >
-                                    <RxDesktop className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {(e.linkedFeatures || []).length > 0 ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Linked Feature Flag"
-                                  >
-                                    <BsFlag className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {e.hasURLRedirects ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="URL Redirect experiment"
-                                  >
-                                    <PiShuffle className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                              </div>
-                              {isFiltered && e.trackingKey && (
-                                <span
-                                  className="testid text-muted small"
-                                  title="Experiment Id"
-                                >
-                                  {e.trackingKey}
+                          if (tab === "archived" && !hasArchived) return null;
+
+                          return (
+                            <button
+                              key={tab}
+                              className={clsx("border mb-0", {
+                                "badge-purple font-weight-bold": active,
+                                "bg-white text-secondary": !active,
+                                "rounded-left": i === 0,
+                                "rounded-right":
+                                  tab === "archived" ||
+                                  (tab === "stopped" && !hasArchived),
+                              })}
+                              style={{
+                                fontSize: "1em",
+                                opacity: active ? 1 : 0.8,
+                                padding: "6px 12px",
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                onToggleTab(tab)();
+                              }}
+                              title={
+                                active && tabs.length > 1
+                                  ? `Hide ${tab} experiments`
+                                  : active
+                                  ? `Remove filter`
+                                  : tabs.length === 0
+                                  ? `View only ${tab} experiments`
+                                  : `Include ${tab} experiments`
+                              }
+                            >
+                              <span className="mr-1 ml-2">
+                                {tab.slice(0, 1).toUpperCase()}
+                                {tab.slice(1)}
+                              </span>
+                              {tab !== "archived" && (
+                                <span className="badge bg-white border text-dark mr-2 mb-0">
+                                  {tabCounts[tab] || 0}
                                 </span>
                               )}
-                            </div>
-                          </Link>
-                        </td>
-                        {showProjectColumn && (
-                          <td className="nowrap" data-title="Project:">
-                            {e.projectIsDeReferenced ? (
-                              <Tooltip
-                                body={
-                                  <>
-                                    Project <code>{e.project}</code> not found
-                                  </>
-                                }
-                              >
-                                <span className="text-danger">
-                                  Invalid project
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              e.projectName ?? <em>None</em>
-                            )}
-                          </td>
-                        )}
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
+                    <div className="col-auto">
+                      <Field
+                        placeholder="Search..."
+                        type="search"
+                        {...searchInputProps}
+                      />
+                    </div>
+                    <div className="col-auto">
+                      <TagsFilter filter={tagsFilter} items={items} />
+                    </div>
+                    <div className="col-auto">
+                      <Link
+                        href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
+                        target="_blank"
+                      >
+                        <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                      </Link>
+                    </div>
+                    <div className="col-auto ml-auto">
+                      <Toggle
+                        id="my-experiments-toggle"
+                        type="toggle"
+                        value={showMineOnly}
+                        setValue={(value) => {
+                          setShowMineOnly(value);
+                        }}
+                      />{" "}
+                      My Experiments Only
+                    </div>
+                  </div>
 
-                        <td data-title="Tags:" className="table-tags">
-                          <SortedTags
-                            tags={Object.values(e.tags)}
-                            useFlex={true}
-                          />
-                        </td>
-                        <td className="nowrap" data-title="Owner:">
-                          {e.ownerName}
-                        </td>
-                        <td className="nowrap" data-title="Status:">
-                          {e.archived ? (
-                            <span className="badge badge-secondary">
-                              archived
-                            </span>
-                          ) : (
-                            <ExperimentStatusIndicator status={e.status} />
-                          )}
-                        </td>
-                        <td className="nowrap" title={datetime(e.date)}>
-                          {e.tab === "running"
-                            ? "started"
-                            : e.tab === "drafts"
-                            ? "created"
-                            : e.tab === "stopped"
-                            ? "ended"
-                            : e.tab === "archived"
-                            ? "updated"
-                            : ""}{" "}
-                          {date(e.date)}
-                        </td>
-                        <td className="nowrap" data-title="Summary:">
-                          {e.archived ? (
-                            ""
-                          ) : e.status === "running" && phase ? (
-                            phaseSummary(phase, e.type === "multi-armed-bandit")
-                          ) : e.status === "stopped" && e.results ? (
-                            <ResultsIndicator results={e.results} />
-                          ) : (
-                            ""
-                          )}
-                        </td>
+                  <table className="appbox table experiment-table gbtable responsive-table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <SortableTH field="name" className="w-100">
+                          Experiment
+                        </SortableTH>
+                        {showProjectColumn && (
+                          <SortableTH field="projectName">Project</SortableTH>
+                        )}
+                        <SortableTH field="tags">Tags</SortableTH>
+                        <SortableTH field="ownerName">Owner</SortableTH>
+                        <SortableTH field="status">Status</SortableTH>
+                        <SortableTH field="date">Date</SortableTH>
+                        <th>Summary</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filtered.length > NUM_PER_PAGE && (
-                <Pagination
-                  numItemsTotal={filtered.length}
-                  currentPage={currentPage}
-                  perPage={NUM_PER_PAGE}
-                  onPageChange={setCurrentPage}
-                />
+                    </thead>
+                    <tbody>
+                      {filtered.slice(start, end).map((e) => {
+                        const phase = e.phases?.[e.phases.length - 1];
+                        return (
+                          <tr key={e.id} className="hover-highlight">
+                            <td
+                              data-title="Watching status:"
+                              className="watching"
+                            >
+                              <WatchButton
+                                item={e.id}
+                                itemType="experiment"
+                                type="icon"
+                              />
+                            </td>
+                            <td data-title="Experiment name:" className="p-0">
+                              <Link
+                                href={`/experiment/${e.id}`}
+                                className="d-block p-2"
+                              >
+                                <div className="d-flex flex-column">
+                                  <div className="d-flex">
+                                    <span className="testname">{e.name}</span>
+                                    {e.hasVisualChangesets ? (
+                                      <Tooltip
+                                        className="d-flex align-items-center ml-2"
+                                        body="Visual experiment"
+                                      >
+                                        <RxDesktop className="text-blue" />
+                                      </Tooltip>
+                                    ) : null}
+                                    {(e.linkedFeatures || []).length > 0 ? (
+                                      <Tooltip
+                                        className="d-flex align-items-center ml-2"
+                                        body="Linked Feature Flag"
+                                      >
+                                        <BsFlag className="text-blue" />
+                                      </Tooltip>
+                                    ) : null}
+                                    {e.hasURLRedirects ? (
+                                      <Tooltip
+                                        className="d-flex align-items-center ml-2"
+                                        body="URL Redirect experiment"
+                                      >
+                                        <PiShuffle className="text-blue" />
+                                      </Tooltip>
+                                    ) : null}
+                                  </div>
+                                  {isFiltered && e.trackingKey && (
+                                    <span
+                                      className="testid text-muted small"
+                                      title="Experiment Id"
+                                    >
+                                      {e.trackingKey}
+                                    </span>
+                                  )}
+                                </div>
+                              </Link>
+                            </td>
+                            {showProjectColumn && (
+                              <td className="nowrap" data-title="Project:">
+                                {e.projectIsDeReferenced ? (
+                                  <Tooltip
+                                    body={
+                                      <>
+                                        Project <code>{e.project}</code> not
+                                        found
+                                      </>
+                                    }
+                                  >
+                                    <span className="text-danger">
+                                      Invalid project
+                                    </span>
+                                  </Tooltip>
+                                ) : (
+                                  e.projectName ?? <em>None</em>
+                                )}
+                              </td>
+                            )}
+
+                            <td data-title="Tags:" className="table-tags">
+                              <SortedTags
+                                tags={Object.values(e.tags)}
+                                useFlex={true}
+                              />
+                            </td>
+                            <td className="nowrap" data-title="Owner:">
+                              {e.ownerName}
+                            </td>
+                            <td className="nowrap" data-title="Status:">
+                              {e.archived ? (
+                                <span className="badge badge-secondary">
+                                  archived
+                                </span>
+                              ) : (
+                                <ExperimentStatusIndicator status={e.status} />
+                              )}
+                            </td>
+                            <td className="nowrap" title={datetime(e.date)}>
+                              {e.tab === "running"
+                                ? "started"
+                                : e.tab === "drafts"
+                                ? "created"
+                                : e.tab === "stopped"
+                                ? "ended"
+                                : e.tab === "archived"
+                                ? "updated"
+                                : ""}{" "}
+                              {date(e.date)}
+                            </td>
+                            <td className="nowrap" data-title="Summary:">
+                              {e.archived ? (
+                                ""
+                              ) : e.status === "running" && phase ? (
+                                phaseSummary(
+                                  phase,
+                                  e.type === "multi-armed-bandit"
+                                )
+                              ) : e.status === "stopped" && e.results ? (
+                                <ResultsIndicator results={e.results} />
+                              ) : (
+                                ""
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {filtered.length > NUM_PER_PAGE && (
+                    <Pagination
+                      numItemsTotal={filtered.length}
+                      currentPage={currentPage}
+                      perPage={NUM_PER_PAGE}
+                      onPageChange={setCurrentPage}
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
+            </TabsContent>
+            <TabsContent value="templates">
+              {false ? (
+                <Box>
+                  <table className="appbox table experiment-table gbtable responsive-table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <SortableTH field="name" className="w-100">
+                          Template Name
+                        </SortableTH>
+                        <SortableTH field="tags">Description</SortableTH>
+                        <SortableTH field="tags">Tags</SortableTH>
+                        {showProjectColumn && (
+                          <SortableTH field="projectName">Project</SortableTH>
+                        )}
+                        <SortableTH field="date">Created</SortableTH>
+                        <SortableTH field="owner">Usage</SortableTH>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </Box>
+              ) : (
+                <div className="appbox p-5 text-center">
+                  <h1>Create Reusable Experiment Templates</h1>
+                  <Text size="3">
+                    Save time configuring experiment details, and ensure
+                    consistency across your team and projects.
+                  </Text>
+                  <div className="mt-3">
+                    {/* Add docs button on left and render either Upgrade Plan or Create Template depending on plan */}
+                    {!true ? (
+                      <LinkButton href="/datasources">
+                        Connect Data Source
+                      </LinkButton>
+                    ) : (
+                      <Button onClick={() => setOpenNewExperimentModal(true)}>
+                        Create Template
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
       {openNewExperimentModal && (
