@@ -1,28 +1,23 @@
 import { useRouter } from "next/router";
-import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
-import { BiTable } from "react-icons/bi";
+import { FaFileDownload } from "react-icons/fa";
 import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  ReportInterface,
 } from "back-end/types/report";
-import { BsArrowRepeat } from "react-icons/bs";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { PiCaretDownFill } from "react-icons/pi";
+import React from "react";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Radix/Button";
 import OldButton from "@/components/Button";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {DropdownMenu} from "@/components/Radix/DropdownMenu";
-import {PiCaretDownFill} from "react-icons/pi";
-import React from "react";
+import { DropdownMenu } from "@/components/Radix/DropdownMenu";
 
 export default function ReportResultMoreMenu({
   experiment,
@@ -66,21 +61,18 @@ export default function ReportResultMoreMenu({
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
-  const canEdit = permissionsUtil.canViewExperimentModal(project);
-
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
-
-  const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
     <DropdownMenu
       menuPlacement="end"
       trigger={
-      <Button variant="outline" size="sm">
-        <PiCaretDownFill/>
-      </Button>
-    }>
+        <Button variant="outline" size="sm">
+          <PiCaretDownFill />
+        </Button>
+      }
+    >
       {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={queries?.map((q) => q.query) ?? []}

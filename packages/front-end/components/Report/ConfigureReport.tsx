@@ -7,7 +7,6 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { Flex, Grid } from "@radix-ui/themes";
-import { PiX } from "react-icons/pi";
 import { FaGear } from "react-icons/fa6";
 import { date, getValidDate } from "shared/dates";
 import Link from "next/link";

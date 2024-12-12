@@ -17,15 +17,9 @@ const SplitButton = ({
 }: Props) => {
   return (
     <div className="rt-SplitButton" {...props}>
-      <div className={clsx("rt-SplitButtonLeft", variant)}>
-        {children}
-      </div>
-      {variant === "solid" && (
-        <div className="rt-SplitButtonDivider" />
-      )}
-      <div className={clsx("rt-SplitButtonRight", variant)}>
-        {menu}
-      </div>
+      <div className={clsx("rt-SplitButtonLeft", variant)}>{children}</div>
+      {variant === "solid" && <div className="rt-SplitButtonDivider" />}
+      <div className={clsx("rt-SplitButtonRight", variant)}>{menu}</div>
     </div>
   );
 };

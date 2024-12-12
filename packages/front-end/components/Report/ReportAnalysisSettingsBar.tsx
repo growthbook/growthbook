@@ -5,13 +5,11 @@ import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { FaGear } from "react-icons/fa6";
 import { FaChartBar } from "react-icons/fa";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { useAuth } from "@/services/auth";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
@@ -182,45 +180,48 @@ export default function ReportAnalysisSettingsBar({
           ) : null}
           {canUpdateReport && setSettingsOpen ? (
             <div className="col-auto">
-              <SplitButton variant="outline" menu={
-                <ReportResultMoreMenu
-                  datasource={datasource}
-                  hasData={hasData}
-                  forceRefresh={async () => {
-                    try {
-                      // const res = await apiCall<{ report: ReportInterface }>(
-                      //   `/report/${report.id}/refresh?force=true`,
-                      //   {
-                      //     method: "POST",
-                      //   }
-                      // );
-                      // mutate();
-                    } catch (e) {
-                      console.error(e);
-                    }
-                  }}
-                  supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                  // editMetrics={
-                  //   canUpdateReport
-                  //     ? () => setActive("Configuration")
-                  //     : undefined
-                  // }
-                  generateReport={false}
-                  notebookUrl={`/report/${report.id}/notebook`}
-                  notebookFilename={report.title}
-                  queries={snapshot.queries}
-                  queryError={snapshot.error}
-                  results={analysis?.results}
-                  variations={variations}
-                  metrics={getAllMetricIdsFromExperiment(
-                    snapshot.settings,
-                    false
-                  )}
-                  trackingKey={report.title}
-                  dimension={snapshot.dimension ?? undefined}
-                  // project={experimentData?.experiment.project || ""}
-                />
-              }>
+              <SplitButton
+                variant="outline"
+                menu={
+                  <ReportResultMoreMenu
+                    datasource={datasource}
+                    hasData={hasData}
+                    forceRefresh={async () => {
+                      try {
+                        // const res = await apiCall<{ report: ReportInterface }>(
+                        //   `/report/${report.id}/refresh?force=true`,
+                        //   {
+                        //     method: "POST",
+                        //   }
+                        // );
+                        // mutate();
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }}
+                    supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                    // editMetrics={
+                    //   canUpdateReport
+                    //     ? () => setActive("Configuration")
+                    //     : undefined
+                    // }
+                    generateReport={false}
+                    notebookUrl={`/report/${report.id}/notebook`}
+                    notebookFilename={report.title}
+                    queries={snapshot.queries}
+                    queryError={snapshot.error}
+                    results={analysis?.results}
+                    variations={variations}
+                    metrics={getAllMetricIdsFromExperiment(
+                      snapshot.settings,
+                      false
+                    )}
+                    trackingKey={report.title}
+                    dimension={snapshot.dimension ?? undefined}
+                    // project={experimentData?.experiment.project || ""}
+                  />
+                }
+              >
                 <Button
                   type="button"
                   variant={settingsOpen ? "solid" : "outline"}

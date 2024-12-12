@@ -2,7 +2,7 @@ import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
-import {PiCaretDownFill, PiHourglassMedium, PiInfoFill} from "react-icons/pi";
+import { PiCaretDownFill, PiHourglassMedium, PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";

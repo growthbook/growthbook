@@ -112,7 +112,9 @@ export default function ResultMoreMenu({
             trackReport(
               "create",
               "AdhocReportButton",
-              getDatasourceById((res.report as ExperimentReportInterface).args.datasource)?.type || null,
+              getDatasourceById(
+                (res.report as ExperimentReportInterface).args.datasource
+              )?.type || null,
               res.report as ExperimentReportInterface
             );
 

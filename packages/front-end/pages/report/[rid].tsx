@@ -11,7 +11,6 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ReportResults from "@/components/Report/ReportResults";
-import ConfigureReport from "@/components/Report/ConfigureReport";
 import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import LegacyReportPage from "@/components/Report/LegacyReportPage";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -112,6 +111,9 @@ export default function ReportPage() {
       <ReportMetaInfo
         report={report}
         mutate={mutate}
+        canView={true}
+        isOwner={isOwner}
+        isAdmin={isAdmin}
         canEdit={canEdit}
         canDelete={canDelete}
         showEditControls={true}
