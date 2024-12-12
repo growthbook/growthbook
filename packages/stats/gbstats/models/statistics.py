@@ -58,7 +58,7 @@ class SampleMeanStatistic(Statistic):
 
     def __add__(self, other):
         if not isinstance(other, SampleMeanStatistic):
-            raise TypeError("Can only add another SampleMeanStatistic instance")
+            raise TypeError("Can add only another SampleMeanStatistic instance")
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -86,7 +86,7 @@ class ProportionStatistic(Statistic):
 
     def __add__(self, other):
         if not isinstance(other, ProportionStatistic):
-            raise TypeError("Can only add another ProportionStatistic instance")
+            raise TypeError("Can add only another ProportionStatistic instance")
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,

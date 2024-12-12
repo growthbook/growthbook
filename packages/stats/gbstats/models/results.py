@@ -58,7 +58,6 @@ class BaseVariationResponse(BaselineResponse):
     uplift: Uplift
     ci: Tuple[float, float]
     errorMessage: Optional[str]
-    powerResponse: Optional[PowerResponse]
 
 
 @dataclass
