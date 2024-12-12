@@ -15,6 +15,8 @@ import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { useAuth } from "@/services/auth";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
+import ReportResultMoreMenu from "@/components/Report/ReportResultMoreMenu";
+import SplitButton from "@/components/Radix/SplitButton";
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -79,7 +81,7 @@ export default function ReportAnalysisSettingsBar({
 
   return (
     <>
-      <div className="pt-1 pb-2 mb-3 border-bottom">
+      <div className="pt-1 pb-2 border-bottom">
         <div className="row align-items-center px-3">
           <div className="col-auto d-flex align-items-center mr-3">
             <div className="h5 my-0 mr-4">
@@ -180,56 +182,54 @@ export default function ReportAnalysisSettingsBar({
           ) : null}
           {canUpdateReport && setSettingsOpen ? (
             <div className="col-auto">
-              <Button
-                type="button"
-                variant={settingsOpen ? "solid" : "outline"}
-                size="sm"
-                onClick={() => setSettingsOpen(!settingsOpen)}
-              >
-                <FaGear size={14} />
-              </Button>
-            </div>
-          ) : null}
-          {canUpdateReport && datasource && mutateReport ? (
-            <div className="col-auto">
-              <ResultMoreMenu
-                snapshotId={snapshot?.id || ""}
-                datasource={datasource}
-                hasData={hasData}
-                forceRefresh={async () => {
-                  try {
-                    // const res = await apiCall<{ report: ReportInterface }>(
-                    //   `/report/${report.id}/refresh?force=true`,
-                    //   {
-                    //     method: "POST",
-                    //   }
-                    // );
-                    // mutate();
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-                supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                // editMetrics={
-                //   canUpdateReport
-                //     ? () => setActive("Configuration")
-                //     : undefined
-                // }
-                generateReport={false}
-                notebookUrl={`/report/${report.id}/notebook`}
-                notebookFilename={report.title}
-                queries={snapshot.queries}
-                queryError={snapshot.error}
-                results={analysis?.results}
-                variations={variations}
-                metrics={getAllMetricIdsFromExperiment(
-                  snapshot.settings,
-                  false
-                )}
-                trackingKey={report.title}
-                dimension={snapshot.dimension ?? undefined}
-                // project={experimentData?.experiment.project || ""}
-              />
+              <SplitButton variant="outline" menu={
+                <ReportResultMoreMenu
+                  datasource={datasource}
+                  hasData={hasData}
+                  forceRefresh={async () => {
+                    try {
+                      // const res = await apiCall<{ report: ReportInterface }>(
+                      //   `/report/${report.id}/refresh?force=true`,
+                      //   {
+                      //     method: "POST",
+                      //   }
+                      // );
+                      // mutate();
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                  supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                  // editMetrics={
+                  //   canUpdateReport
+                  //     ? () => setActive("Configuration")
+                  //     : undefined
+                  // }
+                  generateReport={false}
+                  notebookUrl={`/report/${report.id}/notebook`}
+                  notebookFilename={report.title}
+                  queries={snapshot.queries}
+                  queryError={snapshot.error}
+                  results={analysis?.results}
+                  variations={variations}
+                  metrics={getAllMetricIdsFromExperiment(
+                    snapshot.settings,
+                    false
+                  )}
+                  trackingKey={report.title}
+                  dimension={snapshot.dimension ?? undefined}
+                  // project={experimentData?.experiment.project || ""}
+                />
+              }>
+                <Button
+                  type="button"
+                  variant={settingsOpen ? "solid" : "outline"}
+                  size="sm"
+                  onClick={() => setSettingsOpen(!settingsOpen)}
+                >
+                  Edit Analysis
+                </Button>
+              </SplitButton>
             </div>
           ) : null}
         </div>

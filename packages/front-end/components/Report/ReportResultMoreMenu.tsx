@@ -3,7 +3,6 @@ import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
 import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
-  ExperimentReportInterface,
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   ReportInterface,
@@ -13,22 +12,25 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
+import OldButton from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {DropdownMenu} from "@/components/Radix/DropdownMenu";
+import {PiCaretDownFill} from "react-icons/pi";
+import React from "react";
 
-export default function ResultMoreMenu({
+export default function ReportResultMoreMenu({
   experiment,
   editMetrics,
   queries,
   queryError,
   hasData,
   supportsNotebooks,
-  id,
   generateReport,
   notebookUrl,
   notebookFilename,
@@ -47,7 +49,6 @@ export default function ResultMoreMenu({
   queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
-  id: string;
   generateReport?: boolean;
   notebookUrl: string;
   notebookFilename: string;
@@ -73,7 +74,13 @@ export default function ResultMoreMenu({
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
-    <MoreMenu autoCloseOnClick={false}>
+    <DropdownMenu
+      menuPlacement="end"
+      trigger={
+      <Button variant="outline" size="sm">
+        <PiCaretDownFill/>
+      </Button>
+    }>
       {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={queries?.map((q) => q.query) ?? []}
@@ -81,53 +88,11 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh &&
-        datasource &&
-        permissionsUtil.canRunExperimentQueries(datasource) && (
-          <button
-            className="btn dropdown-item py-2"
-            onClick={(e) => {
-              e.preventDefault();
-              forceRefresh();
-            }}
-          >
-            <BsArrowRepeat className="mr-2" /> Re-run All Queries
-          </button>
-        )}
-      {hasData && queries && generateReport && canEdit && (
-        <Button
-          className="dropdown-item py-2"
-          color="outline-info"
-          onClick={async () => {
-            const res = await apiCall<{ report: ReportInterface }>(
-              `/experiments/report/${id}`,
-              {
-                method: "POST",
-              }
-            );
-
-            if (!res.report) {
-              throw new Error("Failed to create report");
-            }
-            trackReport(
-              "create",
-              "AdhocReportButton",
-              getDatasourceById((res.report as ExperimentReportInterface).args.datasource)?.type || null,
-              res.report as ExperimentReportInterface
-            );
-
-            await router.push(`/report/${res.report.id}`);
-          }}
-        >
-          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
-          Report
-        </Button>
-      )}
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
       >
-        <Button
+        <OldButton
           color="outline-info"
           className="dropdown-item py-2"
           disabled={!canDownloadJupyterNotebook}
@@ -157,19 +122,8 @@ export default function ResultMoreMenu({
         >
           <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
           Download Notebook
-        </Button>
+        </OldButton>
       </Tooltip>
-      {canEdit && editMetrics && !isBandit && (
-        <button
-          type="button"
-          className="dropdown-item py-2"
-          onClick={() => {
-            editMetrics();
-          }}
-        >
-          <FaPencilAlt className="mr-2" /> Add/Remove Metrics
-        </button>
-      )}
       {results && (
         <ResultsDownloadButton
           results={results}
@@ -179,6 +133,6 @@ export default function ResultMoreMenu({
           dimension={dimension || ""}
         />
       )}
-    </MoreMenu>
+    </DropdownMenu>
   );
 }

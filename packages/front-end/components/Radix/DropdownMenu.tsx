@@ -43,7 +43,7 @@ export function DropdownMenu({
     );
 
   return (
-    <RadixDropdownMenu.Root {...props}>
+    <RadixDropdownMenu.Root {...props} modal={false}>
       <RadixDropdownMenu.Trigger
         className={triggerClassName}
         disabled={disabled}

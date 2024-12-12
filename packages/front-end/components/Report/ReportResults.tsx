@@ -20,6 +20,7 @@ import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import ConfigureReport from "@/components/Report/ConfigureReport";
 
 export default function ReportResults({
   report,
@@ -29,7 +30,7 @@ export default function ReportResults({
   mutateReport,
   mutateSnapshot,
   ssrPolyfills,
-  readonly = true,
+  canEdit,
   showSettingsBar = true,
   settingsOpen = false,
   setSettingsOpen,
@@ -42,7 +43,7 @@ export default function ReportResults({
   mutateReport?: () => Promise<unknown> | unknown;
   mutateSnapshot?: () => Promise<unknown> | unknown;
   ssrPolyfills?: SSRExperimentReportPolyfills;
-  readonly?: boolean;
+  canEdit?: boolean;
   showSettingsBar?: boolean;
   settingsOpen?: boolean;
   setSettingsOpen?: (o: boolean) => void;
@@ -111,20 +112,32 @@ export default function ReportResults({
     !analysis?.settings?.dimensions?.length;
 
   return (
-    <div className="bg-white border pt-2">
+    <div className="bg-white border pt-2 mb-5">
       {showSettingsBar && (
-        <ReportAnalysisSettingsBar
-          report={report}
-          snapshot={snapshot}
-          mutateReport={mutateReport}
-          mutateSnapshot={mutateSnapshot}
-          ssrPolyfills={ssrPolyfills}
-          canUpdateReport={!readonly}
-          datasource={datasource}
-          settingsOpen={settingsOpen}
-          setSettingsOpen={setSettingsOpen}
-          runQueriesButtonRef={runQueriesButtonRef}
-        />
+        <div className="mb-3">
+          <ReportAnalysisSettingsBar
+            report={report}
+            snapshot={snapshot}
+            mutateReport={mutateReport}
+            mutateSnapshot={mutateSnapshot}
+            ssrPolyfills={ssrPolyfills}
+            canUpdateReport={canEdit}
+            datasource={datasource}
+            settingsOpen={settingsOpen}
+            setSettingsOpen={setSettingsOpen}
+            runQueriesButtonRef={runQueriesButtonRef}
+          />
+          {mutateReport && setSettingsOpen ? (
+            <ConfigureReport
+              report={report}
+              mutate={mutateReport}
+              open={settingsOpen}
+              setOpen={setSettingsOpen}
+              runQueriesButtonRef={runQueriesButtonRef}
+              canEdit={canEdit}
+            />
+          ) : null}
+        </div>
       )}
 
       {snapshotError || (snapshot && !analysis) ? (

@@ -56,7 +56,7 @@ export default function ConfigureReport({
   runQueriesButtonRef,
 }: {
   report: ExperimentSnapshotReportInterface;
-  mutate: () => void;
+  mutate: () => Promise<unknown> | unknown;
   open: boolean;
   setOpen: (o: boolean) => void;
   canEdit?: boolean;
@@ -123,7 +123,7 @@ export default function ConfigureReport({
   );
 
   return (
-    <div className="bg-white">
+    <div className="bg-white mb-2">
       <Collapsible
         // @ts-expect-error - state managed by external button
         trigger={null}
@@ -131,10 +131,10 @@ export default function ConfigureReport({
         transitionTime={100}
       >
         <div
-          className="drawer border border-bottom-0 pt-0 pb-3 px-3"
+          className="drawer border-bottom pt-0 pb-3 px-3"
           style={{
             backgroundColor: "var(--iris-a3)",
-            boxShadow: "0 -6px 8px -4px #00000011 inset",
+            boxShadow: "0 6px 8px -4px #00000008 inset",
           }}
         >
           <form
@@ -152,14 +152,14 @@ export default function ConfigureReport({
             }}
           >
             <Tabs value={tab} onValueChange={(v) => setTab(v as TabOptions)}>
-              <div className="d-flex align-items-start pt-2">
-                <TabsList mb="3" mt="1" style={{ width: "calc(100% - 50px" }}>
+              <div className="d-flex align-items-start w-100 pt-2 mb-3">
+                <TabsList style={{ width: "100%" }}>
                   <div
                     className="h5 my-0 mr-4 d-flex align-items-center position-relative"
                     style={{ top: 1 }}
                   >
                     <FaGear className="mr-2" />
-                    Configuration
+                    Configure Report
                   </div>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
 
@@ -168,19 +168,8 @@ export default function ConfigureReport({
                   <TabsTrigger value="variations">
                     Variations & Traffic
                   </TabsTrigger>
-                  <div className="flex-1" />
+                  {/*<div className="flex-1" />*/}
                 </TabsList>
-                <div className="flex-1" />
-                <div className="mt-2 position-relative" style={{ top: 2.5 }}>
-                  <Button
-                    variant="soft"
-                    color="gray"
-                    size="sm"
-                    onClick={() => setOpen(false)}
-                  >
-                    <PiX />
-                  </Button>
-                </div>
               </div>
 
               <TabsContent value="overview">

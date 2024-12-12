@@ -40,8 +40,8 @@ export default function ReportPage() {
   });
   const experiment = experimentData?.experiment;
   const datasource = experiment?.datasource
-    ? getDatasourceById(experiment.datasource)
-    : null;
+    ? getDatasourceById(experiment.datasource) || undefined
+    : undefined;
 
   const snapshotId =
     report?.type === "experiment-snapshot" ? report?.snapshot : undefined;
@@ -83,8 +83,6 @@ export default function ReportPage() {
     return null;
   }
 
-  const editLevel = report.editLevel || "organization";
-
   const canUpdateReport = experiment
     ? permissionsUtil.canViewReportModal(experiment.project)
     : false;
@@ -92,8 +90,7 @@ export default function ReportPage() {
 
   const isOwner = userId === report?.userId || !report?.userId;
   const isAdmin = canDeleteReport;
-  const canEdit =
-    isOwner || isAdmin || (editLevel === "organization" && canUpdateReport);
+  const canEdit = isOwner || isAdmin || canUpdateReport;
   const canDelete = isOwner || canDeleteReport;
 
   return (
@@ -117,16 +114,17 @@ export default function ReportPage() {
         mutate={mutate}
         canEdit={canEdit}
         canDelete={canDelete}
+        showEditControls={true}
       />
 
-      <ConfigureReport
-        report={report}
-        mutate={mutate}
-        open={settingsOpen}
-        setOpen={setSettingsOpen}
-        runQueriesButtonRef={runQueriesButtonRef}
-        canEdit={canEdit}
-      />
+      {/*<ConfigureReport*/}
+      {/*  report={report}*/}
+      {/*  mutate={mutate}*/}
+      {/*  open={settingsOpen}*/}
+      {/*  setOpen={setSettingsOpen}*/}
+      {/*  runQueriesButtonRef={runQueriesButtonRef}*/}
+      {/*  canEdit={canEdit}*/}
+      {/*/>*/}
 
       <ReportResults
         report={report}
@@ -135,7 +133,7 @@ export default function ReportPage() {
         snapshotError={snapshotError}
         mutateReport={mutate}
         mutateSnapshot={mutateSnapshot}
-        readonly={!canEdit}
+        canEdit={canEdit}
         settingsOpen={settingsOpen}
         setSettingsOpen={setSettingsOpen}
         runQueriesButtonRef={runQueriesButtonRef}

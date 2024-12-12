@@ -401,6 +401,7 @@ export default function LegacyReportPage({
                   </div>
                   <div className="col-auto">
                     <ResultMoreMenu
+                      id={report.id}
                       datasource={datasource}
                       hasData={hasData}
                       forceRefresh={async () => {
