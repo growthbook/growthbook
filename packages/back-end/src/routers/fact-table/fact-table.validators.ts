@@ -123,6 +123,7 @@ export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
   "proportion",
+  "retention",
   "quantile",
 ]);
 

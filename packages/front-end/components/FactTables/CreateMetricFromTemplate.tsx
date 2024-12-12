@@ -65,6 +65,7 @@ export default function CreateMetricFromTemplate() {
           json.numerator.filters = json.numerator.filters || [];
 
           if (json.metricType === "proportion") {
+            // TODO
             json.numerator.column = "$$distinctUsers";
           } else {
             json.numerator.column = json.numerator.column || "";

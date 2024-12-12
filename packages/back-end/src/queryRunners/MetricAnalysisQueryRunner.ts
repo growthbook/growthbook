@@ -134,6 +134,7 @@ export function processMetricAnalysisQueryResponse(
           n: units,
         })
       );
+      // TODO retention
     } else if (metric.metricType === "proportion") {
       mean = main_sum / units;
       stddev = mean * Math.sqrt(proportionVarianceFromSums(main_sum, units));

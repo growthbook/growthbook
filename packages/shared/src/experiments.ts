@@ -163,7 +163,8 @@ export function getMetricTemplateVariables(
 }
 
 export function isBinomialMetric(m: ExperimentMetricInterface) {
-  if (isFactMetric(m)) return m.metricType === "proportion";
+  if (isFactMetric(m))
+    return ["proportion", "retention"].includes(m.metricType);
   return m.type === "binomial";
 }
 

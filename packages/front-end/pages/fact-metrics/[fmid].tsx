@@ -247,6 +247,7 @@ export default function FactMetricPage() {
           <em>None</em>
         ),
     },
+    // TODO retention
     ...(factMetric.metricType !== "proportion"
       ? [
           {
