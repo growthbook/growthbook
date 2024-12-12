@@ -151,7 +151,13 @@ const UrlRedirectModal: FC<{
             {hasSDKWithRedirects
               ? "Some of your SDK Connections in this Project may not support URL Redirects."
               : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
-            <Link href={"/sdks"} weight="bold" className="pl-2">
+            <Link
+              href={"/sdks"}
+              weight="bold"
+              className="pl-2"
+              rel="noreferrer"
+              target="_blank"
+            >
               View SDKs
               <PiArrowSquareOutFill className="ml-1" />
             </Link>

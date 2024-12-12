@@ -34,7 +34,13 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
     const parsedUrl2 = new URL(url2);
 
     return (
-      <Link href={url2} color="dark" underline="none">
+      <Link
+        href={url2}
+        color="dark"
+        underline="none"
+        rel="noreferrer"
+        target="_blank"
+      >
         <Flex align="center" py="2">
           {parsedUrl1.hostname === parsedUrl2.hostname ? (
             <>
@@ -84,7 +90,13 @@ const Redirect = ({
       <div className="appbox p-3 mb-0">
         <Flex justify="between" align="start">
           <Box as="div">
-            <Link href={originUrl} underline="none" weight="bold">
+            <Link
+              href={originUrl}
+              underline="none"
+              weight="bold"
+              rel="noreferrer"
+              target="_blank"
+            >
               <Flex align="center" py="2">
                 {originUrl}
                 <PiArrowSquareOutFill className="ml-1" />
