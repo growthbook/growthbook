@@ -6,6 +6,7 @@ import {
   ExperimentReportInterface,
   ExperimentReportResultDimension,
   ExperimentReportVariation,
+  ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -28,8 +29,9 @@ export default function ResultMoreMenu({
   queryError,
   hasData,
   supportsNotebooks,
-  id,
+  snapshotId,
   generateReport,
+  reportArgs,
   notebookUrl,
   notebookFilename,
   forceRefresh,
@@ -47,8 +49,9 @@ export default function ResultMoreMenu({
   queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
-  id: string;
+  snapshotId?: string;
   generateReport?: boolean;
+  reportArgs?: ExperimentSnapshotReportArgs;
   notebookUrl: string;
   notebookFilename: string;
   forceRefresh?: () => Promise<void>;
@@ -94,15 +97,16 @@ export default function ResultMoreMenu({
             <BsArrowRepeat className="mr-2" /> Re-run All Queries
           </button>
         )}
-      {hasData && queries && generateReport && canEdit && (
+      {hasData && queries && generateReport && canEdit && snapshotId ? (
         <Button
           className="dropdown-item py-2"
           color="outline-info"
           onClick={async () => {
             const res = await apiCall<{ report: ReportInterface }>(
-              `/experiments/report/${id}`,
+              `/experiments/report/${snapshotId}`,
               {
                 method: "POST",
+                body: reportArgs ? JSON.stringify(reportArgs) : undefined,
               }
             );
 
@@ -124,7 +128,7 @@ export default function ResultMoreMenu({
           <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
           Report
         </Button>
-      )}
+      ) : null}
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."

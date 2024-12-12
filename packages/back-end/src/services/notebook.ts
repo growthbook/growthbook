@@ -15,6 +15,11 @@ import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+} from "back-end/types/experiment-snapshot";
+import {
+  getMetricSnapshotSettingsFromSnapshot,
   getSnapshotSettingsFromReportArgs,
   reportArgsFromSnapshot,
 } from "./reports";
@@ -52,15 +57,65 @@ export async function generateReportNotebook(
   if (!report) {
     throw new Error("Could not find report");
   }
-  if (report.type !== "experiment") {
-    // todo: support notebook for snapshot reports
-    throw new Error("Invalid report type");
+
+  const snapshot =
+    report.type === "experiment-snapshot"
+      ? (await findSnapshotById(report.organization, report.snapshot)) ||
+        undefined
+      : undefined;
+  const snapshotPhase = snapshot?.phase;
+
+  const queries =
+    report.type === "experiment-snapshot"
+      ? snapshot?.queries
+      : report.type === "experiment"
+      ? report.queries
+      : undefined;
+
+  if (!queries) {
+    throw new Error("Could not get report queries for notebook");
+  }
+
+  const args =
+    report.type === "experiment"
+      ? report.args
+      : report.type === "experiment-snapshot"
+      ? {
+          // todo: some loose casting here, investigate whether this is stable enough:
+          ...report.experimentAnalysisSettings,
+          variations: report.experimentMetadata?.variations?.map(
+            (variation, i) => ({
+              ...variation,
+              weight:
+                report.experimentMetadata?.phases?.[snapshotPhase || 0]
+                  ?.variationWeights?.[i],
+            })
+          ),
+          coverage:
+            report.experimentMetadata?.phases?.[snapshotPhase || 0]?.coverage ||
+            0,
+          dimensions: snapshot?.settings?.dimensions || [],
+          settingsForSnapshotMetrics: getMetricSnapshotSettingsFromSnapshot(
+            (snapshot?.settings || {}) as ExperimentSnapshotSettings,
+            {
+              ...report.experimentAnalysisSettings,
+              dimensions:
+                snapshot?.settings?.dimensions?.map((d) => d.id) || [],
+            } as ExperimentSnapshotAnalysisSettings
+          ),
+          startDate: report.experimentAnalysisSettings.dateStarted,
+          endDate: report.experimentAnalysisSettings.dateEnded,
+        }
+      : undefined;
+
+  if (!args) {
+    throw new Error("Could not get report args for notebook");
   }
 
   return generateNotebook(
     context,
-    report.queries,
-    report.args,
+    queries,
+    args as ExperimentReportArgs,
     `/report/${report.id}`,
     report.title,
     ""

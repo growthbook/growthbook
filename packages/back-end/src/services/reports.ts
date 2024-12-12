@@ -68,7 +68,7 @@ export function getReportVariations(
   });
 }
 
-function getMetricSnapshotSettingsFromSnapshot(
+export function getMetricSnapshotSettingsFromSnapshot(
   snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings
 ): MetricSnapshotSettings[] {

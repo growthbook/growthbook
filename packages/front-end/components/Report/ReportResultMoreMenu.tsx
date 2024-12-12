@@ -1,12 +1,9 @@
-import { useRouter } from "next/router";
 import { FaFileDownload } from "react-icons/fa";
 import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiCaretDownFill } from "react-icons/pi";
 import React from "react";
 import { useAuth } from "@/services/auth";
@@ -15,51 +12,34 @@ import Button from "@/components/Radix/Button";
 import OldButton from "@/components/Button";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DropdownMenu } from "@/components/Radix/DropdownMenu";
 
 export default function ReportResultMoreMenu({
-  experiment,
-  editMetrics,
   queries,
   queryError,
   hasData,
   supportsNotebooks,
-  generateReport,
   notebookUrl,
   notebookFilename,
-  forceRefresh,
   results,
   metrics,
   variations,
   trackingKey,
   dimension,
-  datasource,
-  project,
 }: {
-  experiment?: ExperimentInterfaceStringDates;
-  editMetrics?: () => void;
   queries?: Queries;
   queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
-  generateReport?: boolean;
   notebookUrl: string;
   notebookFilename: string;
-  forceRefresh?: () => Promise<void>;
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
-  datasource?: DataSourceInterfaceWithParams | null;
-  project?: string;
 }) {
   const { apiCall } = useAuth();
-  const router = useRouter();
-  const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;

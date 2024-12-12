@@ -184,28 +184,8 @@ export default function ReportAnalysisSettingsBar({
                 variant="outline"
                 menu={
                   <ReportResultMoreMenu
-                    datasource={datasource}
                     hasData={hasData}
-                    forceRefresh={async () => {
-                      try {
-                        // const res = await apiCall<{ report: ReportInterface }>(
-                        //   `/report/${report.id}/refresh?force=true`,
-                        //   {
-                        //     method: "POST",
-                        //   }
-                        // );
-                        // mutate();
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
                     supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                    // editMetrics={
-                    //   canUpdateReport
-                    //     ? () => setActive("Configuration")
-                    //     : undefined
-                    // }
-                    generateReport={false}
                     notebookUrl={`/report/${report.id}/notebook`}
                     notebookFilename={report.title}
                     queries={snapshot.queries}
@@ -218,7 +198,6 @@ export default function ReportAnalysisSettingsBar({
                     )}
                     trackingKey={report.title}
                     dimension={snapshot.dimension ?? undefined}
-                    // project={experimentData?.experiment.project || ""}
                   />
                 }
               >
