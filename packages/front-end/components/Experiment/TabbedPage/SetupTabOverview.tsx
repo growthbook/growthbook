@@ -89,10 +89,41 @@ export default function SetupTabOverview({
             open={true}
             transitionTime={100}
             trigger={
+              <Box as="div">
+                <Flex
+                  align="center"
+                  justify="between"
+                  px="5"
+                  pb="2"
+                  className="text-dark"
+                >
+                  <h4 className="m-0">Description</h4>
+                  <Flex align="center">
+                    {canEditExperiment ? (
+                      <button
+                        className="btn p-0 link-purple mr-3"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDescriptionModal(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    <FaAngleRight className="chevron" />
+                  </Flex>
+                </Flex>
+                <Box as="div" px="5" pt="2">
+                  <button className="btn p-0 link-purple">Show More</button>
+                </Box>
+              </Box>
+            }
+            triggerWhenOpen={
               <Flex
                 align="center"
                 justify="between"
                 px="5"
+                pb="2"
                 className="text-dark"
               >
                 <h4 className="m-0">Description</h4>
@@ -113,7 +144,14 @@ export default function SetupTabOverview({
               </Flex>
             }
           >
-            <Box as="div" px="5" pt="4">
+            <Box
+              as="div"
+              px="5"
+              pt="2"
+              maxHeight="491px"
+              overflowY="scroll"
+              className="fade-mask-vertical-1rem"
+            >
               {!experiment.description ? (
                 <Box as="span" className="font-italic text-muted">
                   Add a description to keep your team informed about the purpose
