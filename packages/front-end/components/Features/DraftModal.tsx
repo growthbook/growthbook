@@ -38,7 +38,6 @@ export interface Props {
   close: () => void;
   mutate: () => void;
   onPublish?: () => void;
-  onDiscard?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }
 
@@ -90,7 +89,6 @@ export default function DraftModal({
   close,
   mutate,
   onPublish,
-  onDiscard,
   experimentsMap,
 }: Props) {
   const allEnvironments = useEnvironments();
@@ -282,31 +280,6 @@ export default function DraftModal({
       closeCta="Cancel"
       size="max"
       autoCloseOnSubmit={false}
-      secondaryCTA={
-        !experimentsStep && permissionsUtil.canManageFeatureDrafts(feature) ? (
-          <Button
-            color="outline-danger"
-            onClick={async () => {
-              try {
-                await apiCall(
-                  `/feature/${feature.id}/${revision.version}/discard`,
-                  {
-                    method: "POST",
-                  }
-                );
-              } catch (e) {
-                await mutate();
-                throw e;
-              }
-              await mutate();
-              onDiscard && onDiscard();
-              close();
-            }}
-          >
-            Discard
-          </Button>
-        ) : undefined
-      }
       backCTA={
         experimentsStep ? (
           <Button

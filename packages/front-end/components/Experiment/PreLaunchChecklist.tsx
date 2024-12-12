@@ -250,7 +250,7 @@ export function getChecklistItems({
     display: (
       <>
         Integrate GrowthBook into your app by adding an SDK connection.{" "}
-        {connections.length === 0 && !setShowSdkForm ? (
+        {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
           <a className="a" role="button" onClick={() => setShowSdkForm(true)}>
@@ -280,6 +280,7 @@ export function getChecklistItems({
     });
   }
 
+  /*
   items.push({
     type: "manual",
     key: "sdk-connection",
@@ -309,6 +310,7 @@ export function getChecklistItems({
     ),
     required: true,
   });
+  */
 
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
@@ -498,7 +500,7 @@ export function PreLaunchChecklistUI({
             ) : (
               <div>
                 {checklist.map((item, i) => (
-                  <div key={i} className="mb-1">
+                  <div key={i} className="mb-2">
                     <Checkbox
                       value={item.status === "complete"}
                       setValue={(checked) => {
@@ -584,7 +586,9 @@ export function PreLaunchChecklistFeatureExpRule({
         verifiedConnections,
         mutateExperiment,
         checklist,
-        checklistItemsRemaining: null,
+        checklistItemsRemaining: checklist.filter(
+          (item) => item.status === "incomplete"
+        ).length,
         setChecklistItemsRemaining: () => {},
         showErrors: true,
       }}
