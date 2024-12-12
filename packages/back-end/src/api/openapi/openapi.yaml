@@ -251,6 +251,9 @@ paths:
       $ref: "./paths/putEnvironment.yaml"
     delete:
       $ref: "./paths/deleteEnvironment.yaml"
+  /environments/fork:
+    post:
+      $ref: "./paths/postForkEnvironment.yaml"
   /fact-tables:
     get:
       $ref: "./paths/listFactTables.yaml"

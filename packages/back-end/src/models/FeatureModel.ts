@@ -48,6 +48,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  FeatureRevisionModel,
   getRevision,
   hasDraft,
   markRevisionAsPublished,
@@ -280,6 +281,34 @@ export async function getFeaturesByIds(
     await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
   ).map((m) => upgradeFeatureInterface(toInterface(m)));
 
+  return features.filter((feature) =>
+    context.permissions.canReadSingleProjectResource(feature.project)
+  );
+}
+
+export async function getAllFeaturesWithRulesForEnvironment(
+  context: ReqContext | ApiReqContext,
+  environment: string,
+  projectsFilter: string[]
+) {
+  let query;
+  if (projectsFilter.length === 0) {
+    query = {
+      organization: context.org.id,
+      [`environmentSettings.${environment}`]: { $exists: true },
+    };
+  } else {
+    projectsFilter.push("");
+    query = {
+      organization: context.org.id,
+      project: { $in: projectsFilter },
+      [`environmentSettings.${environment}`]: { $exists: true },
+    };
+  }
+
+  const features = (await FeatureModel.find(query)).map((m) =>
+    upgradeFeatureInterface(toInterface(m))
+  );
   return features.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project)
   );
@@ -639,6 +668,54 @@ export async function archiveFeature(
   isArchived: boolean
 ) {
   return await updateFeature(context, feature, { archived: isArchived });
+}
+
+export async function syncEnvironmentSettings(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  sourceEnvironment: string,
+  destinationEnvironment: string
+) {
+  const live = await getRevision(context.org.id, feature.id, feature.version);
+  if (!live) {
+    throw new Error(
+      `Could not lookup feature history for feature ${feature.id}`
+    );
+  }
+  // Find all revisions based on this one to propagate the forked environment
+  let featureRevisionVersions = [live.version];
+  let checkingIndex = 0;
+  while (checkingIndex < featureRevisionVersions.length) {
+    const dependentVersions = (
+      await FeatureRevisionModel.find({
+        organization: live.organization,
+        featureId: live.featureId,
+        baseVersion: featureRevisionVersions[checkingIndex],
+      })
+    ).map((r) => r.version);
+    featureRevisionVersions = featureRevisionVersions.concat(dependentVersions);
+    checkingIndex += 1;
+  }
+  await FeatureRevisionModel.updateMany(
+    {
+      organization: live.organization,
+      featureId: live.featureId,
+      version: { $in: featureRevisionVersions },
+    },
+    // Copy only the live version's rules to all dependent revisions so the fork is a snapshot of
+    // the current version and isn't affected by drafts being merged in the future
+    {
+      [`rules.${destinationEnvironment}`]: live.rules[sourceEnvironment],
+    }
+  );
+
+  await FeatureModel.updateOne(
+    { organization: feature.organization, id: feature.id },
+    {
+      [`environmentSettings.${destinationEnvironment}`]: feature
+        .environmentSettings[sourceEnvironment],
+    }
+  );
 }
 
 function setEnvironmentSettings(
