@@ -145,7 +145,7 @@ export default function SetupTabOverview({
             }
           >
             {!experiment.description ? (
-              <Box as="div" className="font-italic text-muted" px="5" pt="2">
+              <Box as="div" className="font-italic text-muted" px="5" py="2">
                 Add a description to keep your team informed about the purpose
                 and parameters of your experiment
               </Box>
