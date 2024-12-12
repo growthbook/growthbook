@@ -14,13 +14,14 @@ import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -29,6 +30,7 @@ export type CheckListItem = {
   key?: string;
   type: "auto" | "manual";
   required: boolean;
+  warning?: string;
 };
 
 export function getChecklistItems({
@@ -243,24 +245,25 @@ export function getChecklistItems({
   const verifiedConnections = connections.some((c) => c.connected);
   items.push({
     type: "auto",
-    key: "verified-connection",
-    status: verifiedConnections ? "complete" : "incomplete",
+    key: "has-connection",
+    status: connections.length ? "complete" : "incomplete",
     display: (
       <>
-        Integrate GrowthBook into your app by adding and verifying an SDK
-        connection.{" "}
-        {connections.length > 0 || !setShowSdkForm ? (
+        Integrate GrowthBook into your app by adding an SDK connection.{" "}
+        {connections.length === 0 && !setShowSdkForm ? (
           <Link href="/sdks">Manage SDK Connections</Link>
-        ) : (
+        ) : connections.length === 0 && setShowSdkForm ? (
           <a className="a" role="button" onClick={() => setShowSdkForm(true)}>
             Add SDK Connection
           </a>
-        )}
+        ) : null}
       </>
     ),
-    // If there are no connections at all, this is required
-    // If it just hasn't been verified, allow the user to continue
-    required: !connections.length,
+    required: true,
+    warning:
+      connections.length > 0 && !verifiedConnections
+        ? "An SDK Connection exists, but it has not been verified to be working yet"
+        : undefined,
   });
 
   if (isBandit) {
@@ -354,6 +357,8 @@ export function PreLaunchChecklistUI({
   setChecklistItemsRemaining,
   analysisModal,
   setAnalysisModal,
+  allowEditChecklist,
+  showErrors,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
@@ -363,12 +368,15 @@ export function PreLaunchChecklistUI({
   className?: string;
   analysisModal?: boolean;
   setAnalysisModal?: (value: boolean) => void;
+  allowEditChecklist?: boolean;
+  showErrors?: boolean;
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const showEditChecklistLink =
+    allowEditChecklist &&
     hasCommercialFeature("custom-launch-checklist") &&
     permissionsUtil.canManageOrgSettings();
   const canEditExperiment =
@@ -426,6 +434,10 @@ export function PreLaunchChecklistUI({
 
   if (experiment.status !== "draft") return null;
 
+  const failedRequired = checklist.some(
+    (item) => item.status === "incomplete" && item.required
+  );
+
   return (
     <>
       {analysisModal && setAnalysisModal ? (
@@ -480,55 +492,63 @@ export function PreLaunchChecklistUI({
             </div>
           }
         >
-          <div className="row mx-4 mt-2">
+          <div className="mx-4 mt-2">
             {!data ? (
               <LoadingSpinner />
             ) : (
-              <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
+              <div>
                 {checklist.map((item, i) => (
-                  <li
-                    key={i}
-                    style={{
-                      listStyleType: "none",
-                      marginLeft: 0,
-                      marginBottom: 6,
-                    }}
-                  >
-                    <div className="d-flex align-items-center">
-                      <Tooltip
-                        body="GrowthBook calculates the completion of this task automatically."
-                        shouldDisplay={item.type === "auto"}
-                      >
-                        <input
-                          type="checkbox"
-                          disabled={
-                            !canEditExperiment ||
-                            (item.type === "manual" && updatingChecklist) ||
-                            (item.type === "auto" &&
-                              item.status === "incomplete")
-                          }
-                          className="ml-0 pl-0 mr-2 "
-                          checked={item.status === "complete"}
-                          onChange={async (e) => {
-                            updateTaskStatus(e.target.checked, item.key);
+                  <div key={i} className="mb-1">
+                    <Checkbox
+                      value={item.status === "complete"}
+                      setValue={(checked) => {
+                        if (item.type === "auto") return;
+                        if (item.type === "manual" && updatingChecklist) return;
+                        updateTaskStatus(!!checked, item.key);
+                      }}
+                      disabled={!canEditExperiment}
+                      disabledMessage={
+                        !canEditExperiment
+                          ? "You don't have permission to mark this as completed"
+                          : undefined
+                      }
+                      label={
+                        <span
+                          style={{
+                            textDecoration:
+                              item.status === "complete"
+                                ? "line-through"
+                                : "none",
                           }}
-                        />
-                      </Tooltip>
-                      <span
-                        style={{
-                          textDecoration:
-                            item.status === "complete"
-                              ? "line-through"
-                              : "none",
-                        }}
-                      >
-                        {item.display}
-                      </span>
-                    </div>
-                  </li>
+                        >
+                          {item.display}
+                          {!item.required && (
+                            <small className="text-muted ml-1">
+                              (optional)
+                            </small>
+                          )}
+                        </span>
+                      }
+                      description={
+                        item.status === "incomplete" && item.type === "auto"
+                          ? "GrowthBook will mark this as completed automatically when you finish the task."
+                          : item.status === "incomplete"
+                          ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+                          : undefined
+                      }
+                      error={item.warning}
+                      errorLevel="warning"
+                    />
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
+            {showErrors && failedRequired ? (
+              <Callout status="error" mb="3">
+                Please complete all required items before starting your
+                experiment.
+              </Callout>
+            ) : null}
           </div>
         </Collapsible>
       </div>
@@ -566,6 +586,7 @@ export function PreLaunchChecklistFeatureExpRule({
         checklist,
         checklistItemsRemaining: null,
         setChecklistItemsRemaining: () => {},
+        showErrors: true,
       }}
     />
   );
@@ -658,6 +679,7 @@ export function PreLaunchChecklist({
           setChecklistItemsRemaining,
           analysisModal,
           setAnalysisModal,
+          allowEditChecklist: true,
         }}
       />
     </>

@@ -144,8 +144,6 @@ export default function DraftModal({
       failedRequired: boolean;
     }[] = [];
     experimentsAvailableToPublish.forEach((exp) => {
-      if (!selectedExperiments.has(exp.id)) return;
-
       const projectConnections = connections.filter(
         (connection) =>
           !connection.projects.length ||
@@ -345,18 +343,12 @@ export default function DraftModal({
               Please review the <strong>Pre-Launch Checklists</strong> for the
               experiments that will be published along with this draft.
             </p>
-            {experimentData.map(({ experiment, checklist, failedRequired }) => {
+            {experimentData.map(({ experiment, checklist }) => {
               if (!selectedExperiments.has(experiment.id)) return null;
 
               return (
                 <div key={experiment.id}>
                   <h4>{experiment.name}</h4>
-                  {failedRequired && (
-                    <Callout status="error">
-                      Required checklist items are incomplete. Please complete
-                      them before publishing.
-                    </Callout>
-                  )}
                   <PreLaunchChecklistFeatureExpRule
                     experiment={experiment}
                     mutateExperiment={mutate}
@@ -375,7 +367,7 @@ export default function DraftModal({
             </p>
 
             {experimentData.length > 0 ? (
-              <div>
+              <div className="mb-3">
                 <h4>Start running experiments upon publishing:</h4>
                 {experimentData.map(({ experiment }) => (
                   <div key={experiment.id}>
