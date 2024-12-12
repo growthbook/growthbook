@@ -84,7 +84,7 @@ export default function SetupTabOverview({
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         ) : null}
-        <Box className="box" py="4">
+        <Box className="box" pt="4" pb="2">
           <Collapsible
             open={true}
             transitionTime={100}
@@ -113,7 +113,7 @@ export default function SetupTabOverview({
                     <FaAngleRight className="chevron" />
                   </Flex>
                 </Flex>
-                <Box as="div" px="5" pt="2">
+                <Box as="div" px="5" py="2">
                   <button className="btn p-0 link-purple">Show More</button>
                 </Box>
               </Box>
@@ -144,23 +144,23 @@ export default function SetupTabOverview({
               </Flex>
             }
           >
-            <Box
-              as="div"
-              px="5"
-              pt="2"
-              maxHeight="491px"
-              overflowY="scroll"
-              className="fade-mask-vertical-1rem"
-            >
-              {!experiment.description ? (
-                <Box as="span" className="font-italic text-muted">
-                  Add a description to keep your team informed about the purpose
-                  and parameters of your experiment
-                </Box>
-              ) : (
+            {!experiment.description ? (
+              <Box as="div" className="font-italic text-muted" px="5" pt="2">
+                Add a description to keep your team informed about the purpose
+                and parameters of your experiment
+              </Box>
+            ) : (
+              <Box
+                as="div"
+                px="5"
+                py="2"
+                maxHeight="491px"
+                overflowY="scroll"
+                className="fade-mask-vertical-1rem"
+              >
                 <Markdown>{experiment.description}</Markdown>
-              )}
-            </Box>
+              </Box>
+            )}
           </Collapsible>
         </Box>
 
