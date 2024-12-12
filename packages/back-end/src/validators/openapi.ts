@@ -409,7 +409,7 @@ export const putEnvironmentValidator = {
 };
 
 export const deleteEnvironmentValidator = {
-  bodySchema: z.object({ "removeAssociatedFeatureRules": z.boolean().describe("Whether to also remove rules from features for the environment to be deleted").optional() }).strict(),
+  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
