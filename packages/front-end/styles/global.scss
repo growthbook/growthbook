@@ -2206,6 +2206,21 @@ li.metrics a span img {
 .nowrap {
   white-space: nowrap;
 }
+.text-truncate-lines-2,
+.text-truncate-lines-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.text-truncate-lines-3 {
+  max-lines: 3;
+  -webkit-line-clamp: 3;
+}
+.text-truncate-lines-2 {
+  max-lines: 2;
+  -webkit-line-clamp: 2;
+}
 
 .experiments {
   .experiment-table {
