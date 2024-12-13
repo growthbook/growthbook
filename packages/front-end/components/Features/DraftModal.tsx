@@ -320,8 +320,7 @@ export default function DraftModal({
               if (!selectedExperiments.has(experiment.id)) return null;
 
               return (
-                <div key={experiment.id}>
-                  <h4>{experiment.name}</h4>
+                <div key={experiment.id} className="mb-3">
                   <PreLaunchChecklistFeatureExpRule
                     experiment={experiment}
                     mutateExperiment={mutate}

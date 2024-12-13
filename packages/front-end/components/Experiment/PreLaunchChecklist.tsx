@@ -249,7 +249,7 @@ export function getChecklistItems({
     status: connections.length ? "complete" : "incomplete",
     display: (
       <>
-        Integrate GrowthBook into your app by adding an SDK connection.{" "}
+        Integrate GrowthBook into your app by adding an SDK Connection.{" "}
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
@@ -361,6 +361,8 @@ export function PreLaunchChecklistUI({
   setAnalysisModal,
   allowEditChecklist,
   showErrors,
+  title = "Pre-Launch Checklist",
+  collapsible = true,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
@@ -372,6 +374,8 @@ export function PreLaunchChecklistUI({
   setAnalysisModal?: (value: boolean) => void;
   allowEditChecklist?: boolean;
   showErrors?: boolean;
+  title?: string;
+  collapsible?: boolean;
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -440,6 +444,91 @@ export function PreLaunchChecklistUI({
     (item) => item.status === "incomplete" && item.required
   );
 
+  const contents = !data ? (
+    <LoadingSpinner />
+  ) : (
+    <div>
+      {checklist.map((item, i) => (
+        <div key={i} className="mb-2">
+          <Checkbox
+            value={item.status === "complete"}
+            setValue={(checked) => {
+              if (item.type === "auto") return;
+              if (item.type === "manual" && updatingChecklist) return;
+              updateTaskStatus(!!checked, item.key);
+            }}
+            disabled={!canEditExperiment}
+            disabledMessage={
+              !canEditExperiment
+                ? "You don't have permission to mark this as completed"
+                : undefined
+            }
+            label={
+              <span
+                style={{
+                  textDecoration:
+                    item.status === "complete" ? "line-through" : "none",
+                }}
+              >
+                {item.display}
+                {!item.required && (
+                  <small className="text-muted ml-1">(optional)</small>
+                )}
+              </span>
+            }
+            description={
+              item.status === "incomplete" && item.type === "auto"
+                ? "GrowthBook will mark this as completed automatically when you finish the task."
+                : item.status === "incomplete"
+                ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+                : undefined
+            }
+            error={item.warning}
+            errorLevel="warning"
+          />
+        </div>
+      ))}
+      {showErrors && failedRequired ? (
+        <Callout status="error" mb="3">
+          Please complete all required items before starting your experiment.
+        </Callout>
+      ) : null}
+    </div>
+  );
+
+  const header = (
+    <div className="d-flex flex-row align-items-center justify-content-between text-dark">
+      <h4 className="m-0 py-3">
+        {title}{" "}
+        {data && checklistItemsRemaining !== null ? (
+          <span
+            className={`badge rounded-circle p-1 ${
+              checklistItemsRemaining === 0 ? "badge-success" : "badge-warning"
+            } mx-2 my-0`}
+            style={{ minWidth: 22 }}
+          >
+            {checklistItemsRemaining === 0 ? (
+              <FaCheck size={10} />
+            ) : (
+              checklistItemsRemaining
+            )}
+          </span>
+        ) : null}
+      </h4>
+      <div className="flex-1" />
+      {showEditChecklistLink ? (
+        <Link
+          className="mr-3 link-purple"
+          href={"/settings?editCheckListModal=true"}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-purple">Edit</span>
+        </Link>
+      ) : null}
+      {collapsible && <FaAngleRight className="chevron" />}
+    </div>
+  );
+
   return (
     <>
       {analysisModal && setAnalysisModal ? (
@@ -455,105 +544,22 @@ export function PreLaunchChecklistUI({
         />
       ) : null}
 
-      <div className="box my-3">
-        <Collapsible
-          open={true}
-          transitionTime={100}
-          trigger={
-            <div className="d-flex flex-row align-items-center justify-content-between text-dark px-4">
-              <h4 className="m-0 py-3">
-                Pre-Launch Checklist{" "}
-                {data && checklistItemsRemaining !== null ? (
-                  <span
-                    className={`badge rounded-circle p-1 ${
-                      checklistItemsRemaining === 0
-                        ? "badge-success"
-                        : "badge-warning"
-                    } mx-2 my-0`}
-                    style={{ minWidth: 22 }}
-                  >
-                    {checklistItemsRemaining === 0 ? (
-                      <FaCheck size={10} />
-                    ) : (
-                      checklistItemsRemaining
-                    )}
-                  </span>
-                ) : null}
-              </h4>
-              <div className="flex-1" />
-              {showEditChecklistLink ? (
-                <Link
-                  className="mr-3 link-purple"
-                  href={"/settings?editCheckListModal=true"}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <span className="text-purple">Edit</span>
-                </Link>
-              ) : null}
-              <FaAngleRight className="chevron" />
-            </div>
-          }
-        >
-          <div className="mx-4 mt-2">
-            {!data ? (
-              <LoadingSpinner />
-            ) : (
-              <div>
-                {checklist.map((item, i) => (
-                  <div key={i} className="mb-2">
-                    <Checkbox
-                      value={item.status === "complete"}
-                      setValue={(checked) => {
-                        if (item.type === "auto") return;
-                        if (item.type === "manual" && updatingChecklist) return;
-                        updateTaskStatus(!!checked, item.key);
-                      }}
-                      disabled={!canEditExperiment}
-                      disabledMessage={
-                        !canEditExperiment
-                          ? "You don't have permission to mark this as completed"
-                          : undefined
-                      }
-                      label={
-                        <span
-                          style={{
-                            textDecoration:
-                              item.status === "complete"
-                                ? "line-through"
-                                : "none",
-                          }}
-                        >
-                          {item.display}
-                          {!item.required && (
-                            <small className="text-muted ml-1">
-                              (optional)
-                            </small>
-                          )}
-                        </span>
-                      }
-                      description={
-                        item.status === "incomplete" && item.type === "auto"
-                          ? "GrowthBook will mark this as completed automatically when you finish the task."
-                          : item.status === "incomplete"
-                          ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-                          : undefined
-                      }
-                      error={item.warning}
-                      errorLevel="warning"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-            {showErrors && failedRequired ? (
-              <Callout status="error" mb="3">
-                Please complete all required items before starting your
-                experiment.
-              </Callout>
-            ) : null}
-          </div>
-        </Collapsible>
-      </div>
+      {collapsible ? (
+        <div className="box my-3">
+          <Collapsible
+            open={true}
+            transitionTime={100}
+            trigger={<div className="px-4">{header}</div>}
+          >
+            <div className="mx-4 mt-2">{contents}</div>
+          </Collapsible>
+        </div>
+      ) : (
+        <>
+          {header}
+          {contents}
+        </>
+      )}
     </>
   );
 }
@@ -591,6 +597,8 @@ export function PreLaunchChecklistFeatureExpRule({
         ).length,
         setChecklistItemsRemaining: () => {},
         showErrors: true,
+        collapsible: false,
+        title: experiment.name,
       }}
     />
   );
