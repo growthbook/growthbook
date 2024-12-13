@@ -674,7 +674,7 @@ const Admin: FC = () => {
           <div className="divider border-bottom mb-3 mt-3" />
         </>
       )}
-      <Tabs defaultValue="organizations">
+      <Tabs defaultValue="organizations" persistInURL={true}>
         <Box mb="3">
           <TabsList>
             <TabsTrigger value="organizations">Organizations</TabsTrigger>
