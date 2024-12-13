@@ -38,14 +38,6 @@ const feature: FeatureInterface = {
   version: 1,
 };
 
-const exampleJsonSchema = {
-  type: "object",
-  properties: {
-    test: {
-      type: "string",
-    },
-  },
-};
 const rules: Record<string, FeatureRule[]> = {
   dev: [
     {
@@ -1071,11 +1063,20 @@ describe("inferSimpleSchemaFromValue", () => {
 
 // TODO: add test cases for simple schemas
 describe("getValidation", () => {
+  const validJSONSchema = {
+    type: "object",
+    properties: {
+      example: {
+        type: "string",
+      },
+    },
+  };
+
   it("returns validationEnabled as true if jsonSchema is populated and enabled", () => {
     feature.jsonSchema = {
       schemaType: "schema",
       simple: { type: "object", fields: [] },
-      schema: JSON.stringify(exampleJsonSchema),
+      schema: JSON.stringify(validJSONSchema),
       date: new Date("2020-04-20"),
       enabled: true,
     };
@@ -1085,17 +1086,39 @@ describe("getValidation", () => {
     feature.jsonSchema = {
       schemaType: "schema",
       simple: { type: "object", fields: [] },
-      schema: JSON.stringify(exampleJsonSchema),
+      schema: JSON.stringify(validJSONSchema),
       date: new Date("2020-04-20"),
       enabled: false,
     };
     expect(getValidation(feature).validationEnabled).toEqual(false);
   });
   it("returns validationEnabled as false if jsonSchema is invalid", () => {
+    const schema = "blahblah";
+
     feature.jsonSchema = {
       schemaType: "schema",
       simple: { type: "object", fields: [] },
-      schema: "blahblah",
+      schema,
+      date: new Date("2020-04-20"),
+      enabled: true,
+    };
+    expect(getValidation(feature).validationEnabled).toEqual(false);
+  });
+  it("returns validationEnabled as false if jsonSchema contains an invalid string format", () => {
+    const schema = JSON.stringify({
+      type: "object",
+      properties: {
+        example: {
+          type: "string",
+          format: "not-a-real-format",
+        },
+      },
+    });
+
+    feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+      schema,
       date: new Date("2020-04-20"),
       enabled: true,
     };
@@ -1142,34 +1165,85 @@ describe("getValidation", () => {
 });
 
 describe("validateJSONFeatureValue", () => {
+  const validJSONSchema = {
+    type: "object",
+    properties: {
+      required: {
+        type: "string",
+      },
+      date: {
+        type: "string",
+        format: "date",
+      },
+    },
+    required: ["required"],
+  };
+
   it("returns valid as true if all values are valid and json schema test passes", () => {
-    const value = { test: "123" };
+    const value = {
+      required: "required",
+      date: "2020-04-20",
+    };
     feature.jsonSchema = {
       schemaType: "schema",
       simple: { type: "object", fields: [] },
-      schema: JSON.stringify(exampleJsonSchema),
+      schema: JSON.stringify(validJSONSchema),
       date: new Date("2020-04-20"),
       enabled: true,
     };
     expect(validateJSONFeatureValue(value, feature).valid).toEqual(true);
   });
-  it("returns valid as false if all values are valid but json schema test fails", () => {
-    const value = { test: 999 };
+
+  it("returns valid as true if validation is not enabled", () => {
+    const value = {
+      required: "required",
+      date: "2020-04-20",
+    };
     feature.jsonSchema = {
       schemaType: "schema",
       simple: { type: "object", fields: [] },
-      schema: JSON.stringify(exampleJsonSchema),
+      schema: JSON.stringify(validJSONSchema),
+      date: new Date("2020-04-20"),
+      enabled: false,
+    };
+    expect(validateJSONFeatureValue(value, feature).valid).toEqual(true);
+  });
+
+  it("returns valid as false if missing a required property", () => {
+    const value = {
+      date: "2020-04-20",
+    };
+    feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+      schema: JSON.stringify(validJSONSchema),
       date: new Date("2020-04-20"),
       enabled: true,
     };
     expect(validateJSONFeatureValue(value, feature).valid).toEqual(false);
   });
-  it("returns valid as false if json schema is invalid", () => {
-    const value = { test: 999 };
+
+  it("returns valid as false if a string is incorrectly formatted", () => {
+    const value = {
+      required: "required",
+      date: "not-a-date",
+    };
     feature.jsonSchema = {
       schemaType: "schema",
       simple: { type: "object", fields: [] },
-      schema: '{ "type": 123 }',
+      schema: JSON.stringify(validJSONSchema),
+      date: new Date("2020-04-20"),
+      enabled: true,
+    };
+    expect(validateJSONFeatureValue(value, feature).valid).toEqual(false);
+  });
+
+  it("returns valid as false if json schema is invalid", () => {
+    const value = { some: "value" };
+    feature.jsonSchema = {
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+      schema: '{ "bad": "schema" }',
       date: new Date("2020-04-20"),
       enabled: true,
     };
@@ -1180,22 +1254,11 @@ describe("validateJSONFeatureValue", () => {
     feature.jsonSchema = {
       schemaType: "schema",
       simple: { type: "object", fields: [] },
-      schema: JSON.stringify(exampleJsonSchema),
+      schema: JSON.stringify(validJSONSchema),
       date: new Date("2020-04-20"),
       enabled: true,
     };
     expect(validateJSONFeatureValue(value, feature).valid).toEqual(false);
-  });
-  it("returns valid as true if validation is not enabled", () => {
-    const value = { test: "123" };
-    feature.jsonSchema = {
-      schemaType: "schema",
-      simple: { type: "object", fields: [] },
-      schema: JSON.stringify(exampleJsonSchema),
-      date: new Date("2020-04-20"),
-      enabled: false,
-    };
-    expect(validateJSONFeatureValue(value, feature).valid).toEqual(true);
   });
 });
 
