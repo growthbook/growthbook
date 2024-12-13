@@ -143,8 +143,9 @@ export default function RestoreConfigYamlButton({
             ) {
               const windowSetting: MetricWindowSettings = {
                 type: "conversion",
-                delayHours:
+                delayValue:
                   n.conversionDelayHours ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+                delayUnit: "hours",
                 windowValue:
                   n.conversionWindowHours ?? DEFAULT_METRIC_WINDOW_HOURS,
                 windowUnit: "hours",
@@ -152,6 +153,15 @@ export default function RestoreConfigYamlButton({
               n.windowSettings = windowSetting;
               delete n.conversionWindowDelay;
               delete n.conversionDelayHours;
+            } else if (n.windowSettings.delayHours !== undefined) {
+              // unit test this and others
+              const windowSettings: MetricWindowSettings = {
+                ...n.windowSettings,
+                delayUnit: "hours",
+                delayValue: n.windowSettings.delayHours,
+              };
+              n.windowSettings = windowSettings;
+              delete n.windowSettings.delayHours;
             }
             if (n.userIdType || n.anonymousIdType) {
               throw new Error(`

@@ -119,8 +119,9 @@ export async function getCreateMetricPropsFromBody(
     quantileSettings: quantileSettings ?? null,
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
-      delayHours:
+      delayValue:
         scopedSettings.delayHours.value ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: "hours",
       windowValue:
         scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
@@ -170,15 +171,16 @@ export async function getCreateMetricPropsFromBody(
   }
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;
-    if (windowSettings.delayHours) {
-      data.windowSettings.delayHours = windowSettings.delayHours;
-    }
     if (windowSettings.windowValue) {
       data.windowSettings.windowValue = windowSettings.windowValue;
     }
     if (windowSettings.windowUnit) {
       data.windowSettings.windowUnit = windowSettings.windowUnit;
     }
+  }
+  if (windowSettings?.delayHours && !windowSettings?.delayValue) {
+    data.windowSettings.delayUnit = "hours";
+    data.windowSettings.delayValue = windowSettings.delayHours;
   }
 
   if (regressionAdjustmentSettings?.override) {

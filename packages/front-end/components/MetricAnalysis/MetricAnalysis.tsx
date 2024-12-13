@@ -16,6 +16,7 @@ import { FactMetricInterface } from "back-end/types/fact-table";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isBinomialMetric } from "shared/experiments";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -74,10 +75,9 @@ function MetricAnalysisOverview({
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
 
-  // TODO metric analysis won't work with retention?
   let numeratorText = "Metric Total: ";
   let numeratorValue: string =
-    metricType === "proportion"
+    metricType === "proportion" || metricType === "retention"
       ? formatNumber(result.units * result.mean)
       : formatter(result.units * result.mean, formatterOptions);
   let denominatorText: string | JSX.Element = (
@@ -131,7 +131,9 @@ function MetricAnalysisOverview({
             </div>
             {metricType === "ratio" ? null : (
               <>
-                {metricType === "proportion" ? "of" : "per"}{" "}
+                {metricType === "proportion" || metricType === "retention"
+                  ? "of"
+                  : "per"}{" "}
                 <code>{userIdType}</code>
               </>
             )}
@@ -522,6 +524,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               />
             </div>
 
+            {factMetric.metricType === "retention" ? (
+              <Callout status="info" mt="2" mb="2">
+                {
+                  "Retention metrics analyzed here (outside the context of an experiment) have no clear baseline to use and will be treated as regular proportion metrics."
+                }
+              </Callout>
+            ) : null}
             {error || metricAnalysis?.error ? (
               <Callout status="error" mt="2" mb="2">
                 {`Analysis error: ${error || metricAnalysis?.error}`}
@@ -571,14 +580,14 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         <div className="mb-4">
                           <div className="mt-3">
                             <h4 className="mb-1 mt-1">
-                              {factMetric.metricType === "proportion"
+                              {isBinomialMetric(factMetric)
                                 ? "Conversions"
                                 : "Metric Value"}{" "}
                               Over Time
                             </h4>
                           </div>
 
-                          {factMetric.metricType !== "proportion" && (
+                          {!isBinomialMetric(factMetric) && (
                             <>
                               <div className="row mt-4 mb-1">
                                 <div className="col">
@@ -683,10 +692,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                           )}
 
                           {factMetric.metricType !== "ratio" &&
-                          !(
-                            northStarView &&
-                            factMetric.metricType !== "proportion"
-                          ) ? (
+                          !(northStarView && !isBinomialMetric(factMetric)) ? (
                             <>
                               <div className="row mt-4 mb-1">
                                 <div className="col">
@@ -695,8 +701,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                       <>
                                         <p>
                                           {`This figure shows the ${
-                                            factMetric.metricType !==
-                                            "proportion"
+                                            !isBinomialMetric(factMetric)
                                               ? `daily sum of values in the metric source`
                                               : `daily count of units (e.g. users) that fit
                                         the metric definition`
@@ -711,7 +716,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         <p>
                                           {`When smoothing is turned on, we simply
                                       average ${
-                                        factMetric.metricType !== "proportion"
+                                        !isBinomialMetric(factMetric)
                                           ? "values"
                                           : "counts"
                                       } over the 7 trailing
@@ -722,7 +727,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                   >
                                     <strong className="ml-4 align-bottom">
                                       Daily{" "}
-                                      {factMetric.metricType !== "proportion"
+                                      {!isBinomialMetric(factMetric)
                                         ? "Sum"
                                         : "Count"}{" "}
                                       <FaQuestionCircle />
@@ -756,7 +761,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                               </div>
                               <DateGraph
                                 type={
-                                  factMetric.metricType === "proportion"
+                                  isBinomialMetric(factMetric)
                                     ? "binomial"
                                     : "count"
                                 }
@@ -784,7 +789,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       )}
                     {metricAnalysis?.result?.histogram &&
                       metricAnalysis.result.histogram.length > 0 &&
-                      factMetric.metricType !== "proportion" &&
+                      !isBinomialMetric(factMetric) &&
                       !northStarView && (
                         <div className="mt-5 mb-2">
                           <h4 className="align-bottom">

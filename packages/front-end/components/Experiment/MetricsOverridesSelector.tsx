@@ -9,9 +9,11 @@ import {
 import { isUndefined } from "lodash";
 import {
   getConversionWindowHours,
+  getDelayWindowHours,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
+  isRetentionMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -290,13 +292,21 @@ export default function MetricsOverridesSelector({
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Metric Delay (hours)"
+                              label={
+                                metricDefinition &&
+                                isRetentionMetric(metricDefinition)
+                                  ? "Retention Window (hours)"
+                                  : "Metric Delay (hours)"
+                              }
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
                                   {metricDefinition?.windowSettings
-                                    .delayHours ?? 0}
+                                    ? getDelayWindowHours(
+                                        metricDefinition.windowSettings
+                                      )
+                                    : 0}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -350,11 +360,16 @@ export default function MetricsOverridesSelector({
                       ) : null}
                       {(form.watch(`metricOverrides.${i}.windowType`) ??
                         metricDefinition?.windowSettings?.type) ===
-                      "lookback" ? (
+                      "lookback" ? ( // TODO
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Metric Delay (hours)"
+                              label={
+                                metricDefinition &&
+                                isRetentionMetric(metricDefinition)
+                                  ? "Retention Window (hours)"
+                                  : "Metric Delay (hours)"
+                              }
                               placeholder="default"
                               helpText={
                                 <div className="text-right">

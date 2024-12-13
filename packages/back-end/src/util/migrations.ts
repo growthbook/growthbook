@@ -74,7 +74,8 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
         windowUnit: "hours",
-        delayHours: -0.5,
+        delayUnit: "hours",
+        delayValue: -0.5,
       };
     } else {
       newDoc.windowSettings = {
@@ -82,9 +83,20 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: "hours",
-        delayHours: doc.conversionDelayHours || 0,
+        delayUnit: "hours",
+        delayValue: doc.conversionDelayHours || 0,
       };
     }
+  } else {
+    if (doc.windowSettings.delayHours !== undefined) {
+      newDoc.windowSettings = {
+        ...doc.windowSettings,
+        delayUnit: "hours",
+        delayValue: doc.windowSettings.delayHours,
+      };
+    }
+
+    delete newDoc?.windowSettings?.delayHours;
   }
 
   if (doc.priorSettings === undefined) {
@@ -756,7 +768,8 @@ export function migrateSnapshot(
         computedSettings: {
           windowSettings: {
             type: "conversion",
-            delayHours: 0,
+            delayUnit: "hours",
+            delayValue: 0,
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },

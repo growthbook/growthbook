@@ -7,7 +7,6 @@ import {
   FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
-  MetricRetentionSettings,
   MetricWindowSettings,
 } from "back-end/types/fact-table";
 import { TemplateVariables } from "back-end/types/sql";
@@ -166,8 +165,14 @@ export function getMetricTemplateVariables(
 // TODO check all isBinomialMetric checks
 
 export function isBinomialMetric(m: ExperimentMetricInterface) {
-  if (isFactMetric(m)) return (["proportion", "retention"]).includes(m.metricType);
+  if (isFactMetric(m))
+    return ["proportion", "retention"].includes(m.metricType);
   return m.type === "binomial";
+}
+
+export function isRetentionMetric(m: ExperimentMetricInterface) {
+  if (isFactMetric(m)) return m.metricType === "retention";
+  return false;
 }
 
 export function isRatioMetric(
@@ -215,20 +220,19 @@ export function getConversionWindowHours(
   if (windowSettings.windowUnit === "days") return value * 24;
   if (windowSettings.windowUnit === "weeks") return value * 24 * 7;
 
-  // TODO
   return 72;
 }
 
-export function getRetentionHours(
-  retentionSettings: MetricRetentionSettings
+export function getDelayWindowHours(
+  windowSettings: MetricWindowSettings
 ): number {
-  const value = retentionSettings.retentionValue;
-  if (retentionSettings.retentionUnit === "days") return value * 24;
-  if (retentionSettings.retentionUnit === "weeks") return value * 24 * 7;
+  const value = windowSettings.delayValue;
+  if (windowSettings.delayUnit === "hours") return value;
+  if (windowSettings.delayUnit === "days") return value * 24;
+  if (windowSettings.delayUnit === "weeks") return value * 24 * 7;
 
-  return value;
+  return 0;
 }
-
 export function getSelectedColumnDatatype({
   factTable,
   column,

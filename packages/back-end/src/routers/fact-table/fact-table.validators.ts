@@ -99,9 +99,17 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+export const legacyWindowSettingsValidator = z.object({
+  type: windowTypeValidator.optional(),
+  delayHours: z.coerce.number().optional(),
+  windowValue: z.number().optional(),
+  windowUnit: conversionWindowUnitValidator.optional(),
+});
+
 export const windowSettingsValidator = z.object({
   type: windowTypeValidator,
-  delayHours: z.coerce.number(),
+  delayValue: z.coerce.number(),
+  delayUnit: conversionWindowUnitValidator,
   windowValue: z.number(),
   windowUnit: conversionWindowUnitValidator,
 });
@@ -110,11 +118,6 @@ export const quantileSettingsValidator = z.object({
   quantile: z.number(),
   type: z.enum(["unit", "event"]),
   ignoreZeros: z.boolean(),
-});
-
-export const retentionSettingsValidator = z.object({
-  retentionValue: z.number(),
-  retentionUnit: conversionWindowUnitValidator,
 });
 
 export const priorSettingsValidator = z.object({
@@ -167,7 +170,6 @@ export const factMetricValidator = z
     regressionAdjustmentDays: z.number(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
-    retentionSettings: retentionSettingsValidator.nullable(),
   })
   .strict();
 

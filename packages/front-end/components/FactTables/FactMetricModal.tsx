@@ -21,13 +21,11 @@ import {
   ColumnInterface,
   ColumnAggregation,
   FactTableColumnType,
-  MetricRetentionSettings,
 } from "back-end/types/fact-table";
 import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnRefWhereClause,
-  getRetentionHours,
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { PiPlus } from "react-icons/pi";
@@ -269,13 +267,11 @@ function getAggregationOptions(
   ];
 }
 
-function RetentionTimestampSelector({
-    form,
-  }: {
-    form: UseFormReturn<CreateFactMetricProps>;
-  }) {
-
-
+function RetentionWindowSelector({
+  form,
+}: {
+  form: UseFormReturn<CreateFactMetricProps>;
+}) {
   return (
     <div>
       <div className="appbox px-3 pt-3 bg-light">
@@ -283,7 +279,7 @@ function RetentionTimestampSelector({
           <div className="col-auto">Event must be at least</div>
           <div className="col-auto">
             <Field
-              {...form?.register("retentionSettings.retentionValue", {
+              {...form?.register("windowSettings.delayValue", {
                 valueAsNumber: true,
               })}
               type="number"
@@ -297,10 +293,10 @@ function RetentionTimestampSelector({
           </div>
           <div className="col-auto ">
             <SelectField
-              value={form?.watch("retentionSettings.retentionUnit") ?? "days"}
+              value={form?.watch("windowSettings.delayUnit") ?? "days"}
               onChange={(value) => {
                 form.setValue(
-                  "retentionSettings.retentionUnit",
+                  "windowSettings.delayUnit",
                   value as "days" | "hours" | "weeks"
                 );
               }}
@@ -321,13 +317,11 @@ function RetentionTimestampSelector({
               ]}
             />
           </div>
-          <div className="col-auto">
-            after experiment exposure
-          </div>
+          <div className="col-auto">after experiment exposure</div>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function ColumnRefSelector({
@@ -802,14 +796,12 @@ function getWHERE({
   columnRef,
   windowSettings,
   quantileSettings,
-  retentionSettings,
   type,
 }: {
   factTable: FactTableInterface | null;
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
   quantileSettings: MetricQuantileSettings;
-  retentionSettings: MetricRetentionSettings | null;
   type: FactMetricType;
 }) {
   const whereParts =
@@ -822,13 +814,15 @@ function getWHERE({
         )
       : [];
 
-  if (windowSettings.delayHours) {
+  if (type !== "retention") {
     whereParts.push(
-      `-- Only after seeing the experiment + delay\ntimestamp > (exposure_timestamp + '${windowSettings.delayHours} hours')`
+      `-- Only after seeing the experiment + delay\ntimestamp > (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
     );
-  } else if (retentionSettings) {
+  } else if (type === "retention") {
     whereParts.push(
-      `-- Only after seeing the experiment + retention delay\ntimestamp > (exposure_timestamp + '${retentionSettings.retentionValue} ${retentionSettings.retentionUnit ?? "days"}')`
+      `-- Only after seeing the experiment + retention delay\ntimestamp > (exposure_timestamp + '${
+        windowSettings.delayValue
+      } ${windowSettings.delayUnit ?? "days"}')`
     );
   } else {
     whereParts.push(
@@ -841,13 +835,17 @@ function getWHERE({
       `-- Lookback Metric Window\ntimestamp > (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
     );
   } else if (windowSettings.type === "conversion") {
-    if (windowSettings.delayHours) {
+    if (type !== "retention") {
       whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + + '${windowSettings.delayHours} hours' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
       );
-    } else if (retentionSettings) {
+    } else if (type === "retention") {
       whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${retentionSettings.retentionValue} ${retentionSettings.retentionUnit ?? "days"}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${
+          windowSettings.delayValue
+        } ${windowSettings.delayUnit ?? "days"}' + '${
+          windowSettings.windowValue
+        } ${windowSettings.windowUnit}')`
       );
     } else {
       whereParts.push(
@@ -872,7 +870,6 @@ function getPreviewSQL({
   type,
   quantileSettings,
   windowSettings,
-  retentionSettings,
   numerator,
   denominator,
   numeratorFactTable,
@@ -881,7 +878,6 @@ function getPreviewSQL({
   type: FactMetricType;
   quantileSettings: MetricQuantileSettings;
   windowSettings: MetricWindowSettings;
-  retentionSettings: MetricRetentionSettings | null;
   numerator: ColumnRef;
   denominator: ColumnRef | null;
   numeratorFactTable: FactTableInterface | null;
@@ -926,7 +922,6 @@ function getPreviewSQL({
     columnRef: numerator,
     windowSettings,
     quantileSettings,
-    retentionSettings,
     type,
   });
 
@@ -935,7 +930,6 @@ function getPreviewSQL({
     columnRef: denominator,
     windowSettings,
     quantileSettings,
-    retentionSettings,
     type,
   });
 
@@ -1405,7 +1399,7 @@ export default function FactMetricModal({
     existing,
     settings,
     project,
-    initialFactTable: factTable
+    initialFactTable: factTable,
   });
 
   // Multiple percent values by 100 for the UI
@@ -1488,7 +1482,8 @@ export default function FactMetricModal({
   const numerator = form.watch("numerator");
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
   const denominator = form.watch("denominator");
-  const retentionSettings = form.watch("retentionSettings");
+  const windowSettings = form.watch("windowSettings");
+
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
   const canUseEventQuantile = getNumericColumns(numeratorFactTable).length > 0;
@@ -1498,8 +1493,7 @@ export default function FactMetricModal({
   const { sql, experimentSQL, denominatorSQL } = getPreviewSQL({
     type,
     quantileSettings,
-    windowSettings: form.watch("windowSettings"),
-    retentionSettings,
+    windowSettings,
     numerator,
     denominator,
     numeratorFactTable,
@@ -1551,20 +1545,13 @@ export default function FactMetricModal({
           values.denominator = null;
         }
 
-        // reset numerator for proportion metrics
+        // reset numerator for proportion/retention metrics
         if (
-          values.metricType === "proportion" &&
+          (values.metricType === "proportion" ||
+            values.metricType === "retention") &&
           values.numerator.column !== "$$distinctUsers"
         ) {
           values.numerator.column = "$$distinctUsers";
-        }
-
-        // set delay for retention metrics
-        if (values.metricType === "retention") {
-          if (!values.retentionSettings) {
-            throw new Error("Must set date for retention  metrics");
-          }
-          values.windowSettings.delayHours = getRetentionHours(values.retentionSettings);
         }
 
         if (values.cappingSettings?.type) {
@@ -1737,8 +1724,8 @@ export default function FactMetricModal({
                           <div className="mb-2">
                             <strong>Retention</strong> metrics calculate a
                             proportion of users who are in a table at least X
-                            days or hours after experiment exposure or some other 
-                            event timestamp.
+                            days or hours after experiment exposure or some
+                            other event timestamp.
                           </div>
                           <div className="mb-2">
                             <strong>Mean</strong> metrics calculate the average
@@ -1772,6 +1759,14 @@ export default function FactMetricModal({
                     return;
                   }
                   form.setValue("metricType", type as FactMetricType);
+
+                  // Set better defaults for retention metrics
+                  if (type === "retention") {
+                    if (form.getValues("windowSettings.delayValue") === 0) {
+                      form.setValue("windowSettings.delayValue", 7);
+                      form.setValue("windowSettings.delayUnit", "days");
+                    }
+                  }
 
                   if (type === "quantile") {
                     if (!canUseEventQuantile) {
@@ -1819,7 +1814,13 @@ export default function FactMetricModal({
                   },
                   {
                     value: "retention",
-                    label: "Retention",
+                    label: (
+                      <>
+                        <PremiumTooltip commercialFeature="retention-metrics">
+                          Retention
+                        </PremiumTooltip>
+                      </>
+                    ),
                   },
                   {
                     value: "mean",
@@ -1870,29 +1871,29 @@ export default function FactMetricModal({
               ) : type === "retention" ? (
                 <div>
                   <div className="form-group">
-                  <label>Retention Event</label>
-                  <ColumnRefSelector
-                    value={numerator}
-                    setValue={(numerator) =>
-                      form.setValue("numerator", numerator)
-                    }
-                    setDatasource={setDatasource}
-                    datasource={selectedDataSource}
-                    disableFactTableSelector={!!initialFactTable}
-                    supportsAggregatedFilter={true}
-                    allowChangingDatasource={!datasource}
-                    key={selectedDataSource.id}
-                  />
+                    <label>Retention Event</label>
+                    <ColumnRefSelector
+                      value={numerator}
+                      setValue={(numerator) =>
+                        form.setValue("numerator", numerator)
+                      }
+                      setDatasource={setDatasource}
+                      datasource={selectedDataSource}
+                      disableFactTableSelector={!!initialFactTable}
+                      supportsAggregatedFilter={true}
+                      allowChangingDatasource={!datasource}
+                      key={selectedDataSource.id}
+                    />
                   </div>
                   <div className="form-group">
-                    <RetentionTimestampSelector 
-                      form={form} 
-                    />
+                    <RetentionWindowSelector form={form} />
                   </div>
                   <HelperText status="info">
                     The final metric value will be the percent of users in the
-                    experiment that match the retention event at least 
-                    {` ${retentionSettings?.retentionValue || "X"} ${retentionSettings?.retentionUnit || "days"} `}
+                    experiment that match the retention event at least
+                    {` ${windowSettings?.windowValue || "X"} ${
+                      windowSettings?.windowUnit || "days"
+                    } `}
                     after experiment exposure.
                   </HelperText>
                 </div>
@@ -2115,8 +2116,12 @@ export default function FactMetricModal({
 
                   <Box py="3">
                     <TabsContent value="query">
-                      {type !== "retention" ? <MetricDelayHours form={form} /> : null}
-                      {type !== "quantile" && type !== "proportion"  && type !== "retention" ? (
+                      {type !== "retention" ? (
+                        <MetricDelayHours form={form} />
+                      ) : null}
+                      {type !== "quantile" &&
+                      type !== "proportion" &&
+                      type !== "retention" ? (
                         <MetricCappingSettingsForm
                           form={form}
                           datasourceType={selectedDataSource.type}

@@ -19,7 +19,7 @@ import {
   quantileSettingsValidator,
   priorSettingsValidator,
   columnAggregationValidator,
-  retentionSettingsValidator,
+  legacyWindowSettingsValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
@@ -87,12 +87,15 @@ export type ConversionWindowUnit = z.infer<
   typeof conversionWindowUnitValidator
 >;
 export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
+export type LegacyMetricWindowSettings = z.infer<
+  typeof legacyWindowSettingsValidator
+>;
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
-export type MetricRetentionSettings = z.infer<typeof retentionSettingsValidator>;
 
 export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 
 export type LegacyFactMetricInterface = FactMetricInterface & {
+  windowSettings: MetricWindowSettings & LegacyMetricWindowSettings;
   capping?: CappingType;
   capValue?: number;
 

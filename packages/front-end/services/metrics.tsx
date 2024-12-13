@@ -92,9 +92,10 @@ export function getDefaultFactMetricProps({
     quantileSettings: existing?.quantileSettings || null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,
-      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
       windowUnit: "days",
       windowValue: 3,
+      delayUnit: "hours",
+      delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     },
     winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
@@ -127,7 +128,6 @@ export function getDefaultFactMetricProps({
         mean: 0,
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       }),
-    retentionSettings: existing?.retentionSettings || null,
   };
 }
 

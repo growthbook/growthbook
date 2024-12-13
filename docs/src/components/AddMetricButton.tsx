@@ -24,6 +24,7 @@ export interface MetricData {
   };
   windowSettings?: {
     type: "conversion" | "lookback" | "";
+    // TODO
     delayHours: number;
     windowValue: number;
     windowUnit: "weeks" | "days" | "hours";
