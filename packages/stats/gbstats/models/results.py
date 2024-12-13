@@ -50,6 +50,8 @@ class PowerResponse:
     effect_size: float
     power: float
     additional_days_needed: float
+    successfulPowerCalculation: bool
+    powerErrorMessage: Optional[str]
 
 
 @dataclass
@@ -58,6 +60,7 @@ class BaseVariationResponse(BaselineResponse):
     uplift: Uplift
     ci: Tuple[float, float]
     errorMessage: Optional[str]
+    powerResponse: Optional[PowerResponse]
 
 
 @dataclass

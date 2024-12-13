@@ -20,6 +20,14 @@ from gbstats.bayesian.bandits import (
     BanditConfig,
     get_error_bandit_result,
 )
+
+from gbstats.power.midexperimentpower import (
+    MidExperimentPower,
+    MidExperimentPowerConfig,
+)  # , MidExperimentPowerResult
+
+from gbstats.models.tests import BaseConfig
+
 from gbstats.frequentist.tests import (
     FrequentistConfig,
     FrequentistTestResult,
@@ -271,6 +279,11 @@ def analyze_metric_df(
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
+            df[f"v{i}_effect_size"] = None
+            df[f"v{i}_power"] = None
+            df[f"v{i}_additional_days_needed"] = None
+            df[f"v{i}_successful_power_calculation"] = None
+            df[f"v{i}_power_error_message"] = None
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
@@ -283,6 +296,50 @@ def analyze_metric_df(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
+
+            if (
+                metric.business_metric_type
+                and "goal" in metric.business_metric_type
+                and analysis.difference_type == "relative"
+                and analysis.dimension == "all"
+            ):
+                config = BaseConfig(
+                    difference_type=analysis.difference_type,
+                    traffic_percentage=analysis.traffic_percentage,
+                    phase_length_days=analysis.phase_length_days,
+                    total_users=s["total_users"],
+                    alpha=analysis.alpha,
+                )
+                power_config = MidExperimentPowerConfig(
+                    m_prime=2 * metric.min_percent_change,
+                    v_prime=None,
+                    sequential=analysis.sequential_testing_enabled,
+                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
+                )
+                mid_experiment_power = MidExperimentPower(
+                    test.stat_a, test.stat_b, res, config, power_config
+                )
+
+                # I need to know the additional sample size til the end of the experiment
+                # then I need to know the number of days til the end of the experiment
+
+                days_remaining = analysis.max_duration_days - analysis.phase_length_days
+                new_users_remaining = analysis.new_users_per_day * days_remaining
+                if (
+                    new_users_remaining > 0
+                    and mid_experiment_power.pairwise_sample_size > 0
+                ):
+                    pass
+                    # scaling_factor = new_users_remaining / mid_experiment_power.pairwise_sample_size
+                    # m_prime = metric.min_percent_change * 2
+                    # v_prime = mid_experiment_power.v_prime
+                    # power_at_end_of_experiment = mid_experiment_power.calculate_power(scaling_factor, m_prime, v_prime)
+                    # mid_experiment_power_result = mid_experiment_power.calculate_sample_size()
+                    # num_additional_users_needed = mid_experiment_power_result.additional_sample_size
+                    # additional_sample_size = mid_experiment_power.compute_additional_sample_size()
+                    # power_at_end_of_experiment = mid_experiment_power.compute_result()
+                    # power_result = mid_experiment_power.compute_result()
+
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev
